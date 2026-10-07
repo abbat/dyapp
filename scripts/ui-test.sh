@@ -2,8 +2,12 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 compose=(-f docker/compose.ui.yml)
-# DYAPP_KVM=1 (CI) runs the emulator with KVM; the default is software emulation.
-[[ ${DYAPP_KVM:-0} == 1 ]] && compose+=(-f docker/compose.kvm.yml)
+# DYAPP_KVM=1 runs the emulator with KVM; the default is software emulation.
+if [[ ${DYAPP_KVM:-0} == 1 ]]; then
+    compose+=(-f docker/compose.kvm.yml)
+    DYAPP_KVM_GID=$(stat -c %g /dev/kvm)
+    export DYAPP_KVM_GID
+fi
 run() {
     python3 scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }

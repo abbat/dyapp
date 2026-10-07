@@ -68,7 +68,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `android-emulator` being healthy:
   - `android-emulator` creates the AVD on the `android-avd` volume (the emulator wants ~7.4G free
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
-    (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `docker/compose.kvm.yml`, which passes `/dev/kvm` and sets `-accel on`; CI does this after opening `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
+    (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
@@ -133,7 +133,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 - UI coverage (JaCoCo, Xcode coverage) is not collected; see
   [Coverage policy](README.md#ui--platform-coverage).
-- Locally the Android emulator runs with `-accel off`, without KVM; CI uses KVM (`DYAPP_KVM=1`).
+- The Android emulator runs with `-accel off`, without KVM, unless `DYAPP_KVM=1` is set; CI
+  sets it.
 - Product-level UI flows (onboarding, profiles, matching, messaging) have no tests yet.
 
 ## Troubleshooting

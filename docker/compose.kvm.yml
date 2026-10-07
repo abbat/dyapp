@@ -1,6 +1,8 @@
-# Overlay for hosts with a usable /dev/kvm (CI): hardware-accelerated emulator.
+# Overlay for hosts with /dev/kvm: hardware-accelerated emulator. The container user joins the
+# group that owns /dev/kvm on the host (DYAPP_KVM_GID, set by scripts/ui-test.sh).
 services:
   android-emulator:
     devices: ["/dev/kvm:/dev/kvm"]
+    group_add: ["${DYAPP_KVM_GID:?}"]
     environment:
       EMULATOR_ACCEL: "on"
