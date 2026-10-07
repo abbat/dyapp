@@ -18,5 +18,11 @@ case "${1:?usage: ci-setup.sh rust|linux}" in
 esac
 sudo apt-get update -q
 sudo apt-get install -y -q --no-install-recommends "${packages[@]}"
+if [[ $1 == rust ]]; then
+    # Official actionlint 1.7.12, the same image digest as docker/Dockerfile.dev.
+    container=$(docker create rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667)
+    sudo docker cp "$container:/usr/local/bin/actionlint" /usr/local/bin/actionlint
+    docker rm "$container" > /dev/null
+fi
 rustup toolchain install "$toolchain" --profile minimal "${components[@]}"
 echo "RUSTUP_TOOLCHAIN=$toolchain" >> "${GITHUB_ENV:?GitHub Actions only}"

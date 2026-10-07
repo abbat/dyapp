@@ -18,11 +18,14 @@ Both jobs run directly on the runner, without Docker. Every check is a step of
 
 - installs the apt packages that mirror `docker/Dockerfile.dev`: build tools, clang,
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
+- copies `actionlint` 1.7.12 out of the official `rhysd/actionlint` image, pinned to the
+  digest `docker/Dockerfile.dev` uses;
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
 
-`taiki-e/install-action` then installs prebuilt pinned tools, and `Swatinem/rust-cache` caches
-the dependency builds per job. Cargo steps run online with `--locked`.
+In the build job `taiki-e/install-action` then installs the pinned cargo-llvm-cov and
+cargo-deny. `Swatinem/rust-cache` caches the dependency builds per job. Cargo steps run online
+with `--locked`.
 
 ### `quality` → **quality**
 
