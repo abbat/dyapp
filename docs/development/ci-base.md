@@ -63,7 +63,7 @@ nothing.
 | coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses`; it fetches the advisory DB at run time |
-| network | `network` | reuses `dyapp-bootstrap`'s `test-peer` from the build step (`cargo test` builds it for the bootstrap integration tests). `network-test.py --local` then starts two peers on `127.0.0.1:7071` and `:7072`, each with its own storage (`TEST_PEER_ADDR`, `TEST_PEER_STORAGE`). It checks `/health`, round-trips a signed profile (from `test-peer sign-profile`) through `/profiles` on each, and checks that the two stores are independent |
+| network | `network` | reuses `dyapp-bootstrap`'s `dyapp-node` and `test-peer` from the build step (`cargo test` builds them for the bootstrap integration tests). `network-test.py --local` then starts two `dyapp-node` processes on TCP and QUIC `127.0.0.1:7071` and `:7072`, each with its own storage (`DYAPP_NODE__LISTEN`, `DYAPP_NODE__STORAGE__DIR`). Through `test-peer` it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, and checks that the two stores are independent |
 
 `core` does not run a release build; `rust-check.sh build` (`cargo build --release`) is the local
 `make build`.

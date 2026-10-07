@@ -30,23 +30,4 @@ pub enum BootstrapError {
     Profile(#[from] dyapp_profile::Error),
 }
 
-impl axum::response::IntoResponse for BootstrapError {
-    fn into_response(self) -> axum::response::Response {
-        use axum::http::StatusCode;
-        let status = match &self {
-            Self::MessageNotFound | Self::ProfileNotFound => StatusCode::NOT_FOUND,
-            Self::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
-            Self::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-            Self::Profile(dyapp_profile::Error::Stale) => StatusCode::CONFLICT,
-            Self::Profile(_) => StatusCode::BAD_REQUEST,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        (
-            status,
-            axum::Json(serde_json::json!({ "error": self.to_string() })),
-        )
-            .into_response()
-    }
-}
-
 pub type Result<T> = std::result::Result<T, BootstrapError>;

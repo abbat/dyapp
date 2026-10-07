@@ -7,9 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-axum = "0.8"
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.7", features = ["trace", "cors"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
@@ -41,6 +39,5 @@ path = "../../tests/integration_tests.rs"
 
 [dev-dependencies]
 proptest = "1.4"
-tower = { version = "0.5", features = ["util"] }
 dyapp-messaging = { path = "../messaging" }
 dyapp-video = { path = "../video" }

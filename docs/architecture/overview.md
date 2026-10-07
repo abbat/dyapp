@@ -27,37 +27,34 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
    ├──► rust/p2p-net    (libp2p node; not called by ffi yet)
    └──► rust/video      (webrtc) ──► rust/messaging
 
- rust/bootstrap  (axum REST + SQLite, separate server process)
-   └──► identity, profile   (Cargo dependencies; tests also use messaging, video)
+ rust/bootstrap  (dyapp-node: libp2p node protocol + SQLite, separate server process)
+   └──► identity, profile, p2p-net   (Cargo dependencies; tests also use messaging, video)
 ```
 
-No component calls another over the network today: there is no client that
-talks to the bootstrap REST API, nothing uses the libp2p node, and there is no
-WebRTC signaling channel.
+Only `dyapp-node` and its test client `test-peer` talk over the network today: no app calls a
+node, and there is no WebRTC signaling channel.
 
 | Component | Source | Status | What it really does |
 |-----------|--------|--------|---------------------|
 | Identity | `rust/identity/src/` | library | Ed25519 identity key, `SignedRecord` (protobuf) signed over a domain label, peer ID = hex SHA-256 of the public key; the key is not persisted or exposed over FFI yet |
 | Profile | `rust/profile/src/` | library | Public `Profile` (protobuf), signature and content checks, highest version wins, tombstone for deletion |
 | Messaging | `rust/messaging/src/` | library prototype | Message types, Lamport clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
-| P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; no application protocols ([P2P networking](p2p-networking.md)) |
+| P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; request-response `/dyapp/node`, `/dyapp/profile` with `ProtoCodec` ([P2P networking](p2p-networking.md)) |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
-| Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
-| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node with the stores open, no application protocols |
-| Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | Serves the REST API; used by network tests |
+| Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node` and `/dyapp/profile` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; messages stored but not served |
+| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
+| Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Bare Tauri shell with a `ui_test_result` command |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
-| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); the node protocol schema is not served yet; no gRPC/tonic |
+| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` is served for `/dyapp/node` and `/dyapp/profile`, the mailbox part is not; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:
 
-- **Library vs running network.** `p2p-net` can build a Kademlia node, but no
-  binary starts one, so there is no DHT network yet.
-- **REST bootstrap vs DHT.** The bootstrap server is a single REST service over
-  SQLite. It is not a DHT node and does not participate in routing.
+- **Node vs network.** `dyapp-node` runs a Kademlia node, but nodes do not discover each other
+  or replicate yet: each is an independent server over SQLite.
 - **WebRTC media vs QUIC messaging.** Video uses the `webrtc` crate (its own
   ICE/DTLS/SRTP stack); messaging is meant to run over libp2p. They are
   separate transports and share no connection.
@@ -76,9 +73,9 @@ Everything in this section is design intent, not code.
         ▼                         ▼
    other peers  ◄──── signaling channel (planned, undecided)
         │
-        │ HTTPS REST (store-and-forward, profile directory)
+        │ libp2p node protocol (mailbox, profiles, search)
         ▼
- bootstrap servers (axum + SQLite)
+ bootstrap nodes (dyapp-node + SQLite)
 ```
 
 Decided (see the [ADRs](../decisions/README.md)):
@@ -129,7 +126,7 @@ library types in-process, without any network.
    stamps it with a hybrid logical clock and encrypts the body (`messaging`).
 2. If the recipient is reachable, the message is sent over libp2p (`p2p-net`).
 3. Otherwise it is stored on bootstrap nodes and fetched later by the
-   recipient; today that is `POST /messages` / `GET /messages/peer/{peer_id}`.
+   recipient over `/dyapp/mailbox` (not served yet).
 4. The recipient acknowledges; the sender retries from its offline queue
    until then. Delivery is best effort: an LRU-evicted message is lost unless
    the sender retries.

@@ -16,10 +16,10 @@ here instead of repeating guarantees.
 | Signatures | same file, `sign` / `verify` | `sign` returns the message itself; `verify` only checks the signature is non-empty |
 | Key derivation | same file, `derive_session_key` | XOR of secret and salt, not HKDF |
 | Video frames | `rust/video/src/encryption.rs` | Wraps the stub above; nonce/tag are random bytes, tag is never checked |
-| Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `POST /profiles` and rejects older versions |
+| Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions |
 | Key generation (FFI) | `rust/ffi/src/lib.rs` `generate_keypair` | Returns the strings `"placeholder"` |
-| P2P transport | `rust/p2p-net/src/lib.rs` `build_swarm` | Real: libp2p QUIC (TLS 1.3) and TCP with Noise; no app uses it yet |
-| Bootstrap API | `rust/bootstrap/src/api.rs` | Plain HTTP, permissive CORS; message routes have no authentication and trust `sender_id` as sent; profile writes need the owner's signature |
+| P2P transport | `rust/p2p-net/src/lib.rs` `build_swarm` | Real: libp2p QUIC (TLS 1.3) and TCP with Noise; `dyapp-node` uses it, no app yet |
+| Bootstrap protocol | `rust/bootstrap/src/service.rs` | libp2p only, no HTTP; profile writes need the owner's signature, reads are open; messages are not served |
 | Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; messages as received, profiles as the signed protobuf record |
 
 `EncryptionConfig::default_secure()` only sets strings such as

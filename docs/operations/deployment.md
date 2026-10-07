@@ -48,7 +48,7 @@ Message relay: P2P direct or gossip via other peers
 
 ```
 Dedicated Bootstrap Nodes (1-3 instances)
-  ├─ REST API (message relay)
+  ├─ libp2p node protocol (profiles today; mailbox planned)
   ├─ Profile index (search by age/location)
   ├─ Peer discovery (announce presence)
   └─ Replication (planned; whole records to 5 points, K=6/M=4 for large media, see ADR 0009)
@@ -83,10 +83,9 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** `dyapp-node` starts a libp2p node with the stores open, but serves
-> no application protocol yet: clients still use the REST API of the development
-> binary `test-peer`, described below. There is no Debian package, systemd unit
-> or production image.
+> **Status:** `dyapp-node` serves `/dyapp/node` and `/dyapp/profile` over libp2p
+> ([served protocol](../architecture/bootstrap.md#served-protocol)); the mailbox is planned.
+> There is no Debian package, systemd unit or production image.
 
 ### `dyapp-node`
 
@@ -124,35 +123,33 @@ or does not match `node.id`: a new key is a new node, so delete the data to star
 from scratch. Expired messages are deleted every hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
-### Development quick start (`test-peer`)
+### Development quick start
 
-`test-peer` serves the REST API on `TEST_PEER_ADDR` (default `0.0.0.0:7070`) and
-stores its SQLite files in `TEST_PEER_STORAGE` (default `/tmp/ai/bootstrap`). It
-does not read the node config. Use it for local development only.
+`test-peer` is the libp2p client CLI for scripts and manual checks
+([commands](../architecture/bootstrap.md#test-client)).
 
-**In Docker (no host Rust toolchain needed).** The network-test image builds
+**In Docker (no host Rust toolchain needed).** The network-test image builds `dyapp-node` and
 `test-peer` (`docker/Dockerfile.network-test`):
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
-make test-integration   # integration tests + two test-peer containers on an internal network
+make test-integration   # integration tests + two dyapp-node containers on an internal network
 
-# Manual health check in a throwaway, network-less container:
+# Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
-  dyapp:network-test bash -c '
-    target/debug/test-peer &
+  -e DYAPP_NODE__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
+    target/debug/dyapp-node &
     sleep 3
-    python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:7070/health\").read().decode())"
+    target/debug/test-peer info /ip4/127.0.0.1/tcp/7070
     kill %1'
-# → {"status":"healthy","timestamp":<unix seconds>}
+# → {"max_profile_bytes":1048576,"roles":["ROLE_STORE"],"status":"STATUS_OK"}
 ```
 
 **With a local Rust 1.99 toolchain:**
 
 ```bash
-cargo run -p dyapp-bootstrap --bin test-peer
-curl http://localhost:7070/health
-# → {"status":"healthy","timestamp":<unix seconds>}
+DYAPP_NODE__STORAGE__DIR=/tmp/ai/node cargo run --package dyapp-bootstrap --bin dyapp-node &
+cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7070
 ```
 
 Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C compiler for the
@@ -160,7 +157,7 @@ bundled SQLite, or Docker for the containerised path.
 
 ### Multi-node cluster (planned)
 
-Running several `test-peer` processes gives independent servers: there is no
+Running several `dyapp-node` processes gives independent nodes: there is no
 replication or data exchange between them. HA and Reed–Solomon replication
 are design targets; see [Bootstrap Servers](../architecture/bootstrap.md).
 
@@ -168,8 +165,7 @@ are design targets; see [Bootstrap Servers](../architecture/bootstrap.md).
 
 There is no production Dockerfile, published image or Kubernetes manifest.
 The repository's Dockerfiles (`docker/Dockerfile.dev`, `docker/Dockerfile.network-test`, …)
-are test images: they build in debug mode and run `test-peer`. A production
-image and manifests need a server binary first.
+are test images: they build in debug mode. A production image and manifests are planned.
 
 ## Client Configuration (planned)
 
@@ -181,16 +177,13 @@ built-in list of bootstrap URLs plus a user-editable setting.
 
 ### Health check (exists)
 
-`GET /health` is the only operational endpoint (`rust/bootstrap/src/api.rs`).
-It runs `BootstrapStore::health_check` (takes and releases the write lock of every SQLite file) and returns:
+There is no HTTP endpoint. A node is alive when it answers `/dyapp/node` `info`:
 
 ```bash
-curl http://localhost:7070/health
-# 200 → {"status":"healthy","timestamp":<unix seconds>}
-# 503 → {"status":"unhealthy","timestamp":<unix seconds>}
+test-peer info /ip4/127.0.0.1/tcp/7070    # exit 0 and "STATUS_OK" → alive
 ```
 
-There are no counts, peer numbers or replication fields in the response.
+The reply holds roles and limits only: no counts, peer numbers or replication fields.
 
 ### Not implemented
 
@@ -199,29 +192,26 @@ documented as runnable:
 
 - Metrics: planned as log lines only, no `/metrics` endpoint
 - Administration: planned as a local CLI writing to `admin.db`, no admin routes
-- Logging: `tracing` is a dependency, but no subscriber is initialised and the
-  server emits no log lines, so `RUST_LOG` has no effect
+- Request logs: `dyapp-node` logs startup, listen addresses, storage errors and cleanup
+  (`RUST_LOG`), not individual requests
 
 ## Maintenance
 
 ### Data cleanup
 
-**TTL cleanup is not running.** Records get `ttl_expires_at` (messages 24 h,
-profiles 30 days), but nothing in the repository calls
-`BootstrapStore::cleanup_expired`: no scheduler, no endpoint, no test. Reads
-do not filter expired records either, so data is kept until a client sends
-`DELETE`. See [Privacy](../security/privacy.md#retention).
+Messages get `ttl_expires_at` (default 24 h); `dyapp-node` deletes expired ones every hour.
+Profiles and tombstones have no expiry yet. See [Privacy](../security/privacy.md#retention).
 
 ### Backups
 
 There is no online backup: copying the SQLite files while the server writes
 to them does not give a consistent snapshot. Stop the process first.
 
-Verified roundtrip with `test-peer` (data in `/tmp/ai/bootstrap`):
+Roundtrip with `dyapp-node` (data in `/tmp/ai/bootstrap`):
 
 ```bash
 # 1. Stop writers
-kill <test-peer pid>
+kill <dyapp-node pid>
 
 # 2. Archive with a relative layout (top-level entry: bootstrap/)
 tar czf bootstrap-backup-$(date +%Y%m%d).tar.gz -C /tmp/ai bootstrap
@@ -233,8 +223,8 @@ tar xzf bootstrap-backup-YYYYMMDD.tar.gz -C /tmp/restore-test   # → /tmp/resto
 # 4. Swap it in, keeping the old copy for rollback, then restart and check
 mv /tmp/ai/bootstrap /tmp/ai/bootstrap.old
 mv /tmp/restore-test/bootstrap /tmp/ai/bootstrap
-cargo run -p dyapp-bootstrap --bin test-peer &
-curl http://localhost:7070/messages/<known message id>   # must return the record
+DYAPP_NODE__STORAGE__DIR=/tmp/ai/bootstrap cargo run --package dyapp-bootstrap --bin dyapp-node &
+test-peer get /ip4/127.0.0.1/tcp/7070 <known peer id>   # must return "STATUS_OK" and the record
 
 # Rollback: stop the server, move bootstrap.old back
 ```
@@ -253,20 +243,18 @@ to the old one while the old one keeps answering
 
 ## Security
 
-### Network (target; not implemented: the server speaks plain HTTP)
+### Network
 
-- **Bootstrap → Client:** TLS 1.3 (Let's Encrypt)
-- **Bootstrap → Bootstrap:** mTLS (certificate pinning)
-- **Client → Peer:** QUIC/TLS 1.3 (direct or via TURN relay)
+Every connection is libp2p: TCP with Noise and yamux, or QUIC (TLS 1.3), authenticated by the
+node's libp2p key; there is no certificate authority.
 
 ### Access Control
 
-**Bootstrap API is public** (no authentication):
-- Any client can store, read, overwrite or delete any message or profile
-- Only the two POST endpoints are rate-limited, per client-supplied ID; the
-  rate is chosen by the host program (`test-peer`: 100/s) and rotating IDs
-  bypasses it. Put a reverse proxy with per-IP limits in front of any exposed
-  instance. Details: [REST API](../architecture/bootstrap.md#rest-api)
+**The node protocol is public** (no client authentication):
+- Anyone can read any profile; only the owner's signature can store, replace or delete one
+- Profile requests are rate-limited per libp2p peer ID (`limits.requests_per_second`, default
+  100/s); new keys bypass it, and per-IP limits are planned. Details:
+  [served protocol](../architecture/bootstrap.md#served-protocol)
 
 **Admin API (future):**
 - Cleanup, monitoring, replication status
@@ -284,13 +272,13 @@ Only what applies to the code that exists today:
 
 | Symptom | Check |
 |---------|-------|
-| `/health` returns 503 | SQLite probe failed: check that the storage directory is writable and the disk is not full |
-| `test-peer` exits with `StorageError(... Permission denied)` | The process cannot create `/tmp/ai/bootstrap`; fix permissions or run with a writable `/tmp` |
-| Port 7070 already in use | Another `test-peer` or `dyapp-node` is running; set `TEST_PEER_ADDR` or `DYAPP_NODE__LISTEN` |
-| Disk keeps growing | Expected: TTL cleanup does not run (see [Data cleanup](#data-cleanup)) |
+| `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
+| `dyapp-node` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPP_NODE__STORAGE__DIR` |
+| Port 7070 already in use | Another `dyapp-node` is running; set `DYAPP_NODE__LISTEN` |
+| Disk keeps growing | Profiles have no expiry yet (see [Data cleanup](#data-cleanup)) |
 
-There is no systemd unit, start/stop script, service name or log to inspect;
-these are future artifacts that ship together with a server binary.
+There is no systemd unit, start/stop script or service name yet; they ship with the Debian
+package (planned). `dyapp-node` logs to stderr.
 
 ## Next Steps
 

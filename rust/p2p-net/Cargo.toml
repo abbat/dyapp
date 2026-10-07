@@ -11,7 +11,8 @@ anyhow = "1.0"
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
 libp2p = { version = "0.57", features = [
-    "autonat", "identify", "kad", "macros", "noise", "quic", "tcp", "tokio", "yamux",
+    "autonat", "identify", "kad", "macros", "noise", "quic", "request-response", "tcp", "tokio",
+    "yamux",
 ] }
 
 [build-dependencies]

@@ -9,7 +9,7 @@ automatically. This page holds the details. **The user's own instructions (globa
 | Path | What it is |
 |------|------------|
 | `rust/` | Cargo workspace (`Cargo.toml` at the root): `bootstrap`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`. Toolchain pinned to 1.99.0 in `rust-toolchain.toml`. |
-| `rust/bootstrap/src/bin/` | Binaries: `dyapp-node` (libp2p node) and `test-peer` (REST server for network tests). |
+| `rust/bootstrap/src/bin/` | Binaries: `dyapp-node` (libp2p node) and `test-peer` (libp2p client CLI for network tests). |
 | `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Its bindings are **not** consumed by any app yet. |
 | `android/` | Gradle app (Kotlin). Does not link the Rust core. |
 | `ios/`, `macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |

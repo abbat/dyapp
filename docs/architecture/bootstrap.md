@@ -2,25 +2,28 @@
 
 ## Overview
 
-A bootstrap server stores offline messages and owner-signed profiles over REST.
-Peer discovery, profile search and signaling are planned, not implemented.
+A bootstrap node (`dyapp-node`) serves owner-signed profiles over libp2p
+([Served protocol](#served-protocol)). It still stores offline messages but serves no protocol
+for them; the signed mailbox, profile search and signaling are planned.
 
 > ⚠️ The server stores whatever bytes clients send in `encrypted_payload`.
-> Clients do not encrypt yet, so the operator sees plaintext. Message routes have
-> no authentication; profile writes are accepted only with the owner's signature.
+> Clients do not encrypt yet, so the operator sees plaintext. Profile writes are
+> accepted only with the owner's signature.
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
 - **Replication (target)**: messages and profiles replicated whole to 5 points, Reed-Solomon K=6/M=4 only for large media [ADR 0009](../decisions/0009-message-delivery-and-storage.md); today only a local encode/decode codec exists and each server is a single node (see [Replication](#replication-strategy-reed-solomon))
-- **Message relay**: storage with a TTL field (default 24h; not enforced yet, see [Privacy](../security/privacy.md#retention))
+- **Message relay**: storage with a TTL (default 24h, expired messages deleted hourly; not served yet, see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
-- **Rate limiting**: per-ID token bucket on the two POST endpoints only (see [Rate Limiting](#rate-limiting))
+- **Rate limiting**: per-peer token bucket on profile requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
 
 ## Target Design — planned
 
-Nothing in this section is implemented; the sections after it describe today's code.
+Only `/dyapp/node` `info` and `/dyapp/profile` are served today
+([Served protocol](#served-protocol)); the rest of this section is planned, and the sections
+after it describe today's code.
 
 ### Principles
 
@@ -260,107 +263,77 @@ country, place (city or district, no coordinates), income range, kids, goals, in
 optional and public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
-`POST /profiles` stores a record only if:
+`/dyapp/profile` `publish` stores a record only if:
 
 - the signature verifies against `public_key`;
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs, planned);
-- `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `409`);
+- `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
   place at most 1024 characters without control characters, a tombstone (`deleted = true`) carries no other field.
 
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
-so an older version cannot be re-imported; `GET /profiles` skips it, `GET
-/profiles/{peer_id}` returns it so peers learn of the deletion. Profiles have no TTL.
+so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.
+Profiles have no TTL.
 Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
-## REST API
+## Served protocol
 
-Source: `rust/bootstrap/src/api.rs` (routes), `storage.rs` (SQLite),
-`error.rs` (error mapping). Behaviour below was checked against a running
-`test-peer` in the `dyapp:network-test` container.
+Source: `rust/bootstrap/src/service.rs` (request handling), `bin/dyapp-node.rs` (the libp2p
+loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite). `dyapp-node` serves
+two libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply per
+stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 
-**Common to all endpoints:**
+| Protocol | Request | Reply |
+|----------|---------|-------|
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`) and `max_profile_bytes` (1 MiB); empty when the store role is off |
+| `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
+| `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 
-- **No authentication or authorization** on message routes; any client can call
-  them. Profile writes need the owner's signature, reads are open.
-  CORS is permissive (`Access-Control-Allow-Origin: *`); transport is plain HTTP.
-- **Message bytes are JSON arrays of numbers.** `encrypted_payload` is `Vec<u8>`
-  and serializes as `[104,101,...]`, not base64. The server stores it as sent;
-  the field name does not mean the content is encrypted.
-- **Profile bodies are protobuf** (`Content-Type: application/x-protobuf`): a
-  `SignedRecord` for one profile, a `ProfileList { repeated SignedRecord profiles = 1 }`
-  for the list. The request `Content-Type` is not checked.
-- **JSON body errors on message routes come from axum, not `error.rs`:** malformed
-  JSON → `400`, missing or wrong-typed field → `422`, missing
-  `Content-Type: application/json` → `415`; the body is plain text, not `{"error": ...}`.
-- **Server errors** (`StorageError`, `SerializationError`, …) → `500`
-  `{"error": "<message>"}`.
-- **Message TTL is stored, not enforced.** `ttl_expires_at` is set on write, but
-  no read path checks it and `cleanup_expired` has no callers, so expired messages
-  are still returned until explicitly deleted.
-
-| Endpoint | Request | Success | Errors | Rate limit | TTL |
-|----------|---------|---------|--------|------------|-----|
-| `POST /messages` | `{"sender_id", "recipient_id", "encrypted_payload": [u8]}` | `201 {"message_id": "<uuid>"}` (ID generated by the server) | `429 {"error":"Rate limit exceeded"}`; 400/415/422 | yes, keyed by `sender_id` | sets `now + message_ttl_hours` |
-| `GET /messages/{message_id}` | — | `200 MessageBlob` | `404 {"error":"Message not found"}` | no | not checked |
-| `DELETE /messages/{message_id}` | — | `204`, also when the ID does not exist | — | no | — |
-| `GET /messages/peer/{peer_id}` | — | `200 [MessageBlob]` where `recipient_id == peer_id` (full scan of `msg:` keys; no pagination; messages stay stored after read) | — | no | not checked |
-| `POST /profiles` | protobuf `SignedRecord` | `201 {"peer_id", "version"}`; replaces the stored version | `400 {"error"}` bad protobuf, key, signature or content; `409` version not newer; `429` | yes, keyed by the peer ID of `public_key` | none |
-| `GET /profiles/{peer_id}` | — | `200` protobuf `SignedRecord`, tombstone included | `404 {"error":"Profile not found"}` | no | — |
-| `GET /profiles?skip=&limit=` | `skip` default 0, `limit` default 100, no upper bound | `200` protobuf `ProfileList` in peer-ID order, tombstones skipped | 400 on non-numeric query | no | — |
-| `GET /health` | — | `200 {"status":"healthy","timestamp"}` | `503 {"status":"unhealthy","timestamp"}` | no | — |
-
-There is no search/filter endpoint (age range, place), no peer discovery
-endpoint (`/api/peers`), no DHT, and no SDP/ICE signaling endpoint.
+- **No mailbox yet.** `/dyapp/mailbox` and `/dyapp/mailbox-push` are not registered, so a client
+  gets an unsupported-protocol failure. Offline messages are stored by `storage.rs` but no
+  protocol serves them; the signed mailbox is planned ([Mailboxes](#mailboxes)).
+- **Profile requests are rate-limited** per remote libp2p peer ID (`RATE_LIMITED`); `info` is
+  not. A node without the store role answers `UNSUPPORTED` on `/dyapp/profile`.
+- **Storage errors drop the request:** the client sees the stream close and tries another node.
+- **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
+  planned once request latency shows.
+- An unknown `oneof` variant (decoded as empty) gets `UNSUPPORTED`.
 
 ### Trusted vs untrusted fields
 
-Message fields are validated only for JSON types. A client must treat every
-message field it reads back as **claimed by some other client**. Profile content is
-signed, so a client re-verifies a fetched record (`dyapp_profile::verify`) and
+Profile content is signed, so a client re-verifies a fetched record (`dyapp_profile::verify`) and
 then trusts it as the owner's own claim, not as fact:
 
-| Field | Who sets it | What the server checks |
-|-------|-------------|------------------------|
-| `sender_id`, `recipient_id` | client | nothing; any string, no proof of key ownership |
-| `encrypted_payload` | client | nothing; plaintext is accepted |
-| profile peer ID | server | derived from the signing key |
+| Field | Who sets it | What the node checks |
+|-------|-------------|----------------------|
+| profile peer ID | node | derived from the signing key |
 | profile fields | owner | signature, version order, format checks above |
 | `age` | owner | nothing beyond `u32`; no minimum, so an age below 30 or 18 is stored |
-| `id` (message), `timestamp`, `ttl_expires_at` | server | generated on write |
 
-Consequences:
-
-- **Self-asserted message peer IDs.** Anyone can read any peer's inbox
-  (`GET /messages/peer/{peer_id}`) or delete any message.
-- **Profiles are owner-only.** Only the holder of the identity key can publish,
-  replace or delete (tombstone) a profile. A replayed old version is rejected.
-- **Age.** Age is self-declared; the client refuses users under 18 in its UI,
-  and 30+ is only the target audience
-  ([ADR 0012](../decisions/0012-private-p2p-interactions.md)). The server checks
+- **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete
+  (tombstone) a profile. A replayed old version is rejected.
+- **Age.** Age is self-declared; the client refuses users under 18 in its UI, and 30+ is only the
+  target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)). The node checks
   nothing beyond the signature: it would accept `17`.
 
-Signed message requests are planned; see
-[Encryption & Security Status](../security/encryption.md).
+### Test client
 
-### Example
+`test-peer` is a libp2p client for scripts (`rust/bootstrap/src/bin/test-peer.rs`); each command
+prints one JSON object:
 
 ```
-POST /profiles
-Content-Type: application/x-protobuf
-
-<SignedRecord bytes>
-→ 201 {"peer_id": "<64 hex chars>", "version": 1}
+test-peer sign-profile                      → {"peer_id", "record"}   (hex protobuf)
+test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "roles", "max_profile_bytes"}
+test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
+test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 ```
 
-`test-peer sign-profile` prints a freshly signed sample profile as hex; the
-network test (`scripts/network-test.py`) posts it this way. `test-peer` serves on `TEST_PEER_ADDR`
-(default `0.0.0.0:7070`) with storage in `TEST_PEER_STORAGE` (default `/tmp/ai/bootstrap`).
+It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
 ## Replication Strategy (Reed-Solomon)
 
 **Status:** `rust/bootstrap/src/replication.rs` only encodes a byte buffer into
-shards and decodes it back, in one process. Nothing in `api.rs` or `storage.rs`
+shards and decodes it back, in one process. Nothing in `service.rs` or `storage.rs`
 calls it, the node config has no replication setting, and there is no
 transport between servers. Three separate pieces are needed for real
 replication, and only the first exists:
@@ -407,19 +380,16 @@ They do not show that a cluster recovers data, because no cluster exists.
 
 `rate_limit.rs` keeps one `governor` token bucket per key with
 `Quota::per_second(n)`; `n` is passed by the host program to
-`PeerRateLimiter::new(n)` (`test-peer` passes `limits.requests_per_second`, default 100).
+`PeerRateLimiter::new(n)` (`dyapp-node` passes `limits.requests_per_second`, default 100).
 The bucket allows a burst of `n` requests and then refills at `n`/second; an
-over-limit request gets `429 {"error":"Rate limit exceeded"}`.
+over-limit request gets `STATUS_RATE_LIMITED`.
 
-Scope and limits (verified with `test-peer`, `n = 100`):
+Scope and limits:
 
-- Only `POST /messages` (key `sender_id`) and `POST /profiles` (key: the peer ID
-  of the record's `public_key`, before the signature is checked) are limited. 150 immediate POSTs with one `sender_id` → 103 × `201`, 47 × `429`.
-- The key is self-asserted: 150 POSTs with 150 different `sender_id`s → all `201`.
-  Identity keys are free to generate, so profile keys rotate just as easily. The
-  limiter does **not** prevent spam from a client that rotates IDs and provides
-  **no** Sybil resistance.
-- `GET` and `DELETE` are not limited (150 immediate GETs → all `200`).
+- Every `/dyapp/profile` request (publish and get) counts against the remote libp2p peer ID;
+  `/dyapp/node` `info` is not limited.
+- libp2p keys are free to generate: a client that opens connections with new keys gets new
+  buckets. The limiter provides **no** Sybil resistance; per-IP-group quotas are planned.
 - There is no per-IP limit, and buckets are never removed
   (`cleanup_inactive` is a stub), so the map grows with every new ID.
 
@@ -440,7 +410,7 @@ Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages; `dyapp-node` calls it every hour, `test-peer` never does. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
 `put_profile` holds a lock across read-compare-write, so two concurrent uploads for one peer cannot both win.
 
@@ -452,8 +422,9 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `listen`, `external`, `roles`, `storage.{dir,profiles,messages}`,
 `limits.{message_ttl_hours,requests_per_second}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
-([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open; it serves no
-application protocol yet. Only the `store` role is accepted.
+([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
+`/dyapp/node` and `/dyapp/profile` ([Served protocol](#served-protocol)). Only the `store` role
+is accepted.
 
 Planned: maintenance windows and budgets, resource guard limits, the media directory, TURN ports,
 store retention.
@@ -486,15 +457,14 @@ described in [Target Design](#target-design--planned).
 ✅ See peer IDs, client IP addresses, who messages whom and when
 ✅ See every profile field (public by design)
 ✅ See message content too, until client crypto exists
-✅ Rate-limit POSTs per client-supplied ID (no Sybil resistance, see [Rate Limiting](#rate-limiting))
+✅ Rate-limit profile requests per libp2p peer ID (no Sybil resistance, see [Rate Limiting](#rate-limiting))
 
 DHT node role is not implemented.
 
 ### What bootstrap could not do once client crypto exists (target)
 
-Today the operator can read and modify every message, and any client can write
-or delete any message (no authentication; `sender_id` is trusted as sent). A
-node cannot forge or alter a profile: clients verify the owner's signature. It
+Today the operator can read and modify every stored message; no protocol serves
+messages yet, and the planned mailbox requires the device's signature. A node cannot forge or alter a profile: clients verify the owner's signature. It
 can still withhold a profile or serve an older signed version.
 
 
@@ -507,8 +477,8 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Monitoring & Metrics
 
-Only `GET /health` exists (SQLite write-lock probe). Planned: metrics as log
-lines and a local admin CLI, no HTTP endpoints; see the
+There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Planned:
+metrics as log lines and a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 ## Testing
@@ -518,25 +488,26 @@ Unit test coverage:
 - Signed profile: version order, forged payload, tombstone hides and blocks older versions (`storage.rs`)
 - Rate limiting (single key, separate keys)
 - Replication codec encode/decode with a missing shard (in-process; no nodes involved)
-- Health check
+- Store health check (`storage.rs`)
+- Profile and node requests through `Service` (`service.rs`): publish, get, stale with the
+  stored record, forged, wrong-length ID, rate limit, `info`
+- `ProtoCodec` round trip over TCP between two swarms (`rust/p2p-net`)
 
 Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
 - Message relay through the store (`test_bootstrap_message_relay`)
-- Profile routes through the axum router: `201`, `409` stale, `400` forged and
-  malformed, protobuf GET and list, tombstone (`test_signed_profile_over_http`)
 
-The network test posts a signed profile to two `test-peer` containers and checks
-the round trip, the `409` on replay and that the peers do not share storage.
-No test covers message routes over HTTP, rate-limit `429`, a multi-node cluster or
+The network test (`scripts/network-test.py`) runs two `dyapp-node` instances and drives them
+with `test-peer`: `info` over TCP and QUIC, publish over TCP and get over QUIC with identical
+bytes, `STALE` on replay, and that the nodes do not share storage. No test covers a
+multi-node cluster or
 a node failure.
 
 ## Limitations & Future
 
 **Current limitations:**
 - Single-node persistence: no HA, failover or cross-node replication (the RS codec is not wired into storage or the API)
-- No authentication or access control on messages: any client can read any inbox and delete any message (see [Trusted vs untrusted fields](#trusted-vs-untrusted-fields))
-- Expired messages are served until deleted (TTL not enforced)
+- Offline messages are stored but not served: no mailbox protocol yet
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

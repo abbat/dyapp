@@ -52,11 +52,11 @@ step() {
             ;;
         coverage) step cov-build; step cov-test; step cov-report ;;
         network)
-            # Two real bootstrap peers on the loopback. cov-build already built test-peer (cargo test
-            # builds a package's binaries when it has integration tests); a separate `cargo build -p` would select
-            # different features and recompile crates.
+            # Two real dyapp-node peers on the loopback, test-peer as the client. cov-build already
+            # built both (cargo test builds a package's binaries when it has integration tests); a
+            # separate `cargo build -p` would select different features and recompile crates.
             instrument
-            python3 scripts/network-test.py --local "$CARGO_TARGET_DIR/debug/test-peer"
+            python3 scripts/network-test.py --local "$CARGO_TARGET_DIR/debug"
             ;;
         security)
             if [[ -d /opt/advisory-dbs ]]; then

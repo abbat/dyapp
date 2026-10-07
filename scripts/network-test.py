@@ -1,61 +1,63 @@
-"""Exercise real bootstrap routes on two independent peers.
+"""Exercise the libp2p node protocol on two independent dyapp-node peers.
 
-Without arguments the peers are the neighboring Docker containers;
-`--local BINARY` starts two test-peer processes on the loopback instead.
+`test-peer` is the client: the script has no libp2p library. Without
+arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
+starts two dyapp-node processes from BIN_DIR on the loopback instead.
+`--health MULTIADDR` checks one node.
 """
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import tempfile
 import time
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+
+CLIENT = "/workspace/target/debug/test-peer"
 
 
-def request(base, route, body=None, raw=False):
-    operation = Request(base + route, data=body,
-                        headers={"Content-Type": "application/x-protobuf"})
-    with urlopen(operation, timeout=15) as response:
-        data = response.read()
-        return response.status, data if raw else json.loads(data)
+def call(client, *args):
+    output = subprocess.run([client, *args], check=True, capture_output=True,
+                            text=True, timeout=30).stdout
+    return json.loads(output)
 
 
-def signed_profile(binary):
-    """A fresh identity's signed profile: (peer_id, protobuf bytes)."""
-    output = subprocess.run([binary, "sign-profile"], check=True,
-                            capture_output=True, text=True).stdout
-    signed = json.loads(output)
-    return signed["peer_id"], bytes.fromhex(signed["record"])
+def healthy(client, addr):
+    try:
+        reply = call(client, "info", addr)
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return reply["status"] == "STATUS_OK" and "ROLE_STORE" in reply["roles"]
 
 
-def healthy(base):
-    status, body = request(base, "/health")
-    return status == 200 and body["status"] == "healthy"
+def addresses(host, port):
+    """(TCP, QUIC) multiaddrs of a node."""
+    return f"/ip4/{host}/tcp/{port}", f"/ip4/{host}/udp/{port}/quic-v1"
 
 
-def local(binary):
-    """Run the suite against two loopback peers with separate storage."""
+def local(bin_dir):
+    """Run the suite against two loopback nodes with separate storage."""
+    client = f"{bin_dir}/test-peer"
     with tempfile.TemporaryDirectory() as storage:
         peers, processes = [], []
         try:
             for port in (7071, 7072):
-                processes.append(subprocess.Popen([binary], env={
-                    **os.environ, "TEST_PEER_ADDR": f"127.0.0.1:{port}",
-                    "TEST_PEER_STORAGE": f"{storage}/{port}"}))
-                peers.append(f"http://127.0.0.1:{port}")
-            for base in peers:
+                tcp, quic = addresses("127.0.0.1", port)
+                node = f"{bin_dir}/dyapp-node"
+                processes.append(subprocess.Popen([node], env={
+                    **os.environ,
+                    "DYAPP_NODE__LISTEN": json.dumps([tcp, quic]),
+                    "DYAPP_NODE__STORAGE__DIR": f"{storage}/{port}"}))
+                peers.append((tcp, quic))
+            for tcp, _ in peers:
                 for _ in range(60):
-                    try:
-                        if healthy(base):
-                            break
-                    except OSError:
-                        pass
+                    if healthy(client, tcp):
+                        break
                     time.sleep(1)
                 else:
-                    raise RuntimeError(f"Peer did not start: {base}")
-            suite(peers, binary)
+                    raise RuntimeError(f"Node did not start: {tcp}")
+            suite(peers, client)
         finally:
             for process in processes:
                 process.terminate()
@@ -64,50 +66,45 @@ def local(binary):
 
 def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--health":
-        if not healthy(sys.argv[2]):
-            raise RuntimeError("Production bootstrap is not healthy")
+        if not healthy(CLIENT, sys.argv[2]):
+            raise RuntimeError("Node is not healthy")
         return
     if len(sys.argv) == 3 and sys.argv[1] == "--local":
         local(sys.argv[2])
         return
-    suite(["http://bootstrap-a:7070", "http://bootstrap-b:7070"],
-          "/workspace/target/debug/test-peer")
+    # The client has no DNS transport: resolve the container names here.
+    suite([addresses(socket.gethostbyname(host), 7070)
+           for host in ("bootstrap-a", "bootstrap-b")], CLIENT)
 
 
-def suite(peers, binary):
+def suite(peers, client):
     cases = []
-    for index, base in enumerate(peers):
-        status, body = request(base, "/health")
-        if status != 200 or body["status"] != "healthy":
-            raise RuntimeError(f"Unhealthy peer: {base}")
-        peer_id, record = signed_profile(binary)
-        status, body = request(base, "/profiles", record)
-        if status != 201 or body["peer_id"] != peer_id:
-            raise RuntimeError("Production profile creation failed")
-        status, body = request(base, f"/profiles/{peer_id}", raw=True)
-        if status != 200 or body != record:
-            raise RuntimeError("Production profile retrieval changed data")
-        try:
-            request(base, "/profiles", record)
-        except HTTPError as error:
-            if error.code != 409:
-                raise
-        else:
+    for index, (tcp, quic) in enumerate(peers):
+        for addr in (tcp, quic):
+            if not healthy(client, addr):
+                raise RuntimeError(f"Unhealthy node: {addr}")
+        signed = call(client, "sign-profile")
+        peer_id, record = signed["peer_id"], signed["record"]
+        if call(client, "publish", tcp, record)["status"] != "STATUS_OK":
+            raise RuntimeError("Profile publish failed")
+        # Published over TCP, read back over QUIC: the stored bytes are the
+        # signed bytes.
+        reply = call(client, "get", quic, peer_id)
+        if reply != {"status": "STATUS_OK", "record": record}:
+            raise RuntimeError("Profile retrieval changed data")
+        reply = call(client, "publish", tcp, record)
+        if reply != {"status": "STATUS_STALE", "record": record}:
             raise RuntimeError("Stale profile version was accepted")
-        other = peers[1 - index]
-        try:
-            request(other, f"/profiles/{peer_id}")
-        except HTTPError as error:
-            if error.code != 404:
-                raise
-        else:
-            raise RuntimeError("Independent peer storage unexpectedly shared")
-        cases.append({"peer": base, "health": True, "roundtrip": True,
+        other = peers[1 - index][0]
+        if call(client, "get", other, peer_id)["status"] != "STATUS_NOT_FOUND":
+            raise RuntimeError("Independent node storage unexpectedly shared")
+        cases.append({"peer": tcp, "health": True, "roundtrip": True,
                       "independent_storage": True})
     reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
-    print("2 production peers: health, profile roundtrip, independence passed")
+    print("2 nodes over TCP and QUIC: info, profile roundtrip, stale, "
+          "independence passed")
 
 
 if __name__ == "__main__":

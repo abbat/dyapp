@@ -17,14 +17,14 @@
 
 ## Field visibility
 
-Source: `rust/bootstrap/src/api.rs`, `rust/bootstrap/src/storage.rs`,
+Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
 `rust/video/src/encryption.rs`.
 
 | Data | Who sees it today | Protection today | Retention today | Target protection | Residual risk even in target |
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
-| Message body (`encrypted_payload`) | Operator, any client (`GET /messages/peer/{id}`), network | None (plaintext; crypto stub) | Until deleted by anyone; TTL not enforced | E2E AEAD, only recipient decrypts | Size and timing |
-| `sender_id`, `recipient_id`, message `timestamp` | Operator, any client, network | None | Same as body | TLS to bootstrap; access control on reads | Operator always learns who messages whom and when (routing metadata) |
-| Profile fields (age, country, location, income, kids, goals, orientation, interests, …) | Operator, any client (`GET /profiles`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone, which is kept forever (target: retention TTL, default 30 days) | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
+| Message body (`encrypted_payload`) | Operator (not served to clients yet) | None (plaintext; crypto stub) | Until the TTL (default 24 h) | E2E AEAD, only recipient decrypts | Size and timing |
+| `sender_id`, `recipient_id`, message `timestamp` | Operator | None | Same as body | Signed mailbox reads ([bootstrap](../architecture/bootstrap.md#mailboxes)) | Operator always learns who messages whom and when (routing metadata) |
+| Profile fields (age, country, location, income, kids, goals, orientation, interests, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone, which is kept forever (target: retention TTL, default 30 days) | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
 | Message `peer_id`s | Operator, any client, network | None, self-asserted | Same as messages | Derived from public key | Same |
 | Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | Optional relay/proxy (not designed) | Direct P2P and WebRTC reveal IPs to the other peer |
@@ -35,10 +35,8 @@ Source: `rust/bootstrap/src/api.rs`, `rust/bootstrap/src/storage.rs`,
 ## Retention
 
 The node config sets `limits.message_ttl_hours = 24`, and every message gets
-`ttl_expires_at`. `dyapp-node` deletes expired messages every hour, but it does not
-serve the REST API yet; `test-peer`, which does, never deletes them, and read
-endpoints do not filter expired messages. Messages stay until someone calls `DELETE`, and any client can do that
-because there is no authentication. Profiles have no TTL: the latest signed
+`ttl_expires_at`. `dyapp-node` deletes expired messages every hour; no protocol serves
+messages yet. Profiles have no TTL: the latest signed
 version stays until the owner replaces it with a tombstone, which the node keeps
 so older versions are not re-imported. Backups and replicas (if an
 operator adds them) keep their own copies.

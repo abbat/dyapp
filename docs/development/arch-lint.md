@@ -20,6 +20,5 @@ It scans only the `*.rs` files directly in `--root` (default `.`), **not subdire
 Limits:
 
 - Matching is by substring, so false positives and negatives are common. The crate directory is
-  `rust/p2p-net`, so the first rule never matches it; `rust/bootstrap` uses `axum` by design and
-  would fail.
+  `rust/p2p-net`, so the first rule never matches it.
 - Not wired into `make quality` or CI; treat the output as hints, not a gate.
