@@ -12,11 +12,13 @@ media is different: full copies are expensive.
 
 ## Decision
 
-- **Delivery through mailboxes:** a message is always written to the recipient's replica nodes,
-  its mailbox. An online recipient keeps a connection to one of them and gets new messages pushed
-  over it at once. Clients do not publish their addresses in the DHT; a direct connection that
-  already exists (for example during a call) is only an optimisation. The recipient acknowledges;
-  the sender keeps an offline queue and retries.
+- **Delivery through mailboxes, one per device:** each device is a separate MLS member and has its
+  own mailbox, its replica nodes; a message is always written to the mailbox of every recipient
+  device, so one device's ack never removes another device's copy. An online device keeps a
+  connection to one of its replica nodes and gets new messages pushed over it at once. Clients do
+  not publish their addresses in the DHT; a direct connection that already exists (for example
+  during a call) is only an optimisation. The device acknowledges, the node forwards the ack to
+  the other replicas; the sender keeps an offline queue and retries.
 - **Bootstrap storage is a cache, nothing is kept forever:** the node operator sets a retention
   TTL (default 30 days) after which old data, tombstones included, is deleted, and may delete any
   data at any time. Under a full quota the data of the profiles inactive longest is evicted first.

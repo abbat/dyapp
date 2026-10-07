@@ -158,11 +158,15 @@ None of this section is implemented: there is no transport in `rust/messaging`, 
 bootstrap `MessageBlob` store is not wired to the queue. Decision:
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md).
 
-1. The sender writes the message to the recipient's mailbox: the recipient's replica nodes.
-2. An online recipient keeps a connection to one of them and gets the message pushed at once;
+1. The sender writes the message to the mailbox of each of the recipient's devices (each device
+   is a separate MLS member): that device's replica nodes.
+2. An online device keeps a connection to one of them and gets the message pushed at once;
    an offline one fetches it when it comes back.
-3. The recipient acknowledges through the mailbox; the sender removes the message from its
-   retry queue.
+3. The device acknowledges; the node forwards the ack to the other replicas, which drop the
+   message, and the device drops duplicates by message id. The sender removes the message from
+   its retry queue.
+
+Planned limits (node settings): a message up to 100 KB, a mailbox up to 10 MB.
 
 Clients never publish their addresses in the DHT. A direct connection that already exists (for
 example during a call) may carry messages, as an optimisation only.

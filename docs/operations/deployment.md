@@ -56,7 +56,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
                     ↓ (plaintext today; encryption planned)
 
 Users (iOS/Android/macOS/Linux)
-  └─ Mailbox on the recipient's nodes (planned; pushed at once when the recipient is online)
+  └─ Mailbox per recipient device on its nodes (planned; pushed at once when the device is online)
 ```
 
 **Pros:**
