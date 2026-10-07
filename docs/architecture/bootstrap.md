@@ -18,6 +18,150 @@ Peer discovery, profile search and signaling are planned, not implemented.
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
 
+## Target Design — planned
+
+Nothing in this section is implemented; the sections after it describe today's code.
+
+### Principles
+
+- **libp2p only.** Clients and nodes exchange protobuf messages over libp2p request-response,
+  one protocol ID per service, schemas in `proto/`; no REST, no gRPC
+  ([ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)). Call media goes over WebRTC.
+- **Version-agnostic network.** Protocol IDs carry no version and nodes negotiate none. Messages
+  evolve only by new protobuf fields; unknown fields are ignored and kept in signed payloads. A
+  node states what it supports (limits, filters) in its replies.
+- **The signed record is the source of truth.** A node stores the owner-signed payload as
+  received and serves it unchanged, so an old node still carries fields it does not understand.
+- **Nothing is kept forever.** Every store is a cache: the operator sets a retention TTL
+  (default 30 days, tombstones included) and may delete any data at any time. A user who comes
+  online again restores their data. No backups: a rebuilt node joins empty.
+- **Clients write, nodes store.** A client writes every replica or shard itself; nodes do not
+  fan out writes for others.
+- **Nodes see metadata, not content.** Messages, likes, views and every other signal are
+  end-to-end encrypted for the recipient. Who writes to whom and when stays visible to nodes; a
+  sealed sender may come later.
+
+### Roles and discovery
+
+Each role is enabled separately in the node config:
+
+| Role | Holds |
+|------|-------|
+| store | signed profiles, per-device mailboxes, likes, views and other signals |
+| media | media blobs and erasure-coded shards, thumbnails |
+| search | the search index over profiles collected from the whole network |
+| TURN | relays call media |
+
+Every role has its own DHT key space, so replicas for a role are chosen only among the nodes
+that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
+server; a node behind NAT is a bootstrap only for peers in its local network. Mobile clients run
+the DHT in client mode: they store nothing and answer no DHT queries.
+
+Kademlia gives every node an equal share of keys; a share weighted by the node's capacity is
+still to be designed.
+
+### Replication and repair
+
+Profiles, mailbox messages and signals are replicated whole to R = 5 points, replica *i* on the
+nodes closest to H(key ‖ i); large media are erasure-coded into K = 6 + M = 4 shards; thumbnails
+are stored whole ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+
+Repair is driven by the owner's presence. When a user comes online, the nodes responsible for
+their keys exchange inventories, *I have* (profile version, message ids, media hashes) and
+*I need*, and fill the gaps, so new closest nodes get the data after churn. Nodes never rebuild
+media shards: the owner re-uploads missing ones. Data of a user who stays offline is not
+repaired and expires with the TTL.
+
+### Profiles
+
+- Payload at most 1 MiB, raisable: nodes state their limit and clients publish only to nodes that
+  accept the size. Media are separate blobs; the profile only links to them by content hash.
+- Location is `place`, a city or district name, never coordinates
+  ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
+- The profile lists the owner's device keys, so a sender can reach every device's mailbox before
+  any MLS group exists; anyone can see how many devices a user has.
+- The profile carries a proof of work bound to the owner's key, computed once when the key is
+  created ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+- Deletion is a signed tombstone kept for the TTL
+  ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
+
+### Search
+
+- **Dissemination.** The owner's client publishes its `SignedRecord` on every change to one of a
+  fixed number of gossipsub topics chosen by its key (for example H(key) mod 16). It publishes
+  without subscribing, so a phone does not receive the network's updates. Once a day it also
+  publishes a signed heartbeat (key, profile version, date, about 100 bytes). Nodes check the
+  signature before relaying, relay only newer versions and limit updates per key.
+- **Index.** A search node subscribes to all topics by default, or to a part and then holds a
+  uniform random sample. It indexes only profiles with enough proof of work (the minimum
+  difficulty is a node setting) and keeps as many as its limits allow, evicting by the heartbeat
+  date. A node that was offline catches up by exchanging (key, version) lists with other search
+  nodes.
+- **Queries.** A client asks one to three search nodes. Results come in random order, up to a
+  per-reply limit set by the node; a repeated query gives a new sample, there is no pagination.
+  A client that does not find what it wants asks another node. Queries are rate-limited per
+  requesting key (node setting); scraping public profiles is accepted.
+- **Schema without migrations.** Hot fields live in a typed table; other attributes are indexed
+  as (attr_id, int64 value) pairs, at most N per profile, one value per attr_id, attr_id in a
+  bounded range, or the profile is rejected. The index has a version; on a bump the node drops
+  and rebuilds it from the stored payloads. A node skips conditions it does not understand,
+  returns a superset and lists the conditions it applied; the client filters the rest. `place`
+  matches exactly within the country.
+
+### Mailboxes
+
+- Every device is a separate MLS member and has its own mailbox on its store replicas. The sender
+  writes a message to the mailbox of every recipient device, so one device's ack never removes
+  another device's copy.
+- An online device keeps a connection to one replica node and gets new messages pushed at once.
+  Clients do not publish their addresses in the DHT.
+- The device acknowledges; the node forwards the ack to the other replicas, which drop the
+  message, and the device drops duplicates by message id. The sender keeps a retry queue and
+  learns of delivery from a receipt the recipient sends as an ordinary encrypted message to the
+  sender's mailboxes; nodes never link the two.
+- Reading and deleting a mailbox needs a signature over a nonce the node issued for this libp2p
+  connection, so a captured request cannot be replayed. Other requests are idempotent.
+- Chat attachments are encrypted media blobs; the recipient's "downloaded" signal lets nodes
+  delete them, and unconfirmed ones expire after an operator-set retention.
+
+### Storage on a node
+
+- One SQLite file per data type: `profiles.db`, `profile-index.db` (disposable, rebuilt),
+  `messages.db`, `likes.db`, `views.db` and one more per new signal type; `admin.db` for operator
+  settings. No transaction spans two stores.
+- Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
+  file, hash-checked, fsync'd and renamed.
+- No routine full `VACUUM`: stores use `auto_vacuum = INCREMENTAL` with `incremental_vacuum(N)`,
+  a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on a per-store
+  schedule with an optional maintenance window and an I/O budget.
+- Activity: one UPSERT of a user's last-active date per day.
+
+### Limits and abuse
+
+Defaults are node settings: a message up to 100 KB, a mailbox up to 10 MB per device, media up
+to 10 MB per user, each counted by the node over the data it holds. Write quotas apply per sender
+key and per IP group; the prefix length (for example /24 or /48) is the operator's choice.
+Resource guards cap disk per store and for media (with a free-space reserve), traffic (rates and
+an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
+memory (connections, streams, request size). A full store answers "full" so the client tries
+another replica.
+
+The operator may refuse service to any user through a deny list. Lists may be shared between
+operators but are advisory: a node never has to follow another's list. Removing illegal media
+on request is still to be designed.
+
+### Operating a node
+
+- Runs as an unprivileged system user and refuses to start as root; default port 7070, every
+  path must be writable by that user. The Debian package adds a systemd unit with hardening.
+- A TOML config sets addresses, ports, paths per store, roles, limits, TTL and maintenance.
+  Invalid config fails at startup.
+- The node key is a libp2p key file (mode 0600) in the data directory, created on first start.
+  A new key is a new node: all stored data is deleted. On a leak or a move the operator creates
+  a new key.
+- Administration is a local CLI that writes to `admin.db`; the node applies changes without a
+  restart and logs them. Metrics go to the log; there is no HTTP endpoint.
+
 ## Data Model
 
 ### MessageBlob (Offline Queue)
@@ -281,31 +425,8 @@ There is no cluster transport, node-to-shard assignment, failover or
 multi-master protocol. Several servers behind the same DNS name with the same
 `replication_factor` are independent: nothing synchronises their data, and a
 client may write to one and read from another. A cluster setup requires an
-implemented replication protocol and a node-failure test first.
-
-```
-        ┌─────────────┐
-        │ Bootstrap 1 │
-        └─────────────┘
-             /   \
-            /     \
-Client A ◄─       ─► Profile queries
-Client B ◄─       ─► Message relay
-Client C ◄─       ─► (signaling: undecided)
-            \     /
-             \   /
-        ┌─────────────┐
-        │ Bootstrap 2 │
-        └─────────────┘
-             /   \
-            /     \
-        ┌─────────────┐
-        │ Bootstrap 3 │
-        └─────────────┘
-```
-
-**Intended (RS(2,1), one shard per node):** any one node can fail and the two
-remaining shards reconstruct each record; two failures lose it.
+implemented replication protocol and a node-failure test first. The target is
+described in [Target Design](#target-design--planned).
 
 ## Security
 
@@ -335,8 +456,8 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Monitoring & Metrics
 
-Only `GET /health` exists (RocksDB write/delete probe). Metrics, logging and
-admin endpoints are planned; see the
+Only `GET /health` exists (RocksDB write/delete probe). Planned: metrics as log
+lines and a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 ## Testing
@@ -367,9 +488,4 @@ a node failure.
 - Expired messages are served until deleted (TTL not enforced)
 - No audit logging
 
-**Future enhancements:**
-- Multi-master replication (gossip protocol)
-- Profile search with filters (age range, place)
-- Message expiration enforcement (batch cleanup)
-- TLS for bootstrap-to-bootstrap communication
-- Prometheus metrics export
+Planned changes: see [Target Design](#target-design--planned).

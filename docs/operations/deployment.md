@@ -186,8 +186,8 @@ There are no counts, peer numbers or replication fields in the response.
 These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
-- `/metrics` (Prometheus) and any metric names
-- `/admin/cleanup`, `/admin/replication-status` or any other admin route
+- Metrics: planned as log lines only, no `/metrics` endpoint
+- Administration: planned as a local CLI writing to `admin.db`, no admin routes
 - Logging: `tracing` is a dependency, but no subscriber is initialised and the
   server emits no log lines, so `RUST_LOG` has no effect
 
