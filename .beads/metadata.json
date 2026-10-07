@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "dyapp",
+  "project_id": "1135a997-89e6-4084-a34e-84515a6bc722"
+}
