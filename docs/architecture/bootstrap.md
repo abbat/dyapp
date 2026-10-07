@@ -263,7 +263,7 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Served protocol
 
-Source: `rust/bootstrap/src/service.rs` (request handling), `bin/dyapp-node.rs` (the libp2p
+Source: `rust/bootstrap/src/service.rs` (request handling), `node.rs` (the libp2p
 loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite). `dyapp-node` serves
 three libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
 per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
@@ -504,6 +504,15 @@ Unit test coverage:
   a challenge, with another connection's nonce, signed as an ack, replayed; another key reads
   and acks only its own mailbox; ack and its replay
 - `ProtoCodec` round trip over TCP between two swarms (`rust/p2p-net`)
+
+Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP with libp2p
+clients:
+- Every request type: `info`, publish and get, mailbox put, challenge, fetch and ack
+- A challenge from one connection is `DENIED` on another and still valid on its own
+- Bad input fails only its request: undecodable protobuf and a request over 2 MiB get the
+  stream closed without a reply (a client reads `STATUS_UNSPECIFIED`), an unknown or empty
+  variant gets `UNSUPPORTED`, and the node then answers the next client
+- Rate limit over the wire: `RATE_LIMITED` past the burst, `info` still answered
 
 Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)

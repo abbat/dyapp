@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod node;
 pub mod rate_limit;
 pub mod replication;
 pub mod service;

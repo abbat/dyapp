@@ -43,7 +43,7 @@ node, and there is no WebRTC signaling channel.
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; no push or replication |
-| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
+| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
