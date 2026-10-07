@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Require complete LLVM coverage scope and >=70% line coverage."""
+"""Require complete LLVM coverage scope and >=75% line coverage."""
 import json
 from pathlib import Path
 import sys
 
-MIN_COVERAGE = 70
+MIN_COVERAGE = 75
 CRATES = (
     "bootstrap", "ffi", "identity", "messaging", "p2p-net", "profile", "video",
 )

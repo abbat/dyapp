@@ -35,7 +35,7 @@ pulls anything).
 | Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
 | fmt check | `make fmt` | `cargo fmt --all -- --check` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `scripts/check-quality.sh` |
-| Coverage gate (70% lines) | `make coverage` | `scripts/docker-test.sh coverage` |
+| Coverage gate (75% lines) | `make coverage` | `scripts/docker-test.sh coverage` |
 | Security | `make security` (= `audit`, `deny`) | `scripts/docker-test.sh security` |
 | MSRV / type check | `make msrv` | `cargo check --workspace --all-features --all-targets` |
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |

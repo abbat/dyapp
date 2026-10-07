@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-layer testing. Rust coverage is gated at **70% line coverage on the workspace total** — see [Coverage policy](#coverage-policy).
+Multi-layer testing. Rust coverage is gated at **75% line coverage on the workspace total** — see [Coverage policy](#coverage-policy).
 
 ## Test Layers
 
@@ -131,14 +131,14 @@ This is the single source of truth for coverage numbers; other docs link here.
 | Tool | cargo-llvm-cov 0.9.1 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run `cargo test --workspace --all-features --locked` on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
-| Threshold | **70%** (`MIN_COVERAGE` in `scripts/check_coverage.py`) |
+| Threshold | **75%** (`MIN_COVERAGE` in `scripts/check_coverage.py`) |
 | Scope check | Fails with "Partial workspace coverage" unless files from all 7 crates appear: bootstrap, ffi, identity, messaging, p2p-net, profile, video |
 | Exclusions | `--ignore-filename-regex '/registry/\|/dyapp[.]uniffi[.]rs$'` — dependency sources and the generated UniFFI scaffolding. Hand-written `lib.rs` files are **not** excluded. |
 | Outputs | `coverage.json`, `coverage.lcov`, `coverage.txt` |
 
 ### Where the gate runs
 
-| Entry point | Fails on < 70%? | Notes |
+| Entry point | Fails on < 75%? | Notes |
 |-------------|-----------------|-------|
 | GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `rust-check.sh cov-report` on the runner after `cov-build` and `cov-test`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
@@ -261,7 +261,7 @@ Before shipping:
 
 - [ ] All CI checks pass (test suite, fmt, clippy, coverage, audit)
 - [ ] Integration tests pass locally
-- [ ] Workspace line coverage ≥70% (`make coverage`)
+- [ ] Workspace line coverage ≥75% (`make coverage`)
 - [ ] No clippy warnings
 - [ ] Security audit clean
 - [ ] Platform builds compile

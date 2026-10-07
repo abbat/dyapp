@@ -13,7 +13,7 @@ SPEC.loader.exec_module(GATE)
 
 class Coverage(unittest.TestCase):
     @staticmethod
-    def report(covered=7000, count=10000):
+    def report(covered=7500, count=10000):
         return {
             "type": "llvm.coverage.json.export",
             "data": [{
@@ -24,12 +24,12 @@ class Coverage(unittest.TestCase):
         }
 
     def test_exact_threshold_and_above_pass(self):
-        self.assertEqual(GATE.validate(self.report()), 70)
-        self.assertGreater(GATE.validate(self.report(7001)), 70)
+        self.assertEqual(GATE.validate(self.report()), 75)
+        self.assertGreater(GATE.validate(self.report(7501)), 75)
 
     def test_below_threshold_fails_without_rounding(self):
         with self.assertRaises(ValueError):
-            GATE.validate(self.report(6999))
+            GATE.validate(self.report(7499))
 
     def test_invalid_counts_fail(self):
         for covered, count in ((0, 0), (-1, 100), (101, 100),

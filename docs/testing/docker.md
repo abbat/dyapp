@@ -131,7 +131,7 @@ docker run --rm dyapp:dev \
 ### Example 4: Code Coverage
 
 ```bash
-# Generate coverage report and apply the 70% line gate (cargo-llvm-cov)
+# Generate coverage report and apply the 75% line gate (cargo-llvm-cov)
 bash scripts/docker-test.sh coverage   # or: make coverage
 ```
 
