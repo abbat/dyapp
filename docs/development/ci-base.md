@@ -40,14 +40,15 @@ and runs `rust-check.sh quality`, which runs these checks in order:
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
 | Format | `cargo fmt --all -- --check` |
-| Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, so there is no separate `cargo check`) |
-| Tests | `cargo test --workspace --all-features --locked -- --test-threads=1` |
+| Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, tests included, so there is no separate `cargo check`) |
+
+`quality` does not run `cargo test`: the tests run once, in `core`. Locally `make test` runs them.
 
 ### `core` → **build**
 
-This job runs on ubuntu-24.04 with a 60-minute timeout. Before setup, a `free disk` step deletes
-the runner's preinstalled .NET, Android SDK, GHC and tool cache, because the instrumented build
-of the workspace is large. Setup installs cargo-llvm-cov 0.6.21 and cargo-deny 0.19.9.
+This job runs on ubuntu-24.04 with a 60-minute timeout. Setup installs cargo-llvm-cov 0.6.21 and
+cargo-deny 0.19.9. The instrumented target (without debuginfo) fits the runner's free disk, so
+there is no `free disk` step: deleting the preinstalled SDKs took about 5 minutes.
 
 The workspace is compiled **once**, with coverage instrumentation. The `cov-*` steps and
 `network` re-derive the same environment from `cargo llvm-cov show-env`, with target dir
@@ -70,8 +71,6 @@ nothing.
 **Scope:** every Cargo step uses `--workspace`, which covers all 7 crates (`bootstrap`,
 `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `linux/` and
 `windows/` are separate manifests and are not part of this pipeline.
-
-**Duplication:** `cargo test` runs twice: plain in `quality` and instrumented in `core`.
 
 **Freshness:** in CI, `deny` fetches the current advisory DB. The local dev image instead uses
 the snapshot taken when the image was built, offline with `--disable-fetch`. `cargo audit` also

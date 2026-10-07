@@ -33,9 +33,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      # An instrumented build of the whole workspace is large; free preinstalled SDKs.
-      - name: free disk
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
       - name: setup
         run: bash scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@v2

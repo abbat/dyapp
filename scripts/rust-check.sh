@@ -19,8 +19,8 @@ step() {
             python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             python3 -m flake8 scripts tools tests
             cargo fmt --all -- --check
+            # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
-            step test
             ;;
         build) cargo build --release --workspace --locked ;;
         test) cargo test --workspace --all-features --locked -- --test-threads=1 ;;

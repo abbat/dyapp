@@ -9,7 +9,7 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, actionlint, `bash -n scripts/*.sh`, Python unittest, flake8, `cargo fmt --check`, clippy `-D warnings`, `cargo test` |
+| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, actionlint, `bash -n scripts/*.sh`, Python unittest, flake8, `cargo fmt --check`, clippy `-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 70% workspace line gate |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny check --disable-fetch advisories bans licenses` |

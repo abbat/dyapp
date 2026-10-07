@@ -26,11 +26,9 @@ ci.yml ("ci")
 ## ci.yml jobs
 
 Only **docker - android** still runs in Docker; `core` and **native - linux** run directly on the
-runner (see [ci-base.md](ci-base.md#jobs)). The Docker job and `core / build` first delete the
-runner's preinstalled .NET, Android SDK, GHC and tool cache (step `free disk`). In the Docker job
-this is needed because, with the buildx layer cache, each image exists twice: in the buildx
-builder and, after `--load`, in Docker. In `core / build` the instrumented workspace build is
-large.
+runner (see [ci-base.md](ci-base.md#jobs)). The Docker job first deletes the
+runner's preinstalled .NET, Android SDK, GHC and tool cache (step `free disk`): with the buildx
+layer cache, each image exists twice, in the buildx builder and, after `--load`, in Docker.
 
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
