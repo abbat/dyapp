@@ -1,7 +1,7 @@
 # 0008. rust-libp2p with layered Sybil and eclipse defences
 
 - **Status:** Accepted
-- **Date:** 2026-10-06
+- **Date:** 2026-10-08
 
 ## Context
 
@@ -55,7 +55,10 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
    signals cannot evict messages, with quotas per sender key and per IP group. A hashcash stamp on
    unsolicited writes (likes, view signals, messages without a match) is best effort: the envelope
    reserves an optional stamp field, nodes may use it to prioritise under load, and none require it
-   in v1.
+   in v1. The exception is search: a profile carries a proof of work bound to its owner's key,
+   computed once when the key is created, and search nodes index only profiles that have it; each
+   node sets the minimum difficulty it accepts. Without it free keys could flood the search index
+   with fake profiles and evict real ones.
 
 ## Consequences
 
