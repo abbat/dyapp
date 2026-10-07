@@ -49,9 +49,10 @@ step() {
             ;;
         coverage) step cov-build; step cov-test; step cov-report ;;
         network)
-            # Two real bootstrap peers on the loopback, from the cov-build binaries.
+            # Two real bootstrap peers on the loopback. cov-build already built test-peer (cargo test
+            # builds a package's binaries when it has integration tests); a separate `cargo build -p` would select
+            # different features and recompile crates.
             instrument
-            cargo build -p dyapp-bootstrap --bin test-peer --all-features --locked
             python3 scripts/network-test.py --local "$CARGO_TARGET_DIR/debug/test-peer"
             ;;
         security)
