@@ -154,8 +154,8 @@ What this gives and what it does not:
 
 ## Mailbox Delivery — planned
 
-None of this section is implemented: there is no transport in `rust/messaging`, and the
-bootstrap `MessageBlob` store is not wired to the queue. Decision:
+Only the single-node mailbox is implemented ([bootstrap](bootstrap.md#served-protocol)): there
+is no transport in `rust/messaging`, and nothing wires the queue to it. Decision:
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md).
 
 1. The sender writes the message to the mailbox of each of the recipient's devices (each device

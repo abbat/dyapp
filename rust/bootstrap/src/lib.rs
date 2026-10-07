@@ -7,4 +7,4 @@ pub mod storage;
 
 pub use config::NodeConfig;
 pub use error::{BootstrapError, Result};
-pub use storage::{BootstrapStore, MessageBlob};
+pub use storage::BootstrapStore;

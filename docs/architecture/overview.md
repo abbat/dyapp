@@ -42,14 +42,14 @@ node, and there is no WebRTC signaling channel.
 | P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; request-response `/dyapp/node`, `/dyapp/profile` with `ProtoCodec` ([P2P networking](p2p-networking.md)) |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
-| Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node` and `/dyapp/profile` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; messages stored but not served |
+| Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; no push or replication |
 | Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Bare Tauri shell with a `ui_test_result` command |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
-| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` is served for `/dyapp/node` and `/dyapp/profile`, the mailbox part is not; no gRPC/tonic |
+| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` is served for `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`, not `/dyapp/mailbox-push`; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:
 
@@ -126,7 +126,7 @@ library types in-process, without any network.
    stamps it with a hybrid logical clock and encrypts the body (`messaging`).
 2. If the recipient is reachable, the message is sent over libp2p (`p2p-net`).
 3. Otherwise it is stored on bootstrap nodes and fetched later by the
-   recipient over `/dyapp/mailbox` (not served yet).
+   recipient over `/dyapp/mailbox` (served on a single node; no app client yet).
 4. The recipient acknowledges; the sender retries from its offline queue
    until then. Delivery is best effort: an LRU-evicted message is lost unless
    the sender retries.

@@ -7,7 +7,8 @@ use dyapp_bootstrap::{BootstrapStore, NodeConfig};
 use dyapp_p2p_net::{build_swarm, BehaviourEvent, Mode};
 use libp2p::futures::StreamExt;
 use libp2p::request_response::{Event, Message};
-use libp2p::swarm::SwarmEvent;
+use libp2p::swarm::{ConnectionId, SwarmEvent};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -45,6 +46,8 @@ async fn main() -> anyhow::Result<()> {
         config,
     };
 
+    // The mailbox challenge issued on each open connection.
+    let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
     loop {
         tokio::select! {
@@ -73,6 +76,26 @@ async fn main() -> anyhow::Result<()> {
                     // Dropping the channel fails the request; the client tries another node.
                     Err(error) => tracing::error!(%error, "profile request failed"),
                 },
+                SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
+                    peer,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    let mut nonce = nonces.remove(&connection_id);
+                    let result = service.mailbox(&peer.to_string(), &mut nonce, request);
+                    if let Some(nonce) = nonce {
+                        nonces.insert(connection_id, nonce);
+                    }
+                    match result {
+                        Ok(response) => {
+                            let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                        }
+                        Err(error) => tracing::error!(%error, "mailbox request failed"),
+                    }
+                }
+                SwarmEvent::ConnectionClosed { connection_id, .. } => {
+                    nonces.remove(&connection_id);
+                }
                 _ => {}
             },
             _ = cleanup.tick() => {

@@ -98,13 +98,35 @@ def suite(peers, client):
         other = peers[1 - index][0]
         if call(client, "get", other, peer_id)["status"] != "STATUS_NOT_FOUND":
             raise RuntimeError("Independent node storage unexpectedly shared")
+        mailbox(client, tcp, quic, other)
         cases.append({"peer": tcp, "health": True, "roundtrip": True,
-                      "independent_storage": True})
+                      "independent_storage": True, "mailbox": True})
     reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     print("2 nodes over TCP and QUIC: info, profile roundtrip, stale, "
-          "independence passed")
+          "mailbox, independence passed")
+
+
+def mailbox(client, tcp, quic, other):
+    """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties."""
+    device = call(client, "device-key")
+    put = call(client, "put", tcp, device["mailbox"], "c0ffee")
+    if put["status"] != "STATUS_OK":
+        raise RuntimeError("Envelope put failed")
+    expected = {"status": "STATUS_OK", "ids": [put["id"]], "more": False}
+    if call(client, "fetch", quic, device["secret"]) != expected:
+        raise RuntimeError("Mailbox fetch lost the envelope")
+    stranger = call(client, "device-key")["secret"]
+    if call(client, "fetch", tcp, stranger)["ids"]:
+        raise RuntimeError("Another key read the mailbox")
+    if call(client, "fetch", other, device["secret"])["ids"]:
+        raise RuntimeError("Independent node storage unexpectedly shared")
+    reply = call(client, "ack", tcp, device["secret"], put["id"])
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError("Mailbox ack failed")
+    if call(client, "fetch", tcp, device["secret"])["ids"]:
+        raise RuntimeError("Acknowledged envelope still served")
 
 
 if __name__ == "__main__":

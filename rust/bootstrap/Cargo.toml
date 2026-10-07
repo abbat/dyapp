@@ -20,6 +20,7 @@ chrono = "0.4"
 prost.workspace = true
 dyapp-identity = { path = "../identity" }
 dyapp-profile = { path = "../profile" }
+getrandom = "0.4"
 
 # Replication/erasure coding
 reed-solomon-erasure = { version = "6.0", default-features = false }

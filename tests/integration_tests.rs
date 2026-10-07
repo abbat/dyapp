@@ -93,42 +93,6 @@ async fn test_video_session_lifecycle() {
 }
 
 #[tokio::test]
-async fn test_bootstrap_message_relay() {
-    use dyapp_bootstrap::{BootstrapStore, MessageBlob};
-
-    let store = BootstrapStore::new(&format!(
-        "/tmp/ai/integration-bootstrap-{}",
-        uuid::Uuid::new_v4()
-    ))
-    .expect("Failed to create store");
-
-    let msg = MessageBlob {
-        id: "aaa-message".to_string(),
-        sender_id: "alice".to_string(),
-        recipient_id: "bob".to_string(),
-        encrypted_payload: vec![1, 2, 3, 4],
-        timestamp: 1000,
-        ttl_expires_at: 2000,
-    };
-
-    store.store_message(msg.clone()).unwrap();
-    let mut other = msg.clone();
-    other.id = "zzz-message".to_string();
-    other.recipient_id = "carol".to_string();
-    store.store_message(other).unwrap();
-
-    // Bob queries bootstrap for his messages
-    let messages = store.get_messages_for_peer("bob").unwrap();
-    assert_eq!(messages.len(), 1);
-    assert_eq!(messages[0].id, "aaa-message");
-
-    // Delete after delivery
-    store.delete_message("aaa-message").unwrap();
-    let deleted = store.get_message("aaa-message").unwrap();
-    assert!(deleted.is_none());
-}
-
-#[tokio::test]
 async fn test_lamport_clock_ordering() {
     use dyapp_messaging::lamport_clock::LamportClock;
 

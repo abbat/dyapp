@@ -48,7 +48,7 @@ Message relay: P2P direct or gossip via other peers
 
 ```
 Dedicated Bootstrap Nodes (1-3 instances)
-  ├─ libp2p node protocol (profiles today; mailbox planned)
+  ├─ libp2p node protocol (profiles and mailbox today)
   ├─ Profile index (search by age/location)
   ├─ Peer discovery (announce presence)
   └─ Replication (planned; whole records to 5 points, K=6/M=4 for large media, see ADR 0009)
@@ -56,7 +56,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
                     ↓ (plaintext today; encryption planned)
 
 Users (iOS/Android/macOS/Linux)
-  └─ Mailbox per recipient device on its nodes (planned; pushed at once when the device is online)
+  └─ Mailbox per recipient device on its nodes (single node today; push planned)
 ```
 
 **Pros:**
@@ -83,8 +83,9 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** `dyapp-node` serves `/dyapp/node` and `/dyapp/profile` over libp2p
-> ([served protocol](../architecture/bootstrap.md#served-protocol)); the mailbox is planned.
+> **Status:** `dyapp-node` serves `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` over
+> libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)); push and replication
+> are planned.
 > There is no Debian package, systemd unit or production image.
 
 ### `dyapp-node`
@@ -120,7 +121,7 @@ roles and limits, and checks that every directory is writable. On first start it
 creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
 `storage.dir`. It refuses to start when the key is missing next to existing data
 or does not match `node.id`: a new key is a new node, so delete the data to start
-from scratch. Expired messages are deleted every hour. Logging uses `RUST_LOG`
+from scratch. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
 ### Development quick start

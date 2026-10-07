@@ -34,7 +34,7 @@ Located in `#[cfg(test)]` modules within each crate.
 - FrameEncryption: frame counter, roundtrip encrypt/decrypt
 
 **Bootstrap** (rust/bootstrap)
-- MessageBlob: store/retrieve/delete, TTL, peer queries
+- Mailbox: envelope once per id, size limits, fetch with challenge, ack, replay and forgery rejected, TTL
 - Signed profile: version ordering (stale → error), tombstone kept and hidden from the list
 - Replication: encode/decode, single+multiple shard failures, fault tolerance
 - RateLimiter: per-peer limits, active peer tracking

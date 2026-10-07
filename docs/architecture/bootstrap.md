@@ -2,26 +2,25 @@
 
 ## Overview
 
-A bootstrap node (`dyapp-node`) serves owner-signed profiles over libp2p
-([Served protocol](#served-protocol)). It still stores offline messages but serves no protocol
-for them; the signed mailbox, profile search and signaling are planned.
+A bootstrap node (`dyapp-node`) serves owner-signed profiles and per-device mailboxes over
+libp2p ([Served protocol](#served-protocol)); push to online devices, replication, profile search
+and signaling are planned.
 
-> ⚠️ The server stores whatever bytes clients send in `encrypted_payload`.
-> Clients do not encrypt yet, so the operator sees plaintext. Profile writes are
-> accepted only with the owner's signature.
+> ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
+> yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
 - **Replication (target)**: messages and profiles replicated whole to 5 points, Reed-Solomon K=6/M=4 only for large media [ADR 0009](../decisions/0009-message-delivery-and-storage.md); today only a local encode/decode codec exists and each server is a single node (see [Replication](#replication-strategy-reed-solomon))
-- **Message relay**: storage with a TTL (default 24h, expired messages deleted hourly; not served yet, see [Privacy](../security/privacy.md#retention))
+- **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
-- **Rate limiting**: per-peer token bucket on profile requests (see [Rate Limiting](#rate-limiting))
+- **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
 
 ## Target Design — planned
 
-Only `/dyapp/node` `info` and `/dyapp/profile` are served today
+`/dyapp/node` `info`, `/dyapp/profile` and `/dyapp/mailbox` on a single node are served today
 ([Served protocol](#served-protocol)); the rest of this section is planned, and the sections
 after it describe today's code.
 
@@ -215,35 +214,21 @@ on request is still to be designed.
 
 ## Data Model
 
-### MessageBlob (Offline Queue)
+### Mailbox envelope
 
-```rust
-pub struct MessageBlob {
-    id: String,                    // UUID
-    sender_id: String,             // Sender's peer ID
-    recipient_id: String,          // Recipient's peer ID
-    encrypted_payload: Vec<u8>,    // opaque bytes; E2E encryption planned
-    timestamp: i64,                // Creation time
-    ttl_expires_at: i64,           // Auto-delete time
-}
+A message for one device is a `SignedRecord` signed by the sender's device key over
+`"dyapp/envelope/v1\0" || payload`, where the payload is an `Envelope`
+([schema](protobuf-schema.md#node-protocol)):
+
+```
+Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), ciphertext }
 ```
 
-**Lifecycle:**
-```
-Sender offline
-  ↓
-Store on bootstrap
-  ↓
-(planned) Replicate via erasure coding
-  ↓
-Recipient queries bootstrap
-  ↓
-Deliver message
-  ↓
-TTL expires (24h default)
-  ↓
-Auto-delete (planned: cleanup_expired is not scheduled yet)
-```
+The node stores the signed record as received, once per (mailbox, id), and never learns the
+sender's identity: the sender key only proves someone signed it (per-key quotas are planned).
+
+**Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
+(`dyapp-node` deletes expired envelopes every hour) → fetched oldest first.
 
 ### Signed profile
 
@@ -280,20 +265,31 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 Source: `rust/bootstrap/src/service.rs` (request handling), `bin/dyapp-node.rs` (the libp2p
 loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite). `dyapp-node` serves
-two libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply per
-stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
+three libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
+per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`) and `max_profile_bytes` (1 MiB); empty when the store role is off |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); empty when the store role is off |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
+| `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
+| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK`, also for a repeated (mailbox, id); `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
+| `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
+| `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored; `DENIED`; `INVALID` an id not 16 bytes |
 
-- **No mailbox yet.** `/dyapp/mailbox` and `/dyapp/mailbox-push` are not registered, so a client
-  gets an unsupported-protocol failure. Offline messages are stored by `storage.rs` but no
-  protocol serves them; the signed mailbox is planned ([Mailboxes](#mailboxes)).
-- **Profile requests are rate-limited** per remote libp2p peer ID (`RATE_LIMITED`); `info` is
-  not. A node without the store role answers `UNSUPPORTED` on `/dyapp/profile`.
+- **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
+  signing key, so a device reaches only its own mailbox. They are signed over
+  `"dyapp/mailbox-fetch/v1\0"` or `"dyapp/mailbox-ack/v1\0"` and the payload, which carries the
+  nonce from the last `challenge` on the same connection. The node takes the nonce on any fetch
+  or ack, valid or not: a replay, a nonce from another connection, a request signed for the other
+  domain or one without a challenge gets `DENIED`, and the client asks for a new challenge.
+  Nonces live in memory and go with the connection or a restart.
+- **Not yet:** `watch` is ignored (no `/dyapp/mailbox-push`), acks are not forwarded to other
+  replicas, the limits are constants rather than config, and there are no per-sender quotas
+  ([Mailboxes](#mailboxes)).
+- **Profile and mailbox requests are rate-limited** per remote libp2p peer ID (`RATE_LIMITED`);
+  `info` is not. A node without the store role answers `UNSUPPORTED` on both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
 - **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
   planned once request latency shows.
@@ -309,6 +305,8 @@ then trusts it as the owner's own claim, not as fact:
 | profile peer ID | node | derived from the signing key |
 | profile fields | owner | signature, version order, format checks above |
 | `age` | owner | nothing beyond `u32`; no minimum, so an age below 30 or 18 is stored |
+| envelope `mailbox`, `id` | sender | lengths only; any key may put into any mailbox |
+| envelope `ciphertext` | sender | size only; the recipient checks the sender inside it |
 
 - **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete
   (tombstone) a profile. A replayed old version is rejected.
@@ -326,7 +324,14 @@ test-peer sign-profile                      → {"peer_id", "record"}   (hex pro
 test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "roles", "max_profile_bytes"}
 test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
+test-peer device-key                        → {"secret", "mailbox"}
+test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
+test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
+test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
 ```
+
+`put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
+connection.
 
 It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
@@ -386,7 +391,7 @@ over-limit request gets `STATUS_RATE_LIMITED`.
 
 Scope and limits:
 
-- Every `/dyapp/profile` request (publish and get) counts against the remote libp2p peer ID;
+- Every `/dyapp/profile` and `/dyapp/mailbox` request counts against the remote libp2p peer ID;
   `/dyapp/node` `info` is not limited.
 - libp2p keys are free to generate: a client that opens connections with new keys gets new
   buckets. The limiter provides **no** Sybil resistance; per-IP-group quotas are planned.
@@ -401,16 +406,19 @@ One SQLite file per data type in the storage directory, WAL journal,
 ```
 profiles.db  profiles(peer_id PK, record BLOB, live)
              record: SignedRecord (protobuf), latest version or tombstone (live = 0)
-messages.db  messages(id PK, sender_id, recipient_id, encrypted_payload BLOB,
-                      timestamp, ttl_expires_at)
-             indexes on recipient_id and ttl_expires_at
+messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
+                       UNIQUE (mailbox, id))
+             record: the signed envelope as received; indexes on (mailbox, seq), expires_at
 ```
+
+A `messages` table left by an older version is not read; it can be dropped by hand.
+`put_envelope` sums the mailbox's `size` on each put under the store lock.
 
 Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
 `put_profile` holds a lock across read-compare-write, so two concurrent uploads for one peer cannot both win.
 
@@ -423,8 +431,8 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `limits.{message_ttl_hours,requests_per_second}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
-`/dyapp/node` and `/dyapp/profile` ([Served protocol](#served-protocol)). Only the `store` role
-is accepted.
+`/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` ([Served protocol](#served-protocol)). Only
+the `store` role is accepted.
 
 Planned: maintenance windows and budgets, resource guard limits, the media directory, TURN ports,
 store retention.
@@ -463,9 +471,10 @@ DHT node role is not implemented.
 
 ### What bootstrap could not do once client crypto exists (target)
 
-Today the operator can read and modify every stored message; no protocol serves
-messages yet, and the planned mailbox requires the device's signature. A node cannot forge or alter a profile: clients verify the owner's signature. It
-can still withhold a profile or serve an older signed version.
+Today the operator can read every stored message (no client encrypts yet). Other clients cannot
+read or delete a mailbox: that needs the device key. A node cannot forge an envelope or a
+profile, since both are signed, but it can withhold, drop or delay them, or serve an older
+signed profile version.
 
 
 ❌ Read encrypted messages
@@ -484,22 +493,26 @@ metrics as log lines and a local admin CLI, no HTTP endpoints; see the
 ## Testing
 
 Unit test coverage:
-- Message store/retrieve/expiry (`storage.rs`); peer-inbox query is tested only in integration tests
+- Envelopes once per (mailbox, id), mailbox full, fetch limits and `more`, ack, expiry (`storage.rs`)
 - Signed profile: version order, forged payload, tombstone hides and blocks older versions (`storage.rs`)
 - Rate limiting (single key, separate keys)
 - Replication codec encode/decode with a missing shard (in-process; no nodes involved)
 - Store health check (`storage.rs`)
 - Profile and node requests through `Service` (`service.rs`): publish, get, stale with the
   stored record, forged, wrong-length ID, rate limit, `info`
+- Mailbox through `Service`: put, forged and wrong-domain put, bad id, too large; fetch without
+  a challenge, with another connection's nonce, signed as an ack, replayed; another key reads
+  and acks only its own mailbox; ack and its replay
 - `ProtoCodec` round trip over TCP between two swarms (`rust/p2p-net`)
 
 Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
-- Message relay through the store (`test_bootstrap_message_relay`)
+
 
 The network test (`scripts/network-test.py`) runs two `dyapp-node` instances and drives them
 with `test-peer`: `info` over TCP and QUIC, publish over TCP and get over QUIC with identical
-bytes, `STALE` on replay, and that the nodes do not share storage. No test covers a
+bytes, `STALE` on replay; a mailbox put over TCP and fetch over QUIC, a stranger's key reads
+nothing, ack empties it; and that the nodes do not share storage. No test covers a
 multi-node cluster or
 a node failure.
 
@@ -507,7 +520,7 @@ a node failure.
 
 **Current limitations:**
 - Single-node persistence: no HA, failover or cross-node replication (the RS codec is not wired into storage or the API)
-- Offline messages are stored but not served: no mailbox protocol yet
+- Mailboxes have no push, ack forwarding or replication yet
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

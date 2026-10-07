@@ -27,13 +27,13 @@ table.
 
 Not implemented yet:
 
-- Only `dyapp-node` runs the node, serving `/dyapp/node` and `/dyapp/profile`
+- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
 - No node-ID proof of work, routing-table IP diversity filter, disjoint lookups, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay, DCUtR hole punching or DNS seeds.
-- No mailbox, signal, media or search protocols; they are designed in
+- No mailbox push, signal, media or search protocols; they are designed in
   [Bootstrap — Protocol](bootstrap.md#protocol).
 
 ## Planned

@@ -1032,6 +1032,7 @@ dependencies = [
  "dyapp-p2p-net",
  "dyapp-profile",
  "dyapp-video",
+ "getrandom 0.4.3",
  "governor",
  "libp2p",
  "proptest",

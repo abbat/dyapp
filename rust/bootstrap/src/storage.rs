@@ -2,20 +2,9 @@ use crate::error::{BootstrapError, Result};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::VerifiedProfile;
 use prost::Message;
-use rusqlite::{params, Connection, OptionalExtension, Row};
-use serde::{Deserialize, Serialize};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageBlob {
-    pub id: String,
-    pub sender_id: String,
-    pub recipient_id: String,
-    pub encrypted_payload: Vec<u8>,
-    pub timestamp: i64,
-    pub ttl_expires_at: i64,
-}
 
 /// One SQLite file per data type in the storage directory.
 // ponytail: one connection per store behind a mutex; a reader pool if reads contend.
@@ -43,20 +32,6 @@ fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
     db.lock().map_err(storage_error)
 }
 
-const MESSAGE_COLUMNS: &str =
-    "id, sender_id, recipient_id, encrypted_payload, timestamp, ttl_expires_at";
-
-fn message_row(row: &Row) -> rusqlite::Result<MessageBlob> {
-    Ok(MessageBlob {
-        id: row.get(0)?,
-        sender_id: row.get(1)?,
-        recipient_id: row.get(2)?,
-        encrypted_payload: row.get(3)?,
-        timestamp: row.get(4)?,
-        ttl_expires_at: row.get(5)?,
-    })
-}
-
 fn decode(bytes: Vec<u8>) -> Result<SignedRecord> {
     SignedRecord::decode(bytes.as_slice())
         .map_err(|e| BootstrapError::SerializationError(e.to_string()))
@@ -82,69 +57,108 @@ impl BootstrapStore {
             )?,
             messages: open(
                 messages,
-                "CREATE TABLE IF NOT EXISTS messages (
-                     id TEXT PRIMARY KEY,
-                     sender_id TEXT NOT NULL,
-                     recipient_id TEXT NOT NULL,
-                     encrypted_payload BLOB NOT NULL,
-                     timestamp INTEGER NOT NULL,
-                     ttl_expires_at INTEGER NOT NULL
+                // `seq` keeps arrival order; `size` is the stored record length.
+                "CREATE TABLE IF NOT EXISTS envelopes (
+                     seq INTEGER PRIMARY KEY,
+                     mailbox BLOB NOT NULL,
+                     id BLOB NOT NULL,
+                     record BLOB NOT NULL,
+                     size INTEGER NOT NULL,
+                     expires_at INTEGER NOT NULL,
+                     UNIQUE (mailbox, id)
                  );
-                 CREATE INDEX IF NOT EXISTS messages_recipient ON messages (recipient_id);
-                 CREATE INDEX IF NOT EXISTS messages_ttl ON messages (ttl_expires_at);",
+                 CREATE INDEX IF NOT EXISTS envelopes_mailbox ON envelopes (mailbox, seq);
+                 CREATE INDEX IF NOT EXISTS envelopes_expiry ON envelopes (expires_at);",
             )?,
         })
     }
 
-    pub fn store_message(&self, msg: MessageBlob) -> Result<()> {
-        lock(&self.messages)?
-            .execute(
-                &format!(
-                    "INSERT OR REPLACE INTO messages ({MESSAGE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?)"
-                ),
-                params![
-                    msg.id,
-                    msg.sender_id,
-                    msg.recipient_id,
-                    msg.encrypted_payload,
-                    msg.timestamp,
-                    msg.ttl_expires_at
-                ],
+    /// Stores a signed envelope once per (mailbox, id): a repeated put is a no-op and returns
+    /// true. Returns false, storing nothing, when the record would take the mailbox over
+    /// `max_mailbox_bytes`.
+    pub fn put_envelope(
+        &self,
+        mailbox: &[u8],
+        id: &[u8],
+        record: &SignedRecord,
+        expires_at: i64,
+        max_mailbox_bytes: u64,
+    ) -> Result<bool> {
+        let record = record.encode_to_vec();
+        // The connection lock serialises the size check and the insert.
+        let db = lock(&self.messages)?;
+        let stored: bool = db
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM envelopes WHERE mailbox = ? AND id = ?)",
+                params![mailbox, id],
+                |row| row.get(0),
             )
             .map_err(storage_error)?;
-        Ok(())
-    }
-
-    pub fn get_message(&self, message_id: &str) -> Result<Option<MessageBlob>> {
-        lock(&self.messages)?
+        if stored {
+            return Ok(true);
+        }
+        // ponytail: sums the mailbox on every put; keep a per-mailbox total if puts get slow.
+        let used: i64 = db
             .query_row(
-                &format!("SELECT {MESSAGE_COLUMNS} FROM messages WHERE id = ?"),
-                [message_id],
-                message_row,
+                "SELECT COALESCE(SUM(size), 0) FROM envelopes WHERE mailbox = ?",
+                [mailbox],
+                |row| row.get(0),
             )
-            .optional()
-            .map_err(storage_error)
+            .map_err(storage_error)?;
+        let size = i64::try_from(record.len()).map_err(storage_error)?;
+        if u64::try_from(used + size).map_err(storage_error)? > max_mailbox_bytes {
+            return Ok(false);
+        }
+        db.execute(
+            "INSERT INTO envelopes (mailbox, id, record, size, expires_at) VALUES (?, ?, ?, ?, ?)",
+            params![mailbox, id, record, size, expires_at],
+        )
+        .map_err(storage_error)?;
+        Ok(true)
     }
 
-    pub fn get_messages_for_peer(&self, peer_id: &str) -> Result<Vec<MessageBlob>> {
+    /// The oldest envelopes of a mailbox: at most `limit`, and no more than `max_bytes` of
+    /// records unless the first alone is larger. The flag says more are waiting.
+    pub fn fetch_envelopes(
+        &self,
+        mailbox: &[u8],
+        limit: u32,
+        max_bytes: u64,
+    ) -> Result<(Vec<SignedRecord>, bool)> {
         let db = lock(&self.messages)?;
         let mut query = db
-            .prepare(&format!(
-                "SELECT {MESSAGE_COLUMNS} FROM messages WHERE recipient_id = ? ORDER BY id"
-            ))
+            .prepare("SELECT record FROM envelopes WHERE mailbox = ? ORDER BY seq LIMIT ?")
             .map_err(storage_error)?;
-        let messages = query
-            .query_map([peer_id], message_row)
+        let rows: Vec<Vec<u8>> = query
+            .query_map(params![mailbox, limit + 1], |row| row.get(0))
             .and_then(Iterator::collect)
-            .map_err(storage_error);
-        messages
+            .map_err(storage_error)?;
+        let total = rows.len();
+        let mut bytes = 0;
+        let mut records = Vec::new();
+        for row in rows.into_iter().take(limit as usize) {
+            bytes += row.len() as u64;
+            if bytes > max_bytes && !records.is_empty() {
+                break;
+            }
+            records.push(decode(row)?);
+        }
+        let more = total > records.len();
+        Ok((records, more))
     }
 
-    pub fn delete_message(&self, message_id: &str) -> Result<()> {
-        lock(&self.messages)?
-            .execute("DELETE FROM messages WHERE id = ?", [message_id])
+    /// Deletes envelopes from a mailbox; unknown ids are ignored.
+    pub fn ack_envelopes(&self, mailbox: &[u8], ids: &[Vec<u8>]) -> Result<()> {
+        let mut db = lock(&self.messages)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        for id in ids {
+            tx.execute(
+                "DELETE FROM envelopes WHERE mailbox = ? AND id = ?",
+                params![mailbox, id],
+            )
             .map_err(storage_error)?;
-        Ok(())
+        }
+        tx.commit().map_err(storage_error)
     }
 
     /// Verifies a signed profile and stores it if it is newer than the owner's stored version.
@@ -200,7 +214,7 @@ impl BootstrapStore {
 
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
         lock(&self.messages)?
-            .execute("DELETE FROM messages WHERE ttl_expires_at <= ?", [now])
+            .execute("DELETE FROM envelopes WHERE expires_at <= ?", [now])
             .map_err(storage_error)
     }
 
@@ -227,23 +241,61 @@ mod tests {
     }
 
     #[test]
-    fn test_store_and_retrieve_message() {
+    fn envelopes_once_per_id_limits_and_expiry() {
         let store = temp_store();
-
-        let msg = MessageBlob {
-            id: "msg1".to_string(),
-            sender_id: "alice".to_string(),
-            recipient_id: "bob".to_string(),
-            encrypted_payload: vec![1, 2, 3],
-            timestamp: 1000,
-            ttl_expires_at: 2000,
+        let record = |n: u8| SignedRecord {
+            payload: vec![n; 100],
+            ..SignedRecord::default()
         };
+        let size = record(0).encode_to_vec().len() as u64;
+        let (a, b) = ([1u8; 32], [2u8; 32]);
 
-        store.store_message(msg).unwrap();
-        assert!(store.get_message("msg1").unwrap().is_some());
-        assert_eq!(store.get_messages_for_peer("bob").unwrap().len(), 1);
+        assert!(store
+            .put_envelope(&a, &[1], &record(1), 2000, 2 * size)
+            .unwrap());
+        assert!(store
+            .put_envelope(&a, &[1], &record(9), 2000, 2 * size)
+            .unwrap());
+        assert!(store
+            .put_envelope(&a, &[2], &record(2), 3000, 2 * size)
+            .unwrap());
+        // Full, but a repeated put still succeeds.
+        assert!(!store
+            .put_envelope(&a, &[3], &record(3), 2000, 2 * size)
+            .unwrap());
+        assert!(store
+            .put_envelope(&a, &[2], &record(2), 2000, 2 * size)
+            .unwrap());
+        assert!(store
+            .put_envelope(&b, &[1], &record(4), 2000, size)
+            .unwrap());
+
+        let (all, more) = store.fetch_envelopes(&a, 10, u64::MAX).unwrap();
+        assert_eq!((all, more), (vec![record(1), record(2)], false));
+        assert_eq!(
+            store.fetch_envelopes(&a, 1, u64::MAX).unwrap(),
+            (vec![record(1)], true)
+        );
+        assert_eq!(
+            store.fetch_envelopes(&a, 10, 1).unwrap(),
+            (vec![record(1)], true)
+        );
+
+        store.ack_envelopes(&a, &[vec![1], vec![7]]).unwrap();
+        assert_eq!(
+            store.fetch_envelopes(&a, 10, u64::MAX).unwrap().0,
+            vec![record(2)]
+        );
         assert_eq!(store.cleanup_expired(2000).unwrap(), 1);
-        assert!(store.get_message("msg1").unwrap().is_none());
+        assert_eq!(
+            store.fetch_envelopes(&a, 10, u64::MAX).unwrap().0,
+            vec![record(2)]
+        );
+        assert!(store
+            .fetch_envelopes(&b, 10, u64::MAX)
+            .unwrap()
+            .0
+            .is_empty());
     }
 
     #[test]

@@ -20,6 +20,7 @@ pub const KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/kad");
 pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
+pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 
 /// Largest request or reply on the wire: a profile payload of up to 1 MiB plus its signature.
 pub const MAX_MESSAGE_BYTES: u64 = 2 * 1024 * 1024;
@@ -28,6 +29,8 @@ pub type NodeBehaviour =
     request_response::Behaviour<ProtoCodec<proto::NodeRequest, proto::NodeResponse>>;
 pub type ProfileBehaviour =
     request_response::Behaviour<ProtoCodec<proto::ProfileRequest, proto::ProfileResponse>>;
+pub type MailboxBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::MailboxRequest, proto::MailboxResponse>>;
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
@@ -36,6 +39,7 @@ pub struct Behaviour {
     pub autonat: autonat::Behaviour,
     pub node: NodeBehaviour,
     pub profile: ProfileBehaviour,
+    pub mailbox: MailboxBehaviour,
 }
 
 /// One protobuf message per stream; the writer closes the stream after it.
@@ -160,7 +164,11 @@ pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behavio
                     [(NODE_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                profile: request_response::Behaviour::new([(PROFILE_PROTOCOL, support)], config),
+                profile: request_response::Behaviour::new(
+                    [(PROFILE_PROTOCOL, support.clone())],
+                    config.clone(),
+                ),
+                mailbox: request_response::Behaviour::new([(MAILBOX_PROTOCOL, support)], config),
             }
         })?
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))

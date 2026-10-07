@@ -19,12 +19,21 @@ pub enum Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Domain {
     Profile,
+    /// A mailbox envelope, signed by the sender's device key.
+    Envelope,
+    /// A mailbox fetch, signed by the mailbox's device key.
+    MailboxFetch,
+    /// A mailbox ack, signed by the mailbox's device key.
+    MailboxAck,
 }
 
 impl Domain {
     fn label(self) -> &'static [u8] {
         match self {
             Domain::Profile => b"dyapp/profile/v1\0",
+            Domain::Envelope => b"dyapp/envelope/v1\0",
+            Domain::MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
+            Domain::MailboxAck => b"dyapp/mailbox-ack/v1\0",
         }
     }
 }
@@ -54,17 +63,23 @@ impl SignedRecord {
 
 /// Hex SHA-256 of an identity public key.
 pub fn peer_id(public_key: &[u8; 32]) -> String {
-    Sha256::digest(public_key)
+    key_hash(public_key)
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+/// SHA-256 of a public key: the raw peer ID of an identity, the mailbox address of a device.
+pub fn key_hash(public_key: &[u8; 32]) -> [u8; 32] {
+    Sha256::digest(public_key).into()
 }
 
 fn signed_bytes(domain: Domain, payload: &[u8]) -> Vec<u8> {
     [domain.label(), payload].concat()
 }
 
-/// The user's identity key. It signs profiles (and later device certificates) and nothing else.
+/// An Ed25519 signing key: the user's identity key, which signs profiles (and later device
+/// certificates) and nothing else, or a device key, which signs mailbox requests.
 pub struct Identity {
     key: SigningKey,
 }

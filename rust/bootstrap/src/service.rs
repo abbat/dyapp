@@ -1,14 +1,23 @@
-//! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`) from the stores. The libp2p
-//! loop in `dyapp-node` passes each request here and sends back the reply.
+//! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`) from the
+//! stores. The libp2p loop in `dyapp-node` passes each request here and sends back the reply.
 
 use crate::{
     config::Role, rate_limit::PeerRateLimiter, BootstrapError, BootstrapStore, NodeConfig,
 };
-use dyapp_identity::SignedRecord;
+use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
-    self, node_request, profile_request, NodeInfo, NodeRequest, NodeResponse, ProfileRequest,
-    ProfileResponse, Status,
+    self, mailbox_request, node_request, profile_request, MailboxRequest, MailboxResponse,
+    NodeInfo, NodeRequest, NodeResponse, ProfileRequest, ProfileResponse, Status,
 };
+use prost::Message;
+
+/// Largest signed envelope payload a mailbox accepts.
+pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
+/// Stored bytes per device mailbox.
+pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
+/// Envelope bytes per fetch reply, well under the 2 MiB protocol message limit.
+const FETCH_BYTES: u64 = 1024 * 1024;
+const MAX_FETCH: u32 = 100;
 
 pub struct Service {
     pub store: BootstrapStore,
@@ -43,8 +52,105 @@ impl Service {
             } else {
                 0
             },
+            max_message_bytes: if store { MAX_ENVELOPE_BYTES as u64 } else { 0 },
+            max_mailbox_bytes: if store { MAX_MAILBOX_BYTES } else { 0 },
+            retention_seconds: if store { self.retention() } else { 0 },
             ..NodeInfo::default()
         }
+    }
+
+    fn retention(&self) -> u64 {
+        u64::from(self.config.limits.message_ttl_hours) * 3600
+    }
+
+    /// `nonce` is the challenge issued on this libp2p connection: `challenge` sets it and the
+    /// next `fetch` or `ack` takes it, valid or not, so a captured request cannot be replayed on
+    /// this or another connection. Errors as in [`Service::profile`].
+    pub fn mailbox(
+        &self,
+        peer: &str,
+        nonce: &mut Option<[u8; 32]>,
+        request: MailboxRequest,
+    ) -> crate::Result<MailboxResponse> {
+        if !self.config.roles.contains(&Role::Store) {
+            return Ok(status(Status::Unsupported));
+        }
+        if !self.rate_limiter.check_limit(peer) {
+            return Ok(status(Status::RateLimited));
+        }
+        match request.request {
+            Some(mailbox_request::Request::Challenge(_)) => {
+                let mut fresh = [0; 32];
+                getrandom::fill(&mut fresh)
+                    .map_err(|e| BootstrapError::ServerError(e.to_string()))?;
+                *nonce = Some(fresh);
+                Ok(MailboxResponse {
+                    nonce: fresh.to_vec(),
+                    ..status(Status::Ok)
+                })
+            }
+            Some(mailbox_request::Request::Put(record)) => self.put(&record),
+            Some(mailbox_request::Request::Fetch(record)) => {
+                let Ok((mailbox, fetch)) = owner_request::<proto::Fetch>(
+                    &record,
+                    Domain::MailboxFetch,
+                    nonce.take(),
+                    |f| &f.nonce,
+                ) else {
+                    return Ok(status(Status::Denied));
+                };
+                let limit = match fetch.limit {
+                    0 => MAX_FETCH,
+                    limit => limit.min(MAX_FETCH),
+                };
+                // ponytail: `watch` is ignored until /dyapp/mailbox-push is served.
+                let (envelopes, more) = self.store.fetch_envelopes(&mailbox, limit, FETCH_BYTES)?;
+                Ok(MailboxResponse {
+                    envelopes,
+                    more,
+                    ..status(Status::Ok)
+                })
+            }
+            Some(mailbox_request::Request::Ack(record)) => {
+                let Ok((mailbox, ack)) =
+                    owner_request::<proto::Ack>(&record, Domain::MailboxAck, nonce.take(), |a| {
+                        &a.nonce
+                    })
+                else {
+                    return Ok(status(Status::Denied));
+                };
+                if ack.ids.iter().any(|id| id.len() != 16) {
+                    return Ok(status(Status::Invalid));
+                }
+                self.store.ack_envelopes(&mailbox, &ack.ids)?;
+                Ok(status(Status::Ok))
+            }
+            None => Ok(status(Status::Unsupported)),
+        }
+    }
+
+    fn put(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
+        if record.payload.len() > MAX_ENVELOPE_BYTES {
+            return Ok(status(Status::TooLarge));
+        }
+        if record.verify(Domain::Envelope).is_err() {
+            return Ok(status(Status::Denied));
+        }
+        let Ok(envelope) = proto::Envelope::decode(record.payload.as_slice()) else {
+            return Ok(status(Status::Invalid));
+        };
+        if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
+            return Ok(status(Status::Invalid));
+        }
+        let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
+        let stored = self.store.put_envelope(
+            &envelope.mailbox,
+            &envelope.id,
+            record,
+            expires_at,
+            MAX_MAILBOX_BYTES,
+        )?;
+        Ok(status(if stored { Status::Ok } else { Status::Full }))
     }
 
     /// `peer` is the remote libp2p peer, the key for rate limiting. A storage failure is an
@@ -89,6 +195,30 @@ impl Service {
             Err(BootstrapError::Profile(_)) => Ok(reply(Status::Invalid, None)),
             Err(error) => Err(error),
         }
+    }
+}
+
+/// Checks a request signed by a mailbox's device key and carrying this connection's nonce;
+/// returns the mailbox address, the hash of the signing key, and the decoded request.
+fn owner_request<M: Message + Default>(
+    record: &SignedRecord,
+    domain: Domain,
+    expected: Option<[u8; 32]>,
+    nonce: fn(&M) -> &Vec<u8>,
+) -> Result<([u8; 32], M), ()> {
+    record.verify(domain).map_err(|_| ())?;
+    let request = M::decode(record.payload.as_slice()).map_err(|_| ())?;
+    if expected.is_none_or(|expected| nonce(&request).as_slice() != expected) {
+        return Err(());
+    }
+    let key: [u8; 32] = record.public_key.as_slice().try_into().map_err(|_| ())?;
+    Ok((dyapp_identity::key_hash(&key), request))
+}
+
+fn status(status: Status) -> MailboxResponse {
+    MailboxResponse {
+        status: status.into(),
+        ..MailboxResponse::default()
     }
 }
 
@@ -187,6 +317,153 @@ mod tests {
             status(&service.profile("p", empty).unwrap()),
             Status::Unsupported
         );
+    }
+
+    fn mailbox(
+        service: &Service,
+        nonce: &mut Option<[u8; 32]>,
+        request: mailbox_request::Request,
+    ) -> MailboxResponse {
+        let request = MailboxRequest {
+            request: Some(request),
+        };
+        service.mailbox("p", nonce, request).unwrap()
+    }
+
+    fn challenge(service: &Service, nonce: &mut Option<[u8; 32]>) -> Vec<u8> {
+        let request = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
+        mailbox(service, nonce, request).nonce
+    }
+
+    fn fetch(device: &Identity, nonce: Vec<u8>) -> mailbox_request::Request {
+        let fetch = proto::Fetch {
+            nonce,
+            ..proto::Fetch::default()
+        };
+        mailbox_request::Request::Fetch(device.sign(Domain::MailboxFetch, fetch.encode_to_vec()))
+    }
+
+    fn mailbox_status(response: &MailboxResponse) -> Status {
+        Status::try_from(response.status).unwrap()
+    }
+
+    #[test]
+    fn mailbox_put_fetch_ack_forged_and_replayed() {
+        let service = service();
+        let (device, sender, thief) = (
+            Identity::generate(),
+            Identity::generate(),
+            Identity::generate(),
+        );
+        let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
+        let envelope = |id: Vec<u8>, ciphertext| proto::Envelope {
+            id,
+            mailbox: address.clone(),
+            ciphertext,
+        };
+        let put = |envelope: proto::Envelope| {
+            mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
+        };
+        let (mut conn, mut other) = (None, None);
+
+        let signed = sender.sign(
+            Domain::Envelope,
+            envelope(vec![7; 16], vec![1]).encode_to_vec(),
+        );
+        let response = mailbox(
+            &service,
+            &mut conn,
+            mailbox_request::Request::Put(signed.clone()),
+        );
+        assert_eq!(mailbox_status(&response), Status::Ok);
+        let mut forged = signed.clone();
+        forged.payload.push(0);
+        let response = mailbox(&service, &mut conn, mailbox_request::Request::Put(forged));
+        assert_eq!(mailbox_status(&response), Status::Denied);
+        let wrong_domain = sender.sign(Domain::Profile, signed.payload.clone());
+        let response = mailbox(
+            &service,
+            &mut conn,
+            mailbox_request::Request::Put(wrong_domain),
+        );
+        assert_eq!(mailbox_status(&response), Status::Denied);
+        let response = mailbox(&service, &mut conn, put(envelope(vec![7; 5], vec![1])));
+        assert_eq!(mailbox_status(&response), Status::Invalid);
+        let large = envelope(vec![8; 16], vec![0; MAX_ENVELOPE_BYTES]);
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, put(large))),
+            Status::TooLarge
+        );
+
+        // No challenge yet, then a nonce issued on another connection.
+        let response = mailbox(&service, &mut conn, fetch(&device, vec![0; 32]));
+        assert_eq!(mailbox_status(&response), Status::Denied);
+        let foreign = challenge(&service, &mut other);
+        let response = mailbox(&service, &mut conn, fetch(&device, foreign));
+        assert_eq!(mailbox_status(&response), Status::Denied);
+
+        // A fetch signed as an ack, then the real fetch and its replay.
+        let nonce = challenge(&service, &mut conn);
+        let ack_signed = proto::Fetch {
+            nonce: nonce.clone(),
+            ..proto::Fetch::default()
+        };
+        let cross = device.sign(Domain::MailboxAck, ack_signed.encode_to_vec());
+        let response = mailbox(&service, &mut conn, mailbox_request::Request::Fetch(cross));
+        assert_eq!(mailbox_status(&response), Status::Denied);
+        let nonce = challenge(&service, &mut conn);
+        let request = fetch(&device, nonce);
+        let response = mailbox(&service, &mut conn, request.clone());
+        assert_eq!(
+            (mailbox_status(&response), response.envelopes, response.more),
+            (Status::Ok, vec![signed], false)
+        );
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, request)),
+            Status::Denied
+        );
+
+        // Another key reads and acks only its own, empty mailbox.
+        let nonce = challenge(&service, &mut conn);
+        let response = mailbox(&service, &mut conn, fetch(&thief, nonce));
+        assert_eq!(
+            (mailbox_status(&response), response.envelopes.len()),
+            (Status::Ok, 0)
+        );
+        let ack = |key: &Identity, nonce| {
+            let ack = proto::Ack {
+                nonce,
+                ids: vec![vec![7; 16]],
+            };
+            mailbox_request::Request::Ack(key.sign(Domain::MailboxAck, ack.encode_to_vec()))
+        };
+        let nonce = challenge(&service, &mut conn);
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, ack(&thief, nonce))),
+            Status::Ok
+        );
+        let nonce = challenge(&service, &mut conn);
+        assert_eq!(
+            mailbox(&service, &mut conn, fetch(&device, nonce))
+                .envelopes
+                .len(),
+            1
+        );
+
+        let nonce = challenge(&service, &mut conn);
+        let request = ack(&device, nonce);
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, request.clone())),
+            Status::Ok
+        );
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, request)),
+            Status::Denied
+        );
+        let nonce = challenge(&service, &mut conn);
+        assert!(mailbox(&service, &mut conn, fetch(&device, nonce))
+            .envelopes
+            .is_empty());
     }
 
     #[test]

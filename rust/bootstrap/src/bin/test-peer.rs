@@ -4,11 +4,18 @@
 //! - `test-peer sign-profile`: `{"peer_id", "record"}`, a freshly signed profile as hex protobuf;
 //! - `test-peer info <multiaddr>`: `{"status", "roles", "max_profile_bytes"}`;
 //! - `test-peer publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
-//! - `test-peer get <multiaddr> <peer_id hex>`: `{"status", "record"}`.
+//! - `test-peer get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
+//! - `test-peer device-key`: `{"secret", "mailbox"}`, a fresh device key and its mailbox address;
+//! - `test-peer put <multiaddr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
+//!   signed by a fresh sender key;
+//! - `test-peer fetch <multiaddr> <secret hex>`: `{"status", "ids", "more"}`;
+//! - `test-peer ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`.
+//!
+//! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
 use anyhow::{anyhow, bail, Context};
-use dyapp_identity::Identity;
-use dyapp_p2p_net::proto::{self, node_request, profile_request, Status};
+use dyapp_identity::{Domain, Identity};
+use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
 use dyapp_p2p_net::{build_swarm, Behaviour, BehaviourEvent, Mode};
 use dyapp_profile::Profile;
 use libp2p::futures::StreamExt;
@@ -30,7 +37,11 @@ async fn main() -> anyhow::Result<()> {
         ["info", addr] => timeout(info(addr)).await?,
         ["publish", addr, record] => timeout(publish(addr, record)).await?,
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id>"),
+        ["device-key"] => device_key(),
+        ["put", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext)).await?,
+        ["fetch", addr, secret] => timeout(fetch(addr, secret)).await?,
+        ["ack", addr, secret, ids @ ..] => timeout(ack(addr, secret, ids)).await?,
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>..."),
     };
     println!("{output}");
     Ok(())
@@ -107,6 +118,86 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
         output["record"] = hex(&record.encode_to_vec()).into();
     }
     Ok(output)
+}
+
+fn device_key() -> Value {
+    let device = Identity::generate();
+    let mailbox = dyapp_identity::key_hash(&device.public_key());
+    json!({ "secret": hex(&device.secret()), "mailbox": hex(&mailbox) })
+}
+
+async fn put(addr: &str, mailbox: &str, ciphertext: &str) -> anyhow::Result<Value> {
+    let mut id = [0u8; 16];
+    getrandom::fill(&mut id).map_err(|e| anyhow!("random id: {e}"))?;
+    let envelope = proto::Envelope {
+        id: id.to_vec(),
+        mailbox: unhex(mailbox)?,
+        ciphertext: unhex(ciphertext)?,
+    };
+    let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    let (mut swarm, peer) = connect(addr).await?;
+    let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Put(record)).await?;
+    Ok(json!({ "status": status(response.status), "id": hex(&id) }))
+}
+
+async fn fetch(addr: &str, secret: &str) -> anyhow::Result<Value> {
+    let (mut swarm, peer, device, nonce) = challenged(addr, secret).await?;
+    let fetch = proto::Fetch {
+        nonce,
+        ..proto::Fetch::default()
+    };
+    let record = device.sign(Domain::MailboxFetch, fetch.encode_to_vec());
+    let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Fetch(record)).await?;
+    let ids = response
+        .envelopes
+        .iter()
+        .map(|record| Ok(hex(&proto::Envelope::decode(record.payload.as_slice())?.id)))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(json!({ "status": status(response.status), "ids": ids, "more": response.more }))
+}
+
+async fn ack(addr: &str, secret: &str, ids: &[&str]) -> anyhow::Result<Value> {
+    let ids = ids
+        .iter()
+        .map(|id| unhex(id))
+        .collect::<anyhow::Result<_>>()?;
+    let (mut swarm, peer, device, nonce) = challenged(addr, secret).await?;
+    let record = device.sign(
+        Domain::MailboxAck,
+        proto::Ack { nonce, ids }.encode_to_vec(),
+    );
+    let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Ack(record)).await?;
+    Ok(json!({ "status": status(response.status) }))
+}
+
+/// Connects and gets a challenge nonce for the device key `secret` on that connection.
+async fn challenged(
+    addr: &str,
+    secret: &str,
+) -> anyhow::Result<(Swarm<Behaviour>, PeerId, Identity, Vec<u8>)> {
+    let secret: [u8; 32] = unhex(secret)?
+        .try_into()
+        .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+    let (mut swarm, peer) = connect(addr).await?;
+    let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
+    let response = mailbox_call(&mut swarm, peer, challenge).await?;
+    Ok((swarm, peer, Identity::from_secret(&secret), response.nonce))
+}
+
+async fn mailbox_call(
+    swarm: &mut Swarm<Behaviour>,
+    peer: PeerId,
+    request: mailbox_request::Request,
+) -> anyhow::Result<proto::MailboxResponse> {
+    let request = proto::MailboxRequest {
+        request: Some(request),
+    };
+    swarm.behaviour_mut().mailbox.send_request(&peer, request);
+    wait(swarm, |event| match event {
+        BehaviourEvent::Mailbox(event) => reply(event),
+        _ => None,
+    })
+    .await
 }
 
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
