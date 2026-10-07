@@ -18,8 +18,8 @@ Neither, yet. Choosing one is open work.
 | `proto/core_messages.proto` | `dyapp.core` | `MessageEnvelope`, `Profile`, `QueuedMessage`, `CRDTDocument`, `ProfileQuery`, `FilterClause`, `ProfileQueryResult`, `EncryptedProfile` | nothing |
 | `proto/messages.proto` | `dyapp` | `UserProfile`, `ChatMessage`, `SyncRequest`, `SyncResponse`, `PeerAnnouncement`, `TurnRequest`, `MatchEvent` | `scripts/regenerate-proto.sh` (not wired into any build) |
 
-`rust/identity` and `rust/profile` use `prost` derive macros directly; no crate has a `build.rs`
-or code generated from `proto/`. `prost` in `rust/messaging` is declared but unused.
+`rust/identity` and `rust/profile` use `prost` derive macros directly, and `rust/bootstrap` encodes
+and decodes their types; no crate has a `build.rs` or code generated from `proto/`.
 
 The two schemas model the same concepts differently:
 

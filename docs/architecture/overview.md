@@ -49,7 +49,7 @@ WebRTC signaling channel.
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Bare Tauri shell with a `ui_test_result` command |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
-| Protobuf schemas | `proto/` | planned | Schema files only; no `build.rs` compiles them. `messaging` declares a `prost` dependency but does not use generated code; no gRPC/tonic |
+| Protobuf schemas | `proto/` | planned | Schema files only; no `build.rs` compiles them. `identity` and `profile` define their `prost` types by hand; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:
 
