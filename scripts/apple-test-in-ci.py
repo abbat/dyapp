@@ -43,12 +43,13 @@ def main():
             raise RuntimeError(
                 "No available iPhone simulator; required suite cannot skip")
         device = sorted(candidates, key=lambda item: item["name"])[0]
-        destination = f"platform=iOS Simulator,id={device['udid']}"
+        destination = (f"platform=iOS Simulator,id={device['udid']},"
+                       f"arch={os.uname().machine}")
     else:
         run(common + ["-destination", "generic/platform=macOS",
                       "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "build"],
             reports / "universal-build.log")
-        destination = "platform=macOS"
+        destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
     run(common + ["-destination", destination,
                   "-parallel-testing-enabled", "NO",

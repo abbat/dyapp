@@ -17,7 +17,6 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
-    "Unicode-DFS-2016",
     # Approved after checking packaged licenses: foldhash, ICU4X/unicode-ident,
     # webpki-root-certs, and noise-protocol (manifest plus README).
     "Zlib",

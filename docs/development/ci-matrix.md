@@ -60,7 +60,7 @@ These are separate workflows, not part of `ci.yml`.
 | Workflow | Triggers | Jobs | Notes |
 |----------|----------|------|-------|
 | `codeql.yml` (codeql) | **disabled**: manual `workflow_dispatch` only, because code scanning is unavailable for this private repository; the push / PR / weekly Sat 00:00 UTC triggers are commented out and planned to return | **analyze - cpp** (autobuild); **analyze - rust** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
-| `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`cargo audit`, prebuilt cargo-audit 0.22.2 from `taiki-e/install-action`; fails on vulnerabilities, prints unsound/unmaintained warnings); **sbom** (`cargo install --locked cargo-sbom`, SPDX 2.3 JSON, artifact `sbom`) | Online, floating `stable`; separate from the `cargo deny` step in ci-base. |
+| `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`cargo audit`, prebuilt cargo-audit 0.22.2 from `taiki-e/install-action`; fails on vulnerabilities, prints unsound/unmaintained warnings); **sbom** (prebuilt cargo-sbom 0.10.0 release binary, checked by sha256; SPDX 2.3 JSON, artifact `sbom`) | Online, toolchain from `rust-toolchain.toml`; separate from the `cargo deny` step in ci-base. |
 | `python-lint.yml` (python) | push/PR on any branch touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
 
 ## Required checks

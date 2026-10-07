@@ -25,10 +25,10 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: initialize
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
         queries: security-and-quality
@@ -38,10 +38,10 @@ jobs:
     # autobuild attempts to build any compiled languages (c/c++, c#, go, java, or swift).
     # if this step fails, then you should remove it and run the build manually
     - name: autobuild
-      uses: github/codeql-action/autobuild@v3
+      uses: github/codeql-action/autobuild@v4
 
     - name: analyze
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:cpp"
 
@@ -55,7 +55,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: toolchain
       uses: dtolnay/rust-toolchain@stable

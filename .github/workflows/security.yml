@@ -13,7 +13,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Prebuilt binary: audit-check compiled cargo-audit on every run.
       - uses: taiki-e/install-action@v2
         with:
@@ -24,11 +24,15 @@ jobs:
     name: sbom
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install --locked cargo-sbom
+      - uses: actions/checkout@v7
+      # Prebuilt release binary, pinned by checksum; the toolchain comes from rust-toolchain.toml.
+      - name: install cargo-sbom
+        run: |
+          curl -fsSLo "$HOME/.cargo/bin/cargo-sbom" https://github.com/psastras/sbom-rs/releases/download/cargo-sbom-v0.10.0/cargo-sbom-x86_64-unknown-linux-gnu
+          echo "860a50d3e009c72fefc12506869cc11ea34d240c65da65cda2c491ed2aaa34f3  $HOME/.cargo/bin/cargo-sbom" | sha256sum -c
+          chmod +x "$HOME/.cargo/bin/cargo-sbom"
       - run: cargo sbom --output-format spdx_json_2_3 > sbom.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom
           path: sbom.json
