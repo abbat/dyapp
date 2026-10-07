@@ -20,8 +20,8 @@ repository = "https://github.com/abbat/dyapp"
 rust-version = "1.99"
 
 [workspace.dependencies]
-prost = "0.12"
-prost-build = "0.12"
+prost = "0.14"
+prost-build = "0.14"
 
 [profile.release]
 opt-level = 3
