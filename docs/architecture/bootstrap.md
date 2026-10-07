@@ -64,6 +64,45 @@ the DHT in client mode: they store nothing and answer no DHT queries.
 Kademlia gives every node an equal share of keys; a share weighted by the node's capacity is
 still to be designed.
 
+### Protocol
+
+One libp2p request-response protocol per service, protobuf requests and replies, schemas in
+`proto/`. Each request is a `oneof`; a node that gets a variant it does not know answers
+`unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
+`stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`.
+
+| Protocol | Role | Requests |
+|----------|------|----------|
+| `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
+| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)` |
+| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)` |
+| `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
+| `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
+| `/dyapp/media` | media | `put(hash, chunk)`, `get(hash, range)`, `downloaded(hash)` |
+| `/dyapp/search` | search | `query(conditions, limit)` → profiles in random order and the conditions applied |
+| `/dyapp/inventory` | store, media, search | `have(list)` → `need(list)`, for repair and search catch-up |
+| `/dyapp/turn` | TURN | `credentials` → short-lived username, password and URLs |
+
+Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
+heartbeats ([Search](#search)). Media and other large payloads go in chunks below the node's
+request size limit.
+
+**Authorisation.** The Noise peer ID is a transport key, never an identity
+([ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md)), so anything that acts
+on an identity's data carries a signature by a key of that identity:
+
+| Request | Signed by | Checked against |
+|---------|-----------|-----------------|
+| `profile.publish` | owner identity key, over the record | the key in the record |
+| `mailbox.fetch`, `mailbox.ack`, `signal.fetch`, `signal.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
+| `mailbox.put`, `signal.put` | sender's device key, over the envelope | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
+| `media.put`, `media.downloaded` | owner (or recipient) device key, over the hash | per-user media quota |
+| `search.query`, `turn.credentials`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
+
+An ack is signed by the device, so a node forwards it verbatim and the other replicas verify it
+themselves; no node trusts another node. Requests other than fetch and ack are idempotent (the
+same id or hash stores once), so replays need no nonce.
+
 ### Replication and repair
 
 Profiles, mailbox messages and signals are replicated whole to R = 5 points, replica *i* on the
@@ -131,7 +170,7 @@ repaired and expires with the TTL.
 
 ### Storage on a node
 
-- One SQLite file per data type: `profiles.db`, `profile-index.db` (disposable, rebuilt),
+- One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profile-index.db` (disposable, rebuilt),
   `messages.db`, `likes.db`, `views.db` and one more per new signal type; `admin.db` for operator
   settings. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary

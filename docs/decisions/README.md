@@ -32,5 +32,6 @@ docs are covered in [documentation.md](../development/documentation.md).
 | [0012](0012-private-p2p-interactions.md) | Interactions between users are private P2P signals |
 | [0013](0013-video-calls-one-to-one.md) | One-to-one video calls over libwebrtc, always end-to-end |
 | [0014](0014-libp2p-only-node-protocol.md) | Clients and nodes talk over libp2p only |
+| [0015](0015-sqlite-node-storage.md) | SQLite for bootstrap node storage |
 
 All listed ADRs are accepted.
