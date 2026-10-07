@@ -10,8 +10,8 @@
 |------|-------|
 | `proto/core_messages.proto` (`dyapp.core`) | Draft schema. Referenced by nothing. |
 | `proto/messages.proto` (`dyapp`) | Draft schema. Only referenced by `scripts/regenerate-proto.sh`. |
-| `prost` in `rust/identity`, `rust/profile` | Used through `#[derive(prost::Message)]` structs written by hand; no `build.rs`, nothing generated from `proto/`. |
-| `prost` in `rust/messaging` | Declared, unused. `prost-build` is only in `[workspace.dependencies]`. |
+| `prost` in `rust/identity`, `rust/profile`, `rust/bootstrap` | Used through `#[derive(prost::Message)]` structs written by hand; no `build.rs`, nothing generated from `proto/`. |
+| `prost-build` | Only in `[workspace.dependencies]`, for the planned build-time generation below. |
 | `protoc` | Installed in the dev image (`protobuf-compiler` in `docker/Dockerfile.dev`); not used by any target. |
 | `src/generated/`, `ios/Generated/`, `android/.../generated/`, `.proto-checksums` | Do not exist. |
 | CI proto validation | None. No workflow regenerates or diffs protobuf output. |
