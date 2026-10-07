@@ -22,7 +22,7 @@ Source: `rust/bootstrap/src/api.rs`, `rust/bootstrap/src/storage.rs`,
 
 | Data | Who sees it today | Protection today | Retention today | Target protection | Residual risk even in target |
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
-| Message body (`encrypted_payload`) | Operator, any client (`GET /messages/peer/:id`), network | None (plaintext; crypto stub) | Until deleted by anyone; TTL not enforced | E2E AEAD, only recipient decrypts | Size and timing |
+| Message body (`encrypted_payload`) | Operator, any client (`GET /messages/peer/{id}`), network | None (plaintext; crypto stub) | Until deleted by anyone; TTL not enforced | E2E AEAD, only recipient decrypts | Size and timing |
 | `sender_id`, `recipient_id`, message `timestamp` | Operator, any client, network | None | Same as body | TLS to bootstrap; access control on reads | Operator always learns who messages whom and when (routing metadata) |
 | Profile fields (age, country, location, income, kids, goals, orientation, interests, …) | Operator, any client (`GET /profiles`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone; the tombstone is kept forever | Same; location precision chosen by the user, or off (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |

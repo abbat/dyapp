@@ -129,7 +129,7 @@ library types in-process, without any network.
    stamps it with a hybrid logical clock and encrypts the body (`messaging`).
 2. If the recipient is reachable, the message is sent over QUIC (`p2p-net`).
 3. Otherwise it is stored on bootstrap nodes and fetched later by the
-   recipient; today that is `POST /messages` / `GET /messages/peer/:peer_id`.
+   recipient; today that is `POST /messages` / `GET /messages/peer/{peer_id}`.
 4. The recipient acknowledges; the sender retries from its offline queue
    until then. Delivery is best effort: an LRU-evicted message is lost unless
    the sender retries.

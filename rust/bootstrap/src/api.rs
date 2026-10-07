@@ -60,12 +60,12 @@ impl BootstrapServer {
             .route("/health", get(health_check))
             .route("/messages", post(store_message))
             .route(
-                "/messages/:message_id",
+                "/messages/{message_id}",
                 get(get_message).delete(delete_message),
             )
-            .route("/messages/peer/:peer_id", get(get_peer_messages))
+            .route("/messages/peer/{peer_id}", get(get_peer_messages))
             .route("/profiles", post(store_profile).get(list_profiles))
-            .route("/profiles/:peer_id", get(get_profile))
+            .route("/profiles/{peer_id}", get(get_profile))
             .with_state(state)
             .layer(CorsLayer::permissive())
     }
