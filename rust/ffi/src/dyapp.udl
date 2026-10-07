@@ -1,2 +1,2 @@
-// Rust proc macros define the interface; this namespace supplies the 0.24 scaffold.
+// Rust proc macros define the interface; this namespace supplies the UDL scaffold.
 namespace dyapp {};

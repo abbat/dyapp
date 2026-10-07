@@ -1,10 +1,13 @@
 name: codeql
 
+# Disabled: code scanning is unavailable for this private repository.
+# Uncomment the triggers once it is enabled.
 on:
-  push:
-  pull_request:
-  schedule:
-    - cron: '0 0 * * 6'
+  workflow_dispatch:
+#  push:
+#  pull_request:
+#  schedule:
+#    - cron: '0 0 * * 6'
 
 jobs:
   analyze:

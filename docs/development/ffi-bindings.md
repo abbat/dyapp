@@ -27,9 +27,9 @@ The workspace has **no `uniffi-bindgen` binary target**, so
 `cargo run --bin uniffi-bindgen …` (used by `tools/build-scripts/build-uniffi.sh`)
 fails. The `cli` feature only provides
 `uniffi::uniffi_bindgen_main()`; a binary must call it. The version must match
-the crate's UniFFI (0.24.3).
+the crate's UniFFI (0.32; the check below was done with 0.24.3, before the upgrade).
 
-The 0.24.3 generator supports `--language kotlin | swift | python | ruby`.
+The 0.24.3 generator supported `--language kotlin | swift | python | ruby`.
 There is **no `c` language** and no `--check` flag.
 
 ### Reproduction used to check this page

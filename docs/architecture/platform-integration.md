@@ -10,7 +10,7 @@ All platforms use **UniFFI-generated FFI bindings** from the Rust core. Each pla
 
 The exported surface, error model, ownership and threading are defined in
 [FFI Contract](ffi-design.md). Today no platform links the Rust library, and no
-Swift/Kotlin bindings can be generated (UniFFI 0.24.3 rejects the
+Swift/Kotlin bindings can be generated (UniFFI 0.24.3 rejected the
 `Result<T, String>` errors). No wrapper code exists.
 
 The code samples and directory trees below show the **target** wrapper API and

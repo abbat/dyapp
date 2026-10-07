@@ -99,7 +99,7 @@ impl VideoSession {
         let _pc = self.peer_connection.read().await;
         let _pc = _pc.as_ref().ok_or(VideoError::SessionNotInitialized)?;
 
-        // WebRTC 0.9 - RTCSessionDescription has private fields
+        // webrtc 0.17 - RTCSessionDescription has private fields
         // Store remote SDP locally; actual peer connection integration
         // requires using the appropriate constructor method from webrtc crate
 
@@ -115,7 +115,7 @@ impl VideoSession {
         let _pc = self.peer_connection.read().await;
         let _pc = _pc.as_ref().ok_or(VideoError::SessionNotInitialized)?;
 
-        // WebRTC 0.9 - simplified ICE candidate handling
+        // webrtc 0.17 - simplified ICE candidate handling
         // Store candidate locally; actual peer connection integration
         // depends on webrtc crate's exact ice_candidate_init module API
 

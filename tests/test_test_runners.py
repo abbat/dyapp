@@ -130,7 +130,8 @@ class Runners(unittest.TestCase):
                 for call in builds:
                     command = call.args[0]
                     self.assertEqual(command[:2], ["docker", "build"])
-                    for flag, value in (("--cpu-quota", "400000"),
+                    quota = str(runner.CPUS * 100000)
+                    for flag, value in (("--cpu-quota", quota),
                                         ("--cpu-period", "100000")):
                         self.assertEqual(command[command.index(flag) + 1],
                                          value)

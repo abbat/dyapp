@@ -177,9 +177,9 @@ pub struct UserProfile {
     pub verified: bool,
 }
 
-// UniFFI 0.24 generates a doc-comment gap rejected by newer Clippy.
+// Generated UniFFI scaffolding: a doc-comment gap and large metadata const arrays.
 mod scaffolding {
-    #![allow(clippy::empty_line_after_doc_comments)]
+    #![allow(clippy::empty_line_after_doc_comments, clippy::large_const_arrays)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.uniffi.rs"));
 }
 pub use scaffolding::*;

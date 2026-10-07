@@ -2,14 +2,16 @@
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary. Everything here was checked against `rust/ffi/src/lib.rs` and a build
-> of `dyapp-ffi` (UniFFI 0.24.3) on 2026-10-06. **No Swift or Kotlin
+> of `dyapp-ffi` (UniFFI 0.24.3) on 2026-10-06; the crate has since moved to UniFFI 0.32
+> (2026-10-07, to drop unmaintained `bincode`/`paste`) and binding generation was not
+> re-checked. **No Swift or Kotlin
 > bindings can currently be generated** — see [Error model](#error-model).
 
 ## Which source is the contract
 
 | Source | Status |
 |--------|--------|
-| `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for 0.24 scaffolding. |
+| `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
 | `ios/DYApp/RustBridge.swift` | `initialize()`/`shutdown()` are empty `TODO`s. |
 
 No platform app links the Rust library today.
@@ -60,7 +62,7 @@ Every fallible export returns `Result<T, String>`; errors are free-form text
 internal video error).
 
 **This blocks binding generation.** The Rust scaffolding compiles, but
-`uniffi-bindgen` 0.24.3 rejects the interface:
+`uniffi-bindgen` 0.24.3 rejected the interface (not re-checked with 0.32):
 
 ```text
 panicked at uniffi_bindgen-0.24.3/src/interface/function.rs:162:18:

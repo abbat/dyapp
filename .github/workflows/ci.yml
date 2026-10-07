@@ -23,6 +23,10 @@ jobs:
       DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@v4
+      # buildx keeps its own copy of each image before --load: free ~25 GB of
+      # preinstalled SDKs the runner never uses here.
+      - name: free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
       - uses: docker/setup-buildx-action@v3
       - uses: crazy-max/ghaction-github-runtime@v3
       - name: test
