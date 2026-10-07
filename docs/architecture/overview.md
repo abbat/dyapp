@@ -27,7 +27,7 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
    ├──► rust/p2p-net    (quinn types; transport is a stub)
    └──► rust/video      (webrtc) ──► rust/messaging
 
- rust/bootstrap  (axum REST + RocksDB, separate server process)
+ rust/bootstrap  (axum REST + SQLite, separate server process)
    └──► identity, profile   (Cargo dependencies; tests also use messaging, p2p-net, video)
 ```
 
@@ -43,7 +43,7 @@ WebRTC signaling channel.
 | P2P networking | `rust/p2p-net/src/` | stub | Peer bookkeeping (`peer.rs`, `connection.rs`); QUIC bind/connect/listen in `transport.rs` and `query_bootstrap` in `discovery.rs` are `TODO` |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
-| Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), RocksDB storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
+| Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | The only binary in the workspace |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
@@ -57,7 +57,7 @@ Distinctions that matter when reading the other docs:
   list of peers and bootstrap addresses. There is no discovery protocol (no
   DHT, no mDNS) and the bootstrap query is a stub.
 - **REST bootstrap vs DHT.** The bootstrap server is a single REST service over
-  RocksDB. It is not a DHT node and does not participate in routing.
+  SQLite. It is not a DHT node and does not participate in routing.
 - **WebRTC media vs QUIC messaging.** Video uses the `webrtc` crate (its own
   ICE/DTLS/SRTP stack); messaging is meant to run over QUIC (`quinn`). They are
   separate transports and share no connection.
@@ -78,7 +78,7 @@ Everything in this section is design intent, not code.
         │
         │ HTTPS REST (store-and-forward, profile directory)
         ▼
- bootstrap servers (axum + RocksDB)
+ bootstrap servers (axum + SQLite)
 ```
 
 Decided (see the [ADRs](../decisions/README.md)):
@@ -136,7 +136,7 @@ library types in-process, without any network.
 
 ## Fault tolerance
 
-- **Today:** a single bootstrap process with local RocksDB. No replication
+- **Today:** a single bootstrap process with local SQLite. No replication
   between servers, no retries, no TTL cleanup job.
 - **Target:** acknowledgements, sender-side retries and store-and-forward via
   bootstrap nodes ([ADR 0009](../decisions/0009-message-delivery-and-storage.md));

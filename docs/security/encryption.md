@@ -20,7 +20,7 @@ here instead of repeating guarantees.
 | Key generation (FFI) | `rust/ffi/src/lib.rs` `generate_keypair` | Returns the strings `"placeholder"` |
 | P2P transport | `rust/p2p-net/src/transport.rs` `QuicTransport` | `bind`/`connect`/`listen` are TODO no-ops; no QUIC/TLS session exists |
 | Bootstrap API | `rust/bootstrap/src/api.rs` | Plain HTTP, permissive CORS; message routes have no authentication and trust `sender_id` as sent; profile writes need the owner's signature |
-| Bootstrap storage | `rust/bootstrap/src/storage.rs` | RocksDB; messages as JSON exactly as received, profiles as the signed protobuf record |
+| Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; messages as received, profiles as the signed protobuf record |
 
 `EncryptionConfig::default_secure()` only sets strings such as
 `"ChaCha20-Poly1305"`; nothing reads them to select an algorithm. The
@@ -41,7 +41,7 @@ What an attacker can do today, by layer:
 | Transport (client ↔ bootstrap, peer ↔ peer) | Confidentiality and integrity in transit | None: plaintext HTTP; QUIC not implemented |
 | Payload (message / frame) | Only the recipient can read; sender authenticity | None: payload is plaintext, signatures are not checked |
 | Profile | Only the owner can publish or change it | Signed by the owner's identity key; a node can still withhold it or serve an older signed version |
-| Storage (bootstrap RocksDB) | Operator cannot read content | None: operator reads everything |
+| Storage (bootstrap SQLite) | Operator cannot read content | None: operator reads everything |
 | Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Messages: none, any client can write or delete any message |
 | Metadata | Hide who talks to whom and when | None: sender, recipient and timestamps are visible to bootstrap and network ([field table](privacy.md)) |
 

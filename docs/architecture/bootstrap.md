@@ -35,6 +35,10 @@ Nothing in this section is implemented; the sections after it describe today's c
 - **Nothing is kept forever.** Every store is a cache: the operator sets a retention TTL
   (default 30 days, tombstones included) and may delete any data at any time. A user who comes
   online again restores their data. No backups: a rebuilt node joins empty.
+- **Design changes never stop service.** Nodes upgrade one at a time and old and new versions
+  serve side by side. A changed store or index format is built next to the old one, in the
+  background under the I/O budget, while the old one keeps answering; the node switches when the
+  new one is ready and then deletes the old one.
 - **Clients write, nodes store.** A client writes every replica or shard itself; nodes do not
   fan out writes for others.
 - **Nodes see metadata, not content.** Messages, likes, views and every other signal are
@@ -103,8 +107,9 @@ repaired and expires with the TTL.
   requesting key (node setting); scraping public profiles is accepted.
 - **Schema without migrations.** Hot fields live in a typed table; other attributes are indexed
   as (attr_id, int64 value) pairs, at most N per profile, one value per attr_id, attr_id in a
-  bounded range, or the profile is rejected. The index has a version; on a bump the node drops
-  and rebuilds it from the stored payloads. A node skips conditions it does not understand,
+  bounded range, or the profile is rejected. The index has a version; on a bump the node builds
+  the new index from the stored payloads next to the old one, keeps answering from the old one
+  and switches when the new one is ready. A node skips conditions it does not understand,
   returns a superset and lists the conditions it applied; the client filters the rest. `place`
   matches exactly within the country.
 
@@ -227,7 +232,7 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## REST API
 
-Source: `rust/bootstrap/src/api.rs` (routes), `storage.rs` (RocksDB),
+Source: `rust/bootstrap/src/api.rs` (routes), `storage.rs` (SQLite),
 `error.rs` (error mapping). Behaviour below was checked against a running
 `test-peer` in the `dyapp:network-test` container.
 
@@ -377,18 +382,20 @@ Scope and limits (verified with `test-peer`, `n = 100`):
 
 ## Storage
 
-RocksDB key-value store:
+One SQLite file per data type in the storage directory, WAL journal,
+`auto_vacuum = INCREMENTAL` (nothing runs `incremental_vacuum` yet):
 
 ```
-Keys:
-  msg:{message_id}      → MessageBlob (JSON)
-  profile:{peer_id}     → SignedRecord (protobuf), latest version or tombstone
-  health:{uuid}         → temporary (health checks)
-
-Iteration:
-  Prefix: msg:          → all messages
-  Prefix: profile:      → all profiles and tombstones
+profiles.db  profiles(peer_id PK, record BLOB, live)
+             record: SignedRecord (protobuf), latest version or tombstone (live = 0)
+messages.db  messages(id PK, sender_id, recipient_id, encrypted_payload BLOB,
+                      timestamp, ttl_expires_at)
+             indexes on recipient_id and ttl_expires_at
 ```
+
+Each file has one connection behind a mutex. There is no schema version and no
+format change path yet; the target builds a new format next to the old one
+([Principles](#principles)).
 
 **Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages, but nothing calls it outside tests, so messages are kept until explicitly deleted. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
@@ -456,7 +463,7 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Monitoring & Metrics
 
-Only `GET /health` exists (RocksDB write/delete probe). Planned: metrics as log
+Only `GET /health` exists (SQLite write-lock probe). Planned: metrics as log
 lines and a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 

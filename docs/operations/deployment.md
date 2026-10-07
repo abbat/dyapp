@@ -115,7 +115,7 @@ the host's responsibility, and none of them is implemented today.
 ### Development quick start (`test-peer`)
 
 `test-peer` hard-codes its settings: it binds `0.0.0.0:7070` and stores
-RocksDB data in `/tmp/ai/bootstrap`. It ignores `listen_addr` / `listen_port`
+its SQLite files in `/tmp/ai/bootstrap`. It ignores `listen_addr` / `listen_port`
 and takes no arguments. Use it for local development only.
 
 **In Docker (no host Rust toolchain needed).** The network-test image builds
@@ -143,8 +143,8 @@ curl http://localhost:7070/health
 # → {"status":"healthy","timestamp":<unix seconds>}
 ```
 
-Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C/C++ toolchain for
-RocksDB, or Docker for the containerised path.
+Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C compiler for the
+bundled SQLite, or Docker for the containerised path.
 
 ### Multi-node cluster (planned)
 
@@ -171,7 +171,7 @@ built-in list of bootstrap URLs plus a user-editable setting.
 ### Health check (exists)
 
 `GET /health` is the only operational endpoint (`rust/bootstrap/src/api.rs`).
-It runs `BootstrapStore::health_check` (writes and deletes a temporary `health:<uuid>` key in RocksDB) and returns:
+It runs `BootstrapStore::health_check` (takes and releases the write lock of every SQLite file) and returns:
 
 ```bash
 curl http://localhost:7070/health
@@ -203,8 +203,8 @@ do not filter expired records either, so data is kept until a client sends
 
 ### Backups
 
-There is no online backup: copying a RocksDB directory while the server writes
-to it does not give a consistent snapshot. Stop the process first.
+There is no online backup: copying the SQLite files while the server writes
+to them does not give a consistent snapshot. Stop the process first.
 
 Verified roundtrip with `test-peer` (data in `/tmp/ai/bootstrap`):
 
@@ -235,7 +235,10 @@ Scheduled backups, retention and off-host storage are not provided.
 **Rolling update (planned).** Without cross-node replication, taking a node
 offline makes its stored messages and profiles unavailable until it returns;
 other nodes do not hold copies. Rolling upgrades need the replication protocol
-and a node-failure test first.
+and a node-failure test first. Target: an upgrade never stops the network
+serving; nodes upgrade one at a time, and a changed store format is built next
+to the old one while the old one keeps answering
+([bootstrap design](../architecture/bootstrap.md#principles)).
 
 ## Security
 
@@ -270,7 +273,7 @@ Only what applies to the code that exists today:
 
 | Symptom | Check |
 |---------|-------|
-| `/health` returns 503 | RocksDB probe failed: check that the storage directory is writable and the disk is not full |
+| `/health` returns 503 | SQLite probe failed: check that the storage directory is writable and the disk is not full |
 | `test-peer` exits with `StorageError(... Permission denied)` | The process cannot create `/tmp/ai/bootstrap`; fix permissions or run with a writable `/tmp` |
 | Port 7070 already in use | Another `test-peer` is running; `test-peer` cannot change its port |
 | Disk keeps growing | Expected: TTL cleanup does not run (see [Data cleanup](#data-cleanup)) |

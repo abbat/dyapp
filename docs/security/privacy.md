@@ -40,7 +40,7 @@ has no callers outside tests, and read endpoints do not filter expired
 messages. Messages stay until someone calls `DELETE`, and any client can do that
 because there is no authentication. Profiles have no TTL: the latest signed
 version stays until the owner replaces it with a tombstone, which the node keeps
-so older versions are not re-imported. RocksDB backups and replicas (if an
+so older versions are not re-imported. Backups and replicas (if an
 operator adds them) keep their own copies.
 
 Target: nothing is kept forever. The operator sets a retention TTL (default 30

@@ -5,7 +5,7 @@ set -euo pipefail
 toolchain=1.99.0
 case "${1:?usage: ci-setup.sh rust|linux}" in
     rust)
-        packages=(build-essential pkg-config clang libclang-dev protobuf-compiler libssl-dev
+        packages=(build-essential pkg-config protobuf-compiler libssl-dev
                   python3-flake8 python3-yaml python3-pyflakes shellcheck)
         components=(--component rustfmt,clippy,llvm-tools-preview)
         ;;
