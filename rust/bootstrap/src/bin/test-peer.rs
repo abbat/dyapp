@@ -7,7 +7,8 @@ use prost::Message;
 use std::sync::Arc;
 
 /// `test-peer sign-profile` prints `{"peer_id", "record"}` with a freshly signed profile as hex
-/// protobuf, for scripts that have no Ed25519 or protobuf library. Without arguments it serves.
+/// protobuf, for scripts that have no Ed25519 or protobuf library. Without arguments it serves on
+/// `TEST_PEER_ADDR` (default `0.0.0.0:7070`) with storage in `TEST_PEER_STORAGE`.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args().nth(1).as_deref() == Some("sign-profile") {
@@ -31,16 +32,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let config = BootstrapConfig {
-        storage_path: "/tmp/ai/bootstrap".to_string(),
+        storage_path: std::env::var("TEST_PEER_STORAGE")
+            .unwrap_or_else(|_| "/tmp/ai/bootstrap".to_string()),
         ..BootstrapConfig::default()
     };
-    std::fs::create_dir_all("/tmp/ai")?;
+    std::fs::create_dir_all(&config.storage_path)?;
     let state = AppState {
         store: Arc::new(BootstrapStore::new(&config.storage_path)?),
         rate_limiter: Arc::new(PeerRateLimiter::new(100)),
         config,
     };
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:7070").await?;
+    let address = std::env::var("TEST_PEER_ADDR").unwrap_or_else(|_| "0.0.0.0:7070".to_string());
+    let listener = tokio::net::TcpListener::bind(address).await?;
     axum::serve(listener, BootstrapServer::router(state)).await?;
     Ok(())
 }

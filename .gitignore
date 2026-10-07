@@ -6,7 +6,7 @@
 *.gate.lock*
 
 # rust
-/target/
+target/
 **/*.rs.bk
 *.pdb
 

@@ -6,56 +6,62 @@ on:
 permissions:
   contents: read
 
+# The jobs run on the runner itself; scripts/rust-check.sh holds the commands that the dev
+# Docker image runs locally.
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CXXFLAGS: "-g0"
+  RUST_BACKTRACE: "1"
+
 jobs:
   quality:
     name: quality
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: crazy-max/ghaction-github-runtime@v3
-      - name: prepare
-        run: bash scripts/docker-test.sh prepare
+      - name: setup
+        run: bash scripts/ci-setup.sh rust
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: actionlint@1.7.12
+      - uses: Swatinem/rust-cache@v2
       - name: check
-        run: bash scripts/docker-test.sh quality
+        run: bash scripts/rust-check.sh quality
 
   core:
     name: build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@v4
-      # The coverage volume plus the network image fill the default runner disk.
+      # An instrumented build of the whole workspace is large; free preinstalled SDKs.
       - name: free disk
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
-      - uses: docker/setup-buildx-action@v3
-      - uses: crazy-max/ghaction-github-runtime@v3
-      - name: prepare
-        run: bash scripts/docker-test.sh prepare
+      - name: setup
+        run: bash scripts/ci-setup.sh rust
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@0.6.21,cargo-deny@0.19.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target/llvm-cov-target"
+      # One instrumented build serves the tests, the network peers and the coverage report.
       - name: build
-        run: bash scripts/docker-test.sh build
+        run: bash scripts/rust-check.sh cov-build
       - name: tests
-        run: bash scripts/docker-test.sh test
+        run: bash scripts/rust-check.sh cov-test
       - name: coverage
-        run: bash scripts/docker-test.sh coverage
-      - name: coverage export
-        if: always()
-        run: python3 scripts/export-coverage.py "$RUNNER_TEMP/coverage"
+        run: bash scripts/rust-check.sh cov-report
       - name: coverage upload
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: rust-workspace-coverage
-          path: ${{ runner.temp }}/coverage/coverage.*
+          path: target/coverage/coverage.*
           if-no-files-found: error
       - name: deny
-        run: bash scripts/docker-test.sh security
+        run: bash scripts/rust-check.sh security
       - name: network
-        run: |
-          bash scripts/docker-test.sh network-prepare
-          bash scripts/docker-test.sh network
+        run: bash scripts/rust-check.sh network

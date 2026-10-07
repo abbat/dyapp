@@ -16,7 +16,7 @@ x-peer: &peer
   <<: *runtime
   command: [bash, -c, "bash scripts/check-container-isolation.sh && exec target/debug/test-peer"]
   healthcheck:
-    test: [CMD, python3, /workspace/scripts/network-test-in-container.py, --health, "http://127.0.0.1:7070"]
+    test: [CMD, python3, /workspace/scripts/network-test.py, --health, "http://127.0.0.1:7070"]
     interval: 5s
     timeout: 20s
     retries: 12
@@ -38,7 +38,7 @@ services:
         condition: service_healthy
     volumes:
       - network-reports:/reports
-    command: [python3, /workspace/scripts/network-test-in-container.py]
+    command: [bash, -c, "bash scripts/check-container-isolation.sh && exec python3 scripts/network-test.py"]
 
 networks:
   test-peers:

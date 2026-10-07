@@ -162,7 +162,8 @@ Content-Type: application/x-protobuf
 ```
 
 `test-peer sign-profile` prints a freshly signed sample profile as hex; the
-network test (`scripts/network-test-in-container.py`) posts it this way.
+network test (`scripts/network-test.py`) posts it this way. `test-peer` serves on `TEST_PEER_ADDR`
+(default `0.0.0.0:7070`) with storage in `TEST_PEER_STORAGE` (default `/tmp/ai/bootstrap`).
 
 ## Replication Strategy (Reed-Solomon)
 

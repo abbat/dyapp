@@ -9,10 +9,10 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/quality-in-container.sh`: container isolation check, `check-repository.py`, actionlint, `bash -n scripts/*.sh`, Python unittest, flake8, `cargo fmt --check`, clippy `-D warnings`, `cargo check`, `cargo test` |
+| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, actionlint, `bash -n scripts/*.sh`, Python unittest, flake8, `cargo fmt --check`, clippy `-D warnings`, `cargo test` |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 70% workspace line gate |
-| `make security` (= `audit`, `deny`) | `cargo deny check --disable-fetch advisories bans licenses` |
+| `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny check --disable-fetch advisories bans licenses` |
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
@@ -44,8 +44,8 @@ Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
 
 ## Dependency checks (cargo-deny)
 
-`deny.toml`, run by `make security` and the CI **Dependency security** step
-(`scripts/security-in-container.sh`, offline, with the advisory databases baked into the image):
+`deny.toml`, run by `rust-check.sh security`. Under `make security` it runs offline against the advisory
+databases baked into the dev image. In the CI `core / build` step `deny` it fetches them at run time:
 
 - **advisories**: any RustSec advisory fails (no CVSS threshold, `ignore = []`); yanked crates warn.
 - **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.

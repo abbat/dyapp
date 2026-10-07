@@ -82,8 +82,10 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 - **Image** `dyapp:linux-test` (`docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
   WebKit2GTK 4.0 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
   the Tauri app from `linux/` (+ `desktop/`) and writes the test-binary inventory
-  `linux/unit-build.json` at build time.
-- **`linux`** → `linux-test-in-container.sh`: `run-cargo-unit-binaries.py` runs every test binary in
+  `linux/target/unit-build.json` at build time.
+- **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
+  the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
+  It then calls `run-cargo-unit-binaries.py` runs every test binary in
   the inventory, then `desktop-smoke.py` launches `linux/target/debug/dyapp-linux` under
   `xvfb-run` + `dbus-run-session`.
 
@@ -140,7 +142,7 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   allows ~30 min. Look at the `android-emulator` container logs.
 - **`OK (n tests)` with n < 3 rejected:** a test class was dropped or filtered; the checker requires
   the full instrumented inventory.
-- **`Empty unit suite` (Linux):** a test binary in `unit-build.json` lists no tests; rebuild the
+- **`Empty unit suite` (Linux):** a test binary in `linux/target/unit-build.json` lists no tests; rebuild the
   image after changing tests (`ui-test.sh prepare`), since the inventory is created at image build.
 - **Stale results after code changes:** sources are copied into the images at build time; rerun
   `prepare`.

@@ -37,19 +37,19 @@ services:
     <<: *runtime
     build: *build
     entrypoint: &rust-command [bash, scripts/rust-command-in-container.sh]
-    command: cargo test --workspace --all-features --locked --offline -- --test-threads=1
+    command: bash scripts/rust-check.sh test
     profiles: [test]
   build:
     <<: *runtime
     build: *build
     entrypoint: *rust-command
-    command: cargo build --release --workspace --locked --offline
+    command: bash scripts/rust-check.sh build
     profiles: [build]
   quality:
     <<: *runtime
     build: *build
     entrypoint: *rust-command
-    command: bash scripts/quality-in-container.sh
+    command: bash scripts/rust-check.sh quality
     profiles: [quality]
   workflow-lint:
     <<: *runtime
@@ -63,13 +63,13 @@ services:
       COVERAGE_RUN_ID: ${COVERAGE_RUN_ID:-}
     build: *build
     entrypoint: *rust-command
-    command: bash scripts/coverage-in-container.sh
+    command: bash scripts/rust-check.sh coverage
     profiles: [coverage]
   security:
     <<: *runtime
     build: *build
     entrypoint: *rust-command
-    command: bash scripts/security-in-container.sh
+    command: bash scripts/rust-check.sh security
     profiles: [security]
 
 volumes:

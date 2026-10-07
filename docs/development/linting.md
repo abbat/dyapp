@@ -17,9 +17,9 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Kotlin | detekt | `detekt.yml` | no | no | config only, not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
-The quality container is `scripts/quality-in-container.sh`, run by `make quality` (also `make lint`,
-`make check`, `scripts/check-quality.sh` and CI job `ci / core / quality`; the `pre-commit` hook would too, but it
-does not run today, see [code-quality.md](code-quality.md#git-hooks)).
+The quality checks are `scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
+`make check`, `scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`; the `pre-commit` hook would too, but it
+does not run today, see [code-quality.md](code-quality.md#git-hooks).
 
 ## Rust
 

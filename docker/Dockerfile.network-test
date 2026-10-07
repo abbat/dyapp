@@ -7,4 +7,4 @@ USER 999:999
 ENV CXXFLAGS=-g0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_BUILD_JOBS=4 \
     CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 RAYON_NUM_THREADS=4
 RUN cargo build --locked --offline -p dyapp-bootstrap --bin test-peer
-CMD ["python3", "/workspace/scripts/network-test-in-container.py"]
+CMD ["python3", "/workspace/scripts/network-test.py"]

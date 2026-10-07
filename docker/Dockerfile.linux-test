@@ -16,9 +16,9 @@ COPY linux linux
 COPY desktop desktop
 RUN cargo fetch --locked --manifest-path linux/Cargo.toml && \
     cargo build --manifest-path linux/Cargo.toml --locked && \
-    cargo test --manifest-path linux/Cargo.toml --locked --no-run --message-format=json > /app/linux/unit-build.json
+    cargo test --manifest-path linux/Cargo.toml --locked --no-run --message-format=json > /app/linux/target/unit-build.json
 COPY scripts scripts
 RUN mkdir -p /reports && chown 999:999 /reports
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
 USER 999:999
-CMD ["bash", "/app/scripts/linux-test-in-container.sh"]
+CMD ["bash", "/app/scripts/linux-test.sh"]

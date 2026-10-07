@@ -128,7 +128,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Item | Value |
 |------|-------|
-| Tool | cargo-llvm-cov 0.6.21 (pinned in `docker/Dockerfile.dev`): `cargo llvm-cov --workspace --all-features --locked --offline` in `scripts/coverage-in-container.sh` |
+| Tool | cargo-llvm-cov 0.6.21 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run `cargo test --workspace --all-features --locked` on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
 | Threshold | **70%** (`MIN_COVERAGE` in `scripts/check_coverage.py`) |
@@ -140,7 +140,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Entry point | Fails on < 70%? | Notes |
 |-------------|-----------------|-------|
-| GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `bash scripts/docker-test.sh coverage`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
+| GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `rust-check.sh cov-report` on the runner after `cov-build` and `cov-test`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
 | `bash scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
 | pre-commit `pre-push` stage | Yes | Runs `docker-test.sh all`; skipped by `git push --no-verify` or if hooks are not installed |
@@ -171,8 +171,8 @@ JaCoCo/Kover or `test:coverage` script is wired into any gate. Any UI coverage p
 
 ### Saved report
 
-None is kept in the repository; reports are exported from the container by
-`scripts/export-coverage.py`.
+None is kept in the repository. Reports go to `target/coverage[.<run id>]/`. A local Docker run
+writes them into the `workspace-cache` volume, and `scripts/export-coverage.py` copies them out.
 
 ## Local Testing
 

@@ -81,7 +81,7 @@ services:
     network_mode: none
     environment:
       HOME: /home/appuser
-    command: [bash, /app/scripts/linux-test-in-container.sh]
+    command: [bash, -c, "bash /app/scripts/check-container-isolation.sh && exec bash /app/scripts/linux-test.sh"]
 
 volumes:
   ui-reports:
