@@ -1,38 +1,41 @@
-name: Rust - Full Docker Inventory
+name: rust
+
 on:
   workflow_call:
+
 permissions:
   contents: read
+
 jobs:
   quality:
     uses: ./.github/workflows/linting.yml
   core:
-    name: Rust workspace, quality, coverage and network
+    name: build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare isolated dependency image
+      - name: prepare
         run: bash scripts/docker-test.sh prepare
-      - name: Build the complete Rust workspace
+      - name: build
         run: bash scripts/docker-test.sh build
-      - name: Complete Rust tests
+      - name: tests
         run: bash scripts/docker-test.sh test
-      - name: Complete workspace coverage
+      - name: coverage
         run: bash scripts/docker-test.sh coverage
-      - name: Retrieve coverage reports
+      - name: coverage export
         if: always()
         run: python3 scripts/export-coverage.py "$RUNNER_TEMP/coverage"
-      - name: Store coverage reports
+      - name: coverage upload
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: rust-workspace-coverage
           path: ${{ runner.temp }}/coverage/coverage.*
           if-no-files-found: error
-      - name: Dependency security
+      - name: deny
         run: bash scripts/docker-test.sh security
-      - name: Production peers on an internal Docker network
+      - name: network
         run: |
           bash scripts/docker-test.sh network-prepare
           bash scripts/docker-test.sh network

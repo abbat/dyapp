@@ -1,4 +1,4 @@
-name: CodeQL
+name: codeql
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [master, develop]
   schedule:
-    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM UTC
+    - cron: '0 0 * * 6'
 
 jobs:
   analyze:
-    name: Analyze (CodeQL)
+    name: analyze - cpp
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -20,80 +20,78 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['cpp']  # Rust support via SARIF
+        language: ['cpp']  # rust support via SARIF
 
     steps:
-    - name: Checkout repository
+    - name: checkout
       uses: actions/checkout@v4
 
-    - name: Initialize CodeQL
+    - name: initialize
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         queries: security-and-quality
-        # Optional: disable default queries and use security-only or extended suite
+        # optional: disable default queries and use security-only or extended suite
         # queries: security-only
 
-    # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
-    # If this step fails, then you should remove it and run the build manually
-    - name: Autobuild
+    # autobuild attempts to build any compiled languages (c/c++, c#, go, java, or swift).
+    # if this step fails, then you should remove it and run the build manually
+    - name: autobuild
       uses: github/codeql-action/autobuild@v3
 
-    - name: Perform CodeQL Analysis
+    - name: analyze
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:cpp"
 
-  # Custom Rust analysis (using clippy for static analysis)
+  # custom rust analysis (using clippy for static analysis)
   rust-analysis:
-    name: Analyze (Rust)
+    name: analyze - rust
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
 
     steps:
-    - name: Checkout repository
+    - name: checkout
       uses: actions/checkout@v4
 
-    - name: Setup Rust toolchain
+    - name: toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
 
-    - name: Install cargo-deny
+    - name: install cargo-deny
       run: cargo install cargo-deny
 
-    - name: Rust linter (clippy) for security
+    - name: clippy
       run: cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
       continue-on-error: true
 
-    - name: Check for vulnerable dependencies
+    - name: vulnerable dependencies
       run: cargo deny check advisories
       continue-on-error: true
 
-    - name: Check for license compliance
+    - name: license compliance
       run: cargo deny check licenses
       continue-on-error: true
 
-    - name: Check for dependency duplicates
+    - name: dependency duplicates
       run: cargo deny check duplicates
       continue-on-error: true
 
-    - name: Check unsafe code usage
+    - name: unsafe code usage
       run: |
-        echo "🔍 Unsafe code blocks:"
         grep -rn "unsafe {" rust/ --include="*.rs" || echo "  No unsafe code found ✓"
 
-    - name: Check for hardcoded credentials/secrets
+    - name: hardcoded secrets
       run: |
-        echo "🔐 Checking for potential secrets:"
         grep -rn "password\|secret\|token\|key\|credential" rust/ --include="*.rs" | grep -v "// " || echo "  No hardcoded secrets found ✓"
         true
 
-    - name: Collect Rust diagnostics
+    - name: diagnostics
       run: cargo clippy --workspace --all-features --all-targets --locked --message-format=json > clippy.json
 
-    - name: Generate SARIF report
+    - name: sarif
       if: always()
       run: python3 scripts/clippy-to-sarif.py clippy.json > clippy.sarif

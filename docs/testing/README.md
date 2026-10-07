@@ -110,14 +110,14 @@ pipeline). In short:
   - Linux and Android shell apps in Docker;
   - iOS and macOS on macos-15;
   - Windows on windows-2022;
-  - an aggregate check, **Empty Apps - Required**.
+  - an aggregate check, **required**.
 - The platform apps do not link the Rust core yet.
-- CodeQL, Security (cargo audit + SBOM), Python lint and docs are separate workflows.
+- codeql, security (cargo audit + SBOM) and python lint are separate workflows.
 
 ### Required Status Checks
 
 **Not established.** Branch protection is not stored in the repository, and nobody has
-confirmed which checks GitHub requires before merge. `Empty Apps - Required` is designed as the
+confirmed which checks GitHub requires before merge. `required` is designed as the
 single aggregate gate for `ci.yml`. A failing check fails its workflow run, but this
 documentation does not promise that a PR is blocked. See
 [ci-matrix.md](../development/ci-matrix.md#required-checks).
@@ -140,7 +140,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Entry point | Fails on < 70%? | Notes |
 |-------------|-----------------|-------|
-| GitHub Actions: `ci.yml` → `ci-matrix.yml` → `ci-base.yml`, step "Complete workspace coverage" | Yes | Runs `bash scripts/docker-test.sh coverage`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
+| GitHub Actions: `ci.yml` → `ci-matrix.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `bash scripts/docker-test.sh coverage`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
 | `bash scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
 | pre-commit `pre-push` stage | Yes | Runs `docker-test.sh all`; skipped by `git push --no-verify` or if hooks are not installed |

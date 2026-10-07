@@ -1,12 +1,15 @@
-name: CI
+name: ci
+
 on:
   push:
     branches: [main, master, develop]
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   required:
-    name: Required application matrix
+    name: matrix
     uses: ./.github/workflows/ci-matrix.yml

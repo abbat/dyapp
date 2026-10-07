@@ -7,7 +7,7 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
-        XCTAssertEqual(ready.label, "Ready")
+        XCTAssertEqual(ready.value as? String, "Ready") // macOS exposes Text in value; label is empty
         XCTAssertTrue(ready.isHittable)
         app.terminate()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))

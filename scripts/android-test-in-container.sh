@@ -22,7 +22,7 @@ case "${1:?suite required}" in
         mkdir -p "$ANDROID_USER_HOME"
         echo no | avdmanager create avd -n test_device -k 'system-images;android-30;default;x86_64' -p /tmp/ai/avd
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
-        exec emulator -avd test_device -port 5554 -accel off -no-window -no-audio \
+        exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
             -feature -Vulkan
         ;;

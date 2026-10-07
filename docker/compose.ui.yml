@@ -2,7 +2,7 @@ name: dyapp
 
 x-runtime: &runtime
   user: "999:999"
-  cpus: 4
+  cpus: ${DYAPP_CPUS:-4}
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
   read_only: true
@@ -15,7 +15,7 @@ x-runtime: &runtime
 services:
   android-emulator:
     <<: *runtime
-    cpus: 3
+    cpus: ${DYAPP_EMULATOR_CPUS:-3}
     build:
       context: ..
       dockerfile: docker/Dockerfile.android-test

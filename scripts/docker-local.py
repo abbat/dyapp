@@ -1,4 +1,4 @@
-"""Serialize local Docker work; keep one shared four-worker build budget."""
+"""Serialize local Docker work; share one build budget of at most 4 CPUs."""
 import fcntl
 import json
 import os
@@ -6,6 +6,9 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+
+# Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners).
+CPUS = min(4, os.cpu_count() or 1)
 
 
 def build_images(arguments, environment):
@@ -41,7 +44,7 @@ def build_images(arguments, environment):
         filename = build.get("dockerfile", "Dockerfile")
         dockerfile = Path(build["context"]) / filename
         command = ["docker", "build", "--cpu-period", "100000",
-                   "--cpu-quota", "400000", "--rm=false",
+                   "--cpu-quota", str(CPUS * 100000),
                    "-t", service["image"],
                    "-f", str(dockerfile)]
         if build.get("target"):
@@ -70,7 +73,9 @@ def main():
     temporary.mkdir(parents=True, exist_ok=True)
     arguments = sys.argv[1:]
     environment = {**os.environ, "COMPOSE_PARALLEL_LIMIT": "1",
-                   "COVERAGE_RUN_ID": uuid.uuid4().hex}
+                   "COVERAGE_RUN_ID": uuid.uuid4().hex,
+                   "DYAPP_CPUS": str(CPUS),
+                   "DYAPP_EMULATOR_CPUS": str(max(1, CPUS - 1))}
     with (temporary / "dyapp-docker.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:

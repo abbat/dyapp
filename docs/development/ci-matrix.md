@@ -7,11 +7,11 @@
 
 ## Entry point
 
-`ci.yml` (name **CI**) runs on push to `main`/`master`/`develop`, on every `pull_request` and on
-`workflow_dispatch`. It has one job, `required`, which calls the reusable `ci-matrix.yml`.
+`ci.yml` (name **ci**) runs on push to `main`/`master`/`develop`, on every `pull_request` and on
+`workflow_dispatch`. It has one job, `required` (name **matrix**), which calls the reusable `ci-matrix.yml`.
 
 ```
-ci.yml  ──▶ ci-matrix.yml ("Empty Apps - Required Matrix")
+ci.yml  ──▶ ci-matrix.yml ("matrix")
               ├─ core     ──▶ ci-base.yml ──▶ quality ──▶ linting.yml
               │                           └─ core (Docker Rust inventory)
               ├─ docker   (matrix: linux, android)
@@ -29,11 +29,11 @@ ci.yml  ──▶ ci-matrix.yml ("Empty Apps - Required Matrix")
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
-| `docker` → **Docker - linux** | ubuntu-24.04 | `docker-local.py -f docker/compose.ui.yml --profile all build linux-test`; `ui-test.sh linux` → `linux-test-in-container.sh`: unit binaries from `linux/unit-build.json`, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
-| `docker` → **Docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 30 x86_64 emulator, `-accel off`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
-| `apple` → **Native - ios** / **Native - macos** | macos-15 | Downloads XcodeGen 2.44.1, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), then XCTest/XCUITest (iOS on first available iPhone simulator) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
-| `windows` → **Native - Windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
-| `summary` → **Empty Apps - Required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
+| `docker` → **docker - linux** | ubuntu-24.04 | `docker-local.py -f docker/compose.ui.yml --profile all build linux-test`; `ui-test.sh linux` → `linux-test-in-container.sh`: unit binaries from `linux/unit-build.json`, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
+| `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 30 x86_64 emulator, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
+| `apple` → **native - ios** / **native - macos** | macos-15 | Downloads XcodeGen 2.44.1, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), then XCTest/XCUITest (iOS on first available iPhone simulator) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
+| `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
+| `summary` → **required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
 
 ### What the platform jobs do **not** validate
 
@@ -55,20 +55,19 @@ These are separate workflows, not part of `ci.yml`.
 
 | Workflow | Triggers | Jobs | Notes |
 |----------|----------|------|-------|
-| `codeql.yml` (CodeQL) | push/PR to `master`, `develop`; weekly Mon 02:00 UTC | **Analyze (CodeQL)** (`cpp`, autobuild); **Analyze (Rust)** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
-| `security.yml` (Security) | push/PR to `master`, `develop`; weekly Sun 00:00 UTC | **Cargo Audit** (`rustsec/audit-check-action@v1`); **SBOM Generation** (`cargo install cargo-sbom`, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
-| `python-lint.yml` | push/PR to `master`, `main`, `develop` touching `**.py` or `.flake8` | **Flake8 Code Style Check** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
-| `docs.yml` | push to `main`, `master`, `develop` on listed paths; dispatch | **Build Documentation**, **Deploy to GitHub Pages** (master/main), **Documentation Summary** | `cargo doc` covers 4 crates only. Its output is copied with `cp -r target/doc/* target/docs/rust/` into a directory that does not exist, and the error is swallowed, so Rust API docs are expected to be missing from Pages. Swift docs are a placeholder page; Dokka is "not configured yet". Details: [documentation.md](documentation.md). |
+| `codeql.yml` (codeql) | push/PR to `master`, `develop`; weekly Sat 00:00 UTC | **analyze - cpp** (autobuild); **analyze - rust** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
+| `security.yml` (security) | push/PR to `master`, `develop`; weekly Sun 00:00 UTC | **audit** (`rustsec/audit-check-action@v1`); **sbom** (`cargo install cargo-sbom`, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
+| `python-lint.yml` (python lint) | push/PR to `master`, `main`, `develop` touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
 
 ## Required checks
 
 Repository files cannot show branch protection. The facts are:
 
 - **Workflow failure:** any failing job above fails its workflow run.
-- **Designed as the single gate:** `Empty Apps - Required` aggregates `core`, `docker`, `apple`
+- **Designed as the single gate:** `required` aggregates `core`, `docker`, `apple`
   and `windows`, so requiring only that check would cover the whole `ci.yml` matrix. It does
-  **not** cover CodeQL, Security, Python lint or docs.
-- **Unverified:** whether `Empty Apps - Required` (or anything else) is configured as a required
+  **not** cover codeql, security or python lint.
+- **Unverified:** whether `required` (or anything else) is configured as a required
   status check. Until someone confirms it in the repository settings, treat merge blocking as
   **not established**.
 
@@ -76,8 +75,8 @@ Repository files cannot show branch protection. The facts are:
 
 There is no separate MSRV job. All Rust builds in ci-base use the pinned toolchain
 (`rust-toolchain.toml`: `1.99.0`), which equals `rust-version = "1.99"`, so the declared MSRV is
-exactly the toolchain CI builds with. Nothing tests an older compiler, and `codeql.yml`,
-`security.yml` and `docs.yml` use floating `stable`. Locally, `make msrv` runs `cargo check` in
+exactly the toolchain CI builds with. Nothing tests an older compiler, and `codeql.yml` and
+`security.yml` use floating `stable`. Locally, `make msrv` runs `cargo check` in
 the same pinned container. See [git-conventions.md](git-conventions.md#rust-version-msrv).
 
 ## Reproducing locally
@@ -85,9 +84,9 @@ the same pinned container. See [git-conventions.md](git-conventions.md#rust-vers
 | CI job | Local command |
 |--------|---------------|
 | ci-base `core` + `quality` | `bash scripts/docker-test.sh prepare` then `bash scripts/docker-test.sh all` (also runs UI suites) |
-| Docker - linux / android | `bash scripts/ui-test.sh prepare`; `bash scripts/ui-test.sh linux` / `android` / `android-emulator` |
-| Native - ios / macos | Not reproducible locally: `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true` |
-| Native - Windows | `cargo test --manifest-path windows/Cargo.toml --locked` on Windows |
+| docker - linux / android | `bash scripts/ui-test.sh prepare`; `bash scripts/ui-test.sh linux` / `android` / `android-emulator` |
+| native - ios / macos | Not reproducible locally: `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true` |
+| native - windows | `cargo test --manifest-path windows/Cargo.toml --locked` on Windows |
 
 ## Related
 

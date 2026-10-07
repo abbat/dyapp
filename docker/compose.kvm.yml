@@ -1,0 +1,6 @@
+# Overlay for hosts with a usable /dev/kvm (CI): hardware-accelerated emulator.
+services:
+  android-emulator:
+    devices: ["/dev/kvm:/dev/kvm"]
+    environment:
+      EMULATOR_ACCEL: "on"

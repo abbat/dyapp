@@ -12,7 +12,7 @@ trade-off. Routine choices do not need one.
    describe current decisions only; git history keeps earlier versions.
 
 ADRs are written by hand. Agents only propose one; a person confirms it before it is added. API
-reference generation is described in [documentation.md](../development/documentation.md).
+docs are covered in [documentation.md](../development/documentation.md).
 
 ## Index
 

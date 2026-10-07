@@ -5,30 +5,28 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless curl unzip ca-certificates python3 \
     libnss3 libpulse0 libx11-6 libxcb1 libxcomposite1 libxcursor1 \
-    libxi6 libxrandr2 libxtst6 libasound2 libglu1-mesa
+    libxi6 libxrandr2 libxtst6 libasound2 libglu1-mesa && rm -rf /var/lib/apt/lists/*
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
     ANDROID_SDK_ROOT=/opt/android-sdk GRADLE_USER_HOME=/opt/gradle-cache
-ENV PATH=/opt/gradle-8.2/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:$PATH
+ENV PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:$PATH
 WORKDIR /tmp/ai
-RUN curl -fL https://services.gradle.org/distributions/gradle-8.2-bin.zip -o gradle.zip && \
-    echo '38f66cd6eef217b4c35855bb11ea4e9fbc53594ccccb5fb82dfd317ef8c2c5a3  gradle.zip' | sha256sum -c - && unzip -q gradle.zip -d /opt
 RUN curl -fL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o sdk.zip && \
     echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  sdk.zip' | sha256sum -c - && \
     mkdir -p /opt/android-sdk/cmdline-tools && unzip -q sdk.zip -d /opt/android-sdk/cmdline-tools && \
-    mv -f /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+    mv -f /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && rm -f sdk.zip
 RUN yes | sdkmanager --licenses >/dev/null
 RUN sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'platform-tools' 'emulator' 'system-images;android-30;default;x86_64'
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 
 FROM android-tools
 WORKDIR /app
-COPY android android
-RUN echo 'a8451eeda314d0568b5340498b36edf147a8f0d692c5ff58082d477abe9146e4  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
-# Compile and populate all runtime dependencies online; do not run tests in the build.
-RUN cd android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin
-RUN chmod -R a+rX /opt/gradle-cache && chown -R 999:999 /app/android && \
-    mkdir -p /reports && chown 999:999 /reports
-COPY scripts scripts
+RUN mkdir -p /opt/gradle-cache /reports && chown 999:999 /app /opt/gradle-cache /reports
 ENV HOME=/home/appuser
 USER 999:999
+COPY --chown=999:999 android android
+RUN echo 'a8451eeda314d0568b5340498b36edf147a8f0d692c5ff58082d477abe9146e4  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+# Build as 999 so the outputs need no recursive chown (a copy-up layer doubles the image size).
+# Compile and populate all runtime dependencies online; do not run tests in the build.
+RUN cd android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin
+COPY scripts scripts
 CMD ["bash", "/app/scripts/android-test-in-container.sh", "unit"]

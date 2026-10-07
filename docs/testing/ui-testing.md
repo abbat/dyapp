@@ -57,17 +57,17 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 ### Android
 
 - **Image** `dyapp:android-test` (`docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
-  Gradle 8.2 and Android cmdline-tools (checksum-pinned), SDK platform 34, build-tools 34.0.0,
+  Android cmdline-tools (checksum-pinned), SDK platform 34, build-tools 34.0.0,
   system image `android-30;default;x86_64`. It copies the real Gradle project `android/` (its own
-  `gradlew`, wrapper jar checksum-verified) and pre-builds `:app:assembleDebug`,
+  `gradlew`; wrapper jar and Gradle 8.2 distribution checksum-verified) and, as UID 999, pre-builds `:app:assembleDebug`,
   `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin`. No Rust `.so` or generated
   bindings are copied (there are none to copy).
 - **`android`** → service `android-unit-test` → `android-test-in-container.sh unit`: offline
   `./gradlew --rerun-tasks :app:testDebugUnitTest`, then `check-junit-results.py`.
 - **`android-emulator`** → service `android-emulator-test`, which `depends_on` service
   `android-emulator` being healthy:
-  - `android-emulator` creates the AVD and starts the emulator headless with `-accel off`
-    (software emulation: **no KVM needed**, but slow). Health check: `sys.boot_completed = 1` and
+  - `android-emulator` creates the AVD and starts the emulator headless with `-accel off` by default
+    (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `docker/compose.kvm.yml`, which passes `/dev/kvm` and sets `-accel on`; CI does this after opening `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
@@ -130,7 +130,7 @@ These run only in `ci-matrix.yml`; see [ci-matrix.md](../development/ci-matrix.m
 
 - UI coverage (JaCoCo, Xcode coverage) is not collected; see
   [Coverage policy](README.md#ui--platform-coverage).
-- The Android emulator runs with `-accel off`, without KVM.
+- Locally the Android emulator runs with `-accel off`, without KVM; CI uses KVM (`DYAPP_KVM=1`).
 - Product-level UI flows (onboarding, profiles, matching, messaging) have no tests yet.
 
 ## Troubleshooting

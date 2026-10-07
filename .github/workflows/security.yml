@@ -1,4 +1,4 @@
-name: Security
+name: security
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   audit:
-    name: Cargo Audit
+    name: audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   sbom:
-    name: SBOM Generation
+    name: sbom
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

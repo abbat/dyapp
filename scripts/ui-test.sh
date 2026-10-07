@@ -1,8 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+compose=(-f docker/compose.ui.yml)
+# DYAPP_KVM=1 (CI) runs the emulator with KVM; the default is software emulation.
+[[ ${DYAPP_KVM:-0} == 1 ]] && compose+=(-f docker/compose.kvm.yml)
 run() {
-    python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all run --pull never "$1"
+    python3 scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }
 case "${1:-help}" in
     android) run android-unit-test ;;

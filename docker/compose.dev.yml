@@ -7,7 +7,7 @@ x-build: &build
 x-runtime: &runtime
   image: dyapp:dev-prepared
   user: "999:999"
-  cpus: 4
+  cpus: ${DYAPP_CPUS:-4}
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
   network_mode: none
@@ -23,10 +23,10 @@ x-runtime: &runtime
     RUSTUP_TOOLCHAIN: "1.99.0"
     CARGO_NET_OFFLINE: "true"
     CARGO_INCREMENTAL: "0"
-    CARGO_BUILD_JOBS: "4"
-    CMAKE_BUILD_PARALLEL_LEVEL: "4"
-    MAKEFLAGS: "-j4"
-    RAYON_NUM_THREADS: "4"
+    CARGO_BUILD_JOBS: "${DYAPP_CPUS:-4}"
+    CMAKE_BUILD_PARALLEL_LEVEL: "${DYAPP_CPUS:-4}"
+    MAKEFLAGS: "-j${DYAPP_CPUS:-4}"
+    RAYON_NUM_THREADS: "${DYAPP_CPUS:-4}"
     CXXFLAGS: "-g0"
     CARGO_PROFILE_DEV_DEBUG: "0"
     RUST_BACKTRACE: "1"

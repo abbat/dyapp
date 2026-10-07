@@ -1,16 +1,19 @@
-name: Code Linting & Formatting
+name: quality
+
 on:
   workflow_call:
+
 permissions:
   contents: read
+
 jobs:
   quality:
-    name: Complete Docker quality checks
+    name: quality
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare isolated dependency image
+      - name: prepare
         run: bash scripts/docker-test.sh prepare
-      - name: Check the complete repository
+      - name: check
         run: bash scripts/docker-test.sh quality
