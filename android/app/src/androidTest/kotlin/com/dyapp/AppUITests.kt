@@ -20,10 +20,13 @@ class AppUITests {
         compose.onNodeWithText("DYApp").assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals("Ready")
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        check(instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() ==
-            instrumentation.targetContext.packageName) {
-            "Application UI is obscured by another active window"
+        val ownsActiveWindow = {
+            instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() ==
+                instrumentation.targetContext.packageName
         }
+        // Window focus moves to the activity asynchronously, after Compose is already idle.
+        runCatching { compose.waitUntil(timeoutMillis = 10_000) { ownsActiveWindow() } }
+        check(ownsActiveWindow()) { "Application UI is obscured by another active window" }
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
             ?: error("Rendered application screenshot unavailable")
         File(instrumentation.targetContext.filesDir, "ui-ready.png").outputStream().use {
