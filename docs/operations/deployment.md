@@ -56,8 +56,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
                     ↓ (plaintext today; encryption planned)
 
 Users (iOS/Android/macOS/Linux)
-  ├─ Direct P2P when peer online
-  └─ Bootstrap relay when peer offline
+  └─ Mailbox on the recipient's nodes (planned; pushed at once when the recipient is online)
 ```
 
 **Pros:**

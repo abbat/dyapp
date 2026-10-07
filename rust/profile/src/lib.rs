@@ -7,8 +7,8 @@
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use prost::Message;
 
-/// Largest accepted profile payload.
-pub const MAX_PAYLOAD_LEN: usize = 16 * 1024;
+/// Largest accepted profile payload. Media are not part of it: the profile only links to blobs.
+pub const MAX_PAYLOAD_LEN: usize = 1024 * 1024;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
@@ -22,14 +22,8 @@ pub enum Error {
     Stale,
 }
 
-/// Coordinates rounded by the owner to the precision they chose.
-#[derive(Clone, Copy, PartialEq, prost::Message)]
-pub struct Location {
-    #[prost(double, tag = "1")]
-    pub lat: f64,
-    #[prost(double, tag = "2")]
-    pub lon: f64,
-}
+/// Longest accepted `place`, in Unicode code points.
+pub const MAX_PLACE_CHARS: usize = 1024;
 
 /// Every field is public. Empty strings, `None` and an age of 0 mean "not published".
 #[derive(Clone, PartialEq, prost::Message)]
@@ -43,8 +37,7 @@ pub struct Profile {
     /// ISO 3166-1 alpha-2 code; income is compared only within one country.
     #[prost(string, tag = "4")]
     pub country: String,
-    #[prost(message, optional, tag = "5")]
-    pub location: Option<Location>,
+    // Tag 5 held coordinates; do not reuse it.
     /// Free income range, no currency or brackets.
     #[prost(uint64, optional, tag = "6")]
     pub income_from: Option<u64>,
@@ -74,6 +67,9 @@ pub struct Profile {
     pub fitness_level: String,
     #[prost(string, repeated, tag = "19")]
     pub interests: Vec<String>,
+    /// City or district within `country`, no coordinates; matched exactly.
+    #[prost(string, tag = "20")]
+    pub place: String,
 }
 
 impl Profile {
@@ -106,10 +102,9 @@ impl Profile {
                 return Err(Error::Invalid("income range is reversed"));
             }
         }
-        if let Some(Location { lat, lon }) = self.location {
-            if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
-                return Err(Error::Invalid("location out of range"));
-            }
+        let place = &self.place;
+        if place.chars().count() > MAX_PLACE_CHARS || place.chars().any(char::is_control) {
+            return Err(Error::Invalid("place is too long or not printable"));
         }
         Ok(())
     }
@@ -167,10 +162,7 @@ mod tests {
             country: "DE".into(),
             income_from: Some(50_000),
             income_to: Some(70_000),
-            location: Some(Location {
-                lat: 52.5,
-                lon: 13.4,
-            }),
+            place: "Berlin".into(),
             interests: vec!["hiking".into()],
             ..Profile::default()
         }
@@ -220,6 +212,14 @@ mod tests {
         let mut country = sample(1);
         country.country = "Germany".into();
         assert!(verify(&country.sign(&owner)).is_err());
+
+        let mut place = sample(1);
+        place.place = "я".repeat(MAX_PLACE_CHARS);
+        assert!(verify(&place.sign(&owner)).is_ok());
+        place.place.push('я');
+        assert!(verify(&place.sign(&owner)).is_err());
+        place.place = "Mitte\n".into();
+        assert!(verify(&place.sign(&owner)).is_err());
 
         assert!(verify(&sample(0).sign(&owner)).is_err());
 

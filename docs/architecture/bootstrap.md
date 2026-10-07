@@ -16,7 +16,7 @@ Peer discovery, profile search and signaling are planned, not implemented.
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
 - **Rate limiting**: per-ID token bucket on the two POST endpoints only (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
-- **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is an LRU cache by profile activity instead of a TTL ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
+- **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
 
 ## Data Model
 
@@ -64,17 +64,17 @@ pub struct SignedRecord {          // protobuf, sent and stored as is
 
 The peer ID is the hex SHA-256 of `public_key`; the server derives it, the client
 never sends it. `Profile` holds `version`, `deleted` and the public fields (age,
-country, rounded location, income range, kids, goals, interests, …); every field is
+country, place (city or district, no coordinates), income range, kids, goals, interests, …); every field is
 optional and public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
 `POST /profiles` stores a record only if:
 
 - the signature verifies against `public_key`;
-- the payload is at most 16 KiB and decodes as a `Profile`;
+- the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs, planned);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `409`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  location within ±90/±180, a tombstone (`deleted = true`) carries no other field.
+  place at most 1024 characters without control characters, a tombstone (`deleted = true`) carries no other field.
 
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
 so an older version cannot be re-imported; `GET /profiles` skips it, `GET
@@ -118,7 +118,7 @@ Source: `rust/bootstrap/src/api.rs` (routes), `storage.rs` (RocksDB),
 | `GET /profiles?skip=&limit=` | `skip` default 0, `limit` default 100, no upper bound | `200` protobuf `ProfileList` in peer-ID order, tombstones skipped | 400 on non-numeric query | no | — |
 | `GET /health` | — | `200 {"status":"healthy","timestamp"}` | `503 {"status":"unhealthy","timestamp"}` | no | — |
 
-There is no search/filter endpoint (age range, location), no peer discovery
+There is no search/filter endpoint (age range, place), no peer discovery
 endpoint (`/api/peers`), no DHT, and no SDP/ICE signaling endpoint.
 
 ### Trusted vs untrusted fields
@@ -369,7 +369,7 @@ a node failure.
 
 **Future enhancements:**
 - Multi-master replication (gossip protocol)
-- Profile search with filters (age range, location radius)
+- Profile search with filters (age range, place)
 - Message expiration enforcement (batch cleanup)
 - TLS for bootstrap-to-bootstrap communication
 - Prometheus metrics export

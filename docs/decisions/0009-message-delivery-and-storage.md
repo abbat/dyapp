@@ -1,7 +1,7 @@
 # 0009. Message delivery, offline storage and replication
 
 - **Status:** Accepted
-- **Date:** 2026-10-07
+- **Date:** 2026-10-08
 
 ## Context
 
@@ -12,10 +12,15 @@ media is different: full copies are expensive.
 
 ## Decision
 
-- **Delivery:** push directly when both peers are online; otherwise store on bootstrap nodes for
-  the recipient. The recipient acknowledges; the sender keeps an offline queue and retries.
-- **Bootstrap storage is an LRU cache:** no fixed TTL; data of the profiles that have been
-  inactive longest is evicted first.
+- **Delivery through mailboxes:** a message is always written to the recipient's replica nodes,
+  its mailbox. An online recipient keeps a connection to one of them and gets new messages pushed
+  over it at once. Clients do not publish their addresses in the DHT; a direct connection that
+  already exists (for example during a call) is only an optimisation. The recipient acknowledges;
+  the sender keeps an offline queue and retries.
+- **Bootstrap storage is a cache, nothing is kept forever:** the node operator sets a retention
+  TTL (default 30 days) after which old data, tombstones included, is deleted, and may delete any
+  data at any time. Under a full quota the data of the profiles inactive longest is evicted first.
+  A user who comes online again restores their data on the nodes.
 - **History lives on devices.** A new device gets it from a linked device
   ([ADR 0004](0004-identity-keys.md)), not from bootstrap.
 - **Messages, MLS commits and profiles are replicated whole** to R = 5 points, replica *i* at the

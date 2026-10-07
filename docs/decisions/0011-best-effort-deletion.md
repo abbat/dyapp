@@ -1,7 +1,7 @@
 # 0011. Deletion is a signed request, honoured best effort
 
 - **Status:** Accepted
-- **Date:** 2026-10-06
+- **Date:** 2026-10-08
 
 ## Context
 
@@ -21,3 +21,6 @@ person's device to delete data.
 - The app must not promise erasure. The UI and privacy policy must say that published or sent data
   may persist on other nodes and devices; legal review of the GDPR position is needed.
 - Well-behaved nodes need a tombstone store so a deleted profile is not re-imported from peers.
+  Tombstones live as long as the node's retention TTL
+  ([ADR 0009](0009-message-delivery-and-storage.md)), so a node offline for longer than the TTL can
+  serve a deleted profile again.

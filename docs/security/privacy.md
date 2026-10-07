@@ -24,7 +24,7 @@ Source: `rust/bootstrap/src/api.rs`, `rust/bootstrap/src/storage.rs`,
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
 | Message body (`encrypted_payload`) | Operator, any client (`GET /messages/peer/{id}`), network | None (plaintext; crypto stub) | Until deleted by anyone; TTL not enforced | E2E AEAD, only recipient decrypts | Size and timing |
 | `sender_id`, `recipient_id`, message `timestamp` | Operator, any client, network | None | Same as body | TLS to bootstrap; access control on reads | Operator always learns who messages whom and when (routing metadata) |
-| Profile fields (age, country, location, income, kids, goals, orientation, interests, …) | Operator, any client (`GET /profiles`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone; the tombstone is kept forever | Same; location precision chosen by the user, or off (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
+| Profile fields (age, country, location, income, kids, goals, orientation, interests, …) | Operator, any client (`GET /profiles`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone, which is kept forever (target: retention TTL, default 30 days) | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
 | Message `peer_id`s | Operator, any client, network | None, self-asserted | Same as messages | Derived from public key | Same |
 | Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | Optional relay/proxy (not designed) | Direct P2P and WebRTC reveal IPs to the other peer |
@@ -43,8 +43,10 @@ version stays until the owner replaces it with a tombstone, which the node keeps
 so older versions are not re-imported. RocksDB backups and replicas (if an
 operator adds them) keep their own copies.
 
-Target: bootstrap storage is an LRU cache evicting the data of the longest
-inactive profiles ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)),
+Target: nothing is kept forever. The operator sets a retention TTL (default 30
+days, tombstones included) and may delete any data at any time; under a full quota
+the data of the longest inactive profiles goes first
+([ADR 0009](../decisions/0009-message-delivery-and-storage.md)),
 and profile deletion is a signed tombstone (implemented on a single node) that
 nodes honour best effort, without a guarantee ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 
@@ -57,7 +59,7 @@ such as mental-health indicators, is readable by anyone. That is a disclosure,
 not "safe" data. The target design therefore needs:
 
 - no field published unless the user fills it in;
-- location precision chosen by the user (exact, coarse, or off);
+- location published only as a place name (city or district), never as coordinates, and optional;
 - a warning before publishing that replicated data cannot be reliably withdrawn
   ([ADR 0011](../decisions/0011-best-effort-deletion.md));
 - documentation that peer ID + IP + age + location can deanonymize a user.

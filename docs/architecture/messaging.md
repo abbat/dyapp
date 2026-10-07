@@ -152,27 +152,20 @@ What this gives and what it does not:
   is not implemented.
 - Ordering says nothing about delivery: a message that never arrives leaves no gap to detect.
 
-## Hybrid Delivery (Push + Gossip) — planned
+## Mailbox Delivery — planned
 
 None of this section is implemented: there is no transport in `rust/messaging`, and the
-bootstrap `MessageBlob` store is not wired to the queue.
+bootstrap `MessageBlob` store is not wired to the queue. Decision:
+[ADR 0009](../decisions/0009-message-delivery-and-storage.md).
 
-### Push (Direct P2P)
+1. The sender writes the message to the recipient's mailbox: the recipient's replica nodes.
+2. An online recipient keeps a connection to one of them and gets the message pushed at once;
+   an offline one fetches it when it comes back.
+3. The recipient acknowledges through the mailbox; the sender removes the message from its
+   retry queue.
 
-If peer is online:
-1. Establish QUIC connection
-2. Send message directly
-3. Receive delivery ACK
-4. Remove from queue
-
-### Gossip (Bootstrap Relay)
-
-If peer is offline:
-1. Send message to bootstrap server
-2. Bootstrap stores the message (plaintext today)
-3. Peer queries bootstrap on next online
-4. Peer receives and sends delivery ACK back through bootstrap
-5. Original sender gets ACK and removes from queue
+Clients never publish their addresses in the DHT. A direct connection that already exists (for
+example during a call) may carry messages, as an optimisation only.
 
 **Target: bootstrap never sees plaintext** (not true today, see [status](../security/encryption.md)):
 - Message encrypted before sending to bootstrap

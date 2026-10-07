@@ -1,7 +1,7 @@
 # 0003. Public signed profile, end-to-end encrypted private data
 
 - **Status:** Accepted
-- **Date:** 2026-10-06
+- **Date:** 2026-10-07
 
 ## Context
 
@@ -15,8 +15,8 @@ that store and relay them.
   including bootstrap and index nodes. There is no per-field private flag: a user who does not want
   a field public does not fill it in. This applies to sensitive optional fields (for example
   mental-health indicators) as well.
-- **Location precision is the user's choice**, including turning location off. Search must work
-  with coarse or missing location.
+- **Location is a place name, never coordinates:** a city or district the user picks within their
+  country, or none. Search matches the place exactly and must work without it.
 - **The profile is tamper-proof:** every profile version is signed with the owner's Ed25519
   identity key ([ADR 0004](0004-identity-keys.md)). Readers and index nodes reject unsigned or
   badly signed profiles.

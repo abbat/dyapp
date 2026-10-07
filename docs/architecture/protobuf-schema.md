@@ -119,7 +119,7 @@ not the target. The schema has not been changed yet:
    sees which fields are set, but not their values.
 
 What the bootstrap actually receives today is the signed `Profile` from `rust/profile`: plaintext
-public fields (age, country, location, kids, goals and so on) plus `version` and a `deleted`
+public fields (age, country, place, kids, goals and so on) plus `version` and a `deleted`
 tombstone flag, wrapped in a `SignedRecord`. Nothing in it is encrypted, matching
 [ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md). See the
 [bootstrap signed profile](bootstrap.md#signed-profile).
