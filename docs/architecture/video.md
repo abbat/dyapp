@@ -15,8 +15,8 @@ Source: `rust/video/src/session.rs` (session), `ice.rs` (candidate helpers),
 **Transport split (target):** video uses the WebRTC stack (`webrtc` crate 0.21,
 an async layer over the sans-I/O `rtc` core: ICE for connectivity, DTLS for key
 exchange, SRTP/RTP for media). Messaging is
-meant to use QUIC (`quinn`). They are separate transports; video does not run
-over QUIC and `quinn` is not a WebRTC implementation.
+meant to use libp2p. They are separate transports; video does not run over
+libp2p.
 
 ## What exists today
 

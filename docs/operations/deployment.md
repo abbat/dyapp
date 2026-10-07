@@ -162,8 +162,7 @@ image and manifests need a server binary first.
 ## Client Configuration (planned)
 
 No platform app connects to a bootstrap server yet, and there is no client API
-for configuring bootstrap URLs (`rust/p2p-net/src/discovery.rs` only keeps a
-list of addresses; `query_bootstrap` is a stub). The intended behaviour is a
+for configuring bootstrap addresses. The intended behaviour is a
 built-in list of bootstrap URLs plus a user-editable setting.
 
 ## Monitoring

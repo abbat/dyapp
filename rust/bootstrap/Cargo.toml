@@ -37,5 +37,4 @@ path = "../../tests/integration_tests.rs"
 proptest = "1.4"
 tower = { version = "0.5", features = ["util"] }
 dyapp-messaging = { path = "../messaging" }
-dyapp-p2p-net = { path = "../p2p-net" }
 dyapp-video = { path = "../video" }

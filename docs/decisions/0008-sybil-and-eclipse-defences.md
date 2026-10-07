@@ -67,6 +67,6 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
 - Proof-of-work slows the first start of an index node (desktop only).
 - Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
   local reputation, replica placement and store pools.
-- Not implemented: `rust/p2p-net` still uses `quinn` and has no DHT; the bootstrap store has no
-  per-type pools or per-IP quotas
+- Not implemented: `rust/p2p-net` has a plain libp2p Kademlia node without these defences; the
+  bootstrap store has no per-type pools or per-IP quotas
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).

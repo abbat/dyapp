@@ -7,13 +7,10 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-quinn = "0.11"
-noise-protocol = "0.2.1"
-serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
-tracing = "0.1"
+libp2p = { version = "0.57", features = [
+    "autonat", "identify", "kad", "macros", "noise", "quic", "tcp", "tokio", "yamux",
+] }
 
 [dev-dependencies]
-proptest = "1.4"
-tokio-test = "0.4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

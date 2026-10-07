@@ -30,4 +30,5 @@ does not run over libp2p streams.
 - Mobile apps run rust-libp2p in the core; reaching a sleeping phone (push wake-up) is not solved
   by libp2p and is deferred.
 - libp2p has no traffic obfuscation; resistance to DPI blocking is deferred.
-- Not implemented: `rust/bootstrap` still serves REST (`api.rs`) and `rust/p2p-net` uses `quinn`.
+- Not implemented: `rust/bootstrap` still serves REST (`api.rs`); `rust/p2p-net` has the libp2p
+  node but no application protocols.

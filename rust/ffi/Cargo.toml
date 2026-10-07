@@ -10,7 +10,6 @@ license.workspace = true
 uniffi = { version = "0.32", features = ["cli"] }
 dyapp-identity = { path = "../identity" }
 dyapp-profile = { path = "../profile" }
-dyapp-p2p-net = { path = "../p2p-net" }
 dyapp-messaging = { path = "../messaging" }
 dyapp-video = { path = "../video" }
 serde = { version = "1.0", features = ["derive"] }

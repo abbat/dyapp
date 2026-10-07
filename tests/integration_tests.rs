@@ -3,7 +3,6 @@
 
 use dyapp_messaging::message::{Message, MessageStatus};
 use dyapp_messaging::queue::MessageQueue;
-use dyapp_p2p_net::peer::Peer;
 
 #[tokio::test]
 async fn test_message_offline_queue_and_delivery() {
@@ -151,28 +150,6 @@ async fn test_signed_profile_over_http() {
         call("GET", "/profiles/nobody".into(), vec![]).await.0,
         StatusCode::NOT_FOUND
     );
-}
-
-#[tokio::test]
-async fn test_peer_reputation_tracking() {
-    let mut peer = Peer::new("peer1".to_string(), "public-key".to_string());
-
-    assert_eq!(peer.reputation, 0);
-
-    // Successful delivery increases reputation
-    peer.increase_reputation(10);
-    assert_eq!(peer.reputation, 10);
-
-    // Peer disconnection or failures decrease reputation
-    peer.decrease_reputation(5);
-    assert_eq!(peer.reputation, 5);
-
-    // Reputation bounds
-    peer.increase_reputation(200); // Cap at 100
-    assert!(peer.reputation <= 100);
-
-    peer.decrease_reputation(200); // Floor at -100
-    assert!(peer.reputation >= -100);
 }
 
 #[tokio::test]

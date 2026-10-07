@@ -19,10 +19,7 @@ Located in `#[cfg(test)]` modules within each crate.
 - Rejects a bad signature or invalid content
 
 **P2P Network** (rust/p2p-net)
-- Peer: reputation tracking, address management, reachability
-- PeerDiscovery: bootstrap queries, gossip peer lists, DHT lookups
-- PeerConnection: state transitions, activity tracking, bandwidth metrics
-- TransportConfig: preset configs (mobile vs desktop), timeout settings
+- A client dials a server over QUIC loopback and adds it to its Kademlia routing table
 
 **Messaging** (rust/messaging)
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
@@ -157,7 +154,7 @@ These are aspirations for test planning. No script checks them.
 |-------|----------------|----------|
 | identity | 90% | Signing, verification, key handling |
 | profile | 90% | Version ordering, tombstones, validation |
-| p2p-net | 75% | Core discovery + state machine |
+| p2p-net | 75% | Swarm setup, DHT routing |
 | messaging | 90% | All message states, retry logic |
 | video | 80% | Session machine, codec negotiation |
 | bootstrap | 75% | Storage, replication, rate limit |

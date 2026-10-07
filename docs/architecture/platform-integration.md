@@ -264,7 +264,7 @@ app links it yet.
 
 Breakdown:
 - Rust core: 8-10 MB
-- WebRTC (`webrtc` crate, video) and QUIC (`quinn`, messaging): separate stacks, not measured
+- WebRTC (`webrtc` crate, video) and libp2p (messaging): separate stacks, not measured
 - Crypto (ChaCha, Ed25519): 0.5 MB
 
 ## Limitations & Future

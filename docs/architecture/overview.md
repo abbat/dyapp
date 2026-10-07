@@ -24,15 +24,15 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
  rust/ffi  (uniffi, dyapp.udl)
    ├──► rust/profile    (signed profile) ──► rust/identity (Ed25519)
    ├──► rust/messaging  (ChaCha20-Poly1305)
-   ├──► rust/p2p-net    (quinn types; transport is a stub)
+   ├──► rust/p2p-net    (libp2p node; not called by ffi yet)
    └──► rust/video      (webrtc) ──► rust/messaging
 
  rust/bootstrap  (axum REST + SQLite, separate server process)
-   └──► identity, profile   (Cargo dependencies; tests also use messaging, p2p-net, video)
+   └──► identity, profile   (Cargo dependencies; tests also use messaging, video)
 ```
 
 No component calls another over the network today: there is no client that
-talks to the bootstrap REST API, no QUIC connection between peers, and no
+talks to the bootstrap REST API, nothing uses the libp2p node, and there is no
 WebRTC signaling channel.
 
 | Component | Source | Status | What it really does |
@@ -40,7 +40,7 @@ WebRTC signaling channel.
 | Identity | `rust/identity/src/` | library | Ed25519 identity key, `SignedRecord` (protobuf) signed over a domain label, peer ID = hex SHA-256 of the public key; the key is not persisted or exposed over FFI yet |
 | Profile | `rust/profile/src/` | library | Public `Profile` (protobuf), signature and content checks, highest version wins, tombstone for deletion |
 | Messaging | `rust/messaging/src/` | library prototype | Message types, Lamport clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
-| P2P networking | `rust/p2p-net/src/` | stub | Peer bookkeeping (`peer.rs`, `connection.rs`); QUIC bind/connect/listen in `transport.rs` and `query_bootstrap` in `discovery.rs` are `TODO` |
+| P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; no application protocols ([P2P networking](p2p-networking.md)) |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
@@ -53,13 +53,12 @@ WebRTC signaling channel.
 
 Distinctions that matter when reading the other docs:
 
-- **Local peer management vs discovery protocol.** `p2p-net` keeps an in-memory
-  list of peers and bootstrap addresses. There is no discovery protocol (no
-  DHT, no mDNS) and the bootstrap query is a stub.
+- **Library vs running network.** `p2p-net` can build a Kademlia node, but no
+  binary starts one, so there is no DHT network yet.
 - **REST bootstrap vs DHT.** The bootstrap server is a single REST service over
   SQLite. It is not a DHT node and does not participate in routing.
 - **WebRTC media vs QUIC messaging.** Video uses the `webrtc` crate (its own
-  ICE/DTLS/SRTP stack); messaging is meant to run over QUIC (`quinn`). They are
+  ICE/DTLS/SRTP stack); messaging is meant to run over libp2p. They are
   separate transports and share no connection.
 
 ## Target architecture (planned)
@@ -72,7 +71,7 @@ Everything in this section is design intent, not code.
         ▼
  Rust core: identity · profile · messaging · p2p-net · video
         │                         │
-        │ QUIC (quinn)            │ WebRTC media (peer-to-peer)
+        │ libp2p (QUIC, TCP)      │ WebRTC media (peer-to-peer)
         ▼                         ▼
    other peers  ◄──── signaling channel (planned, undecided)
         │
@@ -86,8 +85,8 @@ Decided (see the [ADRs](../decisions/README.md)):
 - **Network stack: rust-libp2p** (Kademlia DHT, QUIC, Noise, NAT traversal)
   with subnet limits, node-ID proof-of-work and disjoint lookups against Sybil
   and eclipse attacks
-  ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). The current code still
-  uses `quinn`.
+  ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). The current node has none
+  of these defences.
 - **Rust core, native apps on mobile and macOS, Tauri on Linux/Windows**
   ([ADR 0002](../decisions/0002-rust-core-native-apps-tauri-desktop.md)).
 - **Public signed profile, end-to-end encrypted private data**
@@ -127,7 +126,7 @@ library types in-process, without any network.
 
 1. Sender appends the message to the conversation's local append-only log,
    stamps it with a hybrid logical clock and encrypts the body (`messaging`).
-2. If the recipient is reachable, the message is sent over QUIC (`p2p-net`).
+2. If the recipient is reachable, the message is sent over libp2p (`p2p-net`).
 3. Otherwise it is stored on bootstrap nodes and fetched later by the
    recipient; today that is `POST /messages` / `GET /messages/peer/{peer_id}`.
 4. The recipient acknowledges; the sender retries from its offline queue
