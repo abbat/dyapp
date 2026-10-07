@@ -21,7 +21,7 @@ case "${1:?suite required}" in
         export ANDROID_USER_HOME=/home/appuser/.android
         mkdir -p "$ANDROID_USER_HOME"
         # /avd is a disk volume (see compose.ui.yml); --force drops the previous run's AVD.
-        echo no | avdmanager create avd --force -n test_device -k 'system-images;android-30;default;x86_64' -p /avd/test_device
+        echo no | avdmanager create avd --force -n test_device -k 'system-images;android-31;default;x86_64' -p /avd/test_device
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
@@ -51,7 +51,8 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell settings put global hide_error_dialogs 1
         timeout 60 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
         timeout 60 adb -s emulator-5554 shell wm dismiss-keyguard
-        timeout 60 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
+        # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
+        timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
         timeout 900 adb -s emulator-5554 shell am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt"
         python3 /app/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt"
         timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"

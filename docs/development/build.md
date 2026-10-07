@@ -19,7 +19,7 @@
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
 | Swift tools | 5.9, which needs **Xcode 15+** | `ios/Package.swift`, `macos/Package.swift` |
 | iOS / macOS minimum | iOS 14, macOS 11 | same |
-| Android app | `minSdk 26`, `compileSdk`/`targetSdk 34` | `android/app/build.gradle` |
+| Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |
 
 Run every script from any directory: each resolves the repository root from

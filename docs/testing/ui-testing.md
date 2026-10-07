@@ -57,9 +57,9 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 ### Android
 
 - **Image** `dyapp:android-test` (`docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
-  Android cmdline-tools (checksum-pinned), SDK platform 34, build-tools 34.0.0,
-  system image `android-30;default;x86_64`. It copies the real Gradle project `android/` (its own
-  `gradlew`; wrapper jar and Gradle 8.2 distribution checksum-verified) and, as UID 999, pre-builds `:app:assembleDebug`,
+  Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0,
+  system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `android/` (its own
+  `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 999, pre-builds `:app:assembleDebug`,
   `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin`. No Rust `.so` or generated
   bindings are copied (there are none to copy).
 - **`android`** → service `android-unit-test` → `android-test-in-container.sh unit`: offline
