@@ -1,23 +1,25 @@
 # CI Base: Rust Core Pipeline
 
-> **Status:** derived from `.github/workflows/ci-base.yml`, `linting.yml`, `scripts/` and
+> **Status:** derived from `.github/workflows/ci-base.yml`, `scripts/` and
 > `docker/compose.*.yml` on 2026-10-06. Nothing here was run for this document.
 > For the overall matrix, the other workflows and the required-checks question, see
 > [ci-matrix.md](ci-matrix.md).
 
-`ci-base.yml` (name **rust**) is `workflow_call` only. Its single caller is
-`ci-matrix.yml` (job `core`), which `ci.yml` in turn calls. It has two jobs.
+`ci-base.yml` (name **rust**) is `workflow_call` only. Its single caller is `ci.yml` (job
+`core`), so its checks show as `ci / core / quality` and `ci / core / build`. It has two jobs.
 
 ## Jobs
 
-### `quality` → `linting.yml`
+### `quality` → **quality**
 
-`linting.yml` (name **quality**) is `workflow_call` only, so it does not run by itself.
-It has one job, **quality** (ubuntu-24.04, 60 min), with these steps:
+This job runs on ubuntu-24.04 with a 60-minute timeout, with these steps:
 
 1. `bash scripts/docker-test.sh prepare` builds the `dyapp:dev-prepared` image from
    `docker/Dockerfile.dev`. This is the only online step: dependencies, toolchain 1.99.0,
-   cargo-llvm-cov 0.6.21, cargo-deny 0.19.9 and actionlint 1.7.12.
+   cargo-llvm-cov 0.6.21, cargo-deny 0.19.9 and actionlint 1.7.12. Both jobs (and the
+   `docker` jobs in `ci.yml`) set `DYAPP_BUILD_CACHE=gha` and reuse image layers from the GitHub
+   Actions cache through buildx
+   ([empty-app-contract.md](../platforms/empty-app-contract.md#local-resource-budget)).
 2. `bash scripts/docker-test.sh quality` runs `scripts/quality-in-container.sh` offline in a
    hardened container (no network, read-only, `cap_drop: ALL`, UID 999). That script runs, in order:
 
@@ -74,7 +76,7 @@ not fetch at run time. The online `cargo audit` lives in `security.yml`
 
 ```bash
 bash scripts/docker-test.sh prepare     # once, online
-bash scripts/docker-test.sh quality     # = linting.yml
+bash scripts/docker-test.sh quality     # = job quality
 bash scripts/docker-test.sh build
 bash scripts/docker-test.sh test
 bash scripts/docker-test.sh coverage    # = make coverage
@@ -85,6 +87,6 @@ bash scripts/docker-test.sh all         # all of the above + scripts/ui-test.sh 
 
 ## Related
 
-- [ci-matrix.md](ci-matrix.md): entry point, platform jobs, other workflows, required checks.
+- [ci-matrix.md](ci-matrix.md): `ci.yml` entry point, platform jobs, other workflows, required checks.
 - [Docker testing](../testing/docker.md).
 - [Coverage policy](../testing/README.md#coverage-policy).

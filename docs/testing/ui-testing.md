@@ -66,7 +66,8 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `./gradlew --rerun-tasks :app:testDebugUnitTest`, then `check-junit-results.py`.
 - **`android-emulator`** → service `android-emulator-test`, which `depends_on` service
   `android-emulator` being healthy:
-  - `android-emulator` creates the AVD and starts the emulator headless with `-accel off` by default
+  - `android-emulator` creates the AVD on the `android-avd` volume (the emulator wants ~7.4G free
+    for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
     (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `docker/compose.kvm.yml`, which passes `/dev/kvm` and sets `-accel on`; CI does this after opening `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
@@ -107,7 +108,7 @@ In CI the Docker jobs upload **no** artifacts (logs only).
 
 ## Native CI suites (iOS, macOS, Windows)
 
-These run only in `ci-matrix.yml`; see [ci-matrix.md](../development/ci-matrix.md#ci-matrixyml-jobs).
+These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml-jobs).
 
 - **iOS / macOS:** XcodeGen 2.44.1 generates `<platform>/DYApp.xcodeproj` from
   `<platform>/project.yml` (targets `DYApp`, `DYAppTests`, `DYAppUITests`; scheme

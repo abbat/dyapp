@@ -1,14 +1,12 @@
-name: python lint
+name: python
 
 on:
   push:
-    branches: [master, main, develop]
     paths:
       - '**.py'
       - '.flake8'
       - '.github/workflows/python-lint.yml'
   pull_request:
-    branches: [master, main, develop]
     paths:
       - '**.py'
       - '.flake8'

@@ -7,7 +7,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 
 ## Where each linter runs
 
-| Language | Tool | Config | Quality container / `linting.yml` | Other CI | Status |
+| Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
 |----------|------|--------|-----------------------------------|----------|--------|
 | Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`, no `[lints]` table) | yes | `codeql.yml` (clippy, see below) | enforced |
 | Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
@@ -18,7 +18,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Web / JS | — | none | — | — | not configured |
 
 The quality container is `scripts/quality-in-container.sh`, run by `make quality` (also `make lint`,
-`make check`, `scripts/check-quality.sh` and `linting.yml`; the `pre-commit` hook would too, but it
+`make check`, `scripts/check-quality.sh` and CI job `ci / core / quality`; the `pre-commit` hook would too, but it
 does not run today, see [code-quality.md](code-quality.md#git-hooks)).
 
 ## Rust

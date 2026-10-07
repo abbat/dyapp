@@ -43,10 +43,20 @@ def build_images(arguments, environment):
             return 2
         filename = build.get("dockerfile", "Dockerfile")
         dockerfile = Path(build["context"]) / filename
-        command = ["docker", "build", "--cpu-period", "100000",
-                   "--cpu-quota", str(CPUS * 100000),
-                   "-t", service["image"],
-                   "-f", str(dockerfile)]
+        # CI layer cache (DYAPP_BUILD_CACHE=gha) needs BuildKit, which has no
+        # CPU quota and cannot see local base images such as dyapp:dev-*.
+        cache = environment.get("DYAPP_BUILD_CACHE")
+        if cache and "FROM dyapp:" not in dockerfile.read_text():
+            scope = service["image"].replace(":", "-")
+            command = ["docker", "buildx", "build", "--load",
+                       "--cache-from", f"type={cache},scope={scope}",
+                       "--cache-to", f"type={cache},scope={scope}"]
+            buildkit = "1"
+        else:
+            command = ["docker", "build", "--cpu-period", "100000",
+                       "--cpu-quota", str(CPUS * 100000)]
+            buildkit = "0"
+        command.extend(["-t", service["image"], "-f", str(dockerfile)])
         if build.get("target"):
             command.extend(["--target", build["target"]])
         for key, value in build.get("args", {}).items():
@@ -55,7 +65,7 @@ def build_images(arguments, environment):
         command.append(build["context"])
         # Build logs are long; show them only when the build fails.
         result = subprocess.run(
-            command, env={**environment, "DOCKER_BUILDKIT": "0"},
+            command, env={**environment, "DOCKER_BUILDKIT": buildkit},
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
         )
         if result.returncode:
@@ -71,6 +81,9 @@ def build_images(arguments, environment):
 def main():
     temporary = Path("/tmp/ai")
     temporary.mkdir(parents=True, exist_ok=True)
+    # compose.dev.yml mounts a volume at /workspace/target inside the
+    # read-only checkout; Docker cannot create that mountpoint itself.
+    (Path(__file__).resolve().parents[1] / "target").mkdir(exist_ok=True)
     arguments = sys.argv[1:]
     environment = {**os.environ, "COMPOSE_PARALLEL_LIMIT": "1",
                    "COVERAGE_RUN_ID": uuid.uuid4().hex,

@@ -8,13 +8,30 @@ permissions:
 
 jobs:
   quality:
-    uses: ./.github/workflows/linting.yml
+    name: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      DYAPP_BUILD_CACHE: gha
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: crazy-max/ghaction-github-runtime@v3
+      - name: prepare
+        run: bash scripts/docker-test.sh prepare
+      - name: check
+        run: bash scripts/docker-test.sh quality
+
   core:
     name: build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: crazy-max/ghaction-github-runtime@v3
       - name: prepare
         run: bash scripts/docker-test.sh prepare
       - name: build

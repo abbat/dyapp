@@ -2,8 +2,30 @@
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+
+
+def run(arguments, timeout=60):
+    # WebKit helpers inherit stdout; killing only the app would leave
+    # communicate() waiting for EOF forever, so kill the whole group.
+    process = subprocess.Popen(
+        arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, start_new_session=os.name == "posix")
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+        stdout, stderr = process.communicate()
+        print(stdout, end="")
+        print(stderr, end="", file=sys.stderr)
+        raise RuntimeError(f"UI suite timed out after {timeout}s: {arguments}")
+    return subprocess.CompletedProcess(
+        arguments, process.returncode, stdout, stderr)
 
 
 def smoke(executable):
@@ -12,8 +34,7 @@ def smoke(executable):
         arguments = [executable, "--ui-test"]
         if broken:
             arguments.append("--break-ui")
-        process = subprocess.run(
-            arguments, capture_output=True, text=True, timeout=60)
+        process = run(arguments)
         print(process.stdout, end="")
         print(process.stderr, end="", file=sys.stderr)
         expected = "UI_SMOKE_FAIL" if broken else "UI_SMOKE_PASS"

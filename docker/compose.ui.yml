@@ -22,6 +22,11 @@ services:
     image: dyapp:android-test
     profiles: [android-emulator, all]
     networks: [android-ui]
+    # The emulator demands 1.2 x the 6G userdata partition free (the minimum it enforces);
+    # /tmp is a RAM tmpfs, so the sparse AVD lives on disk.
+    volumes:
+      - ui-reports:/reports
+      - android-avd:/avd
     environment:
       HOME: /home/appuser
       ANDROID_SDK_ROOT: /opt/android-sdk
@@ -80,6 +85,7 @@ services:
 
 volumes:
   ui-reports:
+  android-avd:
 
 networks:
   android-ui:

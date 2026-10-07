@@ -137,6 +137,32 @@ class Runners(unittest.TestCase):
                     self.assertEqual(
                         call.kwargs["env"]["DOCKER_BUILDKIT"], "0")
 
+    def test_ci_cache_uses_buildkit_except_on_local_base_images(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            for name, base in (("remote", "debian"), ("local", "dyapp:dev")):
+                Path(directory, name).write_text(f"FROM {base}\n")
+            services = {
+                name: {"image": f"test:{name}",
+                       "build": {"context": directory, "dockerfile": name}}
+                for name in ("remote", "local")
+            }
+            ok = subprocess.CompletedProcess([], 0, stdout=b"")
+            config = subprocess.CompletedProcess(
+                [], 0, stdout=json.dumps({"services": services}))
+            with patch.object(runner.subprocess, "run",
+                              side_effect=[config, ok, ok]) as invoke, \
+                    patch.object(runner.sys, "stdout", io.StringIO()):
+                self.assertEqual(runner.build_images(
+                    ["build"], {"DYAPP_BUILD_CACHE": "gha"}), 0)
+        remote, local = (call.args[0] for call in invoke.call_args_list[1:])
+        self.assertEqual(remote[:3], ["docker", "buildx", "build"])
+        self.assertIn("type=gha,scope=test-remote", remote)
+        self.assertEqual(local[:2], ["docker", "build"])
+
     def test_windows_ui_report_does_not_require_container_hostname(self):
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "scripts/desktop-smoke.py")
@@ -150,13 +176,22 @@ class Runners(unittest.TestCase):
             ]
             environment = {"RUNNER_TEMP": directory}
             with patch.dict(os.environ, environment, clear=True):
-                with patch.object(desktop.subprocess, "run",
-                                  side_effect=outcomes):
+                with patch.object(desktop, "run", side_effect=outcomes):
                     desktop.smoke("windows.exe")
             report = json.loads(
                 (Path(directory) / "desktop-ui-results.json").read_text())
             self.assertEqual(len(report), 2)
             self.assertTrue(all(case["passed"] for case in report))
+
+    def test_desktop_timeout_kills_helpers_holding_stdout(self):
+        spec = importlib.util.spec_from_file_location(
+            "desktop_smoke", ROOT / "scripts/desktop-smoke.py")
+        desktop = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(desktop)
+        hang = ["sh", "-c", "sleep 300 & sleep 300"]
+        with patch("sys.stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "timed out"):
+                desktop.run(hang, timeout=1)
 
     def test_unknown_command_is_failure(self):
         for script in ("ui-test.sh", "docker-test.sh", "check-quality.sh"):

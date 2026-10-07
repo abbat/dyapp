@@ -74,8 +74,8 @@ branches.
 
 ## CI
 
-See [CI matrix](ci-matrix.md) and [CI base](ci-base.md). `linting.yml` runs `make quality`'s
-container; `ci-base.yml` runs build, test, coverage, security and network. Required status checks
+See [CI matrix](ci-matrix.md) and [CI base](ci-base.md). Job `quality` in `ci-base.yml` runs
+`make quality`'s container; job `build` runs build, test, coverage, security and network. Required status checks
 are **not established**: see [Required checks](ci-matrix.md#required-checks).
 
 ## References

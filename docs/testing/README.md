@@ -105,7 +105,7 @@ The workflows are described from the YAML in [CI matrix](../development/ci-matri
 point, platform jobs, other workflows) and [CI base](../development/ci-base.md) (Rust core
 pipeline). In short:
 
-- `ci.yml` → `ci-matrix.yml` runs:
+- `ci.yml` runs:
   - the Rust core in Docker (quality, build, tests, coverage, `cargo deny`, two-peer network test);
   - Linux and Android shell apps in Docker;
   - iOS and macOS on macos-15;
@@ -140,7 +140,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Entry point | Fails on < 70%? | Notes |
 |-------------|-----------------|-------|
-| GitHub Actions: `ci.yml` → `ci-matrix.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `bash scripts/docker-test.sh coverage`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
+| GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `bash scripts/docker-test.sh coverage`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
 | `bash scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
 | pre-commit `pre-push` stage | Yes | Runs `docker-test.sh all`; skipped by `git push --no-verify` or if hooks are not installed |

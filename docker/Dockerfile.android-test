@@ -20,7 +20,7 @@ RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 
 FROM android-tools
 WORKDIR /app
-RUN mkdir -p /opt/gradle-cache /reports && chown 999:999 /app /opt/gradle-cache /reports
+RUN mkdir -p /opt/gradle-cache /reports /avd && chown 999:999 /app /opt/gradle-cache /reports /avd
 ENV HOME=/home/appuser
 USER 999:999
 COPY --chown=999:999 android android

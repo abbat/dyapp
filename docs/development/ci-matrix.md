@@ -7,30 +7,28 @@
 
 ## Entry point
 
-`ci.yml` (name **ci**) runs on push to `main`/`master`/`develop`, on every `pull_request` and on
-`workflow_dispatch`. It has one job, `required` (name **matrix**), which calls the reusable `ci-matrix.yml`.
+`ci.yml` (name **ci**) runs on push to any branch, on every `pull_request` and on
+`workflow_dispatch`. A branch with an open PR therefore runs it twice (push and PR). Check names
+are `ci / <job>`, e.g. `ci / native - ios`, `ci / core / quality`.
 
 ```
-ci.yml  ──▶ ci-matrix.yml ("matrix")
-              ├─ core     ──▶ ci-base.yml ──▶ quality ──▶ linting.yml
-              │                           └─ core (Docker Rust inventory)
-              ├─ docker   (matrix: linux, android)
-              ├─ apple    (matrix: ios, macos)
-              ├─ windows
-              └─ summary  needs [core, docker, apple, windows], if: always()
+ci.yml ("ci")
+  ├─ core     ──▶ ci-base.yml ──▶ quality, build
+  ├─ docker   (matrix: linux, android)
+  ├─ apple    (matrix: ios, macos)
+  ├─ windows
+  └─ summary  needs [core, docker, apple, windows], if: always()
 ```
 
-`ci-matrix.yml` also has `workflow_dispatch`, so it can be started on its own.
-`ci-base.yml` and `linting.yml` are `workflow_call` only. Rust-core jobs are documented in
-[ci-base.md](ci-base.md).
+`ci-base.yml` is `workflow_call` only. Rust-core jobs are documented in [ci-base.md](ci-base.md).
 
-## ci-matrix.yml jobs
+## ci.yml jobs
 
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
 | `docker` → **docker - linux** | ubuntu-24.04 | `docker-local.py -f docker/compose.ui.yml --profile all build linux-test`; `ui-test.sh linux` → `linux-test-in-container.sh`: unit binaries from `linux/unit-build.json`, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
-| `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 30 x86_64 emulator, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
+| `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 30 x86_64 emulator, AVD on the `android-avd` disk volume because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | Downloads XcodeGen 2.44.1, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), then XCTest/XCUITest (iOS on first available iPhone simulator) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
 | `summary` → **required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
@@ -55,9 +53,9 @@ These are separate workflows, not part of `ci.yml`.
 
 | Workflow | Triggers | Jobs | Notes |
 |----------|----------|------|-------|
-| `codeql.yml` (codeql) | push/PR to `master`, `develop`; weekly Sat 00:00 UTC | **analyze - cpp** (autobuild); **analyze - rust** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
-| `security.yml` (security) | push/PR to `master`, `develop`; weekly Sun 00:00 UTC | **audit** (`rustsec/audit-check-action@v1`); **sbom** (`cargo install cargo-sbom`, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
-| `python-lint.yml` (python lint) | push/PR to `master`, `main`, `develop` touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
+| `codeql.yml` (codeql) | push to any branch, every PR; weekly Sat 00:00 UTC | **analyze - cpp** (autobuild); **analyze - rust** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
+| `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`rustsec/audit-check-action@v1`); **sbom** (`cargo install cargo-sbom`, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
+| `python-lint.yml` (python) | push/PR on any branch touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
 
 ## Required checks
 
