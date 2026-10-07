@@ -10,16 +10,15 @@ jobs:
   audit:
     name: audit
     runs-on: ubuntu-latest
-    # audit-check reports through a check run (and opens issues on scheduled runs).
     permissions:
       contents: read
-      checks: write
-      issues: write
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
+      # Prebuilt binary: audit-check compiled cargo-audit on every run.
+      - uses: taiki-e/install-action@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-audit@0.22.2
+      - run: cargo audit
 
   sbom:
     name: sbom
