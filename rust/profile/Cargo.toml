@@ -10,3 +10,7 @@ license.workspace = true
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
 thiserror = "2"
+
+[build-dependencies]
+prost-build.workspace = true
+protox.workspace = true

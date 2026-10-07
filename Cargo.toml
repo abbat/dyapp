@@ -22,6 +22,7 @@ rust-version = "1.99"
 [workspace.dependencies]
 prost = "0.14"
 prost-build = "0.14"
+protox = "0.9"
 
 [profile.release]
 opt-level = 3

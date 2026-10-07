@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package dyapp.profile;
+
+// Public profile, the payload of a `SignedRecord` signed by the owner's identity key.
+// Every field is public. Empty strings, unset optionals and an age of 0 mean "not published".
+message Profile {
+  // Starts at 1; the highest validly signed version wins.
+  uint64 version = 1;
+  // Tombstone: every other field is empty.
+  bool deleted = 2;
+  uint32 age = 3;
+  // ISO 3166-1 alpha-2 code; income is compared only within one country.
+  string country = 4;
+  // Held coordinates.
+  reserved 5;
+  // Free income range, no currency or brackets.
+  optional uint64 income_from = 6;
+  optional uint64 income_to = 7;
+  optional bool has_kids = 8;
+  optional bool wants_more_kids = 9;
+  string relationship_goal = 10;
+  string career_ambition = 11;
+  string education = 12;
+  string orientation = 13;
+  string role_preference = 14;
+  string zodiac = 15;
+  string financial_philosophy = 16;
+  string employment_status = 17;
+  string fitness_level = 18;
+  repeated string interests = 19;
+  // City or district within `country`, no coordinates; matched exactly.
+  string place = 20;
+}

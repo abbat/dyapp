@@ -67,7 +67,9 @@ still to be designed.
 ### Protocol
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
-`proto/`. Each request is a `oneof`; a node that gets a variant it does not know answers
+`proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
+`/dyapp/mailbox-push` ([schema](protobuf-schema.md#node-protocol)); the other services get their
+schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
 `unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
 `stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`.
 

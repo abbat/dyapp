@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package dyapp.node;
+
+import "identity.proto";
+
+// Node protocol: one libp2p request-response protocol per service, named in each section.
+// Protocol IDs carry no version. Messages evolve only by new fields; a node that gets a request
+// variant it does not know answers STATUS_UNSUPPORTED.
+//
+// Identifiers on the wire are raw bytes:
+// - peer ID of an identity: SHA-256 of the identity public key (32 bytes);
+// - mailbox address: SHA-256 of the device public key (32 bytes).
+
+enum Status {
+  // Not set: a malformed reply.
+  STATUS_UNSPECIFIED = 0;
+  STATUS_OK = 1;
+  STATUS_NOT_FOUND = 2;
+  // A publish whose version is not newer than the stored one.
+  STATUS_STALE = 3;
+  STATUS_TOO_LARGE = 4;
+  // The store is at its limit; try another replica.
+  STATUS_FULL = 5;
+  STATUS_RATE_LIMITED = 6;
+  // Bad signature, wrong key or refused by the operator.
+  STATUS_DENIED = 7;
+  STATUS_UNSUPPORTED = 8;
+  STATUS_INVALID = 9;
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_STORE = 1;
+  ROLE_MEDIA = 2;
+  ROLE_SEARCH = 3;
+  ROLE_TURN = 4;
+}
+
+// ---- /dyapp/node: every node ----
+
+message NodeRequest {
+  oneof request {
+    InfoRequest info = 1;
+  }
+}
+
+message InfoRequest {}
+
+message NodeResponse {
+  Status status = 1;
+  NodeInfo info = 2;
+}
+
+// What the node serves and accepts. Zero means "no such limit" or "role not served".
+message NodeInfo {
+  repeated Role roles = 1;
+  uint64 max_profile_bytes = 2;
+  uint64 max_message_bytes = 3;
+  uint64 max_mailbox_bytes = 4;
+  uint64 max_media_bytes = 5;
+  // Minimum proof-of-work difficulty of a profile key, in leading zero bits.
+  uint32 min_profile_pow = 6;
+  uint64 retention_seconds = 7;
+}
+
+// ---- /dyapp/profile: store role ----
+
+message ProfileRequest {
+  oneof request {
+    // A `SignedRecord` whose payload is a `dyapp.profile.Profile`, signed by its owner.
+    dyapp.identity.SignedRecord publish = 1;
+    GetProfile get = 2;
+  }
+}
+
+message GetProfile {
+  bytes peer_id = 1;
+}
+
+message ProfileResponse {
+  Status status = 1;
+  // get: the stored record (the latest version or a tombstone);
+  // publish answered STATUS_STALE: the stored, newer record.
+  dyapp.identity.SignedRecord record = 2;
+}
+
+// ---- /dyapp/mailbox: store role ----
+
+message MailboxRequest {
+  oneof request {
+    ChallengeRequest challenge = 1;
+    // Payload `Envelope`, signed by the sender's device key.
+    dyapp.identity.SignedRecord put = 2;
+    // Payload `Fetch`, signed by the mailbox's device key.
+    dyapp.identity.SignedRecord fetch = 3;
+    // Payload `Ack`, signed by the mailbox's device key.
+    dyapp.identity.SignedRecord ack = 4;
+  }
+}
+
+// Asks for a nonce bound to this libp2p connection, for one fetch or ack.
+message ChallengeRequest {}
+
+// One end-to-end encrypted message for one device. Stored once per id: a repeated put is a
+// no-op, so puts need no nonce.
+message Envelope {
+  // 16 random bytes chosen by the sender.
+  bytes id = 1;
+  bytes mailbox = 2;
+  // MLS ciphertext; the recipient checks the sender inside it.
+  bytes ciphertext = 3;
+}
+
+// Reads the mailbox whose address is the hash of the signing key, oldest first.
+message Fetch {
+  bytes nonce = 1;
+  // At most this many envelopes; the node may return fewer.
+  uint32 limit = 2;
+  // Push new envelopes over /dyapp/mailbox-push while this connection stays open.
+  bool watch = 3;
+}
+
+// Deletes envelopes from the signer's mailbox. The node forwards the signed ack verbatim to the
+// other replicas, which check the signature and the mailbox address but not the nonce.
+message Ack {
+  bytes nonce = 1;
+  repeated bytes ids = 2;
+}
+
+message MailboxResponse {
+  Status status = 1;
+  // challenge: the nonce.
+  bytes nonce = 2;
+  // fetch: signed envelopes as the senders put them.
+  repeated dyapp.identity.SignedRecord envelopes = 3;
+  // fetch: more envelopes are waiting.
+  bool more = 4;
+}
+
+// ---- /dyapp/mailbox-push: client, opened by the node after a fetch with `watch` ----
+
+message MailboxPush {
+  repeated dyapp.identity.SignedRecord envelopes = 1;
+}
+
+// The device still acknowledges with a mailbox ack.
+message MailboxPushResponse {}

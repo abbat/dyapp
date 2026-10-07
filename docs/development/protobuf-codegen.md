@@ -1,61 +1,32 @@
 # Protobuf code generation
 
-> **Status:** no code is generated from `.proto` files today, and nothing consumes generated code.
-> The wire format in use is JSON over the bootstrap REST API. Which schema becomes canonical is
-> open; see [Protobuf schema](../architecture/protobuf-schema.md).
+Rust types are generated from `proto/` at build time. Nothing generated is committed, and no
+`protoc` is needed: the schemas are parsed by [protox](https://crates.io/crates/protox), a pure
+Rust compiler, so `cargo build` works the same on a developer machine, in Docker and in CI.
 
-## What exists
+| Crate | `build.rs` compiles | Generated types |
+|-------|---------------------|-----------------|
+| `rust/identity` | `proto/identity.proto` | `SignedRecord` |
+| `rust/profile` | `proto/profile.proto` | `Profile` |
+| `rust/p2p-net` | `proto/node.proto` | `dyapp_p2p_net::proto::*` (requests, replies, `Status`, `Role`) |
 
-| Item | State |
-|------|-------|
-| `proto/core_messages.proto` (`dyapp.core`) | Draft schema. Referenced by nothing. |
-| `proto/messages.proto` (`dyapp`) | Draft schema. Only referenced by `scripts/regenerate-proto.sh`. |
-| `prost` in `rust/identity`, `rust/profile`, `rust/bootstrap` | Used through `#[derive(prost::Message)]` structs written by hand; no `build.rs`, nothing generated from `proto/`. |
-| `prost-build` | Only in `[workspace.dependencies]`, for the planned build-time generation below. |
-| `protoc` | Installed in the dev image (`protobuf-compiler` in `docker/Dockerfile.dev`); not used by any target. |
-| `src/generated/`, `ios/Generated/`, `android/.../generated/`, `.proto-checksums` | Do not exist. |
-| CI proto validation | None. No workflow regenerates or diffs protobuf output. |
-| Swift / Kotlin protobuf | No `swift-protobuf` or `protobuf-kotlin` dependency in `ios/` or `android/`. |
+Each `build.rs` calls `protox::compile` and `prost_build::Config::compile_fds`; the output lands in
+`OUT_DIR` and is pulled in with `include!`. `node.proto` imports `identity.proto`; p2p-net maps
+`.dyapp.identity` to `::dyapp_identity` with `extern_path`, so both crates share one
+`SignedRecord` type. Methods on generated types live next to the `include!` as ordinary `impl`
+blocks.
 
-## `scripts/regenerate-proto.sh` as written
+Notes on the generated code:
 
-It is not called by the Makefile, CI, or any build. If run, it:
+- `prost` strips the enum prefix: `STATUS_OK` becomes `Status::Ok`. Enum fields are `i32`; use
+  `Status::try_from(value)` and treat an unknown value as unspecified.
+- A `oneof` variant unknown to this build decodes as `None`; the node answers
+  `STATUS_UNSUPPORTED`.
+- Signatures cover the exact transmitted bytes, never a re-encoding: protobuf has no canonical
+  serialization. Decode the payload of a `SignedRecord`, but store and forward the original bytes.
 
-1. Requires `protoc` on `PATH`; then runs `cargo build -p dyapp-profile` only to grep for
-   "prost" (a warning, never a failure).
-2. **Rust:** writes a `build_proto.rs` file, runs `protoc --prost_out=src/generated`, prints
-   "Using prost-build instead" if that fails, then deletes `build_proto.rs` without running it.
-   `--prost_out` needs the `protoc-gen-prost` plugin, which is not installed or checked, so the
-   fallback message is the likely result and no Rust code is produced.
-3. **Swift:** `protoc --swift_out=ios/Generated` if `protoc-gen-swift` is present, else skips.
-4. **Kotlin:** `--kotlin_out`, or `--java_out` if `protoc-gen-kotlin` is missing, into
-   `android/app/src/main/kotlin/generated`.
-5. **Go:** into `bootstrap/pkg/pb` if `protoc-gen-go` exists. There is no Go bootstrap; the
-   bootstrap is the Rust crate `rust/bootstrap`.
-6. Fails verification when `src/generated/dyapp.rs` is missing (so step 2's failure ends
-   the run here, with exit 1).
-7. Would write `.proto-checksums` with SHA-256 of sources and outputs. A checksum recorded after
-   generation only proves the files did not change since; it does not prove they match the
-   `.proto` sources.
+Swift and Kotlin get no protobuf code: the apps talk to the core through UniFFI types, so
+protobuf stays inside the Rust crates. The `protobuf-compiler` package in `docker/Dockerfile.dev`
+is not used by the build.
 
-It generates from `messages.proto`; nothing uses `core_messages.proto`.
-
-## Proposed strategy (not adopted)
-
-To be decided together with the canonical schema; record the choice as an
-[ADR](../decisions/README.md).
-
-- **Rust:** build-time generation with `prost-build` in the `build.rs` of the crate that owns the
-  wire types, `OUT_DIR` output, `include!` into a module, `use prost::Message` for
-  `encode`/`decode`. Needs `protoc` at build time (present in the dev image; set `PROTOC` or
-  vendor it for builds outside Docker). Nothing is committed.
-- **Swift / Kotlin:** not planned. The apps talk to the core through UniFFI types, so protobuf
-  stays inside the Rust crates; the Swift and Kotlin steps of
-  `regenerate-proto.sh` are to be removed.
-- **Signatures** cover the exact transmitted bytes, never a re-encoding: protobuf has no canonical
-  serialization.
-- Timestamps cross languages as `int64` with a stated unit (milliseconds since the Unix epoch, as
-  `Message.created_at` in `rust/messaging`), not as floating-point seconds.
-
-Until then: do not run `regenerate-proto.sh` expecting usable output, and do not add generated
-files by hand.
+Schema contents and evolution rules: [Protobuf schema](../architecture/protobuf-schema.md).

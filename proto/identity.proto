@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package dyapp.identity;
+
+// A payload with the signer's Ed25519 public key and a signature over `domain || payload`.
+// The domain label names what is signed (for example "dyapp/profile/v1\0"), so a signature for
+// one kind cannot be replayed as another. The payload bytes are signed and stored exactly as
+// received: protobuf has no canonical encoding, and fields unknown to a node stay intact.
+message SignedRecord {
+  bytes public_key = 1;
+  bytes payload = 2;
+  bytes signature = 3;
+}

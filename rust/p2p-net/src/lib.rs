@@ -5,6 +5,12 @@ use libp2p::swarm::NetworkBehaviour;
 use libp2p::{autonat, identify, kad, noise, tcp, yamux, StreamProtocol, Swarm, SwarmBuilder};
 use std::time::Duration;
 
+/// Node protocol messages, generated from proto/node.proto.
+pub mod proto {
+    #![allow(clippy::pedantic)]
+    include!(concat!(env!("OUT_DIR"), "/dyapp.node.rs"));
+}
+
 pub const KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/kad");
 pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
 
@@ -62,6 +68,15 @@ mod tests {
     use libp2p::futures::StreamExt;
     use libp2p::swarm::SwarmEvent;
     use libp2p::Multiaddr;
+
+    #[test]
+    fn unknown_request_variant_decodes_as_none() {
+        use prost::Message;
+        // Field 15 of a request is a variant from a newer client: the node answers unsupported.
+        let newer = [15 << 3 | 2, 0];
+        let request = proto::NodeRequest::decode(newer.as_slice()).unwrap();
+        assert_eq!(request.request, None);
+    }
 
     #[tokio::test]
     async fn client_learns_server_through_identify() {

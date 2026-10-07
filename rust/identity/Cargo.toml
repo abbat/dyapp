@@ -12,3 +12,7 @@ getrandom = "0.4"
 sha2 = "0.11"
 prost.workspace = true
 thiserror = "2"
+
+[build-dependencies]
+prost-build.workspace = true
+protox.workspace = true

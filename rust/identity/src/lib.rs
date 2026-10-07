@@ -29,16 +29,11 @@ impl Domain {
     }
 }
 
-/// A payload with the signer's public key and an Ed25519 signature over `domain || payload`.
-#[derive(Clone, PartialEq, prost::Message)]
-pub struct SignedRecord {
-    #[prost(bytes = "vec", tag = "1")]
-    pub public_key: Vec<u8>,
-    #[prost(bytes = "vec", tag = "2")]
-    pub payload: Vec<u8>,
-    #[prost(bytes = "vec", tag = "3")]
-    pub signature: Vec<u8>,
+mod generated {
+    #![allow(clippy::pedantic)]
+    include!(concat!(env!("OUT_DIR"), "/dyapp.identity.rs"));
 }
+pub use generated::SignedRecord;
 
 impl SignedRecord {
     /// Checks the signature and returns the signer's Peer ID.

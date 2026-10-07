@@ -25,52 +25,11 @@ pub enum Error {
 /// Longest accepted `place`, in Unicode code points.
 pub const MAX_PLACE_CHARS: usize = 1024;
 
-/// Every field is public. Empty strings, `None` and an age of 0 mean "not published".
-#[derive(Clone, PartialEq, prost::Message)]
-pub struct Profile {
-    #[prost(uint64, tag = "1")]
-    pub version: u64,
-    #[prost(bool, tag = "2")]
-    pub deleted: bool,
-    #[prost(uint32, tag = "3")]
-    pub age: u32,
-    /// ISO 3166-1 alpha-2 code; income is compared only within one country.
-    #[prost(string, tag = "4")]
-    pub country: String,
-    // Tag 5 held coordinates; do not reuse it.
-    /// Free income range, no currency or brackets.
-    #[prost(uint64, optional, tag = "6")]
-    pub income_from: Option<u64>,
-    #[prost(uint64, optional, tag = "7")]
-    pub income_to: Option<u64>,
-    #[prost(bool, optional, tag = "8")]
-    pub has_kids: Option<bool>,
-    #[prost(bool, optional, tag = "9")]
-    pub wants_more_kids: Option<bool>,
-    #[prost(string, tag = "10")]
-    pub relationship_goal: String,
-    #[prost(string, tag = "11")]
-    pub career_ambition: String,
-    #[prost(string, tag = "12")]
-    pub education: String,
-    #[prost(string, tag = "13")]
-    pub orientation: String,
-    #[prost(string, tag = "14")]
-    pub role_preference: String,
-    #[prost(string, tag = "15")]
-    pub zodiac: String,
-    #[prost(string, tag = "16")]
-    pub financial_philosophy: String,
-    #[prost(string, tag = "17")]
-    pub employment_status: String,
-    #[prost(string, tag = "18")]
-    pub fitness_level: String,
-    #[prost(string, repeated, tag = "19")]
-    pub interests: Vec<String>,
-    /// City or district within `country`, no coordinates; matched exactly.
-    #[prost(string, tag = "20")]
-    pub place: String,
+mod generated {
+    #![allow(clippy::pedantic)]
+    include!(concat!(env!("OUT_DIR"), "/dyapp.profile.rs"));
 }
+pub use generated::Profile;
 
 impl Profile {
     pub fn tombstone(version: u64) -> Self {
