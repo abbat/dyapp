@@ -5,22 +5,32 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import tempfile
 
 
 def run(arguments, timeout=60):
-    # WebKit helpers inherit stdout; killing only the app would leave
-    # communicate() waiting for EOF forever, so kill the whole group.
-    process = subprocess.Popen(
-        arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, start_new_session=os.name == "posix")
-    try:
-        stdout, stderr = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        if os.name == "posix":
-            os.killpg(process.pid, signal.SIGKILL)
-        else:
-            process.kill()
-        stdout, stderr = process.communicate()
+    # Output goes to files, not pipes: WebKit helpers inherit it, and
+    # sandboxed ones (bwrap --new-session) escape killpg, so waiting for
+    # pipe EOF could hang forever.
+    with tempfile.TemporaryFile("w+") as out, \
+            tempfile.TemporaryFile("w+") as err:
+        process = subprocess.Popen(
+            arguments, stdout=out, stderr=err,
+            start_new_session=os.name == "posix")
+        try:
+            process.wait(timeout=timeout)
+            timed_out = False
+        except subprocess.TimeoutExpired:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            process.wait()
+            timed_out = True
+        out.seek(0)
+        err.seek(0)
+        stdout, stderr = out.read(), err.read()
+    if timed_out:
         print(stdout, end="")
         print(stderr, end="", file=sys.stderr)
         raise RuntimeError(f"UI suite timed out after {timeout}s: {arguments}")

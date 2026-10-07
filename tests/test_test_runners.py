@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -189,10 +190,13 @@ class Runners(unittest.TestCase):
             "desktop_smoke", ROOT / "scripts/desktop-smoke.py")
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
-        hang = ["sh", "-c", "sleep 300 & sleep 300"]
+        # The second helper leaves the process group, like a bwrap sandbox.
+        hang = ["sh", "-c", "sleep 300 & setsid sleep 30 & sleep 300"]
+        started = time.monotonic()
         with patch("sys.stdout", io.StringIO()):
             with self.assertRaisesRegex(RuntimeError, "timed out"):
                 desktop.run(hang, timeout=1)
+        self.assertLess(time.monotonic() - started, 15)
 
     def test_unknown_command_is_failure(self):
         for script in ("ui-test.sh", "docker-test.sh", "check-quality.sh"):

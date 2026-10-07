@@ -30,6 +30,9 @@ jobs:
       DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@v4
+      # The coverage volume plus the network image fill the default runner disk.
+      - name: free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
       - uses: docker/setup-buildx-action@v3
       - uses: crazy-max/ghaction-github-runtime@v3
       - name: prepare

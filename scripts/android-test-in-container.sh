@@ -37,6 +37,7 @@ case "${1:?suite required}" in
                     > "$report_dir/failure.png" 2>/dev/null || true
                 timeout 30 adb -s emulator-5554 shell dumpsys window \
                     > "$report_dir/window.txt" 2>&1 || true
+                grep -E 'mCurrentFocus|mFocusedApp' "$report_dir/window.txt" || true
             fi
             timeout 30 adb -s emulator-5554 logcat -d \
                 > "$report_dir/logcat.txt" 2>&1 || true
@@ -45,6 +46,12 @@ case "${1:?suite required}" in
         trap collect_ui_reports EXIT
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/android/app/build/outputs/apk/debug/app-debug.apk
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+        # A freshly booted emulator may still show the lock screen or a system ANR dialog over
+        # the app; AppUITests requires the app to own the active window.
+        timeout 60 adb -s emulator-5554 shell settings put global hide_error_dialogs 1
+        timeout 60 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
+        timeout 60 adb -s emulator-5554 shell wm dismiss-keyguard
+        timeout 60 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
         timeout 900 adb -s emulator-5554 shell am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt"
         python3 /app/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt"
         timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"

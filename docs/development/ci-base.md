@@ -39,7 +39,9 @@ This job runs on ubuntu-24.04 with a 60-minute timeout, with these steps:
 ### `core` → **build**
 
 This job runs on ubuntu-24.04 with a 60-minute timeout. Each step is a `scripts/docker-test.sh`
-target that runs offline in the prepared image:
+target that runs offline in the prepared image, after a `free disk` step that deletes the runner's
+preinstalled .NET, Android SDK, GHC and tool cache (the coverage volume and the network image
+otherwise fill the disk):
 
 | Step | Command | What it runs |
 |------|---------|--------------|

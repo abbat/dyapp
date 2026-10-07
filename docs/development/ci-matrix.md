@@ -24,7 +24,7 @@ ci.yml ("ci")
 
 ## ci.yml jobs
 
-Both `docker` jobs first delete the runner's preinstalled .NET, Android SDK, GHC and tool cache
+Both `docker` jobs and `core / build` first delete the runner's preinstalled .NET, Android SDK, GHC and tool cache
 (step `free disk`): with the buildx layer cache each image exists twice (in the buildx builder and
 after `--load` in Docker), which otherwise fills the runner disk.
 
@@ -58,7 +58,7 @@ These are separate workflows, not part of `ci.yml`.
 | Workflow | Triggers | Jobs | Notes |
 |----------|----------|------|-------|
 | `codeql.yml` (codeql) | **disabled**: manual `workflow_dispatch` only, because code scanning is unavailable for this private repository; the push / PR / weekly Sat 00:00 UTC triggers are commented out and planned to return | **analyze - cpp** (autobuild); **analyze - rust** | The repo has no C/C++ sources, so the `cpp` autobuild is expected to find nothing to analyze (unverified). In the Rust job every `cargo deny` step and pedantic clippy is `continue-on-error`; the "secrets" grep always succeeds; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
-| `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`rustsec/audit-check-action@v1`); **sbom** (`cargo install cargo-sbom`, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
+| `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`rustsec/audit-check@v2.0.0`); **sbom** (`cargo install --locked cargo-sbom`, SPDX 2.3 JSON, artifact `sbom`) | Online, floating `stable`; separate from the offline `cargo deny` in ci-base. |
 | `python-lint.yml` (python) | push/PR on any branch touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
 
 ## Required checks
