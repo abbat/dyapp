@@ -46,8 +46,8 @@ and runs `rust-check.sh quality`, which runs these checks in order:
 
 ### `core` → **build**
 
-This job runs on ubuntu-24.04 with a 60-minute timeout. Setup installs cargo-llvm-cov 0.6.21 and
-cargo-deny 0.19.9. The instrumented target (without debuginfo) fits the runner's free disk, so
+This job runs on ubuntu-24.04 with a 60-minute timeout. Setup installs cargo-llvm-cov 0.9.1 and
+cargo-deny 0.20.2. The instrumented target (without debuginfo) fits the runner's free disk, so
 there is no `free disk` step: deleting the preinstalled SDKs took about 5 minutes.
 
 The workspace is compiled **once**, with coverage instrumentation. The `cov-*` steps and
@@ -73,7 +73,7 @@ nothing.
 `windows/` are separate manifests and are not part of this pipeline.
 
 **Freshness:** in CI, `deny` fetches the current advisory DB. The local dev image instead uses
-the snapshot taken when the image was built, offline with `--disable-fetch`. `cargo audit` also
+the snapshot taken when the image was built, offline with `--frozen`. `cargo audit` also
 runs in `security.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
 ## What is not here

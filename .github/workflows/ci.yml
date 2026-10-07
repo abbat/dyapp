@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: prepare xcode
         run: |
-          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
+          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "${{ matrix.platform }}/project.yml" --project "${{ matrix.platform }}"
       - name: test

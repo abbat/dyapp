@@ -112,7 +112,7 @@ In CI the Docker jobs upload **no** artifacts (logs only).
 
 These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml-jobs).
 
-- **iOS / macOS:** XcodeGen 2.44.1 generates `<platform>/DYApp.xcodeproj` from
+- **iOS / macOS:** XcodeGen 2.46.0 generates `<platform>/DYApp.xcodeproj` from
   `<platform>/project.yml` (targets `DYApp`, `DYAppTests`, `DYAppUITests`; scheme
   `DYApp`). There is no `.xcworkspace`, and the generated project is not committed.
   `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then

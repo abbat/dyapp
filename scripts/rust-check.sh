@@ -7,8 +7,11 @@ excluded='/registry/|/dyapp[.]uniffi[.]rs$' # dependency sources and the generat
 # The cov-* steps share one instrumented build: compiled once by cov-build, reused by cov-test,
 # network and cov-report (each step re-derives the same environment).
 instrument() {
+    # Once per process: show-env sets RUSTC_WRAPPER to cargo-llvm-cov itself, and a nested
+    # show-env (step coverage runs three steps) recurses through that wrapper.
+    [[ -n ${CARGO_LLVM_COV_SHOW_ENV:-} ]] && return
     export CARGO_TARGET_DIR=target/llvm-cov-target
-    eval "$(cargo llvm-cov show-env --export-prefix)"
+    eval "$(cargo llvm-cov show-env --sh)"
 }
 step() {
     case "$1" in
@@ -57,14 +60,14 @@ step() {
             ;;
         security)
             if [[ -d /opt/advisory-dbs ]]; then
-                # The dev image ships the advisory DB and runs offline. --frozen: the workspace
+                # The dev image ships the advisory DB; --frozen also skips fetching it. The workspace
                 # is read-only, and without --locked cargo metadata rewrites Cargo.lock.
                 mkdir -p /tmp/ai
                 cp -rf /opt/advisory-dbs /tmp/ai/advisory-dbs
                 for database in /tmp/ai/advisory-dbs/advisory-db-*; do
                     git -C "$database" log -1 --format="advisory DB: %H %cI"
                 done
-                cargo deny --frozen check --disable-fetch advisories bans licenses
+                cargo deny --frozen check advisories bans licenses
             else
                 cargo deny --locked check advisories bans licenses
             fi

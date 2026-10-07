@@ -37,7 +37,7 @@ jobs:
         run: bash scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov@0.6.21,cargo-deny@0.19.9
+          tool: cargo-llvm-cov@0.9.1,cargo-deny@0.20.2
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target/llvm-cov-target"

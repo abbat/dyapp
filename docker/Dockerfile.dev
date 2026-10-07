@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Official actionlint 1.7.12.
 COPY --from=rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 /usr/local/bin/actionlint /usr/local/bin/actionlint
 RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
-RUN cargo install --locked cargo-llvm-cov --version 0.6.21 && \
-    cargo install --locked cargo-deny --version 0.19.9
+RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \
+    cargo install --locked cargo-deny --version 0.20.2
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 WORKDIR /workspace
 COPY . .

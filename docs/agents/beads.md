@@ -14,6 +14,8 @@ Code through the symlink `.claude/skills/beads` (`/beads`).
 - Track work in `bd`, not in TODO lists.
 - Finish work with `bd close`; there is no `done` status.
 - Do not put bead IDs in commits, code or docs: they are local and mean nothing to other readers.
+- Write everything you put into beads in English: titles, descriptions, notes, close reasons,
+  comments and `bd remember` memories, whatever language the conversation is in.
 - `bd dolt push` only when the user has authorised it.
 - Label every bead you create (`-l` on `bd create`, `--add-label` on `bd update`); see
   [Labels](#labels).
