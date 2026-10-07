@@ -271,7 +271,7 @@ Before shipping:
 ## Known Limitations
 
 1. **No end-to-end multiparty tests** (3+ peers) — would require actual network
-2. **No real WebRTC tests** — only a local offer is created; no answer, ICE or media exchange between two sessions (see [Video](../architecture/video.md#testing))
+2. **No real WebRTC connection tests** — an offer is answered by a second peer connection in one process, but no test reaches `connected` or exchanges media (see [Video](../architecture/video.md#testing))
 3. **No real codec tests** — codec info tested, actual transcoding skipped
 4. **No performance benchmarks** — not required for Phase 1-9, added in Phase 10+
 

@@ -41,7 +41,7 @@ WebRTC signaling channel.
 | Profile | `rust/profile/src/` | library | Public `Profile` (protobuf), signature and content checks, highest version wins, tombstone for deletion |
 | Messaging | `rust/messaging/src/` | library prototype | Message types, Lamport clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
 | P2P networking | `rust/p2p-net/src/` | stub | Peer bookkeeping (`peer.rs`, `connection.rs`); QUIC bind/connect/listen in `transport.rs` and `query_bootstrap` in `discovery.rs` are `TODO` |
-| Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer; `receive_answer` / `add_ice_candidate` are not applied; frame encryption in `encryption.rs` |
+| Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), RocksDB storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | The only binary in the workspace |

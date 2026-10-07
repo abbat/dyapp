@@ -3,18 +3,18 @@
 ## Overview
 
 > ⚠️ **Prototype, not a video call.** `rust/video` can create a WebRTC offer
-> and keep strings it is given. It cannot answer an offer, does not apply the
-> remote answer or ICE candidates to the peer connection, sends no media and
+> and apply the remote answer and ICE candidates to the peer connection. It
+> cannot answer an offer, does not report its own candidates, sends no media and
 > frame encryption is a stub. See
 > [Encryption & Security Status](../security/encryption.md).
 
 Source: `rust/video/src/session.rs` (session), `ice.rs` (candidate helpers),
 `codec.rs` (codec preference helper), `encryption.rs` (frame encryption stub),
-`rust/ffi/src/lib.rs` (FFI wrapper). This page was checked by reading the
-source; the crate is not built in the test images, so nothing below was run.
+`rust/ffi/src/lib.rs` (FFI wrapper).
 
-**Transport split (target):** video uses the WebRTC stack (`webrtc` crate:
-ICE for connectivity, DTLS for key exchange, SRTP/RTP for media). Messaging is
+**Transport split (target):** video uses the WebRTC stack (`webrtc` crate 0.21,
+an async layer over the sans-I/O `rtc` core: ICE for connectivity, DTLS for key
+exchange, SRTP/RTP for media). Messaging is
 meant to use QUIC (`quinn`). They are separate transports; video does not run
 over QUIC and `quinn` is not a WebRTC implementation.
 
@@ -22,12 +22,12 @@ over QUIC and `quinn` is not a WebRTC implementation.
 
 | Piece | Status |
 |-------|--------|
-| `VideoSession::new()` | Creates an `RTCPeerConnection` with default settings: no media engine codecs registered, no tracks or transceivers, no ICE servers (no STUN/TURN) |
-| `create_offer()` | Calls `create_offer` + `set_local_description`, returns the SDP. With no tracks the offer carries no media section |
+| `VideoSession::new()` | Builds a `PeerConnection` with webrtc's default codecs, UDP sockets on every local interface (`0.0.0.0:0`), one send/receive video transceiver with no track, no ICE servers (no STUN/TURN) and mDNS off (remote `.local` candidates, as browsers send, are not resolved). The event handler ignores all events |
+| `create_offer()` | Calls `create_offer` + `set_local_description`, returns the SDP with one video media section |
 | `mark_offer_sent()` | Manual state change; the caller says the offer was delivered |
-| `receive_answer(sdp)` | Stores the string in `remote_sdp`; does **not** call `set_remote_description`, does not parse or validate the SDP |
-| `add_ice_candidate(c)` | Appends to a local list; does **not** pass the candidate to the peer connection. Allowed in any state |
-| `get_ice_candidates()` | Returns the candidates added above (remote ones), not locally gathered ones; no `on_ice_candidate` handler is registered |
+| `receive_answer(sdp)` | Parses the SDP as an answer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
+| `add_ice_candidate(c)` | Stores a remote candidate; once the answer is set, also passes it to the peer connection (`ICEError` if rejected). Allowed in any state |
+| `get_ice_candidates()` | Returns the candidates added above (remote ones), not locally gathered ones; local `on_ice_candidate` events are ignored |
 | `mark_connected()` | Manual state change from **any** state; not driven by an ICE/DTLS connection event |
 | `close()` | Closes the peer connection, state → `Closed` |
 | Callee path (accept offer, create answer) | **Not implemented**: no method sets a remote offer or creates an answer |
@@ -44,11 +44,11 @@ over QUIC and `quinn` is not a WebRTC implementation.
 |------|------|----|-------|
 | `Idle` | `create_offer()` | `OfferCreated` | any other state → `InvalidState("Offer already created")`; WebRTC failure → `OfferGenerationFailed` / `InvalidState` |
 | `OfferCreated` | `mark_offer_sent()` | `OfferSent` | any other state → `InvalidState("Offer not created")` |
-| `OfferSent` | `receive_answer(sdp)` | `AnswerReceived` | any other state → `InvalidState("Offer not sent yet")`; the SDP content is never checked |
+| `OfferSent` | `receive_answer(sdp)` | `AnswerReceived` | any other state → `InvalidState("Offer not sent yet")`; SDP that does not parse or is rejected by the peer connection → `InvalidState`, state unchanged |
 | any | `mark_connected()` | `Connected` | never fails |
 | any | `close()` | `Closed` | peer connection close error → `InvalidState` |
 
-`Failed` is never set by the code. `AnswerGenerationFailed`, `ICEError` and
+`Failed` is never set by the code. `AnswerGenerationFailed` and
 `EncryptionError` exist in `VideoError` but are never returned.
 
 ## Call setup
@@ -62,9 +62,8 @@ Caller app                    VideoSession                Callee
   | [deliver offer: no signaling channel exists]  ─ ─ ─ ─ ▶|
   | mark_offer_sent() ───────▶ | state = OfferSent         |
   |◀ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ answer SDP ─ ─ |
-  | receive_answer(answer) ──▶ | remote_sdp = answer       |
+  | receive_answer(answer) ──▶ | set_remote_description    |
   |                            | state = AnswerReceived    |
-  |                            | (answer NOT applied)      |
   | mark_connected() ────────▶ | state = Connected         |
   |                            | (no ICE/DTLS check)       |
 ```
@@ -83,11 +82,13 @@ Callee app                    VideoSession (planned)
   | [deliver answer to caller]
 ```
 
-### ICE (planned)
+### ICE
 
-Target: each side registers `on_ice_candidate`, sends local candidates over
-signaling (or waits for gathering to finish and sends the full SDP), and
-passes remote candidates to `add_ice_candidate` on the peer connection. The
+Remote candidates reach the peer connection: `add_ice_candidate` applies them
+once the answer is set, and `receive_answer` applies those that came earlier.
+
+Planned: each side handles `on_ice_candidate` and sends local candidates over
+signaling (or waits for gathering to finish and sends the full SDP). The
 WebRTC stack then runs connectivity checks, DTLS, and reports a connection
 state that should drive `Connected` / `Failed` instead of `mark_connected()`.
 
@@ -105,8 +106,9 @@ TURN. Which TURN service to use is undecided.
 ## Codecs
 
 `codec.rs` defines `VP8`, `VP9`, `H264`, `AV1` with payload types and a
-`CodecNegotiation` helper. It is **not connected** to the peer connection: no
-codecs are registered in the media engine, and the SDP is not affected.
+`CodecNegotiation` helper. It is **not connected** to the peer connection: the
+media engine registers webrtc's own default codecs, and `codec.rs` does not
+affect the SDP.
 
 `CodecNegotiation` semantics:
 
@@ -174,9 +176,11 @@ See [Privacy & Metadata Visibility](../security/privacy.md).
 ## Testing
 
 Unit tests (`rust/video/src/*.rs`):
-- Session creation, `create_offer` → `mark_offer_sent` → `receive_answer("fake-sdp")`
-  state changes, `mark_connected` from `Idle`, `close`
-- `receive_answer` before an offer is rejected
+- Session creation, `create_offer` → `mark_offer_sent` state changes,
+  `mark_connected` from `Idle`, `close`
+- `receive_answer` with a real answer from a second peer connection, with a
+  candidate added before it; invalid SDP and an answer before an offer are
+  rejected
 - ICE helper string matching and `best_candidate`
 - `CodecNegotiation` selection
 - Frame encryption stub roundtrip (not a security test)
@@ -185,13 +189,12 @@ Integration tests (`tests/integration_tests.rs`, one process, no network):
 `test_video_session_lifecycle` (one session, manual `mark_connected`),
 `test_ice_candidate_priority`, `test_codec_negotiation`.
 
-No test connects two sessions, exchanges a real answer or candidates, or
-sends media.
+No test reaches a connected state or sends media.
 
 ## Planned work
 
-- Callee API (set remote offer, create answer) and applying the answer
-- Local candidate events and applying remote candidates
+- Callee API (set remote offer, create answer)
+- Local candidate events
 - Connection state from WebRTC events instead of `mark_connected`
 - Media engine codecs, tracks, capture/render on each platform
 - STUN/TURN configuration and a signaling channel

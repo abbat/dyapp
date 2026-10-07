@@ -1,9 +1,13 @@
 use crate::{ice::ICECandidate, Result, VideoError};
+use rtc::ice::mdns::MulticastDnsMode;
+use rtc::rtp_transceiver::rtp_sender::RtpCodecKind;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use webrtc::api::APIBuilder;
-use webrtc::peer_connection::RTCPeerConnection;
+use webrtc::peer_connection::{
+    MediaEngine, PeerConnection, PeerConnectionBuilder, PeerConnectionEventHandler,
+    RTCIceCandidateInit, RTCSessionDescription, SettingEngineBuilder,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionState {
@@ -16,10 +20,32 @@ pub enum SessionState {
     Closed,
 }
 
+// webrtc requires an event handler; no connection events are consumed yet.
+struct NoEvents;
+
+impl PeerConnectionEventHandler for NoEvents {}
+
+async fn new_peer_connection() -> webrtc::error::Result<impl PeerConnection> {
+    let mut media_engine = MediaEngine::default();
+    media_engine.register_default_codecs()?;
+    // No mDNS: our peers send IP host candidates, and the multicast join fails
+    // without a network interface (ENODEV). Remote `.local` candidates are not resolved.
+    let setting_engine = SettingEngineBuilder::new()
+        .with_multicast_dns_mode(MulticastDnsMode::Disabled)
+        .build();
+    PeerConnectionBuilder::new()
+        .with_media_engine(media_engine)
+        .with_setting_engine(setting_engine)
+        .with_handler(Arc::new(NoEvents))
+        .with_udp_addrs(vec!["0.0.0.0:0"])
+        .build()
+        .await
+}
+
 pub struct VideoSession {
     id: String,
     state: Arc<RwLock<SessionState>>,
-    peer_connection: Arc<RwLock<Option<Arc<RTCPeerConnection>>>>,
+    peer_connection: Arc<dyn PeerConnection>,
     local_sdp: Arc<RwLock<Option<String>>>,
     remote_sdp: Arc<RwLock<Option<String>>>,
     ice_candidates: Arc<RwLock<Vec<ICECandidate>>>,
@@ -28,18 +54,19 @@ pub struct VideoSession {
 
 impl VideoSession {
     pub async fn new() -> Result<Self> {
-        let api = APIBuilder::new().build();
-        let peer_connection = api
-            .new_peer_connection(Default::default())
+        let peer_connection = new_peer_connection().await.map_err(|e| {
+            VideoError::InvalidState(format!("Failed to create peer connection: {}", e))
+        })?;
+        // Without a media section the offer carries no ICE credentials and a peer rejects it.
+        peer_connection
+            .add_transceiver_from_kind(RtpCodecKind::Video, None)
             .await
-            .map_err(|e| {
-                VideoError::InvalidState(format!("Failed to create peer connection: {}", e))
-            })?;
+            .map_err(|e| VideoError::InvalidState(format!("Failed to add video: {}", e)))?;
 
         Ok(Self {
             id: Uuid::new_v4().to_string(),
             state: Arc::new(RwLock::new(SessionState::Idle)),
-            peer_connection: Arc::new(RwLock::new(Some(Arc::new(peer_connection)))),
+            peer_connection: Arc::new(peer_connection),
             local_sdp: Arc::new(RwLock::new(None)),
             remote_sdp: Arc::new(RwLock::new(None)),
             ice_candidates: Arc::new(RwLock::new(Vec::new())),
@@ -65,9 +92,7 @@ impl VideoSession {
             ));
         }
 
-        let pc = self.peer_connection.read().await;
-        let pc = pc.as_ref().ok_or(VideoError::SessionNotInitialized)?;
-
+        let pc = &self.peer_connection;
         let offer = pc
             .create_offer(None)
             .await
@@ -96,30 +121,47 @@ impl VideoSession {
             return Err(VideoError::InvalidState("Offer not sent yet".to_string()));
         }
 
-        let _pc = self.peer_connection.read().await;
-        let _pc = _pc.as_ref().ok_or(VideoError::SessionNotInitialized)?;
-
-        // webrtc 0.17 - RTCSessionDescription has private fields
-        // Store remote SDP locally; actual peer connection integration
-        // requires using the appropriate constructor method from webrtc crate
+        let answer = RTCSessionDescription::answer(sdp.clone())
+            .map_err(|e| VideoError::InvalidState(format!("Invalid answer: {}", e)))?;
+        self.peer_connection
+            .set_remote_description(answer)
+            .await
+            .map_err(|e| {
+                VideoError::InvalidState(format!("Failed to set remote description: {}", e))
+            })?;
 
         *self.remote_sdp.write().await = Some(sdp);
         *self.state.write().await = SessionState::AnswerReceived;
 
+        // Candidates that arrived before the answer were only stored.
+        for candidate in self.ice_candidates.read().await.iter() {
+            self.apply_ice_candidate(candidate).await?;
+        }
+
         Ok(())
     }
 
+    /// Stores a remote candidate and hands it to the peer connection once the answer is set;
+    /// earlier candidates are applied by `receive_answer`.
     pub async fn add_ice_candidate(&self, candidate: ICECandidate) -> Result<()> {
-        self.ice_candidates.write().await.push(candidate.clone());
-
-        let _pc = self.peer_connection.read().await;
-        let _pc = _pc.as_ref().ok_or(VideoError::SessionNotInitialized)?;
-
-        // webrtc 0.17 - simplified ICE candidate handling
-        // Store candidate locally; actual peer connection integration
-        // depends on webrtc crate's exact ice_candidate_init module API
-
+        let mut candidates = self.ice_candidates.write().await;
+        if self.remote_sdp.read().await.is_some() {
+            self.apply_ice_candidate(&candidate).await?;
+        }
+        candidates.push(candidate);
         Ok(())
+    }
+
+    async fn apply_ice_candidate(&self, candidate: &ICECandidate) -> Result<()> {
+        self.peer_connection
+            .add_ice_candidate(RTCIceCandidateInit {
+                candidate: candidate.candidate.clone(),
+                sdp_mid: candidate.sdp_mid.clone(),
+                sdp_mline_index: candidate.sdp_mline_index,
+                ..Default::default()
+            })
+            .await
+            .map_err(|e| VideoError::ICEError(e.to_string()))
     }
 
     pub async fn get_ice_candidates(&self) -> Vec<ICECandidate> {
@@ -140,12 +182,10 @@ impl VideoSession {
     }
 
     pub async fn close(&self) -> Result<()> {
-        let pc = self.peer_connection.write().await;
-        if let Some(pc) = pc.as_ref() {
-            pc.close()
-                .await
-                .map_err(|e| VideoError::InvalidState(format!("Failed to close: {}", e)))?;
-        }
+        self.peer_connection
+            .close()
+            .await
+            .map_err(|e| VideoError::InvalidState(format!("Failed to close: {}", e)))?;
         *self.state.write().await = SessionState::Closed;
         Ok(())
     }
@@ -214,14 +254,54 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// Answers `offer` from a second, independent peer connection.
+    async fn remote_answer(offer: String) -> String {
+        let remote = new_peer_connection().await.expect("remote peer");
+        remote
+            .set_remote_description(RTCSessionDescription::offer(offer).expect("offer"))
+            .await
+            .expect("set offer");
+        let answer = remote.create_answer(None).await.expect("answer");
+        remote
+            .set_local_description(answer.clone())
+            .await
+            .expect("set answer");
+        answer.sdp
+    }
+
     #[tokio::test]
     async fn test_receive_answer_after_offer() {
         let session = VideoSession::new().await.expect("Failed to create session");
-        session.create_offer().await.ok();
+        let offer = session.create_offer().await.expect("offer");
+        assert!(offer.starts_with("v=0"));
+        session.mark_offer_sent().await.ok();
+
+        // A candidate that arrives before the answer is applied together with it.
+        let candidate = ICECandidate::new(
+            "candidate:1 1 udp 2130706431 127.0.0.1 50000 typ host".to_string(),
+            None,
+            Some(0),
+        );
+        session.add_ice_candidate(candidate).await.expect("stored");
+
+        let answer = remote_answer(offer).await;
+        session
+            .receive_answer(answer.clone())
+            .await
+            .expect("answer applied");
+        assert_eq!(session.state().await, SessionState::AnswerReceived);
+        assert_eq!(*session.remote_sdp.read().await, Some(answer));
+    }
+
+    #[tokio::test]
+    async fn test_receive_answer_rejects_invalid_sdp() {
+        let session = VideoSession::new().await.expect("Failed to create session");
+        session.create_offer().await.expect("offer");
         session.mark_offer_sent().await.ok();
 
         let result = session.receive_answer("fake-sdp".to_string()).await;
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert_eq!(session.state().await, SessionState::OfferSent);
     }
 
     #[tokio::test]
