@@ -181,7 +181,9 @@ repaired and expires with the TTL.
   file, hash-checked, fsync'd and renamed.
 - No routine full `VACUUM`: stores use `auto_vacuum = INCREMENTAL` with `incremental_vacuum(N)`,
   a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on a per-store
-  schedule with an optional maintenance window and an I/O budget.
+  schedule with an optional maintenance window and an I/O budget. Implemented: one schedule for
+  all stores with a page budget per run ([Storage](#storage)); per-store schedules, the window
+  and a byte/time I/O budget are planned.
 - Activity: one UPSERT of a user's last-active date per day.
 
 ### Limits and abuse
@@ -205,7 +207,7 @@ on request is still to be designed.
   systemd unit with hardening (planned).
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
-  fails at startup ([Configuration](#configuration)). Maintenance settings are planned.
+  fails at startup ([Configuration](#configuration)).
 - The node key is a libp2p key file (mode 0600) in the data directory, created on first start.
   A new key is a new node: the node refuses a key that does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
@@ -401,7 +403,7 @@ Scope and limits:
 ## Storage
 
 One SQLite file per data type in the storage directory, WAL journal,
-`auto_vacuum = INCREMENTAL` (nothing runs `incremental_vacuum` yet):
+`auto_vacuum = INCREMENTAL`, `journal_size_limit` 64 MiB:
 
 ```
 profiles.db  profiles(peer_id PK, record BLOB, live)
@@ -420,6 +422,14 @@ format change path yet; the target builds a new format next to the old one
 
 **Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
+**Maintenance:** every `maintenance.interval_minutes` (default 60) `dyapp-node` calls
+`BootstrapStore::maintain`, which, one store at a time under its lock, frees at most
+`maintenance.vacuum_pages` free pages (default 2048 = 8 MiB) with `incremental_vacuum`,
+checkpoints the WAL with `TRUNCATE` and runs `PRAGMA optimize`, then logs the free pages left.
+There is no full `VACUUM`: a large freelist shrinks over several runs, and requests to that store
+wait for one run only. Not measured yet: fragmentation under load, and whether time-bucketed
+message files beat deletes.
+
 `put_profile` holds a lock across read-compare-write, so two concurrent uploads for one peer cannot both win.
 
 ## Configuration
@@ -428,13 +438,14 @@ format change path yet; the target builds a new format next to the old one
 file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
 `listen`, `external`, `roles`, `storage.{dir,profiles,messages}`,
-`limits.{message_ttl_hours,requests_per_second}`; the example and startup checks are in
+`limits.{message_ttl_hours,requests_per_second}`,
+`maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
 `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` ([Served protocol](#served-protocol)). Only
 the `store` role is accepted.
 
-Planned: maintenance windows and budgets, resource guard limits, the media directory, TURN ports,
+Planned: a maintenance window and per-store schedules, resource guard limits, the media directory, TURN ports,
 store retention.
 
 ## Deployment Model

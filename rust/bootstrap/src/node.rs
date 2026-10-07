@@ -14,6 +14,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
+    let maintenance = service.config.maintenance.clone();
+    let mut maintain = tokio::time::interval(Duration::from_secs(
+        u64::from(maintenance.interval_minutes) * 60,
+    ));
     loop {
         tokio::select! {
             event = swarm.select_next_some() => match event {
@@ -69,6 +73,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     Ok(removed) => tracing::info!(removed, "expired messages removed"),
                     Err(error) => tracing::error!(%error, "message cleanup failed"),
                 }
+            }
+            _ = maintain.tick() => match service.store.maintain(maintenance.vacuum_pages) {
+                Ok([profiles, messages]) => {
+                    tracing::info!(profiles, messages, "store maintenance done, free pages left")
+                }
+                Err(error) => tracing::error!(%error, "store maintenance failed"),
             }
         }
     }

@@ -22,10 +22,21 @@ fn open(path: &Path, schema: &str) -> Result<Mutex<Connection>> {
     // auto_vacuum takes effect only before the first table is created.
     db.execute_batch(&format!(
         "PRAGMA auto_vacuum = INCREMENTAL; PRAGMA journal_mode = WAL; \
-         PRAGMA synchronous = NORMAL; {schema}"
+         PRAGMA synchronous = NORMAL; PRAGMA journal_size_limit = {WAL_LIMIT}; {schema}"
     ))
     .map_err(storage_error)?;
     Ok(Mutex::new(db))
+}
+
+/// Bytes a WAL file is truncated to after a checkpoint.
+const WAL_LIMIT: u64 = 64 * 1024 * 1024;
+
+/// Steps a statement to the end: `incremental_vacuum` frees one page per step.
+fn run_to_end(db: &Connection, sql: &str) -> Result<()> {
+    let mut statement = db.prepare(sql).map_err(storage_error)?;
+    let mut rows = statement.query([]).map_err(storage_error)?;
+    while rows.next().map_err(storage_error)?.is_some() {}
+    Ok(())
 }
 
 fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
@@ -218,6 +229,25 @@ impl BootstrapStore {
             .map_err(storage_error)
     }
 
+    /// For each store: frees at most `pages` unused pages, checkpoints and truncates the WAL,
+    /// refreshes planner statistics. Holds one store's lock at a time, so a run stays short.
+    /// Returns the free pages left in `profiles.db` and `messages.db`.
+    pub fn maintain(&self, pages: u32) -> Result<[i64; 2]> {
+        // incremental_vacuum(0) would free the whole freelist in one go.
+        let pages = pages.max(1);
+        let mut left = [0; 2];
+        for (db, left) in [&self.profiles, &self.messages].into_iter().zip(&mut left) {
+            let db = lock(db)?;
+            run_to_end(&db, &format!("PRAGMA incremental_vacuum({pages})"))?;
+            run_to_end(&db, "PRAGMA wal_checkpoint(TRUNCATE)")?;
+            run_to_end(&db, "PRAGMA optimize")?;
+            *left = db
+                .query_row("PRAGMA freelist_count", [], |row| row.get(0))
+                .map_err(storage_error)?;
+        }
+        Ok(left)
+    }
+
     /// Takes and releases the write lock of every store.
     pub fn health_check(&self) -> Result<()> {
         for db in [&self.profiles, &self.messages] {
@@ -238,6 +268,41 @@ mod tests {
 
     fn temp_store() -> BootstrapStore {
         BootstrapStore::new(&format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4())).unwrap()
+    }
+
+    #[test]
+    fn maintenance_frees_pages_in_bounded_steps() {
+        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        let store = BootstrapStore::new(&dir).unwrap();
+        let record = SignedRecord {
+            payload: vec![7; 10_000],
+            ..SignedRecord::default()
+        };
+        for id in 0..500u32 {
+            store
+                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, 0, u64::MAX)
+                .unwrap();
+        }
+        assert_eq!(store.cleanup_expired(1).unwrap(), 500);
+        store.maintain(1).unwrap();
+        let size = || {
+            std::fs::metadata(format!("{dir}/messages.db"))
+                .unwrap()
+                .len()
+        };
+        let before = size();
+        let [_, free] = store.maintain(10).unwrap();
+        let [_, after] = store.maintain(10).unwrap();
+        assert!(free > 1000);
+        assert_eq!(after, free - 10);
+        assert_eq!(store.maintain(u32::MAX).unwrap()[1], 0);
+        assert!(size() < before / 10, "file did not shrink");
+        assert_eq!(
+            std::fs::metadata(format!("{dir}/messages.db-wal"))
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]

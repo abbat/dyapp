@@ -113,6 +113,10 @@ dir = "/var/lib/dyapp-node"   # node key and every store without its own path
 [limits]
 message_ttl_hours = 24
 requests_per_second = 100
+
+[maintenance]
+interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
+vacuum_pages = 2048    # free 4 KiB pages released per store and run
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not
@@ -200,8 +204,16 @@ documented as runnable:
 
 ### Data cleanup
 
-Messages get `ttl_expires_at` (default 24 h); `dyapp-node` deletes expired ones every hour.
-Profiles and tombstones have no expiry yet. See [Privacy](../security/privacy.md#retention).
+Mailbox envelopes expire after `limits.message_ttl_hours` (default 24 h); `dyapp-node` deletes
+expired ones every hour. Profiles and tombstones have no expiry yet. See
+[Privacy](../security/privacy.md#retention).
+
+### Store compaction
+
+No full `VACUUM` is needed. Every `maintenance.interval_minutes` the node returns up to
+`maintenance.vacuum_pages` free pages per store to the file system, truncates the WAL and
+refreshes planner statistics; the log line "store maintenance done" shows the free pages left.
+A steadily growing number means `vacuum_pages` is too small for the delete rate.
 
 ### Backups
 

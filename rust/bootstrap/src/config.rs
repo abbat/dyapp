@@ -22,6 +22,7 @@ pub struct NodeConfig {
     pub roles: Vec<Role>,
     pub storage: StorageConfig,
     pub limits: Limits,
+    pub maintenance: Maintenance,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -49,6 +50,24 @@ pub struct Limits {
     pub requests_per_second: u32,
 }
 
+/// Store maintenance: see `BootstrapStore::maintain`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Maintenance {
+    pub interval_minutes: u32,
+    /// Free pages released per store and run (4 KiB each): bounds the I/O of one run.
+    pub vacuum_pages: u32,
+}
+
+impl Default for Maintenance {
+    fn default() -> Self {
+        Self {
+            interval_minutes: 60,
+            vacuum_pages: 2048,
+        }
+    }
+}
+
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
@@ -60,6 +79,7 @@ impl Default for NodeConfig {
             roles: vec![Role::Store],
             storage: StorageConfig::default(),
             limits: Limits::default(),
+            maintenance: Maintenance::default(),
         }
     }
 }
@@ -167,6 +187,9 @@ impl NodeConfig {
         }
         if self.limits.requests_per_second < 1 {
             anyhow::bail!("limits.requests_per_second must be at least 1");
+        }
+        if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
+            anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");
         }
         let dirs = self.storage.stores().map(|store| {
             store
