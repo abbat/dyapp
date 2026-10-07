@@ -1,0 +1,99 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM UTC
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['cpp']  # Rust support via SARIF
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-and-quality
+        # Optional: disable default queries and use security-only or extended suite
+        # queries: security-only
+
+    # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
+    # If this step fails, then you should remove it and run the build manually
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:cpp"
+
+  # Custom Rust analysis (using clippy for static analysis)
+  rust-analysis:
+    name: Analyze (Rust)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+
+    - name: Install cargo-deny
+      run: cargo install cargo-deny
+
+    - name: Rust linter (clippy) for security
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
+      continue-on-error: true
+
+    - name: Check for vulnerable dependencies
+      run: cargo deny check advisories
+      continue-on-error: true
+
+    - name: Check for license compliance
+      run: cargo deny check licenses
+      continue-on-error: true
+
+    - name: Check for dependency duplicates
+      run: cargo deny check duplicates
+      continue-on-error: true
+
+    - name: Check unsafe code usage
+      run: |
+        echo "🔍 Unsafe code blocks:"
+        grep -rn "unsafe {" rust/ --include="*.rs" || echo "  No unsafe code found ✓"
+
+    - name: Check for hardcoded credentials/secrets
+      run: |
+        echo "🔐 Checking for potential secrets:"
+        grep -rn "password\|secret\|token\|key\|credential" rust/ --include="*.rs" | grep -v "// " || echo "  No hardcoded secrets found ✓"
+        true
+
+    - name: Collect Rust diagnostics
+      run: cargo clippy --workspace --all-features --all-targets --locked --message-format=json > clippy.json
+
+    - name: Generate SARIF report
+      if: always()
+      run: python3 scripts/clippy-to-sarif.py clippy.json > clippy.sarif

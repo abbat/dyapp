@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package dyapp.core;
+
+// Message envelope for P2P communication
+message MessageEnvelope {
+  string message_id = 1;        // UUID
+  string sender_id = 2;         // Public key hash
+  string recipient_id = 3;      // Public key hash
+  int64 timestamp = 4;          // Unix millis
+  bytes encrypted_payload = 5;  // ChaCha20-Poly1305 encrypted
+  bytes signature = 6;          // Ed25519 signature of (sender_id, timestamp, encrypted_payload)
+  string lamport_clock = 7;     // Vector clock for ordering
+}
+
+// Profile data (encrypted before bootstrap storage)
+message Profile {
+  string user_id = 1;                    // Public key hash
+  int32 age = 2;
+  string location_lat = 3;               // Lat as string for precision
+  string location_lon = 4;               // Lon as string for precision
+
+  // Encrypted fields (stored as encrypted blobs on bootstrap)
+  string encrypted_income_bracket = 5;
+  string encrypted_career_ambition = 6;
+  bool has_kids = 7;
+  bool wants_more_kids = 8;
+  string encrypted_relationship_goal = 9;
+  string encrypted_age_range = 10;       // JSON: {min: 30, max: 45}
+
+  string encrypted_education = 11;
+  string encrypted_orientation = 12;
+  bool verified = 13;
+  repeated string interests = 14;        // Encrypted tags
+  string encrypted_role_preference = 15;
+
+  // Optional encrypted fields
+  string encrypted_zodiac = 16;
+  string encrypted_financial_philosophy = 17;
+  bool wants_confidentiality = 18;
+  string encrypted_employment_status = 19;
+  string encrypted_fitness_level = 20;
+
+  // Ultra-private (never sent to bootstrap)
+  // mental_health stored locally only
+
+  int64 updated_at = 21;  // Timestamp for LWW conflict resolution
+  int64 expires_at = 22;  // Eviction timestamp
+}
+
+// Offline message queue entry
+message QueuedMessage {
+  MessageEnvelope envelope = 1;
+  int64 queued_at = 2;
+  int32 retry_count = 3;
+  int64 next_retry_at = 4;
+}
+
+// CRDT document reference
+message CRDTDocument {
+  string document_id = 1;
+  bytes automerge_binary = 2;  // Automerge binary format
+  string document_type = 3;     // "profile", "message_history", etc.
+  int64 version = 4;            // Logical clock
+}
+
+// Bootstrap query request
+message ProfileQuery {
+  repeated FilterClause filters = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message FilterClause {
+  string field = 1;             // "age", "income_bracket", etc.
+  string operator = 2;          // "eq", "range", "in", etc.
+  string value = 3;             // JSON encoded
+}
+
+// Bootstrap response
+message ProfileQueryResult {
+  repeated EncryptedProfile profiles = 1;
+  int32 total_count = 2;
+  int32 offset = 3;
+}
+
+message EncryptedProfile {
+  string user_id = 1;
+  bytes encrypted_data = 2;     // Full Profile encrypted with query key
+  int64 updated_at = 3;
+}

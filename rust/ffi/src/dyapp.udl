@@ -1,0 +1,2 @@
+// Rust proc macros define the interface; this namespace supplies the 0.24 scaffold.
+namespace dyapp {};

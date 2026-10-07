@@ -1,0 +1,9 @@
+.git
+.beads
+.lean-ctx
+.agents
+.codex
+**/target
+**/build
+**/.gradle
+**/__pycache__

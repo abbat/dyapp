@@ -1,0 +1,101 @@
+name: Empty Apps - Required Matrix
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  core:
+    uses: ./.github/workflows/ci-base.yml
+  docker:
+    name: Docker - ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [linux, android]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and run Linux inventory
+        if: matrix.suite == 'linux'
+        run: |
+          python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build linux-test
+          bash scripts/ui-test.sh linux
+      - name: Prepare and run Android inventory
+        if: matrix.suite == 'android'
+        run: |
+          python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build android-unit-test
+          bash scripts/ui-test.sh android
+          bash scripts/ui-test.sh android-emulator
+      - name: Container logs
+        if: always()
+        run: docker compose -f docker/compose.ui.yml --profile all logs
+
+  apple:
+    name: Native - ${{ matrix.platform }}
+    runs-on: macos-15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, macos]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Xcode project
+        run: |
+          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "${{ matrix.platform }}/project.yml" --project "${{ matrix.platform }}"
+      - name: Native application unit and UI suites
+        env:
+          APP_PLATFORM: ${{ matrix.platform }}
+        run: bash scripts/apple-test-in-ci.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: apple-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/apple-results/
+          if-no-files-found: error
+
+  windows:
+    name: Native - Windows
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.99.0'
+      - name: Build and unit tests
+        shell: pwsh
+        run: |
+          cargo build --manifest-path windows/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --manifest-path windows/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Real window UI smoke and failure injection
+        shell: pwsh
+        run: python scripts/desktop-smoke.py windows/target/debug/dyapp-windows.exe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: windows-app-and-ui
+          path: |
+            windows/target/debug/dyapp-windows.exe
+            ${{ runner.temp }}/desktop-ui-results.json
+          if-no-files-found: error
+
+  summary:
+    name: Empty Apps - Required
+    runs-on: ubuntu-24.04
+    needs: [core, docker, apple, windows]
+    if: always()
+    steps:
+      - name: Reject failed, skipped or cancelled required suites
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -c 'import json,os,sys; results=json.loads(os.environ["RESULTS"]); print(results); sys.exit(any(v["result"] != "success" for v in results.values()))'

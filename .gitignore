@@ -1,7 +1,23 @@
-
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# generated
+/build/
+/dist/
+*.pb.rs
+*.pb.swift
+*.pb.kt

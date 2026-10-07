@@ -1,0 +1,69 @@
+# 0008. rust-libp2p with layered Sybil and eclipse defences
+
+- **Status:** Accepted
+- **Date:** 2026-10-06
+
+## Context
+
+The bootstrap network is open to anyone ([ADR 0007](0007-open-bootstrap-network.md)), and
+signatures stop forged data, not hidden data. The offline store
+([ADR 0009](0009-message-delivery-and-storage.md)) is an LRU cache that spam can evict, and likes
+and view signals ([ADR 0012](0012-private-p2p-interactions.md)) add unsolicited writes. The current
+`rust/p2p-net` is a stub on `quinn`; there is no DHT.
+
+What other networks show:
+
+- **IPFS (go-libp2p):** any node could be eclipsed in under an hour
+  ([Prünster et al., USENIX Security 2022](https://www.usenix.org/conference/usenixsecurity22/presentation/prunster));
+  the fix caps routing-table peers per IP group
+  ([IPFS blog](https://blog.ipfs.tech/2020-10-30-dht-hardening/)). Attacks on a single key still
+  work after it ([arXiv 2505.01139](https://arxiv.org/abs/2505.01139)).
+- **rust-libp2p Kademlia:** no IP diversity; disjoint query paths exist but are off by default;
+  manual bucket insertion allows a custom filter ([docs](https://docs.rs/libp2p-kad)).
+- **Ethereum discv5:** at most 2 nodes per /24 in a bucket and 10 in the table
+  ([devp2p #109](https://github.com/ethereum/devp2p/issues/109)); one Sybil per bucket still
+  eclipses ([Henningsen et al.](https://arxiv.org/abs/1908.10141)).
+- **Bitcoin Core:** outbound peers from distinct /16 groups, anchor connections kept across
+  restarts, test-before-evict ([Heilman et al. 2015](https://eprint.iacr.org/2015/263.pdf)).
+- **S/Kademlia:** proof-of-work on node IDs and lookups over disjoint paths; 99% of lookups succeed
+  with 20% adversarial nodes
+  ([Baumgart, Mies 2007](https://telematics.tm.kit.edu/publications/Files/267/SKademlia_2007.pdf)).
+
+## Decision
+
+Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences it lacks:
+
+1. **Cost of entry.** A node ID is the hash of a node key, separate from the user's identity key
+   ([ADR 0006](0006-transport-keys-separate-from-identity.md)), and carries a proof-of-work
+   (S/Kademlia static puzzle). Difficulty is a protocol parameter, set to minutes of work on a
+   desktop once.
+2. **Routing-table diversity.** At most 2 peers from one /24 (IPv6: /48) per bucket and 10 per
+   table, enforced by a filter on manual bucket insertion. Outbound connections go to distinct /16
+   groups. AS-level grouping (like Bitcoin's asmap) is deferred.
+3. **Lookups** use disjoint query paths; a result is accepted only after its signature verifies.
+4. **Replica placement.** Replica *i* of a record ([ADR 0009](0009-message-delivery-and-storage.md))
+   is stored at the nodes closest to H(key ‖ i), so hiding the record needs several eclipsed
+   points, not one.
+5. **Local reputation only.** Each client scores nodes by what it observes (answers, valid
+   signatures, observed uptime), trusts a node with storage only after it has seen it for a set
+   number of hours, and tests a node before evicting it. There is no global reputation and no
+   network-wide vote.
+6. **First nodes** come from a list built into the client, DNS seeds (`/dnsaddr`) run by several
+   independent operators, and anchor nodes saved from the previous session. The client asks
+   several seeds at once.
+7. **Store protection.** The bootstrap store keeps a separate pool per data type, so likes and view
+   signals cannot evict messages, with quotas per sender key and per IP group. A hashcash stamp on
+   unsolicited writes (likes, view signals, messages without a match) is best effort: the envelope
+   reserves an optional stamp field, nodes may use it to prioritise under load, and none require it
+   in v1.
+
+## Consequences
+
+- Targeted eclipse of one key becomes much more expensive but stays possible.
+- Moderation stays local in v1 ([ADR 0012](0012-private-p2p-interactions.md)).
+- Proof-of-work slows the first start of an index node (desktop only).
+- Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
+  local reputation, replica placement and store pools.
+- Not implemented: `rust/p2p-net` still uses `quinn` and has no DHT; the bootstrap store has no
+  per-type pools or per-IP quotas
+  ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).

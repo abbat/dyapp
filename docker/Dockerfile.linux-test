@@ -1,0 +1,24 @@
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS rust
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential pkg-config ca-certificates libssl-dev libgtk-3-dev \
+    libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev \
+    xvfb xauth dbus-x11 python3
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo RUSTUP_TOOLCHAIN=1.99.0 \
+    CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 \
+    RAYON_NUM_THREADS=4
+RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
+WORKDIR /app
+COPY linux linux
+COPY desktop desktop
+RUN cargo fetch --locked --manifest-path linux/Cargo.toml && \
+    cargo build --manifest-path linux/Cargo.toml --locked && \
+    cargo test --manifest-path linux/Cargo.toml --locked --no-run --message-format=json > /app/linux/unit-build.json
+COPY scripts scripts
+RUN mkdir -p /reports && chown 999:999 /reports
+ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
+USER 999:999
+CMD ["bash", "/app/scripts/linux-test-in-container.sh"]

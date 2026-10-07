@@ -1,0 +1,12 @@
+[package]
+name = "arch-lint"
+version = "0.1.0"
+edition = "2021"
+description = "Architecture linting tool for P2P correctness validation"
+
+[[bin]]
+name = "arch-lint"
+path = "src/main.rs"
+
+[dependencies]
+# No external dependencies needed for basic linting

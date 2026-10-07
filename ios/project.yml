@@ -1,0 +1,49 @@
+name: DYApp
+options:
+  minimumXcodeGenVersion: 2.44.1
+  deploymentTarget:
+    iOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGNING_ALLOWED: "NO"
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  DYApp:
+    type: application
+    platform: iOS
+    sources: [DYApp/App.swift, DYApp/ContentView.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+  DYAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests/AppTests.swift]
+    dependencies:
+      - target: DYApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios.tests
+  DYAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: DYApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios.uitests
+schemes:
+  DYApp:
+    build:
+      targets:
+        DYApp: all
+    test:
+      targets:
+        - DYAppTests
+        - DYAppUITests
+      gatherCoverageData: true

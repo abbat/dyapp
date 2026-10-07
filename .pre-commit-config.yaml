@@ -1,0 +1,19 @@
+repos:
+  - repo: local
+    hooks:
+      - id: docker-quality
+        name: Docker quality (read-only, full workspace)
+        entry: bash scripts/check-quality.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [pre-commit]
+      - id: docker-test
+        name: Docker full local inventory
+        entry: bash scripts/docker-test.sh all
+        language: system
+        pass_filenames: false
+        always_run: true
+        require_serial: true
+        stages: [pre-push]

@@ -1,0 +1,48 @@
+name: dyapp
+
+x-runtime: &runtime
+  image: dyapp:network-test
+  user: "999:999"
+  cpus: 1
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  read_only: true
+  networks: [test-peers]
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+
+x-peer: &peer
+  <<: *runtime
+  command: [bash, -c, "bash scripts/check-container-isolation.sh && exec target/debug/test-peer"]
+  healthcheck:
+    test: [CMD, python3, /workspace/scripts/network-test-in-container.py, --health, "http://127.0.0.1:7070"]
+    interval: 5s
+    timeout: 20s
+    retries: 12
+
+services:
+  bootstrap-a:
+    <<: *peer
+  bootstrap-b:
+    <<: *peer
+  network-test:
+    <<: *runtime
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.network-test
+    depends_on:
+      bootstrap-a:
+        condition: service_healthy
+      bootstrap-b:
+        condition: service_healthy
+    volumes:
+      - network-reports:/reports
+    command: [python3, /workspace/scripts/network-test-in-container.py]
+
+networks:
+  test-peers:
+    internal: true
+
+volumes:
+  network-reports:

@@ -1,0 +1,23 @@
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49
+ENV RUSTUP_TOOLCHAIN=1.99.0 CARGO_BUILD_JOBS=4 \
+    CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 RAYON_NUM_THREADS=4 \
+    CXXFLAGS=-g0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential pkg-config clang libclang-dev protobuf-compiler libssl-dev \
+    python3-flake8 python3-yaml python3-pyflakes shellcheck
+# Official actionlint 1.7.12.
+COPY --from=rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 /usr/local/bin/actionlint /usr/local/bin/actionlint
+RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
+RUN cargo install --locked cargo-llvm-cov --version 0.6.21 && \
+    cargo install --locked cargo-deny --version 0.19.9
+RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
+WORKDIR /workspace
+COPY . .
+# Dependency preparation is online; all runtime test commands are offline.
+RUN cargo fetch --locked && chmod -R a+rX /usr/local/cargo/registry
+RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
+    chmod -R a+rX /opt/advisory-dbs
+RUN mkdir -p /workspace/target && chown -R 999:999 /workspace/target
+ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
+USER 999:999
+CMD ["cargo", "test", "--workspace", "--locked", "--offline", "--", "--test-threads=1"]

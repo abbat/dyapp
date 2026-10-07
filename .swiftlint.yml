@@ -1,0 +1,131 @@
+# SwiftLint configuration for dyapp
+
+# Strict mode - all rules enabled by default
+excluded:
+  - .build
+  - .swiftpm
+  - build
+  - Pods
+  - DerivedData
+  - .git
+
+# Enabled rules (default: most are enabled)
+opt_in_rules:
+  - closure_spacing
+  - comment_spacing
+  - contains_over_first_not_nil
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fallthrough
+  - fatal_error_message
+  - file_length
+  - first_where
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - legacy_cggeometry_functions
+  - legacy_constant
+  - legacy_constructor
+  - legacy_nsgeometry_functions
+  - missing_docs
+  - nimble_operator
+  - number_separator
+  - object_literal
+  - operator_usage_whitespace
+  - overridden_super_call
+  - override_in_extension
+  - pattern_matching_keywords
+  - prefer_none_over_optional_empty_array
+  - prefer_self_in_static_references
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - private_outlet
+  - prohibited_super_call
+  - quick_discouraged_call
+  - quick_discouraged_focused_test
+  - redundant_nil_coalescing
+  - redundant_optional_initialization
+  - redundant_string_enum_value
+  - redundant_type_annotation
+  - required_deinit
+  - single_test_class
+  - sorted_first_last
+  - sorted_imports
+  - static_operator
+  - strong_iboutlet
+  - switch_case_on_newline
+  - test_case_accessibility
+  - trailing_closure
+  - type_contents_order
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - untyped_error_in_catch
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_between_cases
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - xct_specific_matcher
+  - yoda_condition
+
+# Disabled rules (too strict or conflicting)
+disabled_rules:
+  - line_length  # Use indentation-based limits instead
+  - type_name
+  - variable_name
+  - unused_closure_parameter
+
+# Rule configurations
+file_length:
+  warning: 500
+  error: 1000
+
+type_body_length:
+  warning: 300
+  error: 500
+
+function_body_length:
+  warning: 50
+  error: 100
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+
+nesting:
+  type_level: 2
+  function_level: 2
+
+trailing_comma:
+  mandatory_trailing_comma: false
+
+vertical_whitespace:
+  max_empty_lines: 2
+
+indentation_width:
+  indentation_width: 2
+
+line_breaks:
+  complex_level: 2
+  trailing_newlines: true
+
+large_tuple:
+  warning: 3
+  error: 4
+
+enum_case_associated_values_length:
+  warning: 5
+  error: 6
+
+# Reporter format
+reporter: xcode

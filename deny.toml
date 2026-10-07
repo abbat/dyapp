@@ -1,0 +1,42 @@
+# Configuration for the pinned cargo-deny 0.19.9 Docker gate.
+[graph]
+all-features = true
+
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+db-path = "/tmp/ai/advisory-dbs"
+yanked = "warn"
+ignore = []
+
+[licenses]
+confidence-threshold = 0.8
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    # Approved after checking packaged licenses: foldhash, ICU4X/unicode-ident,
+    # webpki-root-certs, and noise-protocol (manifest plus README).
+    "Zlib",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "Unlicense",
+    "MPL-2.0",
+]
+exceptions = [
+    { allow = ["Apache-2.0"], crate = "rustls" },
+]
+
+[bans]
+multiple-versions = "warn"
+highlight = "all"
+deny = ["openssl", "openssl-sys"]
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

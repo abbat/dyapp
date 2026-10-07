@@ -1,0 +1,86 @@
+name: dyapp
+
+x-runtime: &runtime
+  user: "999:999"
+  cpus: 4
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  read_only: true
+  volumes:
+    - ui-reports:/reports
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+
+services:
+  android-emulator:
+    <<: *runtime
+    cpus: 3
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.android-test
+    image: dyapp:android-test
+    profiles: [android-emulator, all]
+    networks: [android-ui]
+    environment:
+      HOME: /home/appuser
+      ANDROID_SDK_ROOT: /opt/android-sdk
+    command: [bash, /app/scripts/android-test-in-container.sh, emulator]
+    healthcheck:
+      test: [CMD-SHELL, 'test "$$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")" = 1 && adb -s emulator-5554 shell cmd package path android >/dev/null']
+      interval: 15s
+      timeout: 60s
+      retries: 120
+      start_period: 30s
+
+  android-unit-test:
+    <<: *runtime
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.android-test
+    image: dyapp:android-test
+    profiles: [android, test, all]
+    network_mode: none
+    environment:
+      HOME: /home/appuser
+      GRADLE_USER_HOME: /opt/gradle-cache
+      ANDROID_SDK_ROOT: /opt/android-sdk
+    command: [bash, /app/scripts/android-test-in-container.sh, unit]
+
+  android-emulator-test:
+    <<: *runtime
+    cpus: 1
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.android-test
+    image: dyapp:android-test
+    profiles: [android-emulator, all]
+    networks: [android-ui]
+    depends_on:
+      android-emulator:
+        condition: service_healthy
+    environment:
+      ADB_SERVER_SOCKET: tcp:android-emulator:5037
+      HOME: /home/appuser
+      GRADLE_USER_HOME: /opt/gradle-cache
+      ANDROID_SDK_ROOT: /opt/android-sdk
+    command: [bash, /app/scripts/android-test-in-container.sh, ui]
+
+  linux-test:
+    <<: *runtime
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.linux-test
+    image: dyapp:linux-test
+    profiles: [linux, test, all]
+    network_mode: none
+    environment:
+      HOME: /home/appuser
+    command: [bash, /app/scripts/linux-test-in-container.sh]
+
+volumes:
+  ui-reports:
+
+networks:
+  android-ui:
+    internal: true

@@ -1,0 +1,24 @@
+[package]
+name = "dyapp-ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+uniffi = { version = "0.24", features = ["cli"] }
+dyapp-identity = { path = "../identity" }
+dyapp-profile = { path = "../profile" }
+dyapp-p2p-net = { path = "../p2p-net" }
+dyapp-messaging = { path = "../messaging" }
+dyapp-video = { path = "../video" }
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0"
+tokio = { version = "1", features = ["sync", "rt"] }
+
+[build-dependencies]
+uniffi = { version = "0.24", features = ["build"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

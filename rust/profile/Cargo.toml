@@ -1,0 +1,12 @@
+[package]
+name = "dyapp-profile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+dyapp-identity = { path = "../identity" }
+prost.workspace = true
+thiserror = "1.0"

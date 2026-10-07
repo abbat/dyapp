@@ -1,0 +1,15 @@
+[package]
+name = "dyapp-linux"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.99"
+
+[dependencies]
+tauri = { version = "=1.8.3", features = [] }
+
+[build-dependencies]
+tauri-build = "=1.5.6"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

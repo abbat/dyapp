@@ -1,0 +1,20 @@
+[package]
+name = "dyapp-p2p-net"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+quinn = "0.11"
+noise-protocol = "0.2.1"
+trust-dns-resolver = "0.23"
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1.4"
+tokio-test = "0.4"

@@ -1,0 +1,76 @@
+name: dyapp
+
+x-build: &build
+  context: ..
+  dockerfile: docker/Dockerfile.dev
+
+x-runtime: &runtime
+  image: dyapp:dev-prepared
+  user: "999:999"
+  cpus: 4
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  network_mode: none
+  read_only: true
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+  volumes:
+    - ..:/workspace:ro
+    - workspace-cache:/workspace/target
+  environment: &environment
+    HOME: /home/appuser
+    RUSTUP_TOOLCHAIN: "1.99.0"
+    CARGO_NET_OFFLINE: "true"
+    CARGO_INCREMENTAL: "0"
+    CARGO_BUILD_JOBS: "4"
+    CMAKE_BUILD_PARALLEL_LEVEL: "4"
+    MAKEFLAGS: "-j4"
+    RAYON_NUM_THREADS: "4"
+    CXXFLAGS: "-g0"
+    CARGO_PROFILE_DEV_DEBUG: "0"
+    RUST_BACKTRACE: "1"
+  working_dir: /workspace
+
+services:
+  dev:
+    <<: *runtime
+    build: *build
+    entrypoint: &rust-command [bash, scripts/rust-command-in-container.sh]
+    command: cargo test --workspace --all-features --locked --offline -- --test-threads=1
+    profiles: [test]
+  build:
+    <<: *runtime
+    build: *build
+    entrypoint: *rust-command
+    command: cargo build --release --workspace --locked --offline
+    profiles: [build]
+  quality:
+    <<: *runtime
+    build: *build
+    entrypoint: *rust-command
+    command: bash scripts/quality-in-container.sh
+    profiles: [quality]
+  workflow-lint:
+    <<: *runtime
+    image: rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+    command: []
+    profiles: [quality]
+  coverage:
+    <<: *runtime
+    environment:
+      <<: *environment
+      COVERAGE_RUN_ID: ${COVERAGE_RUN_ID:-}
+    build: *build
+    entrypoint: *rust-command
+    command: bash scripts/coverage-in-container.sh
+    profiles: [coverage]
+  security:
+    <<: *runtime
+    build: *build
+    entrypoint: *rust-command
+    command: bash scripts/security-in-container.sh
+    profiles: [security]
+
+volumes:
+  workspace-cache:

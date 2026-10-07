@@ -1,0 +1,19 @@
+[package]
+name = "dyapp-messaging"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { version = "1", features = ["sync", "time"] }
+chacha20poly1305 = "0.10"
+uuid = { version = "1.0", features = ["v4"] }
+serde = { version = "1.0", features = ["derive"] }
+prost = "0.12"
+anyhow = "1.0"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1.4"
