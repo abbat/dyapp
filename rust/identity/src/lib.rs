@@ -76,9 +76,10 @@ pub struct Identity {
 
 impl Identity {
     pub fn generate() -> Self {
-        Self {
-            key: SigningKey::generate(&mut rand_core::OsRng),
-        }
+        let mut secret = [0u8; 32];
+        // Like OsRng before it: no key without the OS random number generator.
+        getrandom::fill(&mut secret).expect("OS random number generator");
+        Self::from_secret(&secret)
     }
 
     pub fn from_secret(secret: &[u8; 32]) -> Self {

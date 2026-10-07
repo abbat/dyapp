@@ -15,7 +15,7 @@ tracing = "0.1"
 anyhow = "1.0"
 thiserror = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
-rand = "0.8"
+rand = "0.10"
 
 # Reuse from messaging crate
 dyapp-messaging = { path = "../messaging" }
