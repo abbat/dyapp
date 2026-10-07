@@ -34,10 +34,10 @@ Source: `rust/bootstrap/src/api.rs`, `rust/bootstrap/src/storage.rs`,
 
 ## Retention
 
-`BootstrapConfig` sets `message_ttl_hours = 24`, and every message gets
-`ttl_expires_at`. **Nothing enforces it**: `BootstrapStore::cleanup_expired`
-has no callers outside tests, and read endpoints do not filter expired
-messages. Messages stay until someone calls `DELETE`, and any client can do that
+The node config sets `limits.message_ttl_hours = 24`, and every message gets
+`ttl_expires_at`. `dyapp-node` deletes expired messages every hour, but it does not
+serve the REST API yet; `test-peer`, which does, never deletes them, and read
+endpoints do not filter expired messages. Messages stay until someone calls `DELETE`, and any client can do that
 because there is no authentication. Profiles have no TTL: the latest signed
 version stays until the owner replaces it with a tombstone, which the node keeps
 so older versions are not re-imported. Backups and replicas (if an

@@ -29,6 +29,12 @@ reed-solomon-erasure = { version = "6.0", default-features = false }
 # Rate limiting
 governor = "0.10"
 
+# Node config and the libp2p node
+libp2p = { version = "0.57", features = ["ed25519"] }
+toml = "1"
+serde_ignored = "0.1"
+dyapp-p2p-net = { path = "../p2p-net" }
+
 [[test]]
 name = "integration_tests"
 path = "../../tests/integration_tests.rs"

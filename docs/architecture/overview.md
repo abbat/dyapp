@@ -44,7 +44,8 @@ WebRTC signaling channel.
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/api.rs`, `storage.rs` | library prototype | axum REST (`/health`, `/messages…`, `/profiles…`), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner; message routes have no auth, permissive CORS, message TTL not enforced |
-| Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | The only binary in the workspace |
+| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node with the stores open, no application protocols |
+| Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | Serves the REST API; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Bare Tauri shell with a `ui_test_result` command |

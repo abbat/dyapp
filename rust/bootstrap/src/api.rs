@@ -1,7 +1,7 @@
 use crate::{
     error::{BootstrapError, Result},
     rate_limit::PeerRateLimiter,
-    BootstrapConfig, BootstrapStore, MessageBlob,
+    BootstrapStore, MessageBlob, NodeConfig,
 };
 use axum::{
     body::Bytes,
@@ -21,7 +21,7 @@ use tower_http::cors::CorsLayer;
 pub struct AppState {
     pub store: Arc<BootstrapStore>,
     pub rate_limiter: Arc<PeerRateLimiter>,
-    pub config: BootstrapConfig,
+    pub config: NodeConfig,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -114,7 +114,7 @@ async fn store_message(
         recipient_id: req.recipient_id,
         encrypted_payload: req.encrypted_payload,
         timestamp: now,
-        ttl_expires_at: now + (state.config.message_ttl_hours as i64 * 3600),
+        ttl_expires_at: now + (state.config.limits.message_ttl_hours as i64 * 3600),
     };
 
     let msg_id = msg.id.clone();
@@ -218,7 +218,7 @@ mod tests {
     async fn test_app_state_creation() {
         let store = Arc::new(BootstrapStore::new("/tmp/test-api").unwrap());
         let rate_limiter = Arc::new(PeerRateLimiter::new(10));
-        let config = BootstrapConfig::default();
+        let config = NodeConfig::default();
 
         let _state = AppState {
             store,

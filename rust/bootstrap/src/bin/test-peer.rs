@@ -1,5 +1,5 @@
 use dyapp_bootstrap::{
-    api::AppState, rate_limit::PeerRateLimiter, BootstrapConfig, BootstrapServer, BootstrapStore,
+    api::AppState, rate_limit::PeerRateLimiter, BootstrapServer, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
@@ -31,15 +31,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let config = BootstrapConfig {
-        storage_path: std::env::var("TEST_PEER_STORAGE")
-            .unwrap_or_else(|_| "/tmp/ai/bootstrap".to_string()),
-        ..BootstrapConfig::default()
-    };
-    std::fs::create_dir_all(&config.storage_path)?;
+    let storage =
+        std::env::var("TEST_PEER_STORAGE").unwrap_or_else(|_| "/tmp/ai/bootstrap".to_string());
+    let config = NodeConfig::default();
     let state = AppState {
-        store: Arc::new(BootstrapStore::new(&config.storage_path)?),
-        rate_limiter: Arc::new(PeerRateLimiter::new(100)),
+        store: Arc::new(BootstrapStore::new(&storage)?),
+        rate_limiter: Arc::new(PeerRateLimiter::new(config.limits.requests_per_second)),
         config,
     };
     let address = std::env::var("TEST_PEER_ADDR").unwrap_or_else(|_| "0.0.0.0:7070".to_string());

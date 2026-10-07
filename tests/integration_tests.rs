@@ -74,7 +74,7 @@ async fn test_signed_profile_over_http() {
     use dyapp_bootstrap::{
         api::{AppState, ProfileList},
         rate_limit::PeerRateLimiter,
-        BootstrapConfig, BootstrapServer, BootstrapStore,
+        BootstrapServer, BootstrapStore, NodeConfig,
     };
     use dyapp_identity::{Identity, SignedRecord};
     use dyapp_profile::Profile;
@@ -88,7 +88,7 @@ async fn test_signed_profile_over_http() {
                 .unwrap(),
         ),
         rate_limiter: Arc::new(PeerRateLimiter::new(100)),
-        config: BootstrapConfig::default(),
+        config: NodeConfig::default(),
     });
     let call = |method: &str, uri: String, body: Vec<u8>| {
         let request = Request::builder()

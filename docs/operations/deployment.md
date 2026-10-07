@@ -83,40 +83,52 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** there is no production bootstrap executable yet.
-> `rust/bootstrap` is a library: it exports `BootstrapServer::router(AppState)`
-> and `BootstrapStore`, but has no `src/main.rs`, no CLI parser and no
-> `dyapp-bootstrap` binary. Flags such as `--listen-port` or
-> `--storage-path` do not exist. The only runnable server is the development
-> binary `test-peer`, described below. A real server binary with configuration
-> needs a separate implementation task.
+> **Status:** `dyapp-node` starts a libp2p node with the stores open, but serves
+> no application protocol yet: clients still use the REST API of the development
+> binary `test-peer`, described below. There is no Debian package, systemd unit
+> or production image.
 
-### What the host program has to do
+### `dyapp-node`
 
-Any executable that serves the API builds the state and router itself, as
-`rust/bootstrap/src/bin/test-peer.rs` does:
-
-```rust
-let config = BootstrapConfig { storage_path: "/path/to/data".into(), ..BootstrapConfig::default() };
-let state = AppState {
-    store: Arc::new(BootstrapStore::new(&config.storage_path)?),
-    rate_limiter: Arc::new(PeerRateLimiter::new(100)),
-    config,
-};
-let listener = tokio::net::TcpListener::bind("0.0.0.0:7070").await?;
-axum::serve(listener, BootstrapServer::router(state)).await?;
+```bash
+cargo run --package dyapp-bootstrap --bin dyapp-node -- --config /etc/dyapp-node.toml
 ```
 
-The library does **not** handle: TLS, authentication, logging, metrics,
-signal handling, TTL cleanup scheduling, or reading `listen_addr` /
-`listen_port` from `BootstrapConfig` (the host binds the socket). These are
-the host's responsibility, and none of them is implemented today.
+The config is optional. Settings come from the defaults, then the TOML file, then
+environment variables `DYAPP_NODE__<SECTION>__<KEY>`, whose value is parsed as
+TOML (a bare string is taken as is), for example
+`DYAPP_NODE__LIMITS__MESSAGE_TTL_HOURS=48` or
+`DYAPP_NODE__LISTEN='["/ip4/0.0.0.0/udp/7070/quic-v1"]'`.
+
+```toml
+listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]  # default
+external = []          # addresses announced to peers; AutoNAT confirms others
+roles = ["store"]      # media, search and turn are not implemented and fail at startup
+
+[storage]
+dir = "/var/lib/dyapp-node"   # node key and every store without its own path
+# profiles = "/fast/profiles.db"
+# messages = "/fast/messages.db"
+
+[limits]
+message_ttl_hours = 24
+requests_per_second = 100
+```
+
+Unknown keys are logged and ignored, so a config written for a newer node does not
+stop an older one. At startup the node refuses to run as root, checks addresses,
+roles and limits, and checks that every directory is writable. On first start it
+creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
+`storage.dir`. It refuses to start when the key is missing next to existing data
+or does not match `node.id`: a new key is a new node, so delete the data to start
+from scratch. Expired messages are deleted every hour. Logging uses `RUST_LOG`
+(e.g. `RUST_LOG=info`).
 
 ### Development quick start (`test-peer`)
 
-`test-peer` hard-codes its settings: it binds `0.0.0.0:7070` and stores
-its SQLite files in `/tmp/ai/bootstrap`. It ignores `listen_addr` / `listen_port`
-and takes no arguments. Use it for local development only.
+`test-peer` serves the REST API on `TEST_PEER_ADDR` (default `0.0.0.0:7070`) and
+stores its SQLite files in `TEST_PEER_STORAGE` (default `/tmp/ai/bootstrap`). It
+does not read the node config. Use it for local development only.
 
 **In Docker (no host Rust toolchain needed).** The network-test image builds
 `test-peer` (`docker/Dockerfile.network-test`):
@@ -262,8 +274,8 @@ to the old one while the old one keeps answering
 
 ## Cost and capacity
 
-Not measured. There is no load test of the bootstrap server, and `max_peers`
-in `BootstrapConfig` is not enforced. Multi-node "HA" setups are not possible
+Not measured. There is no load test of the bootstrap server, and there is no
+connection limit. Multi-node "HA" setups are not possible
 yet (see [replication](../architecture/bootstrap.md#replication-strategy-reed-solomon)).
 
 ## Troubleshooting
@@ -274,7 +286,7 @@ Only what applies to the code that exists today:
 |---------|-------|
 | `/health` returns 503 | SQLite probe failed: check that the storage directory is writable and the disk is not full |
 | `test-peer` exits with `StorageError(... Permission denied)` | The process cannot create `/tmp/ai/bootstrap`; fix permissions or run with a writable `/tmp` |
-| Port 7070 already in use | Another `test-peer` is running; `test-peer` cannot change its port |
+| Port 7070 already in use | Another `test-peer` or `dyapp-node` is running; set `TEST_PEER_ADDR` or `DYAPP_NODE__LISTEN` |
 | Disk keeps growing | Expected: TTL cleanup does not run (see [Data cleanup](#data-cleanup)) |
 
 There is no systemd unit, start/stop script, service name or log to inspect;

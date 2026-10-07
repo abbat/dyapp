@@ -197,12 +197,14 @@ on request is still to be designed.
 ### Operating a node
 
 - Runs as an unprivileged system user and refuses to start as root; default port 7070, every
-  path must be writable by that user. The Debian package adds a systemd unit with hardening.
-- A TOML config sets addresses, ports, paths per store, roles, limits, TTL and maintenance.
-  Invalid config fails at startup.
+  path must be writable by that user (implemented in `dyapp-node`). The Debian package adds a
+  systemd unit with hardening (planned).
+- A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
+  override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
+  fails at startup ([Configuration](#configuration)). Maintenance settings are planned.
 - The node key is a libp2p key file (mode 0600) in the data directory, created on first start.
-  A new key is a new node: all stored data is deleted. On a leak or a move the operator creates
-  a new key.
+  A new key is a new node: the node refuses a key that does not match the stored data, and the
+  operator deletes the data. On a leak or a move the operator creates a new key.
 - Administration is a local CLI that writes to `admin.db`; the node applies changes without a
   restart and logs them. Metrics go to the log; there is no HTTP endpoint.
 
@@ -357,7 +359,7 @@ network test (`scripts/network-test.py`) posts it this way. `test-peer` serves o
 
 **Status:** `rust/bootstrap/src/replication.rs` only encodes a byte buffer into
 shards and decodes it back, in one process. Nothing in `api.rs` or `storage.rs`
-calls it, `BootstrapConfig::replication_factor` is not read, and there is no
+calls it, the node config has no replication setting, and there is no
 transport between servers. Three separate pieces are needed for real
 replication, and only the first exists:
 
@@ -403,7 +405,7 @@ They do not show that a cluster recovers data, because no cluster exists.
 
 `rate_limit.rs` keeps one `governor` token bucket per key with
 `Quota::per_second(n)`; `n` is passed by the host program to
-`PeerRateLimiter::new(n)` (not part of `BootstrapConfig`; `test-peer` uses 100).
+`PeerRateLimiter::new(n)` (`test-peer` passes `limits.requests_per_second`, default 100).
 The bucket allows a burst of `n` requests and then refills at `n`/second; an
 over-limit request gets `429 {"error":"Rate limit exceeded"}`.
 
@@ -436,22 +438,23 @@ Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages, but nothing calls it outside tests, so messages are kept until explicitly deleted. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired messages; `dyapp-node` calls it every hour, `test-peer` never does. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
 `put_profile` holds a lock across read-compare-write, so two concurrent uploads for one peer cannot both win.
 
 ## Configuration
 
-```rust
-pub struct BootstrapConfig {
-    pub listen_addr: String,           // "0.0.0.0"
-    pub listen_port: u16,              // 7070
-    pub storage_path: String,          // "/var/lib/bootstrap"
-    pub max_peers: usize,              // 1000
-    pub replication_factor: usize,     // 3 (not read by the server)
-    pub message_ttl_hours: u32,        // 24
-}
-```
+`NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyapp-node`: defaults, then a TOML
+file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field has a default and
+unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
+`listen`, `external`, `roles`, `storage.{dir,profiles,messages}`,
+`limits.{message_ttl_hours,requests_per_second}`; the example and startup checks are in
+[Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
+([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open; it serves no
+application protocol yet. Only the `store` role is accepted.
+
+Planned: maintenance windows and budgets, resource guard limits, the media directory, TURN ports,
+store retention.
 
 ## Deployment Model
 

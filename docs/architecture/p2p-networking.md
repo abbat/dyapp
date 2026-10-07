@@ -27,7 +27,8 @@ table.
 
 Not implemented yet:
 
-- No crate uses `p2p-net`: the bootstrap server still serves REST, and the FFI does not expose it.
+- Only `dyapp-node` runs the node, without application protocols; clients still use the REST API
+  of `test-peer`, and the FFI does not expose `p2p-net`.
 - No node-ID proof of work, routing-table IP diversity filter, disjoint lookups, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay, DCUtR hole punching or DNS seeds.

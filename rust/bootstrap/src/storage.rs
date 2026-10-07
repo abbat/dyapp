@@ -63,12 +63,17 @@ fn decode(bytes: Vec<u8>) -> Result<SignedRecord> {
 }
 
 impl BootstrapStore {
+    /// Opens `profiles.db` and `messages.db` in one directory.
     pub fn new(path: &str) -> Result<Self> {
         let dir = Path::new(path);
         std::fs::create_dir_all(dir).map_err(storage_error)?;
+        Self::open(&dir.join("profiles.db"), &dir.join("messages.db"))
+    }
+
+    pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
         Ok(Self {
             profiles: open(
-                &dir.join("profiles.db"),
+                profiles,
                 "CREATE TABLE IF NOT EXISTS profiles (
                      peer_id TEXT PRIMARY KEY,
                      record BLOB NOT NULL,
@@ -76,7 +81,7 @@ impl BootstrapStore {
                  );",
             )?,
             messages: open(
-                &dir.join("messages.db"),
+                messages,
                 "CREATE TABLE IF NOT EXISTS messages (
                      id TEXT PRIMARY KEY,
                      sender_id TEXT NOT NULL,
