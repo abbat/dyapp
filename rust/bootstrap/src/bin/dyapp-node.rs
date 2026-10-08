@@ -32,13 +32,9 @@ async fn main() -> anyhow::Result<()> {
     for address in &config.external {
         swarm.add_external_address(address.parse()?);
     }
-    let seeds = config
-        .seeds
-        .iter()
-        .map(|s| s.parse())
-        .collect::<Result<Vec<_>, _>>()?;
+    // Seeds are dialled by the first maintenance run of `node::run`.
     let cached = node::cached_peers(&config.storage.peers_path());
-    dyapp_p2p_net::join(&mut swarm, &seeds, &cached);
+    dyapp_p2p_net::join(&mut swarm, &[], &cached);
     tracing::info!(peer_id = %swarm.local_peer_id(), roles = ?config.roles, "node started");
     node::run(swarm, Service::new(store, config)).await;
     Ok(())

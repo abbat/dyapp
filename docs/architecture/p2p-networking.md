@@ -32,8 +32,18 @@ dials like an IP one; a `/dnsaddr/<host>` seed expands to the `dnsaddr=<multiadd
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
 own. `known_peers` lists the routing table for the cache. `dyapp-node` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
-maintenance, so a restart joins without any one seed. A unit test joins through a seed, then
-joins a second swarm from the first one's cache alone.
+maintenance, so a restart joins without any one seed. It dials the seeds again on every
+maintenance run (the first at start) and every 5 minutes while its routing table is empty. A unit
+test joins through a seed, then joins a second swarm from the first one's cache alone.
+
+**Routing defences** ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Lookups use
+disjoint query paths. Kademlia inserts nothing on its own (`BucketInserts::Manual`): every peer,
+whether dialled, found by a lookup, cached or announced by identify, goes through `add_peer`,
+which refuses a peer when its bucket already holds 2 peers of the same IP group, or the table
+holds 10. An IP group is an IPv4 /24, an IPv6 /48, or one DNS name. Call `route` on every swarm
+event so that the peers Kademlia finds routable reach the filter. A full bucket keeps its
+connected peers and replaces only a disconnected one, so long-lived peers stay in it. A unit test
+checks the limits. Addresses claimed through identify are not verified by a dial.
 
 Not implemented yet:
 
@@ -41,7 +51,7 @@ Not implemented yet:
   `/dyapp/mailbox-push`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
-- No node-ID proof of work, routing-table IP diversity filter, disjoint lookups, anchors or local
+- No node-ID proof of work, distinct /16 groups for outbound connections, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.

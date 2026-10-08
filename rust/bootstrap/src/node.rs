@@ -160,9 +160,21 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     let mut maintain = tokio::time::interval(Duration::from_secs(
         u64::from(maintenance.interval_minutes) * 60,
     ));
+    // Seeds are dialled every maintenance run (the first at start) and, while the routing table
+    // is empty, every 5 minutes. `NodeConfig::validate` has checked that they parse.
+    let seeds: Vec<Multiaddr> = service
+        .config
+        .seeds
+        .iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    let every = Duration::from_secs(300);
+    let mut rejoin = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
     loop {
         tokio::select! {
-            event = swarm.select_next_some() => match event {
+            event = swarm.select_next_some() => {
+            dyapp_p2p_net::route(&mut swarm, &event);
+            match event {
                 SwarmEvent::NewListenAddr { address, .. } => tracing::info!(%address, "listening"),
                 SwarmEvent::ExternalAddrConfirmed { address } => {
                     tracing::info!(%address, "external address confirmed")
@@ -251,22 +263,28 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
-                // ponytail: claimed addresses are taken as is; filtering them belongs to the
-                // Sybil and eclipse defences.
+                // ponytail: claimed addresses pass the IP-group limits but are not verified by a
+                // dial; a peer can claim another group's address.
                 SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
                     peer_id,
                     info,
                     ..
                 })) if info.protocols.contains(&KAD_PROTOCOL) => {
                     for address in info.listen_addrs {
-                        swarm.behaviour_mut().kad.add_address(&peer_id, address);
+                        dyapp_p2p_net::add_peer(&mut swarm, peer_id, address);
                     }
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
                     refused += 1;
                 }
                 _ => {}
+            }
             },
+            _ = rejoin.tick() => {
+                if dyapp_p2p_net::known_peers(&mut swarm).is_empty() {
+                    dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
+                }
+            }
             _ = cleanup.tick() => {
                 let now = chrono::Utc::now().timestamp();
                 match service.store.cleanup_expired(now) {
@@ -296,6 +314,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     tracing::warn!(refused, "connections refused by the connection limits");
                     refused = 0;
                 }
+                dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
             }
         }
     }

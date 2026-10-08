@@ -6,10 +6,10 @@ use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
-use libp2p::swarm::NetworkBehaviour;
+use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{
-    autonat, connection_limits, identify, kad, noise, tcp, yamux, Multiaddr, StreamProtocol, Swarm,
-    SwarmBuilder,
+    autonat, connection_limits, identify, kad, noise, tcp, yamux, Multiaddr, PeerId,
+    StreamProtocol, Swarm, SwarmBuilder,
 };
 use std::io;
 use std::marker::PhantomData;
@@ -179,10 +179,15 @@ pub fn build_limited_swarm(
         .with_dns()?
         .with_behaviour(|key| {
             let peer_id = key.public().to_peer_id();
+            let mut kad_config = kad::Config::new(KAD_PROTOCOL);
+            // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
+            kad_config
+                .disjoint_query_paths(true)
+                .set_kbucket_inserts(kad::BucketInserts::Manual);
             let mut kad = kad::Behaviour::with_config(
                 peer_id,
                 kad::store::MemoryStore::new(peer_id),
-                kad::Config::new(KAD_PROTOCOL),
+                kad_config,
             );
             let (kad_mode, support, push) = match mode {
                 Mode::Auto => (None, ProtocolSupport::Full, ProtocolSupport::Outbound),
@@ -229,16 +234,81 @@ pub fn build_limited_swarm(
 pub fn join(swarm: &mut Swarm<Behaviour>, seeds: &[Multiaddr], cached: &[Multiaddr]) {
     for address in cached {
         if let Some(Protocol::P2p(peer)) = address.iter().last() {
-            swarm
-                .behaviour_mut()
-                .kad
-                .add_address(&peer, address.clone());
+            add_peer(swarm, peer, address.clone());
         }
     }
     for seed in seeds {
         if let Err(error) = swarm.dial(seed.clone()) {
             tracing::warn!(%seed, %error, "seed not dialed");
         }
+    }
+}
+
+/// Peers of one IP group (/24, IPv6 /48, or one DNS name) allowed per k-bucket and per routing
+/// table (ADR 0008).
+pub const MAX_GROUP_PER_BUCKET: usize = 2;
+pub const MAX_GROUP_PER_TABLE: usize = 10;
+
+fn ip_group(address: &Multiaddr) -> Option<String> {
+    address.iter().find_map(|p| match p {
+        Protocol::Ip4(ip) => {
+            let [a, b, c, _] = ip.octets();
+            Some(format!("{a}.{b}.{c}"))
+        }
+        Protocol::Ip6(ip) => {
+            let s = ip.segments();
+            Some(format!("{:x}:{:x}:{:x}", s[0], s[1], s[2]))
+        }
+        Protocol::Dns(h) | Protocol::Dns4(h) | Protocol::Dns6(h) | Protocol::Dnsaddr(h) => {
+            Some(h.to_string())
+        }
+        _ => None,
+    })
+}
+
+/// Adds `peer` at `address` to the routing table unless its IP group already has
+/// [`MAX_GROUP_PER_BUCKET`] other peers in the peer's bucket or [`MAX_GROUP_PER_TABLE`] in the
+/// table. A full bucket keeps its oldest live peers: the newcomer only replaces one that stopped
+/// answering. Returns whether the address was passed to Kademlia.
+pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) -> bool {
+    let kad = &mut swarm.behaviour_mut().kad;
+    if let Some(group) = ip_group(&address) {
+        let Some(range) = kad.kbucket(peer).map(|b| b.range()) else {
+            return false;
+        };
+        let (mut bucket_count, mut table_count) = (0, 0);
+        for bucket in kad.kbuckets() {
+            let in_bucket = bucket.range() == range;
+            for entry in bucket.iter() {
+                let other = *entry.node.key.preimage() != peer;
+                if other
+                    && entry
+                        .node
+                        .value
+                        .iter()
+                        .any(|a| ip_group(a).as_ref() == Some(&group))
+                {
+                    table_count += 1;
+                    bucket_count += usize::from(in_bucket);
+                }
+            }
+        }
+        if bucket_count >= MAX_GROUP_PER_BUCKET || table_count >= MAX_GROUP_PER_TABLE {
+            tracing::debug!(%peer, %address, "routing table full for this IP group");
+            return false;
+        }
+    }
+    kad.add_address(&peer, address);
+    true
+}
+
+/// Feeds a peer Kademlia found routable (a dialled peer, a lookup result) through [`add_peer`];
+/// call it on every swarm event.
+pub fn route(swarm: &mut Swarm<Behaviour>, event: &SwarmEvent<BehaviourEvent>) {
+    if let SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::RoutablePeer { peer, address })) =
+        event
+    {
+        add_peer(swarm, *peer, address.clone());
     }
 }
 
@@ -299,6 +369,7 @@ mod tests {
                 tokio::select! {
                     _ = server.select_next_some() => {}
                     event = client.select_next_some() => {
+                        route(&mut client, &event);
                         if let SwarmEvent::Behaviour(BehaviourEvent::Kad(
                             kad::Event::RoutingUpdated { peer, .. },
                         )) = event
@@ -337,7 +408,7 @@ mod tests {
             while known_peers(&mut first) != [cached.clone()] {
                 tokio::select! {
                     _ = server.select_next_some() => {}
-                    _ = first.select_next_some() => {}
+                    event = first.select_next_some() => route(&mut first, &event),
                 }
             }
         })
@@ -348,6 +419,31 @@ mod tests {
         let mut next = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
         join(&mut next, &[], &known_peers(&mut first));
         assert_eq!(known_peers(&mut next), [cached]);
+    }
+
+    #[tokio::test]
+    async fn one_ip_group_fills_few_routing_slots() {
+        let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        let mut add = |ip: String| {
+            let peer = PeerId::random();
+            add_peer(
+                &mut swarm,
+                peer,
+                format!("/ip4/{ip}/tcp/1").parse().unwrap(),
+            )
+        };
+        assert!((1..=5).all(|i| add(format!("10.0.{i}.1"))));
+        let admitted = (1..=30).filter(|i| add(format!("10.9.9.{i}"))).count();
+        assert!((1..=MAX_GROUP_PER_TABLE).contains(&admitted), "{admitted}");
+        for bucket in swarm.behaviour_mut().kad.kbuckets() {
+            let same = bucket.iter().filter(|e| {
+                e.node
+                    .value
+                    .iter()
+                    .any(|a| a.to_string().starts_with("/ip4/10.9.9."))
+            });
+            assert!(same.count() <= MAX_GROUP_PER_BUCKET);
+        }
     }
 
     #[tokio::test]
