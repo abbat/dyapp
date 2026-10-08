@@ -127,12 +127,13 @@ def suite(peers, client, churn=None):
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
     print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
-          f"stale, mailbox, independence, routing, replication, rate limit"
+          f"stale, mailbox, push, independence, routing, replication, "
+          f"ack forwarding, rate limit"
           f"{churned} passed")
 
 
 def network(peers, client, churn):
-    """Routing, replication, the rate limit at its boundary and churn."""
+    """Routing, replication, ack forwarding, the rate limit and churn."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry, limited = peers[0][0], peers[-1][0]
     # The last node knows only its seed at first: a lookup through it finds
@@ -153,7 +154,8 @@ def network(peers, client, churn):
                    counts.get("STATUS_RATE_LIMITED", 0))
     if answered < FLOOD_LIMIT or "failed" in counts:
         raise RuntimeError(f"Rate limit boundary missed: {counts}")
-    case = {"routing": True, "holders": holders, "flood": counts}
+    case = {"routing": True, "holders": holders, "flood": counts,
+            "acked_on": acked_everywhere(client, entry, ids)}
     if churn:
         gone = churn()
         live = {peer: tcp for peer, tcp in ids.items() if tcp != gone}
@@ -176,7 +178,8 @@ def replicate(client, entry, ids):
 
 
 def mailbox(client, tcp, quic, other):
-    """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties."""
+    """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties,
+    a watching fetch gets the next envelope pushed."""
     device = call(client, "device-key")
     put = call(client, "put", tcp, device["mailbox"], "c0ffee")
     if put["status"] != "STATUS_OK":
@@ -194,6 +197,34 @@ def mailbox(client, tcp, quic, other):
         raise RuntimeError("Mailbox ack failed")
     if call(client, "fetch", tcp, device["secret"])["ids"]:
         raise RuntimeError("Acknowledged envelope still served")
+    watched = call(client, "watch", quic, device["secret"])
+    if watched["pushed"] != [watched["id"]]:
+        raise RuntimeError(f"Envelope not pushed to the watcher: {watched}")
+
+
+def acked_everywhere(client, entry, ids):
+    """An envelope on every replica node; an ack on one clears them all."""
+    # Five replica keys may all land on one node of three: retry with a new
+    # mailbox until the replicas span nodes.
+    for _ in range(5):
+        device = call(client, "device-key")
+        put = call(client, "put-replicas", entry, device["mailbox"])
+        holders = sorted(set(put["holders"]))
+        if len(holders) > 1:
+            break
+    else:
+        raise RuntimeError(f"Replicas never spanned nodes: {holders}")
+    reply = call(client, "ack", ids[holders[0]], device["secret"], put["id"])
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError("Mailbox ack failed")
+    # The node forwards the ack after it answers.
+    for _ in range(10):
+        left = [holder for holder in holders
+                if call(client, "fetch", ids[holder], device["secret"])["ids"]]
+        if not left:
+            return holders
+        time.sleep(1)
+    raise RuntimeError(f"Ack not forwarded to {left}")
 
 
 if __name__ == "__main__":

@@ -2,14 +2,18 @@
 
 use crate::config::{Limits, Role};
 use crate::service::{Peer, Service};
-use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL};
+use dyapp_identity::SignedRecord;
+use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, Status};
+use dyapp_p2p_net::{
+    build_limited_swarm, replica_key, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL, REPLICAS,
+};
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
-use libp2p::identify;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{Event, Message};
 use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
+use libp2p::{identify, kad};
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::collections::HashMap;
@@ -86,12 +90,69 @@ fn drop_banned(swarm: &mut Swarm<Behaviour>, service: &Service, peer: PeerId) {
     }
 }
 
+/// Connections that fetched a mailbox with `watch`, by mailbox address.
+type Watchers = HashMap<Vec<u8>, Vec<(PeerId, ConnectionId)>>;
+
+/// What follows a successful mailbox request: a watching fetch is remembered, a put is pushed to
+/// the mailbox's watchers, and a device's ack is forwarded to the nodes closest to the other
+/// replica keys (the ack's replies are ignored: the envelopes expire anyway).
+/// ponytail: the ack goes to the closest node of each replica key only, where clients write; a
+/// replica written elsewhere because that node was full keeps the envelope until it expires.
+fn after_mailbox(
+    swarm: &mut Swarm<Behaviour>,
+    watchers: &mut Watchers,
+    forwards: &mut HashMap<kad::QueryId, SignedRecord>,
+    (peer, connection): (PeerId, ConnectionId),
+    request: Option<mailbox_request::Request>,
+) {
+    let owner = |record: &SignedRecord| {
+        <[u8; 32]>::try_from(record.public_key.as_slice())
+            .map(|key| dyapp_identity::key_hash(&key).to_vec())
+    };
+    match request {
+        Some(mailbox_request::Request::Put(record)) => {
+            let Ok(envelope) = proto::Envelope::decode(record.payload.as_slice()) else {
+                return;
+            };
+            for (watcher, _) in watchers.get(&envelope.mailbox).into_iter().flatten() {
+                let push = proto::MailboxPush {
+                    envelopes: vec![record.clone()],
+                };
+                swarm.behaviour_mut().push.send_request(watcher, push);
+            }
+        }
+        Some(mailbox_request::Request::Fetch(record)) => {
+            let watch = proto::Fetch::decode(record.payload.as_slice()).is_ok_and(|f| f.watch);
+            if let (true, Ok(mailbox)) = (watch, owner(&record)) {
+                let list = watchers.entry(mailbox).or_default();
+                if !list.contains(&(peer, connection)) {
+                    list.push((peer, connection));
+                }
+            }
+        }
+        Some(mailbox_request::Request::Ack(record)) => {
+            let Ok(mailbox) = owner(&record) else { return };
+            for i in 0..REPLICAS {
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(&mailbox, i));
+                forwards.insert(query, record.clone());
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     // The IP group of each open connection.
     let mut groups: HashMap<ConnectionId, String> = HashMap::new();
+    let mut watchers = Watchers::new();
+    // Device acks waiting for the lookup of a replica key.
+    let mut forwards: HashMap<kad::QueryId, SignedRecord> = HashMap::new();
     // Incoming connections refused by the connection limits since the last maintenance run.
     let mut refused = 0u64;
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
@@ -138,14 +199,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 })) => {
                     let mut nonce = nonces.remove(&connection_id);
                     let from = peer(id, &groups, connection_id);
+                    let kind = request.request.clone();
                     let result = service.mailbox(&from, &mut nonce, request);
                     if let Some(nonce) = nonce {
                         nonces.insert(connection_id, nonce);
                     }
                     match result {
                         Ok(response) => {
+                            let ok = response.status == i32::from(Status::Ok);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                            if ok {
+                                let at = (id, connection_id);
+                                after_mailbox(&mut swarm, &mut watchers, &mut forwards, at, kind);
+                            }
                         }
                         Err(error) => tracing::error!(%error, "mailbox request failed"),
                     }
@@ -159,6 +226,28 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 SwarmEvent::ConnectionClosed { connection_id, .. } => {
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
+                    // ponytail: a scan of all watchers per closed connection; index them by
+                    // connection if many devices watch at once.
+                    watchers.retain(|_, list| {
+                        list.retain(|(_, c)| *c != connection_id);
+                        !list.is_empty()
+                    });
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                    id,
+                    result: kad::QueryResult::GetClosestPeers(result),
+                    ..
+                })) => {
+                    let closest = result.ok().and_then(|ok| ok.peers.into_iter().next());
+                    if let (Some(ack), Some(node)) = (forwards.remove(&id), closest) {
+                        for address in node.addrs {
+                            swarm.add_peer_address(node.peer_id, address);
+                        }
+                        let request = MailboxRequest {
+                            request: Some(mailbox_request::Request::ReplicaAck(ack)),
+                        };
+                        swarm.behaviour_mut().mailbox.send_request(&node.peer_id, request);
+                    }
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.

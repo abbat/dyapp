@@ -96,6 +96,9 @@ message MailboxRequest {
     dyapp.identity.SignedRecord fetch = 3;
     // Payload `Ack`, signed by the mailbox's device key.
     dyapp.identity.SignedRecord ack = 4;
+    // An `ack` another replica node forwards verbatim: checked like `ack` but without the nonce,
+    // and not forwarded again.
+    dyapp.identity.SignedRecord replica_ack = 5;
   }
 }
 
@@ -121,8 +124,9 @@ message Fetch {
   bool watch = 3;
 }
 
-// Deletes envelopes from the signer's mailbox. The node forwards the signed ack verbatim to the
-// other replicas, which check the signature and the mailbox address but not the nonce.
+// Deletes envelopes from the signer's mailbox. The node forwards the signed ack verbatim as
+// `replica_ack` to the other replicas, which check the signature and the mailbox address but not
+// the nonce.
 message Ack {
   bytes nonce = 1;
   repeated bytes ids = 2;
@@ -140,6 +144,7 @@ message MailboxResponse {
 
 // ---- /dyapp/mailbox-push: client, opened by the node after a fetch with `watch` ----
 
+// Sent as soon as an envelope is stored, once per watching connection.
 message MailboxPush {
   repeated dyapp.identity.SignedRecord envelopes = 1;
 }

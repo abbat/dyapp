@@ -3,8 +3,7 @@
 > **Status:** the schemas in `proto/` are compiled into the Rust crates
 > ([code generation](../development/protobuf-codegen.md)). `identity.proto` and `profile.proto`
 > are the signed profile used today. `node.proto` defines the libp2p node protocol; `dyapp-node`
-> serves `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` without `watch`;
-> `/dyapp/mailbox-push` is planned
+> serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and `/dyapp/mailbox-push`
 > ([bootstrap](bootstrap.md#served-protocol)).
 
 ## Files
@@ -29,7 +28,8 @@ as received, so a node keeps fields it does not understand.
 | Payload | Domain | Signed by |
 |---------|--------|-----------|
 | `dyapp.profile.Profile` | `dyapp/profile/v1\0` | identity key |
-| `dyapp.node.Envelope`, `Fetch`, `Ack` | planned | device key |
+| `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
+| `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
 
 ## Profile
 
@@ -52,7 +52,7 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce. A node forwards a signed ack to the other replicas
-  verbatim; they check the signature and mailbox address, not the nonce.
+  verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce.
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the
   same connection; the device still acknowledges with an ack.
 

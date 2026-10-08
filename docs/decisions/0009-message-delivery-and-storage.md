@@ -42,5 +42,6 @@ media is different: full copies are expensive.
 - Not implemented: envelopes expire after a TTL (default 24 hours) but profiles and tombstones
   have none; a full store evicts its oldest records first (profiles by last publish, envelopes
   by arrival), not by profile activity; `dyapp_p2p_net::replica_key` defines the lookup keys but
-  no client writes replicas yet, and presence-driven repair does not exist;
+  no app client writes replicas yet (only `test-peer`); nodes push to watching devices and
+  forward acks to the closest node of each replica key, and presence-driven repair does not exist;
   `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec.

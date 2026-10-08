@@ -1,5 +1,6 @@
 //! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
-//! protocol (`/dyapp/node`, `/dyapp/profile`) over request-response with protobuf messages.
+//! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`) over
+//! request-response with protobuf messages.
 
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
@@ -25,6 +26,7 @@ pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
+pub const MAILBOX_PUSH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox-push");
 
 /// Replicas of every profile, envelope and signal (ADR 0009).
 pub const REPLICAS: u8 = 5;
@@ -44,6 +46,8 @@ pub type ProfileBehaviour =
     request_response::Behaviour<ProtoCodec<proto::ProfileRequest, proto::ProfileResponse>>;
 pub type MailboxBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxRequest, proto::MailboxResponse>>;
+pub type PushBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::MailboxPush, proto::MailboxPushResponse>>;
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
@@ -54,6 +58,8 @@ pub struct Behaviour {
     pub node: NodeBehaviour,
     pub profile: ProfileBehaviour,
     pub mailbox: MailboxBehaviour,
+    /// Node to client only: a node sends, a client receives.
+    pub push: PushBehaviour,
 }
 
 /// One protobuf message per stream; the writer closes the stream after it.
@@ -178,9 +184,13 @@ pub fn build_limited_swarm(
                 kad::store::MemoryStore::new(peer_id),
                 kad::Config::new(KAD_PROTOCOL),
             );
-            let (kad_mode, support) = match mode {
-                Mode::Auto => (None, ProtocolSupport::Full),
-                Mode::Client => (Some(kad::Mode::Client), ProtocolSupport::Outbound),
+            let (kad_mode, support, push) = match mode {
+                Mode::Auto => (None, ProtocolSupport::Full, ProtocolSupport::Outbound),
+                Mode::Client => (
+                    Some(kad::Mode::Client),
+                    ProtocolSupport::Outbound,
+                    ProtocolSupport::Inbound,
+                ),
             };
             kad.set_mode(kad_mode);
             let config =
@@ -201,7 +211,11 @@ pub fn build_limited_swarm(
                     [(PROFILE_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                mailbox: request_response::Behaviour::new([(MAILBOX_PROTOCOL, support)], config),
+                mailbox: request_response::Behaviour::new(
+                    [(MAILBOX_PROTOCOL, support)],
+                    config.clone(),
+                ),
+                push: request_response::Behaviour::new([(MAILBOX_PUSH_PROTOCOL, push)], config),
             }
         })?
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))

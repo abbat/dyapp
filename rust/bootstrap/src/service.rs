@@ -196,19 +196,19 @@ impl Service {
             }
             Some(mailbox_request::Request::Put(record)) => self.put(&record),
             Some(mailbox_request::Request::Fetch(record)) => {
-                let Ok((mailbox, fetch)) = owner_request::<proto::Fetch>(
-                    &record,
-                    Domain::MailboxFetch,
-                    nonce.take(),
-                    |f| &f.nonce,
-                ) else {
+                let expected = nonce.take();
+                let Ok((mailbox, fetch)) =
+                    owner_request::<proto::Fetch>(&record, Domain::MailboxFetch, |f| {
+                        fresh(expected, &f.nonce)
+                    })
+                else {
                     return Ok(status(Status::Denied));
                 };
                 let limit = match fetch.limit {
                     0 => MAX_FETCH,
                     limit => limit.min(MAX_FETCH),
                 };
-                // ponytail: `watch` is ignored until /dyapp/mailbox-push is served.
+                // `watch` is kept by the node loop, which owns the connections.
                 let (envelopes, more) = self.store.fetch_envelopes(&mailbox, limit, FETCH_BYTES)?;
                 Ok(MailboxResponse {
                     envelopes,
@@ -217,21 +217,29 @@ impl Service {
                 })
             }
             Some(mailbox_request::Request::Ack(record)) => {
-                let Ok((mailbox, ack)) =
-                    owner_request::<proto::Ack>(&record, Domain::MailboxAck, nonce.take(), |a| {
-                        &a.nonce
-                    })
-                else {
-                    return Ok(status(Status::Denied));
-                };
-                if ack.ids.iter().any(|id| id.len() != 16) {
-                    return Ok(status(Status::Invalid));
-                }
-                self.store.ack_envelopes(&mailbox, &ack.ids)?;
-                Ok(status(Status::Ok))
+                let expected = nonce.take();
+                self.ack(&record, |ack| fresh(expected, &ack.nonce))
             }
+            // ponytail: a replayed ack deletes only ids its owner already acked; ids are random,
+            // so no new envelope reuses them.
+            Some(mailbox_request::Request::ReplicaAck(record)) => self.ack(&record, |_| true),
             None => Ok(status(Status::Unsupported)),
         }
+    }
+
+    fn ack(
+        &self,
+        record: &SignedRecord,
+        check: impl Fn(&proto::Ack) -> bool,
+    ) -> crate::Result<MailboxResponse> {
+        let Ok((mailbox, ack)) = owner_request(record, Domain::MailboxAck, check) else {
+            return Ok(status(Status::Denied));
+        };
+        if ack.ids.iter().any(|id| id.len() != 16) {
+            return Ok(status(Status::Invalid));
+        }
+        self.store.ack_envelopes(&mailbox, &ack.ids)?;
+        Ok(status(Status::Ok))
     }
 
     fn put(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
@@ -333,21 +341,25 @@ impl Service {
     }
 }
 
-/// Checks a request signed by a mailbox's device key and carrying this connection's nonce;
-/// returns the mailbox address, the hash of the signing key, and the decoded request.
+/// Checks a request signed by a mailbox's device key and passing `check` (its nonce); returns
+/// the mailbox address, the hash of the signing key, and the decoded request.
 fn owner_request<M: Message + Default>(
     record: &SignedRecord,
     domain: Domain,
-    expected: Option<[u8; 32]>,
-    nonce: fn(&M) -> &Vec<u8>,
+    check: impl Fn(&M) -> bool,
 ) -> Result<([u8; 32], M), ()> {
     record.verify(domain).map_err(|_| ())?;
     let request = M::decode(record.payload.as_slice()).map_err(|_| ())?;
-    if expected.is_none_or(|expected| nonce(&request).as_slice() != expected) {
+    if !check(&request) {
         return Err(());
     }
     let key: [u8; 32] = record.public_key.as_slice().try_into().map_err(|_| ())?;
     Ok((dyapp_identity::key_hash(&key), request))
+}
+
+/// Whether `got` is the nonce issued on this connection.
+fn fresh(expected: Option<[u8; 32]>, got: &[u8]) -> bool {
+    expected.is_some_and(|expected| got == expected)
 }
 
 fn status(status: Status) -> MailboxResponse {
@@ -604,6 +616,32 @@ mod tests {
         assert_eq!(
             mailbox_status(&mailbox(&service, &mut conn, request)),
             Status::Denied
+        );
+        let nonce = challenge(&service, &mut conn);
+        assert!(mailbox(&service, &mut conn, fetch(&device, nonce))
+            .envelopes
+            .is_empty());
+
+        // An ack forwarded by another replica needs no nonce of this connection, only the key.
+        let response = mailbox(&service, &mut conn, put(envelope(vec![7; 16], vec![2])));
+        assert_eq!(mailbox_status(&response), Status::Ok);
+        let replica = |key: &Identity| {
+            let ack = proto::Ack {
+                nonce: vec![0; 32],
+                ids: vec![vec![7; 16]],
+            };
+            mailbox_request::Request::ReplicaAck(key.sign(Domain::MailboxAck, ack.encode_to_vec()))
+        };
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, replica(&thief))),
+            Status::Ok
+        );
+        let nonce = challenge(&service, &mut conn);
+        let left = mailbox(&service, &mut conn, fetch(&device, nonce));
+        assert_eq!(left.envelopes.len(), 1);
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut conn, replica(&device))),
+            Status::Ok
         );
         let nonce = challenge(&service, &mut conn);
         assert!(mailbox(&service, &mut conn, fetch(&device, nonce))

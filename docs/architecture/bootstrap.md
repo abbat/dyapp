@@ -3,8 +3,8 @@
 ## Overview
 
 A bootstrap node (`dyapp-node`) serves owner-signed profiles and per-device mailboxes over
-libp2p ([Served protocol](#served-protocol)); push to online devices, replication, profile search
-and signaling are planned.
+libp2p ([Served protocol](#served-protocol)) and pushes new envelopes to watching devices;
+profile search, signaling and node-to-node replica repair are planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -287,7 +287,9 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
 | `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK`, also for a repeated (mailbox, id); `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
-| `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored; `DENIED`; `INVALID` an id not 16 bytes |
+| `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
+| `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
+| `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 
 - **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
   signing key, so a device reaches only its own mailbox. They are signed over
@@ -296,8 +298,13 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   or ack, valid or not: a replay, a nonce from another connection, a request signed for the other
   domain or one without a challenge gets `DENIED`, and the client asks for a new challenge.
   Nonces live in memory and go with the connection or a restart.
-- **Not yet:** `watch` is ignored (no `/dyapp/mailbox-push`), acks are not forwarded to other
-  replicas, and the size limits are constants rather than config ([Mailboxes](#mailboxes)).
+- **Push.** A valid `fetch` with `watch` registers its connection for that mailbox until the
+  connection closes; every later `put` to the mailbox is pushed there. Replies to a push are ignored.
+- **Ack forwarding.** After a valid `ack` the node looks up the closest node of each
+  `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack`; replies are ignored.
+  Only the closest node per key gets it, and a node that missed it keeps the envelope until its
+  TTL. A replayed `replica_ack` can only delete ids the device already acked.
+- **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
   `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
@@ -337,6 +344,8 @@ test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stal
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 test-peer device-key                        → {"secret", "mailbox"}
 test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
+test-peer put-replicas <multiaddr> <mailbox hex> → {"id", "holders"}
+test-peer watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
 test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
 test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
 test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
@@ -347,8 +356,10 @@ test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": co
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
 connection. `closest` lists the nodes that answered, closest first. `replicate` publishes each of
 the `REPLICAS` replicas of a profile to the node closest to `replica_key(peer_id, i)`; a second
-replica on the same node answers `STALE`, which counts as stored. `flood` sends `n` profile gets
-at once on one connection.
+replica on the same node answers `STALE`, which counts as stored. `put-replicas` puts one
+envelope to the node closest to each `replica_key(mailbox, i)`. `watch` sends a watching `fetch`,
+puts an envelope to its own mailbox on another connection and prints the ids pushed back. `flood`
+sends `n` profile gets at once on one connection.
 
 It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
@@ -597,7 +608,7 @@ a node failure.
 
 **Current limitations:**
 - Single-node persistence: no HA, failover or cross-node replication (the RS codec is not wired into storage or the API)
-- Mailboxes have no push, ack forwarding or replication yet
+- Mailbox replicas are written by the client; nodes forward acks but do not repair missing replicas
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

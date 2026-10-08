@@ -37,14 +37,15 @@ joins a second swarm from the first one's cache alone.
 
 Not implemented yet:
 
-- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`
+- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
+  `/dyapp/mailbox-push`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
 - No node-ID proof of work, routing-table IP diversity filter, disjoint lookups, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
-- No mailbox push, signal, media or search protocols; they are designed in
+- No signal, media or search protocols; they are designed in
   [Bootstrap — Protocol](bootstrap.md#protocol).
 
 ## Planned

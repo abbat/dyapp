@@ -15,12 +15,17 @@
 //! - `test-peer replicate <multiaddr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
 //!   of the `REPLICAS` replicas of a profile to the node closest to its replica key;
 //! - `test-peer flood <multiaddr> <n>`: the count of each status (`"failed"` for no reply) of `n`
-//!   profile gets sent at once on one connection.
+//!   profile gets sent at once on one connection;
+//! - `test-peer watch <multiaddr> <secret hex>`: `{"status", "id", "pushed"}`, fetches with
+//!   `watch`, puts an envelope to the mailbox from another connection and returns the ids the
+//!   node pushed back;
+//! - `test-peer put-replicas <multiaddr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
+//!   to the node closest to each replica key of the mailbox.
 //!
 //! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
 use anyhow::{anyhow, bail, Context};
-use dyapp_identity::{Domain, Identity};
+use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
 use dyapp_p2p_net::{build_swarm, replica_key, Behaviour, BehaviourEvent, Mode, REPLICAS};
 use dyapp_profile::Profile;
@@ -57,7 +62,13 @@ async fn main() -> anyhow::Result<()> {
                 .context("no reply in 60 s")??
         }
         ["flood", addr, n] => timeout(flood(addr, n.parse()?)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n>"),
+        ["watch", addr, secret] => timeout(watch(addr, secret)).await?,
+        ["put-replicas", addr, mailbox] => {
+            tokio::time::timeout(Duration::from_secs(60), put_replicas(addr, mailbox))
+                .await
+                .context("no reply in 60 s")??
+        }
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox>"),
     };
     println!("{output}");
     Ok(())
@@ -150,10 +161,7 @@ async fn replicate(addr: &str, peer_id: &str, record: &str) -> anyhow::Result<Va
     let (mut swarm, _) = connect(addr).await?;
     let mut holders = Vec::new();
     for i in 0..REPLICAS {
-        let holder = *lookup(&mut swarm, replica_key(&key, i))
-            .await?
-            .first()
-            .context("lookup found no node")?;
+        let holder = closest_to(&mut swarm, replica_key(&key, i)).await?;
         let request = proto::ProfileRequest {
             request: Some(profile_request::Request::Publish(record.clone())),
         };
@@ -198,6 +206,11 @@ async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
     Ok(json!(counts))
 }
 
+async fn closest_to(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<PeerId> {
+    let peers = lookup(swarm, key).await?;
+    peers.first().copied().context("lookup found no node")
+}
+
 /// The nodes that answered a lookup of `key`, closest first; their addresses stay known to
 /// `swarm` so requests reach them.
 async fn lookup(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<Vec<PeerId>> {
@@ -224,18 +237,67 @@ fn device_key() -> Value {
     json!({ "secret": hex(&device.secret()), "mailbox": hex(&mailbox) })
 }
 
-async fn put(addr: &str, mailbox: &str, ciphertext: &str) -> anyhow::Result<Value> {
+/// An envelope with a random id, signed by a fresh sender key.
+fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, SignedRecord)> {
     let mut id = [0u8; 16];
     getrandom::fill(&mut id).map_err(|e| anyhow!("random id: {e}"))?;
     let envelope = proto::Envelope {
         id: id.to_vec(),
-        mailbox: unhex(mailbox)?,
-        ciphertext: unhex(ciphertext)?,
+        mailbox,
+        ciphertext,
     };
     let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    Ok((id.to_vec(), record))
+}
+
+async fn put(addr: &str, mailbox: &str, ciphertext: &str) -> anyhow::Result<Value> {
+    let (id, record) = envelope(unhex(mailbox)?, unhex(ciphertext)?)?;
     let (mut swarm, peer) = connect(addr).await?;
     let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Put(record)).await?;
     Ok(json!({ "status": status(response.status), "id": hex(&id) }))
+}
+
+async fn put_replicas(addr: &str, mailbox: &str) -> anyhow::Result<Value> {
+    let mailbox = unhex(mailbox)?;
+    let (id, record) = envelope(mailbox.clone(), vec![1])?;
+    let (mut swarm, _) = connect(addr).await?;
+    let mut holders = Vec::new();
+    for i in 0..REPLICAS {
+        let holder = closest_to(&mut swarm, replica_key(&mailbox, i)).await?;
+        let put = mailbox_request::Request::Put(record.clone());
+        let response = mailbox_call(&mut swarm, holder, put).await?;
+        if response.status != i32::from(Status::Ok) {
+            bail!("replica {i} on {holder}: {}", status(response.status));
+        }
+        holders.push(holder.to_string());
+    }
+    Ok(json!({ "id": hex(&id), "holders": holders }))
+}
+
+async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
+    let (mut swarm, peer, device, nonce) = challenged(addr, secret).await?;
+    let fetch = proto::Fetch {
+        nonce,
+        watch: true,
+        ..proto::Fetch::default()
+    };
+    let record = device.sign(Domain::MailboxFetch, fetch.encode_to_vec());
+    let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Fetch(record)).await?;
+    let mailbox = hex(&dyapp_identity::key_hash(&device.public_key()));
+    // The put runs on its own connection while this one waits for the push.
+    let pushed = wait(&mut swarm, |event| match event {
+        BehaviourEvent::Push(Event::Message {
+            message: RrMessage::Request { request, .. },
+            ..
+        }) => Some(Ok(request.envelopes)),
+        _ => None,
+    });
+    let (put, pushed) = tokio::join!(put(addr, &mailbox, "01"), pushed);
+    let ids = pushed?
+        .iter()
+        .map(|record| Ok(hex(&proto::Envelope::decode(record.payload.as_slice())?.id)))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(json!({ "status": status(response.status), "id": put?["id"], "pushed": ids }))
 }
 
 async fn fetch(addr: &str, secret: &str) -> anyhow::Result<Value> {
