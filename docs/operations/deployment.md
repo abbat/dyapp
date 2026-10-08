@@ -250,7 +250,8 @@ These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
 - Metrics: planned as log lines only, no `/metrics` endpoint
-- Administration: planned as a local CLI writing to `admin.db`, no admin routes
+- Administration: the deny list file and SIGHUP, no admin routes; a local CLI writing to
+  `admin.db` for runtime settings and status is planned
 - Request logs: `dyapp-node` logs startup, listen addresses, storage errors and cleanup
   (`RUST_LOG`), not individual requests
 
@@ -324,7 +325,8 @@ node's libp2p key; there is no certificate authority.
   /48); envelope puts also per sender key. Peers that keep hitting the limits or sending bad
   signatures are banned locally for `ban_minutes`. Details:
   [rate limiting](../architecture/bootstrap.md#rate-limiting)
-- To stop serving an abuser, add their peer ID, IP group or key hash to `<storage.dir>/deny`
+- To stop serving an abuser or a media blob, add their peer ID, IP group, key hash or the blob's
+  SHA-256 to `<storage.dir>/deny`
   and send SIGHUP (`systemctl reload dyapp-node`); they get `STATUS_REFUSED` here and
   use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
 

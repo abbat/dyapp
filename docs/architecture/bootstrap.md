@@ -372,14 +372,16 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   `UNSUPPORTED`.
 - <a id="deny-list"></a>**Deny list.** `<storage.dir>/deny` holds one entry per line: a libp2p
   peer ID, an IP group as the node computes it (for example `203.0.113.0/24` with the default
-  prefix) or the lowercase hex SHA-256 of an identity or device key; `#` starts a comment. The
+  prefix) or a lowercase hex SHA-256: of an identity or device key, or of a media blob;
+  `#` starts a comment. The
   node reads it at start and on SIGHUP and logs the entry count and how many were added and
   removed; an unreadable file keeps the old list. A listed peer or IP group gets `REFUSED` on
   every profile, mailbox and media request; a listed key gets `REFUSED` on its profile publish
   and get, on puts it signs or addressed to its mailbox, on its fetch and on its media `keep` and
   `put`. `REFUSED` is no strike, so the client moves to another replica; one node's list removes
   no one from the network. Acks are still served, and a `get` of a listed owner's blob already
-  stored is still answered (blobs are not indexed by owner on read).
+  stored is still answered (blobs are not indexed by owner on read); a listed blob hash gets
+  `REFUSED` on `get` and `put`, and its file stays until no keep or attachment holds it.
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).

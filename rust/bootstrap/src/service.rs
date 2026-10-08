@@ -141,7 +141,8 @@ impl Service {
         self.deny.contains(&peer.id) || self.deny.contains(&peer.group)
     }
 
-    /// Whether the deny list names `address` (an identity's peer ID or a mailbox address).
+    /// Whether the deny list names `address` (an identity's peer ID, a mailbox address or a
+    /// media blob hash).
     fn listed(&self, address: &[u8]) -> bool {
         self.deny.contains(&hex(address))
     }
@@ -504,7 +505,7 @@ impl Service {
                 if put.owner.len() != 32 {
                     return Ok(media_status(Status::Invalid));
                 }
-                if self.listed(&put.owner) {
+                if self.listed(&put.owner) || self.listed(&dyapp_identity::sha256(&put.data)) {
                     return Ok(media_status(Status::Refused));
                 }
                 // ponytail: sums all blobs per put; keep a running total if puts get slow.
@@ -522,10 +523,13 @@ impl Service {
                 })
             }
             // ponytail: a get names no owner, so a listed owner's blobs already stored are still
-            // served; index blobs by owner if operators need them hidden.
+            // served unless the deny list names the blob hash too.
             Some(media_request::Request::Get(get)) => {
                 if get.hash.len() != 32 {
                     return Ok(media_status(Status::Invalid));
+                }
+                if self.listed(&get.hash) {
+                    return Ok(media_status(Status::Refused));
                 }
                 match media.get(&get.hash)? {
                     Some(data) => MediaResponse {
@@ -1202,6 +1206,12 @@ mod tests {
             call_as(&service, "q", get(&hash)).0,
             Status::Ok,
             "kept blob stays"
+        );
+        service.deny = [hex(&hash)].into();
+        assert_eq!(
+            call_as(&service, "r", get(&hash)).0,
+            Status::Refused,
+            "blocked blob"
         );
 
         let info = service.node(NodeRequest {
