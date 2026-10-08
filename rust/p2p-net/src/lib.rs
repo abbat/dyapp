@@ -1,6 +1,6 @@
 //! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
-//! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`) over
-//! request-response with protobuf messages.
+//! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`,
+//! `/dyapp/media`) over request-response with protobuf messages.
 
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
@@ -27,6 +27,7 @@ pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 pub const MAILBOX_PUSH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox-push");
+pub const MEDIA_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/media");
 
 /// Replicas of every profile, envelope and signal (ADR 0009).
 pub const REPLICAS: u8 = 5;
@@ -48,6 +49,8 @@ pub type MailboxBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxRequest, proto::MailboxResponse>>;
 pub type PushBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxPush, proto::MailboxPushResponse>>;
+pub type MediaBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::MediaRequest, proto::MediaResponse>>;
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
@@ -60,6 +63,7 @@ pub struct Behaviour {
     pub mailbox: MailboxBehaviour,
     /// Node to client only: a node sends, a client receives.
     pub push: PushBehaviour,
+    pub media: MediaBehaviour,
 }
 
 /// One protobuf message per stream; the writer closes the stream after it.
@@ -217,10 +221,14 @@ pub fn build_limited_swarm(
                     config.clone(),
                 ),
                 mailbox: request_response::Behaviour::new(
-                    [(MAILBOX_PROTOCOL, support)],
+                    [(MAILBOX_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                push: request_response::Behaviour::new([(MAILBOX_PUSH_PROTOCOL, push)], config),
+                push: request_response::Behaviour::new(
+                    [(MAILBOX_PUSH_PROTOCOL, push)],
+                    config.clone(),
+                ),
+                media: request_response::Behaviour::new([(MEDIA_PROTOCOL, support)], config),
             }
         })?
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))

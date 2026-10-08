@@ -47,15 +47,15 @@ checks the limits. Addresses claimed through identify are not verified by a dial
 
 Not implemented yet:
 
-- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
-  `/dyapp/mailbox-push`
+- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+  `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
 - No node-ID proof of work, distinct /16 groups for outbound connections, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
-- No signal, media or search protocols; they are designed in
+- No signal or search protocols; they are designed in
   [Bootstrap — Protocol](bootstrap.md#protocol).
 
 ## Planned

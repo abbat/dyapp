@@ -3,7 +3,8 @@
 > **Status:** the schemas in `proto/` are compiled into the Rust crates
 > ([code generation](../development/protobuf-codegen.md)). `identity.proto` and `profile.proto`
 > are the signed profile used today. `node.proto` defines the libp2p node protocol; `dyapp-node`
-> serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and `/dyapp/mailbox-push`
+> serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push` and
+> `/dyapp/media`
 > ([bootstrap](bootstrap.md#served-protocol)).
 
 ## Files
@@ -12,10 +13,10 @@
 |------|---------|----------|
 | `proto/identity.proto` | `dyapp.identity` | `SignedRecord` |
 | `proto/profile.proto` | `dyapp.profile` | `Profile` |
-| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push` |
+| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media` |
 
 The files are the source; comments in them define each field. Schemas for `/dyapp/signal`,
-`/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` and `/dyapp/turn` are planned and are added
+`/dyapp/search`, `/dyapp/inventory` and `/dyapp/turn` are planned and are added
 together with their roles ([protocol](bootstrap.md#protocol)).
 
 ## Signed records
@@ -30,6 +31,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.profile.Profile` | `dyapp/profile/v1\0` | identity key |
 | `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
+| `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
 
 ## Profile
 
@@ -55,6 +57,8 @@ SHA-256 of the device public key (32 bytes each).
   verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce.
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the
   same connection; the device still acknowledges with an ack.
+- **`/dyapp/media`**: `keep` is the owner's signed, versioned list of blob hashes (SHA-256) and
+  returns the ones still `missing`; `put` sends a listed blob unsigned; `get(hash)` returns it.
 
 ## FFI boundary
 

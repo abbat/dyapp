@@ -43,6 +43,8 @@ pub struct StorageConfig {
     pub dir: PathBuf,
     pub profiles: Option<PathBuf>,
     pub messages: Option<PathBuf>,
+    /// The media directory: blob files and `media.db`.
+    pub media: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -53,6 +55,11 @@ pub struct Limits {
     /// Live data per store; a full store answers `FULL` to writes.
     pub profiles_max_mb: u64,
     pub messages_max_mb: u64,
+    /// Distinct media blob bytes, and blob bytes per owner.
+    pub media_max_mb: u64,
+    pub media_per_owner_mb: u64,
+    /// Media requests per second from one peer: a reply carries up to 1 MiB.
+    pub media_requests_per_second: u32,
     /// Free space kept on the file system of each store.
     pub min_free_mb: u64,
     /// Node protocol bytes in and out per calendar month (UTC); 0 = no cap.
@@ -114,6 +121,7 @@ impl Default for StorageConfig {
             dir: "/var/lib/dyapp-node".into(),
             profiles: None,
             messages: None,
+            media: None,
         }
     }
 }
@@ -125,6 +133,9 @@ impl Default for Limits {
             requests_per_second: 100,
             profiles_max_mb: 1024,
             messages_max_mb: 4096,
+            media_max_mb: 10240,
+            media_per_owner_mb: 10,
+            media_requests_per_second: 10,
             min_free_mb: 512,
             monthly_traffic_gb: 0,
             max_connections: 1000,
@@ -153,6 +164,10 @@ impl StorageConfig {
             .unwrap_or_else(|| self.dir.join("messages.db"))
     }
 
+    pub fn media_path(&self) -> PathBuf {
+        self.media.clone().unwrap_or_else(|| self.dir.join("media"))
+    }
+
     pub fn key_path(&self) -> PathBuf {
         self.dir.join("node.key")
     }
@@ -162,8 +177,12 @@ impl StorageConfig {
         self.dir.join("peers")
     }
 
-    fn stores(&self) -> [PathBuf; 2] {
-        [self.profiles_path(), self.messages_path()]
+    fn stores(&self) -> [PathBuf; 3] {
+        [
+            self.profiles_path(),
+            self.messages_path(),
+            self.media_path().join("media.db"),
+        ]
     }
 }
 
@@ -221,14 +240,25 @@ impl NodeConfig {
         if self.listen.is_empty() {
             anyhow::bail!("listen: at least one address is required");
         }
-        if let Some(role) = self.roles.iter().find(|r| **r != Role::Store) {
+        if let Some(role) = self
+            .roles
+            .iter()
+            .find(|r| !matches!(r, Role::Store | Role::Media))
+        {
             anyhow::bail!("role {role:?} is not implemented yet");
+        }
+        // ponytail: a media node is found through the store role's key space; media-only nodes
+        // need their own Kademlia protocol.
+        if self.roles.contains(&Role::Media) && !self.roles.contains(&Role::Store) {
+            anyhow::bail!("role media needs role store");
         }
         if self.limits.message_ttl_hours < 1 {
             anyhow::bail!("limits.message_ttl_hours must be at least 1");
         }
-        if self.limits.requests_per_second < 1 {
-            anyhow::bail!("limits.requests_per_second must be at least 1");
+        if self.limits.requests_per_second < 1 || self.limits.media_requests_per_second < 1 {
+            anyhow::bail!(
+                "limits.requests_per_second and media_requests_per_second must be at least 1"
+            );
         }
         let l = &self.limits;
         if l.max_connections < 1 || l.max_connections_per_peer < 1 || l.max_streams < 1 {
@@ -363,6 +393,8 @@ mod tests {
         assert!(invalid(|c| c.seeds = vec!["seed.example".into()]));
         assert!(!invalid(|c| c.seeds = vec!["/dnsaddr/seed.example".into()]));
         assert!(invalid(|c| c.roles = vec![Role::Turn]));
+        assert!(invalid(|c| c.roles = vec![Role::Media]));
+        assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(
             |c| c.storage.messages = Some("/proc/messages.db".into())

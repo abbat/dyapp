@@ -63,7 +63,8 @@ that run it. A node announces its roles through libp2p identify. A reachable nod
 server; a node behind NAT is a bootstrap only for peers in its local network. Mobile clients run
 the DHT in client mode: they store nothing and answer no DHT queries. Today `/dyapp/kad` is the
 store role's key space: `dyapp-node` without the store role runs it in client mode and serves no
-protocol; other roles get their own Kademlia protocol name when they are built.
+protocol. The media role needs the store role and shares its key space for now; other roles get
+their own Kademlia protocol name when they are built.
 
 Kademlia gives every node an equal share of keys; a share weighted by the node's capacity is
 still to be designed.
@@ -71,8 +72,8 @@ still to be designed.
 ### Protocol
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
-`proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
-`/dyapp/mailbox-push` ([schema](protobuf-schema.md#node-protocol)); the other services get their
+`proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+`/dyapp/mailbox-push` and `/dyapp/media` ([schema](protobuf-schema.md#node-protocol)); the other services get their
 schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
 `unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
 `stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`.
@@ -84,7 +85,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
-| `/dyapp/media` | media | `put(hash, chunk)`, `get(hash, range)`, `downloaded(hash)` |
+| `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`; `get(hash, range)` and `downloaded(hash)` are planned |
 | `/dyapp/search` | search | `query(conditions, limit)` → profiles in random order and the conditions applied |
 | `/dyapp/inventory` | store, media, search | `have(list)` → `need(list)`, for repair and search catch-up |
 | `/dyapp/turn` | TURN | `credentials` → short-lived username, password and URLs |
@@ -102,7 +103,9 @@ on an identity's data carries a signature by a key of that identity:
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack`, `signal.fetch`, `signal.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
 | `mailbox.put`, `signal.put` | sender's device key, over the envelope | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
-| `media.put`, `media.downloaded` | owner (or recipient) device key, over the hash | per-user media quota |
+| `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
+| `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
+| `media.downloaded` (planned) | recipient device key, over the hash | |
 | `search.query`, `turn.credentials`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
 
 An ack is signed by the device, so a node forwards it verbatim and the other replicas verify it
@@ -184,7 +187,8 @@ repaired and expires with the TTL.
   `messages.db`, `likes.db`, `views.db` and one more per new signal type; `admin.db` for operator
   settings. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
-  file, hash-checked, fsync'd and renamed.
+  file, fsync'd and renamed; the name is the SHA-256 of the data. Implemented, without an fsync
+  of the directory ([Storage](#storage)).
 - No routine full `VACUUM`: stores use `auto_vacuum = INCREMENTAL` with `incremental_vacuum(N)`,
   a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on a per-store
   schedule with an optional maintenance window and an I/O budget. Implemented: one schedule for
@@ -202,7 +206,7 @@ an optional monthly cap; near it the node sheds media first, then search, the ma
 memory (connections, streams, request size). A full store answers "full" so the client tries
 another replica. Implemented: the disk, monthly-traffic and connection guards in
 [Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting);
-media, byte rates and a memory threshold are planned.
+byte rates and a memory threshold are planned.
 
 The operator may refuse service to any user through a deny list. Lists may be shared between
 operators but are advisory: a node never has to follow another's list. Removing illegal media
@@ -262,7 +266,7 @@ optional and public by design
 `/dyapp/profile` `publish` stores a record only if:
 
 - the signature verifies against `public_key`;
-- the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs, planned);
+- the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
   place at most 1024 characters without control characters, a tombstone (`deleted = true`) carries no other field.
@@ -275,13 +279,13 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 ## Served protocol
 
 Source: `rust/bootstrap/src/service.rs` (request handling), `node.rs` (the libp2p
-loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite). `dyapp-node` serves
-three libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
+loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
+`dyapp-node` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
 per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (1 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
@@ -290,6 +294,9 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
+| `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` version not newer; `DENIED` bad signature; `INVALID` over 256 hashes or a hash not 32 bytes |
+| `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
+| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `NOT_FOUND`; `INVALID` hash not 32 bytes |
 
 - **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
   signing key, so a device reaches only its own mailbox. They are signed over
@@ -304,6 +311,14 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack`; replies are ignored.
   Only the closest node per key gets it, and a node that missed it keeps the envelope until its
   TTL. A replayed `replica_ack` can only delete ids the device already acked.
+- **Media.** The owner's signed `keep` is the whole list of blobs the node should hold for that
+  identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
+  once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob
+  kept by two owners counts against both quotas. There is no eviction: a full node answers
+  `FULL` and the client tries another. Media requests have their own per-peer limit
+  (`limits.media_requests_per_second`, default 10, no strike) besides the shared ones. A node
+  without the media role answers `UNSUPPORTED`. Ranges, `downloaded`, media replication and
+  repair are planned.
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
@@ -452,12 +467,14 @@ starts refusing and a line when it clears, not one per request:
   refuses only if that is not enough: profiles in publish order (a republish makes a profile
   young), envelopes in arrival order ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
   The free-space floor is not cleared by eviction, since freed pages stay in the file until
-  maintenance.
+  maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
+  `min_free_mb` free on the media file system; media is never evicted.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per UTC calendar month and saved to `<storage.dir>/traffic` at each
-  maintenance run. With `monthly_traffic_gb` set (default 0, no cap), profile requests get
-  `RATE_LIMITED` from 90 % of the cap and mailbox requests at 100 %; `info` is always served.
-  Per-second byte rates are planned; media and search, once served, are shed before profiles.
+  maintenance run. With `monthly_traffic_gb` set (default 0, no cap), media requests get
+  `RATE_LIMITED` from 75 % of the cap, profile requests from 90 % and mailbox requests at 100 %;
+  `info` is always served. Per-second byte rates are planned; search, once served, is shed
+  before profiles.
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
@@ -475,6 +492,9 @@ profiles.db  profiles(peer_id PK, record BLOB, live)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
                        UNIQUE (mailbox, id))
              record: the signed envelope as received; indexes on (mailbox, seq), expires_at
+<media>/media.db  owners(owner PK, version)  blobs(owner, hash, size, PK (owner, hash))
+             owner: hex SHA-256 of the identity key; size NULL = listed, not yet put
+<media>/aa/bb/<hex hash>  the blob
 ```
 
 A `messages` table left by an older version is not read; it can be dropped by hand.
@@ -501,19 +521,20 @@ message files beat deletes.
 `NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyapp-node`: defaults, then a TOML
 file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
-`listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages}`,
-`limits.{message_ttl_hours,requests_per_second}`,
-`limits.{profiles_max_mb,messages_max_mb,min_free_mb,monthly_traffic_gb}`,
+`listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages,media}`
+(media defaults to `<dir>/media`),
+`limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb}`,
+`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,monthly_traffic_gb}`,
 `limits.{max_connections,max_connections_per_peer,max_streams}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
-`/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` ([Served protocol](#served-protocol)). Only
-the `store` role is accepted.
+the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles are
+accepted, and `media` only together with `store`.
 
-Planned: a maintenance window and per-store schedules, the remaining resource guards, the media directory, TURN ports,
+Planned: a maintenance window and per-store schedules, the remaining resource guards, TURN ports,
 store retention.
 
 ## Deployment Model

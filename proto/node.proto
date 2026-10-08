@@ -151,3 +151,42 @@ message MailboxPush {
 
 // The device still acknowledges with a mailbox ack.
 message MailboxPushResponse {}
+
+// ---- /dyapp/media: media role ----
+
+// Media are content-addressed blobs: the hash is the SHA-256 of the data. A client splits a file
+// larger than `max_media_bytes` into several blobs.
+message MediaRequest {
+  oneof request {
+    // Payload `MediaKeep`, signed by the owner's identity key (the profile key).
+    dyapp.identity.SignedRecord keep = 1;
+    MediaPut put = 2;
+    GetMedia get = 3;
+  }
+}
+
+// The complete list of an owner's blobs. The node drops the owner's blobs not listed and accepts
+// puts only of listed hashes, so a put needs no signature and a replayed put is harmless.
+message MediaKeep {
+  // Greater than the stored keep's version; the client uses its profile version.
+  uint64 version = 1;
+  repeated bytes hashes = 2;
+}
+
+message MediaPut {
+  // The owner's peer ID: the SHA-256 of the identity key, as in `GetProfile`.
+  bytes owner = 1;
+  bytes data = 2;
+}
+
+message GetMedia {
+  bytes hash = 1;
+}
+
+message MediaResponse {
+  Status status = 1;
+  // get: the blob.
+  bytes data = 2;
+  // keep: listed hashes the node does not hold yet.
+  repeated bytes missing = 3;
+}

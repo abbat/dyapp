@@ -1,15 +1,17 @@
-//! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`) from the
-//! stores. The libp2p loop in `dyapp-node` passes each request here and sends back the reply.
+//! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+//! `/dyapp/media`) from the stores. The libp2p loop in `dyapp-node` passes each request here and sends back the reply.
 
 use crate::{
     config::Role,
+    media::{MediaStore, Put},
     rate_limit::{PeerRateLimiter, Reputation, Traffic},
     BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
-    self, mailbox_request, node_request, profile_request, MailboxRequest, MailboxResponse,
-    NodeInfo, NodeRequest, NodeResponse, ProfileRequest, ProfileResponse, Status,
+    self, mailbox_request, media_request, node_request, profile_request, MailboxRequest,
+    MailboxResponse, MediaRequest, MediaResponse, NodeInfo, NodeRequest, NodeResponse,
+    ProfileRequest, ProfileResponse, Status,
 };
 use prost::Message;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,9 +24,14 @@ pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 /// Envelope bytes per fetch reply, well under the 2 MiB protocol message limit.
 const FETCH_BYTES: u64 = 1024 * 1024;
 const MAX_FETCH: u32 = 100;
+/// Largest media blob, well under the protocol message limit; larger files are split.
+pub const MAX_MEDIA_BYTES: usize = 1024 * 1024;
+/// Hashes in one media keep.
+const MAX_KEEP: usize = 256;
 
-/// Traffic share (percent of the monthly cap) from which profile requests are shed; the mailbox
-/// is shed only at the cap. ponytail: media and search, once served, are shed before profiles.
+/// Traffic shares (percent of the monthly cap) from which media and profile requests are shed;
+/// the mailbox is shed only at the cap. ponytail: search, once served, is shed with media.
+const SHED_MEDIA: u64 = 75;
 const SHED_PROFILES: u64 = 90;
 
 /// The remote side of a request: its libp2p peer ID and IP group (see `node::ip_group`).
@@ -35,15 +42,19 @@ pub struct Peer {
 
 pub struct Service {
     pub store: BootstrapStore,
+    /// Set when the node serves the media role.
+    pub media: Option<MediaStore>,
     pub rate_limiter: PeerRateLimiter,
+    pub media_peers: PeerRateLimiter,
     pub groups: PeerRateLimiter,
     pub senders: PeerRateLimiter,
     pub reputation: Reputation,
     pub traffic: Traffic,
     pub config: NodeConfig,
     /// Guards that refused the last request they checked: profiles full, messages full,
-    /// profiles shed, mailbox shed. A change is logged once, not per request.
-    tripped: [AtomicBool; 4],
+    /// profiles shed, mailbox shed, media full, media shed. A change is logged once, not per
+    /// request.
+    tripped: [AtomicBool; 6],
 }
 
 impl Service {
@@ -53,7 +64,9 @@ impl Service {
         let ban = Duration::from_secs(u64::from(l.ban_minutes) * 60);
         Self {
             store,
+            media: None,
             rate_limiter: PeerRateLimiter::new(l.requests_per_second),
+            media_peers: PeerRateLimiter::new(l.media_requests_per_second),
             groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
@@ -133,12 +146,14 @@ impl Service {
 
     fn info(&self) -> NodeInfo {
         let store = self.config.roles.contains(&Role::Store);
+        let media = self.media.is_some();
+        let roles = [(store, proto::Role::Store), (media, proto::Role::Media)];
         NodeInfo {
-            roles: if store {
-                vec![proto::Role::Store.into()]
-            } else {
-                vec![]
-            },
+            roles: roles
+                .into_iter()
+                .filter_map(|(on, role)| on.then_some(role.into()))
+                .collect(),
+            max_media_bytes: if media { MAX_MEDIA_BYTES as u64 } else { 0 },
             max_profile_bytes: if store {
                 dyapp_profile::MAX_PAYLOAD_LEN as u64
             } else {
@@ -338,6 +353,85 @@ impl Service {
             Err(BootstrapError::Profile(_)) => Ok(reply(Status::Invalid, None)),
             Err(error) => Err(error),
         }
+    }
+}
+
+impl Service {
+    /// Errors as in [`Service::profile`].
+    pub fn media(&self, peer: &Peer, request: MediaRequest) -> crate::Result<MediaResponse> {
+        let Some(media) = &self.media else {
+            return Ok(media_status(Status::Unsupported));
+        };
+        let used = self.traffic.add(request.encoded_len() as u64);
+        // The media limit is no strike: a client loading a gallery is not misbehaving.
+        if self.guard(5, used >= SHED_MEDIA, "traffic: media")
+            || !self.admit(peer)
+            || !self.media_peers.check_limit(&peer.id)
+        {
+            return Ok(media_status(Status::RateLimited));
+        }
+        let l = &self.config.limits;
+        Ok(match request.request {
+            Some(media_request::Request::Keep(record)) => {
+                let Ok((owner, keep)) =
+                    owner_request::<proto::MediaKeep>(&record, Domain::MediaKeep, |_| true)
+                else {
+                    self.strike(peer);
+                    return Ok(media_status(Status::Denied));
+                };
+                if keep.hashes.len() > MAX_KEEP || keep.hashes.iter().any(|h| h.len() != 32) {
+                    return Ok(media_status(Status::Invalid));
+                }
+                match media.keep(&hex(&owner), keep.version, &keep.hashes)? {
+                    Some(missing) => MediaResponse {
+                        missing,
+                        ..media_status(Status::Ok)
+                    },
+                    None => media_status(Status::Stale),
+                }
+            }
+            Some(media_request::Request::Put(put)) => {
+                if put.data.len() > MAX_MEDIA_BYTES {
+                    return Ok(media_status(Status::TooLarge));
+                }
+                if put.owner.len() != 32 {
+                    return Ok(media_status(Status::Invalid));
+                }
+                // ponytail: sums all blobs per put; keep a running total if puts get slow.
+                let (used, free) = media.usage()?;
+                let full = used >= l.media_max_mb.saturating_mul(1 << 20)
+                    || free <= l.min_free_mb.saturating_mul(1 << 20);
+                if self.guard(4, full, "disk: media") {
+                    return Ok(media_status(Status::Full));
+                }
+                let quota = l.media_per_owner_mb.saturating_mul(1 << 20);
+                media_status(match media.put(&hex(&put.owner), &put.data, quota)? {
+                    Put::Stored => Status::Ok,
+                    Put::NotListed => Status::NotFound,
+                    Put::OverQuota => Status::Full,
+                })
+            }
+            Some(media_request::Request::Get(get)) => {
+                if get.hash.len() != 32 {
+                    return Ok(media_status(Status::Invalid));
+                }
+                match media.get(&get.hash)? {
+                    Some(data) => MediaResponse {
+                        data,
+                        ..media_status(Status::Ok)
+                    },
+                    None => media_status(Status::NotFound),
+                }
+            }
+            None => media_status(Status::Unsupported),
+        })
+    }
+}
+
+fn media_status(status: Status) -> MediaResponse {
+    MediaResponse {
+        status: status.into(),
+        ..MediaResponse::default()
     }
 }
 
@@ -779,5 +873,65 @@ mod tests {
             info.info.unwrap().roles,
             vec![i32::from(proto::Role::Store)]
         );
+    }
+
+    #[test]
+    fn media_keep_put_get() {
+        use media_request::Request::{Get, Keep, Put};
+        let call = |service: &Service, request| {
+            let response = service.media(
+                &peer("p"),
+                MediaRequest {
+                    request: Some(request),
+                },
+            );
+            let response = response.unwrap();
+            (Status::try_from(response.status).unwrap(), response)
+        };
+        let get = |hash: &[u8]| {
+            Get(proto::GetMedia {
+                hash: hash.to_vec(),
+            })
+        };
+        let mut service = service();
+        assert_eq!(call(&service, get(&[0; 32])).0, Status::Unsupported);
+
+        let dir = format!("/tmp/ai/test-service-media-{}", uuid::Uuid::new_v4());
+        service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
+        let identity = Identity::generate();
+        let owner = dyapp_identity::key_hash(&identity.public_key()).to_vec();
+        let data = b"photo".to_vec();
+        let hash = dyapp_identity::sha256(&data).to_vec();
+        let put = || {
+            Put(proto::MediaPut {
+                owner: owner.clone(),
+                data: data.clone(),
+            })
+        };
+        let keep = proto::MediaKeep {
+            version: 1,
+            hashes: vec![hash.clone()],
+        };
+        let keep = identity.sign(Domain::MediaKeep, keep.encode_to_vec());
+
+        assert_eq!(call(&service, put()).0, Status::NotFound);
+        let (got, response) = call(&service, Keep(keep.clone()));
+        assert_eq!((got, response.missing), (Status::Ok, vec![hash.clone()]));
+        assert_eq!(call(&service, Keep(keep.clone())).0, Status::Stale);
+        assert_eq!(call(&service, put()).0, Status::Ok);
+        let (got, response) = call(&service, get(&hash));
+        assert_eq!((got, response.data), (Status::Ok, data));
+        assert_eq!(call(&service, get(&[1; 5])).0, Status::Invalid);
+
+        let mut forged = keep;
+        forged.payload.push(0);
+        assert_eq!(call(&service, Keep(forged)).0, Status::Denied);
+
+        let info = service.node(NodeRequest {
+            request: Some(node_request::Request::Info(proto::InfoRequest {})),
+        });
+        let info = info.info.unwrap();
+        assert_eq!(info.roles.len(), 2);
+        assert_eq!(info.max_media_bytes, MAX_MEDIA_BYTES as u64);
     }
 }

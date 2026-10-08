@@ -204,6 +204,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     }
                     drop_banned(&mut swarm, &service, id);
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
+                    peer: id,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    match service.media(&peer(id, &groups, connection_id), request) {
+                        Ok(response) => {
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().media.send_response(channel, response);
+                        }
+                        Err(error) => tracing::error!(%error, "media request failed"),
+                    }
+                    drop_banned(&mut swarm, &service, id);
+                }
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
                     peer: id,
                     connection_id,

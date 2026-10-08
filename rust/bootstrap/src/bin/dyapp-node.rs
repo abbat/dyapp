@@ -1,6 +1,8 @@
 //! `dyapp-node [--config <file>]`: checks the config, opens the stores and runs the libp2p node.
 //! Any config problem stops the node before it opens a store or a socket.
 
+use dyapp_bootstrap::config::Role;
+use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use std::path::PathBuf;
@@ -36,6 +38,12 @@ async fn main() -> anyhow::Result<()> {
     let cached = node::cached_peers(&config.storage.peers_path());
     dyapp_p2p_net::join(&mut swarm, &[], &cached);
     tracing::info!(peer_id = %swarm.local_peer_id(), roles = ?config.roles, "node started");
-    node::run(swarm, Service::new(store, config)).await;
+    let media = config.roles.contains(&Role::Media);
+    let media = media
+        .then(|| MediaStore::open(&config.storage.media_path()))
+        .transpose()?;
+    let mut service = Service::new(store, config);
+    service.media = media;
+    node::run(swarm, service).await;
     Ok(())
 }

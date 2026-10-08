@@ -13,11 +13,11 @@ pub struct BootstrapStore {
     messages: Mutex<Connection>,
 }
 
-fn storage_error(error: impl ToString) -> BootstrapError {
+pub(crate) fn storage_error(error: impl ToString) -> BootstrapError {
     BootstrapError::StorageError(error.to_string())
 }
 
-fn open(path: &Path, schema: &str) -> Result<Mutex<Connection>> {
+pub(crate) fn open(path: &Path, schema: &str) -> Result<Mutex<Connection>> {
     let db = Connection::open(path).map_err(storage_error)?;
     // auto_vacuum takes effect only before the first table is created.
     db.execute_batch(&format!(
@@ -82,8 +82,12 @@ fn evict(db: &Mutex<Connection>, table: &str, target: u64) -> Result<usize> {
 /// Bytes of live data in a store and bytes free on its file system.
 fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
     let db = lock(db)?;
-    let used = used(&db)?;
-    let path = std::ffi::CString::new(db.path().unwrap_or_default()).map_err(storage_error)?;
+    Ok((used(&db)?, free(db.path().unwrap_or_default())?))
+}
+
+/// Bytes free for this user on the file system of `path`.
+pub(crate) fn free(path: &str) -> Result<u64> {
+    let path = std::ffi::CString::new(path).map_err(storage_error)?;
     let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
     // SAFETY: `path` is NUL-terminated and `fs` is written by statvfs before it is read.
     if unsafe { libc::statvfs(path.as_ptr(), fs.as_mut_ptr()) } != 0 {
@@ -92,11 +96,10 @@ fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
     let fs = unsafe { fs.assume_init() };
     // The statvfs field types differ between targets.
     #[allow(clippy::useless_conversion)]
-    let free = u64::from(fs.f_bavail) * u64::from(fs.f_frsize);
-    Ok((used, free))
+    Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
 }
 
-fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
+pub(crate) fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
     db.lock().map_err(storage_error)
 }
 

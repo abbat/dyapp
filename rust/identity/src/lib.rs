@@ -25,6 +25,8 @@ pub enum Domain {
     MailboxFetch,
     /// A mailbox ack, signed by the mailbox's device key.
     MailboxAck,
+    /// The list of an owner's media blobs, signed by the owner's identity key.
+    MediaKeep,
 }
 
 impl Domain {
@@ -34,6 +36,7 @@ impl Domain {
             Domain::Envelope => b"dyapp/envelope/v1\0",
             Domain::MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
             Domain::MailboxAck => b"dyapp/mailbox-ack/v1\0",
+            Domain::MediaKeep => b"dyapp/media-keep/v1\0",
         }
     }
 }
@@ -71,7 +74,11 @@ pub fn peer_id(public_key: &[u8; 32]) -> String {
 
 /// SHA-256 of a public key: the raw peer ID of an identity, the mailbox address of a device.
 pub fn key_hash(public_key: &[u8; 32]) -> [u8; 32] {
-    Sha256::digest(public_key).into()
+    sha256(public_key)
+}
+
+pub fn sha256(data: &[u8]) -> [u8; 32] {
+    Sha256::digest(data).into()
 }
 
 fn signed_bytes(domain: Domain, payload: &[u8]) -> Vec<u8> {

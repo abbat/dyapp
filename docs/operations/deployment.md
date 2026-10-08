@@ -106,20 +106,25 @@ external = []          # addresses announced to peers; AutoNAT confirms others
 seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org" or
                        # "/ip4/198.51.100.7/tcp/7070/p2p/12D3Koo..."; peers seen are cached in
                        # <storage.dir>/peers, so later starts do not need them
-roles = ["store"]      # media, search and turn are not implemented and fail at startup
+roles = ["store"]      # add "media" to serve /dyapp/media (needs store); search and turn
+                       # are not implemented and fail at startup
 
 [storage]
 dir = "/var/lib/dyapp-node"   # node key and every store without its own path
 # profiles = "/fast/profiles.db"
 # messages = "/fast/messages.db"
+# media = "/big/media"        # media role: media.db and the blob files
 
 [limits]
 message_ttl_hours = 24
 requests_per_second = 100
 profiles_max_mb = 1024        # a full store answers FULL to writes
 messages_max_mb = 4096
+media_max_mb = 10240          # media role; media is never evicted
+media_per_owner_mb = 10
+media_requests_per_second = 10
 min_free_mb = 512             # free space kept on each store's file system
-monthly_traffic_gb = 0        # 0 = no cap; profiles shed from 90 %, mailbox at 100 %
+monthly_traffic_gb = 0        # 0 = no cap; media shed from 75 %, profiles 90 %, mailbox 100 %
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
