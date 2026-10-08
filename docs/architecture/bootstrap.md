@@ -236,8 +236,10 @@ another replica. Implemented: the disk, traffic and connection guards in
 a memory threshold is planned.
 
 The operator may refuse service to any user through a deny list (implemented, see
-[Deny list](#deny-list)). Lists may be shared between operators but are advisory: a node never
-has to follow another's list. Removing illegal media on request is still to be designed.
+[Deny list](#deny-list)). Exchanging signed lists between operators is planned, with separate
+switches to share and to accept, both off by default; a node only stores received lists and acts
+on none of them. Illegal media are removed by listing the blob hash; erasure-coded shards of a
+listed blob are not mapped yet.
 
 ### Operating a node
 
