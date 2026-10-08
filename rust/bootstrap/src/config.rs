@@ -66,6 +66,8 @@ pub struct Limits {
     pub min_free_mb: u64,
     /// Node protocol bytes in and out per calendar month (UTC); 0 = no cap.
     pub monthly_traffic_gb: u64,
+    /// Node protocol bytes in and out per second, shed like the monthly cap; 0 = no limit.
+    pub bytes_per_second: u64,
     pub max_connections: u32,
     pub max_connections_per_peer: u32,
     /// Concurrent streams per connection and protocol.
@@ -141,6 +143,7 @@ impl Default for Limits {
             media_requests_per_second: 10,
             min_free_mb: 512,
             monthly_traffic_gb: 0,
+            bytes_per_second: 0,
             max_connections: 1000,
             max_connections_per_peer: 4,
             max_streams: 16,

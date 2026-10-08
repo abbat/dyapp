@@ -220,7 +220,9 @@ fn after_mailbox(
             if !list.contains(&(peer, connection)) {
                 list.push((peer, connection));
             }
-            if service.traffic.add(0) < SHED_MEDIA && repaired.insert(mailbox.clone()) {
+            if service.traffic.add(0).max(service.traffic.second()) < SHED_MEDIA
+                && repaired.insert(mailbox.clone())
+            {
                 lookup(swarm, &mailbox, &|| Lookup::Repair(mailbox.clone()));
             }
         }
@@ -510,6 +512,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                     Err(error) => tracing::error!(%error, "store maintenance failed"),
                 }
+                service.report();
                 if let Err(error) = service.traffic.save() {
                     tracing::error!(%error, "traffic count not saved");
                 }

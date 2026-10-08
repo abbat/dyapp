@@ -157,6 +157,7 @@ attachment_retention_hours = 168  # unreleased chat attachments
 media_requests_per_second = 10
 min_free_mb = 512             # free space kept on each store's file system
 monthly_traffic_gb = 0        # 0 = no cap; media shed from 75 %, profiles 90 %, mailbox 100 %
+bytes_per_second = 0          # 0 = no limit; shed in the same order within each second
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
@@ -249,7 +250,7 @@ The reply holds roles and limits only: no counts, peer numbers or replication fi
 These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
-- Metrics: planned as log lines only, no `/metrics` endpoint
+- Metrics: beyond the hourly guard and connection log lines, none; no `/metrics` endpoint
 - Administration: the deny list file and SIGHUP, no admin routes; a local CLI writing to
   `admin.db` for runtime settings and status is planned
 - Request logs: `dyapp-node` logs startup, listen addresses, storage errors and cleanup

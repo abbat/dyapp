@@ -15,7 +15,7 @@ use dyapp_p2p_net::proto::{
 };
 use prost::Message;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 /// Largest signed envelope payload a mailbox accepts.
@@ -62,11 +62,22 @@ pub struct Service {
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
     pub deny: HashSet<String>,
-    /// Guards that refused the last request they checked: profiles full, messages full,
-    /// profiles shed, mailbox shed, media full, media shed. A change is logged once, not per
-    /// request.
+    /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
+    /// logged once, not per request.
     tripped: [AtomicBool; 6],
+    /// Requests each guard refused since the last `report`; the last one counts the byte rate.
+    refused: [AtomicU64; 7],
 }
+
+const GUARDS: [&str; 7] = [
+    "disk: profiles",
+    "disk: messages",
+    "traffic: profiles",
+    "traffic: mailbox",
+    "disk: media",
+    "traffic: media",
+    "traffic: bytes per second",
+];
 
 impl Service {
     pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
@@ -81,15 +92,20 @@ impl Service {
             groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
-            traffic: Traffic::new(cap, config.storage.dir.join("traffic")),
+            traffic: Traffic::new(cap, l.bytes_per_second, config.storage.dir.join("traffic")),
             config,
             deny: HashSet::new(),
             tripped: Default::default(),
+            refused: Default::default(),
         }
     }
 
     /// Logs when a guard starts or stops refusing; returns `tripped`.
-    fn guard(&self, index: usize, tripped: bool, name: &str) -> bool {
+    fn guard(&self, index: usize, tripped: bool) -> bool {
+        let name = GUARDS[index];
+        if tripped {
+            self.refused[index].fetch_add(1, Ordering::Relaxed);
+        }
         if self.tripped[index].swap(tripped, Ordering::Relaxed) != tripped {
             if tripped {
                 tracing::warn!(guard = name, "limit reached, refusing requests");
@@ -98,6 +114,32 @@ impl Service {
             }
         }
         tripped
+    }
+
+    /// Counts `bytes` and whether a request of a role shed at `share` percent is refused: by the
+    /// monthly cap (guard `index`) or by this second's byte rate. The rate flips every second
+    /// under load, so it is counted for `report`, not logged.
+    fn shed(&self, index: usize, bytes: usize, share: u64) -> bool {
+        let used = self.traffic.add(bytes as u64);
+        self.guard(index, used >= share) || self.busy(share)
+    }
+
+    fn busy(&self, share: u64) -> bool {
+        let busy = self.traffic.second() >= share;
+        if busy {
+            self.refused[6].fetch_add(1, Ordering::Relaxed);
+        }
+        busy
+    }
+
+    /// Logs and resets the refusals per guard; called hourly.
+    pub fn report(&self) {
+        for (name, refused) in GUARDS.iter().zip(&self.refused) {
+            let refused = refused.swap(0, Ordering::Relaxed);
+            if refused > 0 {
+                tracing::info!(guard = name, refused, "requests refused in the last hour");
+            }
+        }
     }
 
     /// Whether a store is at its size limit or its file system at the free-space reserve. A store
@@ -109,19 +151,18 @@ impl Service {
         usage: fn(&BootstrapStore) -> crate::Result<(u64, u64)>,
         evict: fn(&BootstrapStore, u64) -> crate::Result<usize>,
         max_mb: u64,
-        name: &str,
     ) -> crate::Result<bool> {
         let max = max_mb.saturating_mul(1 << 20);
         let (mut used, free) = usage(&self.store)?;
         if used >= max {
             let evicted = evict(&self.store, max - max / 20)?;
             if evicted > 0 {
-                tracing::info!(guard = name, evicted, "evicted the oldest records");
+                tracing::info!(guard = GUARDS[index], evicted, "evicted the oldest records");
                 used = usage(&self.store)?.0;
             }
         }
         let reserve = self.config.limits.min_free_mb.saturating_mul(1 << 20);
-        Ok(self.guard(index, used >= max || free <= reserve, name))
+        Ok(self.guard(index, used >= max || free <= reserve))
     }
 
     /// Whether `peer` is within its own and its IP group's request rate; a refusal is a strike.
@@ -211,8 +252,7 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(status(Status::Unsupported));
         }
-        let used = self.traffic.add(request.encoded_len() as u64);
-        if self.guard(3, used >= 100, "traffic: mailbox") || !self.admit(peer) {
+        if self.shed(3, request.encoded_len(), 100) || !self.admit(peer) {
             return Ok(status(Status::RateLimited));
         }
         if self.refused(peer) {
@@ -305,7 +345,7 @@ impl Service {
         if self.listed(&inventory.mailbox) {
             return Ok(status(Status::Refused));
         }
-        if self.traffic.add(0) >= SHED_MEDIA {
+        if self.traffic.add(0) >= SHED_MEDIA || self.busy(SHED_MEDIA) {
             return Ok(status(Status::RateLimited));
         }
         let held: HashSet<Vec<u8>> = self.held(&inventory.mailbox)?.into_keys().collect();
@@ -372,7 +412,6 @@ impl Service {
             BootstrapStore::messages_usage,
             BootstrapStore::evict_envelopes,
             max_mb,
-            "disk: messages",
         )? {
             return Ok(status(Status::Full));
         }
@@ -393,8 +432,7 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
         }
-        let used = self.traffic.add(request.encoded_len() as u64);
-        if self.guard(2, used >= SHED_PROFILES, "traffic: profiles") || !self.admit(peer) {
+        if self.shed(2, request.encoded_len(), SHED_PROFILES) || !self.admit(peer) {
             return Ok(reply(Status::RateLimited, None));
         }
         if self.refused(peer) {
@@ -437,7 +475,6 @@ impl Service {
             BootstrapStore::profiles_usage,
             BootstrapStore::evict_profiles,
             max_mb,
-            "disk: profiles",
         )? {
             return Ok(reply(Status::Full, None));
         }
@@ -464,9 +501,8 @@ impl Service {
         let Some(media) = &self.media else {
             return Ok(media_status(Status::Unsupported));
         };
-        let used = self.traffic.add(request.encoded_len() as u64);
         // The media limit is no strike: a client loading a gallery is not misbehaving.
-        if self.guard(5, used >= SHED_MEDIA, "traffic: media")
+        if self.shed(5, request.encoded_len(), SHED_MEDIA)
             || !self.admit(peer)
             || !self.media_peers.check_limit(&peer.id)
         {
@@ -512,7 +548,7 @@ impl Service {
                 let (used, free) = media.usage()?;
                 let full = used >= l.media_max_mb.saturating_mul(1 << 20)
                     || free <= l.min_free_mb.saturating_mul(1 << 20);
-                if self.guard(4, full, "disk: media") {
+                if self.guard(4, full) {
                     return Ok(media_status(Status::Full));
                 }
                 let quota = l.media_per_owner_mb.saturating_mul(1 << 20);
@@ -1013,8 +1049,18 @@ mod tests {
             "mailbox shed before the cap"
         );
         service.traffic.add(1 << 30);
-        let response = mailbox(&service, &mut None, put);
+        let response = mailbox(&service, &mut None, put.clone());
         assert_eq!(mailbox_status(&response), Status::RateLimited);
+        service.report();
+
+        // The byte rate sheds in the same order within a second.
+        let service = service_with(|l| l.bytes_per_second = 1 << 30);
+        service.traffic.add((1 << 30) / 100 * 92);
+        let limited = status(&service.profile(&peer("p"), get(vec![0; 32])).unwrap());
+        assert_eq!(limited, Status::RateLimited);
+        let response = mailbox(&service, &mut None, put);
+        assert_eq!(mailbox_status(&response), Status::Ok);
+        assert_eq!(service.refused[6].load(Ordering::Relaxed), 1);
     }
 
     #[test]

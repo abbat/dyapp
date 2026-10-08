@@ -231,9 +231,9 @@ key and per IP group; the prefix length (for example /24 or /48) is the operator
 Resource guards cap disk per store and for media (with a free-space reserve), traffic (rates and
 an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
-another replica. Implemented: the disk, monthly-traffic and connection guards in
+another replica. Implemented: the disk, traffic and connection guards in
 [Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting);
-byte rates and a memory threshold are planned.
+a memory threshold is planned.
 
 The operator may refuse service to any user through a deny list (implemented, see
 [Deny list](#deny-list)). Lists may be shared between operators but are advisory: a node never
@@ -536,8 +536,12 @@ starts refusing and a line when it clears, not one per request:
   overhead) are counted per UTC calendar month and saved to `<storage.dir>/traffic` at each
   maintenance run. With `monthly_traffic_gb` set (default 0, no cap), media requests get
   `RATE_LIMITED` from 75 % of the cap, profile requests from 90 % and mailbox requests at 100 %;
-  `info` is always served. Per-second byte rates are planned; search, once served, is shed
-  before profiles.
+  `info` is always served. `bytes_per_second` (default 0, no limit) sheds in the same order
+  against the bytes counted in the current second; media counts toward it like any role and
+  gets at most 75 % of it. Search, once served, is shed before profiles.
+- **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
+  per guard how many requests it refused since the last run (the byte rate, which flips every
+  second under load, only here).
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
@@ -587,7 +591,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages,media}`
 (media defaults to `<dir>/media`),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
-`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,monthly_traffic_gb}`,
+`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,monthly_traffic_gb,bytes_per_second}`,
 `limits.{max_connections,max_connections_per_peer,max_streams}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
@@ -649,8 +653,9 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Monitoring & Metrics
 
-There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Planned:
-metrics as log lines and a local admin CLI, no HTTP endpoints; see the
+There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Metrics are
+log lines: guard changes, refusals per guard and refused connections at each maintenance run
+([Resource guards](#resource-guards)). Planned: a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 ## Testing

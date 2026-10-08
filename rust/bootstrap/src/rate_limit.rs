@@ -88,13 +88,17 @@ impl Reputation {
 /// Node protocol bytes in and out this calendar month (UTC), kept in `file` across restarts.
 pub struct Traffic {
     cap: u64,
+    rate: u64,
     file: PathBuf,
     used: Mutex<(String, u64)>,
+    /// Bytes counted in the current second (Unix time).
+    second: Mutex<(u64, u64)>,
 }
 
 impl Traffic {
-    /// `cap` in bytes, 0 = no cap. Starts from the count saved in `file` for this month.
-    pub fn new(cap: u64, file: PathBuf) -> Self {
+    /// `cap` in bytes per month and `rate` in bytes per second, 0 = none. Starts from the count
+    /// saved in `file` for this month.
+    pub fn new(cap: u64, rate: u64, file: PathBuf) -> Self {
         let saved = std::fs::read_to_string(&file)
             .ok()
             .and_then(|text| {
@@ -104,13 +108,16 @@ impl Traffic {
             .unwrap_or_default();
         Self {
             cap,
+            rate,
             file,
             used: Mutex::new(saved),
+            second: Mutex::default(),
         }
     }
 
     /// Counts `bytes`; returns the share of the cap used this month in percent, 0 without a cap.
     pub fn add(&self, bytes: u64) -> u64 {
+        self.count(bytes);
         let month = chrono::Utc::now().format("%Y-%m").to_string();
         let mut used = self.used.lock().unwrap();
         if used.0 != month {
@@ -121,6 +128,28 @@ impl Traffic {
             .saturating_mul(100)
             .checked_div(self.cap)
             .unwrap_or(0)
+    }
+
+    /// The share of the byte rate used this second in percent, 0 without a rate.
+    // ponytail: fixed one-second window, a burst can straddle two; a token bucket if that matters.
+    pub fn second(&self) -> u64 {
+        self.count(0)
+            .saturating_mul(100)
+            .checked_div(self.rate)
+            .unwrap_or(0)
+    }
+
+    /// Adds `bytes` to this second's count and returns it.
+    fn count(&self, bytes: u64) -> u64 {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_secs());
+        let mut second = self.second.lock().unwrap();
+        if second.0 != now {
+            *second = (now, 0);
+        }
+        second.1 = second.1.saturating_add(bytes);
+        second.1
     }
 
     pub fn save(&self) -> std::io::Result<()> {
@@ -138,17 +167,22 @@ mod tests {
         let dir = format!("/tmp/ai/test-traffic-{}", uuid::Uuid::new_v4());
         std::fs::create_dir_all(&dir).unwrap();
         let file = PathBuf::from(format!("{dir}/traffic"));
-        let traffic = Traffic::new(1000, file.clone());
+        let traffic = Traffic::new(1000, 0, file.clone());
         assert_eq!(traffic.add(500), 50);
         traffic.save().unwrap();
-        assert_eq!(Traffic::new(1000, file.clone()).add(400), 90);
+        assert_eq!(Traffic::new(1000, 0, file.clone()).add(400), 90);
         // A count from another month is not carried over.
         std::fs::write(&file, "2000-01 999\n").unwrap();
-        assert_eq!(Traffic::new(1000, file).add(100), 10);
+        assert_eq!(Traffic::new(1000, 0, file).add(100), 10);
         assert_eq!(
-            Traffic::new(0, PathBuf::from("/nonexistent")).add(u64::MAX),
+            Traffic::new(0, 0, PathBuf::from("/nonexistent")).add(u64::MAX),
             0
         );
+        // ponytail: a second boundary between the calls resets the count; rare enough.
+        let rate = Traffic::new(0, 1000, PathBuf::from("/nonexistent"));
+        rate.add(800);
+        assert_eq!(rate.second(), 80);
+        assert_eq!(Traffic::new(0, 0, PathBuf::new()).second(), 0);
     }
 
     #[test]
