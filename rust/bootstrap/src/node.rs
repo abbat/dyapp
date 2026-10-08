@@ -1,18 +1,35 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
+use crate::config::Limits;
 use crate::service::Service;
-use dyapp_p2p_net::{Behaviour, BehaviourEvent};
+use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode};
+use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
+use libp2p::identity::Keypair;
 use libp2p::request_response::{Event, Message};
-use libp2p::swarm::{ConnectionId, SwarmEvent};
+use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
 use libp2p::Swarm;
+use prost::Message as _;
 use std::collections::HashMap;
 use std::time::Duration;
+
+/// The node's swarm with the connection and stream limits from the config.
+/// ponytail: no memory-use threshold (libp2p memory-connection-limits is not vendored); the
+/// connection, stream and message caps bound memory instead.
+pub fn swarm(keypair: Keypair, limits: &Limits) -> anyhow::Result<Swarm<Behaviour>> {
+    let connections = ConnectionLimits::default()
+        .with_max_established(Some(limits.max_connections))
+        .with_max_pending_incoming(Some(limits.max_connections))
+        .with_max_established_per_peer(Some(limits.max_connections_per_peer));
+    build_limited_swarm(keypair, Mode::Auto, connections, limits.max_streams)
+}
 
 /// Serves requests on `swarm` until the task is dropped.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
+    // Incoming connections refused by the connection limits since the last maintenance run.
+    let mut refused = 0u64;
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
     let maintenance = service.config.maintenance.clone();
     let mut maintain = tokio::time::interval(Duration::from_secs(
@@ -32,6 +49,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     ..
                 })) => {
                     let response = service.node(request);
+                    service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
@@ -40,6 +58,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     ..
                 })) => match service.profile(&peer.to_string(), request) {
                     Ok(response) => {
+                        service.traffic.add(response.encoded_len() as u64);
                         let _ = swarm.behaviour_mut().profile.send_response(channel, response);
                     }
                     // Dropping the channel fails the request; the client tries another node.
@@ -57,6 +76,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     }
                     match result {
                         Ok(response) => {
+                            service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
                         }
                         Err(error) => tracing::error!(%error, "mailbox request failed"),
@@ -64,6 +84,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 }
                 SwarmEvent::ConnectionClosed { connection_id, .. } => {
                     nonces.remove(&connection_id);
+                }
+                SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
+                    refused += 1;
                 }
                 _ => {}
             },
@@ -74,11 +97,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     Err(error) => tracing::error!(%error, "message cleanup failed"),
                 }
             }
-            _ = maintain.tick() => match service.store.maintain(maintenance.vacuum_pages) {
-                Ok([profiles, messages]) => {
-                    tracing::info!(profiles, messages, "store maintenance done, free pages left")
+            _ = maintain.tick() => {
+                match service.store.maintain(maintenance.vacuum_pages) {
+                    Ok([profiles, messages]) => {
+                        tracing::info!(profiles, messages, "store maintenance done, free pages left")
+                    }
+                    Err(error) => tracing::error!(%error, "store maintenance failed"),
                 }
-                Err(error) => tracing::error!(%error, "store maintenance failed"),
+                if let Err(error) = service.traffic.save() {
+                    tracing::error!(%error, "traffic count not saved");
+                }
+                if refused > 0 {
+                    tracing::warn!(refused, "connections refused by the connection limits");
+                    refused = 0;
+                }
             }
         }
     }

@@ -48,6 +48,17 @@ pub struct StorageConfig {
 pub struct Limits {
     pub message_ttl_hours: u32,
     pub requests_per_second: u32,
+    /// Live data per store; a full store answers `FULL` to writes.
+    pub profiles_max_mb: u64,
+    pub messages_max_mb: u64,
+    /// Free space kept on the file system of each store.
+    pub min_free_mb: u64,
+    /// Node protocol bytes in and out per calendar month (UTC); 0 = no cap.
+    pub monthly_traffic_gb: u64,
+    pub max_connections: u32,
+    pub max_connections_per_peer: u32,
+    /// Concurrent streams per connection and protocol.
+    pub max_streams: usize,
 }
 
 /// Store maintenance: see `BootstrapStore::maintain`.
@@ -99,6 +110,13 @@ impl Default for Limits {
         Self {
             message_ttl_hours: 24,
             requests_per_second: 100,
+            profiles_max_mb: 1024,
+            messages_max_mb: 4096,
+            min_free_mb: 512,
+            monthly_traffic_gb: 0,
+            max_connections: 1000,
+            max_connections_per_peer: 4,
+            max_streams: 16,
         }
     }
 }
@@ -187,6 +205,10 @@ impl NodeConfig {
         }
         if self.limits.requests_per_second < 1 {
             anyhow::bail!("limits.requests_per_second must be at least 1");
+        }
+        let l = &self.limits;
+        if l.max_connections < 1 || l.max_connections_per_peer < 1 || l.max_streams < 1 {
+            anyhow::bail!("limits.max_connections, max_connections_per_peer and max_streams must be at least 1");
         }
         if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
             anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");

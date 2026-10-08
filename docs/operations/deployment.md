@@ -113,6 +113,13 @@ dir = "/var/lib/dyapp-node"   # node key and every store without its own path
 [limits]
 message_ttl_hours = 24
 requests_per_second = 100
+profiles_max_mb = 1024        # a full store answers FULL to writes
+messages_max_mb = 4096
+min_free_mb = 512             # free space kept on each store's file system
+monthly_traffic_gb = 0        # 0 = no cap; profiles shed from 90 %, mailbox at 100 %
+max_connections = 1000
+max_connections_per_peer = 4
+max_streams = 16              # per connection and protocol
 
 [maintenance]
 interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
@@ -275,8 +282,9 @@ node's libp2p key; there is no certificate authority.
 
 ## Cost and capacity
 
-Not measured. There is no load test of the bootstrap server, and there is no
-connection limit. Multi-node "HA" setups are not possible
+Not measured. There is no load test of the bootstrap server. Disk, monthly traffic and
+connections are capped by `limits`
+([resource guards](../architecture/bootstrap.md#resource-guards)). Multi-node "HA" setups are not possible
 yet (see [replication](../architecture/bootstrap.md#replication-strategy-reed-solomon)).
 
 ## Troubleshooting

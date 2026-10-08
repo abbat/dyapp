@@ -5,7 +5,10 @@ use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{autonat, identify, kad, noise, tcp, yamux, StreamProtocol, Swarm, SwarmBuilder};
+use libp2p::{
+    autonat, connection_limits, identify, kad, noise, tcp, yamux, StreamProtocol, Swarm,
+    SwarmBuilder,
+};
 use std::io;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -34,6 +37,7 @@ pub type MailboxBehaviour =
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
+    pub limits: connection_limits::Behaviour,
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
     pub identify: identify::Behaviour,
     pub autonat: autonat::Behaviour,
@@ -132,6 +136,22 @@ pub enum Mode {
 }
 
 pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behaviour>> {
+    build_limited_swarm(
+        keypair,
+        mode,
+        connection_limits::ConnectionLimits::default(),
+        100,
+    )
+}
+
+/// [`build_swarm`] with connection limits and at most `max_streams` concurrent streams per
+/// connection and protocol.
+pub fn build_limited_swarm(
+    keypair: Keypair,
+    mode: Mode,
+    limits: connection_limits::ConnectionLimits,
+    max_streams: usize,
+) -> anyhow::Result<Swarm<Behaviour>> {
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_tcp(
@@ -152,8 +172,10 @@ pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behavio
                 Mode::Client => (Some(kad::Mode::Client), ProtocolSupport::Outbound),
             };
             kad.set_mode(kad_mode);
-            let config = request_response::Config::default();
+            let config =
+                request_response::Config::default().with_max_concurrent_streams(max_streams);
             Behaviour {
+                limits: connection_limits::Behaviour::new(limits),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
                     IDENTIFY_PROTOCOL.into(),

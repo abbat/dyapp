@@ -1,10 +1,8 @@
 //! `dyapp-node [--config <file>]`: checks the config, opens the stores and runs the libp2p node.
 //! Any config problem stops the node before it opens a store or a socket.
 
-use dyapp_bootstrap::rate_limit::PeerRateLimiter;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
-use dyapp_p2p_net::{build_swarm, Mode};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -27,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         &config.storage.messages_path(),
     )?;
 
-    let mut swarm = build_swarm(keypair, Mode::Auto)?;
+    let mut swarm = node::swarm(keypair, &config.limits)?;
     for address in &config.listen {
         swarm.listen_on(address.parse()?)?;
     }
@@ -35,11 +33,6 @@ async fn main() -> anyhow::Result<()> {
         swarm.add_external_address(address.parse()?);
     }
     tracing::info!(peer_id = %swarm.local_peer_id(), roles = ?config.roles, "node started");
-    let service = Service {
-        store,
-        rate_limiter: PeerRateLimiter::new(config.limits.requests_per_second),
-        config,
-    };
-    node::run(swarm, service).await;
+    node::run(swarm, Service::new(store, config)).await;
     Ok(())
 }

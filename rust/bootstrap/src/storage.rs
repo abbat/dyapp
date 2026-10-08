@@ -39,6 +39,28 @@ fn run_to_end(db: &Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
+/// Bytes of live data in a store (pages in use) and bytes free on its file system.
+fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
+    let db = lock(db)?;
+    let pragma = |name: &str| -> Result<u64> {
+        db.query_row(&format!("PRAGMA {name}"), [], |row| row.get::<_, i64>(0))
+            .map(|value| value.unsigned_abs())
+            .map_err(storage_error)
+    };
+    let used = (pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?;
+    let path = std::ffi::CString::new(db.path().unwrap_or_default()).map_err(storage_error)?;
+    let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+    // SAFETY: `path` is NUL-terminated and `fs` is written by statvfs before it is read.
+    if unsafe { libc::statvfs(path.as_ptr(), fs.as_mut_ptr()) } != 0 {
+        return Err(storage_error(std::io::Error::last_os_error()));
+    }
+    let fs = unsafe { fs.assume_init() };
+    // The statvfs field types differ between targets.
+    #[allow(clippy::useless_conversion)]
+    let free = u64::from(fs.f_bavail) * u64::from(fs.f_frsize);
+    Ok((used, free))
+}
+
 fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
     db.lock().map_err(storage_error)
 }
@@ -248,6 +270,14 @@ impl BootstrapStore {
         Ok(left)
     }
 
+    pub fn profiles_usage(&self) -> Result<(u64, u64)> {
+        usage(&self.profiles)
+    }
+
+    pub fn messages_usage(&self) -> Result<(u64, u64)> {
+        usage(&self.messages)
+    }
+
     /// Takes and releases the write lock of every store.
     pub fn health_check(&self) -> Result<()> {
         for db in [&self.profiles, &self.messages] {
@@ -295,6 +325,8 @@ mod tests {
         let [_, after] = store.maintain(10).unwrap();
         assert!(free > 1000);
         assert_eq!(after, free - 10);
+        let (used, free) = store.messages_usage().unwrap();
+        assert!(used < 100_000 && free > 0, "{used} {free}");
         assert_eq!(store.maintain(u32::MAX).unwrap()[1], 0);
         assert!(size() < before / 10, "file did not shrink");
         assert_eq!(

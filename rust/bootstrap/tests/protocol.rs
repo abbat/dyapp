@@ -1,6 +1,6 @@
 //! The node protocol end to end: a `node::run` loop on loopback TCP and libp2p clients.
 
-use dyapp_bootstrap::rate_limit::PeerRateLimiter;
+use dyapp_bootstrap::config::Limits;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -18,13 +18,16 @@ use std::time::Duration;
 
 /// Starts a node with its own store and returns its address.
 async fn start(requests_per_second: u32) -> Multiaddr {
+    start_with(|l| l.requests_per_second = requests_per_second).await
+}
+
+async fn start_with(change: impl FnOnce(&mut Limits)) -> Multiaddr {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
-    let service = Service {
-        store: BootstrapStore::new(&dir).unwrap(),
-        rate_limiter: PeerRateLimiter::new(requests_per_second),
-        config: NodeConfig::default(),
-    };
-    let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+    let mut config = NodeConfig::default();
+    config.storage.dir = dir.clone().into();
+    change(&mut config.limits);
+    let mut swarm = node::swarm(Keypair::generate_ed25519(), &config.limits).unwrap();
+    let service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
     swarm
         .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
         .unwrap();
@@ -356,4 +359,18 @@ async fn requests_over_the_limit_are_refused() {
     );
     // Node info is not limited.
     assert_eq!(status(client.info().await.status), Status::Ok);
+}
+
+#[tokio::test]
+async fn connections_over_the_limit_are_refused() {
+    let addr = start_with(|l| l.max_connections = 1).await;
+    let mut first = Client::connect(&addr).await;
+    let info = proto::NodeRequest {
+        request: Some(node_request::Request::Info(proto::InfoRequest {})),
+    };
+    assert_eq!(
+        raw(&addr, dyapp_p2p_net::NODE_PROTOCOL, info.encode_to_vec()).await,
+        None
+    );
+    assert_eq!(status(first.info().await.status), Status::Ok);
 }

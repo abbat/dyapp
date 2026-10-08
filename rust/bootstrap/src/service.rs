@@ -2,7 +2,9 @@
 //! stores. The libp2p loop in `dyapp-node` passes each request here and sends back the reply.
 
 use crate::{
-    config::Role, rate_limit::PeerRateLimiter, BootstrapError, BootstrapStore, NodeConfig,
+    config::Role,
+    rate_limit::{PeerRateLimiter, Traffic},
+    BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
@@ -10,6 +12,7 @@ use dyapp_p2p_net::proto::{
     NodeInfo, NodeRequest, NodeResponse, ProfileRequest, ProfileResponse, Status,
 };
 use prost::Message;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Largest signed envelope payload a mailbox accepts.
 pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
@@ -19,14 +22,57 @@ pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 const FETCH_BYTES: u64 = 1024 * 1024;
 const MAX_FETCH: u32 = 100;
 
+/// Traffic share (percent of the monthly cap) from which profile requests are shed; the mailbox
+/// is shed only at the cap. ponytail: media and search, once served, are shed before profiles.
+const SHED_PROFILES: u64 = 90;
+
 pub struct Service {
     pub store: BootstrapStore,
     pub rate_limiter: PeerRateLimiter,
+    pub traffic: Traffic,
     pub config: NodeConfig,
+    /// Guards that refused the last request they checked: profiles full, messages full,
+    /// profiles shed, mailbox shed. A change is logged once, not per request.
+    tripped: [AtomicBool; 4],
 }
 
 impl Service {
+    pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
+        let cap = config.limits.monthly_traffic_gb.saturating_mul(1 << 30);
+        Self {
+            store,
+            rate_limiter: PeerRateLimiter::new(config.limits.requests_per_second),
+            traffic: Traffic::new(cap, config.storage.dir.join("traffic")),
+            config,
+            tripped: Default::default(),
+        }
+    }
+
+    /// Logs when a guard starts or stops refusing; returns `tripped`.
+    fn guard(&self, index: usize, tripped: bool, name: &str) -> bool {
+        if self.tripped[index].swap(tripped, Ordering::Relaxed) != tripped {
+            if tripped {
+                tracing::warn!(guard = name, "limit reached, refusing requests");
+            } else {
+                tracing::info!(guard = name, "limit cleared");
+            }
+        }
+        tripped
+    }
+
+    /// Whether a store is at its size limit or its file system at the free-space reserve.
+    fn full(&self, index: usize, usage: (u64, u64), max_mb: u64, name: &str) -> bool {
+        let (used, free) = usage;
+        let reserve = self.config.limits.min_free_mb.saturating_mul(1 << 20);
+        self.guard(
+            index,
+            used >= max_mb.saturating_mul(1 << 20) || free <= reserve,
+            name,
+        )
+    }
+
     pub fn node(&self, request: NodeRequest) -> NodeResponse {
+        self.traffic.add(request.encoded_len() as u64);
         match request.request {
             Some(node_request::Request::Info(_)) => NodeResponse {
                 status: Status::Ok.into(),
@@ -75,7 +121,8 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(status(Status::Unsupported));
         }
-        if !self.rate_limiter.check_limit(peer) {
+        let used = self.traffic.add(request.encoded_len() as u64);
+        if self.guard(3, used >= 100, "traffic: mailbox") || !self.rate_limiter.check_limit(peer) {
             return Ok(status(Status::RateLimited));
         }
         match request.request {
@@ -142,6 +189,10 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
+        let max_mb = self.config.limits.messages_max_mb;
+        if self.full(1, self.store.messages_usage()?, max_mb, "disk: messages") {
+            return Ok(status(Status::Full));
+        }
         let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
         let stored = self.store.put_envelope(
             &envelope.mailbox,
@@ -159,7 +210,10 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
         }
-        if !self.rate_limiter.check_limit(peer) {
+        let used = self.traffic.add(request.encoded_len() as u64);
+        if self.guard(2, used >= SHED_PROFILES, "traffic: profiles")
+            || !self.rate_limiter.check_limit(peer)
+        {
             return Ok(reply(Status::RateLimited, None));
         }
         match request.request {
@@ -180,6 +234,10 @@ impl Service {
     fn publish(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
         if record.payload.len() > dyapp_profile::MAX_PAYLOAD_LEN {
             return Ok(reply(Status::TooLarge, None));
+        }
+        let max_mb = self.config.limits.profiles_max_mb;
+        if self.full(0, self.store.profiles_usage()?, max_mb, "disk: profiles") {
+            return Ok(reply(Status::Full, None));
         }
         match self.store.put_profile(record) {
             Ok(_) => Ok(reply(Status::Ok, None)),
@@ -240,12 +298,15 @@ mod tests {
     use dyapp_profile::Profile;
 
     fn service() -> Service {
+        service_with(|_| {})
+    }
+
+    fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
         let dir = format!("/tmp/ai/test-service-{}", uuid::Uuid::new_v4());
-        Service {
-            store: BootstrapStore::new(&dir).unwrap(),
-            rate_limiter: PeerRateLimiter::new(100),
-            config: NodeConfig::default(),
-        }
+        let mut config = NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        change(&mut config.limits);
+        Service::new(BootstrapStore::new(&dir).unwrap(), config)
     }
 
     fn publish(record: SignedRecord) -> ProfileRequest {
@@ -464,6 +525,47 @@ mod tests {
         assert!(mailbox(&service, &mut conn, fetch(&device, nonce))
             .envelopes
             .is_empty());
+    }
+
+    #[test]
+    fn full_stores_and_traffic_cap_refuse_requests() {
+        let identity = Identity::generate();
+        let profile = || publish(Profile::default().sign(&identity));
+        let envelope = proto::Envelope {
+            id: vec![7; 16],
+            mailbox: vec![1; 32],
+            ciphertext: vec![1],
+        };
+        let put = mailbox_request::Request::Put(
+            identity.sign(Domain::Envelope, envelope.encode_to_vec()),
+        );
+
+        let service = service_with(|l| (l.profiles_max_mb, l.messages_max_mb) = (0, 0));
+        assert_eq!(
+            status(&service.profile("p", profile()).unwrap()),
+            Status::Full
+        );
+        let response = mailbox(&service, &mut None, put.clone());
+        assert_eq!(mailbox_status(&response), Status::Full);
+        let service = service_with(|l| l.min_free_mb = u64::MAX);
+        assert_eq!(
+            status(&service.profile("p", profile()).unwrap()),
+            Status::Full
+        );
+
+        let service = service_with(|l| l.monthly_traffic_gb = 1);
+        service.traffic.add((1 << 30) / 100 * 92);
+        let limited = status(&service.profile("p", get(vec![0; 32])).unwrap());
+        assert_eq!(limited, Status::RateLimited);
+        let response = mailbox(&service, &mut None, put.clone());
+        assert_eq!(
+            mailbox_status(&response),
+            Status::Ok,
+            "mailbox shed before the cap"
+        );
+        service.traffic.add(1 << 30);
+        let response = mailbox(&service, &mut None, put);
+        assert_eq!(mailbox_status(&response), Status::RateLimited);
     }
 
     #[test]

@@ -194,7 +194,8 @@ key and per IP group; the prefix length (for example /24 or /48) is the operator
 Resource guards cap disk per store and for media (with a free-space reserve), traffic (rates and
 an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
-another replica.
+another replica. Implemented: the disk, monthly-traffic and connection guards in
+[Resource guards](#resource-guards); write quotas, media, rates and a memory threshold are planned.
 
 The operator may refuse service to any user through a deny list. Lists may be shared between
 operators but are advisory: a node never has to follow another's list. Removing illegal media
@@ -397,8 +398,29 @@ Scope and limits:
   `/dyapp/node` `info` is not limited.
 - libp2p keys are free to generate: a client that opens connections with new keys gets new
   buckets. The limiter provides **no** Sybil resistance; per-IP-group quotas are planned.
-- There is no per-IP limit, and buckets are never removed
-  (`cleanup_inactive` is a stub), so the map grows with every new ID.
+- There is no per-IP limit. Once the map holds 10 000 buckets, buckets idle for a second
+  (refilled, so dropping them changes nothing) are removed before a new one is added.
+
+## Resource guards
+
+From `limits` in the config ([Configuration](#configuration)); each guard logs a warning when it
+starts refusing and a line when it clears, not one per request:
+
+- **Disk**: before a profile publish or mailbox put the node reads the store's live data
+  (pages in use) and the free space of its file system (`statvfs`). At `profiles_max_mb` /
+  `messages_max_mb` (defaults 1024 / 4096) or at `min_free_mb` free (default 512) the write gets
+  `FULL`; reads, acks and expiry go on, so space comes back. LRU eviction before refusing is
+  planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+- **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
+  overhead) are counted per UTC calendar month and saved to `<storage.dir>/traffic` at each
+  maintenance run. With `monthly_traffic_gb` set (default 0, no cap), profile requests get
+  `RATE_LIMITED` from 90 % of the cap and mailbox requests at 100 %; `info` is always served.
+  Per-second byte rates are planned; media and search, once served, are shed before profiles.
+- **Connections and memory**: libp2p connection limits — `max_connections` established and
+  pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
+  concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
+  Refused connections are counted and logged at each maintenance run. A memory-use threshold
+  is planned.
 
 ## Storage
 
@@ -439,13 +461,15 @@ file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field ha
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
 `listen`, `external`, `roles`, `storage.{dir,profiles,messages}`,
 `limits.{message_ttl_hours,requests_per_second}`,
-`maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
+`limits.{profiles_max_mb,messages_max_mb,min_free_mb,monthly_traffic_gb}`,
+`limits.{max_connections,max_connections_per_peer,max_streams}`
+([Resource guards](#resource-guards)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
 `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` ([Served protocol](#served-protocol)). Only
 the `store` role is accepted.
 
-Planned: a maintenance window and per-store schedules, resource guard limits, the media directory, TURN ports,
+Planned: a maintenance window and per-store schedules, write quotas and the remaining resource guards, the media directory, TURN ports,
 store retention.
 
 ## Deployment Model

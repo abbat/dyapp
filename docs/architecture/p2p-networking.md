@@ -5,7 +5,7 @@
 `rust/p2p-net` builds a [rust-libp2p](https://github.com/libp2p/rust-libp2p) 0.57 node
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md),
 [ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)). `build_swarm(keypair, mode)` returns a
-`Swarm` with:
+`Swarm` with (`build_limited_swarm` adds connection limits and a stream cap; `dyapp-node` uses it):
 
 | Part | Setting |
 |------|---------|
@@ -14,6 +14,7 @@
 | identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table |
 | AutoNAT | v1, as client and server; confirms external addresses |
 | Idle connections | closed after 60 s |
+| Limits | connection limits (none by default), 100 concurrent streams per connection and protocol |
 
 `Mode::Auto` makes the node a DHT server only once it has a confirmed external address (from AutoNAT
 or `Swarm::add_external_address`); until then it is a DHT client. `Mode::Client` never serves DHT
