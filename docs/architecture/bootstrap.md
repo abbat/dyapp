@@ -237,8 +237,9 @@ has to follow another's list. Removing illegal media on request is still to be d
 ### Operating a node
 
 - Runs as an unprivileged system user and refuses to start as root; default port 7070, every
-  path must be writable by that user (implemented in `dyapp-node`). The Debian package adds a
-  systemd unit with hardening (planned).
+  path must be writable by that user (implemented in `dyapp-node`). The Debian 12 package adds a
+  hardened systemd unit and the `dyapp-node` system user
+  ([deployment](../operations/deployment.md#debian-12-package)).
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
   fails at startup ([Configuration](#configuration)).

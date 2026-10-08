@@ -83,10 +83,41 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** `dyapp-node` serves `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` over
-> libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)); push and replication
-> are planned.
-> There is no Debian package, systemd unit or production image.
+> **Status:** `dyapp-node` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
+> `/dyapp/media` over libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)).
+> A Debian 12 package with a hardened systemd unit exists ([below](#debian-12-package)); there
+> is no production container image.
+
+### Debian 12 package
+
+```bash
+make deb                                   # → target/deb/dyapp-node_<version>_<arch>.deb
+sudo apt install ./dyapp-node_*.deb        # creates the dyapp-node user, enables and starts the unit
+sudoedit /etc/dyapp-node.toml              # conffile: kept on upgrade
+sudo systemctl restart dyapp-node          # config changes need a restart
+sudo systemctl reload dyapp-node           # SIGHUP: reloads <storage.dir>/deny only
+journalctl -u dyapp-node                   # logs (RUST_LOG=info)
+```
+
+`make deb` builds a release binary in a Debian 12 image (so it runs on glibc 2.36) and
+test-installs the package on a clean `debian:bookworm-slim`. The package holds
+`/usr/bin/dyapp-node`, `/etc/dyapp-node.toml` and `/lib/systemd/system/dyapp-node.service`.
+The unit runs as the system user `dyapp-node` (no shell, no login) with no capabilities,
+`NoNewPrivileges`, a read-only system (`ProtectSystem=strict`), no access to `/home`, a private
+`/tmp` and write access to `/var/lib/dyapp-node` only. Removing the package stops and disables
+the unit; purging keeps the user and `/var/lib/dyapp-node`, because `node.key` is the node's
+identity — delete them by hand to retire the node.
+
+The default port 7070 needs no privilege. Stores on other paths or a port below 1024 need a
+drop-in (`systemctl edit dyapp-node`):
+
+```ini
+[Service]
+ReadWritePaths=/big/media
+# Only for a port below 1024:
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+```
 
 ### `dyapp-node`
 
@@ -181,11 +212,12 @@ cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7
 Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C compiler for the
 bundled SQLite, or Docker for the containerised path.
 
-### Multi-node cluster (planned)
+### Multi-node cluster
 
-Running several `dyapp-node` processes gives independent nodes: there is no
-replication or data exchange between them. HA and Reed–Solomon replication
-are design targets; see [Bootstrap Servers](../architecture/bootstrap.md).
+Nodes join through `seeds` and find each other over Kademlia. Clients write profiles and
+envelopes whole to 5 replica points; nodes repair mailbox replicas between themselves
+([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile and
+media repair and Reed–Solomon for large media are planned.
 
 ### Docker and Kubernetes (planned)
 
@@ -292,7 +324,7 @@ node's libp2p key; there is no certificate authority.
   signatures are banned locally for `ban_minutes`. Details:
   [rate limiting](../architecture/bootstrap.md#rate-limiting)
 - To stop serving an abuser, add their peer ID, IP group or key hash to `<storage.dir>/deny`
-  and send SIGHUP (`systemctl reload` once the unit exists); they get `STATUS_REFUSED` here and
+  and send SIGHUP (`systemctl reload dyapp-node`); they get `STATUS_REFUSED` here and
   use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
 
 **Admin API (future):**
@@ -317,8 +349,8 @@ Only what applies to the code that exists today:
 | Port 7070 already in use | Another `dyapp-node` is running; set `DYAPP_NODE__LISTEN` |
 | Disk keeps growing | Profiles have no expiry yet (see [Data cleanup](#data-cleanup)) |
 
-There is no systemd unit, start/stop script or service name yet; they ship with the Debian
-package (planned). `dyapp-node` logs to stderr.
+Installed from the Debian package, the service is `dyapp-node.service`; it logs to the journal
+(`journalctl -u dyapp-node`). Run by hand, `dyapp-node` logs to stderr.
 
 ## Next Steps
 

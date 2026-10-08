@@ -33,6 +33,7 @@ pulls anything).
 | Unit tests | `make test` | `scripts/docker-test.sh test` |
 | Integration | `make test-integration` | bootstrap `integration_tests` + network compose |
 | Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
+| Debian 12 package | `make deb` | `scripts/build-deb.sh`, then `scripts/deb-test.sh` on bookworm-slim |
 | fmt check | `make fmt` | `cargo fmt --all -- --check` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `scripts/check-quality.sh` |
 | Coverage gate (75% lines) | `make coverage` | `scripts/docker-test.sh coverage` |

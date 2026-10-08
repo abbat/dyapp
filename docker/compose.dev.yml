@@ -71,6 +71,38 @@ services:
     entrypoint: *rust-command
     command: bash scripts/rust-check.sh security
     profiles: [security]
+  # The release binary on Debian 12, written to the host's target/deb as the calling user.
+  deb:
+    <<: *runtime
+    image: dyapp:deb
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.deb
+    user: "${DYAPP_UID:-1000}:${DYAPP_GID:-1000}"
+    tmpfs:
+      - /tmp:rw,exec,nosuid,nodev,mode=1777
+    volumes:
+      - ..:/workspace:ro
+      - ../target/deb:/workspace/target
+    environment:
+      <<: *environment
+      HOME: /tmp
+    entrypoint: *rust-command
+    command: bash scripts/build-deb.sh
+    profiles: [deb]
+  # A clean Debian 12 as root: dpkg needs to create the user and chown.
+  deb-test:
+    image: debian:bookworm-slim
+    cpus: ${DYAPP_CPUS:-4}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    volumes:
+      - ../target/deb:/deb:ro
+      - ../scripts/deb-test.sh:/deb-test.sh:ro
+    command: [bash, /deb-test.sh]
+    profiles: [deb]
 
 volumes:
   workspace-cache:

@@ -1,10 +1,10 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check quality lint check fmt build release security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check quality lint check fmt build release deb security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
 
 DOCKER = python3 scripts/docker-local.py
 DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull never dev
 
 help:
-	@echo "prepare | test | test-integration | test-all | coverage | quality | build | ui-test"
+	@echo "prepare | test | test-integration | test-all | coverage | quality | build | deb | ui-test"
 
 install: prepare
 
@@ -12,6 +12,7 @@ prepare:
 	bash scripts/docker-test.sh prepare
 	bash scripts/ui-test.sh prepare
 	bash scripts/docker-test.sh network-prepare
+	$(DOCKER) -f docker/compose.dev.yml --profile deb build deb
 
 test:
 	bash scripts/docker-test.sh test
@@ -34,6 +35,12 @@ fmt:
 
 build release:
 	bash scripts/docker-test.sh build
+
+# target/deb/dyapp-node_<version>_<arch>.deb, then a test install on a clean Debian 12.
+deb:
+	mkdir -p target/deb
+	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb
+	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb-test
 
 security audit deny:
 	bash scripts/docker-test.sh security

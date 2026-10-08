@@ -1,0 +1,6 @@
+# Debian 12 with the Rust toolchain (the Linux UI image) and the crates the dev image fetched:
+# a binary built here runs on Debian 12.
+FROM dyapp:dev-prepared AS crates
+FROM dyapp:linux-test
+COPY --from=crates /usr/local/cargo/registry /usr/local/cargo/registry
+WORKDIR /workspace

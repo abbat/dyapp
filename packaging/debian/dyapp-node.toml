@@ -1,0 +1,15 @@
+# dyapp-node configuration. Every key is optional; the commented values are the defaults.
+# All keys: docs/operations/deployment.md. Apply changes with `systemctl restart dyapp-node`;
+# <storage.dir>/deny is reread on `systemctl reload dyapp-node`.
+
+# listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]
+# external = []        # addresses announced to peers
+# seeds = []           # nodes to join through, e.g. "/dnsaddr/seeds.example.org"
+# roles = ["store"]    # add "media" to serve media blobs
+
+[storage]
+# dir = "/var/lib/dyapp-node"   # another path needs ReadWritePaths= in a unit drop-in
+
+[limits]
+# message_ttl_hours = 24
+# monthly_traffic_gb = 0        # 0 = no cap
