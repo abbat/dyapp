@@ -11,7 +11,7 @@
 |------|---------|
 | Transports | QUIC (`/udp/<port>/quic-v1`) and TCP with Noise and Yamux |
 | Kademlia | protocol `/dyapp/kad`, in-memory record store |
-| identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table |
+| identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table: `dyapp-node` adds the claimed listen addresses of every peer that serves `/dyapp/kad`, unfiltered |
 | AutoNAT | v1, as client and server; confirms external addresses |
 | Idle connections | closed after 60 s |
 | Limits | connection limits (none by default), 100 concurrent streams per connection and protocol |

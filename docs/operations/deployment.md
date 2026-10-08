@@ -154,7 +154,7 @@ from scratch. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
-make test-integration   # integration tests + two dyapp-node containers on an internal network
+make test-integration   # integration tests + three dyapp-node containers on an internal network
 
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \

@@ -63,7 +63,7 @@ nothing.
 | coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses`; it fetches the advisory DB at run time |
-| network | `network` | reuses `dyapp-bootstrap`'s `dyapp-node` and `test-peer` from the build step (`cargo test` builds them for the bootstrap integration tests). `network-test.py --local` then starts two `dyapp-node` processes on TCP and QUIC `127.0.0.1:7071` and `:7072`, each with its own storage (`DYAPP_NODE__LISTEN`, `DYAPP_NODE__STORAGE__DIR`). Through `test-peer` it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, and checks that the two stores are independent |
+| network | `network` | reuses `dyapp-bootstrap`'s `dyapp-node` and `test-peer` from the build step (`cargo test` builds them for the bootstrap integration tests). `network-test.py --local` then starts three `dyapp-node` processes on TCP and QUIC `127.0.0.1:7071`–`:7073`, each with its own storage and its listen addresses as external (`DYAPP_NODE__LISTEN`, `DYAPP_NODE__EXTERNAL`, `DYAPP_NODE__STORAGE__DIR`); the second and third use the first as seed, the third allows 5 requests per second. Through `test-peer` it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, checks that the stores are independent and the mailbox round trip; then that a DHT lookup through the third node finds all three, that every replica holder serves the profile, that a flood of 15 gets on the third node gets the burst answered and the rest `RATE_LIMITED`, and, after stopping the second node, that new replicas skip it |
 
 `core` does not run a release build; `rust-check.sh build` (`cargo build --release`) is the local
 `make build`.
@@ -99,7 +99,7 @@ bash scripts/docker-test.sh build
 bash scripts/docker-test.sh test
 bash scripts/docker-test.sh coverage    # cov-build + cov-test + cov-report
 bash scripts/docker-test.sh security
-bash scripts/docker-test.sh network-prepare && bash scripts/docker-test.sh network  # two peer containers
+bash scripts/docker-test.sh network-prepare && bash scripts/docker-test.sh network  # three node containers
 bash scripts/docker-test.sh all         # all of the above + scripts/ui-test.sh all
 ```
 

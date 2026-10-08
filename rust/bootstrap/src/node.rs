@@ -2,9 +2,10 @@
 
 use crate::config::{Limits, Role};
 use crate::service::{Peer, Service};
-use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode};
+use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL};
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
+use libp2p::identify;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{Event, Message};
@@ -158,6 +159,19 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 SwarmEvent::ConnectionClosed { connection_id, .. } => {
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
+                }
+                // Kademlia learns a dialer's address only from identify: without this a node
+                // never routes to peers that joined through it.
+                // ponytail: claimed addresses are taken as is; filtering them belongs to the
+                // Sybil and eclipse defences.
+                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                    peer_id,
+                    info,
+                    ..
+                })) if info.protocols.contains(&KAD_PROTOCOL) => {
+                    for address in info.listen_addrs {
+                        swarm.behaviour_mut().kad.add_address(&peer_id, address);
+                    }
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
                     refused += 1;

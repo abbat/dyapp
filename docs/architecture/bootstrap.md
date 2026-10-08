@@ -332,17 +332,23 @@ prints one JSON object:
 
 ```
 test-peer sign-profile                      → {"peer_id", "record"}   (hex protobuf)
-test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "roles", "max_profile_bytes"}
+test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "roles", "max_profile_bytes"}
 test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 test-peer device-key                        → {"secret", "mailbox"}
 test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
 test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
 test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
+test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
+test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
+test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
-connection.
+connection. `closest` lists the nodes that answered, closest first. `replicate` publishes each of
+the `REPLICAS` replicas of a profile to the node closest to `replica_key(peer_id, i)`; a second
+replica on the same node answers `STALE`, which counts as stored. `flood` sends `n` profile gets
+at once on one connection.
 
 It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 

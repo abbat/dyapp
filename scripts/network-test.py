@@ -1,9 +1,13 @@
-"""Exercise the libp2p node protocol on two independent dyapp-node peers.
+"""Exercise the libp2p node protocol on three dyapp-node peers.
 
 `test-peer` is the client: the script has no libp2p library. Without
 arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
-starts two dyapp-node processes from BIN_DIR on the loopback instead.
+starts three dyapp-node processes from BIN_DIR on the loopback instead and
+also stops one to check that replicas skip a departed node.
 `--health MULTIADDR` checks one node.
+
+The second and third nodes join through the first; the third allows
+`FLOOD_LIMIT` requests per second per peer.
 """
 import json
 import os
@@ -15,12 +19,16 @@ import tempfile
 import time
 
 CLIENT = "/workspace/target/debug/test-peer"
+FLOOD_LIMIT = 5
 
 
 def call(client, *args):
-    output = subprocess.run([client, *args], check=True, capture_output=True,
-                            text=True, timeout=30).stdout
-    return json.loads(output)
+    result = subprocess.run([client, *args], capture_output=True, text=True,
+                            timeout=90)
+    if result.returncode:
+        raise subprocess.SubprocessError(
+            f"test-peer {args[0]}: {result.stderr.strip()}")
+    return json.loads(result.stdout)
 
 
 def healthy(client, addr):
@@ -37,27 +45,39 @@ def addresses(host, port):
 
 
 def local(bin_dir):
-    """Run the suite against two loopback nodes with separate storage."""
+    """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/test-peer"
     with tempfile.TemporaryDirectory() as storage:
         peers, processes = [], []
         try:
-            for port in (7071, 7072):
+            for port in (7071, 7072, 7073):
                 tcp, quic = addresses("127.0.0.1", port)
-                node = f"{bin_dir}/dyapp-node"
-                processes.append(subprocess.Popen([node], env={
-                    **os.environ,
-                    "DYAPP_NODE__LISTEN": json.dumps([tcp, quic]),
-                    "DYAPP_NODE__STORAGE__DIR": f"{storage}/{port}"}))
+                env = {**os.environ,
+                       "DYAPP_NODE__LISTEN": json.dumps([tcp, quic]),
+                       "DYAPP_NODE__EXTERNAL": json.dumps([tcp, quic]),
+                       "DYAPP_NODE__STORAGE__DIR": f"{storage}/{port}"}
+                if peers:
+                    env["DYAPP_NODE__SEEDS"] = json.dumps([peers[0][0]])
+                if port == 7073:
+                    env["DYAPP_NODE__LIMITS__REQUESTS_PER_SECOND"] = str(
+                        FLOOD_LIMIT)
+                processes.append(subprocess.Popen(
+                    [f"{bin_dir}/dyapp-node"], env=env))
                 peers.append((tcp, quic))
-            for tcp, _ in peers:
+                # A node dials its seed once, at start.
                 for _ in range(60):
                     if healthy(client, tcp):
                         break
                     time.sleep(1)
                 else:
                     raise RuntimeError(f"Node did not start: {tcp}")
-            suite(peers, client)
+
+            def churn():
+                processes[1].terminate()
+                processes[1].wait()
+                return peers[1][0]
+
+            suite(peers, client, churn)
         finally:
             for process in processes:
                 process.terminate()
@@ -74,10 +94,10 @@ def main():
         return
     # The client has no DNS transport: resolve the container names here.
     suite([addresses(socket.gethostbyname(host), 7070)
-           for host in ("bootstrap-a", "bootstrap-b")], CLIENT)
+           for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT)
 
 
-def suite(peers, client):
+def suite(peers, client, churn=None):
     cases = []
     for index, (tcp, quic) in enumerate(peers):
         for addr in (tcp, quic):
@@ -95,17 +115,64 @@ def suite(peers, client):
         reply = call(client, "publish", tcp, record)
         if reply != {"status": "STATUS_STALE", "record": record}:
             raise RuntimeError("Stale profile version was accepted")
-        other = peers[1 - index][0]
+        other = peers[(index + 1) % len(peers)][0]
         if call(client, "get", other, peer_id)["status"] != "STATUS_NOT_FOUND":
             raise RuntimeError("Independent node storage unexpectedly shared")
         mailbox(client, tcp, quic, other)
         cases.append({"peer": tcp, "health": True, "roundtrip": True,
                       "independent_storage": True, "mailbox": True})
+    cases.append(network(peers, client, churn))
     reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
-    print("2 nodes over TCP and QUIC: info, profile roundtrip, stale, "
-          "mailbox, independence passed")
+    churned = ", churn" if churn else ""
+    print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
+          f"stale, mailbox, independence, routing, replication, rate limit"
+          f"{churned} passed")
+
+
+def network(peers, client, churn):
+    """Routing, replication, the rate limit at its boundary and churn."""
+    ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
+    entry, limited = peers[0][0], peers[-1][0]
+    # The last node knows only its seed at first: a lookup through it finds
+    # every node once the seed has learned the others' addresses.
+    for _ in range(30):
+        found = call(client, "closest", limited, os.urandom(8).hex())
+        if set(found["peers"]) == set(ids):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"Routing found {found['peers']}, not {list(ids)}")
+    holders = replicate(client, entry, ids)
+    # 15 requests stay within the 16 concurrent streams a node accepts on
+    # one connection; more are dropped unanswered.
+    counts = call(client, "flood", limited, str(3 * FLOOD_LIMIT))
+    # The burst passes, the rest is refused, nothing is dropped.
+    answered = min(counts.get("STATUS_NOT_FOUND", 0),
+                   counts.get("STATUS_RATE_LIMITED", 0))
+    if answered < FLOOD_LIMIT or "failed" in counts:
+        raise RuntimeError(f"Rate limit boundary missed: {counts}")
+    case = {"routing": True, "holders": holders, "flood": counts}
+    if churn:
+        gone = churn()
+        live = {peer: tcp for peer, tcp in ids.items() if tcp != gone}
+        case["holders_after_churn"] = replicate(client, entry, live)
+    return case
+
+
+def replicate(client, entry, ids):
+    """Replicate a fresh profile; every holder is a live node serving it."""
+    signed = call(client, "sign-profile")
+    holders = call(client, "replicate", entry, signed["peer_id"],
+                   signed["record"])["holders"]
+    for holder in set(holders):
+        if holder not in ids:
+            raise RuntimeError(f"Replica on an unknown node: {holder}")
+        reply = call(client, "get", ids[holder], signed["peer_id"])
+        if reply != {"status": "STATUS_OK", "record": signed["record"]}:
+            raise RuntimeError(f"Holder {holder} lost the replica")
+    return holders
 
 
 def mailbox(client, tcp, quic, other):

@@ -2,29 +2,37 @@
 //! prints one JSON object; a reply of any status exits 0, a transport failure exits non-zero.
 //!
 //! - `test-peer sign-profile`: `{"peer_id", "record"}`, a freshly signed profile as hex protobuf;
-//! - `test-peer info <multiaddr>`: `{"status", "roles", "max_profile_bytes"}`;
+//! - `test-peer info <multiaddr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
 //! - `test-peer publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
 //! - `test-peer get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
 //! - `test-peer device-key`: `{"secret", "mailbox"}`, a fresh device key and its mailbox address;
 //! - `test-peer put <multiaddr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
 //!   signed by a fresh sender key;
 //! - `test-peer fetch <multiaddr> <secret hex>`: `{"status", "ids", "more"}`;
-//! - `test-peer ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`.
+//! - `test-peer ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`;
+//! - `test-peer closest <multiaddr> <key hex>`: `{"peers"}`, the nodes a DHT lookup through the
+//!   node finds closest to the key, closest first;
+//! - `test-peer replicate <multiaddr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
+//!   of the `REPLICAS` replicas of a profile to the node closest to its replica key;
+//! - `test-peer flood <multiaddr> <n>`: the count of each status (`"failed"` for no reply) of `n`
+//!   profile gets sent at once on one connection.
 //!
 //! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
 use anyhow::{anyhow, bail, Context};
 use dyapp_identity::{Domain, Identity};
 use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
-use dyapp_p2p_net::{build_swarm, Behaviour, BehaviourEvent, Mode};
+use dyapp_p2p_net::{build_swarm, replica_key, Behaviour, BehaviourEvent, Mode, REPLICAS};
 use dyapp_profile::Profile;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
+use libp2p::kad;
 use libp2p::request_response::{Event, Message as RrMessage};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::time::Duration;
 
@@ -41,7 +49,15 @@ async fn main() -> anyhow::Result<()> {
         ["put", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext)).await?,
         ["fetch", addr, secret] => timeout(fetch(addr, secret)).await?,
         ["ack", addr, secret, ids @ ..] => timeout(ack(addr, secret, ids)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>..."),
+        ["closest", addr, key] => timeout(closest(addr, key)).await?,
+        // Five lookups in a row, each waiting out dials to departed nodes.
+        ["replicate", addr, peer_id, record] => {
+            tokio::time::timeout(Duration::from_secs(60), replicate(addr, peer_id, record))
+                .await
+                .context("no reply in 60 s")??
+        }
+        ["flood", addr, n] => timeout(flood(addr, n.parse()?)).await?,
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n>"),
     };
     println!("{output}");
     Ok(())
@@ -83,6 +99,7 @@ async fn info(addr: &str) -> anyhow::Result<Value> {
         .collect();
     Ok(json!({
         "status": status(response.status),
+        "peer_id": peer.to_string(),
         "roles": roles,
         "max_profile_bytes": info.max_profile_bytes,
     }))
@@ -118,6 +135,87 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
         output["record"] = hex(&record.encode_to_vec()).into();
     }
     Ok(output)
+}
+
+async fn closest(addr: &str, key: &str) -> anyhow::Result<Value> {
+    let (mut swarm, _) = connect(addr).await?;
+    let peers = lookup(&mut swarm, unhex(key)?).await?;
+    let peers: Vec<String> = peers.iter().map(PeerId::to_string).collect();
+    Ok(json!({ "peers": peers }))
+}
+
+async fn replicate(addr: &str, peer_id: &str, record: &str) -> anyhow::Result<Value> {
+    let key = unhex(peer_id)?;
+    let record = dyapp_identity::SignedRecord::decode(unhex(record)?.as_slice())?;
+    let (mut swarm, _) = connect(addr).await?;
+    let mut holders = Vec::new();
+    for i in 0..REPLICAS {
+        let holder = *lookup(&mut swarm, replica_key(&key, i))
+            .await?
+            .first()
+            .context("lookup found no node")?;
+        let request = proto::ProfileRequest {
+            request: Some(profile_request::Request::Publish(record.clone())),
+        };
+        swarm.behaviour_mut().profile.send_request(&holder, request);
+        let response = wait(&mut swarm, |event| match event {
+            BehaviourEvent::Profile(event) => reply(event),
+            _ => None,
+        })
+        .await?;
+        // Two replicas on one node: the second publish finds the record stored.
+        if !matches!(
+            Status::try_from(response.status),
+            Ok(Status::Ok | Status::Stale)
+        ) {
+            bail!("replica {i} on {holder}: {}", status(response.status));
+        }
+        holders.push(holder.to_string());
+    }
+    Ok(json!({ "holders": holders }))
+}
+
+async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
+    let (mut swarm, peer) = connect(addr).await?;
+    for _ in 0..n {
+        let request = proto::ProfileRequest {
+            request: Some(profile_request::Request::Get(proto::GetProfile {
+                peer_id: vec![0; 32],
+            })),
+        };
+        swarm.behaviour_mut().profile.send_request(&peer, request);
+    }
+    let mut counts = BTreeMap::new();
+    for _ in 0..n {
+        let reply = wait(&mut swarm, |event| match event {
+            BehaviourEvent::Profile(event) => reply(event),
+            _ => None,
+        })
+        .await;
+        let name = reply.map_or("failed", |response| status(response.status));
+        *counts.entry(name).or_insert(0u32) += 1;
+    }
+    Ok(json!(counts))
+}
+
+/// The nodes that answered a lookup of `key`, closest first; their addresses stay known to
+/// `swarm` so requests reach them.
+async fn lookup(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<Vec<PeerId>> {
+    swarm.behaviour_mut().kad.get_closest_peers(key);
+    let found = wait(swarm, |event| match event {
+        BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+            result: kad::QueryResult::GetClosestPeers(result),
+            ..
+        }) => Some(result.map_err(|error| anyhow!("lookup: {error}"))),
+        _ => None,
+    })
+    .await?;
+    for peer in &found.peers {
+        for address in &peer.addrs {
+            swarm.add_peer_address(peer.peer_id, address.clone());
+        }
+    }
+    Ok(found.peers.into_iter().map(|peer| peer.peer_id).collect())
 }
 
 fn device_key() -> Value {
@@ -203,10 +301,15 @@ async fn mailbox_call(
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
 async fn connect(addr: &str) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
     let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Client)?;
-    swarm.dial(addr.parse::<Multiaddr>()?)?;
+    let addr: Multiaddr = addr.parse()?;
+    swarm.dial(addr.clone())?;
     loop {
         match swarm.select_next_some().await {
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => return Ok((swarm, peer_id)),
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                // A lookup starts from this node.
+                swarm.behaviour_mut().kad.add_address(&peer_id, addr);
+                return Ok((swarm, peer_id));
+            }
             SwarmEvent::OutgoingConnectionError { error, .. } => bail!("dial {addr}: {error}"),
             _ => {}
         }
