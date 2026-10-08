@@ -657,8 +657,10 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 ## Monitoring & Metrics
 
 There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Metrics are
-log lines: guard changes, refusals per guard and refused connections at each maintenance run
-([Resource guards](#resource-guards)). Planned: a local admin CLI, no HTTP endpoints; see the
+log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
+known peers, requests answered and failed with a node error since the last run, stored bytes of
+profiles, messages and media, and the share of the monthly traffic cap used; plus refusals per
+guard and refused connections ([Resource guards](#resource-guards)). Planned: a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 ## Testing

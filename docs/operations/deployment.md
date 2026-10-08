@@ -250,7 +250,8 @@ The reply holds roles and limits only: no counts, peer numbers or replication fi
 These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
-- Metrics: beyond the hourly guard and connection log lines, none; no `/metrics` endpoint
+- Metrics: beyond the hourly `node status`, guard and connection log lines, none; no `/metrics`
+  endpoint
 - Administration: the deny list file and SIGHUP, no admin routes; a local CLI writing to
   `admin.db` for runtime settings and status is planned
 - Request logs: `dyapp-node` logs startup, listen addresses, storage errors and cleanup
@@ -358,9 +359,8 @@ Installed from the Debian package, the service is `dyapp-node.service`; it logs 
 
 ## Next Steps
 
-Work that turns this guide into a production runbook is tracked in GitHub
-Issues: a server binary with configuration, TLS, authentication,
-logging/metrics, a TTL cleanup scheduler, and cross-node replication.
+Planned for the node: a local admin CLI, a memory-use threshold, TURN relays,
+public seed nodes and erasure-coded storage; see [Bootstrap](../architecture/bootstrap.md).
 
 ## References
 

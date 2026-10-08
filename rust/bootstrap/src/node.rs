@@ -329,6 +329,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     let mut replicas = Replicas::default();
     // Incoming connections refused by the connection limits since the last maintenance run.
     let mut refused = 0u64;
+    // Requests answered and failed with a node error since the last maintenance run.
+    let (mut answered, mut failed) = (0u64, 0u64);
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
     let maintenance = service.config.maintenance.clone();
     let mut maintain = tokio::time::interval(Duration::from_secs(
@@ -360,6 +362,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     ..
                 })) => {
                     let response = service.node(request);
+                    answered += 1;
                     service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
                 }
@@ -370,11 +373,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 })) => {
                     match service.profile(&peer(id, &groups, connection_id), request) {
                         Ok(response) => {
-                            service.traffic.add(response.encoded_len() as u64);
+                            answered += 1;
+                    service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().profile.send_response(channel, response);
                         }
                         // Dropping the channel fails the request; the client tries another node.
-                        Err(error) => tracing::error!(%error, "profile request failed"),
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "profile request failed")
+                        }
                     }
                     drop_banned(&mut swarm, &service, id);
                 }
@@ -385,10 +392,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 })) => {
                     match service.media(&peer(id, &groups, connection_id), request) {
                         Ok(response) => {
-                            service.traffic.add(response.encoded_len() as u64);
+                            answered += 1;
+                    service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().media.send_response(channel, response);
                         }
-                        Err(error) => tracing::error!(%error, "media request failed"),
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "media request failed")
+                        }
                     }
                     drop_banned(&mut swarm, &service, id);
                 }
@@ -407,7 +418,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     match result {
                         Ok(response) => {
                             let ok = response.status == i32::from(Status::Ok);
-                            service.traffic.add(response.encoded_len() as u64);
+                            answered += 1;
+                    service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
                             if ok {
                                 let at = (id, connection_id);
@@ -415,7 +427,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                                 after_mailbox(&mut swarm, &service, w, r, at, kind);
                             }
                         }
-                        Err(error) => tracing::error!(%error, "mailbox request failed"),
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "mailbox request failed")
+                        }
                     }
                     drop_banned(&mut swarm, &service, id);
                 }
@@ -528,10 +543,32 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     tracing::warn!(refused, "connections refused by the connection limits");
                     refused = 0;
                 }
+                status(&service, &swarm, peers.len(), answered, failed);
+                (answered, failed) = (0, 0);
                 dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
             }
         }
     }
+}
+
+/// The hourly status line: no peer or key identifiers, counts and sizes only.
+fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u64, failed: u64) {
+    let bytes = |usage: crate::Result<(u64, u64)>| usage.map_or(0, |(used, _)| used);
+    let media = service
+        .media
+        .as_ref()
+        .map_or(0, |media| bytes(media.usage()));
+    tracing::info!(
+        connected = swarm.connected_peers().count(),
+        known,
+        answered,
+        failed,
+        profiles_bytes = bytes(service.store.profiles_usage()),
+        messages_bytes = bytes(service.store.messages_usage()),
+        media_bytes = media,
+        traffic_percent = service.traffic.add(0),
+        "node status"
+    );
 }
 
 #[cfg(test)]
