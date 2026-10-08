@@ -182,6 +182,10 @@ message MediaRequest {
     dyapp.identity.SignedRecord keep = 1;
     MediaPut put = 2;
     GetMedia get = 3;
+    // Payload `MediaAttach`, signed by the sender's identity key. Nodes older than attachments
+    // answer UNSUPPORTED.
+    dyapp.identity.SignedRecord attach = 4;
+    MediaRelease release = 5;
   }
 }
 
@@ -203,10 +207,27 @@ message GetMedia {
   bytes hash = 1;
 }
 
+// Chat attachment blobs, end-to-end encrypted, put like listed blobs and counted against the
+// sender's quota. The sender picks a random release secret per attachment and sends it to the
+// recipient inside the message; the recipient releases the blobs after downloading them. Blobs
+// never released go after the node's attachment retention, counted from `created`.
+message MediaAttach {
+  // SHA-256 of the release secret; one release covers all blobs of an attachment.
+  bytes release = 1;
+  repeated bytes hashes = 2;
+  // Unix seconds; not more than 10 minutes ahead of the node's clock.
+  uint64 created = 3;
+}
+
+message MediaRelease {
+  // The secret whose SHA-256 a `MediaAttach` named.
+  bytes secret = 1;
+}
+
 message MediaResponse {
   Status status = 1;
   // get: the blob.
   bytes data = 2;
-  // keep: listed hashes the node does not hold yet.
+  // keep, attach: listed hashes the node does not hold yet.
   repeated bytes missing = 3;
 }

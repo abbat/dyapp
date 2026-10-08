@@ -1,6 +1,10 @@
 //! Media blobs of the media role: one file per blob at `<dir>/aa/bb/<hash>`, and in `media.db`
 //! which owner lists which blob. A blob listed by several owners is stored once and counts
 //! against each owner's quota; its file goes when the last owner drops it.
+//!
+//! A chat attachment is a slot `r:<release hash>:<owner>` in `attachments`, listing its blobs in
+//! `blobs` like an owner; the owner's puts and quota cover its slots. A slot goes on release or
+//! expiry.
 
 use crate::storage::{free, lock, open, storage_error};
 use crate::Result;
@@ -30,6 +34,50 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Rows of the owner `?1`: its keep and its attachments.
+const OWNED: &str = "(owner = ?1 OR owner IN (SELECT slot FROM attachments WHERE owner = ?1))";
+
+/// Lists `hashes` for `owner`; returns those it has not stored yet.
+fn list(tx: &Connection, owner: &str, hashes: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+    let mut missing = Vec::new();
+    for hash in hashes {
+        tx.execute(
+            "INSERT OR IGNORE INTO blobs (owner, hash) VALUES (?, ?)",
+            params![owner, hash],
+        )
+        .map_err(storage_error)?;
+        let size: Option<i64> = tx
+            .query_row(
+                "SELECT size FROM blobs WHERE owner = ? AND hash = ?",
+                params![owner, hash],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if size.is_none() && !missing.contains(hash) {
+            missing.push(hash.clone());
+        }
+    }
+    Ok(missing)
+}
+
+/// The `dropped` hashes no row holds stored any more.
+fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
+    let mut orphans = Vec::new();
+    for hash in dropped {
+        let held: bool = tx
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM blobs WHERE hash = ? AND size IS NOT NULL)",
+                [&hash],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !held {
+            orphans.push(hash);
+        }
+    }
+    Ok(orphans)
+}
+
 impl MediaStore {
     pub fn open(dir: &Path) -> Result<Self> {
         fs::create_dir_all(dir).map_err(storage_error)?;
@@ -46,7 +94,15 @@ impl MediaStore {
                  size INTEGER,
                  PRIMARY KEY (owner, hash)
              );
-             CREATE INDEX IF NOT EXISTS blobs_hash ON blobs (hash);",
+             CREATE INDEX IF NOT EXISTS blobs_hash ON blobs (hash);
+             CREATE TABLE IF NOT EXISTS attachments (
+                 slot TEXT PRIMARY KEY,
+                 release BLOB NOT NULL,
+                 owner TEXT NOT NULL,
+                 expires INTEGER NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS attachments_owner ON attachments (owner);
+             CREATE INDEX IF NOT EXISTS attachments_release ON attachments (release);",
         )?;
         Ok(Self {
             dir: dir.into(),
@@ -100,69 +156,119 @@ impl MediaStore {
             .map_err(storage_error)?;
             dropped.push(hash);
         }
-        let mut missing = Vec::new();
-        for hash in hashes {
-            tx.execute(
-                "INSERT OR IGNORE INTO blobs (owner, hash) VALUES (?, ?)",
-                params![owner, hash],
-            )
-            .map_err(storage_error)?;
-            let size: Option<i64> = tx
-                .query_row(
-                    "SELECT size FROM blobs WHERE owner = ? AND hash = ?",
-                    params![owner, hash],
-                    |row| row.get(0),
-                )
-                .map_err(storage_error)?;
-            if size.is_none() && !missing.contains(hash) {
-                missing.push(hash.clone());
-            }
-        }
-        let mut orphans = Vec::new();
-        for hash in dropped {
-            let held: bool = tx
-                .query_row(
-                    "SELECT EXISTS (SELECT 1 FROM blobs WHERE hash = ? AND size IS NOT NULL)",
-                    [&hash],
-                    |row| row.get(0),
-                )
-                .map_err(storage_error)?;
-            if !held {
-                orphans.push(hash);
-            }
-        }
+        let missing = list(&tx, owner, hashes)?;
+        let orphans = orphans(&tx, dropped)?;
         tx.commit().map_err(storage_error)?;
         // Still under the lock, so no put of the same blob runs in between.
-        for hash in orphans {
+        self.remove(orphans)?;
+        Ok(Some(missing))
+    }
+
+    /// Lists `hashes` for `owner` in the attachment released by the secret hashing to `release`,
+    /// until `expires` (Unix seconds). Returns the hashes not stored yet, or `None` if the owner
+    /// already has `max` other attachments.
+    pub fn attach(
+        &self,
+        owner: &str,
+        release: &[u8],
+        hashes: &[Vec<u8>],
+        expires: u64,
+        max: usize,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
+        let slot = format!("r:{}:{owner}", hex(release));
+        let expires = i64::try_from(expires).map_err(storage_error)?;
+        let mut db = lock(&self.db)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        let others: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM attachments WHERE owner = ? AND slot != ?",
+                params![owner, slot],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if others.unsigned_abs() >= max as u64 {
+            return Ok(None);
+        }
+        // ponytail: a replayed attach renews the expiry, at most to its `created` + retention.
+        tx.execute(
+            "INSERT OR REPLACE INTO attachments (slot, release, owner, expires) VALUES (?, ?, ?, ?)",
+            params![slot, release, owner, expires],
+        )
+        .map_err(storage_error)?;
+        let missing = list(&tx, &slot, hashes)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(Some(missing))
+    }
+
+    /// Drops the attachments released by `secret`; false if there were none.
+    pub fn release(&self, secret: &[u8]) -> Result<bool> {
+        let release = dyapp_identity::sha256(secret);
+        Ok(self.drop_attachments("release = ?", release.as_slice())? > 0)
+    }
+
+    /// Drops the attachments expired at `now` (Unix seconds); returns how many.
+    pub fn expire(&self, now: u64) -> Result<usize> {
+        self.drop_attachments("expires <= ?", i64::try_from(now).map_err(storage_error)?)
+    }
+
+    fn drop_attachments(&self, which: &str, param: impl rusqlite::ToSql) -> Result<usize> {
+        let mut db = lock(&self.db)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        let slots: Vec<String> = tx
+            .prepare(&format!("SELECT slot FROM attachments WHERE {which}"))
+            .and_then(|mut q| q.query_map([param], |row| row.get(0))?.collect())
+            .map_err(storage_error)?;
+        let mut dropped = Vec::new();
+        for slot in &slots {
+            let hashes: Vec<Vec<u8>> = tx
+                .prepare("SELECT hash FROM blobs WHERE owner = ?")
+                .and_then(|mut q| q.query_map([slot], |row| row.get(0))?.collect())
+                .map_err(storage_error)?;
+            dropped.extend(hashes);
+            tx.execute("DELETE FROM blobs WHERE owner = ?", [slot])
+                .and_then(|_| tx.execute("DELETE FROM attachments WHERE slot = ?", [slot]))
+                .map_err(storage_error)?;
+        }
+        let orphans = orphans(&tx, dropped)?;
+        tx.commit().map_err(storage_error)?;
+        self.remove(orphans)?;
+        Ok(slots.len())
+    }
+
+    fn remove(&self, hashes: Vec<Vec<u8>>) -> Result<()> {
+        for hash in hashes {
             match fs::remove_file(self.path(&hash)) {
                 Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(storage_error(e)),
                 _ => {}
             }
         }
-        Ok(Some(missing))
+        Ok(())
     }
 
-    /// Stores `data` for `owner` if a keep lists its hash and the owner stays within
-    /// `quota` bytes. A repeated put is `Stored`.
+    /// Stores `data` for `owner` if a keep or an attachment of the owner lists its hash and the
+    /// owner stays within `quota` bytes. A repeated put is `Stored`.
     pub fn put(&self, owner: &str, data: &[u8], quota: u64) -> Result<Put> {
         let hash = dyapp_identity::sha256(data);
         let db = lock(&self.db)?;
-        let size: Option<Option<i64>> = db
+        let (rows, stored): (i64, i64) = db
             .query_row(
-                "SELECT size FROM blobs WHERE owner = ? AND hash = ?",
+                &format!(
+                    "SELECT COUNT(*), COALESCE(MIN(size IS NOT NULL), 0) FROM blobs \
+                     WHERE hash = ?2 AND {OWNED}"
+                ),
                 params![owner, hash.as_slice()],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
-            .optional()
             .map_err(storage_error)?;
-        match size {
-            None => return Ok(Put::NotListed),
-            Some(Some(_)) => return Ok(Put::Stored),
-            Some(None) => {}
+        if rows == 0 {
+            return Ok(Put::NotListed);
+        }
+        if stored == 1 {
+            return Ok(Put::Stored);
         }
         let used: i64 = db
             .query_row(
-                "SELECT COALESCE(SUM(size), 0) FROM blobs WHERE owner = ?",
+                &format!("SELECT COALESCE(SUM(size), 0) FROM blobs WHERE {OWNED}"),
                 [owner],
                 |row| row.get(0),
             )
@@ -186,8 +292,8 @@ impl MediaStore {
                 })?;
         }
         db.execute(
-            "UPDATE blobs SET size = ? WHERE owner = ? AND hash = ?",
-            params![data.len() as i64, owner, hash.as_slice()],
+            &format!("UPDATE blobs SET size = ?3 WHERE hash = ?2 AND {OWNED}"),
+            params![owner, hash.as_slice(), data.len() as i64],
         )
         .map_err(storage_error)?;
         Ok(Put::Stored)
@@ -254,5 +360,57 @@ mod tests {
         assert_eq!(media.keep("bob", 6, &[]).unwrap(), Some(vec![]));
         assert_eq!(media.get(&ha).unwrap(), None);
         assert_eq!(media.usage().unwrap().0, 0);
+    }
+
+    #[test]
+    fn attach_put_release_and_expire() {
+        let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+        let media = MediaStore::open(&dir).unwrap();
+        let (a, b) = (vec![1u8; 100], vec![2u8; 300]);
+        let (ha, hb) = (
+            dyapp_identity::sha256(&a).to_vec(),
+            dyapp_identity::sha256(&b).to_vec(),
+        );
+        let (s1, s2) = (b"one".as_slice(), b"two".as_slice());
+        let (r1, r2) = (dyapp_identity::sha256(s1), dyapp_identity::sha256(s2));
+
+        let ha1 = std::slice::from_ref(&ha);
+        assert_eq!(
+            media.attach("alice", &r1, ha1, 100, 1).unwrap(),
+            Some(vec![ha.clone()])
+        );
+        assert_eq!(
+            media.attach("alice", &r2, ha1, 100, 1).unwrap(),
+            None,
+            "max"
+        );
+        assert_eq!(
+            media.attach("alice", &r1, ha1, 100, 1).unwrap(),
+            Some(vec![ha.clone()])
+        );
+        assert_eq!(media.put("bob", &a, 1000).unwrap(), Put::NotListed);
+        assert_eq!(media.put("alice", &a, 1000).unwrap(), Put::Stored);
+        // Kept and attached: counted for both.
+        media.keep("alice", 1, std::slice::from_ref(&hb)).unwrap();
+        assert_eq!(media.put("alice", &b, 350).unwrap(), Put::OverQuota);
+        assert_eq!(media.put("alice", &b, 400).unwrap(), Put::Stored);
+        assert_eq!(media.usage().unwrap().0, 400);
+
+        assert!(!media.release(s2).unwrap());
+        assert!(media.release(s1).unwrap());
+        assert_eq!(media.get(&ha).unwrap(), None);
+        assert_eq!(media.get(&hb).unwrap(), Some(b.clone()));
+
+        // An attached blob that is also kept survives its expiry.
+        let hb1 = std::slice::from_ref(&hb);
+        assert_eq!(
+            media.attach("alice", &r2, hb1, 50, 1).unwrap(),
+            Some(vec![hb.clone()])
+        );
+        assert_eq!(media.put("alice", &b, 1000).unwrap(), Put::Stored);
+        assert_eq!(media.expire(49).unwrap(), 0);
+        assert_eq!(media.expire(50).unwrap(), 1);
+        assert_eq!(media.get(&hb).unwrap(), Some(b));
+        assert!(!media.release(s2).unwrap());
     }
 }

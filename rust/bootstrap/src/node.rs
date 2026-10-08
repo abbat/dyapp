@@ -496,6 +496,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     Ok(removed) => tracing::info!(removed, "expired messages removed"),
                     Err(error) => tracing::error!(%error, "message cleanup failed"),
                 }
+                if let Some(media) = &service.media {
+                    match media.expire(now.unsigned_abs()) {
+                        Ok(removed) => tracing::info!(removed, "expired attachments removed"),
+                        Err(error) => tracing::error!(%error, "attachment cleanup failed"),
+                    }
+                }
             }
             _ = maintain.tick() => {
                 match service.store.maintain(maintenance.vacuum_pages) {

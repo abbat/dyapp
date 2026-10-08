@@ -29,6 +29,11 @@ const MAX_FETCH: u32 = 100;
 pub const MAX_MEDIA_BYTES: usize = 1024 * 1024;
 /// Hashes in one media keep.
 const MAX_KEEP: usize = 256;
+/// Unreleased attachments per owner, and blobs in one: a blob row costs the node without a put.
+const MAX_ATTACHMENTS: usize = 256;
+const MAX_ATTACH: usize = 16;
+/// How far an attach's `created` may run ahead of the node's clock.
+const CLOCK_SKEW: u64 = 600;
 /// Envelope ids in one repair inventory.
 pub const MAX_INVENTORY: usize = 10_000;
 
@@ -529,6 +534,47 @@ impl Service {
                     },
                     None => media_status(Status::NotFound),
                 }
+            }
+            Some(media_request::Request::Attach(record)) => {
+                let Ok((owner, attach)) =
+                    owner_request::<proto::MediaAttach>(&record, Domain::MediaAttach, |_| true)
+                else {
+                    self.strike(peer);
+                    return Ok(media_status(Status::Denied));
+                };
+                if self.listed(&owner) {
+                    return Ok(media_status(Status::Refused));
+                }
+                let now = chrono::Utc::now().timestamp().unsigned_abs();
+                if attach.release.len() != 32
+                    || attach.hashes.is_empty()
+                    || attach.hashes.len() > MAX_ATTACH
+                    || attach.hashes.iter().any(|h| h.len() != 32)
+                    || attach.created > now + CLOCK_SKEW
+                {
+                    return Ok(media_status(Status::Invalid));
+                }
+                let expires = attach.created + u64::from(l.attachment_retention_hours) * 3600;
+                match media.attach(
+                    &hex(&owner),
+                    &attach.release,
+                    &attach.hashes,
+                    expires,
+                    MAX_ATTACHMENTS,
+                )? {
+                    Some(missing) => MediaResponse {
+                        missing,
+                        ..media_status(Status::Ok)
+                    },
+                    None => media_status(Status::Full),
+                }
+            }
+            Some(media_request::Request::Release(release)) => {
+                media_status(if media.release(&release.secret)? {
+                    Status::Ok
+                } else {
+                    Status::NotFound
+                })
             }
             None => media_status(Status::Unsupported),
         })
@@ -1061,9 +1107,10 @@ mod tests {
     #[test]
     fn media_keep_put_get() {
         use media_request::Request::{Get, Keep, Put};
-        let call = |service: &Service, request| {
+        // Each peer within the media request rate.
+        let call_as = |service: &Service, name: &str, request| {
             let response = service.media(
-                &peer("p"),
+                &peer(name),
                 MediaRequest {
                     request: Some(request),
                 },
@@ -1071,6 +1118,7 @@ mod tests {
             let response = response.unwrap();
             (Status::try_from(response.status).unwrap(), response)
         };
+        let call = |service: &Service, request| call_as(service, "p", request);
         let get = |hash: &[u8]| {
             Get(proto::GetMedia {
                 hash: hash.to_vec(),
@@ -1109,6 +1157,52 @@ mod tests {
         let mut forged = keep;
         forged.payload.push(0);
         assert_eq!(call(&service, Keep(forged)).0, Status::Denied);
+
+        // An attachment: put after the attach, gone after the release.
+        use media_request::Request::{Attach, Release};
+        let file = b"attachment".to_vec();
+        let file_hash = dyapp_identity::sha256(&file).to_vec();
+        let secret = vec![7u8; 32];
+        let attach = |created| {
+            let attach = proto::MediaAttach {
+                release: dyapp_identity::sha256(&secret).to_vec(),
+                hashes: vec![file_hash.clone()],
+                created,
+            };
+            Attach(identity.sign(Domain::MediaAttach, attach.encode_to_vec()))
+        };
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        assert_eq!(
+            call_as(&service, "q", attach(now + 3600)).0,
+            Status::Invalid
+        );
+        let (got, response) = call_as(&service, "q", attach(now));
+        assert_eq!(
+            (got, response.missing),
+            (Status::Ok, vec![file_hash.clone()])
+        );
+        let put = Put(proto::MediaPut {
+            owner: owner.clone(),
+            data: file,
+        });
+        assert_eq!(call_as(&service, "q", put).0, Status::Ok);
+        assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::Ok);
+        let release = |secret: &[u8]| {
+            Release(proto::MediaRelease {
+                secret: secret.to_vec(),
+            })
+        };
+        assert_eq!(
+            call_as(&service, "q", release(&[8; 32])).0,
+            Status::NotFound
+        );
+        assert_eq!(call_as(&service, "q", release(&secret)).0, Status::Ok);
+        assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::NotFound);
+        assert_eq!(
+            call_as(&service, "q", get(&hash)).0,
+            Status::Ok,
+            "kept blob stays"
+        );
 
         let info = service.node(NodeRequest {
             request: Some(node_request::Request::Info(proto::InfoRequest {})),

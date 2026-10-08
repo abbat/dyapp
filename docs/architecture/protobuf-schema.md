@@ -32,6 +32,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
 | `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
+| `dyapp.node.MediaAttach` | `dyapp/media-attach/v1\0` | identity key |
 
 ## Profile
 
@@ -63,6 +64,8 @@ SHA-256 of the device public key (32 bytes each).
   same connection; the device still acknowledges with an ack.
 - **`/dyapp/media`**: `keep` is the owner's signed, versioned list of blob hashes (SHA-256) and
   returns the ones still `missing`; `put` sends a listed blob unsigned; `get(hash)` returns it.
+  `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
+  creation time; `release(secret)` drops it.
 
 ## FFI boundary
 

@@ -153,6 +153,7 @@ profiles_max_mb = 1024        # a full store answers FULL to writes
 messages_max_mb = 4096
 media_max_mb = 10240          # media role; media is never evicted
 media_per_owner_mb = 10
+attachment_retention_hours = 168  # unreleased chat attachments
 media_requests_per_second = 10
 min_free_mb = 512             # free space kept on each store's file system
 monthly_traffic_gb = 0        # 0 = no cap; media shed from 75 %, profiles 90 %, mailbox 100 %

@@ -27,6 +27,8 @@ pub enum Domain {
     MailboxAck,
     /// The list of an owner's media blobs, signed by the owner's identity key.
     MediaKeep,
+    /// Chat attachment blobs, signed by the sender's identity key.
+    MediaAttach,
 }
 
 impl Domain {
@@ -37,6 +39,7 @@ impl Domain {
             Domain::MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
             Domain::MailboxAck => b"dyapp/mailbox-ack/v1\0",
             Domain::MediaKeep => b"dyapp/media-keep/v1\0",
+            Domain::MediaAttach => b"dyapp/media-attach/v1\0",
         }
     }
 }
