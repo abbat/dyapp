@@ -35,22 +35,27 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
 
 1. **Cost of entry.** A node ID is the hash of a node key, separate from the user's identity key
    ([ADR 0006](0006-transport-keys-separate-from-identity.md)), and carries a proof-of-work
-   (S/Kademlia static puzzle). Difficulty is a protocol parameter, set to minutes of work on a
-   desktop once.
+   (S/Kademlia static puzzle: SHA-256 of the public key starts with a fixed number of zero bits,
+   so no nonce travels with the peer ID). Difficulty is a protocol constant, about one minute on
+   2 vCPU, paid once. The operator creates the key explicitly with a `keygen` subcommand and keeps
+   it; a node does not start without one. Peers without the proof (phones, older nodes) are still
+   served, but never enter the routing table or receive replicas.
 2. **Routing-table diversity.** At most 2 peers from one /24 (IPv6: /48) per bucket and 10 per
    table, enforced by a filter on manual bucket insertion. Outbound connections go to distinct /16
-   groups. AS-level grouping (like Bitcoin's asmap) is deferred.
+   (IPv6: /32) groups; on by default, an operator who trusts the network may turn it off.
+   AS-level grouping (like Bitcoin's asmap) is deferred.
 3. **Lookups** use disjoint query paths; a result is accepted only after its signature verifies.
 4. **Replica placement.** Replica *i* of a record ([ADR 0009](0009-message-delivery-and-storage.md))
    is stored at the nodes closest to H(key ‖ i), so hiding the record needs several eclipsed
    points, not one.
-5. **Local reputation only.** Each client scores nodes by what it observes (answers, valid
-   signatures, observed uptime), trusts a node with storage only after it has seen it for a set
-   number of hours, and tests a node before evicting it. There is no global reputation and no
-   network-wide vote.
-6. **First nodes** come from a list built into the client, DNS seeds (`/dnsaddr`) run by several
-   independent operators, and anchor nodes saved from the previous session. The client asks
-   several seeds at once.
+5. **Local reputation only.** Each node and client scores peers by what it observes (answers,
+   valid signatures, observed uptime), trusts a peer with storage only after it has seen it for a
+   set time (default 1 hour, configurable), and tests a peer before evicting it from a full
+   bucket. There is no global reputation and no network-wide vote.
+6. **First nodes** come from configured seeds (multiaddrs or DNS seeds via `/dnsaddr`) and anchor
+   nodes: the last 2-3 outbound peers, saved and dialled first after a restart. The default seed
+   list is empty until independent operators run public seeds. The client asks several seeds at
+   once.
 7. **Store protection.** The bootstrap store keeps a separate pool per data type, so likes and view
    signals cannot evict messages, with quotas per sender key and per IP group. A hashcash stamp on
    unsolicited writes (likes, view signals, messages without a match) is best effort: the envelope
@@ -64,14 +69,16 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
 
 - Targeted eclipse of one key becomes much more expensive but stays possible.
 - Moderation stays local in v1 ([ADR 0012](0012-private-p2p-interactions.md)).
-- Proof-of-work slows the first start of an index node (desktop only).
+- Proof-of-work costs an operator about a minute once per node key; a node key without it must be
+  replaced, which changes the node's peer ID.
 - Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
   local reputation, replica placement and store pools.
 - Implemented in `rust/p2p-net`: disjoint lookups and the per-bucket and per-table IP-group limits
   on manual inserts ([p2p-networking.md](../architecture/p2p-networking.md)). The node
   joins through seeds (`/dnsaddr` too), dials them again periodically and caches peers across
   restarts.
-- Not implemented: node-ID proof of work, distinct /16 outbound groups, anchors, local
-  reputation and a built-in seed list. The bootstrap store has no per-type pools. Nodes
-  rate-limit per peer ID, IP group and sender key and keep a local, unshared ban score per peer
+- Not implemented (planned): node-ID proof of work and the `keygen` subcommand, distinct /16
+  outbound groups, anchors, test-before-evict, the storage trust delay and reputation scores.
+  The bootstrap store has no per-type pools. Nodes rate-limit per peer ID, IP group and sender
+  key and keep a local, unshared ban score per peer
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).
