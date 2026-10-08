@@ -122,11 +122,32 @@ SHA-256). The client writes each replica itself; a node stores only what it is s
 repeated put is a no-op, so a duplicate or retried replica write is harmless. No client does the
 replica lookup yet.
 
-Repair is driven by the owner's presence. When a user comes online, the nodes responsible for
-their keys exchange inventories, *I have* (profile version, message ids, media hashes) and
-*I need*, and fill the gaps, so new closest nodes get the data after churn. Nodes never rebuild
-media shards: the owner re-uploads missing ones. Data of a user who stays offline is not
-repaired and expires with the TTL.
+Repair is driven by the owner's presence (planned). When a user comes online, the nodes
+responsible for their keys compare inventories, *I have* and *I need*, and fill the gaps, so new
+closest nodes get the data after churn and stale replicas catch up. Data of a user who stays
+offline is not repaired and expires with the TTL; a message whose replicas are all lost is
+resent from the sender's retry queue.
+
+- **Profile.** The owner's client checks its profile version on each replica when it comes
+  online and republishes where the replica is missing or older; a repeated publish answers
+  `STALE` and stores nothing.
+- **Media.** The owner's client sends its `keep` list to each replica; the node answers the
+  missing hashes and the client re-uploads them. Nodes never rebuild media or erasure-coded
+  shards.
+- **Mailbox.** A watching fetch makes the node the repairer for that mailbox: it sends the ids it
+  holds to the closest node of each other replica key over a node-to-node inventory request. The
+  peer answers the ids it lacks, and the repairer puts those envelopes through the ordinary
+  `mailbox.put`, verified like any put. The peer puts the envelopes the repairer lacks back only
+  if its own routing table places the repairer among the closest nodes of one of the mailbox's
+  replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
+- **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
+  visit moves data, and only the gaps, so a restart never moves the node's whole store.
+- **Budget.** One inventory per mailbox per hour on a node; repair traffic counts towards the
+  monthly cap and stops at 75 % of it, together with media.
+- **Scale.** 120 million users on 1200 nodes with R = 5 put about 500 000 users and 750 000
+  device mailboxes (1.5 devices per user) on a node. If half the devices come online daily, a
+  node sends about 4 inventories a second to 4 peers each, a few hundred bytes apiece (16-byte
+  ids of pending messages); envelopes move only for real gaps.
 
 ### Profiles
 
