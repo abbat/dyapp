@@ -1,6 +1,6 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
-use crate::config::Limits;
+use crate::config::{Limits, Role};
 use crate::service::{Peer, Service};
 use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode};
 use libp2p::connection_limits::ConnectionLimits;
@@ -16,15 +16,26 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-/// The node's swarm with the connection and stream limits from the config.
+/// The node's swarm with the connection and stream limits from the config. `/dyapp/kad` is the
+/// key space of the store role: a node without it is a DHT client and serves no protocol, so it
+/// is never picked as a replica.
 /// ponytail: no memory-use threshold (libp2p memory-connection-limits is not vendored); the
 /// connection, stream and message caps bound memory instead.
-pub fn swarm(keypair: Keypair, limits: &Limits) -> anyhow::Result<Swarm<Behaviour>> {
+pub fn swarm(
+    keypair: Keypair,
+    limits: &Limits,
+    roles: &[Role],
+) -> anyhow::Result<Swarm<Behaviour>> {
+    let mode = if roles.contains(&Role::Store) {
+        Mode::Auto
+    } else {
+        Mode::Client
+    };
     let connections = ConnectionLimits::default()
         .with_max_established(Some(limits.max_connections))
         .with_max_pending_incoming(Some(limits.max_connections))
         .with_max_established_per_peer(Some(limits.max_connections_per_peer));
-    build_limited_swarm(keypair, Mode::Auto, connections, limits.max_streams)
+    build_limited_swarm(keypair, mode, connections, limits.max_streams)
 }
 
 /// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits.

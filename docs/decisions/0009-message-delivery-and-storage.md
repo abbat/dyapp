@@ -39,5 +39,8 @@ media is different: full copies are expensive.
   fallback. Cache size per node is open; protection against eviction by spam is in
   [ADR 0008](0008-sybil-and-eclipse-defences.md).
 - Storage overhead for messages is 5×.
-- Not implemented: the bootstrap stores records with an unenforced TTL field;
-  `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec and nothing replicates.
+- Not implemented: envelopes expire after a TTL (default 24 hours) but profiles and tombstones
+  have none; a full store evicts its oldest records first (profiles by last publish, envelopes
+  by arrival), not by profile activity; `dyapp_p2p_net::replica_key` defines the lookup keys but
+  no client writes replicas yet, and presence-driven repair does not exist;
+  `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec.

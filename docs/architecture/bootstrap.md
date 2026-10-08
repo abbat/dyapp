@@ -61,7 +61,9 @@ Each role is enabled separately in the node config:
 Every role has its own DHT key space, so replicas for a role are chosen only among the nodes
 that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
 server; a node behind NAT is a bootstrap only for peers in its local network. Mobile clients run
-the DHT in client mode: they store nothing and answer no DHT queries.
+the DHT in client mode: they store nothing and answer no DHT queries. Today `/dyapp/kad` is the
+store role's key space: `dyapp-node` without the store role runs it in client mode and serves no
+protocol; other roles get their own Kademlia protocol name when they are built.
 
 Kademlia gives every node an equal share of keys; a share weighted by the node's capacity is
 still to be designed.
@@ -112,6 +114,10 @@ same id or hash stores once), so replays need no nonce.
 Profiles, mailbox messages and signals are replicated whole to R = 5 points, replica *i* on the
 nodes closest to H(key ‖ i); large media are erasure-coded into K = 6 + M = 4 shards; thumbnails
 are stored whole ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+`dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
+SHA-256). The client writes each replica itself; a node stores only what it is sent, and a
+repeated put is a no-op, so a duplicate or retried replica write is harmless. No client does the
+replica lookup yet.
 
 Repair is driven by the owner's presence. When a user comes online, the nodes responsible for
 their keys exchange inventories, *I have* (profile version, message ids, media hashes) and
@@ -275,7 +281,7 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); empty when the store role is off |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
@@ -424,8 +430,12 @@ starts refusing and a line when it clears, not one per request:
 - **Disk**: before a profile publish or mailbox put the node reads the store's live data
   (pages in use) and the free space of its file system (`statvfs`). At `profiles_max_mb` /
   `messages_max_mb` (defaults 1024 / 4096) or at `min_free_mb` free (default 512) the write gets
-  `FULL`; reads, acks and expiry go on, so space comes back. LRU eviction before refusing is
-  planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+  `FULL`; reads, acks and expiry go on, so space comes back. A store at its size limit first
+  evicts its oldest records down to 95 % of the limit, at most 64 × 64 rows per write, and
+  refuses only if that is not enough: profiles in publish order (a republish makes a profile
+  young), envelopes in arrival order ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+  The free-space floor is not cleared by eviction, since freed pages stay in the file until
+  maintenance.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per UTC calendar month and saved to `<storage.dir>/traffic` at each
   maintenance run. With `monthly_traffic_gb` set (default 0, no cap), profile requests get
@@ -457,7 +467,7 @@ Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; an LRU by profile activity is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order. A profile retention TTL is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
 **Maintenance:** every `maintenance.interval_minutes` (default 60) `dyapp-node` calls
 `BootstrapStore::maintain`, which, one store at a time under its lock, frees at most

@@ -39,15 +39,50 @@ fn run_to_end(db: &Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
-/// Bytes of live data in a store (pages in use) and bytes free on its file system.
-fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
-    let db = lock(db)?;
+/// Bytes of live data in a store: pages in use.
+fn used(db: &Connection) -> Result<u64> {
     let pragma = |name: &str| -> Result<u64> {
         db.query_row(&format!("PRAGMA {name}"), [], |row| row.get::<_, i64>(0))
             .map(|value| value.unsigned_abs())
             .map_err(storage_error)
     };
-    let used = (pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?;
+    Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)
+}
+
+/// Rows deleted per eviction step and steps per call, so one call holds the lock briefly.
+const EVICT_ROWS: u32 = 64;
+const EVICT_STEPS: u32 = 64;
+
+/// Deletes the rows of `table` with the lowest rowid, step by step, until the store holds less
+/// than `target` bytes or the step budget runs out. Returns the rows deleted.
+fn evict(db: &Mutex<Connection>, table: &str, target: u64) -> Result<usize> {
+    let db = lock(db)?;
+    let mut evicted = 0;
+    for _ in 0..EVICT_STEPS {
+        if used(&db)? < target {
+            break;
+        }
+        let deleted = db
+            .execute(
+                &format!(
+                    "DELETE FROM {table} WHERE rowid IN \
+                     (SELECT rowid FROM {table} ORDER BY rowid LIMIT {EVICT_ROWS})"
+                ),
+                [],
+            )
+            .map_err(storage_error)?;
+        if deleted == 0 {
+            break;
+        }
+        evicted += deleted;
+    }
+    Ok(evicted)
+}
+
+/// Bytes of live data in a store and bytes free on its file system.
+fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
+    let db = lock(db)?;
+    let used = used(&db)?;
     let path = std::ffi::CString::new(db.path().unwrap_or_default()).map_err(storage_error)?;
     let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
     // SAFETY: `path` is NUL-terminated and `fs` is written by statvfs before it is read.
@@ -278,6 +313,22 @@ impl BootstrapStore {
         usage(&self.messages)
     }
 
+    /// Deletes the profiles published longest ago until `profiles.db` holds less than `target`
+    /// bytes: `INSERT OR REPLACE` gives a republished profile the highest rowid, so rowid order
+    /// is publish order. Bounded per call; returns the profiles deleted.
+    pub fn evict_profiles(&self, target: u64) -> Result<usize> {
+        evict(&self.profiles, "profiles", target)
+    }
+
+    /// Deletes the oldest envelopes (arrival order) until `messages.db` holds less than `target`
+    /// bytes. A device that fetches and acks keeps its mailbox young, so the oldest envelopes are
+    /// mostly those of mailboxes inactive longest.
+    // ponytail: arrival order, not per-mailbox activity; a spam flood ages out undelivered mail
+    // of inactive users first (ADR 0009 accepts this; spam defences are ADR 0008).
+    pub fn evict_envelopes(&self, target: u64) -> Result<usize> {
+        evict(&self.messages, "envelopes", target)
+    }
+
     /// Takes and releases the write lock of every store.
     pub fn health_check(&self) -> Result<()> {
         for db in [&self.profiles, &self.messages] {
@@ -335,6 +386,56 @@ mod tests {
                 .len(),
             0
         );
+    }
+
+    #[test]
+    fn eviction_takes_the_oldest_first() {
+        let store = temp_store();
+        let record = SignedRecord {
+            payload: vec![7; 10_000],
+            ..SignedRecord::default()
+        };
+        for id in 0..200u32 {
+            store
+                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, 0, u64::MAX)
+                .unwrap();
+        }
+        let target = store.messages_usage().unwrap().0 / 2;
+        let evicted = store.evict_envelopes(target).unwrap();
+        assert!((64..200).contains(&evicted), "{evicted}");
+        assert!(store.messages_usage().unwrap().0 < target);
+        let (left, _) = store.fetch_envelopes(&[1; 32], 1000, u64::MAX).unwrap();
+        assert_eq!(left.len(), 200 - evicted);
+        // The newest is kept; asking again below the target deletes nothing.
+        assert!(store
+            .put_envelope(&[1; 32], &199u32.to_be_bytes(), &record, 0, 0)
+            .unwrap());
+        assert_eq!(store.evict_envelopes(u64::MAX).unwrap(), 0);
+
+        // A republished profile moves to the end of the eviction order.
+        let owners: Vec<_> = (0..3).map(|_| Identity::generate()).collect();
+        let publish = |owner: &Identity, version| {
+            let profile = Profile {
+                version,
+                age: 35,
+                ..Profile::default()
+            };
+            store.put_profile(&profile.sign(owner)).unwrap();
+        };
+        for owner in &owners {
+            publish(owner, 1);
+        }
+        publish(&owners[0], 2);
+        let order: Vec<String> = lock(&store.profiles)
+            .unwrap()
+            .prepare("SELECT peer_id FROM profiles ORDER BY rowid")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        let ids: Vec<String> = [1, 2, 0].iter().map(|&i| owners[i].peer_id()).collect();
+        assert_eq!(order, ids);
     }
 
     #[test]

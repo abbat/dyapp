@@ -26,6 +26,15 @@ pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 
+/// Replicas of every profile, envelope and signal (ADR 0009).
+pub const REPLICAS: u8 = 5;
+
+/// Kademlia lookup key of replica `i` (`0..REPLICAS`) of `key`: Kademlia hashes it with SHA-256,
+/// so the replica lives on the store nodes closest to H(key ‖ i). The client writes every replica.
+pub fn replica_key(key: &[u8], i: u8) -> Vec<u8> {
+    [key, &[i]].concat()
+}
+
 /// Largest request or reply on the wire: a profile payload of up to 1 MiB plus its signature.
 pub const MAX_MESSAGE_BYTES: u64 = 2 * 1024 * 1024;
 

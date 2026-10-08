@@ -75,15 +75,28 @@ impl Service {
         tripped
     }
 
-    /// Whether a store is at its size limit or its file system at the free-space reserve.
-    fn full(&self, index: usize, usage: (u64, u64), max_mb: u64, name: &str) -> bool {
-        let (used, free) = usage;
+    /// Whether a store is at its size limit or its file system at the free-space reserve. A store
+    /// at its limit first evicts its oldest records down to 95 % of it; the free-space reserve
+    /// is not helped by eviction (freed pages stay in the file until maintenance).
+    fn full(
+        &self,
+        index: usize,
+        usage: fn(&BootstrapStore) -> crate::Result<(u64, u64)>,
+        evict: fn(&BootstrapStore, u64) -> crate::Result<usize>,
+        max_mb: u64,
+        name: &str,
+    ) -> crate::Result<bool> {
+        let max = max_mb.saturating_mul(1 << 20);
+        let (mut used, free) = usage(&self.store)?;
+        if used >= max {
+            let evicted = evict(&self.store, max - max / 20)?;
+            if evicted > 0 {
+                tracing::info!(guard = name, evicted, "evicted the oldest records");
+                used = usage(&self.store)?.0;
+            }
+        }
         let reserve = self.config.limits.min_free_mb.saturating_mul(1 << 20);
-        self.guard(
-            index,
-            used >= max_mb.saturating_mul(1 << 20) || free <= reserve,
-            name,
-        )
+        Ok(self.guard(index, used >= max || free <= reserve, name))
     }
 
     /// Whether `peer` is within its own and its IP group's request rate; a refusal is a strike.
@@ -238,7 +251,13 @@ impl Service {
             return Ok(status(Status::RateLimited));
         }
         let max_mb = self.config.limits.messages_max_mb;
-        if self.full(1, self.store.messages_usage()?, max_mb, "disk: messages") {
+        if self.full(
+            1,
+            BootstrapStore::messages_usage,
+            BootstrapStore::evict_envelopes,
+            max_mb,
+            "disk: messages",
+        )? {
             return Ok(status(Status::Full));
         }
         let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
@@ -288,7 +307,13 @@ impl Service {
             return Ok(reply(Status::TooLarge, None));
         }
         let max_mb = self.config.limits.profiles_max_mb;
-        if self.full(0, self.store.profiles_usage()?, max_mb, "disk: profiles") {
+        if self.full(
+            0,
+            BootstrapStore::profiles_usage,
+            BootstrapStore::evict_profiles,
+            max_mb,
+            "disk: profiles",
+        )? {
             return Ok(reply(Status::Full, None));
         }
         match self.store.put_profile(record) {

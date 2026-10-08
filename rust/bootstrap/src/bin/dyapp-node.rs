@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         &config.storage.messages_path(),
     )?;
 
-    let mut swarm = node::swarm(keypair, &config.limits)?;
+    let mut swarm = node::swarm(keypair, &config.limits, &config.roles)?;
     for address in &config.listen {
         swarm.listen_on(address.parse()?)?;
     }

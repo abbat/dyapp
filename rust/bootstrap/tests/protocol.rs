@@ -26,7 +26,8 @@ async fn start_with(change: impl FnOnce(&mut Limits)) -> Multiaddr {
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     change(&mut config.limits);
-    let mut swarm = node::swarm(Keypair::generate_ed25519(), &config.limits).unwrap();
+    let mut swarm =
+        node::swarm(Keypair::generate_ed25519(), &config.limits, &config.roles).unwrap();
     let service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
     swarm
         .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
