@@ -1,14 +1,15 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
 use crate::config::Limits;
-use crate::service::Service;
+use crate::service::{Peer, Service};
 use dyapp_p2p_net::{build_limited_swarm, Behaviour, BehaviourEvent, Mode};
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{Event, Message};
 use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
-use libp2p::Swarm;
+use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -24,10 +25,53 @@ pub fn swarm(keypair: Keypair, limits: &Limits) -> anyhow::Result<Swarm<Behaviou
     build_limited_swarm(keypair, Mode::Auto, connections, limits.max_streams)
 }
 
+/// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits.
+/// ponytail: a relayed connection gets the relay's group; per-hop groups need the circuit's
+/// source address, which relays do not pass on.
+pub fn ip_group(address: &Multiaddr, limits: &Limits) -> String {
+    let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
+    for protocol in address.iter() {
+        match protocol {
+            Protocol::Ip4(ip) => {
+                let ip = u128::from(u32::from(ip)) & mask(limits.ipv4_prefix, 32);
+                return format!(
+                    "{}/{}",
+                    std::net::Ipv4Addr::from(ip as u32),
+                    limits.ipv4_prefix
+                );
+            }
+            Protocol::Ip6(ip) => {
+                let ip = u128::from(ip) & mask(limits.ipv6_prefix, 128);
+                return format!("{}/{}", std::net::Ipv6Addr::from(ip), limits.ipv6_prefix);
+            }
+            _ => {}
+        }
+    }
+    address.to_string()
+}
+
+/// The request's peer, with the IP group of the connection it came on.
+fn peer(peer: PeerId, groups: &HashMap<ConnectionId, String>, connection: ConnectionId) -> Peer {
+    Peer {
+        id: peer.to_string(),
+        group: groups.get(&connection).cloned().unwrap_or_default(),
+    }
+}
+
+/// Closes every connection of a peer banned for misbehaviour; it may reconnect only to be
+/// dropped again until the ban ends.
+fn drop_banned(swarm: &mut Swarm<Behaviour>, service: &Service, peer: PeerId) {
+    if service.reputation.banned(&peer.to_string()) {
+        let _ = swarm.disconnect_peer_id(peer);
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
+    // The IP group of each open connection.
+    let mut groups: HashMap<ConnectionId, String> = HashMap::new();
     // Incoming connections refused by the connection limits since the last maintenance run.
     let mut refused = 0u64;
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
@@ -53,24 +97,28 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
-                    peer,
+                    peer: id,
+                    connection_id,
                     message: Message::Request { request, channel, .. },
-                    ..
-                })) => match service.profile(&peer.to_string(), request) {
-                    Ok(response) => {
-                        service.traffic.add(response.encoded_len() as u64);
-                        let _ = swarm.behaviour_mut().profile.send_response(channel, response);
+                })) => {
+                    match service.profile(&peer(id, &groups, connection_id), request) {
+                        Ok(response) => {
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().profile.send_response(channel, response);
+                        }
+                        // Dropping the channel fails the request; the client tries another node.
+                        Err(error) => tracing::error!(%error, "profile request failed"),
                     }
-                    // Dropping the channel fails the request; the client tries another node.
-                    Err(error) => tracing::error!(%error, "profile request failed"),
-                },
+                    drop_banned(&mut swarm, &service, id);
+                }
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
-                    peer,
+                    peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
                     let mut nonce = nonces.remove(&connection_id);
-                    let result = service.mailbox(&peer.to_string(), &mut nonce, request);
+                    let from = peer(id, &groups, connection_id);
+                    let result = service.mailbox(&from, &mut nonce, request);
                     if let Some(nonce) = nonce {
                         nonces.insert(connection_id, nonce);
                     }
@@ -81,9 +129,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                         }
                         Err(error) => tracing::error!(%error, "mailbox request failed"),
                     }
+                    drop_banned(&mut swarm, &service, id);
+                }
+                SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
+                    let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
+                    groups.insert(connection_id, group);
+                    drop_banned(&mut swarm, &service, peer_id);
                 }
                 SwarmEvent::ConnectionClosed { connection_id, .. } => {
                     nonces.remove(&connection_id);
+                    groups.remove(&connection_id);
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
                     refused += 1;
@@ -113,5 +168,33 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ip_groups_mask_the_prefix() {
+        let limits = Limits::default();
+        let group = |address: &str| ip_group(&address.parse().unwrap(), &limits);
+        assert_eq!(group("/ip4/203.0.113.77/tcp/1"), "203.0.113.0/24");
+        assert_eq!(
+            group("/ip6/2001:db8:1:2::5/udp/1/quic-v1"),
+            "2001:db8:1::/48"
+        );
+        let all = Limits {
+            ipv4_prefix: 0,
+            ipv6_prefix: 128,
+            ..Limits::default()
+        };
+        assert_eq!(
+            ip_group(&"/ip4/1.2.3.4".parse().unwrap(), &all),
+            "0.0.0.0/0"
+        );
+        let ip6 = "/ip6/2001:db8::5".parse().unwrap();
+        assert_eq!(ip_group(&ip6, &all), "2001:db8::5/128");
+        assert_eq!(group("/memory/5"), "/memory/5");
     }
 }

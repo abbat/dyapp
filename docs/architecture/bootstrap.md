@@ -195,7 +195,8 @@ Resource guards cap disk per store and for media (with a free-space reserve), tr
 an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
 another replica. Implemented: the disk, monthly-traffic and connection guards in
-[Resource guards](#resource-guards); write quotas, media, rates and a memory threshold are planned.
+[Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting);
+media, byte rates and a memory threshold are planned.
 
 The operator may refuse service to any user through a deny list. Lists may be shared between
 operators but are advisory: a node never has to follow another's list. Removing illegal media
@@ -228,7 +229,8 @@ Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), cipherte
 ```
 
 The node stores the signed record as received, once per (mailbox, id), and never learns the
-sender's identity: the sender key only proves someone signed it (per-key quotas are planned).
+sender's identity: the sender key only proves someone signed it; puts are limited per sender key
+([Rate Limiting](#rate-limiting)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
 (`dyapp-node` deletes expired envelopes every hour) → fetched oldest first.
@@ -289,10 +291,10 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   domain or one without a challenge gets `DENIED`, and the client asks for a new challenge.
   Nonces live in memory and go with the connection or a restart.
 - **Not yet:** `watch` is ignored (no `/dyapp/mailbox-push`), acks are not forwarded to other
-  replicas, the limits are constants rather than config, and there are no per-sender quotas
-  ([Mailboxes](#mailboxes)).
-- **Profile and mailbox requests are rate-limited** per remote libp2p peer ID (`RATE_LIMITED`);
-  `info` is not. A node without the store role answers `UNSUPPORTED` on both.
+  replicas, and the size limits are constants rather than config ([Mailboxes](#mailboxes)).
+- **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
+  also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
+  `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
 - **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
   planned once request latency shows.
@@ -394,12 +396,25 @@ over-limit request gets `STATUS_RATE_LIMITED`.
 
 Scope and limits:
 
-- Every `/dyapp/profile` and `/dyapp/mailbox` request counts against the remote libp2p peer ID;
-  `/dyapp/node` `info` is not limited.
-- libp2p keys are free to generate: a client that opens connections with new keys gets new
-  buckets. The limiter provides **no** Sybil resistance; per-IP-group quotas are planned.
-- There is no per-IP limit. Once the map holds 10 000 buckets, buckets idle for a second
-  (refilled, so dropping them changes nothing) are removed before a new one is added.
+- Every `/dyapp/profile` and `/dyapp/mailbox` request counts against two buckets: the remote
+  libp2p peer ID (`requests_per_second`) and its IP group (`ip_group_requests_per_second`,
+  default 1000), the connection's remote IP masked to `ipv4_prefix` / `ipv6_prefix` bits
+  (defaults /24 and /48). `/dyapp/node` `info` is not limited.
+- A mailbox `put` also counts against the envelope's sender key (`sender_puts_per_second`,
+  default 10), after the signature is checked.
+- libp2p keys and sender keys are free to generate; the IP-group bucket bounds what a client
+  gains by rotating them. A relayed connection gets the relay's group. There is no Sybil
+  resistance beyond that.
+- Once a map holds 10 000 buckets, buckets idle for a second (refilled, so dropping them changes
+  nothing) are removed before a new one is added.
+
+**Local peer reputation.** Each refusal by the peer or IP-group bucket and each `DENIED` reply
+(a bad signature, a replayed or missing mailbox nonce) is a strike against the peer ID. At
+`strikes_to_ban` strikes (default 100), each within `ban_minutes` (default 10) of the previous one,
+the peer is banned: the node closes its connections, closes any new ones, and answers
+`RATE_LIMITED` to requests still in flight, until `ban_minutes` pass without a strike. Scores live
+in memory, go with a restart and are never shared with other nodes
+([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 
 ## Resource guards
 
@@ -463,13 +478,15 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `limits.{message_ttl_hours,requests_per_second}`,
 `limits.{profiles_max_mb,messages_max_mb,min_free_mb,monthly_traffic_gb}`,
 `limits.{max_connections,max_connections_per_peer,max_streams}`
-([Resource guards](#resource-guards)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
+([Resource guards](#resource-guards)),
+`limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
+([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
 [Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
 `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` ([Served protocol](#served-protocol)). Only
 the `store` role is accepted.
 
-Planned: a maintenance window and per-store schedules, write quotas and the remaining resource guards, the media directory, TURN ports,
+Planned: a maintenance window and per-store schedules, the remaining resource guards, the media directory, TURN ports,
 store retention.
 
 ## Deployment Model
@@ -500,7 +517,7 @@ described in [Target Design](#target-design--planned).
 ✅ See peer IDs, client IP addresses, who messages whom and when
 ✅ See every profile field (public by design)
 ✅ See message content too, until client crypto exists
-✅ Rate-limit profile requests per libp2p peer ID (no Sybil resistance, see [Rate Limiting](#rate-limiting))
+✅ Rate-limit requests per libp2p peer ID and IP group and ban misbehaving peers locally (no Sybil resistance, see [Rate Limiting](#rate-limiting))
 
 DHT node role is not implemented.
 

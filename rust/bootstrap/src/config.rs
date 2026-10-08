@@ -59,6 +59,16 @@ pub struct Limits {
     pub max_connections_per_peer: u32,
     /// Concurrent streams per connection and protocol.
     pub max_streams: usize,
+    /// Requests per second shared by all peers of one IP group: IPv4 and IPv6 addresses with
+    /// the same leading `ipv4_prefix` / `ipv6_prefix` bits.
+    pub ip_group_requests_per_second: u32,
+    pub ipv4_prefix: u8,
+    pub ipv6_prefix: u8,
+    /// Envelopes per second accepted from one sender key.
+    pub sender_puts_per_second: u32,
+    /// Refused floods and bad signatures that ban a peer for `ban_minutes`.
+    pub strikes_to_ban: u32,
+    pub ban_minutes: u32,
 }
 
 /// Store maintenance: see `BootstrapStore::maintain`.
@@ -117,6 +127,12 @@ impl Default for Limits {
             max_connections: 1000,
             max_connections_per_peer: 4,
             max_streams: 16,
+            ip_group_requests_per_second: 1000,
+            ipv4_prefix: 24,
+            ipv6_prefix: 48,
+            sender_puts_per_second: 10,
+            strikes_to_ban: 100,
+            ban_minutes: 10,
         }
     }
 }
@@ -209,6 +225,16 @@ impl NodeConfig {
         let l = &self.limits;
         if l.max_connections < 1 || l.max_connections_per_peer < 1 || l.max_streams < 1 {
             anyhow::bail!("limits.max_connections, max_connections_per_peer and max_streams must be at least 1");
+        }
+        if l.ip_group_requests_per_second < 1
+            || l.sender_puts_per_second < 1
+            || l.strikes_to_ban < 1
+            || l.ban_minutes < 1
+        {
+            anyhow::bail!("limits.ip_group_requests_per_second, sender_puts_per_second, strikes_to_ban and ban_minutes must be at least 1");
+        }
+        if l.ipv4_prefix > 32 || l.ipv6_prefix > 128 {
+            anyhow::bail!("limits.ipv4_prefix must be at most 32 and ipv6_prefix at most 128");
         }
         if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
             anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");

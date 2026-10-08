@@ -120,6 +120,12 @@ monthly_traffic_gb = 0        # 0 = no cap; profiles shed from 90 %, mailbox at 
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
+ip_group_requests_per_second = 1000   # shared by all peers of one IP group
+ipv4_prefix = 24              # IP group: leading bits of the remote address
+ipv6_prefix = 48
+sender_puts_per_second = 10   # envelopes per sender key
+strikes_to_ban = 100          # refused floods and bad signatures that ban a peer
+ban_minutes = 10
 
 [maintenance]
 interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
@@ -272,9 +278,11 @@ node's libp2p key; there is no certificate authority.
 
 **The node protocol is public** (no client authentication):
 - Anyone can read any profile; only the owner's signature can store, replace or delete one
-- Profile requests are rate-limited per libp2p peer ID (`limits.requests_per_second`, default
-  100/s); new keys bypass it, and per-IP limits are planned. Details:
-  [served protocol](../architecture/bootstrap.md#served-protocol)
+- Profile and mailbox requests are rate-limited per libp2p peer ID (`limits.requests_per_second`,
+  default 100/s) and per IP group (`ip_group_requests_per_second`, default 1000/s over a /24 or
+  /48); envelope puts also per sender key. Peers that keep hitting the limits or sending bad
+  signatures are banned locally for `ban_minutes`. Details:
+  [rate limiting](../architecture/bootstrap.md#rate-limiting)
 
 **Admin API (future):**
 - Cleanup, monitoring, replication status

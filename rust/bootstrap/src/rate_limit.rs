@@ -42,6 +42,49 @@ impl PeerRateLimiter {
     }
 }
 
+/// Local misbehaviour score per peer: refused floods and bad signatures. Nothing is shared with
+/// other nodes. ponytail: keyed by peer ID only, which a client rotates freely; the IP-group
+/// limiter bounds what rotation buys.
+pub struct Reputation {
+    strikes: u32,
+    ban: Duration,
+    peers: Mutex<HashMap<String, (u32, Instant)>>,
+}
+
+impl Reputation {
+    /// A peer with `strikes` strikes, each less than `ban` after the previous one, is banned
+    /// until `ban` passes without a strike.
+    pub fn new(strikes: u32, ban: Duration) -> Self {
+        Self {
+            strikes,
+            ban,
+            peers: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Counts a strike; returns true when it bans the peer.
+    pub fn strike(&self, peer: &str) -> bool {
+        let now = Instant::now();
+        let mut peers = self.peers.lock().unwrap();
+        if peers.len() >= MAX_BUCKETS {
+            peers.retain(|_, (_, last)| now - *last < self.ban);
+        }
+        let (count, last) = peers.entry(peer.to_string()).or_insert((0, now));
+        if now - *last >= self.ban {
+            *count = 0;
+        }
+        (*count, *last) = (count.saturating_add(1), now);
+        *count == self.strikes
+    }
+
+    pub fn banned(&self, peer: &str) -> bool {
+        let peers = self.peers.lock().unwrap();
+        peers
+            .get(peer)
+            .is_some_and(|(count, last)| *count >= self.strikes && last.elapsed() < self.ban)
+    }
+}
+
 /// Node protocol bytes in and out this calendar month (UTC), kept in `file` across restarts.
 pub struct Traffic {
     cap: u64,
@@ -106,6 +149,18 @@ mod tests {
             Traffic::new(0, PathBuf::from("/nonexistent")).add(u64::MAX),
             0
         );
+    }
+
+    #[test]
+    fn strikes_ban_until_quiet() {
+        let reputation = Reputation::new(2, Duration::from_millis(300));
+        assert!(!reputation.strike("bad"));
+        assert!(!reputation.banned("bad"));
+        assert!(reputation.strike("bad"));
+        assert!(reputation.banned("bad") && !reputation.banned("good"));
+        std::thread::sleep(Duration::from_millis(350));
+        assert!(!reputation.banned("bad"));
+        assert!(!reputation.strike("bad"), "old strikes were kept");
     }
 
     #[test]

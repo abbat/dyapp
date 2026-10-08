@@ -3,7 +3,7 @@
 
 use crate::{
     config::Role,
-    rate_limit::{PeerRateLimiter, Traffic},
+    rate_limit::{PeerRateLimiter, Reputation, Traffic},
     BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
@@ -13,6 +13,7 @@ use dyapp_p2p_net::proto::{
 };
 use prost::Message;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 /// Largest signed envelope payload a mailbox accepts.
 pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
@@ -26,9 +27,18 @@ const MAX_FETCH: u32 = 100;
 /// is shed only at the cap. ponytail: media and search, once served, are shed before profiles.
 const SHED_PROFILES: u64 = 90;
 
+/// The remote side of a request: its libp2p peer ID and IP group (see `node::ip_group`).
+pub struct Peer {
+    pub id: String,
+    pub group: String,
+}
+
 pub struct Service {
     pub store: BootstrapStore,
     pub rate_limiter: PeerRateLimiter,
+    pub groups: PeerRateLimiter,
+    pub senders: PeerRateLimiter,
+    pub reputation: Reputation,
     pub traffic: Traffic,
     pub config: NodeConfig,
     /// Guards that refused the last request they checked: profiles full, messages full,
@@ -38,10 +48,15 @@ pub struct Service {
 
 impl Service {
     pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
-        let cap = config.limits.monthly_traffic_gb.saturating_mul(1 << 30);
+        let l = &config.limits;
+        let cap = l.monthly_traffic_gb.saturating_mul(1 << 30);
+        let ban = Duration::from_secs(u64::from(l.ban_minutes) * 60);
         Self {
             store,
-            rate_limiter: PeerRateLimiter::new(config.limits.requests_per_second),
+            rate_limiter: PeerRateLimiter::new(l.requests_per_second),
+            groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
+            senders: PeerRateLimiter::new(l.sender_puts_per_second),
+            reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(cap, config.storage.dir.join("traffic")),
             config,
             tripped: Default::default(),
@@ -69,6 +84,24 @@ impl Service {
             used >= max_mb.saturating_mul(1 << 20) || free <= reserve,
             name,
         )
+    }
+
+    /// Whether `peer` is within its own and its IP group's request rate; a refusal is a strike.
+    fn admit(&self, peer: &Peer) -> bool {
+        let admitted = !self.reputation.banned(&peer.id)
+            && self.rate_limiter.check_limit(&peer.id)
+            && self.groups.check_limit(&peer.group);
+        if !admitted {
+            self.strike(peer);
+        }
+        admitted
+    }
+
+    /// Counts misbehaviour of `peer`; the node drops a banned peer's connections.
+    fn strike(&self, peer: &Peer) {
+        if self.reputation.strike(&peer.id) {
+            tracing::warn!(peer = peer.id, group = peer.group, "peer banned");
+        }
     }
 
     pub fn node(&self, request: NodeRequest) -> NodeResponse {
@@ -114,7 +147,7 @@ impl Service {
     /// this or another connection. Errors as in [`Service::profile`].
     pub fn mailbox(
         &self,
-        peer: &str,
+        peer: &Peer,
         nonce: &mut Option<[u8; 32]>,
         request: MailboxRequest,
     ) -> crate::Result<MailboxResponse> {
@@ -122,9 +155,21 @@ impl Service {
             return Ok(status(Status::Unsupported));
         }
         let used = self.traffic.add(request.encoded_len() as u64);
-        if self.guard(3, used >= 100, "traffic: mailbox") || !self.rate_limiter.check_limit(peer) {
+        if self.guard(3, used >= 100, "traffic: mailbox") || !self.admit(peer) {
             return Ok(status(Status::RateLimited));
         }
+        let response = self.mailbox_request(nonce, request)?;
+        if response.status == i32::from(Status::Denied) {
+            self.strike(peer);
+        }
+        Ok(response)
+    }
+
+    fn mailbox_request(
+        &self,
+        nonce: &mut Option<[u8; 32]>,
+        request: MailboxRequest,
+    ) -> crate::Result<MailboxResponse> {
         match request.request {
             Some(mailbox_request::Request::Challenge(_)) => {
                 let mut fresh = [0; 32];
@@ -189,6 +234,9 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
+        if !self.senders.check_limit(&hex(&record.public_key)) {
+            return Ok(status(Status::RateLimited));
+        }
         let max_mb = self.config.limits.messages_max_mb;
         if self.full(1, self.store.messages_usage()?, max_mb, "disk: messages") {
             return Ok(status(Status::Full));
@@ -204,20 +252,24 @@ impl Service {
         Ok(status(if stored { Status::Ok } else { Status::Full }))
     }
 
-    /// `peer` is the remote libp2p peer, the key for rate limiting. A storage failure is an
+    /// `peer` is the key for rate limiting and strikes. A storage failure is an
     /// error: the caller drops the request and the client tries another node.
-    pub fn profile(&self, peer: &str, request: ProfileRequest) -> crate::Result<ProfileResponse> {
+    pub fn profile(&self, peer: &Peer, request: ProfileRequest) -> crate::Result<ProfileResponse> {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
         }
         let used = self.traffic.add(request.encoded_len() as u64);
-        if self.guard(2, used >= SHED_PROFILES, "traffic: profiles")
-            || !self.rate_limiter.check_limit(peer)
-        {
+        if self.guard(2, used >= SHED_PROFILES, "traffic: profiles") || !self.admit(peer) {
             return Ok(reply(Status::RateLimited, None));
         }
         match request.request {
-            Some(profile_request::Request::Publish(record)) => self.publish(&record),
+            Some(profile_request::Request::Publish(record)) => {
+                let response = self.publish(&record)?;
+                if response.status == i32::from(Status::Denied) {
+                    self.strike(peer);
+                }
+                Ok(response)
+            }
             Some(profile_request::Request::Get(get)) => {
                 let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
                     return Ok(reply(Status::Invalid, None));
@@ -301,6 +353,13 @@ mod tests {
         service_with(|_| {})
     }
 
+    fn peer(id: &str) -> Peer {
+        Peer {
+            id: id.into(),
+            group: "g".into(),
+        }
+    }
+
     fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
         let dir = format!("/tmp/ai/test-service-{}", uuid::Uuid::new_v4());
         let mut config = NodeConfig::default();
@@ -342,14 +401,14 @@ mod tests {
         .sign(&identity);
 
         assert_eq!(
-            status(&service.profile("p", get(id.clone())).unwrap()),
+            status(&service.profile(&peer("p"), get(id.clone())).unwrap()),
             Status::NotFound
         );
         assert_eq!(
-            status(&service.profile("p", publish(v2.clone())).unwrap()),
+            status(&service.profile(&peer("p"), publish(v2.clone())).unwrap()),
             Status::Ok
         );
-        let got = service.profile("p", get(id.clone())).unwrap();
+        let got = service.profile(&peer("p"), get(id.clone())).unwrap();
         assert_eq!((status(&got), got.record), (Status::Ok, Some(v2.clone())));
 
         let v1 = Profile {
@@ -357,7 +416,7 @@ mod tests {
             ..Profile::default()
         }
         .sign(&identity);
-        let stale = service.profile("p", publish(v1)).unwrap();
+        let stale = service.profile(&peer("p"), publish(v1)).unwrap();
         assert_eq!(
             (status(&stale), stale.record),
             (Status::Stale, Some(v2.clone()))
@@ -366,16 +425,16 @@ mod tests {
         let mut forged = v2;
         forged.payload.push(0);
         assert_eq!(
-            status(&service.profile("p", publish(forged)).unwrap()),
+            status(&service.profile(&peer("p"), publish(forged)).unwrap()),
             Status::Denied
         );
         assert_eq!(
-            status(&service.profile("p", get(vec![1; 5])).unwrap()),
+            status(&service.profile(&peer("p"), get(vec![1; 5])).unwrap()),
             Status::Invalid
         );
         let empty = ProfileRequest { request: None };
         assert_eq!(
-            status(&service.profile("p", empty).unwrap()),
+            status(&service.profile(&peer("p"), empty).unwrap()),
             Status::Unsupported
         );
     }
@@ -388,7 +447,7 @@ mod tests {
         let request = MailboxRequest {
             request: Some(request),
         };
-        service.mailbox("p", nonce, request).unwrap()
+        service.mailbox(&peer("p"), nonce, request).unwrap()
     }
 
     fn challenge(service: &Service, nonce: &mut Option<[u8; 32]>) -> Vec<u8> {
@@ -542,20 +601,20 @@ mod tests {
 
         let service = service_with(|l| (l.profiles_max_mb, l.messages_max_mb) = (0, 0));
         assert_eq!(
-            status(&service.profile("p", profile()).unwrap()),
+            status(&service.profile(&peer("p"), profile()).unwrap()),
             Status::Full
         );
         let response = mailbox(&service, &mut None, put.clone());
         assert_eq!(mailbox_status(&response), Status::Full);
         let service = service_with(|l| l.min_free_mb = u64::MAX);
         assert_eq!(
-            status(&service.profile("p", profile()).unwrap()),
+            status(&service.profile(&peer("p"), profile()).unwrap()),
             Status::Full
         );
 
         let service = service_with(|l| l.monthly_traffic_gb = 1);
         service.traffic.add((1 << 30) / 100 * 92);
-        let limited = status(&service.profile("p", get(vec![0; 32])).unwrap());
+        let limited = status(&service.profile(&peer("p"), get(vec![0; 32])).unwrap());
         assert_eq!(limited, Status::RateLimited);
         let response = mailbox(&service, &mut None, put.clone());
         assert_eq!(
@@ -569,20 +628,84 @@ mod tests {
     }
 
     #[test]
+    fn group_and_sender_quotas_and_bans() {
+        let service = service_with(|l| {
+            (l.ip_group_requests_per_second, l.strikes_to_ban) = (2, 2);
+            l.sender_puts_per_second = 1;
+        });
+        let id = || get(vec![0; 32]);
+        // Two peer IDs in one IP group share its quota; another group is unaffected.
+        assert_eq!(
+            status(&service.profile(&peer("a"), id()).unwrap()),
+            Status::NotFound
+        );
+        assert_eq!(
+            status(&service.profile(&peer("b"), id()).unwrap()),
+            Status::NotFound
+        );
+        let limited = service.profile(&peer("c"), id()).unwrap();
+        assert_eq!(status(&limited), Status::RateLimited);
+        let other = Peer {
+            id: "d".into(),
+            group: "h".into(),
+        };
+        assert_eq!(
+            status(&service.profile(&other, id()).unwrap()),
+            Status::NotFound
+        );
+
+        let sender = Identity::generate();
+        let put = |id: u8| {
+            let envelope = proto::Envelope {
+                id: vec![id; 16],
+                mailbox: vec![1; 32],
+                ciphertext: vec![1],
+            };
+            mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
+        };
+        let sender_peer = Peer {
+            id: "e".into(),
+            group: "i".into(),
+        };
+        let put = |id| {
+            let request = MailboxRequest {
+                request: Some(put(id)),
+            };
+            mailbox_status(&service.mailbox(&sender_peer, &mut None, request).unwrap())
+        };
+        assert_eq!((put(1), put(2)), (Status::Ok, Status::RateLimited));
+
+        // A second forged record bans the peer: even a valid request is refused.
+        let mut forged = Profile::default().sign(&sender);
+        forged.payload.push(0);
+        let bad = |group: &str| Peer {
+            id: "f".into(),
+            group: group.into(),
+        };
+        for group in ["j", "k"] {
+            let response = service.profile(&bad(group), publish(forged.clone()));
+            assert_eq!(status(&response.unwrap()), Status::Denied);
+        }
+        assert!(service.reputation.banned("f"));
+        let refused = service.profile(&bad("l"), id()).unwrap();
+        assert_eq!(status(&refused), Status::RateLimited);
+    }
+
+    #[test]
     fn rate_limit_and_info() {
         let mut service = service();
         service.rate_limiter = PeerRateLimiter::new(1);
         let id = vec![0; 32];
         assert_eq!(
-            status(&service.profile("p", get(id.clone())).unwrap()),
+            status(&service.profile(&peer("p"), get(id.clone())).unwrap()),
             Status::NotFound
         );
         assert_eq!(
-            status(&service.profile("p", get(id.clone())).unwrap()),
+            status(&service.profile(&peer("p"), get(id.clone())).unwrap()),
             Status::RateLimited
         );
         assert_eq!(
-            status(&service.profile("q", get(id)).unwrap()),
+            status(&service.profile(&peer("q"), get(id)).unwrap()),
             Status::NotFound
         );
 
