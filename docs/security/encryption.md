@@ -34,15 +34,15 @@ FFI does not expose it and no app keeps it.
 
 ## Threat model
 
-What an attacker can do today, by layer:
+Attackers, assets and every defence with its status: [Threat Model](threat-model.md). By layer:
 
 | Layer | Target property | Today |
 |-------|-----------------|-------|
-| Transport (client ↔ bootstrap, peer ↔ peer) | Confidentiality and integrity in transit | None: plaintext HTTP; QUIC not implemented |
+| Transport (client ↔ bootstrap, peer ↔ peer) | Confidentiality and integrity in transit | libp2p QUIC (TLS 1.3) and TCP with Noise |
 | Payload (message / frame) | Only the recipient can read; sender authenticity | None: payload is plaintext, signatures are not checked |
 | Profile | Only the owner can publish or change it | Signed by the owner's identity key; a node can still withhold it or serve an older signed version |
 | Storage (bootstrap SQLite) | Operator cannot read content | None: operator reads everything |
-| Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Messages: none, any client can write or delete any message |
+| Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Mailboxes: only the device reads or acks; anyone may put |
 | Metadata | Hide who talks to whom and when | None: sender, recipient and timestamps are visible to bootstrap and network ([field table](privacy.md)) |
 
 ## Target design (not implemented)

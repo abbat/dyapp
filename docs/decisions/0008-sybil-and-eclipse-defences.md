@@ -67,7 +67,9 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
 - Proof-of-work slows the first start of an index node (desktop only).
 - Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
   local reputation, replica placement and store pools.
-- Not implemented: `rust/p2p-net` has a plain libp2p Kademlia node without these defences; the
+- Not implemented: `rust/p2p-net` has a plain libp2p Kademlia node without these defences, though
+  it joins through seeds (`/dnsaddr` too) and `dyapp-node` caches peers across restarts; no seed
+  list is built in. The
   bootstrap store has no per-type pools. Nodes rate-limit per peer ID, IP group and sender key
   and keep a local, unshared ban score per peer
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).
