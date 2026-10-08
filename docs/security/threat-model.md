@@ -41,7 +41,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Disk, traffic or connection exhaustion | Store size caps, free-space floor, monthly traffic cap, connection and stream limits | ✅ Implemented ([resource guards](../architecture/bootstrap.md#resource-guards)); byte rates and a memory threshold planned |
 | Oversized or malformed messages | 2 MiB wire cap, protobuf decoding, unknown variants answered `UNSUPPORTED` | ✅ Implemented |
 | Operator withholds or drops data | R = 5 replicas on independent nodes; the client tries another replica ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) | ❌ Planned: a node stores only what it is sent |
-| Abuser keeps using one node | Operator deny list | ❌ Planned (design open) |
+| Abuser keeps using one node | Operator deny list of peer IDs, IP groups and key hashes | ✅ Implemented ([deny list](../architecture/bootstrap.md#deny-list)); a key is free to regenerate, so IP-group quotas carry the rest |
 | Sybil eclipse of a key or a node | Node-ID proof of work, routing-table IP diversity, disjoint lookups, replicas at H(key ‖ i), local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | ❌ Planned: the DHT is plain Kademlia |
 | No way in without one seed | Several seeds, `/dnsaddr` records, a cache of peers seen before | ⚠️ Partial: seeds and the node's peer cache exist; no list ships ([joining](../architecture/p2p-networking.md)) |
 | Search index flooded with fake profiles | Profile proof of work bound to the owner's key ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | ❌ Planned: there is no search |

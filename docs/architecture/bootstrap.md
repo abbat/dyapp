@@ -76,7 +76,7 @@ One libp2p request-response protocol per service, protobuf requests and replies,
 `/dyapp/mailbox-push` and `/dyapp/media` ([schema](protobuf-schema.md#node-protocol)); the other services get their
 schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
 `unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
-`stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`.
+`stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`, `refused`.
 
 | Protocol | Role | Requests |
 |----------|------|----------|
@@ -229,9 +229,9 @@ another replica. Implemented: the disk, monthly-traffic and connection guards in
 [Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting);
 byte rates and a memory threshold are planned.
 
-The operator may refuse service to any user through a deny list. Lists may be shared between
-operators but are advisory: a node never has to follow another's list. Removing illegal media
-on request is still to be designed.
+The operator may refuse service to any user through a deny list (implemented, see
+[Deny list](#deny-list)). Lists may be shared between operators but are advisory: a node never
+has to follow another's list. Removing illegal media on request is still to be designed.
 
 ### Operating a node
 
@@ -340,6 +340,16 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   (`limits.media_requests_per_second`, default 10, no strike) besides the shared ones. A node
   without the media role answers `UNSUPPORTED`. Ranges, `downloaded`, media replication and
   repair are planned.
+- <a id="deny-list"></a>**Deny list.** `<storage.dir>/deny` holds one entry per line: a libp2p
+  peer ID, an IP group as the node computes it (for example `203.0.113.0/24` with the default
+  prefix) or the lowercase hex SHA-256 of an identity or device key; `#` starts a comment. The
+  node reads it at start and on SIGHUP and logs the entry count and how many were added and
+  removed; an unreadable file keeps the old list. A listed peer or IP group gets `REFUSED` on
+  every profile, mailbox and media request; a listed key gets `REFUSED` on its profile publish
+  and get, on puts it signs or addressed to its mailbox, on its fetch and on its media `keep` and
+  `put`. `REFUSED` is no strike, so the client moves to another replica; one node's list removes
+  no one from the network. Acks are still served, and a `get` of a listed owner's blob already
+  stored is still answered (blobs are not indexed by owner on read).
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).

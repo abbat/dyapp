@@ -14,6 +14,7 @@ use dyapp_p2p_net::proto::{
     ProfileRequest, ProfileResponse, Status,
 };
 use prost::Message;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -51,6 +52,8 @@ pub struct Service {
     pub reputation: Reputation,
     pub traffic: Traffic,
     pub config: NodeConfig,
+    /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
+    pub deny: HashSet<String>,
     /// Guards that refused the last request they checked: profiles full, messages full,
     /// profiles shed, mailbox shed, media full, media shed. A change is logged once, not per
     /// request.
@@ -72,6 +75,7 @@ impl Service {
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(cap, config.storage.dir.join("traffic")),
             config,
+            deny: HashSet::new(),
             tripped: Default::default(),
         }
     }
@@ -121,6 +125,22 @@ impl Service {
             self.strike(peer);
         }
         admitted
+    }
+
+    /// Whether the deny list names `peer` or its IP group. A refusal is no strike: a listed
+    /// user is the operator's choice, not misbehaviour.
+    fn refused(&self, peer: &Peer) -> bool {
+        self.deny.contains(&peer.id) || self.deny.contains(&peer.group)
+    }
+
+    /// Whether the deny list names `address` (an identity's peer ID or a mailbox address).
+    fn listed(&self, address: &[u8]) -> bool {
+        self.deny.contains(&hex(address))
+    }
+
+    /// Whether the deny list names the hash of `key`.
+    fn listed_key(&self, key: &[u8]) -> bool {
+        <[u8; 32]>::try_from(key).is_ok_and(|key| self.listed(&dyapp_identity::key_hash(&key)))
     }
 
     /// Counts misbehaviour of `peer`; the node drops a banned peer's connections.
@@ -186,6 +206,9 @@ impl Service {
         if self.guard(3, used >= 100, "traffic: mailbox") || !self.admit(peer) {
             return Ok(status(Status::RateLimited));
         }
+        if self.refused(peer) {
+            return Ok(status(Status::Refused));
+        }
         let response = self.mailbox_request(nonce, request)?;
         if response.status == i32::from(Status::Denied) {
             self.strike(peer);
@@ -219,6 +242,9 @@ impl Service {
                 else {
                     return Ok(status(Status::Denied));
                 };
+                if self.listed(&mailbox) {
+                    return Ok(status(Status::Refused));
+                }
                 let limit = match fetch.limit {
                     0 => MAX_FETCH,
                     limit => limit.min(MAX_FETCH),
@@ -270,6 +296,9 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
+        if self.listed_key(&record.public_key) || self.listed(&envelope.mailbox) {
+            return Ok(status(Status::Refused));
+        }
         if !self.senders.check_limit(&hex(&record.public_key)) {
             return Ok(status(Status::RateLimited));
         }
@@ -304,6 +333,9 @@ impl Service {
         if self.guard(2, used >= SHED_PROFILES, "traffic: profiles") || !self.admit(peer) {
             return Ok(reply(Status::RateLimited, None));
         }
+        if self.refused(peer) {
+            return Ok(reply(Status::Refused, None));
+        }
         match request.request {
             Some(profile_request::Request::Publish(record)) => {
                 let response = self.publish(&record)?;
@@ -316,6 +348,9 @@ impl Service {
                 let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
                     return Ok(reply(Status::Invalid, None));
                 };
+                if self.listed(&peer_id) {
+                    return Ok(reply(Status::Refused, None));
+                }
                 Ok(match self.store.get_profile(&hex(&peer_id))? {
                     Some(record) => reply(Status::Ok, Some(record)),
                     None => reply(Status::NotFound, None),
@@ -328,6 +363,9 @@ impl Service {
     fn publish(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
         if record.payload.len() > dyapp_profile::MAX_PAYLOAD_LEN {
             return Ok(reply(Status::TooLarge, None));
+        }
+        if self.listed_key(&record.public_key) {
+            return Ok(reply(Status::Refused, None));
         }
         let max_mb = self.config.limits.profiles_max_mb;
         if self.full(
@@ -370,6 +408,9 @@ impl Service {
         {
             return Ok(media_status(Status::RateLimited));
         }
+        if self.refused(peer) {
+            return Ok(media_status(Status::Refused));
+        }
         let l = &self.config.limits;
         Ok(match request.request {
             Some(media_request::Request::Keep(record)) => {
@@ -379,6 +420,9 @@ impl Service {
                     self.strike(peer);
                     return Ok(media_status(Status::Denied));
                 };
+                if self.listed(&owner) {
+                    return Ok(media_status(Status::Refused));
+                }
                 if keep.hashes.len() > MAX_KEEP || keep.hashes.iter().any(|h| h.len() != 32) {
                     return Ok(media_status(Status::Invalid));
                 }
@@ -397,6 +441,9 @@ impl Service {
                 if put.owner.len() != 32 {
                     return Ok(media_status(Status::Invalid));
                 }
+                if self.listed(&put.owner) {
+                    return Ok(media_status(Status::Refused));
+                }
                 // ponytail: sums all blobs per put; keep a running total if puts get slow.
                 let (used, free) = media.usage()?;
                 let full = used >= l.media_max_mb.saturating_mul(1 << 20)
@@ -411,6 +458,8 @@ impl Service {
                     Put::OverQuota => Status::Full,
                 })
             }
+            // ponytail: a get names no owner, so a listed owner's blobs already stored are still
+            // served; index blobs by owner if operators need them hidden.
             Some(media_request::Request::Get(get)) => {
                 if get.hash.len() != 32 {
                     return Ok(media_status(Status::Invalid));
@@ -596,6 +645,39 @@ mod tests {
 
     fn mailbox_status(response: &MailboxResponse) -> Status {
         Status::try_from(response.status).unwrap()
+    }
+
+    #[test]
+    fn deny_list_refuses_without_strikes() {
+        let mut service = service_with(|l| l.strikes_to_ban = 1);
+        let (listed, device) = (Identity::generate(), Identity::generate());
+        let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
+        let listed_id = dyapp_identity::key_hash(&listed.public_key()).to_vec();
+        service.deny = [hex(&listed_id), hex(&address), "bad".into(), "g6".into()].into();
+        let profile = |p: &str, request| status(&service.profile(&peer(p), request).unwrap());
+        let record = Profile::default().sign(&listed);
+        assert_eq!(profile("p", publish(record)), Status::Refused);
+        assert_eq!(profile("p", get(listed_id)), Status::Refused);
+        assert_eq!(profile("bad", get(vec![1; 32])), Status::Refused);
+        let group = Peer {
+            id: "q".into(),
+            group: "g6".into(),
+        };
+        let response = service.profile(&group, get(vec![1; 32])).unwrap();
+        assert_eq!(status(&response), Status::Refused);
+        let envelope = proto::Envelope {
+            id: vec![1; 16],
+            mailbox: address,
+            ciphertext: vec![1],
+        };
+        let to_listed = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+        let put = mailbox_request::Request::Put(to_listed);
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut None, put)),
+            Status::Refused
+        );
+        assert!(!service.reputation.banned("p"));
+        assert_eq!(profile("p", get(vec![1; 32])), Status::NotFound);
     }
 
     #[test]

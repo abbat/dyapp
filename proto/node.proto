@@ -23,10 +23,13 @@ enum Status {
   // The store is at its limit; try another replica.
   STATUS_FULL = 5;
   STATUS_RATE_LIMITED = 6;
-  // Bad signature, wrong key or refused by the operator.
+  // Bad signature or wrong key.
   STATUS_DENIED = 7;
   STATUS_UNSUPPORTED = 8;
   STATUS_INVALID = 9;
+  // The operator's deny list names the peer, its IP group or a key in the request; try another
+  // replica.
+  STATUS_REFUSED = 10;
 }
 
 enum Role {

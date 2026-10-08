@@ -291,6 +291,9 @@ node's libp2p key; there is no certificate authority.
   /48); envelope puts also per sender key. Peers that keep hitting the limits or sending bad
   signatures are banned locally for `ban_minutes`. Details:
   [rate limiting](../architecture/bootstrap.md#rate-limiting)
+- To stop serving an abuser, add their peer ID, IP group or key hash to `<storage.dir>/deny`
+  and send SIGHUP (`systemctl reload` once the unit exists); they get `STATUS_REFUSED` here and
+  use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
 
 **Admin API (future):**
 - Cleanup, monitoring, replication status

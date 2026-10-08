@@ -177,6 +177,11 @@ impl StorageConfig {
         self.dir.join("peers")
     }
 
+    /// The operator's deny list, re-read on SIGHUP.
+    pub fn deny_path(&self) -> PathBuf {
+        self.dir.join("deny")
+    }
+
     fn stores(&self) -> [PathBuf; 3] {
         [
             self.profiles_path(),
