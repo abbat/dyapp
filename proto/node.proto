@@ -102,7 +102,22 @@ message MailboxRequest {
     // An `ack` another replica node forwards verbatim: checked like `ack` but without the nonce,
     // and not forwarded again.
     dyapp.identity.SignedRecord replica_ack = 5;
+    // Node to node, for repair: the ids the sending replica holds; the answer's `missing` lists
+    // those this node lacks. Unsigned: it only names ids, envelopes move in `replica_put`.
+    Inventory inventory = 6;
+    // Node to node, for repair: envelopes as their senders signed them, each checked like `put`.
+    Envelopes replica_put = 7;
   }
+}
+
+message Inventory {
+  bytes mailbox = 1;
+  // At most 10 000 envelope ids.
+  repeated bytes ids = 2;
+}
+
+message Envelopes {
+  repeated dyapp.identity.SignedRecord envelopes = 1;
 }
 
 // Asks for a nonce bound to this libp2p connection, for one fetch or ack.
@@ -143,6 +158,8 @@ message MailboxResponse {
   repeated dyapp.identity.SignedRecord envelopes = 3;
   // fetch: more envelopes are waiting.
   bool more = 4;
+  // inventory: listed ids this node does not hold.
+  repeated bytes missing = 5;
 }
 
 // ---- /dyapp/mailbox-push: client, opened by the node after a fetch with `watch` ----

@@ -54,7 +54,9 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce. A node forwards a signed ack to the other replicas
-  verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce.
+  verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce. For
+  repair a node sends `inventory` (the ids it holds) and gets `missing` back; envelopes move
+  between nodes as `replica_put`, signed by their senders and checked like a `put`.
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the
   same connection; the device still acknowledges with an ack.
 - **`/dyapp/media`**: `keep` is the owner's signed, versioned list of blob hashes (SHA-256) and

@@ -14,7 +14,7 @@ use dyapp_p2p_net::proto::{
     ProfileRequest, ProfileResponse, Status,
 };
 use prost::Message;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -29,10 +29,13 @@ const MAX_FETCH: u32 = 100;
 pub const MAX_MEDIA_BYTES: usize = 1024 * 1024;
 /// Hashes in one media keep.
 const MAX_KEEP: usize = 256;
+/// Envelope ids in one repair inventory.
+pub const MAX_INVENTORY: usize = 10_000;
 
 /// Traffic shares (percent of the monthly cap) from which media and profile requests are shed;
-/// the mailbox is shed only at the cap. ponytail: search, once served, is shed with media.
-const SHED_MEDIA: u64 = 75;
+/// the mailbox is shed only at the cap; repair stops with media. ponytail: search, once served,
+/// is shed with media.
+pub const SHED_MEDIA: u64 = 75;
 const SHED_PROFILES: u64 = 90;
 
 /// The remote side of a request: its libp2p peer ID and IP group (see `node::ip_group`).
@@ -264,6 +267,8 @@ impl Service {
             // ponytail: a replayed ack deletes only ids its owner already acked; ids are random,
             // so no new envelope reuses them.
             Some(mailbox_request::Request::ReplicaAck(record)) => self.ack(&record, |_| true),
+            Some(mailbox_request::Request::Inventory(inventory)) => self.inventory(&inventory),
+            Some(mailbox_request::Request::ReplicaPut(batch)) => self.replica_put(&batch),
             None => Ok(status(Status::Unsupported)),
         }
     }
@@ -281,6 +286,59 @@ impl Service {
         }
         self.store.ack_envelopes(&mailbox, &ack.ids)?;
         Ok(status(Status::Ok))
+    }
+
+    /// The ids of `inventory` this node lacks; refused from the repair share of the traffic cap.
+    fn inventory(&self, inventory: &proto::Inventory) -> crate::Result<MailboxResponse> {
+        if inventory.mailbox.len() != 32
+            || inventory.ids.len() > MAX_INVENTORY
+            || inventory.ids.iter().any(|id| id.len() != 16)
+        {
+            return Ok(status(Status::Invalid));
+        }
+        if self.listed(&inventory.mailbox) {
+            return Ok(status(Status::Refused));
+        }
+        if self.traffic.add(0) >= SHED_MEDIA {
+            return Ok(status(Status::RateLimited));
+        }
+        let held: HashSet<Vec<u8>> = self.held(&inventory.mailbox)?.into_keys().collect();
+        Ok(MailboxResponse {
+            missing: inventory
+                .ids
+                .iter()
+                .filter(|id| !held.contains(*id))
+                .cloned()
+                .collect(),
+            ..status(Status::Ok)
+        })
+    }
+
+    /// One status for the batch: DENIED if any envelope is forged (a strike), else the first
+    /// failure. ponytail: the sender rate limit applies per envelope, so a large gap of one
+    /// sender fills over several repairs.
+    fn replica_put(&self, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
+        let mut worst = Status::Ok;
+        // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
+        // watching device never acks until the mailbox cap; carry the expiry if that matters.
+        for record in &batch.envelopes {
+            let put = Status::try_from(self.put(record)?.status).unwrap_or_default();
+            if worst == Status::Ok || put == Status::Denied {
+                worst = put;
+            }
+        }
+        Ok(status(worst))
+    }
+
+    /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, for repair.
+    pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, SignedRecord>> {
+        let (records, _) = self
+            .store
+            .fetch_envelopes(mailbox, MAX_INVENTORY as u32, u64::MAX)?;
+        Ok(records
+            .into_iter()
+            .filter_map(|r| Some((proto::Envelope::decode(r.payload.as_slice()).ok()?.id, r)))
+            .collect())
     }
 
     fn put(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
@@ -678,6 +736,49 @@ mod tests {
         );
         assert!(!service.reputation.banned("p"));
         assert_eq!(profile("p", get(vec![1; 32])), Status::NotFound);
+    }
+
+    #[test]
+    fn inventory_names_gaps_and_replica_put_fills_them() {
+        let service = service_with(|l| l.strikes_to_ban = 1);
+        let sender = Identity::generate();
+        let address = vec![7; 32];
+        let signed = |id: u8| {
+            let envelope = proto::Envelope {
+                id: vec![id; 16],
+                mailbox: address.clone(),
+                ciphertext: vec![id],
+            };
+            sender.sign(Domain::Envelope, envelope.encode_to_vec())
+        };
+        let put = mailbox_request::Request::Put(signed(1));
+        assert_eq!(
+            mailbox_status(&mailbox(&service, &mut None, put)),
+            Status::Ok
+        );
+        let inventory = |ids: Vec<Vec<u8>>| {
+            let request = mailbox_request::Request::Inventory(proto::Inventory {
+                mailbox: address.clone(),
+                ids,
+            });
+            mailbox(&service, &mut None, request)
+        };
+        let response = inventory(vec![vec![1; 16], vec![2; 16]]);
+        assert_eq!(response.missing, [vec![2; 16]]);
+        assert_eq!(
+            mailbox_status(&inventory(vec![vec![2; 3]])),
+            Status::Invalid
+        );
+        let batch = |envelopes| {
+            let request = mailbox_request::Request::ReplicaPut(proto::Envelopes { envelopes });
+            mailbox_status(&mailbox(&service, &mut None, request))
+        };
+        assert_eq!(batch(vec![signed(2)]), Status::Ok);
+        assert!(inventory(vec![vec![2; 16]]).missing.is_empty());
+        let mut forged = signed(3);
+        forged.signature[0] ^= 1;
+        assert_eq!(batch(vec![signed(4), forged]), Status::Denied);
+        assert_eq!(service.held(&address).unwrap().len(), 3);
     }
 
     #[test]

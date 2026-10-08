@@ -3,8 +3,8 @@
 ## Overview
 
 A bootstrap node (`dyapp-node`) serves owner-signed profiles and per-device mailboxes over
-libp2p ([Served protocol](#served-protocol)) and pushes new envelopes to watching devices;
-profile search, signaling and node-to-node replica repair are planned.
+libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
+repairs mailbox replicas node to node; profile search and signaling are planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -82,12 +82,12 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)` |
-| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)` |
+| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`; `get(hash, range)` and `downloaded(hash)` are planned |
 | `/dyapp/search` | search | `query(conditions, limit)` → profiles in random order and the conditions applied |
-| `/dyapp/inventory` | store, media, search | `have(list)` → `need(list)`, for repair and search catch-up |
+| `/dyapp/inventory` | search | `have(list)` → `need(list)`, for search catch-up |
 | `/dyapp/turn` | TURN | `credentials` → short-lived username, password and URLs |
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
@@ -122,7 +122,8 @@ SHA-256). The client writes each replica itself; a node stores only what it is s
 repeated put is a no-op, so a duplicate or retried replica write is harmless. No client does the
 replica lookup yet.
 
-Repair is driven by the owner's presence (planned). When a user comes online, the nodes
+Repair is driven by the owner's presence; mailbox repair is implemented, profile and media
+repair wait for a client that does the replica lookup. When a user comes online, the nodes
 responsible for their keys compare inventories, *I have* and *I need*, and fill the gaps, so new
 closest nodes get the data after churn and stale replicas catch up. Data of a user who stays
 offline is not repaired and expires with the TTL; a message whose replicas are all lost is
@@ -135,9 +136,9 @@ resent from the sender's retry queue.
   missing hashes and the client re-uploads them. Nodes never rebuild media or erasure-coded
   shards.
 - **Mailbox.** A watching fetch makes the node the repairer for that mailbox: it sends the ids it
-  holds to the closest node of each other replica key over a node-to-node inventory request. The
-  peer answers the ids it lacks, and the repairer puts those envelopes through the ordinary
-  `mailbox.put`, verified like any put. The peer puts the envelopes the repairer lacks back only
+  holds to the closest node of each other replica key in a `mailbox.inventory` request. The
+  peer answers the ids it lacks, and the repairer sends those envelopes in one `replica_put`,
+  each verified like a put. The peer sends the envelopes the repairer lacks back only
   if its own routing table places the repairer among the closest nodes of one of the mailbox's
   replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
 - **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
@@ -314,6 +315,8 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
+| `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored like a `put`; `OK`, else `DENIED` when any signature is forged, else the first failure |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` version not newer; `DENIED` bad signature; `INVALID` over 256 hashes or a hash not 32 bytes |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
@@ -332,6 +335,15 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack`; replies are ignored.
   Only the closest node per key gets it, and a node that missed it keeps the envelope until its
   TTL. A replayed `replica_ack` can only delete ids the device already acked.
+- **Mailbox repair.** A valid `fetch` with `watch` starts a repair of that mailbox, at most once
+  an hour per node and only below 75 % of the traffic cap. The node looks up the closest node of
+  each `replica_key(mailbox, i)`, skipping keys it is closer to itself, and sends it an
+  `inventory` of the ids it holds; the envelopes the answer lists as `missing` follow in one
+  `replica_put`. The peer, if one of the first five nodes its own routing table holds for a
+  replica key is the requester, sends back the envelopes the inventory lacks the same way. A
+  batch is cut at 1 MiB, the rest waits for the next visit; repair bytes count towards the
+  traffic cap. A repaired envelope gets a fresh TTL on its new node. Old nodes answer both
+  requests `UNSUPPORTED`, and repair skips them.
 - **Media.** The owner's signed `keep` is the whole list of blobs the node should hold for that
   identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
   once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob
@@ -660,7 +672,7 @@ a node failure.
 
 **Current limitations:**
 - Single-node persistence: no HA, failover or cross-node replication (the RS codec is not wired into storage or the API)
-- Mailbox replicas are written by the client; nodes forward acks but do not repair missing replicas
+- Mailbox replicas are written by the client; nodes forward acks and repair gaps only when a device watches its mailbox
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

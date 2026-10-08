@@ -128,7 +128,7 @@ def suite(peers, client, churn=None):
     churned = ", churn" if churn else ""
     print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
           f"stale, mailbox, push, independence, routing, replication, "
-          f"ack forwarding, rate limit"
+          f"ack forwarding, repair, rate limit"
           f"{churned} passed")
 
 
@@ -155,7 +155,8 @@ def network(peers, client, churn):
     if answered < FLOOD_LIMIT or "failed" in counts:
         raise RuntimeError(f"Rate limit boundary missed: {counts}")
     case = {"routing": True, "holders": holders, "flood": counts,
-            "acked_on": acked_everywhere(client, entry, ids)}
+            "acked_on": acked_everywhere(client, entry, ids),
+            "repaired_on": repaired(client, entry, ids)}
     if churn:
         gone = churn()
         live = {peer: tcp for peer, tcp in ids.items() if tcp != gone}
@@ -202,8 +203,8 @@ def mailbox(client, tcp, quic, other):
         raise RuntimeError(f"Envelope not pushed to the watcher: {watched}")
 
 
-def acked_everywhere(client, entry, ids):
-    """An envelope on every replica node; an ack on one clears them all."""
+def spread(client, entry):
+    """An envelope on every replica node of a fresh mailbox."""
     # Five replica keys may all land on one node of three: retry with a new
     # mailbox until the replicas span nodes.
     for _ in range(5):
@@ -211,9 +212,27 @@ def acked_everywhere(client, entry, ids):
         put = call(client, "put-replicas", entry, device["mailbox"])
         holders = sorted(set(put["holders"]))
         if len(holders) > 1:
-            break
-    else:
-        raise RuntimeError(f"Replicas never spanned nodes: {holders}")
+            return device, put, holders
+    raise RuntimeError(f"Replicas never spanned nodes: {holders}")
+
+
+def repaired(client, entry, ids):
+    """An envelope on one replica node reaches another on a watching fetch."""
+    device, _, holders = spread(client, entry)
+    lone = call(client, "put", ids[holders[0]], device["mailbox"], "02")
+    call(client, "watch", ids[holders[1]], device["secret"])
+    # The inventory and its answer run after the fetch.
+    for _ in range(10):
+        if lone["id"] in call(client, "fetch", ids[holders[1]],
+                              device["secret"])["ids"]:
+            return holders[:2]
+        time.sleep(1)
+    raise RuntimeError(f"Envelope not repaired onto {holders[1]}")
+
+
+def acked_everywhere(client, entry, ids):
+    """An envelope on every replica node; an ack on one clears them all."""
+    device, put, holders = spread(client, entry)
     reply = call(client, "ack", ids[holders[0]], device["secret"], put["id"])
     if reply["status"] != "STATUS_OK":
         raise RuntimeError("Mailbox ack failed")
