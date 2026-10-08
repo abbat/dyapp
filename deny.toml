@@ -6,7 +6,12 @@ all-features = true
 db-urls = ["https://github.com/rustsec/advisory-db"]
 db-path = "/tmp/ai/advisory-dbs"
 yanked = "warn"
-ignore = []
+ignore = [
+    # paste is unmaintained (no fix): a compile-time proc-macro pulled in by
+    # libp2p-quic/tcp -> if-watch -> netlink-packet-core. Drop when if-watch
+    # moves off it.
+    { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro via if-watch, no upgrade" },
+]
 
 [licenses]
 confidence-threshold = 0.8

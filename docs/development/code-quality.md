@@ -47,7 +47,8 @@ Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
 `deny.toml`, run by `rust-check.sh security`. Under `make security` it runs offline against the advisory
 databases baked into the dev image. In the CI `core / build` step `deny` it fetches them at run time:
 
-- **advisories**: any RustSec advisory fails (no CVSS threshold, `ignore = []`); yanked crates warn.
+- **advisories**: any RustSec advisory fails (no CVSS threshold); yanked crates warn. Ignored: RUSTSEC-2024-0436
+  (`paste` unmaintained, a proc-macro reached only through libp2p's `if-watch`, no upgrade yet).
 - **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.
 - **bans**: `openssl` and `openssl-sys` are denied; duplicate versions only **warn**.
 - **sources**: crates.io only; unknown registries or git sources warn.
