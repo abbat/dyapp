@@ -1,12 +1,13 @@
-//! libp2p node: QUIC and TCP+Noise+Yamux, Kademlia, identify, AutoNAT and the node protocol
-//! (`/dyapp/node`, `/dyapp/profile`) over request-response with protobuf messages.
+//! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
+//! protocol (`/dyapp/node`, `/dyapp/profile`) over request-response with protobuf messages.
 
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{
-    autonat, connection_limits, identify, kad, noise, tcp, yamux, StreamProtocol, Swarm,
+    autonat, connection_limits, identify, kad, noise, tcp, yamux, Multiaddr, StreamProtocol, Swarm,
     SwarmBuilder,
 };
 use std::io;
@@ -160,6 +161,7 @@ pub fn build_limited_swarm(
             yamux::Config::default,
         )?
         .with_quic()
+        .with_dns()?
         .with_behaviour(|key| {
             let peer_id = key.public().to_peer_id();
             let mut kad = kad::Behaviour::with_config(
@@ -195,6 +197,45 @@ pub fn build_limited_swarm(
         })?
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
         .build())
+}
+
+/// Starts joining the network: adds `cached` peers (`.../p2p/<id>` addresses from
+/// [`known_peers`]) to the routing table and dials every seed. A `/dnsaddr/<host>` seed expands
+/// to the `dnsaddr=` TXT records of `_dnsaddr.<host>`; the dial stops at the first that answers.
+/// Kademlia bootstraps on its own once the first peer is in the table.
+pub fn join(swarm: &mut Swarm<Behaviour>, seeds: &[Multiaddr], cached: &[Multiaddr]) {
+    for address in cached {
+        if let Some(Protocol::P2p(peer)) = address.iter().last() {
+            swarm
+                .behaviour_mut()
+                .kad
+                .add_address(&peer, address.clone());
+        }
+    }
+    for seed in seeds {
+        if let Err(error) = swarm.dial(seed.clone()) {
+            tracing::warn!(%seed, %error, "seed not dialed");
+        }
+    }
+}
+
+/// Every address in the routing table as `.../p2p/<id>`, for a peer cache that lets the next
+/// start join without any one seed.
+pub fn known_peers(swarm: &mut Swarm<Behaviour>) -> Vec<Multiaddr> {
+    let mut peers = Vec::new();
+    for bucket in swarm.behaviour_mut().kad.kbuckets() {
+        for entry in bucket.iter() {
+            let peer = *entry.node.key.preimage();
+            for address in entry.node.value.iter() {
+                let mut address = address.clone();
+                if !matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+                    address.push(Protocol::P2p(peer));
+                }
+                peers.push(address);
+            }
+        }
+    }
+    peers
 }
 
 #[cfg(test)]
@@ -249,6 +290,41 @@ mod tests {
         })
         .await
         .expect("client did not add the server to its routing table");
+    }
+
+    #[tokio::test]
+    async fn seeds_fill_the_peer_cache_and_the_cache_joins() {
+        let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        server
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let addr: Multiaddr = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+                break address;
+            }
+        };
+        server.add_external_address(addr.clone());
+        let cached: Multiaddr = format!("{addr}/p2p/{}", server.local_peer_id())
+            .parse()
+            .unwrap();
+
+        let mut first = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
+        join(&mut first, &[addr], &[]);
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while known_peers(&mut first) != [cached.clone()] {
+                tokio::select! {
+                    _ = server.select_next_some() => {}
+                    _ = first.select_next_some() => {}
+                }
+            }
+        })
+        .await
+        .expect("the seed did not reach the routing table");
+
+        // The next start needs no seed: the cache alone fills the table.
+        let mut next = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
+        join(&mut next, &[], &known_peers(&mut first));
+        assert_eq!(known_peers(&mut next), [cached]);
     }
 
     #[tokio::test]

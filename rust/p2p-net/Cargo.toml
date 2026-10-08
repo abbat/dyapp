@@ -10,8 +10,9 @@ license.workspace = true
 anyhow = "1.0"
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
+tracing = "0.1"
 libp2p = { version = "0.57", features = [
-    "autonat", "identify", "kad", "macros", "noise", "quic", "request-response", "tcp", "tokio",
+    "autonat", "dns", "identify", "kad", "macros", "noise", "quic", "request-response", "tcp", "tokio",
     "yamux",
 ] }
 

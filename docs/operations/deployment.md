@@ -103,6 +103,9 @@ TOML (a bare string is taken as is), for example
 ```toml
 listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]  # default
 external = []          # addresses announced to peers; AutoNAT confirms others
+seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org" or
+                       # "/ip4/198.51.100.7/tcp/7070/p2p/12D3Koo..."; peers seen are cached in
+                       # <storage.dir>/peers, so later starts do not need them
 roles = ["store"]      # media, search and turn are not implemented and fail at startup
 
 [storage]

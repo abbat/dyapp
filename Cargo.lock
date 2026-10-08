@@ -1102,6 +1102,7 @@ dependencies = [
  "prost-build",
  "protox",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

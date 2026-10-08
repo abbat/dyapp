@@ -19,6 +19,8 @@ pub struct NodeConfig {
     pub listen: Vec<String>,
     /// Addresses announced to peers when the operator knows them; AutoNAT confirms others.
     pub external: Vec<String>,
+    /// Nodes dialed at start to join the network; `/dnsaddr/<host>` reads `_dnsaddr.<host>` TXT.
+    pub seeds: Vec<String>,
     pub roles: Vec<Role>,
     pub storage: StorageConfig,
     pub limits: Limits,
@@ -97,6 +99,7 @@ impl Default for NodeConfig {
                 "/ip4/0.0.0.0/udp/7070/quic-v1".into(),
             ],
             external: vec![],
+            seeds: vec![],
             roles: vec![Role::Store],
             storage: StorageConfig::default(),
             limits: Limits::default(),
@@ -154,6 +157,11 @@ impl StorageConfig {
         self.dir.join("node.key")
     }
 
+    /// The routing-table peers saved by the last run, one multiaddr per line.
+    pub fn peers_path(&self) -> PathBuf {
+        self.dir.join("peers")
+    }
+
     fn stores(&self) -> [PathBuf; 2] {
         [self.profiles_path(), self.messages_path()]
     }
@@ -205,7 +213,7 @@ impl NodeConfig {
         if fs::metadata("/proc/self")?.uid() == 0 {
             anyhow::bail!("refusing to run as root: start the node as an unprivileged user");
         }
-        for address in self.listen.iter().chain(&self.external) {
+        for address in self.listen.iter().chain(&self.external).chain(&self.seeds) {
             address
                 .parse::<Multiaddr>()
                 .map_err(|e| anyhow::anyhow!("bad address {address}: {e}"))?;
@@ -352,6 +360,8 @@ mod tests {
         };
         assert!(!invalid(|_| {}));
         assert!(invalid(|c| c.listen = vec!["not an address".into()]));
+        assert!(invalid(|c| c.seeds = vec!["seed.example".into()]));
+        assert!(!invalid(|c| c.seeds = vec!["/dnsaddr/seed.example".into()]));
         assert!(invalid(|c| c.roles = vec![Role::Turn]));
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(

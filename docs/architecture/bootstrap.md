@@ -474,7 +474,7 @@ message files beat deletes.
 `NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyapp-node`: defaults, then a TOML
 file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
-`listen`, `external`, `roles`, `storage.{dir,profiles,messages}`,
+`listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages}`,
 `limits.{message_ttl_hours,requests_per_second}`,
 `limits.{profiles_max_mb,messages_max_mb,min_free_mb,monthly_traffic_gb}`,
 `limits.{max_connections,max_connections_per_peer,max_streams}`

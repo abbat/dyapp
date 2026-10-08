@@ -12,6 +12,8 @@ use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::time::Duration;
 
 /// The node's swarm with the connection and stream limits from the config.
@@ -48,6 +50,12 @@ pub fn ip_group(address: &Multiaddr, limits: &Limits) -> String {
         }
     }
     address.to_string()
+}
+
+/// Peers saved by the last run; a missing file or a damaged line is skipped.
+pub fn cached_peers(path: &Path) -> Vec<Multiaddr> {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    text.lines().filter_map(|line| line.parse().ok()).collect()
 }
 
 /// The request's peer, with the IP group of the connection it came on.
@@ -162,6 +170,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 if let Err(error) = service.traffic.save() {
                     tracing::error!(%error, "traffic count not saved");
                 }
+                // ponytail: saved hourly, not on shutdown; a crash loses at most an hour of churn.
+                let peers = dyapp_p2p_net::known_peers(&mut swarm);
+                if !peers.is_empty() {
+                    let text: String = peers.iter().map(|p| format!("{p}\n")).collect();
+                    if let Err(error) = fs::write(service.config.storage.peers_path(), text) {
+                        tracing::error!(%error, "peer cache not saved");
+                    }
+                }
                 if refused > 0 {
                     tracing::warn!(refused, "connections refused by the connection limits");
                     refused = 0;
@@ -174,6 +190,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn damaged_peer_cache_lines_are_skipped() {
+        let dir = std::env::temp_dir().join(format!("dyapp-peers-{}", std::process::id()));
+        assert!(cached_peers(&dir).is_empty());
+        fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
+        assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
+        fs::remove_file(&dir).unwrap();
+    }
 
     #[test]
     fn ip_groups_mask_the_prefix() {

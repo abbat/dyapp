@@ -26,6 +26,15 @@ The keypair is the node's transport key, separate from the user's identity key
 The unit test starts a server on QUIC loopback and checks that a client adds it to its routing
 table.
 
+**Joining.** The transports resolve DNS names, so a `/dns4/`, `/dns6/` or `/dnsaddr/` address
+dials like an IP one; a `/dnsaddr/<host>` seed expands to the `dnsaddr=<multiaddr>` TXT records of
+`_dnsaddr.<host>`, and the dial stops at the first that answers. `join` dials every seed and adds
+the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
+own. `known_peers` lists the routing table for the cache. `dyapp-node` reads seeds from the
+`seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
+maintenance, so a restart joins without any one seed. A unit test joins through a seed, then
+joins a second swarm from the first one's cache alone.
+
 Not implemented yet:
 
 - Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`
@@ -33,14 +42,15 @@ Not implemented yet:
   not expose `p2p-net`.
 - No node-ID proof of work, routing-table IP diversity filter, disjoint lookups, anchors or local
   reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
-- No relay, DCUtR hole punching or DNS seeds.
+- No relay or DCUtR hole punching.
+- No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 - No mailbox push, signal, media or search protocols; they are designed in
   [Bootstrap — Protocol](bootstrap.md#protocol).
 
 ## Planned
 
-- **First nodes:** a list built into the client, `/dnsaddr` seeds from several operators, and anchor
-  nodes saved from the previous session; the client asks several seeds at once.
+- **First nodes:** a list built into the client and `/dnsaddr` seeds from several operators; the
+  client asks several seeds at once and keeps the peer cache described above.
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
   relay itself. Video uses its own WebRTC stack ([Video](video.md)).
 - **Addresses:** IPv6 and IPv4 dual-stack; link-local addresses are not announced.
