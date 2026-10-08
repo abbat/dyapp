@@ -7,7 +7,7 @@ also stops one to check that replicas skip a departed node.
 `--health MULTIADDR` checks one node.
 
 The second and third nodes join through the first; the third allows
-`FLOOD_LIMIT` requests per second per peer.
+`FLOOD_LIMIT` requests per second per peer. Only the first serves media.
 """
 import json
 import os
@@ -56,6 +56,8 @@ def local(bin_dir):
                        "DYAPP_NODE__LISTEN": json.dumps([tcp, quic]),
                        "DYAPP_NODE__EXTERNAL": json.dumps([tcp, quic]),
                        "DYAPP_NODE__STORAGE__DIR": f"{storage}/{port}"}
+                if not peers:
+                    env["DYAPP_NODE__ROLES"] = '["store", "media"]'
                 if peers:
                     env["DYAPP_NODE__SEEDS"] = json.dumps([peers[0][0]])
                 if port == 7073:
@@ -120,14 +122,15 @@ def suite(peers, client, churn=None):
             raise RuntimeError("Independent node storage unexpectedly shared")
         mailbox(client, tcp, quic, other)
         cases.append({"peer": tcp, "health": True, "roundtrip": True,
-                      "independent_storage": True, "mailbox": True})
+                      "independent_storage": True, "mailbox": True,
+                      "media": media(client, tcp, quic)})
     cases.append(network(peers, client, churn))
     reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
     print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
-          f"stale, mailbox, push, independence, routing, replication, "
+          f"stale, mailbox, push, media, independence, routing, replication, "
           f"ack forwarding, repair, rate limit"
           f"{churned} passed")
 
@@ -201,6 +204,18 @@ def mailbox(client, tcp, quic, other):
     watched = call(client, "watch", quic, device["secret"])
     if watched["pushed"] != [watched["id"]]:
         raise RuntimeError(f"Envelope not pushed to the watcher: {watched}")
+
+
+def media(client, tcp, quic):
+    """A blob kept, put and read back over QUIC on a media node; a
+    node without the role answers UNSUPPORTED."""
+    serves = "ROLE_MEDIA" in call(client, "info", tcp)["roles"]
+    blob = os.urandom(64).hex()
+    reply = call(client, "media", quic if serves else tcp, blob)
+    expected = "STATUS_OK" if serves else "STATUS_UNSUPPORTED"
+    if reply != {"keep": expected, "put": expected, "get": expected}:
+        raise RuntimeError(f"Media roundtrip on {tcp}: {reply}")
+    return serves
 
 
 def spread(client, entry):

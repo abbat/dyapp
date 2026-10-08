@@ -32,8 +32,12 @@ x-peer: &peer
     retries: 12
 
 services:
+  # The only media node: network-test.py checks the others answer UNSUPPORTED.
   bootstrap-a:
     <<: *peer
+    environment:
+      <<: *env
+      DYAPP_NODE__ROLES: '["store", "media"]'
   bootstrap-b:
     <<: *peer
     environment:

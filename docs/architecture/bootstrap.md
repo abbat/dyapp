@@ -429,6 +429,7 @@ test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
 test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
 test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
 test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
+test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
@@ -437,7 +438,9 @@ the `REPLICAS` replicas of a profile to the node closest to `replica_key(peer_id
 replica on the same node answers `STALE`, which counts as stored. `put-replicas` puts one
 envelope to the node closest to each `replica_key(mailbox, i)`. `watch` sends a watching `fetch`,
 puts an envelope to its own mailbox on another connection and prints the ids pushed back. `flood`
-sends `n` profile gets at once on one connection.
+sends `n` profile gets at once on one connection. `media` has a fresh owner keep the blob's hash,
+put the blob and get it back on one connection and prints each status; `"get"` is `"CHANGED"` if
+the blob came back different.
 
 It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
@@ -686,12 +689,13 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
 
-The network test (`scripts/network-test.py`) runs two `dyapp-node` instances and drives them
-with `test-peer`: `info` over TCP and QUIC, publish over TCP and get over QUIC with identical
-bytes, `STALE` on replay; a mailbox put over TCP and fetch over QUIC, a stranger's key reads
-nothing, ack empties it; and that the nodes do not share storage. No test covers a
-multi-node cluster or
-a node failure.
+The network test (`scripts/network-test.py`) runs three `dyapp-node` instances, the first with
+roles `store` and `media`, and drives them with `test-peer`: `info` over TCP and QUIC, publish
+over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
+fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a
+media keep, put and get on the media node and `UNSUPPORTED` from the others; that the nodes do
+not share storage; DHT routing, profile and mailbox replicas, ack forwarding, repair and the
+rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
 
 ## Limitations & Future
 

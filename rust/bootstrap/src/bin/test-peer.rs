@@ -20,13 +20,18 @@
 //!   `watch`, puts an envelope to the mailbox from another connection and returns the ids the
 //!   node pushed back;
 //! - `test-peer put-replicas <multiaddr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
-//!   to the node closest to each replica key of the mailbox.
+//!   to the node closest to each replica key of the mailbox;
+//! - `test-peer media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
+//!   step: a fresh owner keeps the blob's hash, puts the blob and gets it back; `"get"` is
+//!   `"CHANGED"` if the blob came back different.
 //!
 //! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
 use anyhow::{anyhow, bail, Context};
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
+use dyapp_p2p_net::proto::{
+    self, mailbox_request, media_request, node_request, profile_request, Status,
+};
 use dyapp_p2p_net::{build_swarm, replica_key, Behaviour, BehaviourEvent, Mode, REPLICAS};
 use dyapp_profile::Profile;
 use libp2p::futures::StreamExt;
@@ -68,7 +73,8 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .context("no reply in 60 s")??
         }
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox>"),
+        ["media", addr, data] => timeout(media(addr, data)).await?,
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex>"),
     };
     println!("{output}");
     Ok(())
@@ -144,6 +150,46 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
     let mut output = json!({ "status": status(response.status) });
     if let Some(record) = response.record {
         output["record"] = hex(&record.encode_to_vec()).into();
+    }
+    Ok(output)
+}
+
+async fn media(addr: &str, data: &str) -> anyhow::Result<Value> {
+    let data = unhex(data)?;
+    let owner = Identity::generate();
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    let keep = proto::MediaKeep {
+        version: 1,
+        hashes: vec![hash.clone()],
+    };
+    let steps = [
+        media_request::Request::Keep(owner.sign(Domain::MediaKeep, keep.encode_to_vec())),
+        media_request::Request::Put(proto::MediaPut {
+            owner: unhex(&owner.peer_id())?,
+            data: data.clone(),
+        }),
+        media_request::Request::Get(proto::GetMedia { hash }),
+    ];
+    let (mut swarm, peer) = connect(addr).await?;
+    let mut output = json!({});
+    for (name, request) in ["keep", "put", "get"].into_iter().zip(steps) {
+        let request = proto::MediaRequest {
+            request: Some(request),
+        };
+        swarm.behaviour_mut().media.send_request(&peer, request);
+        let response = wait(&mut swarm, |event| match event {
+            BehaviourEvent::Media(event) => reply(event),
+            _ => None,
+        })
+        .await?;
+        let changed =
+            name == "get" && response.status == i32::from(Status::Ok) && response.data != data;
+        output[name] = if changed {
+            "CHANGED"
+        } else {
+            status(response.status)
+        }
+        .into();
     }
     Ok(output)
 }
