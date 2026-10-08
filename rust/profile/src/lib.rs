@@ -24,12 +24,16 @@ pub enum Error {
 
 /// Longest accepted `place`, in Unicode code points.
 pub const MAX_PLACE_CHARS: usize = 1024;
+/// Most photos a profile links.
+pub const MAX_PHOTOS: usize = 16;
+/// Most blobs one full photo is split into.
+pub const MAX_PHOTO_BLOBS: usize = 64;
 
 mod generated {
     #![allow(clippy::pedantic)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.profile.rs"));
 }
-pub use generated::Profile;
+pub use generated::{Photo, Profile};
 
 impl Profile {
     pub fn tombstone(version: u64) -> Self {
@@ -64,6 +68,17 @@ impl Profile {
         let place = &self.place;
         if place.chars().count() > MAX_PLACE_CHARS || place.chars().any(char::is_control) {
             return Err(Error::Invalid("place is too long or not printable"));
+        }
+        let hash = |h: &Vec<u8>| h.len() == 32;
+        if self.photos.len() > MAX_PHOTOS
+            || !self.photos.iter().all(|p| {
+                hash(&p.thumbnail)
+                    && !p.full.is_empty()
+                    && p.full.len() <= MAX_PHOTO_BLOBS
+                    && p.full.iter().all(hash)
+            })
+        {
+            return Err(Error::Invalid("photos are not blob hashes or too many"));
         }
         Ok(())
     }
@@ -181,6 +196,37 @@ mod tests {
         assert!(verify(&place.sign(&owner)).is_err());
 
         assert!(verify(&sample(0).sign(&owner)).is_err());
+
+        let photo = Photo {
+            full: vec![vec![1; 32], vec![2; 32]],
+            thumbnail: vec![3; 32],
+        };
+        let mut photos = sample(1);
+        photos.photos = vec![photo.clone(); MAX_PHOTOS];
+        assert!(verify(&photos.sign(&owner)).is_ok());
+        photos.photos.push(photo.clone());
+        assert!(verify(&photos.sign(&owner)).is_err());
+        for bad in [
+            Photo {
+                thumbnail: vec![],
+                ..photo.clone()
+            },
+            Photo {
+                full: vec![],
+                ..photo.clone()
+            },
+            Photo {
+                full: vec![vec![1; 31]],
+                ..photo.clone()
+            },
+            Photo {
+                full: vec![vec![1; 32]; MAX_PHOTO_BLOBS + 1],
+                ..photo
+            },
+        ] {
+            photos.photos = vec![bad];
+            assert!(verify(&photos.sign(&owner)).is_err());
+        }
 
         let garbage = owner.sign(Domain::Profile, vec![0xff; 4]);
         assert_eq!(verify(&garbage), Err(Error::Decode));

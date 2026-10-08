@@ -154,6 +154,9 @@ resent from the sender's retry queue.
 
 - Payload at most 1 MiB, raisable: nodes state their limit and clients publish only to nodes that
   accept the size. Media are separate blobs; the profile only links to them by content hash.
+- Each photo in `photos` is the full image (one or more blobs) plus a separate small thumbnail
+  blob, stored whole. Lists and search results load only thumbnails; the full image loads when a
+  profile is opened (implemented in the schema and checks; no client yet).
 - Location is `place`, a city or district name, never coordinates
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 - The profile lists the owner's device keys, so a sender can reach every device's mailbox before
@@ -292,7 +295,8 @@ optional and public by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  place at most 1024 characters without control characters, a tombstone (`deleted = true`) carries no other field.
+  place at most 1024 characters without control characters, at most 16 `photos`, each a
+  32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`) carries no other field.
 
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
 so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.

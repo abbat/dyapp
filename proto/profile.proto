@@ -31,4 +31,14 @@ message Profile {
   repeated string interests = 19;
   // City or district within `country`, no coordinates; matched exactly.
   string place = 20;
+  repeated Photo photos = 21;
+}
+
+// A photo as `/dyapp/media` blobs, each named by the SHA-256 of its data. Lists and search results
+// load only the thumbnail; the full image loads when the profile is opened.
+message Photo {
+  // The full image in order, split into blobs no larger than the node's `max_media_bytes`.
+  repeated bytes full = 1;
+  // One small blob, stored whole.
+  bytes thumbnail = 2;
 }

@@ -39,7 +39,9 @@ Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encryp
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, unset
 optionals and an age of 0 mean "not published". `version` orders updates (the highest validly
 signed version wins); `deleted` marks a tombstone with every other field empty. Tag 5 held
-coordinates and is reserved. See the [bootstrap signed profile](bootstrap.md#signed-profile).
+coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
+full image as ordered blobs plus one small `thumbnail` blob for lists and search results. See
+the [bootstrap signed profile](bootstrap.md#signed-profile).
 
 ## Node protocol
 
