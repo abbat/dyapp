@@ -9,7 +9,7 @@ on:
 
 jobs:
   analyze:
-    name: analyze - ${{ matrix.language }}
+    name: codeql - ${{ matrix.language }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

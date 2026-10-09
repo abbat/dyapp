@@ -26,9 +26,9 @@ The keypair is the node's transport key, separate from the user's identity key
 The unit test starts a server on QUIC loopback and checks that a client adds it to its routing
 table.
 
-**Joining.** The transports resolve DNS names, so a `/dns4/`, `/dns6/` or `/dnsaddr/` address
-dials like an IP one; a `/dnsaddr/<host>` seed expands to the `dnsaddr=<multiaddr>` TXT records of
-`_dnsaddr.<host>`, and the dial stops at the first that answers. `join` dials every seed and adds
+**Joining.** The transports resolve DNS names, so a `/dns/` address dials like an IP one and
+tries the resolved addresses in turn. `dyappd` takes `host:port` seeds and dials each over
+`/tcp/<port>` and `/udp/<port>/quic-v1`, without a peer ID. `join` dials every seed and adds
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
 own. `known_peers` lists the routing table for the cache. `dyappd` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
@@ -71,7 +71,7 @@ Not implemented yet:
 
 ## Planned
 
-- **First nodes:** a list built into the client and `/dnsaddr` seeds from several operators; the
+- **First nodes:** a list built into the client and DNS seed names from several operators; the
   client asks several seeds at once and keeps the peer cache described above.
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
   relay itself. Video uses its own WebRTC stack ([Video](video.md)).

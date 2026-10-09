@@ -609,9 +609,9 @@ profiles.db  profiles(peer_id PK, record BLOB, live)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
                        UNIQUE (mailbox, id))
              record: the signed envelope as received; indexes on (mailbox, seq), expires_at
-<media>/media.db  owners(owner PK, version)  blobs(owner, hash, size, PK (owner, hash))
+media.db     owners(owner PK, version)  blobs(owner, hash, size, PK (owner, hash))
              owner: hex SHA-256 of the identity key; size NULL = listed, not yet put
-<media>/aa/bb/<hex hash>  the blob
+data/aa/bb/<hex hash>  the blob
 ```
 
 A `messages` table left by an older version is not read; it can be dropped by hand.
@@ -640,8 +640,8 @@ message files beat deletes.
 `NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyappd`: defaults, then a TOML
 file (`--config`), then `DYAPPD__<SECTION>__<KEY>` variables. Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
-`listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages,media}`
-(media defaults to `<dir>/media`),
+`listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.dir` (every store
+in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
 `limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,bytes_per_second}`,
 `limits.{max_connections,max_connections_per_peer,max_streams,max_memory_mb}`

@@ -425,7 +425,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
         .config
         .seeds
         .iter()
-        .filter_map(|s| s.parse().ok())
+        .filter_map(|s| crate::config::seed(s).ok())
+        .flatten()
         .collect();
     let every = Duration::from_secs(300);
     let mut rejoin = tokio::time::interval_at(tokio::time::Instant::now() + every, every);

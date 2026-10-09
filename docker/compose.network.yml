@@ -68,7 +68,7 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
+      DYAPPD__SEEDS: '["bootstrap-a:7070"]'
     # A node dials its seed once, at start.
     depends_on:
       bootstrap-a:
@@ -78,7 +78,7 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
+      DYAPPD__SEEDS: '["bootstrap-a:7070"]'
       DYAPPD__LIMITS__REQUESTS_PER_SECOND: "5"
     depends_on:
       bootstrap-a:

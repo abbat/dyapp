@@ -76,7 +76,7 @@ def local(bin_dir):
                     env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
                     env["DYAPPD__TURN__SECRET"] = TURN_SECRET
                 if peers:
-                    env["DYAPPD__SEEDS"] = json.dumps([peers[0][0]])
+                    env["DYAPPD__SEEDS"] = '["127.0.0.1:7071"]'
                 if port == 7073:
                     env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(
                         FLOOD_LIMIT)

@@ -26,6 +26,28 @@ pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     ])
 }
 
+/// The TCP and QUIC (UDP) addresses of a `host:port` seed, the host an IP or a DNS name.
+pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
+    if let Ok(addresses) = transports(address) {
+        return Ok(addresses);
+    }
+    let (host, port) = address
+        .rsplit_once(':')
+        .filter(|(host, _)| !host.is_empty() && !host.contains([':', '/', '[']))
+        .and_then(|(host, port)| Some((host, port.parse::<u16>().ok()?)))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "bad seed {address}: expected host:port, e.g. seed.example.org:7070 or \
+                 [2001:db8::7]:7070"
+            )
+        })?;
+    let dns = Multiaddr::empty().with(Protocol::Dns(host.into()));
+    Ok([
+        dns.clone().with(Protocol::Tcp(port)),
+        dns.with(Protocol::Udp(port)).with(Protocol::QuicV1),
+    ])
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct NodeConfig {
@@ -34,7 +56,7 @@ pub struct NodeConfig {
     /// `host:port` addresses announced to peers when the operator knows them; AutoNAT confirms
     /// others.
     pub external: Vec<String>,
-    /// Nodes dialed at start to join the network; `/dnsaddr/<host>` reads `_dnsaddr.<host>` TXT.
+    /// `host:port` nodes dialed to join the network, over TCP and QUIC; see [`seed`].
     pub seeds: Vec<String>,
     pub roles: Vec<Role>,
     pub storage: StorageConfig,
@@ -122,12 +144,8 @@ pub enum Role {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct StorageConfig {
-    /// Holds the node key and every store without its own path.
+    /// Holds the node key and every database; media blob files go in `data/`.
     pub dir: PathBuf,
-    pub profiles: Option<PathBuf>,
-    pub messages: Option<PathBuf>,
-    /// The media directory: blob files and `media.db`.
-    pub media: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -147,7 +165,7 @@ pub struct Limits {
     pub profile_ttl_days: u32,
     /// Media requests per second from one peer: a reply carries up to 1 MiB.
     pub media_requests_per_second: u32,
-    /// Free space kept on the file system of each store.
+    /// Free space kept on the file system of `storage.dir`.
     pub min_free_mb: u64,
     /// Node protocol bytes in and out per second: media and repair are shed from 75%, profiles
     /// from 90%, the mailbox at 100%; 0 = no limit.
@@ -210,9 +228,6 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             dir: "/var/lib/dyappd".into(),
-            profiles: None,
-            messages: None,
-            media: None,
         }
     }
 }
@@ -247,19 +262,16 @@ impl Default for Limits {
 
 impl StorageConfig {
     pub fn profiles_path(&self) -> PathBuf {
-        self.profiles
-            .clone()
-            .unwrap_or_else(|| self.dir.join("profiles.db"))
+        self.dir.join("profiles.db")
     }
 
     pub fn messages_path(&self) -> PathBuf {
-        self.messages
-            .clone()
-            .unwrap_or_else(|| self.dir.join("messages.db"))
+        self.dir.join("messages.db")
     }
 
+    /// `media.db`; the blob files are in `data/` next to it, see [`crate::media::MediaStore`].
     pub fn media_path(&self) -> PathBuf {
-        self.media.clone().unwrap_or_else(|| self.dir.join("media"))
+        self.dir.join("media.db")
     }
 
     pub fn key_path(&self) -> PathBuf {
@@ -285,7 +297,7 @@ impl StorageConfig {
         [
             self.profiles_path(),
             self.messages_path(),
-            self.media_path().join("media.db"),
+            self.media_path(),
         ]
     }
 }
@@ -328,6 +340,12 @@ impl NodeConfig {
         let mut ignored = Vec::new();
         let config = serde_ignored::deserialize(table, |path| ignored.push(path.to_string()))
             .map_err(|e| anyhow::anyhow!("config: {e}"))?;
+        // Ignoring a removed store path would start that store empty in storage.dir.
+        if let Some(key) = ignored.iter().find(|key| {
+            ["storage.profiles", "storage.messages", "storage.media"].contains(&key.as_str())
+        }) {
+            anyhow::bail!("{key} is removed: move the store into storage.dir and drop the key");
+        }
         Ok((config, ignored))
     }
 
@@ -340,9 +358,7 @@ impl NodeConfig {
             transports(address)?;
         }
         for address in &self.seeds {
-            address
-                .parse::<Multiaddr>()
-                .map_err(|e| anyhow::anyhow!("bad address {address}: {e}"))?;
+            seed(address)?;
         }
         if self.listen.is_empty() {
             anyhow::bail!("listen: at least one address is required");
@@ -398,15 +414,7 @@ impl NodeConfig {
         if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
             anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");
         }
-        let dirs = self.storage.stores().map(|store| {
-            store
-                .parent()
-                .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
-        });
-        for dir in dirs.iter().chain([&self.storage.dir]) {
-            check_writable(dir)?;
-        }
-        Ok(())
+        check_writable(&self.storage.dir)
     }
 
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
@@ -542,7 +550,21 @@ mod tests {
             ]
         );
         assert!(invalid(|c| c.seeds = vec!["seed.example".into()]));
-        assert!(!invalid(|c| c.seeds = vec!["/dnsaddr/seed.example".into()]));
+        assert!(invalid(
+            |c| c.seeds = vec!["/dns/seed.example/tcp/7070".into()]
+        ));
+        assert!(invalid(|c| c.seeds = vec!["[seed.example]:7070".into()]));
+        assert_eq!(
+            seed("seed.example:7070").unwrap().map(|a| a.to_string()),
+            [
+                "/dns/seed.example/tcp/7070",
+                "/dns/seed.example/udp/7070/quic-v1"
+            ]
+        );
+        assert_eq!(
+            seed("[2001:db8::7]:7070").unwrap(),
+            transports("[2001:db8::7]:7070").unwrap()
+        );
         fn turn(c: &mut NodeConfig) {
             c.roles = vec![Role::Store, Role::Turn];
             c.turn.secret = "s".into();
@@ -566,10 +588,10 @@ mod tests {
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
         assert!(invalid(|c| c.limits.profile_ttl_days = 0));
-        assert!(invalid(
-            |c| c.storage.messages = Some("/proc/messages.db".into())
-        ));
+        assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
         assert!(NodeConfig::load(None, [("DYAPPD__ROLES".into(), "[\"x\"]".into())]).is_err());
+        let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
+        assert!(NodeConfig::load(None, removed).is_err());
     }
 
     #[test]

@@ -296,9 +296,7 @@ pub fn generate_pow_keypair(bits: u32) -> Keypair {
 }
 
 /// Starts joining the network: adds `cached` peers (`.../p2p/<id>` addresses from
-/// [`known_peers`]) to the routing table and dials every seed. A `/dnsaddr/<host>` seed expands
-/// to the `dnsaddr=` TXT records of `_dnsaddr.<host>`; the dial stops at the first that answers.
-/// Kademlia bootstraps on its own once the first peer is in the table.
+/// [`known_peers`]) to the routing table and dials every seed. Kademlia bootstraps on its own once the first peer is in the table.
 pub fn join(swarm: &mut Swarm<Behaviour>, seeds: &[Multiaddr], cached: &[Multiaddr]) {
     for address in cached {
         if let Some(Protocol::P2p(peer)) = address.iter().last() {

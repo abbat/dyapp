@@ -79,10 +79,22 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
 }
 
 impl MediaStore {
+    /// Opens `dir/media.db` with the blob files under `dir/data`.
     pub fn open(dir: &Path) -> Result<Self> {
-        fs::create_dir_all(dir).map_err(storage_error)?;
+        let (data, db) = (dir.join("data"), dir.join("media.db"));
+        // Older nodes kept both in `dir/media`. Each step is a rename, so a crash between them
+        // is finished by the next start.
+        let old = dir.join("media");
+        if old.join("media.db").exists() && !data.exists() {
+            fs::rename(&old, &data).map_err(storage_error)?;
+            tracing::info!(from = %old.display(), to = %data.display(), "media store moved");
+        }
+        if data.join("media.db").exists() && !db.exists() {
+            fs::rename(data.join("media.db"), &db).map_err(storage_error)?;
+        }
+        fs::create_dir_all(&data).map_err(storage_error)?;
         let db = open(
-            &dir.join("media.db"),
+            &db,
             // `size` is NULL while a listed blob has not been put.
             "CREATE TABLE IF NOT EXISTS owners (
                  owner TEXT PRIMARY KEY,
@@ -104,10 +116,7 @@ impl MediaStore {
              CREATE INDEX IF NOT EXISTS attachments_owner ON attachments (owner);
              CREATE INDEX IF NOT EXISTS attachments_release ON attachments (release);",
         )?;
-        Ok(Self {
-            dir: dir.into(),
-            db,
-        })
+        Ok(Self { dir: data, db })
     }
 
     fn path(&self, hash: &[u8]) -> PathBuf {
@@ -360,6 +369,24 @@ mod tests {
         assert_eq!(media.keep("bob", 6, &[]).unwrap(), Some(vec![]));
         assert_eq!(media.get(&ha).unwrap(), None);
         assert_eq!(media.usage().unwrap().0, 0);
+    }
+
+    #[test]
+    fn old_layout_is_moved() {
+        let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+        let data = vec![7u8; 10];
+        let hash = dyapp_identity::sha256(&data).to_vec();
+        {
+            let media = MediaStore::open(&dir).unwrap();
+            media.keep("bob", 1, std::slice::from_ref(&hash)).unwrap();
+            media.put("bob", &data, 1000).unwrap();
+        }
+        fs::rename(dir.join("data"), dir.join("media")).unwrap();
+        fs::rename(dir.join("media.db"), dir.join("media/media.db")).unwrap();
+        let media = MediaStore::open(&dir).unwrap();
+        assert_eq!(media.get(&hash).unwrap(), Some(data));
+        assert_eq!(media.usage().unwrap().0, 10);
+        assert!(!dir.join("media").exists());
     }
 
     #[test]

@@ -111,12 +111,12 @@ The unit runs as the system user `dyappd` (no shell, no login) with no capabilit
 the unit; purging keeps the user and `/var/lib/dyappd`, because `node.key` is the node's
 identity — delete them by hand to retire the node.
 
-The default port 7070 needs no privilege. Stores on other paths or a port below 1024 need a
+The default port 7070 needs no privilege. Another `storage.dir` or a port below 1024 needs a
 drop-in (`systemctl edit dyappd`):
 
 ```ini
 [Service]
-ReadWritePaths=/big/media
+ReadWritePaths=/srv/dyappd
 # Only for a port below 1024:
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -149,35 +149,35 @@ identify, and the address they see the node from becomes external once AutoNAT c
 reachable. Until then the node is a DHT client: it queries the DHT but serves no part of it. Set
 `external` on a host whose public address is known, or behind port forwarding.
 
-`seeds` are libp2p [multiaddrs](https://github.com/multiformats/multiaddr): `/`-separated
-protocol and value pairs. `/ip6/<address>` or `/ip4/<address>`, then `/tcp/<port>` or
-`/udp/<port>/quic-v1` (QUIC, RFC 9000), then `/p2p/<peer id>`; `/dnsaddr/<host>` instead reads
-the whole list from the `_dnsaddr.<host>` TXT records. The peer ID of a node is printed by
-`dyappd status` there.
+`seeds` are `host:port` too, and the host may also be a DNS name: `seed.example.org:7070`,
+`[2001:db8::7]:7070`. The node dials each seed over TCP and QUIC; a name with several A/AAAA
+records is tried address by address. No peer ID is needed: the node learns it on connect, so
+it does not check that a seed is the node the operator meant. That only decides the first
+peers: the routing table then fills from the network, with the
+[Sybil and eclipse defences](../decisions/0008-sybil-and-eclipse-defences.md). Libp2p
+multiaddrs (`/dnsaddr/...`, `/ip6/.../p2p/...`) are refused at startup.
 
-Roles: `store` serves profiles, mailboxes and the DHT, and the other roles need it; `media`
-serves media blobs from `storage.media`; `turn` hands out credentials for a coturn relay
-([TURN relay](#turn-relay)); `search` is planned and refused at startup. A node without a role
-answers its requests `UNSUPPORTED`.
+Roles are a list, so `roles = ["store", "media", "turn"]` combines them. `store` serves
+profiles, mailboxes and the DHT; `media` serves media blobs and `turn` hands out credentials
+for a coturn relay ([TURN relay](#turn-relay)), and neither includes `store`: both are refused
+at startup without it in the list. `search` is planned and refused at startup. A node without
+a role answers its requests `UNSUPPORTED`.
 
 ```toml
 listen = ["[::1]:7070", "127.0.0.1:7070"]  # default: loopback; ["[::]:7070", "0.0.0.0:7070"] serves
 external = []          # addresses announced to peers, e.g. "[2001:db8::7]:7070";
                        # empty: the address AutoNAT confirms
-seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org" or
-                       # "/ip6/2001:db8::7/udp/7070/quic-v1/p2p/12D3Koo..."; peers seen are cached in
+seeds = []             # nodes to join through, e.g. "seed.example.org:7070" or
+                       # "[2001:db8::7]:7070"; peers seen are cached in
                        # <storage.dir>/peers, so later starts do not need them; the last 3
                        # outbound peers that answered, in <storage.dir>/anchors, are dialled first
-roles = ["store"]      # add "media" to serve /dyapp/media and "turn" to hand out TURN
-                       # credentials (both need store); search is not implemented
-                       # and fails at startup
+roles = ["store"]      # e.g. ["store", "media", "turn"]: media serves /dyapp/media, turn
+                       # hands out TURN credentials, both need store in the list;
+                       # search is not implemented and fails at startup
 
 [storage]
-dir = "/var/lib/dyappd"   # node.key, node.id, deny.db, peers, anchors, and every store
-                          # without its own path
-# profiles = "/fast/profiles.db"  # default <dir>/profiles.db
-# messages = "/fast/messages.db"  # default <dir>/messages.db
-# media = "/big/media"        # default <dir>/media: media.db and the blob files
+dir = "/var/lib/dyappd"   # node.key, node.id, profiles.db, messages.db, media.db,
+                          # deny.db, peers, anchors; media blob files in data/
 
 [limits]
 message_ttl_hours = 24
@@ -190,7 +190,7 @@ media_max_mb = 10240          # media role; media is never evicted
 media_per_owner_mb = 10
 attachment_retention_hours = 168  # unreleased chat attachments
 media_requests_per_second = 10
-min_free_mb = 512             # free space kept on each store's file system
+min_free_mb = 512             # free space kept on the file system of storage.dir
 bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 %, mailbox 100 %
 max_connections = 1000
 max_connections_per_peer = 4
@@ -332,10 +332,13 @@ There is no online backup: copying the SQLite files while the server writes
 to them does not give a consistent snapshot. Stop the process first.
 
 `storage.dir` (`/var/lib/dyappd` from the package) holds `node.key`, the node's identity, and
-`node.id`; the stores `profiles.db`, `messages.db` and `media/` (`media.db` and the blob files),
-unless `storage.profiles`, `storage.messages` or `storage.media` move them; `deny.db`, the
-operator's deny list; and `peers` and `anchors`, the peer cache, which the node rebuilds. A
-`traffic` file left by an older version is no longer read and can be deleted.
+`node.id`; the stores `profiles.db`, `messages.db` and `media.db`, with the media blob files in
+`data/`; `deny.db`, the operator's deny list; and `peers` and `anchors`, the peer cache, which
+the node rebuilds. A `traffic` file left by an older version is no longer read and can be
+deleted. A media store an older version kept in `media/` is moved to `media.db` and `data/` on
+the first start. The keys `storage.profiles`, `storage.messages` and `storage.media` are
+removed, and a config that sets one is refused at startup: move that store into
+`storage.dir` first.
 
 Roundtrip with `dyappd` (data in `/tmp/ai/bootstrap`):
 

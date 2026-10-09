@@ -106,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(peer_id = %swarm.local_peer_id(), roles = ?config.roles, "node started");
     let media = config.roles.contains(&Role::Media);
     let media = media
-        .then(|| MediaStore::open(&config.storage.media_path()))
+        .then(|| MediaStore::open(&config.storage.dir))
         .transpose()?;
     let mut service = Service::new(store, config);
     service.media = media;
@@ -166,7 +166,7 @@ fn status(config: &NodeConfig) -> String {
             .and_then(|db| db.query_row(sql, [], |row| row.get::<_, i64>(0)))
             .map_or_else(|e| format!("error: {e}"), |n| n.to_string())
     };
-    let media = s.media_path().join("media.db");
+    let media = s.media_path();
     let peer_id = std::fs::read_to_string(s.dir.join("node.id")).unwrap_or_default();
     [
         ("peer_id", peer_id.trim().to_string()),
