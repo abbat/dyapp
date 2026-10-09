@@ -89,7 +89,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
-| `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, range)` is planned |
+| `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
 | `/dyapp/inventory` | search | node to node: `have(topic, (key, version) list)` → `need(list)`, for search catch-up |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
@@ -414,7 +414,7 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` version not newer; `DENIED` bad signature; `INVALID` over 256 hashes or a hash not 32 bytes |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
-| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `NOT_FOUND`; `INVALID` hash not 32 bytes |
+| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `NOT_FOUND`; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([Replication](replication.md)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 
@@ -657,9 +657,10 @@ starts refusing and a line when it clears, not one per request:
   The free-space floor is not cleared by eviction, since freed pages stay in the file until
   maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
   `min_free_mb` free on the media file system; media is never evicted. Planned: at
-  `media_max_mb` the node first evicts down to 95 % of it, unreleased chat attachments by oldest
-  `created` first, then the `keep` of the owners seen longest ago, and answers `FULL` only if
-  that is not enough; a blob still held by another `keep` or attachment stays.
+  `media_max_mb` the node first evicts down to 95 % of it, the cache of assembled blobs first,
+  then unreleased chat attachments by oldest `created`, then the `keep` of the owners seen
+  longest ago, and answers `FULL` only if that is not enough; a blob still held by another
+  `keep` or attachment stays.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per second. With `bytes_per_second` set (default 0, no limit), media
   requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile

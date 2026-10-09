@@ -199,6 +199,7 @@ messages_max_mb = 4096
 media_max_mb = 10240          # media role; media is never evicted (eviction planned)
 media_per_owner_mb = 10
 attachment_retention_hours = 168  # unreleased chat attachments
+# media_cache_minutes = 10    # planned: assembled blobs kept after their last read
 media_requests_per_second = 10
 min_free_mb = 512             # free space kept on the file system of storage.dir
 bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 %, mailbox 100 %

@@ -91,8 +91,14 @@ Profiles get a `replica_put` like the one mailboxes already have
   it holds a manifest, it fetches K shards with `shard_get`, decodes them, checks the blob's
   SHA-256 and returns the whole blob. On a mismatch it deletes the manifest and its shards and
   answers `not_found`. The client checks the hash too. Assembly comes out of the node's repair
-  budget below. Decoded blobs are not cached. Ranged `get(hash, range)` is planned on top of the
-  manifest.
+  budget below. Planned on top of the manifest: `get(hash, offset, len)` answers one
+  piece of at most 1 MiB with the blob's total size, so a client fetches large blobs piece by
+  piece and resumes after a break; without `len` it is the whole get. A blob assembled from
+  shards is kept as `<media dir>/cache/<hash>` for `limits.media_cache_minutes` (default 10)
+  after its last read, so the pieces read that file instead of assembling again. The cache
+  counts towards `media_max_mb` and is evicted first; the hourly cleanup deletes expired
+  entries. Piece bytes count towards the traffic cap like a get; the client checks the hash
+  once it has all pieces.
 
 ## Repair
 
@@ -137,8 +143,7 @@ Each step is one change with multi-node Docker tests and its docs.
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;
    [Deployment](../operations/deployment.md) for the new config key. This page is then removed.
 
-Ranged media get and the media size limits in config build on the manifest and the
-threshold.
+Ranged media get and its cache build on the manifest and the threshold.
 
 ## Stress Test Results
 
