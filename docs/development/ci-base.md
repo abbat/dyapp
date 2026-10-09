@@ -27,6 +27,10 @@ In the build job `taiki-e/install-action` then installs the pinned cargo-llvm-co
 cargo-deny. `Swatinem/rust-cache` caches the dependency builds per job. Cargo steps run online
 with `--locked`.
 
+Third-party actions in every workflow are pinned to a commit SHA with the release in a comment
+(`uses: owner/action@<sha> # v1.2.3`); GitHub's own `actions/*` and `github/codeql-action` keep
+their major tags. Workflows without a job that writes default the token to `contents: read`.
+
 ### `quality` → **quality**
 
 This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it installs actionlint 1.7.12

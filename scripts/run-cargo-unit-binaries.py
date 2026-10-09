@@ -4,10 +4,11 @@ import subprocess
 import sys
 
 executables = set()
-for line in open(sys.argv[1], encoding="utf-8"):
-    item = json.loads(line)
-    if item.get("reason") == "compiler-artifact" and item["profile"]["test"]:
-        if item.get("executable"):
+with open(sys.argv[1], encoding="utf-8") as inventory_file:
+    for line in inventory_file:
+        item = json.loads(line)
+        artifact = item.get("reason") == "compiler-artifact"
+        if artifact and item["profile"]["test"] and item.get("executable"):
             executables.add(item["executable"])
 if not executables:
     raise RuntimeError("No unit test binaries in build inventory")

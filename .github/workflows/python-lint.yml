@@ -11,6 +11,9 @@ on:
       - '**.py'
       - '.flake8'
 
+permissions:
+  contents: read
+
 jobs:
   flake8:
     runs-on: ubuntu-latest
