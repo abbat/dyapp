@@ -152,6 +152,7 @@ dir = "/var/lib/dyappd"   # node key and every store without its own path
 
 [limits]
 message_ttl_hours = 24
+profile_ttl_days = 30         # after the owner's last signed request
 requests_per_second = 100
 profiles_max_mb = 1024        # a full store answers FULL to writes
 messages_max_mb = 4096
@@ -274,7 +275,8 @@ documented as runnable:
 ### Data cleanup
 
 Mailbox envelopes expire after `limits.message_ttl_hours` (default 24 h); `dyappd` deletes
-expired ones every hour. Profiles and tombstones have no expiry yet. See
+expired ones every hour. Profiles and tombstones go once their owner has signed nothing for
+`limits.profile_ttl_days` (default 30). See
 [Privacy](../security/privacy.md#retention).
 
 ### Store compaction
@@ -364,7 +366,7 @@ Only what applies to the code that exists today:
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
 | Port 7070 already in use | Another `dyappd` is running; set `DYAPPD__LISTEN` |
-| Disk keeps growing | Profiles have no expiry yet (see [Data cleanup](#data-cleanup)) |
+| Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas (see [Data cleanup](#data-cleanup)) |
 
 Installed from the Debian package, the service is `dyappd.service`; it logs to the journal
 (`journalctl -u dyappd`). Run by hand, `dyappd` logs to stderr.

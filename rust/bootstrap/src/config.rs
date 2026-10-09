@@ -77,6 +77,8 @@ pub struct Limits {
     pub media_per_owner_mb: u64,
     /// How long a chat attachment the recipient never released is kept.
     pub attachment_retention_hours: u32,
+    /// How long a profile or tombstone is kept after its owner's last signed action.
+    pub profile_ttl_days: u32,
     /// Media requests per second from one peer: a reply carries up to 1 MiB.
     pub media_requests_per_second: u32,
     /// Free space kept on the file system of each store.
@@ -158,6 +160,7 @@ impl Default for Limits {
             media_max_mb: 10240,
             media_per_owner_mb: 10,
             attachment_retention_hours: 168,
+            profile_ttl_days: 30,
             media_requests_per_second: 10,
             min_free_mb: 512,
             monthly_traffic_gb: 0,
@@ -281,9 +284,11 @@ impl NodeConfig {
         if self.roles.contains(&Role::Media) && !self.roles.contains(&Role::Store) {
             anyhow::bail!("role media needs role store");
         }
-        if self.limits.message_ttl_hours < 1 || self.limits.attachment_retention_hours < 1 {
+        let l = &self.limits;
+        if l.message_ttl_hours < 1 || l.attachment_retention_hours < 1 || l.profile_ttl_days < 1 {
             anyhow::bail!(
-                "limits.message_ttl_hours and attachment_retention_hours must be at least 1"
+                "limits.message_ttl_hours, attachment_retention_hours and profile_ttl_days must \
+                 be at least 1"
             );
         }
         if self.limits.requests_per_second < 1 || self.limits.media_requests_per_second < 1 {
@@ -450,6 +455,7 @@ mod tests {
         assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
+        assert!(invalid(|c| c.limits.profile_ttl_days = 0));
         assert!(invalid(
             |c| c.storage.messages = Some("/proc/messages.db".into())
         ));

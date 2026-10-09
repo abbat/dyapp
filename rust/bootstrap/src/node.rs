@@ -525,6 +525,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     Ok(removed) => tracing::info!(removed, "expired messages removed"),
                     Err(error) => tracing::error!(%error, "message cleanup failed"),
                 }
+                let ttl = i64::from(service.config.limits.profile_ttl_days) * 86_400;
+                match service.store.expire_profiles(now - ttl) {
+                    Ok(removed) => tracing::info!(removed, "profiles of inactive owners removed"),
+                    Err(error) => tracing::error!(%error, "profile cleanup failed"),
+                }
                 if let Some(media) = &service.media {
                     match media.expire(now.unsigned_abs()) {
                         Ok(removed) => tracing::info!(removed, "expired attachments removed"),

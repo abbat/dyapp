@@ -117,15 +117,38 @@ impl BootstrapStore {
     }
 
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
+        // `last_seen`: Unix time of the owner's last signed action this node saw.
+        let profiles = open(
+            profiles,
+            "CREATE TABLE IF NOT EXISTS profiles (
+                 peer_id TEXT PRIMARY KEY,
+                 record BLOB NOT NULL,
+                 live INTEGER NOT NULL
+             );",
+        )?;
+        {
+            let db = lock(&profiles)?;
+            let seen: bool = db
+                .query_row(
+                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('profiles') \
+                     WHERE name = 'last_seen')",
+                    [],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?;
+            if !seen {
+                // Rows stored before the column count as seen now, so an upgrade deletes nothing.
+                db.execute_batch(&format!(
+                    "ALTER TABLE profiles ADD COLUMN last_seen INTEGER NOT NULL DEFAULT {};",
+                    chrono::Utc::now().timestamp()
+                ))
+                .map_err(storage_error)?;
+            }
+            db.execute_batch("CREATE INDEX IF NOT EXISTS profiles_seen ON profiles (last_seen);")
+                .map_err(storage_error)?;
+        }
         Ok(Self {
-            profiles: open(
-                profiles,
-                "CREATE TABLE IF NOT EXISTS profiles (
-                     peer_id TEXT PRIMARY KEY,
-                     record BLOB NOT NULL,
-                     live INTEGER NOT NULL
-                 );",
-            )?,
+            profiles,
             messages: open(
                 messages,
                 // `seq` keeps arrival order; `size` is the stored record length.
@@ -243,11 +266,13 @@ impl BootstrapStore {
             .transpose()?;
         verified.check_newer(current)?;
         db.execute(
-            "INSERT OR REPLACE INTO profiles (peer_id, record, live) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO profiles (peer_id, record, live, last_seen) \
+             VALUES (?, ?, ?, ?)",
             params![
                 verified.peer_id,
                 record.encode_to_vec(),
-                !verified.profile.deleted
+                !verified.profile.deleted,
+                chrono::Utc::now().timestamp()
             ],
         )
         .map_err(storage_error)?;
@@ -281,6 +306,24 @@ impl BootstrapStore {
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         records.into_iter().map(decode).collect()
+    }
+
+    /// Records a signed action of the profile's owner at `now`; false when no profile is stored.
+    pub fn touch_profile(&self, peer_id: &str, now: i64) -> Result<bool> {
+        let touched = lock(&self.profiles)?
+            .execute(
+                "UPDATE profiles SET last_seen = MAX(last_seen, ?) WHERE peer_id = ?",
+                params![now, peer_id],
+            )
+            .map_err(storage_error)?;
+        Ok(touched > 0)
+    }
+
+    /// Deletes profiles and tombstones whose owner was last seen at `cutoff` or before.
+    pub fn expire_profiles(&self, cutoff: i64) -> Result<usize> {
+        lock(&self.profiles)?
+            .execute("DELETE FROM profiles WHERE last_seen <= ?", [cutoff])
+            .map_err(storage_error)
     }
 
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
@@ -352,6 +395,36 @@ mod tests {
 
     fn temp_store() -> BootstrapStore {
         BootstrapStore::new(&format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4())).unwrap()
+    }
+
+    #[test]
+    fn profiles_expire_after_the_owner_was_last_seen() {
+        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        // A profiles.db from before `last_seen`: its row counts as seen at the upgrade.
+        Connection::open(format!("{dir}/profiles.db"))
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE profiles (peer_id TEXT PRIMARY KEY, record BLOB NOT NULL, \
+                 live INTEGER NOT NULL); INSERT INTO profiles VALUES ('old', x'', 1);",
+            )
+            .unwrap();
+        let store = BootstrapStore::new(&dir).unwrap();
+        let now = chrono::Utc::now().timestamp();
+        let owner = Identity::generate();
+        let profile = Profile {
+            version: 1,
+            age: 35,
+            ..Profile::default()
+        };
+        store.put_profile(&profile.sign(&owner)).unwrap();
+        assert_eq!(store.expire_profiles(now - 60).unwrap(), 0);
+        assert!(store.touch_profile(&owner.peer_id(), now + 100).unwrap());
+        assert!(!store.touch_profile("unknown", now).unwrap());
+        assert_eq!(store.expire_profiles(now + 50).unwrap(), 1);
+        assert!(store.get_profile("old").unwrap().is_none());
+        assert!(store.get_profile(&owner.peer_id()).unwrap().is_some());
+        assert_eq!(store.expire_profiles(now + 100).unwrap(), 1);
     }
 
     #[test]

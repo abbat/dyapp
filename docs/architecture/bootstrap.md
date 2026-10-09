@@ -81,7 +81,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | Protocol | Role | Requests |
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
-| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)` |
+| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
@@ -307,7 +307,10 @@ optional and public by design
 
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
 so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.
-Profiles have no TTL.
+A profile, tombstone included, is deleted `limits.profile_ttl_days` (default 30) after its
+owner was last seen: a publish, a stale republish, a heartbeat or a media keep or attach signed
+by the identity key. Mailbox requests are signed by device keys and do not count. The client is
+meant to send a heartbeat to the profile's replicas when the app opens (planned; no client yet).
 Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Served protocol
@@ -322,6 +325,7 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (1 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
+| `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` the profile counts as seen now; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
 | `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK`, also for a repeated (mailbox, id); `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
@@ -585,7 +589,9 @@ Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour. Profiles and tombstones have no expiry; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order. A profile retention TTL is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour, then `expire_profiles` deletes profiles and tombstones whose owner was last
+seen more than `limits.profile_ttl_days` ago (`last_seen` column, added on upgrade with the
+upgrade time for existing rows); under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order.
 
 **Maintenance:** every `maintenance.interval_minutes` (default 60) `dyappd` calls
 `BootstrapStore::maintain`, which, one store at a time under its lock, frees at most

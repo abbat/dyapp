@@ -12,5 +12,6 @@
 
 [limits]
 # message_ttl_hours = 24
+# profile_ttl_days = 30
 # monthly_traffic_gb = 0        # 0 = no cap
 # bytes_per_second = 0          # 0 = no limit

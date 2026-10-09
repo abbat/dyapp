@@ -33,6 +33,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
 | `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
 | `dyapp.node.MediaAttach` | `dyapp/media-attach/v1\0` | identity key |
+| `dyapp.node.Heartbeat` | `dyapp/heartbeat/v1\0` | identity key |
 
 ## Profile
 
@@ -52,8 +53,9 @@ SHA-256 of the device public key (32 bytes each).
 
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
   "role not served".
-- **`/dyapp/profile`**: `publish(SignedRecord)` and `get(peer_id)`. A publish whose version is not
-  newer gets `STATUS_STALE` with the stored record.
+- **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)` and `heartbeat(SignedRecord)`. A
+  publish whose version is not newer gets `STATUS_STALE` with the stored record; a heartbeat
+  keeps the stored profile from expiring.
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce. A node forwards a signed ack to the other replicas

@@ -24,7 +24,7 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
 | Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; crypto stub) | Until acked or the TTL (default 24 h) | E2E AEAD, only recipient decrypts | Size and timing |
 | Mailbox address, sender device key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Same | Operator learns which keys write to which mailbox and when (routing metadata) |
-| Profile fields (age, country, location, income, kids, goals, orientation, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until the owner publishes a tombstone, which is kept forever (target: retention TTL, default 30 days) | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
+| Profile fields (age, country, location, income, kids, goals, orientation, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after the owner's last signed request, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
 
 | Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | Optional relay/proxy (not designed) | Direct P2P and WebRTC reveal IPs to the other peer |
@@ -37,13 +37,12 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
 The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until the device acks
 it or the TTL passes, and `dyappd` deletes expired envelopes every hour. A chat attachment
 is kept until the recipient releases it or `limits.attachment_retention_hours` (default 168)
-passes, also deleted hourly. Profiles have no TTL: the latest signed
-version stays until the owner replaces it with a tombstone, which the node keeps
-so older versions are not re-imported. Backups and replicas (if an
-operator adds them) keep their own copies.
+passes, also deleted hourly. A profile, tombstone included, is deleted hourly once its owner
+has signed nothing for `limits.profile_ttl_days` (default 30): no publish, heartbeat or media
+request. The node thereby learns roughly when each owner was last active. Backups and replicas
+(if an operator adds them) keep their own copies.
 
-Target: nothing is kept forever. The operator sets a retention TTL (default 30
-days, tombstones included) and may delete any data at any time; under a full quota
+Target: nothing is kept forever. The operator may delete any data at any time; under a full quota
 the data of the longest inactive profiles goes first
 ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)),
 and profile deletion is a signed tombstone (implemented on a single node) that

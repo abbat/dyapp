@@ -29,6 +29,8 @@ pub enum Domain {
     MediaKeep,
     /// Chat attachment blobs, signed by the sender's identity key.
     MediaAttach,
+    /// A liveness signal that keeps the owner's profile stored, signed by the identity key.
+    Heartbeat,
 }
 
 impl Domain {
@@ -40,6 +42,7 @@ impl Domain {
             Domain::MailboxAck => b"dyapp/mailbox-ack/v1\0",
             Domain::MediaKeep => b"dyapp/media-keep/v1\0",
             Domain::MediaAttach => b"dyapp/media-attach/v1\0",
+            Domain::Heartbeat => b"dyapp/heartbeat/v1\0",
         }
     }
 }

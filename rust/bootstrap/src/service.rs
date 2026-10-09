@@ -193,6 +193,15 @@ impl Service {
         <[u8; 32]>::try_from(key).is_ok_and(|key| self.listed(&dyapp_identity::key_hash(&key)))
     }
 
+    /// Refreshes the stored profile of the identity whose key hash is `owner`: it signed a
+    /// request. Mailbox requests are signed by device keys, which the node cannot tie to an
+    /// identity, so they do not count.
+    fn alive(&self, owner: &[u8]) -> crate::Result<()> {
+        self.store
+            .touch_profile(&hex(owner), chrono::Utc::now().timestamp())
+            .map(drop)
+    }
+
     /// Counts misbehaviour of `peer`; the node drops a banned peer's connections.
     fn strike(&self, peer: &Peer) {
         if self.reputation.strike(&peer.id) {
@@ -458,6 +467,26 @@ impl Service {
                     None => reply(Status::NotFound, None),
                 })
             }
+            Some(profile_request::Request::Heartbeat(record)) => {
+                let Ok((owner, beat)) =
+                    owner_request::<proto::Heartbeat>(&record, Domain::Heartbeat, |_| true)
+                else {
+                    self.strike(peer);
+                    return Ok(reply(Status::Denied, None));
+                };
+                if self.listed(&owner) {
+                    return Ok(reply(Status::Refused, None));
+                }
+                let now = chrono::Utc::now().timestamp();
+                if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
+                    return Ok(reply(Status::Invalid, None));
+                }
+                let found = self.store.touch_profile(&hex(&owner), now)?;
+                Ok(reply(
+                    if found { Status::Ok } else { Status::NotFound },
+                    None,
+                ))
+            }
             None => Ok(reply(Status::Unsupported, None)),
         }
     }
@@ -483,6 +512,8 @@ impl Service {
             Err(BootstrapError::Profile(dyapp_profile::Error::Stale)) => {
                 // A stale record verified, so its key is a valid 32-byte key.
                 let key: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
+                // A signed republish is a liveness signal too.
+                self.alive(&dyapp_identity::key_hash(&key))?;
                 let stored = self.store.get_profile(&dyapp_identity::peer_id(&key))?;
                 Ok(reply(Status::Stale, stored))
             }
@@ -526,6 +557,7 @@ impl Service {
                 if keep.hashes.len() > MAX_KEEP || keep.hashes.iter().any(|h| h.len() != 32) {
                     return Ok(media_status(Status::Invalid));
                 }
+                self.alive(&owner)?;
                 match media.keep(&hex(&owner), keep.version, &keep.hashes)? {
                     Some(missing) => MediaResponse {
                         missing,
@@ -594,6 +626,7 @@ impl Service {
                 {
                     return Ok(media_status(Status::Invalid));
                 }
+                self.alive(&owner)?;
                 let expires = attach.created + u64::from(l.attachment_retention_hours) * 3600;
                 match media.attach(
                     &hex(&owner),
@@ -628,8 +661,9 @@ fn media_status(status: Status) -> MediaResponse {
     }
 }
 
-/// Checks a request signed by a mailbox's device key and passing `check` (its nonce); returns
-/// the mailbox address, the hash of the signing key, and the decoded request.
+/// Checks a request signed by a mailbox's device key or an owner's identity key and passing
+/// `check` (its nonce); returns the hash of the signing key (the mailbox address or the peer ID)
+/// and the decoded request.
 fn owner_request<M: Message + Default>(
     record: &SignedRecord,
     domain: Domain,
@@ -761,6 +795,40 @@ mod tests {
             status(&service.profile(&peer("p"), empty).unwrap()),
             Status::Unsupported
         );
+    }
+
+    #[test]
+    fn heartbeat_keeps_the_profile_seen() {
+        let service = service();
+        let identity = Identity::generate();
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let beat = |time, identity: &Identity| {
+            let beat = proto::Heartbeat { time };
+            ProfileRequest {
+                request: Some(profile_request::Request::Heartbeat(
+                    identity.sign(Domain::Heartbeat, beat.encode_to_vec()),
+                )),
+            }
+        };
+        let send = |request| status(&service.profile(&peer("p"), request).unwrap());
+        assert_eq!(send(beat(now, &identity)), Status::NotFound);
+        let profile = Profile {
+            version: 1,
+            age: 30,
+            ..Profile::default()
+        };
+        assert_eq!(send(publish(profile.sign(&identity))), Status::Ok);
+        assert_eq!(send(beat(now, &identity)), Status::Ok);
+        assert_eq!(send(beat(now - 3600, &identity)), Status::Invalid);
+        let mut forged = beat(now, &identity);
+        if let Some(profile_request::Request::Heartbeat(record)) = &mut forged.request {
+            record.payload.push(0);
+        }
+        assert_eq!(send(forged), Status::Denied);
+        // A republish of the stored version still counts.
+        assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
+        let cutoff = i64::try_from(now).unwrap() - 1;
+        assert_eq!(service.store.expire_profiles(cutoff).unwrap(), 0);
     }
 
     fn mailbox(
