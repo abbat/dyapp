@@ -48,6 +48,8 @@ message NodeRequest {
     // Nodes older than deny-list exchange answer UNSUPPORTED; a node whose operator does not
     // share the list answers NOT_FOUND.
     DenyListRequest deny_list = 2;
+    // Nodes without the turn role, and older nodes, answer UNSUPPORTED.
+    TurnRequest turn = 3;
   }
 }
 
@@ -56,11 +58,26 @@ message InfoRequest {}
 // Asks for the operator's deny list, which the asking node only stores.
 message DenyListRequest {}
 
+// Asks for short-lived credentials on the node's TURN relay.
+message TurnRequest {}
+
 message NodeResponse {
   Status status = 1;
   NodeInfo info = 2;
   // deny_list: payload `DenyList`, signed by the node's Ed25519 libp2p key.
   dyapp.identity.SignedRecord deny_list = 3;
+  TurnCredentials turn = 4;
+}
+
+// TURN REST credentials (coturn `use-auth-secret`): username `<expires>:<peer id>`, password
+// base64(HMAC-SHA1(shared secret, username)).
+message TurnCredentials {
+  string username = 1;
+  string password = 2;
+  // `turn:` / `turns:` URLs of the relay.
+  repeated string urls = 3;
+  // Unix seconds after which the relay refuses the credentials.
+  uint64 expires = 4;
 }
 
 // Entries in the deny list's stored form, without the operator's notes.

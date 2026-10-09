@@ -39,12 +39,29 @@ x-peer: &peer
     retries: 12
 
 services:
-  # The only media node: network-test.py checks the others answer UNSUPPORTED.
+  # The TURN relay of bootstrap-a; network-test.py allocates on it with the node's credentials.
+  turn:
+    <<: *runtime
+    command:
+      - turnserver
+      - --use-auth-secret
+      - --static-auth-secret=network-test-secret
+      - --realm=dyapp.test
+      - --listening-port=3478
+      - --no-tls
+      - --no-dtls
+      - --no-cli
+      - --log-file=stdout
+      - --pidfile=/tmp/turnserver.pid
+      - --userdb=/tmp/turndb
+  # The only media and turn node: network-test.py checks the others answer UNSUPPORTED.
   bootstrap-a:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__ROLES: '["store", "media"]'
+      DYAPPD__ROLES: '["store", "media", "turn"]'
+      DYAPPD__TURN__URLS: '["turn:turn:3478"]'
+      DYAPPD__TURN__SECRET: network-test-secret
   bootstrap-b:
     <<: *peer
     environment:
@@ -70,6 +87,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.network-test
     depends_on:
+      turn:
+        condition: service_started
       bootstrap-a:
         condition: service_healthy
       bootstrap-b:

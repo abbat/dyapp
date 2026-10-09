@@ -56,7 +56,7 @@ Each role is enabled separately in the node config:
 | store | signed profiles, per-device mailboxes, likes, views and other signals |
 | media | media blobs and erasure-coded shards, thumbnails |
 | search | the search index over profiles collected from the whole network |
-| TURN | relays call media |
+| TURN | short-lived credentials for an operator-run coturn relay of call media |
 
 Every role has its own DHT key space, so replicas for a role are chosen only among the nodes
 that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
@@ -88,7 +88,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, range)` is planned |
 | `/dyapp/search` | search | `query(conditions, limit)` → profiles in random order and the conditions applied |
 | `/dyapp/inventory` | search | `have(list)` → `need(list)`, for search catch-up |
-| `/dyapp/turn` | TURN | `credentials` → short-lived username, password and URLs |
+| `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
 heartbeats ([Search](#search)). Media and other large payloads go in chunks below the node's
@@ -107,7 +107,7 @@ on an identity's data carries a signature by a key of that identity:
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
 | `media.release` | nothing: the release secret, which only the sender and the recipient know | SHA-256 of the secret against the attachment's release hash |
-| `search.query`, `turn.credentials`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
+| `search.query`, `node.turn`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
 
 An ack is signed by the device, so a node forwards it verbatim and the other replicas verify it
 themselves; no node trusts another node. Requests other than fetch and ack are idempotent (the
@@ -323,6 +323,7 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | Protocol | Request | Reply |
 |----------|---------|-------|
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (1 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
@@ -408,6 +409,14 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   in the `received` table of `deny.db`, replacing an older one of the same node; lists of the
   1000 nodes heard from last are kept. The node takes no action on them: `dyappd deny received`
   shows them to the operator. A unit test checks the signature, the signer and the replacement.
+- <a id="turn-credentials"></a>**TURN credentials.** A node with the `turn` role (it needs
+  `store`) hands out credentials for the coturn relay its operator runs, in coturn's
+  `use-auth-secret` scheme: username `<expires>:<peer id>`, password base64(HMAC-SHA1(`turn.secret`,
+  username)), valid `turn.credential_minutes` (default 60), with the `turn:`/`turns:` URLs from
+  `turn.urls`. The request is rate-limited like a profile get. Once its routing table has a peer the
+  node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
+  12 hours. Clients find relays with `get_providers` on that key; using them for call ICE is
+  planned.
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
@@ -456,6 +465,8 @@ test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through 
 test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
 test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
 test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
+test-peer turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
+test-peer relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
@@ -640,15 +651,16 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,
 `network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
-`network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)); the
+`network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
+`turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
-and serves the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles
-are accepted, and `media` only together with `store`. On start it dials its anchors, then fills
-the routing table from the peer cache; the seeds follow
+and serves the protocols in [Served protocol](#served-protocol). Only the `store`, `media` and
+`turn` roles are accepted, `media` and `turn` only together with `store`. On start it dials its
+anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
-Planned: a maintenance window and per-store schedules, the remaining resource guards, TURN ports,
+Planned: a maintenance window and per-store schedules, the remaining resource guards,
 store retention.
 
 ## Deployment Model

@@ -7,12 +7,17 @@ also stops one to check that replicas skip a departed node.
 `--health MULTIADDR` checks one node.
 
 The second and third nodes join through the first; the third allows
-`FLOOD_LIMIT` requests per second per peer. Only the first serves media.
+`FLOOD_LIMIT` requests per second per peer. Only the first serves media
+and TURN credentials; in Docker it hands out a coturn relay.
 """
+import base64
+import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -22,6 +27,8 @@ CLIENT = "/workspace/target/debug/test-peer"
 FLOOD_LIMIT = 5
 # Node-ID proof of work of the test nodes, as in docker/compose.network.yml.
 POW_BITS = "8"
+# coturn static-auth-secret, as in docker/compose.network.yml.
+TURN_SECRET = "network-test-secret"
 
 
 def call(client, *args):
@@ -65,7 +72,9 @@ def local(bin_dir):
                        # the nodes meet.
                        "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
                 if not peers:
-                    env["DYAPPD__ROLES"] = '["store", "media"]'
+                    env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
+                    env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
+                    env["DYAPPD__TURN__SECRET"] = TURN_SECRET
                 if peers:
                     env["DYAPPD__SEEDS"] = json.dumps([peers[0][0]])
                 if port == 7073:
@@ -89,7 +98,7 @@ def local(bin_dir):
                 processes[1].wait()
                 return peers[1][0]
 
-            suite(peers, client, churn)
+            suite(peers, client, churn, relay=False)
         finally:
             for process in processes:
                 process.terminate()
@@ -106,10 +115,11 @@ def main():
         return
     # The client has no DNS transport: resolve the container names here.
     suite([addresses(socket.gethostbyname(host), 7070)
-           for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT)
+           for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT,
+          relay=True)
 
 
-def suite(peers, client, churn=None):
+def suite(peers, client, churn=None, relay=False):
     cases = []
     for index, (tcp, quic) in enumerate(peers):
         for addr in (tcp, quic):
@@ -133,14 +143,16 @@ def suite(peers, client, churn=None):
         mailbox(client, tcp, quic, other)
         cases.append({"peer": tcp, "health": True, "roundtrip": True,
                       "independent_storage": True, "mailbox": True,
-                      "media": media(client, tcp, quic)})
+                      "media": media(client, tcp, quic),
+                      "turn": turn(client, tcp, relay)})
     cases.append(network(peers, client, churn))
     reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
     print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
-          f"stale, mailbox, push, media, independence, routing, replication, "
+          f"stale, mailbox, push, media, TURN, independence, routing, "
+          f"relay announcement, replication, "
           f"ack forwarding, repair, rate limit"
           f"{churned} passed")
 
@@ -158,6 +170,15 @@ def network(peers, client, churn):
         time.sleep(1)
     else:
         raise RuntimeError(f"Routing found {found['peers']}, not {list(ids)}")
+    # The turn node announces its relay once its routing table fills.
+    relays = []
+    for _ in range(30):
+        relays = call(client, "relays", limited)["providers"]
+        if relays:
+            break
+        time.sleep(1)
+    if relays != [call(client, "info", entry)["peer_id"]]:
+        raise RuntimeError(f"TURN relays in the DHT: {relays}")
     holders = replicate(client, entry, ids)
     # 15 requests stay within the 16 concurrent streams a node accepts on
     # one connection; more are dropped unanswered.
@@ -167,7 +188,8 @@ def network(peers, client, churn):
                    counts.get("STATUS_RATE_LIMITED", 0))
     if answered < FLOOD_LIMIT or "failed" in counts:
         raise RuntimeError(f"Rate limit boundary missed: {counts}")
-    case = {"routing": True, "holders": holders, "flood": counts,
+    case = {"routing": True, "relays": relays, "holders": holders,
+            "flood": counts,
             "acked_on": acked_everywhere(client, entry, ids),
             "repaired_on": repaired(client, entry, ids)}
     if churn:
@@ -226,6 +248,84 @@ def media(client, tcp, quic):
     if reply != {"keep": expected, "put": expected, "get": expected}:
         raise RuntimeError(f"Media roundtrip on {tcp}: {reply}")
     return serves
+
+
+def turn(client, tcp, relay):
+    """A turn node's credentials follow coturn's use-auth-secret scheme
+    and, with `relay`, allocate on the coturn relay while a wrong password
+    does not; other nodes answer UNSUPPORTED."""
+    reply = call(client, "turn", tcp)
+    if "ROLE_TURN" not in call(client, "info", tcp)["roles"]:
+        if reply["status"] != "STATUS_UNSUPPORTED":
+            raise RuntimeError(f"TURN on {tcp}: {reply}")
+        return False
+    digest = hmac.new(TURN_SECRET.encode(), reply["username"].encode(),
+                      "sha1").digest()
+    password = base64.b64encode(digest).decode()
+    if reply["status"] != "STATUS_OK" or reply["password"] != password:
+        raise RuntimeError(f"TURN credentials on {tcp}: {reply}")
+    if relay:
+        host, port = reply["urls"][0].split(":")[1:]
+        address = (socket.gethostbyname(host), int(port))
+        user = reply["username"]
+        if allocate(address, user, "wrong") != 401:
+            raise RuntimeError("TURN relay took a wrong password")
+        if allocate(address, user, reply["password"]):
+            raise RuntimeError("TURN relay refused the node's credentials")
+    return True
+
+
+def allocate(address, username, password):
+    """A STUN Allocate with long-term credentials (RFC 5766): 0 on success,
+    else the error code."""
+    udp = attribute(0x0019, b"\x11\0\0\0")
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(2)
+        attrs = stun(sock, address, udp)
+        if 0x0015 not in attrs:
+            return error_code(attrs)
+        realm, nonce = attrs[0x0014], attrs[0x0015]
+        body = b"".join((udp, attribute(0x0006, username.encode()),
+                         attribute(0x0014, realm),
+                         attribute(0x0015, nonce)))
+        key = hashlib.md5(b":".join((username.encode(), realm,
+                                     password.encode())),
+                          usedforsecurity=False)
+        return error_code(stun(sock, address, body, key.digest()))
+
+
+def attribute(kind, value):
+    padding = b"\0" * (-len(value) % 4)
+    return struct.pack("!HH", kind, len(value)) + value + padding
+
+
+def stun(sock, address, body, key=None):
+    """Attributes of the answer to an Allocate; coturn may still be
+    starting, so a lost datagram is sent again."""
+    txid = os.urandom(12)
+    if key:
+        header = struct.pack("!HHI12s", 3, len(body) + 24, 0x2112A442, txid)
+        mac = hmac.new(key, header + body, "sha1").digest()
+        body += attribute(0x0008, mac)
+    message = struct.pack("!HHI12s", 3, len(body), 0x2112A442, txid) + body
+    for _ in range(15):
+        sock.sendto(message, address)
+        try:
+            reply = sock.recv(2048)
+        except TimeoutError:
+            continue
+        attrs, rest = {}, reply[20:]
+        while len(rest) >= 4:
+            kind, size = struct.unpack("!HH", rest[:4])
+            attrs[kind] = rest[4:4 + size]
+            rest = rest[4 + size + (-size % 4):]
+        return attrs
+    raise RuntimeError(f"No STUN answer from {address}")
+
+
+def error_code(attrs):
+    code = attrs.get(0x0009)
+    return (code[2] & 7) * 100 + code[3] if code else 0
 
 
 def spread(client, entry):

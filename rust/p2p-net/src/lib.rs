@@ -29,6 +29,8 @@ pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 pub const MAILBOX_PUSH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox-push");
 pub const MEDIA_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/media");
+/// Kademlia provider key under which nodes with the turn role announce their relay.
+pub const TURN_KEY: &[u8] = b"/dyapp/turn";
 
 /// Replicas of every profile, envelope and signal (ADR 0009).
 pub const REPLICAS: u8 = 5;

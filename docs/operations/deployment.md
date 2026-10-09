@@ -142,8 +142,9 @@ seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org
                        # "/ip4/198.51.100.7/tcp/7070/p2p/12D3Koo..."; peers seen are cached in
                        # <storage.dir>/peers, so later starts do not need them; the last 3
                        # outbound peers that answered, in <storage.dir>/anchors, are dialled first
-roles = ["store"]      # add "media" to serve /dyapp/media (needs store); search and turn
-                       # are not implemented and fail at startup
+roles = ["store"]      # add "media" to serve /dyapp/media and "turn" to hand out TURN
+                       # credentials (both need store); search is not implemented
+                       # and fails at startup
 
 [storage]
 dir = "/var/lib/dyappd"   # node key and every store without its own path
@@ -185,6 +186,11 @@ distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-
 storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
 share_deny_list = false          # answer other nodes with the signed deny list (no notes)
 accept_deny_lists = false        # fetch and store other nodes' lists; no action taken
+
+[turn]                 # turn role only
+urls = []              # e.g. "turn:turn.example.org:3478", "turns:turn.example.org:5349"
+secret = ""            # coturn static-auth-secret; better DYAPPD__TURN__SECRET
+credential_minutes = 60
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not
@@ -382,9 +388,32 @@ Only what applies to the code that exists today:
 Installed from the Debian package, the service is `dyappd.service`; it logs to the journal
 (`journalctl -u dyappd`). Run by hand, `dyappd` logs to stderr.
 
+## TURN relay
+
+The `turn` role hands out credentials for a coturn relay that runs next to the node; `dyappd`
+relays nothing itself. Install coturn (`apt-get install coturn` on Debian 12) and set in
+`/etc/turnserver.conf`:
+
+```
+use-auth-secret
+static-auth-secret=<the same secret as turn.secret>
+realm=turn.example.org
+total-quota=100
+user-quota=4
+max-bps=1000000
+no-cli
+```
+
+Keep the secret out of the config file: pass `DYAPPD__TURN__SECRET` through a systemd
+`EnvironmentFile=` with mode 0600. Open the listening port (3478 UDP and TCP, 5349 for TLS) and
+the relay port range (`min-port`/`max-port`, 49152–65535 by default). At startup the node
+refuses the role without a secret or with a URL that does not start with `turn:` or `turns:`.
+Credentials expire after `turn.credential_minutes`; rotating the secret needs both services
+restarted together.
+
 ## Next Steps
 
-Planned for the node: TURN relays, public seed nodes and erasure-coded storage; see
+Planned for the node: public seed nodes and erasure-coded storage; see
 [Bootstrap](../architecture/bootstrap.md).
 
 ## References

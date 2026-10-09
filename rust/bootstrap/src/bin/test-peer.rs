@@ -23,7 +23,9 @@
 //!   to the node closest to each replica key of the mailbox;
 //! - `test-peer media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
 //!   step: a fresh owner keeps the blob's hash, puts the blob and gets it back; `"get"` is
-//!   `"CHANGED"` if the blob came back different.
+//!   `"CHANGED"` if the blob came back different;
+//! - `test-peer turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
+//! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
 //! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
@@ -74,7 +76,9 @@ async fn main() -> anyhow::Result<()> {
                 .context("no reply in 60 s")??
         }
         ["media", addr, data] => timeout(media(addr, data)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex>"),
+        ["turn", addr] => timeout(turn(addr)).await?,
+        ["relays", addr] => timeout(relays(addr)).await?,
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | turn <addr> | relays <addr>"),
     };
     println!("{output}");
     Ok(())
@@ -192,6 +196,51 @@ async fn media(addr: &str, data: &str) -> anyhow::Result<Value> {
         .into();
     }
     Ok(output)
+}
+
+async fn turn(addr: &str) -> anyhow::Result<Value> {
+    let (mut swarm, peer) = connect(addr).await?;
+    let request = proto::NodeRequest {
+        request: Some(node_request::Request::Turn(proto::TurnRequest {})),
+    };
+    swarm.behaviour_mut().node.send_request(&peer, request);
+    let response = wait(&mut swarm, |event| match event {
+        BehaviourEvent::Node(event) => reply(event),
+        _ => None,
+    })
+    .await?;
+    let turn = response.turn.unwrap_or_default();
+    Ok(json!({
+        "status": status(response.status),
+        "username": turn.username,
+        "password": turn.password,
+        "urls": turn.urls,
+        "expires": turn.expires,
+    }))
+}
+
+async fn relays(addr: &str) -> anyhow::Result<Value> {
+    let (mut swarm, _) = connect(addr).await?;
+    let key = kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY);
+    swarm.behaviour_mut().kad.get_providers(key);
+    let providers = wait(&mut swarm, |event| match event {
+        BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+            result: kad::QueryResult::GetProviders(result),
+            ..
+        }) => Some(match result {
+            // Every answer is a step, empty ones too: wait for providers or the end.
+            Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) if providers.is_empty() => {
+                return None;
+            }
+            Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) => Ok(providers),
+            Ok(_) => Ok(Default::default()),
+            Err(error) => Err(anyhow!("providers: {error}")),
+        }),
+        _ => None,
+    })
+    .await?;
+    let providers: Vec<String> = providers.iter().map(PeerId::to_string).collect();
+    Ok(json!({ "providers": providers }))
 }
 
 async fn closest(addr: &str, key: &str) -> anyhow::Result<Value> {

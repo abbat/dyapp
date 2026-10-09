@@ -26,6 +26,42 @@ pub struct NodeConfig {
     pub limits: Limits,
     pub maintenance: Maintenance,
     pub network: Network,
+    pub turn: Turn,
+}
+
+/// The coturn relay next to the node (role turn), run with `use-auth-secret`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Turn {
+    /// `turn:` / `turns:` URLs handed to peers.
+    pub urls: Vec<String>,
+    /// coturn's `static-auth-secret`; `DYAPPD__TURN__SECRET` keeps it out of the file.
+    pub secret: String,
+    /// Lifetime of the credentials the node hands out.
+    pub credential_minutes: u32,
+}
+
+impl Default for Turn {
+    fn default() -> Self {
+        Self {
+            urls: vec![],
+            secret: String::new(),
+            credential_minutes: 60,
+        }
+    }
+}
+
+impl Turn {
+    fn validate(&self) -> anyhow::Result<()> {
+        if self.secret.is_empty() || self.credential_minutes < 1 {
+            anyhow::bail!("role turn needs turn.secret and turn.credential_minutes >= 1");
+        }
+        let turn_url = |u: &String| u.starts_with("turn:") || u.starts_with("turns:");
+        if self.urls.is_empty() || !self.urls.iter().all(turn_url) {
+            anyhow::bail!("role turn needs turn.urls, each starting with turn: or turns:");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,6 +188,7 @@ impl Default for NodeConfig {
             limits: Limits::default(),
             maintenance: Maintenance::default(),
             network: Network::default(),
+            turn: Turn::default(),
         }
     }
 }
@@ -298,7 +335,7 @@ impl NodeConfig {
         if let Some(role) = self
             .roles
             .iter()
-            .find(|r| !matches!(r, Role::Store | Role::Media))
+            .find(|r| !matches!(r, Role::Store | Role::Media | Role::Turn))
         {
             anyhow::bail!("role {role:?} is not implemented yet");
         }
@@ -306,6 +343,13 @@ impl NodeConfig {
         // need their own Kademlia protocol.
         if self.roles.contains(&Role::Media) && !self.roles.contains(&Role::Store) {
             anyhow::bail!("role media needs role store");
+        }
+        if self.roles.contains(&Role::Turn) {
+            // Client-mode nodes serve no protocol, so only a store node hands out credentials.
+            if !self.roles.contains(&Role::Store) {
+                anyhow::bail!("role turn needs role store");
+            }
+            self.turn.validate()?;
         }
         let l = &self.limits;
         if l.message_ttl_hours < 1 || l.attachment_retention_hours < 1 || l.profile_ttl_days < 1 {
@@ -473,7 +517,24 @@ mod tests {
         assert!(invalid(|c| c.listen = vec!["not an address".into()]));
         assert!(invalid(|c| c.seeds = vec!["seed.example".into()]));
         assert!(!invalid(|c| c.seeds = vec!["/dnsaddr/seed.example".into()]));
-        assert!(invalid(|c| c.roles = vec![Role::Turn]));
+        fn turn(c: &mut NodeConfig) {
+            c.roles = vec![Role::Store, Role::Turn];
+            c.turn.secret = "s".into();
+            c.turn.urls = vec!["turn:relay.example:3478".into()];
+        }
+        assert!(!invalid(turn));
+        assert!(invalid(|c| {
+            turn(c);
+            c.roles = vec![Role::Turn];
+        }));
+        assert!(invalid(|c| {
+            turn(c);
+            c.turn.secret.clear();
+        }));
+        assert!(invalid(|c| {
+            turn(c);
+            c.turn.urls = vec!["relay.example:3478".into()];
+        }));
         assert!(invalid(|c| c.roles = vec![Role::Media]));
         assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));

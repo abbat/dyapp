@@ -1026,6 +1026,7 @@ name = "dyapp-bootstrap"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "dyapp-identity",
  "dyapp-messaging",
@@ -1034,6 +1035,7 @@ dependencies = [
  "dyapp-video",
  "getrandom 0.4.3",
  "governor",
+ "hmac 0.12.1",
  "libc",
  "libp2p",
  "proptest",
@@ -1043,6 +1045,7 @@ dependencies = [
  "serde",
  "serde_ignored",
  "serde_json",
+ "sha1",
  "thiserror 2.0.21",
  "tokio",
  "toml",

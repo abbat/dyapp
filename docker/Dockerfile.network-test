@@ -1,5 +1,8 @@
 FROM dyapp:dev-prepared
 USER root
+# coturn for the TURN relay of the network test.
+RUN apt-get update && apt-get install -y --no-install-recommends coturn \
+    && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock /workspace/
 COPY proto /workspace/proto
 COPY rust /workspace/rust

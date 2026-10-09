@@ -409,6 +409,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     replicas.trust.delay = Duration::from_secs(delay);
     // Incoming connections refused by the connection limits since the last maintenance run.
     let mut refused = 0u64;
+    // A turn node announces its relay once it has a routing peer; kad republishes it every 12 h.
+    // ponytail: every relay is a provider of one key, and a node keeps at most 20 providers per
+    // key; shard the key (by region or prefix) when the network has more relays than that.
+    let mut turn_unannounced = service.config.roles.contains(&Role::Turn);
+    let mut turn_query = None;
     // Requests answered and failed with a node error since the last maintenance run.
     let (mut answered, mut failed) = (0u64, 0u64);
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
@@ -438,10 +443,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 // ponytail: SQLite calls block the swarm loop; move them to spawn_blocking when
                 // load makes request latency visible.
                 SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
+                    peer: id,
+                    connection_id,
                     message: Message::Request { request, channel, .. },
-                    ..
                 })) => {
-                    let response = service.node(request);
+                    let response = service.node(&peer(id, &groups, connection_id), request);
                     answered += 1;
                     service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
@@ -554,6 +560,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
                     id,
+                    result: kad::QueryResult::StartProviding(result),
+                    ..
+                })) if turn_query == Some(id) => {
+                    turn_query = None;
+                    match result {
+                        Ok(_) => {
+                            turn_unannounced = false;
+                            tracing::info!("TURN relay announced");
+                        }
+                        Err(error) => tracing::warn!(%error, "TURN relay not announced"),
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                    id,
                     result: kad::QueryResult::GetClosestPeers(result),
                     ..
                 })) => {
@@ -617,6 +637,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                     for address in info.listen_addrs {
                         dyapp_p2p_net::add_peer(&mut swarm, peer_id, address);
+                    }
+                    // Peers enter the routing table here, not through kad's own inserts.
+                    if turn_unannounced && turn_query.is_none() {
+                        let key = kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY);
+                        turn_query = swarm.behaviour_mut().kad.start_providing(key).ok();
                     }
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {

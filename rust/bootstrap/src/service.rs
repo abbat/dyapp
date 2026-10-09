@@ -2,7 +2,7 @@
 //! `/dyapp/media`) from the stores. The libp2p loop in `dyappd` passes each request here and sends back the reply.
 
 use crate::{
-    config::Role,
+    config::{Role, Turn},
     media::{MediaStore, Put},
     rate_limit::{PeerRateLimiter, Reputation, Traffic},
     BootstrapError, BootstrapStore, NodeConfig,
@@ -11,7 +11,7 @@ use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
     self, mailbox_request, media_request, node_request, profile_request, MailboxRequest,
     MailboxResponse, MediaRequest, MediaResponse, NodeInfo, NodeRequest, NodeResponse,
-    ProfileRequest, ProfileResponse, Status,
+    ProfileRequest, ProfileResponse, Status, TurnCredentials,
 };
 use prost::Message;
 use std::collections::{HashMap, HashSet};
@@ -215,9 +215,10 @@ impl Service {
         }
     }
 
-    pub fn node(&self, request: NodeRequest) -> NodeResponse {
+    pub fn node(&self, peer: &Peer, request: NodeRequest) -> NodeResponse {
         self.traffic.add(request.encoded_len() as u64);
         match request.request {
+            Some(node_request::Request::Turn(_)) => self.turn(peer),
             Some(node_request::Request::Info(_)) => NodeResponse {
                 status: Status::Ok.into(),
                 info: Some(self.info()),
@@ -232,17 +233,37 @@ impl Service {
                 deny_list: self.shared_deny.clone(),
                 ..NodeResponse::default()
             },
-            None => NodeResponse {
-                status: Status::Unsupported.into(),
-                ..NodeResponse::default()
-            },
+            None => node_status(Status::Unsupported),
+        }
+    }
+
+    /// Credentials on the coturn relay next to this node, bound to the asking peer's ID.
+    fn turn(&self, peer: &Peer) -> NodeResponse {
+        if !self.config.roles.contains(&Role::Turn) {
+            return node_status(Status::Unsupported);
+        }
+        if !self.admit(peer) {
+            return node_status(Status::RateLimited);
+        }
+        if self.refused(peer) {
+            return node_status(Status::Refused);
+        }
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        NodeResponse {
+            turn: Some(turn_credentials(&self.config.turn, &peer.id, now)),
+            ..node_status(Status::Ok)
         }
     }
 
     fn info(&self) -> NodeInfo {
         let store = self.config.roles.contains(&Role::Store);
         let media = self.media.is_some();
-        let roles = [(store, proto::Role::Store), (media, proto::Role::Media)];
+        let turn = self.config.roles.contains(&Role::Turn);
+        let roles = [
+            (store, proto::Role::Store),
+            (media, proto::Role::Media),
+            (turn, proto::Role::Turn),
+        ];
         NodeInfo {
             roles: roles
                 .into_iter()
@@ -710,6 +731,31 @@ fn reply(status: Status, record: Option<SignedRecord>) -> ProfileResponse {
     ProfileResponse {
         status: status.into(),
         record,
+    }
+}
+
+fn node_status(status: Status) -> NodeResponse {
+    NodeResponse {
+        status: status.into(),
+        ..NodeResponse::default()
+    }
+}
+
+/// TURN REST credentials as coturn's `use-auth-secret` checks them: username
+/// `<expiry>:<peer>`, password base64(HMAC-SHA1(secret, username)).
+fn turn_credentials(turn: &Turn, peer: &str, now: u64) -> TurnCredentials {
+    use base64::Engine;
+    use hmac::Mac;
+    let expires = now + u64::from(turn.credential_minutes) * 60;
+    let username = format!("{expires}:{peer}");
+    let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(turn.secret.as_bytes())
+        .expect("HMAC takes a key of any length");
+    mac.update(username.as_bytes());
+    TurnCredentials {
+        password: base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()),
+        username,
+        urls: turn.urls.clone(),
+        expires,
     }
 }
 
@@ -1229,9 +1275,12 @@ mod tests {
             Status::NotFound
         );
 
-        let info = service.node(NodeRequest {
-            request: Some(node_request::Request::Info(proto::InfoRequest {})),
-        });
+        let info = service.node(
+            &peer("q"),
+            NodeRequest {
+                request: Some(node_request::Request::Info(proto::InfoRequest {})),
+            },
+        );
         assert_eq!(
             info.info.unwrap().roles,
             vec![i32::from(proto::Role::Store)]
@@ -1239,10 +1288,23 @@ mod tests {
         let deny_list = || NodeRequest {
             request: Some(node_request::Request::DenyList(proto::DenyListRequest {})),
         };
-        let not_shared = service.node(deny_list());
+        let not_shared = service.node(&peer("q"), deny_list());
         assert_eq!(not_shared.status, i32::from(Status::NotFound));
         service.shared_deny = Some(SignedRecord::default());
-        assert!(service.node(deny_list()).deny_list.is_some());
+        assert!(service.node(&peer("q"), deny_list()).deny_list.is_some());
+        let turn = NodeRequest {
+            request: Some(node_request::Request::Turn(proto::TurnRequest {})),
+        };
+        let unsupported = service.node(&peer("q"), turn);
+        assert_eq!(unsupported.status, i32::from(Status::Unsupported));
+        service.config.roles.push(Role::Turn);
+        service.config.turn.secret = "secret".into();
+        let credentials = service.node(&peer("t"), turn).turn.unwrap();
+        assert!(credentials.username.ends_with(":t"));
+        // Vector from Python: base64(hmac.new(b"secret", user, sha1).digest()).
+        let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
+        assert_eq!(known.username, "1003600:12D3KooWpeer");
+        assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc=");
     }
 
     #[test]
@@ -1351,9 +1413,12 @@ mod tests {
             "blocked blob"
         );
 
-        let info = service.node(NodeRequest {
-            request: Some(node_request::Request::Info(proto::InfoRequest {})),
-        });
+        let info = service.node(
+            &peer("q"),
+            NodeRequest {
+                request: Some(node_request::Request::Info(proto::InfoRequest {})),
+            },
+        );
         let info = info.info.unwrap();
         assert_eq!(info.roles.len(), 2);
         assert_eq!(info.max_media_bytes, MAX_MEDIA_BYTES as u64);

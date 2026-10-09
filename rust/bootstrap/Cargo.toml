@@ -23,6 +23,11 @@ dyapp-profile = { path = "../profile" }
 getrandom = "0.4"
 libc = "0.2"
 
+# TURN REST credentials for coturn
+hmac = "0.12"
+sha1 = "0.10"
+base64 = "0.22"
+
 # Replication/erasure coding
 reed-solomon-erasure = { version = "6.0", default-features = false }
 

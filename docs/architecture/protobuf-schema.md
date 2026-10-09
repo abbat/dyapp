@@ -16,7 +16,7 @@
 | `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media` |
 
 The files are the source; comments in them define each field. Schemas for `/dyapp/signal`,
-`/dyapp/search`, `/dyapp/inventory` and `/dyapp/turn` are planned and are added
+`/dyapp/search` and `/dyapp/inventory` are planned and are added
 together with their roles ([protocol](bootstrap.md#protocol)).
 
 ## Signed records
