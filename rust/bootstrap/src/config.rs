@@ -3,21 +3,36 @@
 //! are logged and ignored, so a node rolled back to an older version still starts.
 
 use libp2p::identity::Keypair;
+use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
 use serde::Deserialize;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::net::SocketAddr;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 pub const ENV_PREFIX: &str = "DYAPPD__";
 
+/// The TCP and QUIC (UDP) addresses of a `host:port` listen or external address.
+pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
+    let socket: SocketAddr = address.parse().map_err(|_| {
+        anyhow::anyhow!("bad address {address}: expected host:port, e.g. [::]:7070 or 0.0.0.0:7070")
+    })?;
+    let ip = Multiaddr::from(socket.ip());
+    Ok([
+        ip.clone().with(Protocol::Tcp(socket.port())),
+        ip.with(Protocol::Udp(socket.port())).with(Protocol::QuicV1),
+    ])
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct NodeConfig {
-    /// libp2p listen addresses, one per transport.
+    /// `host:port` addresses, each served over TCP and QUIC; see [`transports`].
     pub listen: Vec<String>,
-    /// Addresses announced to peers when the operator knows them; AutoNAT confirms others.
+    /// `host:port` addresses announced to peers when the operator knows them; AutoNAT confirms
+    /// others.
     pub external: Vec<String>,
     /// Nodes dialed at start to join the network; `/dnsaddr/<host>` reads `_dnsaddr.<host>` TXT.
     pub seeds: Vec<String>,
@@ -177,10 +192,8 @@ impl Default for Maintenance {
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
-            listen: vec![
-                "/ip4/0.0.0.0/tcp/7070".into(),
-                "/ip4/0.0.0.0/udp/7070/quic-v1".into(),
-            ],
+            // libp2p binds IPv6 sockets v6-only, so dual stack takes both wildcards.
+            listen: vec!["[::]:7070".into(), "0.0.0.0:7070".into()],
             external: vec![],
             seeds: vec![],
             roles: vec![Role::Store],
@@ -324,7 +337,10 @@ impl NodeConfig {
         if fs::metadata("/proc/self")?.uid() == 0 {
             anyhow::bail!("refusing to run as root: start the node as an unprivileged user");
         }
-        for address in self.listen.iter().chain(&self.external).chain(&self.seeds) {
+        for address in self.listen.iter().chain(&self.external) {
+            transports(address)?;
+        }
+        for address in &self.seeds {
             address
                 .parse::<Multiaddr>()
                 .map_err(|e| anyhow::anyhow!("bad address {address}: {e}"))?;
@@ -484,7 +500,7 @@ mod tests {
         let file = dir.join("node.toml");
         fs::write(
             &file,
-            "listen = [\"/ip4/127.0.0.1/tcp/7071\"]\nfuture_key = 1\n\
+            "listen = [\"127.0.0.1:7071\"]\nfuture_key = 1\n\
              [limits]\nmessage_ttl_hours = 48\n",
         )
         .unwrap();
@@ -494,7 +510,7 @@ mod tests {
             ("OTHER".into(), "x".into()),
         ];
         let (config, ignored) = NodeConfig::load(Some(&file), env).unwrap();
-        assert_eq!(config.listen, ["/ip4/127.0.0.1/tcp/7071"]);
+        assert_eq!(config.listen, ["127.0.0.1:7071"]);
         assert_eq!(config.limits.message_ttl_hours, 72);
         assert_eq!(config.limits.requests_per_second, 100);
         assert_eq!(config.storage.dir, PathBuf::from("/srv/node"));
@@ -515,6 +531,17 @@ mod tests {
         };
         assert!(!invalid(|_| {}));
         assert!(invalid(|c| c.listen = vec!["not an address".into()]));
+        assert!(invalid(|c| c.listen = vec!["/ip4/0.0.0.0/tcp/7070".into()]));
+        assert!(invalid(|c| c.external = vec!["[2001:db8::1]".into()]));
+        assert_eq!(
+            transports("[2001:db8::1]:7070")
+                .unwrap()
+                .map(|a| a.to_string()),
+            [
+                "/ip6/2001:db8::1/tcp/7070",
+                "/ip6/2001:db8::1/udp/7070/quic-v1"
+            ]
+        );
         assert!(invalid(|c| c.seeds = vec!["seed.example".into()]));
         assert!(!invalid(|c| c.seeds = vec!["/dnsaddr/seed.example".into()]));
         fn turn(c: &mut NodeConfig) {

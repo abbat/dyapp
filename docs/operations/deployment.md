@@ -133,13 +133,27 @@ The config is optional. Settings come from the defaults, then the TOML file, the
 environment variables `DYAPPD__<SECTION>__<KEY>`, whose value is parsed as
 TOML (a bare string is taken as is), for example
 `DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` or
-`DYAPPD__LISTEN='["/ip4/0.0.0.0/udp/7070/quic-v1"]'`.
+`DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`.
+
+`listen` and `external` take `host:port` addresses with an IP, not a host name; an IPv6
+address goes in brackets. Each address serves both transports on its port: TCP and QUIC over
+UDP, so open both in the firewall. Peers use QUIC where UDP gets through and TCP otherwise. The
+node binds IPv6 sockets IPv6-only, so `[::]` alone does not accept IPv4: a dual-stack node lists
+both wildcards, as the default does. An address that does not open (`[::]` on a host with IPv6
+disabled, a port already taken) is logged as `not listening` and skipped; the node exits only
+when none opens.
+
+`seeds` are libp2p [multiaddrs](https://github.com/multiformats/multiaddr): `/`-separated
+protocol and value pairs. `/ip6/<address>` or `/ip4/<address>`, then `/tcp/<port>` or
+`/udp/<port>/quic-v1` (QUIC, RFC 9000), then `/p2p/<peer id>`; `/dnsaddr/<host>` instead reads
+the whole list from the `_dnsaddr.<host>` TXT records.
 
 ```toml
-listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]  # default
-external = []          # addresses announced to peers; AutoNAT confirms others
+listen = ["[::]:7070", "0.0.0.0:7070"]  # default: IPv6 and IPv4, TCP and QUIC on each
+external = []          # addresses announced to peers, e.g. "[2001:db8::7]:7070";
+                       # AutoNAT confirms others
 seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org" or
-                       # "/ip4/198.51.100.7/tcp/7070/p2p/12D3Koo..."; peers seen are cached in
+                       # "/ip6/2001:db8::7/udp/7070/quic-v1/p2p/12D3Koo..."; peers seen are cached in
                        # <storage.dir>/peers, so later starts do not need them; the last 3
                        # outbound peers that answered, in <storage.dir>/anchors, are dialled first
 roles = ["store"]      # add "media" to serve /dyapp/media and "turn" to hand out TURN
@@ -382,7 +396,7 @@ Only what applies to the code that exists today:
 |---------|-------|
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
-| Port 7070 already in use | Another `dyappd` is running; set `DYAPPD__LISTEN` |
+| `not listening` warning or `no address could be opened` | Port 7070 is taken (another `dyappd`?) or IPv6 is disabled on the host; set `DYAPPD__LISTEN` |
 | Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas (see [Data cleanup](#data-cleanup)) |
 
 Installed from the Debian package, the service is `dyappd.service`; it logs to the journal

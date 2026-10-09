@@ -2,8 +2,8 @@
 # All keys: docs/operations/deployment.md. Apply changes with `systemctl restart dyappd`.
 # The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
-# listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]
-# external = []        # addresses announced to peers
+# listen = ["[::]:7070", "0.0.0.0:7070"]  # host:port, IPv6 in brackets; TCP and UDP (QUIC) each
+# external = []        # addresses announced to peers, e.g. "[2001:db8::7]:7070"
 # seeds = []           # nodes to join through, e.g. "/dnsaddr/seeds.example.org"
 # roles = ["store"]    # add "media" to serve media blobs
 

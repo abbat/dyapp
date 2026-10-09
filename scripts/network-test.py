@@ -62,8 +62,8 @@ def local(bin_dir):
             for port in (7071, 7072, 7073):
                 tcp, quic = addresses("127.0.0.1", port)
                 env = {**os.environ,
-                       "DYAPPD__LISTEN": json.dumps([tcp, quic]),
-                       "DYAPPD__EXTERNAL": json.dumps([tcp, quic]),
+                       "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
+                       "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
                        "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
                        "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
                        # Loopback nodes share one /16.

@@ -11,7 +11,7 @@
 //! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
 
-use dyapp_bootstrap::config::Role;
+use dyapp_bootstrap::config::{transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::service::Service;
@@ -78,11 +78,21 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let mut swarm = node::swarm(keypair, &config.limits, &config.roles)?;
+    // A host without IPv6 cannot open [::]; the node runs on whatever does open.
+    let mut listening = 0;
     for address in &config.listen {
-        swarm.listen_on(address.parse()?)?;
+        for address in transports(address)? {
+            match swarm.listen_on(address.clone()) {
+                Ok(_) => listening += 1,
+                Err(error) => tracing::warn!(%address, %error, "not listening"),
+            }
+        }
     }
+    anyhow::ensure!(listening > 0, "listen: no address could be opened");
     for address in &config.external {
-        swarm.add_external_address(address.parse()?);
+        for address in transports(address)? {
+            swarm.add_external_address(address);
+        }
     }
     // Anchors are dialled first, the cache fills the routing table, and seeds are dialled by the
     // first maintenance run of `node::run`.

@@ -21,7 +21,7 @@ x-peer: &peer
     - >-
       bash scripts/check-container-isolation.sh
       && ip=$$(getent hosts "$$HOSTNAME" | cut -d " " -f 1)
-      && export DYAPPD__EXTERNAL="[\"/ip4/$$ip/tcp/7070\", \"/ip4/$$ip/udp/7070/quic-v1\"]"
+      && export DYAPPD__EXTERNAL="[\"$$ip:7070\"]"
       && { test -e /tmp/node/node.key || target/debug/dyappd keygen; }
       && exec target/debug/dyappd
   environment: &env
