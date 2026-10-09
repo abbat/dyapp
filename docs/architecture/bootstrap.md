@@ -232,8 +232,7 @@ Resource guards cap disk per store and for media (with a free-space reserve), tr
 an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
 another replica. Implemented: the disk, traffic and connection guards in
-[Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting);
-a memory threshold is planned.
+[Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting).
 
 The operator may refuse service to any user through a deny list (implemented, see
 [Deny list](#deny-list)). Nodes can exchange signed lists, with separate switches to share and
@@ -584,8 +583,10 @@ starts refusing and a line when it clears, not one per request:
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
-  Refused connections are counted and logged at each maintenance run. A memory-use threshold
-  is planned.
+  With `max_memory_mb` above 0 (default 0, no limit) libp2p `memory-connection-limits` refuses
+  new connections while the process uses more physical memory, checked at most every 100 ms;
+  established connections stay. Refused connections are counted and logged at each maintenance
+  run.
 
 ## Storage
 
@@ -633,7 +634,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 (media defaults to `<dir>/media`),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
 `limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,monthly_traffic_gb,bytes_per_second}`,
-`limits.{max_connections,max_connections_per_peer,max_streams}`
+`limits.{max_connections,max_connections_per_peer,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,

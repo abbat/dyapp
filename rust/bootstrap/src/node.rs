@@ -41,7 +41,11 @@ pub fn swarm(
         .with_max_established(Some(limits.max_connections))
         .with_max_pending_incoming(Some(limits.max_connections))
         .with_max_established_per_peer(Some(limits.max_connections_per_peer));
-    build_limited_swarm(keypair, mode, connections, limits.max_streams)
+    let memory = match limits.max_memory_mb {
+        0 => usize::MAX,
+        mb => usize::try_from(mb.saturating_mul(1 << 20)).unwrap_or(usize::MAX),
+    };
+    build_limited_swarm(keypair, mode, connections, limits.max_streams, memory)
 }
 
 /// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits.
@@ -697,7 +701,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                 }
                 if refused > 0 {
-                    tracing::warn!(refused, "connections refused by the connection limits");
+                    tracing::warn!(refused, "connections refused by the connection or memory limits");
                     refused = 0;
                 }
                 status(&service, &swarm, peers.len(), answered, failed);

@@ -38,7 +38,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Replayed mailbox request | The nonce is bound to one libp2p connection; other requests are idempotent | ✅ Implemented |
 | Spam into a mailbox | Size limits per envelope and mailbox, puts limited per sender key and IP group | ✅ Implemented; the sender key is free, so the IP group is the real bound |
 | Request floods | Token buckets per peer ID and IP group, local ban after repeated refusals | ✅ Implemented ([rate limiting](../architecture/bootstrap.md#rate-limiting)) |
-| Disk, traffic or connection exhaustion | Store size caps, free-space floor, monthly traffic cap, connection and stream limits | ✅ Implemented ([resource guards](../architecture/bootstrap.md#resource-guards)); byte rates and a memory threshold planned |
+| Disk, traffic or connection exhaustion | Store size caps, free-space floor, monthly traffic cap, byte rate, connection, stream and memory limits | ✅ Implemented ([resource guards](../architecture/bootstrap.md#resource-guards)) |
 | Oversized or malformed messages | 2 MiB wire cap, protobuf decoding, unknown variants answered `UNSUPPORTED` | ✅ Implemented |
 | Operator withholds or drops data | R = 5 replicas on independent nodes; the client tries another replica ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) | ❌ Planned: a node stores only what it is sent |
 | Abuser keeps using one node | Operator deny list of peer IDs, IP groups and key hashes | ✅ Implemented ([deny list](../architecture/bootstrap.md#deny-list)); a key is free to regenerate, so IP-group quotas carry the rest |

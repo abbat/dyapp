@@ -8,8 +8,8 @@ use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{
-    autonat, connection_limits, identify, kad, noise, tcp, yamux, Multiaddr, PeerId,
-    StreamProtocol, Swarm, SwarmBuilder,
+    autonat, connection_limits, identify, kad, memory_connection_limits, noise, tcp, yamux,
+    Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use std::io;
 use std::marker::PhantomData;
@@ -56,6 +56,7 @@ pub type MediaBehaviour =
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
     pub limits: connection_limits::Behaviour,
+    pub memory: memory_connection_limits::Behaviour,
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
     pub identify: identify::Behaviour,
     pub autonat: autonat::Behaviour,
@@ -162,16 +163,19 @@ pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behavio
         mode,
         connection_limits::ConnectionLimits::default(),
         100,
+        usize::MAX,
     )
 }
 
 /// [`build_swarm`] with connection limits and at most `max_streams` concurrent streams per
-/// connection and protocol.
+/// connection and protocol; new connections are refused while the process uses more than
+/// `max_memory_bytes` of physical memory.
 pub fn build_limited_swarm(
     keypair: Keypair,
     mode: Mode,
     limits: connection_limits::ConnectionLimits,
     max_streams: usize,
+    max_memory_bytes: usize,
 ) -> anyhow::Result<Swarm<Behaviour>> {
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -207,6 +211,7 @@ pub fn build_limited_swarm(
                 request_response::Config::default().with_max_concurrent_streams(max_streams);
             Behaviour {
                 limits: connection_limits::Behaviour::new(limits),
+                memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
                     IDENTIFY_PROTOCOL.into(),

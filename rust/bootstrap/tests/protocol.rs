@@ -172,8 +172,10 @@ async fn raw(addr: &Multiaddr, protocol: StreamProtocol, bytes: Vec<u8>) -> Opti
         .build();
     swarm.dial(addr.clone()).unwrap();
     let server = loop {
-        if let SwarmEvent::ConnectionEstablished { peer_id, .. } = swarm.select_next_some().await {
-            break peer_id;
+        match swarm.select_next_some().await {
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => break peer_id,
+            SwarmEvent::OutgoingConnectionError { .. } => return None,
+            _ => {}
         }
     };
     swarm.behaviour_mut().send_request(&server, bytes);
@@ -374,4 +376,17 @@ async fn connections_over_the_limit_are_refused() {
         None
     );
     assert_eq!(status(first.info().await.status), Status::Ok);
+}
+
+#[tokio::test]
+async fn connections_over_the_memory_limit_are_refused() {
+    // The test process alone uses more than 1 MiB.
+    let addr = start_with(|l| l.max_memory_mb = 1).await;
+    let info = proto::NodeRequest {
+        request: Some(node_request::Request::Info(proto::InfoRequest {})),
+    };
+    assert_eq!(
+        raw(&addr, dyapp_p2p_net::NODE_PROTOCOL, info.encode_to_vec()).await,
+        None
+    );
 }

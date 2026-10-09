@@ -167,6 +167,7 @@ bytes_per_second = 0          # 0 = no limit; shed in the same order within each
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
+max_memory_mb = 0             # refuse new connections above this RSS; 0 = no limit
 ip_group_requests_per_second = 1000   # shared by all peers of one IP group
 ipv4_prefix = 24              # IP group: leading bits of the remote address
 ipv6_prefix = 48
@@ -383,8 +384,8 @@ Installed from the Debian package, the service is `dyappd.service`; it logs to t
 
 ## Next Steps
 
-Planned for the node: a local admin CLI, a memory-use threshold, TURN relays,
-public seed nodes and erasure-coded storage; see [Bootstrap](../architecture/bootstrap.md).
+Planned for the node: TURN relays, public seed nodes and erasure-coded storage; see
+[Bootstrap](../architecture/bootstrap.md).
 
 ## References
 
