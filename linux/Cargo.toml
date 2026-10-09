@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
-tauri = { version = "=1.8.3", features = [] }
+tauri = { version = "=2.12.1", features = [] }
 
 [build-dependencies]
 tauri-build = "=1.5.6"
