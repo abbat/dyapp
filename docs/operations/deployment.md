@@ -51,7 +51,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
   ├─ libp2p node protocol (profiles and mailbox today)
   ├─ Profile index (search by age/location)
   ├─ Peer discovery (announce presence)
-  └─ Replication (planned; whole records to 5 points, K=6/M=4 for large media, see ADR 0009)
+  └─ Replication (planned; whole records to 5 points, Reed-Solomon K ≤ 6/M = 4 for media above 1 MiB, see ADR 0009)
 
                     ↓ (plaintext today; encryption planned)
 

@@ -11,7 +11,7 @@ repairs mailbox replicas node to node; profile search and signaling are planned.
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
-- **Replication**: messages and profiles replicated whole to 5 points, Reed-Solomon K=6/M=4 only for large media [ADR 0009](../decisions/0009-message-delivery-and-storage.md); the client writes each replica to the node the DHT finds, nodes forward mailbox acks and repair mailboxes; media are not replicated and the Reed-Solomon codec is not wired in (see [Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon))
+- **Replication**: messages and profiles replicated whole to 5 points, Reed-Solomon K ≤ 6, M = 4 only for media above 1 MiB [ADR 0009](../decisions/0009-message-delivery-and-storage.md); the client writes each replica to the node the DHT finds, nodes forward mailbox acks and repair mailboxes; media are not replicated and the Reed-Solomon codec is not wired in (see [Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon))
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
@@ -119,8 +119,10 @@ same id or hash stores once), so replays need no nonce.
 ### Replication and repair
 
 Profiles, mailbox messages and signals are replicated whole to R = 5 points, replica *i* on the
-nodes closest to H(key ‖ i); large media are erasure-coded into K = 6 + M = 4 shards; thumbnails
-are stored whole ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+nodes closest to H(key ‖ i); media above the node's threshold are to be erasure-coded into
+K = ⌈size / 1 MiB⌉ + M = 4 shards, smaller ones such as thumbnails stored whole
+([ADR 0009](../decisions/0009-message-delivery-and-storage.md), planned:
+[Replication design](replication.md)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
 SHA-256). The client writes each replica itself; a node stores only what it is sent, and a
 repeated put is a no-op, so a duplicate or retried replica write is harmless. No client does the
@@ -505,10 +507,10 @@ Mapping in `Replication::new_with_replication_factor`:
 | 3 | 2 | 1 | 3 | 2 | 1 | 1/3 (~33%) | 1.5× |
 | 4 | 3 | 1 | 4 | 3 | 1 | 1/4 (25%) | ~1.33× |
 
-The target code is fixed by the protocol: K=6 data + M=4 parity shards on 10
-nodes, surviving the loss of any 4 (40%), used for large media only;
-messages and profiles are replicated whole [ADR 0009](../decisions/0009-message-delivery-and-storage.md). This mapping
-does not produce it.
+The planned code for media above the node's threshold is K = ⌈size / 1 MiB⌉ data shards (at
+most 6, for the 6 MiB blob limit) and M = 4 parity, surviving the loss of any 4
+([Replication design](replication.md), [ADR 0009](../decisions/0009-message-delivery-and-storage.md));
+messages and profiles are replicated whole. This mapping does not produce it.
 
 **Example: RS(2,1) on 3 nodes**
 ```

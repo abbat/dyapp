@@ -101,7 +101,7 @@ Decided (see the [ADRs](../decisions/README.md)):
   Signed profile versions are implemented (`rust/profile`); the Lamport ordering in
   `rust/messaging` is still to be replaced.
 - **Delivery:** direct push, else an LRU store on bootstrap nodes; records
-  replicated whole to 5 points, erasure coding K=6/M=4 only for large media
+  replicated whole to 5 points, erasure coding (K ≤ 6, M = 4) only for media above 1 MiB
   ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 - **Video:** one-to-one, always end-to-end, libwebrtc via FFI
   ([ADR 0013](../decisions/0013-video-calls-one-to-one.md)).
