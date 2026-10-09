@@ -9,7 +9,7 @@ on:
 
 jobs:
   analyze:
-    name: analyze - cpp
+    name: analyze - ${{ matrix.language }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -19,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['cpp']  # rust support via SARIF
+        # The languages CodeQL reads without a build. Java/Kotlin and Swift (the mobile apps)
+        # need one and are not analysed yet.
+        language: ['rust', 'python', 'actions', 'javascript-typescript']
 
     steps:
     - name: checkout
@@ -29,19 +31,13 @@ jobs:
       uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
+        build-mode: none
         queries: security-and-quality
-        # optional: disable default queries and use security-only or extended suite
-        # queries: security-only
-
-    # autobuild attempts to build any compiled languages (c/c++, c#, go, java, or swift).
-    # if this step fails, then you should remove it and run the build manually
-    - name: autobuild
-      uses: github/codeql-action/autobuild@v4
 
     - name: analyze
       uses: github/codeql-action/analyze@v4
       with:
-        category: "/language:cpp"
+        category: "/language:${{ matrix.language }}"
 
   # custom rust analysis (using clippy for static analysis)
   rust-analysis:
