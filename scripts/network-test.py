@@ -58,7 +58,9 @@ def local(bin_dir):
                        "DYAPPD__LISTEN": json.dumps([tcp, quic]),
                        "DYAPPD__EXTERNAL": json.dumps([tcp, quic]),
                        "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
-                       "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS}
+                       "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
+                       # Loopback nodes share one /16.
+                       "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false"}
                 if not peers:
                     env["DYAPPD__ROLES"] = '["store", "media"]'
                 if peers:

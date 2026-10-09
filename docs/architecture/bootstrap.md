@@ -615,12 +615,12 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `limits.{max_connections,max_connections_per_peer,max_streams}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
-([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`, `network.id_pow_bits`
-([P2P networking](p2p-networking.md)); the example and startup checks are in
-[Deployment](../operations/deployment.md#dyappd). `dyappd` starts the libp2p node
-([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
-the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles are
-accepted, and `media` only together with `store`.
+([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,
+`network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)); the
+example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
+starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
+and serves the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles
+are accepted, and `media` only together with `store`.
 
 Planned: a maintenance window and per-store schedules, the remaining resource guards, TURN ports,
 store retention.

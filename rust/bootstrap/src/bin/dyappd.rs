@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
     }
     config.validate()?;
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
+    dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
     let command: Vec<&str> = command.iter().map(String::as_str).collect();
     if !command.is_empty() && command != ["keygen"] {
         let owner = std::fs::metadata(&config.storage.dir)?.uid();

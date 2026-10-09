@@ -34,12 +34,16 @@ pub struct Network {
     /// Node-ID proof of work required of the own key and of every routed peer. Lower it on test
     /// networks only: nodes of the public network do not route a key made with fewer bits.
     pub id_pow_bits: u32,
+    /// At most one peer per /16 (IPv6 /32) in a k-bucket. Turn it off only on a network whose
+    /// nodes share a /16, such as a test network.
+    pub distinct_outbound_groups: bool,
 }
 
 impl Default for Network {
     fn default() -> Self {
         Self {
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
+            distinct_outbound_groups: true,
         }
     }
 }

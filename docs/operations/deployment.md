@@ -179,6 +179,7 @@ vacuum_pages = 2048    # free 4 KiB pages released per store and run
 
 [network]
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
+distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-bucket
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not
@@ -188,9 +189,10 @@ creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
 `storage.dir` and prints the peer ID. The key carries the node-ID proof of work: SHA-256 of
 the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCPU
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Keygen refuses when a key or any
-data already exists. The node does not start without the key, with a key that lacks the proof
-of work or with one that does not match `node.id`: a new key is a new node, so delete the data
-to start from scratch. Keep a copy of `node.key` safe. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
+data already exists. Turn `network.distinct_outbound_groups` off only on a network whose
+nodes share a /16, such as a LAN or a test network. The node does not start without the key,
+with a key that lacks the proof of work or with one that does not match `node.id`: a new key is
+a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
 ### Development quick start

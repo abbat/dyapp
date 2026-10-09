@@ -310,15 +310,34 @@ pub fn join(swarm: &mut Swarm<Behaviour>, seeds: &[Multiaddr], cached: &[Multiad
 pub const MAX_GROUP_PER_BUCKET: usize = 2;
 pub const MAX_GROUP_PER_TABLE: usize = 10;
 
-fn ip_group(address: &Multiaddr) -> Option<String> {
+static DISTINCT_GROUPS: AtomicBool = AtomicBool::new(true);
+
+/// Whether a k-bucket takes at most one peer per wide group (/16, IPv6 /32, or one DNS name), so
+/// the peers Kademlia dials for one key range sit in distinct networks (ADR 0008). On by
+/// default; a node on a trusted network, where every peer shares a /16, turns it off.
+pub fn set_distinct_groups(on: bool) {
+    DISTINCT_GROUPS.store(on, Ordering::Relaxed);
+}
+
+/// The IP group of `address`: /24 (IPv6 /48), or /16 (IPv6 /32) when `wide`; a DNS name is its
+/// own group.
+fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
     address.iter().find_map(|p| match p {
         Protocol::Ip4(ip) => {
             let [a, b, c, _] = ip.octets();
-            Some(format!("{a}.{b}.{c}"))
+            Some(if wide {
+                format!("{a}.{b}")
+            } else {
+                format!("{a}.{b}.{c}")
+            })
         }
         Protocol::Ip6(ip) => {
             let s = ip.segments();
-            Some(format!("{:x}:{:x}:{:x}", s[0], s[1], s[2]))
+            Some(if wide {
+                format!("{:x}:{:x}", s[0], s[1])
+            } else {
+                format!("{:x}:{:x}:{:x}", s[0], s[1], s[2])
+            })
         }
         Protocol::Dns(h) | Protocol::Dns4(h) | Protocol::Dns6(h) | Protocol::Dnsaddr(h) => {
             Some(h.to_string())
@@ -329,7 +348,8 @@ fn ip_group(address: &Multiaddr) -> Option<String> {
 
 /// Adds `peer` at `address` to the routing table unless its IP group already has
 /// [`MAX_GROUP_PER_BUCKET`] other peers in the peer's bucket or [`MAX_GROUP_PER_TABLE`] in the
-/// table. A peer without the node-ID proof of work ([`id_pow_bits`]) is never added: it is
+/// table, or, with [`set_distinct_groups`] on, its /16 already has a peer in the bucket. A peer
+/// without the node-ID proof of work ([`id_pow_bits`]) is never added: it is
 /// served, but never routed to or given replicas. A full bucket keeps its oldest live peers: the
 /// newcomer only replaces one that stopped answering. Returns whether the address was passed to
 /// Kademlia.
@@ -339,28 +359,36 @@ pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) 
         return false;
     }
     let kad = &mut swarm.behaviour_mut().kad;
-    if let Some(group) = ip_group(&address) {
+    if let (Some(group), Some(wide)) = (ip_group(&address, false), ip_group(&address, true)) {
         let Some(range) = kad.kbucket(peer).map(|b| b.range()) else {
             return false;
         };
-        let (mut bucket_count, mut table_count) = (0, 0);
+        let distinct = DISTINCT_GROUPS.load(Ordering::Relaxed);
+        let (mut bucket_count, mut table_count, mut bucket_wide) = (0, 0, false);
         for bucket in kad.kbuckets() {
             let in_bucket = bucket.range() == range;
             for entry in bucket.iter() {
-                let other = *entry.node.key.preimage() != peer;
-                if other
-                    && entry
+                if *entry.node.key.preimage() == peer {
+                    continue;
+                }
+                let has = |g: &str, w| {
+                    entry
                         .node
                         .value
                         .iter()
-                        .any(|a| ip_group(a).as_ref() == Some(&group))
-                {
+                        .any(|a| ip_group(a, w).as_deref() == Some(g))
+                };
+                if has(&group, false) {
                     table_count += 1;
                     bucket_count += usize::from(in_bucket);
                 }
+                bucket_wide |= in_bucket && has(&wide, true);
             }
         }
-        if bucket_count >= MAX_GROUP_PER_BUCKET || table_count >= MAX_GROUP_PER_TABLE {
+        if bucket_count >= MAX_GROUP_PER_BUCKET
+            || table_count >= MAX_GROUP_PER_TABLE
+            || (distinct && bucket_wide)
+        {
             tracing::debug!(%peer, %address, "routing table full for this IP group");
             return false;
         }
@@ -503,16 +531,14 @@ mod tests {
     #[tokio::test]
     async fn one_ip_group_fills_few_routing_slots() {
         let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
-        let mut add = |ip: String| {
-            let peer = PeerId::random();
-            add_peer(
-                &mut swarm,
-                peer,
-                format!("/ip4/{ip}/tcp/1").parse().unwrap(),
-            )
+        let add = |swarm: &mut Swarm<Behaviour>, ip: String| {
+            let address = format!("/ip4/{ip}/tcp/1").parse().unwrap();
+            add_peer(swarm, PeerId::random(), address)
         };
-        assert!((1..=5).all(|i| add(format!("10.0.{i}.1"))));
-        let admitted = (1..=30).filter(|i| add(format!("10.9.9.{i}"))).count();
+        assert!((1..=5).all(|i| add(&mut swarm, format!("10.{i}.0.1"))));
+        let admitted = (1..=30)
+            .filter(|i| add(&mut swarm, format!("10.9.9.{i}")))
+            .count();
         assert!((1..=MAX_GROUP_PER_TABLE).contains(&admitted), "{admitted}");
         for bucket in swarm.behaviour_mut().kad.kbuckets() {
             let same = bucket.iter().filter(|e| {
@@ -522,6 +548,20 @@ mod tests {
                     .any(|a| a.to_string().starts_with("/ip4/10.9.9."))
             });
             assert!(same.count() <= MAX_GROUP_PER_BUCKET);
+        }
+        // One /16 in several /24s: still one peer per bucket.
+        let admitted = (1..=30)
+            .filter(|i| add(&mut swarm, format!("10.7.{i}.1")))
+            .count();
+        assert!(admitted >= 1);
+        for bucket in swarm.behaviour_mut().kad.kbuckets() {
+            let wide = bucket.iter().filter(|e| {
+                e.node
+                    .value
+                    .iter()
+                    .any(|a| a.to_string().starts_with("/ip4/10.7."))
+            });
+            assert!(wide.count() <= 1);
         }
     }
 

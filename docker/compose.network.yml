@@ -28,6 +28,8 @@ x-peer: &peer
     DYAPPD__STORAGE__DIR: /tmp/node
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
     DYAPPD__NETWORK__ID_POW_BITS: "8"
+    # Every test node shares one /16.
+    DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS: "false"
   healthcheck:
     test: [CMD, python3, /workspace/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/7070]
     interval: 5s
