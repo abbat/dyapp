@@ -22,9 +22,10 @@ repairs mailbox replicas node to node; profile search and signaling are planned.
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
-mailbox replicas and repair over the DHT. The signal and search services, media replication,
-profile proof of work and the store format path are planned; each part below says which it is,
-and the sections after it describe today's code.
+mailbox replicas and repair over the DHT. The signal and search services (gossipsub,
+`/dyapp/search-kad`, `profiles-idx.db`), media replication, profile proof of work and the store
+format path are planned; each part below says which it is, and the sections after it describe
+today's code.
 
 ### Principles
 
@@ -89,12 +90,13 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, range)` is planned |
-| `/dyapp/search` | search | `query(conditions, limit)` → profiles in random order and the conditions applied |
-| `/dyapp/inventory` | search | `have(list)` → `need(list)`, for search catch-up |
+| `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
+| `/dyapp/inventory` | search | node to node: `have(topic, (key, version) list)` → `need(list)`, for search catch-up |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
-heartbeats ([Search](#search)). Media and other large payloads go in chunks below the node's
+heartbeats between search nodes only ([Search](#search)); the search role has its own Kademlia,
+`/dyapp/search-kad`. Media and other large payloads go in chunks below the node's
 request size limit.
 
 **Authorisation.** The Noise peer ID is a transport key, never an identity
@@ -110,7 +112,8 @@ on an identity's data carries a signature by a key of that identity:
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
 | `media.release` | nothing: the release secret, which only the sender and the recipient know | SHA-256 of the secret against the attachment's release hash |
-| `search.query`, `node.turn`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
+| `search.publish`, `search.heartbeat` | owner identity key, over the record | the key in the record and the profile proof of work |
+| `search.query`, `search.get`, `node.turn`, `profile.get`, `media.get` | nothing | rate limit per peer ID and IP group |
 
 An ack is signed by the device, so a node forwards it verbatim and the other replicas verify it
 themselves; no node trusts another node. Requests other than fetch and ack are idempotent (the
@@ -180,29 +183,57 @@ resent from the sender's retry queue.
 
 ### Search
 
-- **Dissemination.** The owner's client publishes its `SignedRecord` on every change to one of a
-  fixed number of gossipsub topics chosen by its key (for example H(key) mod 16). It publishes
-  without subscribing, so a phone does not receive the network's updates. Once a day it also
-  publishes a signed heartbeat (key, profile version, date, about 100 bytes). Nodes check the
-  signature before relaying, relay only newer versions and limit updates per key.
-- **Index.** A search node subscribes to all topics by default, or to a part and then holds a
-  uniform random sample. It indexes only profiles with enough proof of work, and gossip
-  relays drop the others (planned; `search.min_profile_pow_bits`, default 11, at most 20). A
-  node caches verified keys, so Argon2id runs once per key, and a bad proof is a strike against
-  the peer that sent it. It keeps as many as its limits allow, evicting by the heartbeat
-  date. A node that was offline catches up by exchanging (key, version) lists with other search
-  nodes.
-- **Queries.** A client asks one to three search nodes. Results come in random order, up to a
-  per-reply limit set by the node; a repeated query gives a new sample, there is no pagination.
-  A client that does not find what it wants asks another node. Queries are rate-limited per
-  requesting key (node setting); scraping public profiles is accepted.
-- **Schema without migrations.** Hot fields live in a typed table; other attributes are indexed
-  as (attr_id, int64 value) pairs, at most N per profile, one value per attr_id, attr_id in a
-  bounded range, or the profile is rejected. The index has a version; on a bump the node builds
-  the new index from the stored payloads next to the old one, keeps answering from the old one
-  and switches when the new one is ready. A node skips conditions it does not understand,
-  returns a superset and lists the conditions it applied; the client filters the rest. `place`
-  matches exactly within the country.
+- **Discovery.** Search nodes find each other and clients find them through their own Kademlia,
+  `/dyapp/search-kad`: a client looks up the nodes closest to a random key.
+- **Dissemination.** Clients do not run gossipsub. On every change the owner's client sends its
+  `SignedRecord` to 2 search nodes with `/dyapp/search` `publish`, and once a day a signed
+  `heartbeat` (key, profile version, date). The entry node checks the signature, the proof of
+  work, the version and the per-key limit, stores the record and publishes it to the gossipsub
+  topic `/dyapp/profiles/<n>`, n = H(key) mod 16. The mesh holds search nodes only, not store
+  nodes or phones. Gossipsub uses its default degree (D = 6), a message id of
+  H(key‖version‖kind) and manual validation before relaying; a bad message is a strike in the
+  node's own ban score, gossipsub scoring is not used. The largest message is
+  `search.max_profile_bytes` plus overhead.
+- **Per-key limits.** At most 1 profile update per 10 min and 2 heartbeats per day per key. The
+  entry node answers an excess publish `RATE_LIMITED` with `retry_after` in seconds and never
+  drops it silently; gossip relays drop extras silently. The client remembers when it last
+  published to search. Within the 10 min it holds the latest profile, merges further edits into
+  it, sends it when the window ends (or on the next app start if the app was closed) and tells
+  the user "changes appear in search in N min". The profile in the store DHT is updated at once,
+  without this limit.
+- **Proof of work.** Gossip relays and search nodes index and relay only profiles with enough
+  proof of work (`search.min_profile_pow_bits`, default 11, at most 20). A node caches verified
+  keys, so Argon2id runs once per key, and a bad proof is a strike against the peer that sent it.
+- **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
+  `search.topics`, and then holds a uniform sample. The index is its own disposable file,
+  `profiles-idx.db`, built from `profiles.db`: typed columns for every `Profile` field except
+  photos, plus key, version, heartbeat date and a random u64 `r`, and a table of (key, interest)
+  pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
+  and (r). A profile larger than `search.max_profile_bytes` (default 64 KiB, at most 1 MiB,
+  reported in `info`) is not indexed; raising the limit later brings such profiles back through
+  heartbeat → `NOT_FOUND` → republish and through inventory. Storage is bounded by
+  `search.max_bytes`; a profile leaves the index on a tombstone, when no heartbeat came within the
+  retention TTL, or under `search.max_bytes` pressure, oldest heartbeat first. A new indexed field
+  bumps the index version; the node builds the new index next to the old one, keeps answering from
+  the old one and switches when the new one is ready.
+- **Catch-up.** At start and then hourly a node exchanges (key, version) lists per topic, in
+  batches of up to 10 000, with one random search node over `/dyapp/inventory`, out of its repair
+  budget.
+- **Conditions.** A condition is (`Profile` field number, op, values), at most 16 per query and
+  one per field. Ops: `eq`; `in` with up to 8 values (for interests: any of them); `range`,
+  inclusive, for numbers. Values are int64 or strings; strings match exactly. Income "at least X"
+  is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
+  not list it as applied, so the client filters the rest; a value of the wrong type is
+  `INVALID`.
+- **Queries.** A query is unsigned. The node draws a random `s` and runs
+  `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
+  come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`.
+  The reply holds (identity key, version) pairs, 40 bytes each, 50 by default and at most 200,
+  with the conditions applied, `partial` and the index version. A repeated query gives a new
+  sample; there is no pagination. The client fetches the records it does not have in its cache
+  with `get(keys)`, up to 50 keys, from the same node; the reply is cut at 1 MiB and the client
+  asks again for the rest. A `query` costs 1 unit and a `get` the bytes of its reply, limited per
+  peer ID and IP group; scraping public profiles is accepted.
 
 ### Mailboxes
 
@@ -223,7 +254,7 @@ resent from the sender's retry queue.
 
 ### Storage on a node
 
-- One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profile-index.db` (disposable, rebuilt),
+- One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profiles-idx.db` (disposable, rebuilt),
   `messages.db`, `likes.db`, `views.db` and one more per new signal type; `deny.db` for the operator's
   deny list. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
