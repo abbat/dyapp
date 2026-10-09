@@ -1,15 +1,15 @@
 #!/bin/sh
 set -e
 
-if [ "$1" = configure ] && ! getent passwd dyapp-node >/dev/null; then
-    adduser --system --group --home /var/lib/dyapp-node dyapp-node
+if [ "$1" = configure ] && ! getent passwd dyappd >/dev/null; then
+    adduser --system --group --home /var/lib/dyappd dyappd
 fi
 
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     if [ "$1" = configure ] && [ -z "$2" ]; then
-        systemctl enable --now dyapp-node.service
+        systemctl enable --now dyappd.service
     else
-        systemctl try-restart dyapp-node.service
+        systemctl try-restart dyappd.service
     fi
 fi

@@ -1,4 +1,4 @@
-//! `dyapp-node [--config <file>]`: checks the config, opens the stores and runs the libp2p node.
+//! `dyappd [--config <file>]`: checks the config, opens the stores and runs the libp2p node.
 //! Any config problem stops the node before it opens a store or a socket.
 
 use dyapp_bootstrap::config::Role;
@@ -14,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
     let file = match (args.next().as_deref(), args.next()) {
         (None, _) => None,
         (Some("--config"), Some(path)) => Some(PathBuf::from(path)),
-        _ => anyhow::bail!("usage: dyapp-node [--config <file>]"),
+        _ => anyhow::bail!("usage: dyappd [--config <file>]"),
     };
     let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars())?;
     for key in ignored {

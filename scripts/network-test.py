@@ -1,8 +1,8 @@
-"""Exercise the libp2p node protocol on three dyapp-node peers.
+"""Exercise the libp2p node protocol on three dyappd peers.
 
 `test-peer` is the client: the script has no libp2p library. Without
 arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
-starts three dyapp-node processes from BIN_DIR on the loopback instead and
+starts three dyappd processes from BIN_DIR on the loopback instead and
 also stops one to check that replicas skip a departed node.
 `--health MULTIADDR` checks one node.
 
@@ -53,18 +53,18 @@ def local(bin_dir):
             for port in (7071, 7072, 7073):
                 tcp, quic = addresses("127.0.0.1", port)
                 env = {**os.environ,
-                       "DYAPP_NODE__LISTEN": json.dumps([tcp, quic]),
-                       "DYAPP_NODE__EXTERNAL": json.dumps([tcp, quic]),
-                       "DYAPP_NODE__STORAGE__DIR": f"{storage}/{port}"}
+                       "DYAPPD__LISTEN": json.dumps([tcp, quic]),
+                       "DYAPPD__EXTERNAL": json.dumps([tcp, quic]),
+                       "DYAPPD__STORAGE__DIR": f"{storage}/{port}"}
                 if not peers:
-                    env["DYAPP_NODE__ROLES"] = '["store", "media"]'
+                    env["DYAPPD__ROLES"] = '["store", "media"]'
                 if peers:
-                    env["DYAPP_NODE__SEEDS"] = json.dumps([peers[0][0]])
+                    env["DYAPPD__SEEDS"] = json.dumps([peers[0][0]])
                 if port == 7073:
-                    env["DYAPP_NODE__LIMITS__REQUESTS_PER_SECOND"] = str(
+                    env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(
                         FLOOD_LIMIT)
                 processes.append(subprocess.Popen(
-                    [f"{bin_dir}/dyapp-node"], env=env))
+                    [f"{bin_dir}/dyappd"], env=env))
                 peers.append((tcp, quic))
                 # A node dials its seed once, at start.
                 for _ in range(60):

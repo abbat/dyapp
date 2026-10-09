@@ -1,4 +1,4 @@
-//! Node configuration: defaults, then a TOML file, then `DYAPP_NODE__<SECTION>__<KEY>` variables.
+//! Node configuration: defaults, then a TOML file, then `DYAPPD__<SECTION>__<KEY>` variables.
 //! Every field has a default, so a config written for an older node keeps working. Unknown keys
 //! are logged and ignored, so a node rolled back to an older version still starts.
 
@@ -10,7 +10,7 @@ use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
-pub const ENV_PREFIX: &str = "DYAPP_NODE__";
+pub const ENV_PREFIX: &str = "DYAPPD__";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -122,7 +122,7 @@ impl Default for NodeConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            dir: "/var/lib/dyapp-node".into(),
+            dir: "/var/lib/dyappd".into(),
             profiles: None,
             messages: None,
             media: None,
@@ -377,8 +377,8 @@ mod tests {
         )
         .unwrap();
         let env = [
-            ("DYAPP_NODE__LIMITS__MESSAGE_TTL_HOURS".into(), "72".into()),
-            ("DYAPP_NODE__STORAGE__DIR".into(), "/srv/node".into()),
+            ("DYAPPD__LIMITS__MESSAGE_TTL_HOURS".into(), "72".into()),
+            ("DYAPPD__STORAGE__DIR".into(), "/srv/node".into()),
             ("OTHER".into(), "x".into()),
         ];
         let (config, ignored) = NodeConfig::load(Some(&file), env).unwrap();
@@ -413,7 +413,7 @@ mod tests {
         assert!(invalid(
             |c| c.storage.messages = Some("/proc/messages.db".into())
         ));
-        assert!(NodeConfig::load(None, [("DYAPP_NODE__ROLES".into(), "[\"x\"]".into())]).is_err());
+        assert!(NodeConfig::load(None, [("DYAPPD__ROLES".into(), "[\"x\"]".into())]).is_err());
     }
 
     #[test]

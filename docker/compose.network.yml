@@ -21,10 +21,10 @@ x-peer: &peer
     - >-
       bash scripts/check-container-isolation.sh
       && ip=$$(getent hosts "$$HOSTNAME" | cut -d " " -f 1)
-      && export DYAPP_NODE__EXTERNAL="[\"/ip4/$$ip/tcp/7070\", \"/ip4/$$ip/udp/7070/quic-v1\"]"
-      && exec target/debug/dyapp-node
+      && export DYAPPD__EXTERNAL="[\"/ip4/$$ip/tcp/7070\", \"/ip4/$$ip/udp/7070/quic-v1\"]"
+      && exec target/debug/dyappd
   environment: &env
-    DYAPP_NODE__STORAGE__DIR: /tmp/node
+    DYAPPD__STORAGE__DIR: /tmp/node
   healthcheck:
     test: [CMD, python3, /workspace/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/7070]
     interval: 5s
@@ -37,12 +37,12 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPP_NODE__ROLES: '["store", "media"]'
+      DYAPPD__ROLES: '["store", "media"]'
   bootstrap-b:
     <<: *peer
     environment:
       <<: *env
-      DYAPP_NODE__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
+      DYAPPD__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
     # A node dials its seed once, at start.
     depends_on:
       bootstrap-a:
@@ -52,8 +52,8 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPP_NODE__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
-      DYAPP_NODE__LIMITS__REQUESTS_PER_SECOND: "5"
+      DYAPPD__SEEDS: '["/dns4/bootstrap-a/tcp/7070"]'
+      DYAPPD__LIMITS__REQUESTS_PER_SECOND: "5"
     depends_on:
       bootstrap-a:
         condition: service_healthy

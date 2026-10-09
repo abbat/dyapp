@@ -2,5 +2,5 @@
 set -e
 
 if [ "$1" = remove ] && [ -d /run/systemd/system ]; then
-    systemctl disable --now dyapp-node.service || true
+    systemctl disable --now dyappd.service || true
 fi

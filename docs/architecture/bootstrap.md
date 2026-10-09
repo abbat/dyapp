@@ -2,7 +2,7 @@
 
 ## Overview
 
-A bootstrap node (`dyapp-node`) serves owner-signed profiles and per-device mailboxes over
+A bootstrap node (`dyappd`) serves owner-signed profiles and per-device mailboxes over
 libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
 repairs mailbox replicas node to node; profile search and signaling are planned.
 
@@ -62,7 +62,7 @@ Every role has its own DHT key space, so replicas for a role are chosen only amo
 that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
 server; a node behind NAT is a bootstrap only for peers in its local network. Mobile clients run
 the DHT in client mode: they store nothing and answer no DHT queries. Today `/dyapp/kad` is the
-store role's key space: `dyapp-node` without the store role runs it in client mode and serves no
+store role's key space: `dyappd` without the store role runs it in client mode and serves no
 protocol. The media role needs the store role and shares its key space for now; other roles get
 their own Kademlia protocol name when they are built.
 
@@ -244,8 +244,8 @@ listed blob are not mapped yet.
 ### Operating a node
 
 - Runs as an unprivileged system user and refuses to start as root; default port 7070, every
-  path must be writable by that user (implemented in `dyapp-node`). The Debian 12 package adds a
-  hardened systemd unit and the `dyapp-node` system user
+  path must be writable by that user (implemented in `dyappd`). The Debian 12 package adds a
+  hardened systemd unit and the `dyappd` system user
   ([deployment](../operations/deployment.md#debian-12-package)).
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
@@ -273,7 +273,7 @@ sender's identity: the sender key only proves someone signed it; puts are limite
 ([Rate Limiting](#rate-limiting)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
-(`dyapp-node` deletes expired envelopes every hour) → fetched oldest first.
+(`dyappd` deletes expired envelopes every hour) → fetched oldest first.
 
 ### Signed profile
 
@@ -311,7 +311,7 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 Source: `rust/bootstrap/src/service.rs` (request handling), `node.rs` (the libp2p
 loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
-`dyapp-node` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
+`dyappd` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
 per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 
 | Protocol | Request | Reply |
@@ -496,7 +496,7 @@ They do not show that a cluster recovers data, because no cluster exists.
 
 `rate_limit.rs` keeps one `governor` token bucket per key with
 `Quota::per_second(n)`; `n` is passed by the host program to
-`PeerRateLimiter::new(n)` (`dyapp-node` passes `limits.requests_per_second`, default 100).
+`PeerRateLimiter::new(n)` (`dyappd` passes `limits.requests_per_second`, default 100).
 The bucket allows a burst of `n` requests and then refills at `n`/second; an
 over-limit request gets `STATUS_RATE_LIMITED`.
 
@@ -576,9 +576,9 @@ Each file has one connection behind a mutex. There is no schema version and no
 format change path yet; the target builds a new format next to the old one
 ([Principles](#principles)).
 
-**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyapp-node` calls it every hour. Profiles and tombstones have no expiry; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order. A profile retention TTL is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
+**Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour. Profiles and tombstones have no expiry; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order. A profile retention TTL is planned ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
 
-**Maintenance:** every `maintenance.interval_minutes` (default 60) `dyapp-node` calls
+**Maintenance:** every `maintenance.interval_minutes` (default 60) `dyappd` calls
 `BootstrapStore::maintain`, which, one store at a time under its lock, frees at most
 `maintenance.vacuum_pages` free pages (default 2048 = 8 MiB) with `incremental_vacuum`,
 checkpoints the WAL with `TRUNCATE` and runs `PRAGMA optimize`, then logs the free pages left.
@@ -590,8 +590,8 @@ message files beat deletes.
 
 ## Configuration
 
-`NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyapp-node`: defaults, then a TOML
-file (`--config`), then `DYAPP_NODE__<SECTION>__<KEY>` variables. Every field has a default and
+`NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyappd`: defaults, then a TOML
+file (`--config`), then `DYAPPD__<SECTION>__<KEY>` variables. Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages,media}`
 (media defaults to `<dir>/media`),
@@ -601,7 +601,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
-[Deployment](../operations/deployment.md#dyapp-node). `dyapp-node` starts the libp2p node
+[Deployment](../operations/deployment.md#dyappd). `dyappd` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
 the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles are
 accepted, and `media` only together with `store`.
@@ -693,7 +693,7 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
 
-The network test (`scripts/network-test.py`) runs three `dyapp-node` instances, the first with
+The network test (`scripts/network-test.py`) runs three `dyappd` instances, the first with
 roles `store` and `media`, and drives them with `test-peer`: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a

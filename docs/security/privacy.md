@@ -35,7 +35,7 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
 ## Retention
 
 The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until the device acks
-it or the TTL passes, and `dyapp-node` deletes expired envelopes every hour. A chat attachment
+it or the TTL passes, and `dyappd` deletes expired envelopes every hour. A chat attachment
 is kept until the recipient releases it or `limits.attachment_retention_hours` (default 168)
 passes, also deleted hourly. Profiles have no TTL: the latest signed
 version stays until the owner replaces it with a tombstone, which the node keeps

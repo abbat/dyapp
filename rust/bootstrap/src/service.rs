@@ -1,5 +1,5 @@
 //! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
-//! `/dyapp/media`) from the stores. The libp2p loop in `dyapp-node` passes each request here and sends back the reply.
+//! `/dyapp/media`) from the stores. The libp2p loop in `dyappd` passes each request here and sends back the reply.
 
 use crate::{
     config::Role,

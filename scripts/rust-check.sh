@@ -52,7 +52,7 @@ step() {
             ;;
         coverage) step cov-build; step cov-test; step cov-report ;;
         network)
-            # Two real dyapp-node peers on the loopback, test-peer as the client. cov-build already
+            # Two real dyappd peers on the loopback, test-peer as the client. cov-build already
             # built both (cargo test builds a package's binaries when it has integration tests); a
             # separate `cargo build -p` would select different features and recompile crates.
             instrument

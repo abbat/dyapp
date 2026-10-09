@@ -83,7 +83,7 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** `dyapp-node` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
+> **Status:** `dyappd` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
 > `/dyapp/media` over libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)).
 > A Debian 12 package with a hardened systemd unit exists ([below](#debian-12-package)); there
 > is no production container image.
@@ -91,25 +91,25 @@ Example: User opens app
 ### Debian 12 package
 
 ```bash
-make deb                                   # → target/deb/dyapp-node_<version>_<arch>.deb
-sudo apt install ./dyapp-node_*.deb        # creates the dyapp-node user, enables and starts the unit
-sudoedit /etc/dyapp-node.toml              # conffile: kept on upgrade
-sudo systemctl restart dyapp-node          # config changes need a restart
-sudo systemctl reload dyapp-node           # SIGHUP: reloads <storage.dir>/deny only
-journalctl -u dyapp-node                   # logs (RUST_LOG=info)
+make deb                                   # → target/deb/dyappd_<version>_<arch>.deb
+sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables and starts the unit
+sudoedit /etc/dyappd.toml              # conffile: kept on upgrade
+sudo systemctl restart dyappd          # config changes need a restart
+sudo systemctl reload dyappd           # SIGHUP: reloads <storage.dir>/deny only
+journalctl -u dyappd                   # logs (RUST_LOG=info)
 ```
 
 `make deb` builds a release binary in a Debian 12 image (so it runs on glibc 2.36) and
 test-installs the package on a clean `debian:bookworm-slim`. The package holds
-`/usr/bin/dyapp-node`, `/etc/dyapp-node.toml` and `/lib/systemd/system/dyapp-node.service`.
-The unit runs as the system user `dyapp-node` (no shell, no login) with no capabilities,
+`/usr/bin/dyappd`, `/etc/dyappd.toml` and `/lib/systemd/system/dyappd.service`.
+The unit runs as the system user `dyappd` (no shell, no login) with no capabilities,
 `NoNewPrivileges`, a read-only system (`ProtectSystem=strict`), no access to `/home`, a private
-`/tmp` and write access to `/var/lib/dyapp-node` only. Removing the package stops and disables
-the unit; purging keeps the user and `/var/lib/dyapp-node`, because `node.key` is the node's
+`/tmp` and write access to `/var/lib/dyappd` only. Removing the package stops and disables
+the unit; purging keeps the user and `/var/lib/dyappd`, because `node.key` is the node's
 identity — delete them by hand to retire the node.
 
 The default port 7070 needs no privilege. Stores on other paths or a port below 1024 need a
-drop-in (`systemctl edit dyapp-node`):
+drop-in (`systemctl edit dyappd`):
 
 ```ini
 [Service]
@@ -119,17 +119,17 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ```
 
-### `dyapp-node`
+### `dyappd`
 
 ```bash
-cargo run --package dyapp-bootstrap --bin dyapp-node -- --config /etc/dyapp-node.toml
+cargo run --package dyapp-bootstrap --bin dyappd -- --config /etc/dyappd.toml
 ```
 
 The config is optional. Settings come from the defaults, then the TOML file, then
-environment variables `DYAPP_NODE__<SECTION>__<KEY>`, whose value is parsed as
+environment variables `DYAPPD__<SECTION>__<KEY>`, whose value is parsed as
 TOML (a bare string is taken as is), for example
-`DYAPP_NODE__LIMITS__MESSAGE_TTL_HOURS=48` or
-`DYAPP_NODE__LISTEN='["/ip4/0.0.0.0/udp/7070/quic-v1"]'`.
+`DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` or
+`DYAPPD__LISTEN='["/ip4/0.0.0.0/udp/7070/quic-v1"]'`.
 
 ```toml
 listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]  # default
@@ -141,7 +141,7 @@ roles = ["store"]      # add "media" to serve /dyapp/media (needs store); search
                        # are not implemented and fail at startup
 
 [storage]
-dir = "/var/lib/dyapp-node"   # node key and every store without its own path
+dir = "/var/lib/dyappd"   # node key and every store without its own path
 # profiles = "/fast/profiles.db"
 # messages = "/fast/messages.db"
 # media = "/big/media"        # media role: media.db and the blob files
@@ -187,17 +187,17 @@ from scratch. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 `test-peer` is the libp2p client CLI for scripts and manual checks
 ([commands](../architecture/bootstrap.md#test-client)).
 
-**In Docker (no host Rust toolchain needed).** The network-test image builds `dyapp-node` and
+**In Docker (no host Rust toolchain needed).** The network-test image builds `dyappd` and
 `test-peer` (`docker/Dockerfile.network-test`):
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
-make test-integration   # integration tests + three dyapp-node containers on an internal network
+make test-integration   # integration tests + three dyappd containers on an internal network
 
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
-  -e DYAPP_NODE__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
-    target/debug/dyapp-node &
+  -e DYAPPD__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
+    target/debug/dyappd &
     sleep 3
     target/debug/test-peer info /ip4/127.0.0.1/tcp/7070
     kill %1'
@@ -207,7 +207,7 @@ docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
 **With a local Rust 1.99 toolchain:**
 
 ```bash
-DYAPP_NODE__STORAGE__DIR=/tmp/ai/node cargo run --package dyapp-bootstrap --bin dyapp-node &
+DYAPPD__STORAGE__DIR=/tmp/ai/node cargo run --package dyapp-bootstrap --bin dyappd &
 cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7070
 ```
 
@@ -254,14 +254,14 @@ documented as runnable:
   endpoint
 - Administration: the deny list file and SIGHUP, no admin routes; a local CLI writing to
   `admin.db` for runtime settings and status is planned
-- Request logs: `dyapp-node` logs startup, listen addresses, storage errors and cleanup
+- Request logs: `dyappd` logs startup, listen addresses, storage errors and cleanup
   (`RUST_LOG`), not individual requests
 
 ## Maintenance
 
 ### Data cleanup
 
-Mailbox envelopes expire after `limits.message_ttl_hours` (default 24 h); `dyapp-node` deletes
+Mailbox envelopes expire after `limits.message_ttl_hours` (default 24 h); `dyappd` deletes
 expired ones every hour. Profiles and tombstones have no expiry yet. See
 [Privacy](../security/privacy.md#retention).
 
@@ -277,11 +277,11 @@ A steadily growing number means `vacuum_pages` is too small for the delete rate.
 There is no online backup: copying the SQLite files while the server writes
 to them does not give a consistent snapshot. Stop the process first.
 
-Roundtrip with `dyapp-node` (data in `/tmp/ai/bootstrap`):
+Roundtrip with `dyappd` (data in `/tmp/ai/bootstrap`):
 
 ```bash
 # 1. Stop writers
-kill <dyapp-node pid>
+kill <dyappd pid>
 
 # 2. Archive with a relative layout (top-level entry: bootstrap/)
 tar czf bootstrap-backup-$(date +%Y%m%d).tar.gz -C /tmp/ai bootstrap
@@ -293,7 +293,7 @@ tar xzf bootstrap-backup-YYYYMMDD.tar.gz -C /tmp/restore-test   # → /tmp/resto
 # 4. Swap it in, keeping the old copy for rollback, then restart and check
 mv /tmp/ai/bootstrap /tmp/ai/bootstrap.old
 mv /tmp/restore-test/bootstrap /tmp/ai/bootstrap
-DYAPP_NODE__STORAGE__DIR=/tmp/ai/bootstrap cargo run --package dyapp-bootstrap --bin dyapp-node &
+DYAPPD__STORAGE__DIR=/tmp/ai/bootstrap cargo run --package dyapp-bootstrap --bin dyappd &
 test-peer get /ip4/127.0.0.1/tcp/7070 <known peer id>   # must return "STATUS_OK" and the record
 
 # Rollback: stop the server, move bootstrap.old back
@@ -329,7 +329,7 @@ node's libp2p key; there is no certificate authority.
   [rate limiting](../architecture/bootstrap.md#rate-limiting)
 - To stop serving an abuser or a media blob, add their peer ID, IP group, key hash or the blob's
   SHA-256 to `<storage.dir>/deny`
-  and send SIGHUP (`systemctl reload dyapp-node`); they get `STATUS_REFUSED` here and
+  and send SIGHUP (`systemctl reload dyappd`); they get `STATUS_REFUSED` here and
   use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
 
 **Admin API (future):**
@@ -350,12 +350,12 @@ Only what applies to the code that exists today:
 | Symptom | Check |
 |---------|-------|
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
-| `dyapp-node` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPP_NODE__STORAGE__DIR` |
-| Port 7070 already in use | Another `dyapp-node` is running; set `DYAPP_NODE__LISTEN` |
+| `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
+| Port 7070 already in use | Another `dyappd` is running; set `DYAPPD__LISTEN` |
 | Disk keeps growing | Profiles have no expiry yet (see [Data cleanup](#data-cleanup)) |
 
-Installed from the Debian package, the service is `dyapp-node.service`; it logs to the journal
-(`journalctl -u dyapp-node`). Run by hand, `dyapp-node` logs to stderr.
+Installed from the Debian package, the service is `dyappd.service`; it logs to the journal
+(`journalctl -u dyappd`). Run by hand, `dyappd` logs to stderr.
 
 ## Next Steps
 

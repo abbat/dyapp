@@ -36,7 +36,7 @@ fmt:
 build release:
 	bash scripts/docker-test.sh build
 
-# target/deb/dyapp-node_<version>_<arch>.deb, then a test install on a clean Debian 12.
+# target/deb/dyappd_<version>_<arch>.deb, then a test install on a clean Debian 12.
 deb:
 	mkdir -p target/deb
 	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb

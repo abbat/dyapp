@@ -2,7 +2,7 @@
 
 > **Status:** the schemas in `proto/` are compiled into the Rust crates
 > ([code generation](../development/protobuf-codegen.md)). `identity.proto` and `profile.proto`
-> are the signed profile used today. `node.proto` defines the libp2p node protocol; `dyapp-node`
+> are the signed profile used today. `node.proto` defines the libp2p node protocol; `dyappd`
 > serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push` and
 > `/dyapp/media`
 > ([bootstrap](bootstrap.md#served-protocol)).

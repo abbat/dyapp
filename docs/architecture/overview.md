@@ -27,11 +27,11 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
    ├──► rust/p2p-net    (libp2p node; not called by ffi yet)
    └──► rust/video      (webrtc) ──► rust/messaging
 
- rust/bootstrap  (dyapp-node: libp2p node protocol + SQLite, separate server process)
+ rust/bootstrap  (dyappd: libp2p node protocol + SQLite, separate server process)
    └──► identity, profile, p2p-net   (Cargo dependencies; tests also use messaging, video)
 ```
 
-Only `dyapp-node` and its test client `test-peer` talk over the network today: no app calls a
+Only `dyappd` and its test client `test-peer` talk over the network today: no app calls a
 node, and there is no WebRTC signaling channel.
 
 | Component | Source | Status | What it really does |
@@ -43,7 +43,7 @@ node, and there is no WebRTC signaling channel.
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; no push or replication |
-| Node | `rust/bootstrap/src/bin/dyapp-node.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
+| Node | `rust/bootstrap/src/bin/dyappd.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
@@ -53,7 +53,7 @@ node, and there is no WebRTC signaling channel.
 
 Distinctions that matter when reading the other docs:
 
-- **Node vs network.** `dyapp-node` runs a Kademlia node, but nodes do not discover each other
+- **Node vs network.** `dyappd` runs a Kademlia node, but nodes do not discover each other
   or replicate yet: each is an independent server over SQLite.
 - **WebRTC media vs QUIC messaging.** Video uses the `webrtc` crate (its own
   ICE/DTLS/SRTP stack); messaging is meant to run over libp2p. They are
@@ -75,7 +75,7 @@ Everything in this section is design intent, not code.
         │
         │ libp2p node protocol (mailbox, profiles, search)
         ▼
- bootstrap nodes (dyapp-node + SQLite)
+ bootstrap nodes (dyappd + SQLite)
 ```
 
 Decided (see the [ADRs](../decisions/README.md)):

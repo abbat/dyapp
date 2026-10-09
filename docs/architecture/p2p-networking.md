@@ -5,13 +5,13 @@
 `rust/p2p-net` builds a [rust-libp2p](https://github.com/libp2p/rust-libp2p) 0.57 node
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md),
 [ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)). `build_swarm(keypair, mode)` returns a
-`Swarm` with (`build_limited_swarm` adds connection limits and a stream cap; `dyapp-node` uses it):
+`Swarm` with (`build_limited_swarm` adds connection limits and a stream cap; `dyappd` uses it):
 
 | Part | Setting |
 |------|---------|
 | Transports | QUIC (`/udp/<port>/quic-v1`) and TCP with Noise and Yamux |
 | Kademlia | protocol `/dyapp/kad`, in-memory record store |
-| identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table: `dyapp-node` adds the claimed listen addresses of every peer that serves `/dyapp/kad`, unfiltered |
+| identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table: `dyappd` adds the claimed listen addresses of every peer that serves `/dyapp/kad`, unfiltered |
 | AutoNAT | v1, as client and server; confirms external addresses |
 | Idle connections | closed after 60 s |
 | Limits | connection limits (none by default), 100 concurrent streams per connection and protocol |
@@ -30,7 +30,7 @@ table.
 dials like an IP one; a `/dnsaddr/<host>` seed expands to the `dnsaddr=<multiaddr>` TXT records of
 `_dnsaddr.<host>`, and the dial stops at the first that answers. `join` dials every seed and adds
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
-own. `known_peers` lists the routing table for the cache. `dyapp-node` reads seeds from the
+own. `known_peers` lists the routing table for the cache. `dyappd` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
 maintenance, so a restart joins without any one seed. It dials the seeds again on every
 maintenance run (the first at start) and every 5 minutes while its routing table is empty. A unit
@@ -47,7 +47,7 @@ checks the limits. Addresses claimed through identify are not verified by a dial
 
 Not implemented yet:
 
-- Only `dyapp-node` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+- Only `dyappd` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
   `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
