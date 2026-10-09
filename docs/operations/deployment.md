@@ -97,7 +97,8 @@ sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # once: about a minute 
 sudo systemctl start dyappd
 sudoedit /etc/dyappd.toml              # conffile: kept on upgrade
 sudo systemctl restart dyappd          # config changes need a restart
-sudo systemctl reload dyappd           # SIGHUP: reloads <storage.dir>/deny only
+sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml  # applied within 10 s
+sudo -u dyappd dyappd status --config /etc/dyappd.toml   # what the stores hold, read-only
 journalctl -u dyappd                   # logs (RUST_LOG=info)
 ```
 
@@ -265,8 +266,6 @@ documented as runnable:
 
 - Metrics: beyond the hourly `node status`, guard and connection log lines, none; no `/metrics`
   endpoint
-- Administration: the deny list file and SIGHUP, no admin routes; a local CLI writing to
-  `admin.db` for runtime settings and status is planned
 - Request logs: `dyappd` logs startup, listen addresses, storage errors and cleanup
   (`RUST_LOG`), not individual requests
 
@@ -341,13 +340,13 @@ node's libp2p key; there is no certificate authority.
   signatures are banned locally for `ban_minutes`. Details:
   [rate limiting](../architecture/bootstrap.md#rate-limiting)
 - To stop serving an abuser or a media blob, add their peer ID, IP group, key hash or the blob's
-  SHA-256 to `<storage.dir>/deny`
-  and send SIGHUP (`systemctl reload dyappd`); they get `STATUS_REFUSED` here and
-  use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
+  SHA-256 with `sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml`
+  (`deny remove`, `deny list`); the running node applies it within 10 seconds, and they get
+  `STATUS_REFUSED` here and use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
 
-**Admin API (future):**
-- Cleanup, monitoring, replication status
-- Secured with API key (env var)
+`sudo -u dyappd dyappd status --config /etc/dyappd.toml` prints the peer ID and what the
+stores hold (profiles, envelopes, media blobs and bytes, deny entries, cached peers), read-only.
+There is no admin HTTP API.
 
 ## Cost and capacity
 

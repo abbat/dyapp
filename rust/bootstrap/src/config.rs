@@ -201,9 +201,9 @@ impl StorageConfig {
         self.dir.join("peers")
     }
 
-    /// The operator's deny list, re-read on SIGHUP.
+    /// The operator's deny list, edited by `dyappd deny`.
     pub fn deny_path(&self) -> PathBuf {
-        self.dir.join("deny")
+        self.dir.join("deny.db")
     }
 
     fn stores(&self) -> [PathBuf; 3] {

@@ -1,6 +1,7 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
 use crate::config::{Limits, Role};
+use crate::deny::DenyStore;
 use crate::service::{Peer, Service, SHED_MEDIA};
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, Status};
@@ -74,32 +75,21 @@ pub fn cached_peers(path: &Path) -> Vec<Multiaddr> {
     text.lines().filter_map(|line| line.parse().ok()).collect()
 }
 
-/// The operator's deny list: one entry per line, a libp2p peer ID, an IP group as [`ip_group`]
-/// prints it, or the lowercase hex SHA-256 of an identity or device key; `#` starts a comment.
-/// A missing file is an empty list.
-pub fn deny_list(path: &Path) -> std::io::Result<HashSet<String>> {
-    let text = match fs::read_to_string(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
-        text => text?,
+/// Re-reads the deny list when `dyappd deny` changed it since `version`; on an error the old
+/// list stays.
+fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64>) {
+    let current = match deny.version() {
+        Ok(current) if Some(current) == *version => return,
+        Ok(current) => current,
+        Err(error) => return tracing::error!(%error, "deny list not checked"),
     };
-    let entry = |line: &str| {
-        line.split('#')
-            .next()
-            .unwrap_or_default()
-            .trim()
-            .to_string()
-    };
-    Ok(text.lines().map(entry).filter(|e| !e.is_empty()).collect())
-}
-
-/// Re-reads the deny list; on an error the old list stays.
-fn reload_deny(service: &mut Service) {
-    match deny_list(&service.config.storage.deny_path()) {
-        Ok(deny) => {
-            let added = deny.difference(&service.deny).count();
-            let removed = service.deny.difference(&deny).count();
-            tracing::info!(entries = deny.len(), added, removed, "deny list loaded");
-            service.deny = deny;
+    match deny.entries() {
+        Ok(entries) => {
+            let added = entries.difference(&service.deny).count();
+            let removed = service.deny.difference(&entries).count();
+            tracing::info!(entries = entries.len(), added, removed, "deny list loaded");
+            service.deny = entries;
+            *version = Some(current);
         }
         Err(error) => tracing::error!(%error, "deny list not loaded, the old one stays"),
     }
@@ -313,14 +303,27 @@ fn after_lookup(
     }
 }
 
-/// Serves requests on `swarm` until the task is dropped; SIGHUP re-reads the deny list.
+/// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
+/// every 10 seconds and on SIGHUP; an old `<storage.dir>/deny` file is imported once at start.
 pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     use tokio::signal::unix::{signal, SignalKind};
     let mut hangup = match signal(SignalKind::hangup()) {
         Ok(hangup) => hangup,
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),
     };
-    reload_deny(&mut service);
+    let storage = &service.config.storage;
+    let deny = match DenyStore::open(&storage.deny_path()) {
+        Ok(deny) => deny,
+        Err(error) => return tracing::error!(%error, "deny list not opened"),
+    };
+    match deny.import(&storage.dir.join("deny"), &service.config.limits) {
+        Ok(0) => {}
+        Ok(imported) => tracing::info!(imported, "deny file moved into deny.db"),
+        Err(error) => tracing::error!(%error, "deny file not imported"),
+    }
+    let mut deny_version = None;
+    reload_deny(&mut service, &deny, &mut deny_version);
+    let mut deny_check = tokio::time::interval(Duration::from_secs(10));
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     // The IP group of each open connection.
@@ -456,6 +459,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 })) => {
                     let lookup = replicas.lookups.remove(&id);
                     if let (Some(lookup), Ok(ok)) = (lookup, result) {
+                        // A peer without the node-ID proof of work never holds a replica.
                         let bits = dyapp_p2p_net::id_pow_bits();
                         let mut peers = ok.peers.into_iter();
                         if let Some(node) =
@@ -504,7 +508,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 _ => {}
             }
             },
-            _ = hangup.recv() => reload_deny(&mut service),
+            _ = deny_check.tick() => reload_deny(&mut service, &deny, &mut deny_version),
+            _ = hangup.recv() => {
+                deny_version = None;
+                reload_deny(&mut service, &deny, &mut deny_version);
+            }
             _ = rejoin.tick() => {
                 if dyapp_p2p_net::known_peers(&mut swarm).is_empty() {
                     dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
@@ -586,21 +594,6 @@ mod tests {
         fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
         assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
         fs::remove_file(&dir).unwrap();
-    }
-
-    #[test]
-    fn deny_list_skips_comments_and_blanks() {
-        let path = std::env::temp_dir().join(format!("dyapp-deny-{}", std::process::id()));
-        assert!(deny_list(&path).unwrap().is_empty());
-        fs::write(
-            &path,
-            "# operator list\n12D3KooWx  # spam\n\n203.0.113.0/24\n",
-        )
-        .unwrap();
-        let list = deny_list(&path).unwrap();
-        assert_eq!(list.len(), 2);
-        assert!(list.contains("12D3KooWx") && list.contains("203.0.113.0/24"));
-        fs::remove_file(&path).unwrap();
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # dyappd configuration. Every key is optional; the commented values are the defaults.
-# All keys: docs/operations/deployment.md. Apply changes with `systemctl restart dyappd`;
-# <storage.dir>/deny is reread on `systemctl reload dyappd`.
+# All keys: docs/operations/deployment.md. Apply changes with `systemctl restart dyappd`.
+# The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
 # listen = ["/ip4/0.0.0.0/tcp/7070", "/ip4/0.0.0.0/udp/7070/quic-v1"]
 # external = []        # addresses announced to peers

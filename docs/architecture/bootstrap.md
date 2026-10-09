@@ -211,8 +211,8 @@ resent from the sender's retry queue.
 ### Storage on a node
 
 - One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profile-index.db` (disposable, rebuilt),
-  `messages.db`, `likes.db`, `views.db` and one more per new signal type; `admin.db` for operator
-  settings. No transaction spans two stores.
+  `messages.db`, `likes.db`, `views.db` and one more per new signal type; `deny.db` for the operator's
+  deny list. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
   file, fsync'd and renamed; the name is the SHA-256 of the data. Implemented, without an fsync
   of the directory ([Storage](#storage)).
@@ -254,8 +254,10 @@ listed blob are not mapped yet.
   `dyappd keygen` with the node-ID proof of work; the node does not start without it.
   A new key is a new node: the node refuses a key that does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
-- Administration is a local CLI that writes to `admin.db`; the node applies changes without a
-  restart and logs them. Metrics go to the log; there is no HTTP endpoint.
+- Settings live in the config file and the systemd unit and need a restart. The `dyappd` binary
+  also carries the admin subcommands: `deny add|remove|list` edits `deny.db`, which the running
+  node applies within 10 seconds and logs ([Deny list](#deny-list)), and `status` prints what
+  the stores hold, read-only. There is no TUI and no admin HTTP endpoint; metrics go to the log.
 
 ## Data Model
 
@@ -373,18 +375,24 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   most 256 unreleased attachments per node (`FULL` beyond). A replayed `attach` restores the
   attachment until that same expiry. Nodes older than attachments answer both requests
   `UNSUPPORTED`.
-- <a id="deny-list"></a>**Deny list.** `<storage.dir>/deny` holds one entry per line: a libp2p
-  peer ID, an IP group as the node computes it (for example `203.0.113.0/24` with the default
-  prefix) or a lowercase hex SHA-256: of an identity or device key, or of a media blob;
-  `#` starts a comment. The
-  node reads it at start and on SIGHUP and logs the entry count and how many were added and
-  removed; an unreadable file keeps the old list. A listed peer or IP group gets `REFUSED` on
-  every profile, mailbox and media request; a listed key gets `REFUSED` on its profile publish
-  and get, on puts it signs or addressed to its mailbox, on its fetch and on its media `keep` and
-  `put`. `REFUSED` is no strike, so the client moves to another replica; one node's list removes
-  no one from the network. Acks are still served, and a `get` of a listed owner's blob already
-  stored is still answered (blobs are not indexed by owner on read); a listed blob hash gets
-  `REFUSED` on `get` and `put`, and its file stays until no keep or attachment holds it.
+- <a id="deny-list"></a>**Deny list.** `<storage.dir>/deny.db` (SQLite, keyed by entry) holds
+  libp2p peer IDs, IP groups as the node computes them (for example `203.0.113.0/24` with the
+  default prefix) and lowercase hex SHA-256 hashes: of an identity or device key, or of a media
+  blob, each with a note and the time it was added. The operator edits it with
+  `dyappd deny add <entry> [note]`, `deny remove <entry>` and `deny list`, run as the owner of
+  `storage.dir`; `add` refuses anything else and masks an address to its group (`203.0.113.9/24`
+  is stored as `203.0.113.0/24`; another prefix length is refused). The running node checks the
+  store every 10 seconds and on SIGHUP, reloads it when it changed and logs the entry count and
+  how many were added and removed; a read error keeps the old list. The node holds the entries
+  in memory. An old `<storage.dir>/deny` text file (one entry per line, `#` comments) is imported
+  once at start and renamed to `deny.imported`; lines that do not parse are logged and skipped.
+  A listed peer or IP group gets `REFUSED` on every profile, mailbox and media request; a listed
+  key gets `REFUSED` on its profile publish and get, on puts it signs or addressed to its
+  mailbox, on its fetch and on its media `keep` and `put`. `REFUSED` is no strike, so the client
+  moves to another replica; one node's list removes no one from the network. Acks are still
+  served, and a `get` of a listed owner's blob already stored is still answered (blobs are not
+  indexed by owner on read); a listed blob hash gets `REFUSED` on `get` and `put`, and its file
+  stays until no keep or attachment holds it.
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
