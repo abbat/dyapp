@@ -1,0 +1,48 @@
+# Version updates once a week, minor and patch grouped into one PR per
+# ecosystem. Security updates are a repository setting and ignore the
+# schedule and the cooldown.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directories: [/, /linux, /windows, /tools/arch-lint]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      # libp2p crates must move together, majors included.
+      libp2p:
+        patterns: ["libp2p*"]
+      cargo:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      gradle:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        update-types: [minor, patch]

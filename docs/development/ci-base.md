@@ -27,9 +27,16 @@ In the build job `taiki-e/install-action` then installs the pinned cargo-llvm-co
 cargo-deny. `Swatinem/rust-cache` caches the dependency builds per job. Cargo steps run online
 with `--locked`.
 
-Third-party actions in every workflow are pinned to a commit SHA with the release in a comment
-(`uses: owner/action@<sha> # v1.2.3`); GitHub's own `actions/*` and `github/codeql-action` keep
-their major tags. Workflows without a job that writes default the token to `contents: read`.
+Every action in every workflow, GitHub's own included, is pinned to a commit SHA with the release
+in a comment (`uses: owner/action@<sha> # v1.2.3`). Workflows without a job that writes default
+the token to `contents: read`.
+
+Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub Actions, Cargo
+(the root workspace, `linux`, `windows`, `tools/arch-lint`), Gradle (`android`) and the
+Dockerfiles in `docker/`. It waits 7 days after a release, groups minor and patch updates into
+one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Vulnerability
+alerts and Dependabot security updates are enabled in the repository settings; security PRs skip
+the schedule and the wait.
 
 ### `quality` → **quality**
 
