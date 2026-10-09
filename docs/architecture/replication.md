@@ -8,20 +8,23 @@ is the target; as each step below lands, the bootstrap page and
 shrinks.
 
 Replica keys are `replica_key(key, i) = H(key‖i)`, `i` in `0..REPLICAS` (`REPLICAS` = 5,
-`rust/p2p-net/src/lib.rs`). "The node of key k" is the node closest to k in the DHT.
+`rust/p2p-net/src/lib.rs`). "The holder of key k" is the node closest to k in the DHT.
 
 ## Write path
 
 ### Messages, MLS commits, signals and profiles
 
-1. The client sends one put to the node of replica key 0. If that fails, it tries key 1, then 2,
+1. The client sends one put to the holder of replica key 0. If that fails, it tries key 1, then 2,
    and so on.
-2. That node (the acceptor) verifies the record as it does now and stores it. It then looks up the
-   nodes of the other 4 replica keys and sends each a `replica_put`. A receiver verifies a
-   `replica_put` like a client put. No node trusts another node.
-3. The acceptor answers `ok` once 2 of 5 copies are stored: its own and one other. The other
-   copies are sent in the background.
-4. A single-node network answers `ok` after the local copy.
+2. The node that gets the put (the acceptor) verifies the record as it does now and looks up the
+   holders of all 5 replica keys itself. It stores a copy only for the keys it holds and sends a
+   `replica_put` to the holders of the others. A node that holds none of the keys only forwards.
+   A receiver verifies a `replica_put` like a client put; no node trusts another node.
+3. The acceptor answers `ok` once 2 copies are stored on holders of replica keys. The other copies
+   are sent in the background, with no queue on disk: if the acceptor dies first, repair below
+   fills the gap.
+4. Only a node whose routing table has no peers answers `ok` after one local copy. A node that has
+   peers but reaches no second holder answers with an error, and the client tries the next key.
 
 Profiles get a `replica_put` like the one mailboxes already have
 (`rust/bootstrap/src/service.rs`). `test-peer` stops writing replicas itself.
@@ -34,27 +37,41 @@ Profiles get a `replica_put` like the one mailboxes already have
 - A node stores no object (whole blob, manifest or shard) larger than **1 MiB**.
 - The acceptor picks the layout by its own config key `media.shard_threshold`. The default is
   1 MiB, and a value above 1 MiB is rejected at startup.
-  - **Size ≤ threshold:** whole copies at R=5, on the nodes of `replica_key(hash, i)`, written the
-    same way as messages.
-  - **Size > threshold:** Reed-Solomon with K = ⌈size / 1 MiB⌉ data shards (so K ≤ 6) and
-    M = 4 parity shards; the protocol requires M ≥ 4. Shard j goes to the node of
+  - **Size ≤ threshold:** whole copies at R=5 on the holders of `replica_key(hash, i)`, written as
+    in the steps above.
+  - **Size > threshold:** Reed-Solomon with K = ⌈size / 1 MiB⌉ data shards (so K ≤ 6) and M = 4
+    parity shards; the protocol requires M ≥ 4. Shard j goes to the holder of
     `replica_key(hash, j)`, for j in `0..K+M`.
-- A **manifest** holds K, M, the blob length and the SHA-256 of every shard. It is stored at R=5
-  on the blob's own replica keys. The manifest is what marks an object as sharded, so every stored
-  object describes itself and the threshold need not match across nodes. Only the 6 MiB and 1 MiB
-  limits are protocol constants.
-- The acceptor answers `ok` once the manifest (2 of 5 copies) and K shards are stored. The other
-  M shards are sent in the background.
+- A **manifest** holds the blob length and the SHA-256 of every shard. K and M follow from the
+  length, so the manifest of a blob is unique: a node keeps the first one it gets and answers
+  `invalid` to a different one. It is stored at R=5 on the blob's own replica keys. The manifest
+  is what marks an object as sharded, so every stored object describes itself and the threshold
+  need not match across nodes. Only the 6 MiB and 1 MiB limits are protocol constants.
+- A whole blob wins: a node that holds a whole copy whose SHA-256 matches ignores manifests for
+  that hash.
+- The acceptor answers `ok` once the manifest (2 copies) and K shards are stored. The other M
+  shards are sent in the background.
 - New `/dyapp/media` node-to-node requests: `replica_put(blob | manifest)`,
-  `shard_put(hash, j, shard)` and `shard_get(hash, j)`. A shard receiver checks the shard against
-  the hash listed in the manifest, which it fetches or which is sent with the shard. It accepts the
-  shard only if the owner's latest `keep` lists the blob, as for a client `put`.
+  `shard_put(hash, j, shard)` and `shard_get(hash, j)`. A `replica_put` or `shard_put` carries the
+  owner's signed `keep`, or the sender's signed attachment for chat media. The receiver verifies
+  the signature itself, stores the `keep` as that owner's latest, accepts the object only if the
+  hash is listed and charges it to that owner's quota. A shard must match the hash in the
+  manifest.
+- Small networks: a node may hold several copies or shards of one blob (keyed by hash and j), and
+  a copy that lands on a node that already has it counts as stored. With fewer than 10 distinct
+  holders the loss tolerance drops; `dyappd status` shows how many distinct nodes hold replicas.
 
-### Abuse controls
+### Limits and abuse controls
 
+- The size limit is set per protocol: 6 MiB + 64 KiB for `/dyapp/media`, 1 MiB + 64 KiB for the
+  others (the largest is a mailbox `fetch` reply, `FETCH_BYTES` = 1 MiB). Today one 2 MiB limit,
+  `MAX_MESSAGE_BYTES`, covers all of them.
+- At most 2 media requests per peer and 16 per node run at once; the rest get `rate_limited`
+  before the body is read.
 - The originating client pays for the fan-out. A message or profile put costs 5 token-bucket
   units. A media put costs bytes × 5 for whole copies or bytes × (K+M)/K for shards, against the
   per-owner media quota and `bytes_per_second`.
+- A media `get` costs the requester the bytes of the reply, not one unit.
 - A `replica_put`, `shard_put` or `shard_get` from a node counts against that node's peer limits.
 - A dishonest acceptor that skips the fan-out or writes a fake manifest is caught three ways:
   owner-presence repair below, the sender's retry queue, and the hash check after decoding.
@@ -63,12 +80,14 @@ Profiles get a `replica_put` like the one mailboxes already have
 
 - **Mailbox:** unchanged. The node pushes to a watching device, and on a miss the client tries the
   next replica key.
-- **Profile:** get from the node of replica key 0; on a miss try the next key. The highest version
-  wins.
-- **Media:** get from the node of any replica key. If that node holds the whole blob, it returns
-  it. If it holds a manifest, it fetches K shards with `shard_get`, decodes them, checks the blob
-  hash and returns the whole blob. The client checks the hash too. Ranged `get(hash, range)` is
-  planned on top of the manifest.
+- **Profile:** get from the holder of replica key 0; on a miss try the next key. The highest
+  version wins.
+- **Media:** get from the holder of any replica key. If it holds the whole blob, it returns it. If
+  it holds a manifest, it fetches K shards with `shard_get`, decodes them, checks the blob's
+  SHA-256 and returns the whole blob. On a mismatch it deletes the manifest and its shards and
+  answers `not_found`. The client checks the hash too. Assembly comes out of the node's repair
+  budget below. Decoded blobs are not cached. Ranged `get(hash, range)` is planned on top of the
+  manifest.
 
 ## Repair
 
@@ -79,27 +98,64 @@ offline is not repaired and expires by its TTL.
   fills the gaps (`rust/bootstrap/src/node.rs`).
 - **Profile:** with each publish or heartbeat, the client's node compares the version held by the
   other 4 replicas and sends the record to any that are missing it or hold an older version.
-- **Media:** with each `keep`, the node that takes it checks every listed hash. For whole copies
-  it copies the blob to replicas that lack it. For sharded blobs it fetches K shards and rebuilds
-  the missing ones. A blob with fewer than K shards left (or no copy left) is listed in the `keep`
-  reply, and the client uploads it again.
-- **Budget:** repair and media traffic together use at most 75 % of `bytes_per_second`. A node
+- **Media:** with each `keep`, the node that takes it checks up to 256 of the listed hashes, from a
+  cursor that moves on with each `keep`. It groups (hash, j) by holder and sends each holder one
+  `have(list)`, which answers `missing(list)`, so the request count follows the number of holders,
+  not hashes. Only what is missing is fetched: a whole copy is copied, a missing shard is rebuilt
+  from K others and the decode checks the blob's SHA-256. A blob with fewer than K shards left (or
+  no copy left) is listed in the `keep` reply, and the client uploads it again.
+- **Network growth:** when new nodes join, the holder of some replica keys changes and the new
+  holder has nothing yet. A read there misses and the client tries the next key. Repair checks the
+  current holders, so for a present owner it moves the data to them. For an owner who stays
+  offline, data stays on the old holders until its TTL; a holder that sees it is no longer closest
+  and pushes the object on is planned.
+- **Budget:** repair and media assembly together use at most 75 % of `bytes_per_second`. A node
   takes an inventory of a key at most once an hour.
 
 ## Implementation steps
 
 Each step is one change with multi-node Docker tests and its docs.
 
-1. Mailbox and profile fan-out by the acceptor with the 2 of 5 ack; profile `replica_put`; client
-   billed ×5; `test-peer` stops writing replicas.
+1. Per-protocol size limits; mailbox and profile fan-out by the acceptor with the 2-copy ack;
+   profile `replica_put`; client billed ×5; `test-peer` stops writing replicas.
 2. Profile repair through node inventory.
-3. Media: 6 MiB intake; the manifest and the shard requests in `proto/node.proto`; whole copies at
-   R=5 or RS with K = ⌈size / 1 MiB⌉, M = 4, using `rust/bootstrap/src/replication.rs`; decoding
-   on `get`; `media.shard_threshold`.
-4. Media repair by `keep`.
+3. Media: 6 MiB intake with the concurrency limits; the manifest and the shard requests in
+   `proto/node.proto` carrying the signed `keep` or attachment; whole copies at R=5 or RS with
+   K = ⌈size / 1 MiB⌉, M = 4, using `rust/bootstrap/src/replication.rs`; decoding on `get`, billed
+   by bytes; `media.shard_threshold`; distinct holders in `dyappd status`.
+4. Media repair by `keep`, batched per holder.
 5. Docs: ADR 0009 edited in place, without its stale line that presence-driven repair does not
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;
    [Deployment](../operations/deployment.md) for the new config key. This page is then removed.
 
 Ranged media get, signal stores and the media size limits in config build on the manifest and the
 threshold.
+
+## Stress Test Results
+
+### Resolved decisions
+- Wire limit: per-protocol limits instead of one global one, so 6 MiB media do not let every
+  protocol buffer 6 MiB per stream.
+- Replica authorization: the owner's signed `keep` (or the sender's attachment) travels with each
+  media copy; receivers verify it themselves.
+- Manifest: deterministic from the length, first one wins, a whole blob wins, every decode checks
+  SHA-256. Only the owner or the sender can name a hash, so outsiders cannot plant a manifest.
+- Small networks: copies and shards co-locate, status shows distinct holders.
+- Network growth: present owners are rebalanced by repair; holder-side republish for offline
+  owners is planned.
+- Read amplification: `get` is billed by bytes, assembly uses the repair budget, no cache.
+- Acceptor crash after `ok`: no fan-out queue on disk, repair closes it; `ok` with one copy only
+  with no peers at all.
+- Repair cost: batched inventory per holder, 256 hashes per `keep`.
+- Acceptor role: stores only for keys it holds, otherwise forwards.
+
+### Changes made
+All of the above were folded into the sections of this page.
+
+### Deferred
+- Holder-side republish when a node stops being closest to a key.
+- A cache of decoded blobs, if load shows the need.
+
+### Confidence
+- Overall: high.
+- Concern: durability in networks under 10 nodes is low by construction, not by design choice.
