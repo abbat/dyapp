@@ -19,10 +19,13 @@ Replica keys are `replica_key(key, i) = H(key‖i)`, `i` in `0..REPLICAS` (`REPL
 2. The node that gets the put (the acceptor) verifies the record as it does now and looks up the
    holders of all 5 replica keys itself. It stores a copy only for the keys it holds and sends a
    `replica_put` to the holders of the others. A node that holds none of the keys only forwards.
-   A receiver verifies a `replica_put` like a client put; no node trusts another node.
-3. The acceptor answers `ok` once 2 copies are stored on holders of replica keys. The other copies
-   are sent in the background, with no queue on disk: if the acceptor dies first, repair below
-   fills the gap.
+   A receiver verifies a `replica_put` like a client put; no node trusts another node. A
+   `replica_put` is never forwarded again. The holders come from a full DHT lookup of each key,
+   not from the local routing table alone.
+3. The acceptor answers `ok` once copies are stored on 2 distinct holders of replica keys. The
+   other copies are sent in the background, with no queue on disk: if the acceptor dies first,
+   repair below fills the gap. A put still waiting for its second copy after a timeout gets an
+   error, and the number of waiting puts is capped.
 4. Only a node whose routing table has no peers answers `ok` after one local copy. A node that has
    peers but reaches no second holder answers with an error, and the client tries the next key.
 
@@ -54,9 +57,10 @@ Profiles get a `replica_put` like the one mailboxes already have
 - New `/dyapp/media` node-to-node requests: `replica_put(blob | manifest)`,
   `shard_put(hash, j, shard)` and `shard_get(hash, j)`. A `replica_put` or `shard_put` carries the
   owner's signed `keep`, or the sender's signed attachment for chat media. The receiver verifies
-  the signature itself, stores the `keep` as that owner's latest, accepts the object only if the
-  hash is listed and charges it to that owner's quota. A shard must match the hash in the
-  manifest.
+  the signature itself and stores the `keep` only if it is newer than the one it holds. It
+  accepts the object only if the hash is listed in that owner's latest `keep`, so an old `keep`
+  cannot bring back a deleted blob, and charges it to that owner's quota. A shard must match the
+  hash in the manifest.
 - Small networks: a node may hold several copies or shards of one blob (keyed by hash and j), and
   a copy that lands on a node that already has it counts as stored. With fewer than 10 distinct
   holders the loss tolerance drops; `dyappd status` shows how many distinct nodes hold replicas.
@@ -66,8 +70,9 @@ Profiles get a `replica_put` like the one mailboxes already have
 - The size limit is set per protocol: 6 MiB + 64 KiB for `/dyapp/media`, 1 MiB + 64 KiB for the
   others (the largest is a mailbox `fetch` reply, `FETCH_BYTES` = 1 MiB). Today one 2 MiB limit,
   `MAX_MESSAGE_BYTES`, covers all of them.
-- At most 2 media requests per peer and 16 per node run at once; the rest get `rate_limited`
-  before the body is read.
+- At most 2 media requests per connection and 16 per node run at once. The rest are reset
+  before the body is read (the request-response codec cannot answer before reading), and the
+  client retries with backoff.
 - The originating client pays for the fan-out. A message or profile put costs 5 token-bucket
   units. A media put costs bytes × 5 for whole copies or bytes × (K+M)/K for shards, against the
   per-owner media quota and `bytes_per_second`.
@@ -101,9 +106,11 @@ offline is not repaired and expires by its TTL.
 - **Media:** with each `keep`, the node that takes it checks up to 256 of the listed hashes, from a
   cursor that moves on with each `keep`. It groups (hash, j) by holder and sends each holder one
   `have(list)`, which answers `missing(list)`, so the request count follows the number of holders,
-  not hashes. Only what is missing is fetched: a whole copy is copied, a missing shard is rebuilt
-  from K others and the decode checks the blob's SHA-256. A blob with fewer than K shards left (or
-  no copy left) is listed in the `keep` reply, and the client uploads it again.
+  not hashes. A node answers `have` only to a trusted peer its routing table places near the key,
+  as for mailbox inventories, so it is not an oracle of stored hashes. Only what is missing is
+  fetched: a whole copy is copied, a missing shard is rebuilt from K others and the decode checks
+  the blob's SHA-256. A blob with fewer than K shards left (or no copy left) is listed in the
+  `keep` reply, and the client uploads it again.
 - **Network growth:** when new nodes join, the holder of some replica keys changes and the new
   holder has nothing yet. A read there misses and the client tries the next key. Repair checks the
   current holders, so for a present owner it moves the data to them. For an owner who stays
@@ -116,15 +123,17 @@ offline is not repaired and expires by its TTL.
 
 Each step is one change with multi-node Docker tests and its docs.
 
-1. Per-protocol size limits; mailbox and profile fan-out by the acceptor with the 2-copy ack;
-   profile `replica_put`; client billed ×5; `test-peer` stops writing replicas.
-2. Profile repair through node inventory.
-3. Media: 6 MiB intake with the concurrency limits; the manifest and the shard requests in
-   `proto/node.proto` carrying the signed `keep` or attachment; whole copies at R=5 or RS with
-   K = ⌈size / 1 MiB⌉, M = 4, using `rust/bootstrap/src/replication.rs`; decoding on `get`, billed
-   by bytes; `media.shard_threshold`; distinct holders in `dyappd status`.
-4. Media repair by `keep`, batched per holder.
-5. Docs: ADR 0009 edited in place, without its stale line that presence-driven repair does not
+1. Per-protocol size limits.
+2. Mailbox and profile fan-out by the acceptor with the 2-copy ack; profile `replica_put`; client
+   billed ×5; `test-peer` stops writing replicas.
+3. Profile repair through node inventory.
+4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment, the
+   concurrency limits, `get` billed by bytes, distinct holders in `dyappd status`.
+5. Media shards: 6 MiB intake, the manifest and the shard requests in `proto/node.proto`, RS with
+   K = ⌈size / 1 MiB⌉, M = 4 using `rust/bootstrap/src/replication.rs`, decoding on `get`,
+   `media.shard_threshold`.
+6. Media repair by `keep`, batched per holder.
+7. Docs: ADR 0009 edited in place, without its stale line that presence-driven repair does not
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;
    [Deployment](../operations/deployment.md) for the new config key. This page is then removed.
 
@@ -148,6 +157,10 @@ threshold.
   with no peers at all.
 - Repair cost: batched inventory per holder, 256 hashes per `keep`.
 - Acceptor role: stores only for keys it holds, otherwise forwards.
+- Plan review: fan-out runs in the node's swarm loop with the reply held until 2 distinct holders
+  store; a `replica_put` is never forwarded; excess media streams are reset instead of answered
+  `rate_limited`; replicas are accepted only by the owner's latest `keep`; `have` is answered
+  only to near trusted peers; steps split into 7; no mixed-version rollout before release.
 
 ### Changes made
 All of the above were folded into the sections of this page.
