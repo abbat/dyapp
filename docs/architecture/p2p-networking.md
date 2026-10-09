@@ -13,6 +13,7 @@
 | Kademlia | protocol `/dyapp/kad`, in-memory record store |
 | identify | protocol `/dyapp`; tells peers their observed address and fills the Kademlia routing table: `dyappd` adds the claimed listen addresses of every peer that serves `/dyapp/kad`, unfiltered |
 | AutoNAT | v1, as client and server; confirms external addresses |
+| Dialing | Happy Eyeballs (RFC 8305), libp2p smart dial: every address of a peer is dialled, QUIC before TCP and IPv6 before IPv4; IPv4 starts 250 ms after IPv6 on public addresses, 30 ms on private ones, and the first connection wins. A failed IPv6 dial does not start IPv4 sooner, and an IPv6 failure is not remembered, so every dial tries IPv6 again |
 | Idle connections | closed after 60 s |
 | Limits | connection limits (none by default), 100 concurrent streams per connection and protocol |
 
@@ -75,7 +76,8 @@ Not implemented yet:
   client asks several seeds at once and keeps the peer cache described above.
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
   relay itself. Video uses its own WebRTC stack ([Video](video.md)).
-- **Addresses:** IPv6 and IPv4 dual-stack; link-local addresses are not announced.
+- **Addresses:** link-local addresses are not announced. A host whose IPv6 does not work is
+  remembered for a while, so its dials go straight to IPv4.
 - **Search and storage:** served by bootstrap nodes over libp2p request-response protocols
   ([Bootstrap](bootstrap.md)). Profiles are public signed records
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); search filters

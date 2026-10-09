@@ -239,7 +239,12 @@ pub fn build_limited_swarm(
                 media: request_response::Behaviour::new([(MEDIA_PROTOCOL, support)], config),
             }
         })?
-        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+        // Happy Eyeballs (RFC 8305): QUIC before TCP, IPv6 before IPv4, which starts 250 ms
+        // later on public addresses and 30 ms later on private ones.
+        .with_swarm_config(|c| {
+            c.with_idle_connection_timeout(Duration::from_secs(60))
+                .with_smart_dial()
+        })
         .build())
 }
 
