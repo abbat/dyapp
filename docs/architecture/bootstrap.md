@@ -161,8 +161,9 @@ resent from the sender's retry queue.
 
 ### Profiles
 
-- Payload at most 1 MiB, raisable: nodes state their limit and clients publish only to nodes that
-  accept the size. Media are separate blobs; the profile only links to them by content hash.
+- Payload at most 1 MiB, a protocol constant like every record size limit
+  ([Limits and abuse](#limits-and-abuse)). Media are separate blobs; the profile only links to
+  them by content hash.
 - Each photo in `photos` is the full image (one or more blobs) plus a separate small thumbnail
   blob, stored whole. Lists and search results load only thumbnails; the full image loads when a
   profile is opened (implemented in the schema and checks; no client yet).
@@ -283,9 +284,15 @@ resent from the sender's retry queue.
 
 ### Limits and abuse
 
-Defaults are node settings: a message up to 100 KB, a mailbox up to 10 MB per device, media up
-to 10 MB per user, each counted by the node over the data it holds. Write quotas apply per sender
-key and per IP group; the prefix length (for example /24 or /48) is the operator's choice.
+Record size limits are protocol constants, the same on every node: a profile up to 1 MiB, a
+message up to 100 KiB, a signal up to 1 KiB, a media blob up to 6 MiB (planned, today 1 MiB).
+The client cannot pick the nodes that hold a replica, so a node with a lower limit would leave a
+hole and a higher one would hold records no other replica takes; a larger limit needs a new
+protocol version. `info` reports them for nodes of different versions. Capacities are space,
+not compatibility: a mailbox up to 10 MiB per device, signals up to `limits.signal_max_kb`,
+media up to `limits.media_per_owner_mb` per user, each counted by the node over the data it
+holds. Write quotas apply per sender key and per IP group; the prefix length (for example /24
+or /48) is the operator's choice.
 Resource guards cap disk per store and for media (with a free-space reserve), traffic (request rates and
 an optional byte rate; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
@@ -492,7 +499,6 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
   12 hours. Clients find relays with `get_providers` on that key; using them for call ICE is
   planned.
-- **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
   `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
