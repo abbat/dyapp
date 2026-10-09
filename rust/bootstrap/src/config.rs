@@ -40,6 +40,11 @@ pub struct Network {
     /// Minutes after the first connection before a peer gets replicas (repair, forwarded acks);
     /// 0 trusts at once.
     pub storage_trust_minutes: u32,
+    /// Answer other nodes' deny-list requests with this node's signed list (no notes).
+    pub share_deny_list: bool,
+    /// Ask connected nodes for their deny lists each maintenance run and store them; the node
+    /// takes no action on them.
+    pub accept_deny_lists: bool,
 }
 
 impl Default for Network {
@@ -48,6 +53,8 @@ impl Default for Network {
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
             distinct_outbound_groups: true,
             storage_trust_minutes: 60,
+            share_deny_list: false,
+            accept_deny_lists: false,
         }
     }
 }

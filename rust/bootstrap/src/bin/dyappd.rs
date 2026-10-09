@@ -6,6 +6,7 @@
 //!
 //! `dyappd deny add <entry> [note]`, `deny remove <entry>`, `deny list`: edit the deny list in
 //! `<storage.dir>/deny.db`; a running node applies a change within 10 seconds.
+//! `dyappd deny received`: the lists other nodes shared, stored only.
 //!
 //! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
@@ -15,12 +16,14 @@ use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
+use dyapp_p2p_net::proto;
+use prost::Message;
 use rusqlite::{Connection, OpenFlags};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 const USAGE: &str = "usage: dyappd [keygen | status | deny add <entry> [note] | \
-                     deny remove <entry> | deny list] [--config <file>]";
+                     deny remove <entry> | deny list | deny received] [--config <file>]";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -64,6 +67,11 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     let keypair = config.node_key()?;
+    let deny_signer = config
+        .network
+        .share_deny_list
+        .then(|| dyapp_bootstrap::deny::signer(&keypair))
+        .flatten();
     let store = BootstrapStore::open(
         &config.storage.profiles_path(),
         &config.storage.messages_path(),
@@ -92,6 +100,7 @@ async fn main() -> anyhow::Result<()> {
         .transpose()?;
     let mut service = Service::new(store, config);
     service.media = media;
+    service.deny_signer = deny_signer;
     node::run(swarm, service).await;
     Ok(())
 }
@@ -119,6 +128,16 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
             for (e, note, added) in deny.list()? {
                 let added = chrono::DateTime::from_timestamp(added, 0).unwrap_or_default();
                 println!("{e}\t{}\t{note}", added.format("%Y-%m-%d %H:%M"));
+            }
+        }
+        ["received"] => {
+            for (peer, time, record) in deny.received()? {
+                let time = chrono::DateTime::from_timestamp(time, 0).unwrap_or_default();
+                let list = proto::DenyList::decode(record.payload.as_slice())?;
+                println!("{peer}\t{}", time.format("%Y-%m-%d %H:%M"));
+                for e in list.entries {
+                    println!("\t{e}");
+                }
             }
         }
         _ => anyhow::bail!(USAGE),

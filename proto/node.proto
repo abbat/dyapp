@@ -45,14 +45,29 @@ enum Role {
 message NodeRequest {
   oneof request {
     InfoRequest info = 1;
+    // Nodes older than deny-list exchange answer UNSUPPORTED; a node whose operator does not
+    // share the list answers NOT_FOUND.
+    DenyListRequest deny_list = 2;
   }
 }
 
 message InfoRequest {}
 
+// Asks for the operator's deny list, which the asking node only stores.
+message DenyListRequest {}
+
 message NodeResponse {
   Status status = 1;
   NodeInfo info = 2;
+  // deny_list: payload `DenyList`, signed by the node's Ed25519 libp2p key.
+  dyapp.identity.SignedRecord deny_list = 3;
+}
+
+// Entries in the deny list's stored form, without the operator's notes.
+message DenyList {
+  // Unix seconds when the list was signed; a newer list from the same node replaces an older one.
+  uint64 time = 1;
+  repeated string entries = 2;
 }
 
 // What the node serves and accepts. Zero means "no such limit" or "role not served".

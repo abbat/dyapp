@@ -62,6 +62,10 @@ pub struct Service {
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
     pub deny: HashSet<String>,
+    /// Signs the shared deny list, with `network.share_deny_list` on.
+    pub deny_signer: Option<dyapp_identity::Identity>,
+    /// The deny list as it is shared, signed when it was last loaded.
+    pub shared_deny: Option<SignedRecord>,
     /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
     /// logged once, not per request.
     tripped: [AtomicBool; 6],
@@ -95,6 +99,8 @@ impl Service {
             traffic: Traffic::new(cap, l.bytes_per_second, config.storage.dir.join("traffic")),
             config,
             deny: HashSet::new(),
+            deny_signer: None,
+            shared_deny: None,
             tripped: Default::default(),
             refused: Default::default(),
         }
@@ -215,10 +221,20 @@ impl Service {
             Some(node_request::Request::Info(_)) => NodeResponse {
                 status: Status::Ok.into(),
                 info: Some(self.info()),
+                ..NodeResponse::default()
+            },
+            Some(node_request::Request::DenyList(_)) => NodeResponse {
+                status: match self.shared_deny {
+                    Some(_) => Status::Ok,
+                    None => Status::NotFound,
+                }
+                .into(),
+                deny_list: self.shared_deny.clone(),
+                ..NodeResponse::default()
             },
             None => NodeResponse {
                 status: Status::Unsupported.into(),
-                info: None,
+                ..NodeResponse::default()
             },
         }
     }
@@ -1220,6 +1236,13 @@ mod tests {
             info.info.unwrap().roles,
             vec![i32::from(proto::Role::Store)]
         );
+        let deny_list = || NodeRequest {
+            request: Some(node_request::Request::DenyList(proto::DenyListRequest {})),
+        };
+        let not_shared = service.node(deny_list());
+        assert_eq!(not_shared.status, i32::from(Status::NotFound));
+        service.shared_deny = Some(SignedRecord::default());
+        assert!(service.node(deny_list()).deny_list.is_some());
     }
 
     #[test]

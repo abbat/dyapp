@@ -6,7 +6,11 @@ use crate::config::Limits;
 use crate::error::Result;
 use crate::node::ip_group;
 use crate::storage::{lock, open, storage_error};
+use dyapp_identity::{Domain, Identity, SignedRecord};
+use dyapp_p2p_net::proto;
+use libp2p::identity::{ed25519, PublicKey};
 use libp2p::PeerId;
+use prost::Message;
 use rusqlite::{params, Connection};
 use std::collections::HashSet;
 use std::path::Path;
@@ -37,6 +41,41 @@ pub fn normalize(entry: &str, limits: &Limits) -> Option<String> {
     (prefix.parse() == Ok(want)).then(|| ip_group(&ip.into(), limits))
 }
 
+/// Most entries a shared list carries, so that it fits one 2 MiB message.
+pub const MAX_SHARED: usize = 20_000;
+
+/// Lists of at most this many other nodes are kept, the most recently received ones.
+pub const MAX_RECEIVED: u32 = 1000;
+
+/// The node's own list as it shares it: sorted entries, cut at [`MAX_SHARED`], signed by `key`.
+pub fn sign(key: &Identity, entries: &HashSet<String>) -> SignedRecord {
+    let mut entries: Vec<String> = entries.iter().cloned().collect();
+    entries.sort();
+    if entries.len() > MAX_SHARED {
+        tracing::warn!(entries = entries.len(), MAX_SHARED, "shared deny list cut");
+        entries.truncate(MAX_SHARED);
+    }
+    let time = u64::try_from(chrono::Utc::now().timestamp()).unwrap_or_default();
+    let list = proto::DenyList { time, entries };
+    key.sign(Domain::DenyList, list.encode_to_vec())
+}
+
+/// The list in `record` when `peer`'s own node key signed it.
+pub fn verify(record: &SignedRecord, peer: &PeerId) -> Option<proto::DenyList> {
+    record.verify(Domain::DenyList).ok()?;
+    let key = ed25519::PublicKey::try_from_bytes(&record.public_key).ok()?;
+    if PublicKey::from(key).to_peer_id() != *peer {
+        return None;
+    }
+    proto::DenyList::decode(record.payload.as_slice()).ok()
+}
+
+/// The signing key of `keypair` (an Ed25519 libp2p key) for [`sign`].
+pub fn signer(keypair: &libp2p::identity::Keypair) -> Option<Identity> {
+    let secret = keypair.clone().try_into_ed25519().ok()?.secret();
+    Some(Identity::from_secret(secret.as_ref().try_into().ok()?))
+}
+
 impl DenyStore {
     pub fn open(path: &Path) -> Result<Self> {
         Ok(Self {
@@ -46,9 +85,62 @@ impl DenyStore {
                      entry TEXT PRIMARY KEY,
                      note TEXT NOT NULL,
                      added INTEGER NOT NULL
+                 );
+                 CREATE TABLE IF NOT EXISTS received (
+                     peer TEXT PRIMARY KEY,
+                     time INTEGER NOT NULL,
+                     record BLOB NOT NULL,
+                     received INTEGER NOT NULL
                  );",
             )?,
         })
+    }
+
+    /// Stores `peer`'s signed list, checked by [`verify`], unless one signed at `time` or later is
+    /// stored; false then. The node takes no action on it.
+    pub fn keep_received(&self, peer: &str, time: u64, record: &SignedRecord) -> Result<bool> {
+        let db = lock(&self.db)?;
+        let kept = db
+            .execute(
+                "INSERT INTO received (peer, time, record, received) VALUES (?, ?, ?, ?)
+                 ON CONFLICT (peer) DO UPDATE SET time = excluded.time,
+                     record = excluded.record, received = excluded.received
+                 WHERE excluded.time > received.time",
+                params![
+                    peer,
+                    i64::try_from(time).unwrap_or(i64::MAX),
+                    record.encode_to_vec(),
+                    chrono::Utc::now().timestamp()
+                ],
+            )
+            .map_err(storage_error)?;
+        db.execute(
+            "DELETE FROM received WHERE peer NOT IN
+                 (SELECT peer FROM received ORDER BY received DESC, peer LIMIT ?)",
+            [MAX_RECEIVED],
+        )
+        .map_err(storage_error)?;
+        Ok(kept > 0)
+    }
+
+    /// Every stored list: the node that signed it, the signing time and the signed record.
+    pub fn received(&self) -> Result<Vec<(String, i64, SignedRecord)>> {
+        let db = lock(&self.db)?;
+        let mut statement = db
+            .prepare("SELECT peer, time, record FROM received ORDER BY peer")
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map([], |row| {
+                let record: Vec<u8> = row.get(2)?;
+                Ok((row.get(0)?, row.get(1)?, record))
+            })
+            .map_err(storage_error)?;
+        rows.map(|row| {
+            let (peer, time, record) = row.map_err(storage_error)?;
+            let record = SignedRecord::decode(record.as_slice()).map_err(storage_error)?;
+            Ok((peer, time, record))
+        })
+        .collect()
     }
 
     /// Adds an entry; false when it was listed already.
@@ -156,6 +248,37 @@ mod tests {
         assert_eq!(n("203.0.113.77/24").as_deref(), Some("203.0.113.0/24"));
         assert_eq!(n("203.0.113.0/16"), None);
         assert_eq!(n("bogus"), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn received_lists_are_checked_and_only_newer_ones_kept() {
+        let dir = std::env::temp_dir().join(format!("dyapp-received-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = DenyStore::open(&dir.join("deny.db")).unwrap();
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let peer = keypair.public().to_peer_id();
+        let key = signer(&keypair).unwrap();
+        let record = sign(&key, &["b".into(), "a".into()].into());
+        let list = verify(&record, &peer).unwrap();
+        assert_eq!(list.entries, ["a", "b"]);
+        assert!(
+            verify(&record, &PeerId::random()).is_none(),
+            "another node's list"
+        );
+        let mut forged = record.clone();
+        forged.payload.push(0);
+        assert!(verify(&forged, &peer).is_none());
+        let id = peer.to_string();
+        assert!(store.keep_received(&id, list.time, &record).unwrap());
+        assert!(
+            !store.keep_received(&id, list.time, &record).unwrap(),
+            "not newer"
+        );
+        assert!(store.keep_received(&id, list.time + 1, &record).unwrap());
+        let received = store.received().unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].2, record);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

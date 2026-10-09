@@ -601,6 +601,7 @@ mod tests {
                             let response = proto::NodeResponse {
                                 status: proto::Status::Ok.into(),
                                 info: Some(proto::NodeInfo { max_profile_bytes: 7, ..Default::default() }),
+                                ..Default::default()
                             };
                             server.behaviour_mut().node.send_response(channel, response).unwrap();
                         }

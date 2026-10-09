@@ -97,6 +97,18 @@ fn save_peers(path: &Path, peers: &[Multiaddr]) -> std::io::Result<()> {
     )
 }
 
+/// Stores `peer`'s deny list if its node key signed it.
+fn keep_deny_list(deny: &DenyStore, peer: &PeerId, record: &SignedRecord) {
+    let Some(list) = crate::deny::verify(record, peer) else {
+        return tracing::warn!(%peer, "deny list with a bad signature dropped");
+    };
+    match deny.keep_received(&peer.to_string(), list.time, record) {
+        Ok(true) => tracing::info!(%peer, entries = list.entries.len(), "deny list received"),
+        Ok(false) => {}
+        Err(error) => tracing::error!(%peer, %error, "deny list not stored"),
+    }
+}
+
 /// Re-reads the deny list when `dyappd deny` changed it since `version`; on an error the old
 /// list stays.
 fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64>) {
@@ -110,6 +122,8 @@ fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64
             let added = entries.difference(&service.deny).count();
             let removed = service.deny.difference(&entries).count();
             tracing::info!(entries = entries.len(), added, removed, "deny list loaded");
+            let key = service.deny_signer.as_ref();
+            service.shared_deny = key.map(|key| crate::deny::sign(key, &entries));
             service.deny = entries;
             *version = Some(current);
         }
@@ -428,6 +442,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
                 }
+                // The node asks other nodes only for deny lists.
+                SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
+                    peer: id,
+                    message: Message::Response { response, .. },
+                    ..
+                })) => {
+                    if let Some(record) = response.deny_list {
+                        keep_deny_list(&deny, &id, &record);
+                    }
+                }
                 SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
                     peer: id,
                     connection_id,
@@ -660,6 +684,18 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 replicas
                     .trust
                     .retain(|peer| routed.contains(peer) || swarm.is_connected(peer));
+                if service.config.network.accept_deny_lists {
+                    let request = proto::NodeRequest {
+                        request: Some(proto::node_request::Request::DenyList(
+                            proto::DenyListRequest {},
+                        )),
+                    };
+                    for peer in &routed {
+                        if swarm.is_connected(peer) {
+                            swarm.behaviour_mut().node.send_request(peer, request);
+                        }
+                    }
+                }
                 if refused > 0 {
                     tracing::warn!(refused, "connections refused by the connection limits");
                     refused = 0;

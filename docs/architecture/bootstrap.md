@@ -236,10 +236,10 @@ another replica. Implemented: the disk, traffic and connection guards in
 a memory threshold is planned.
 
 The operator may refuse service to any user through a deny list (implemented, see
-[Deny list](#deny-list)). Exchanging signed lists between operators is planned, with separate
-switches to share and to accept, both off by default; a node only stores received lists and acts
-on none of them. Illegal media are removed by listing the blob hash; erasure-coded shards of a
-listed blob are not mapped yet.
+[Deny list](#deny-list)). Nodes can exchange signed lists, with separate switches to share and
+to accept, both off by default; a node only stores received lists and acts on none of them.
+Illegal media are removed by listing the blob hash; erasure-coded shards of a listed blob are not
+mapped yet.
 
 ### Operating a node
 
@@ -256,7 +256,8 @@ listed blob are not mapped yet.
   operator deletes the data. On a leak or a move the operator creates a new key.
 - Settings live in the config file and the systemd unit and need a restart. The `dyappd` binary
   also carries the admin subcommands: `deny add|remove|list` edits `deny.db`, which the running
-  node applies within 10 seconds and logs ([Deny list](#deny-list)), and `status` prints what
+  node applies within 10 seconds and logs ([Deny list](#deny-list)), `deny received` prints the
+  lists other nodes shared, and `status` prints what
   the stores hold, read-only. There is no TUI and no admin HTTP endpoint; metrics go to the log.
 
 ## Data Model
@@ -323,6 +324,7 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 | Protocol | Request | Reply |
 |----------|---------|-------|
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (1 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` the profile counts as seen now; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
@@ -398,6 +400,15 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   served, and a `get` of a listed owner's blob already stored is still answered (blobs are not
   indexed by owner on read); a listed blob hash gets `REFUSED` on `get` and `put`, and its file
   stays until no keep or attachment holds it.
+- <a id="deny-list-exchange"></a>**Deny-list exchange.** With `network.share_deny_list` on, a
+  `/dyapp/node` `deny_list` request gets the entries (no notes), sorted, cut at 20 000 so they fit
+  one message, with the signing time, as a `SignedRecord` signed by the node's Ed25519 libp2p key
+  (domain `dyapp/deny-list/v1`); the node signs anew whenever it reloads its list. Off, it answers
+  `NOT_FOUND`; old nodes answer `UNSUPPORTED`. With `network.accept_deny_lists` on, every
+  maintenance run asks each connected routed peer and stores a list whose key is the peer's own
+  in the `received` table of `deny.db`, replacing an older one of the same node; lists of the
+  1000 nodes heard from last are kept. The node takes no action on them: `dyappd deny received`
+  shows them to the operator. A unit test checks the signature, the signer and the replacement.
 - **Not yet:** the size limits are constants rather than config ([Mailboxes](#mailboxes)).
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
   also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
@@ -627,7 +638,8 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,
 `network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
-`network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)); the
+`network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
+`network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles

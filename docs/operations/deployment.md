@@ -182,6 +182,8 @@ vacuum_pages = 2048    # free 4 KiB pages released per store and run
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
 distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-bucket
 storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
+share_deny_list = false          # answer other nodes with the signed deny list (no notes)
+accept_deny_lists = false        # fetch and store other nodes' lists; no action taken
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not
@@ -349,6 +351,10 @@ node's libp2p key; there is no certificate authority.
   SHA-256 with `sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml`
   (`deny remove`, `deny list`); the running node applies it within 10 seconds, and they get
   `STATUS_REFUSED` here and use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
+- A shared list tells other operators the peer IDs, IP groups and hashes you refuse, so
+  `share_deny_list` is off by default. Lists received with `accept_deny_lists` are only stored:
+  review them with `dyappd deny received` and add what you agree with yourself
+  ([exchange](../architecture/bootstrap.md#deny-list-exchange))
 
 `sudo -u dyappd dyappd status --config /etc/dyappd.toml` prints the peer ID and what the
 stores hold (profiles, envelopes, media blobs and bytes, deny entries, cached peers), read-only.
