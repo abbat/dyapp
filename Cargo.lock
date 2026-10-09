@@ -1038,6 +1038,7 @@ dependencies = [
  "hmac 0.12.1",
  "libc",
  "libp2p",
+ "memory-stats",
  "proptest",
  "prost",
  "reed-solomon-erasure",

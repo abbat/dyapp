@@ -64,7 +64,7 @@
 # max_connections = 1000              # connections in total
 # max_connections_per_peer = 4        # connections from one peer
 # max_streams = 16                    # concurrent streams per connection and protocol
-# max_memory_mb = 0                   # new connections are refused above this RSS; 0 = no limit
+# max_memory_mb = 768                 # RSS: refuse requests from 80 %, drop at 100 %; 0 = no limit
 
 # Abuse from one network or one user. Peers whose addresses share the first ipv4_prefix /
 # ipv6_prefix bits count as one group.

@@ -127,9 +127,57 @@ impl Traffic {
     }
 }
 
+/// The process's physical memory as a share of `max` bytes (0 = no limit), measured like
+/// libp2p's memory connection limit and sampled at most every 100 ms.
+pub struct Memory {
+    max: u64,
+    sample: Mutex<Option<(Instant, u64)>>,
+}
+
+impl Memory {
+    pub fn new(max: u64) -> Self {
+        Self {
+            max,
+            sample: Mutex::default(),
+        }
+    }
+
+    /// The share of `max` in percent, 0 without a limit or a measurement.
+    pub fn share(&self) -> u64 {
+        if self.max == 0 {
+            return 0;
+        }
+        let now = Instant::now();
+        let mut sample = self.sample.lock().unwrap();
+        match *sample {
+            Some((at, share)) if now < at + Duration::from_millis(100) => share,
+            _ => {
+                let used = memory_stats::memory_stats().map_or(0, |m| m.physical_mem as u64);
+                let share = used.saturating_mul(100) / self.max;
+                *sample = Some((now, share));
+                share
+            }
+        }
+    }
+
+    /// Fixes the share for an hour.
+    #[cfg(test)]
+    pub fn set(&self, share: u64) {
+        let later = Instant::now() + Duration::from_secs(3600);
+        *self.sample.lock().unwrap() = Some((later, share));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_share_of_the_limit() {
+        assert_eq!(Memory::new(0).share(), 0);
+        assert!(Memory::new(1).share() > 100, "no measurement");
+        assert_eq!(Memory::new(u64::MAX).share(), 0);
+    }
 
     #[test]
     fn traffic_counts_the_byte_rate() {

@@ -14,6 +14,12 @@ RestartSec=5
 Environment=RUST_LOG=info
 LimitNOFILE=65536
 UMask=0077
+# Resource bounds. limits.max_memory_mb (768 by default) keeps dyappd under MemoryHigh: from
+# 80 % of it requests are refused, at 100 % dropped. Raise both together in a drop-in.
+MemoryHigh=768M
+MemoryMax=1G
+CPUQuota=150%
+TasksMax=256
 # /var/lib/dyappd, owned by the service user. Stores configured elsewhere need a drop-in
 # with ReadWritePaths=.
 StateDirectory=dyappd

@@ -107,7 +107,10 @@ test-installs the package on a clean `debian:bookworm-slim`. The package holds
 `/usr/bin/dyappd`, `/etc/dyappd.toml` and `/lib/systemd/system/dyappd.service`.
 The unit runs as the system user `dyappd` (no shell, no login) with no capabilities,
 `NoNewPrivileges`, a read-only system (`ProtectSystem=strict`), no access to `/home`, a private
-`/tmp` and write access to `/var/lib/dyappd` only. Removing the package stops and disables
+`/tmp` and write access to `/var/lib/dyappd` only. It is bounded to `MemoryHigh=768M`,
+`MemoryMax=1G`, `CPUQuota=150%` and `TasksMax=256`; `limits.max_memory_mb` defaults to
+MemoryHigh, so the node sheds requests before the kernel throttles it. On a larger host raise
+both in a drop-in. Removing the package stops and disables
 the unit; purging keeps the user and `/var/lib/dyappd`, because `node.key` is the node's
 identity — delete them by hand to retire the node.
 
@@ -201,7 +204,8 @@ bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
-max_memory_mb = 0             # refuse new connections above this RSS; 0 = no limit
+max_memory_mb = 768           # RSS: requests refused from 80 %, dropped and new
+                              # connections refused at 100 %; 0 = no limit
 ip_group_requests_per_second = 1000   # shared by all peers of one IP group
 ipv4_prefix = 24              # IP group: leading bits of the remote address
 ipv6_prefix = 48

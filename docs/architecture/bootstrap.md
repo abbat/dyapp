@@ -593,10 +593,13 @@ starts refusing and a line when it clears, not one per request:
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
-  With `max_memory_mb` above 0 (default 0, no limit) libp2p `memory-connection-limits` refuses
-  new connections while the process uses more physical memory, checked at most every 100 ms;
-  established connections stay. Refused connections are counted and logged at each maintenance
-  run.
+  `max_memory_mb` (default 768, the packaged unit's `MemoryHigh`; 0 = no limit) bounds the
+  process's physical memory, sampled at most every 100 ms. From 80 % of it media, repair,
+  profile and mailbox requests get `RATE_LIMITED` (no strike); at 100 % every request is
+  dropped unanswered, which resets its stream so the client tries another node, and libp2p
+  `memory-connection-limits` refuses new connections. Established connections stay. Both memory
+  guards log when they trip and clear and count refusals per maintenance run; refused
+  connections are counted and logged at each maintenance run.
 
 ## Storage
 

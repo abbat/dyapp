@@ -251,7 +251,8 @@ pub struct Limits {
     pub max_connections_per_peer: u32,
     /// Concurrent streams per connection and protocol.
     pub max_streams: usize,
-    /// New connections are refused while the process uses more physical memory; 0 = no limit.
+    /// Physical memory of the process: from 80 % of it requests that shed by the byte rate are
+    /// refused, at it every request is dropped and new connections refused; 0 = no limit.
     pub max_memory_mb: u64,
     /// Requests per second shared by all peers of one IP group: IPv4 and IPv6 addresses with
     /// the same leading `ipv4_prefix` / `ipv6_prefix` bits.
@@ -326,7 +327,7 @@ impl Default for Limits {
             max_connections: 1000,
             max_connections_per_peer: 4,
             max_streams: 16,
-            max_memory_mb: 0,
+            max_memory_mb: 768,
             ip_group_requests_per_second: 1000,
             ipv4_prefix: 24,
             ipv6_prefix: 48,

@@ -4,7 +4,7 @@
 use crate::{
     config::{Role, Turn},
     media::{MediaStore, Put},
-    rate_limit::{PeerRateLimiter, Reputation, Traffic},
+    rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
     BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
@@ -42,6 +42,9 @@ pub const MAX_INVENTORY: usize = 10_000;
 /// is shed with media.
 pub const SHED_MEDIA: u64 = 75;
 const SHED_PROFILES: u64 = 90;
+/// Share of `max_memory_mb` (percent) from which requests that shed by the byte rate are
+/// refused; from 100 % every request is dropped unanswered (see `Service::overloaded`).
+const SHED_MEMORY: u64 = 80;
 
 /// The remote side of a request: its libp2p peer ID and IP group (see `node::ip_group`).
 pub struct Peer {
@@ -59,6 +62,7 @@ pub struct Service {
     pub senders: PeerRateLimiter,
     pub reputation: Reputation,
     pub traffic: Traffic,
+    pub memory: Memory,
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
     pub deny: HashSet<String>,
@@ -68,15 +72,17 @@ pub struct Service {
     pub shared_deny: Option<SignedRecord>,
     /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
     /// logged once, not per request.
-    tripped: [AtomicBool; 3],
+    tripped: [AtomicBool; 5],
     /// Requests each guard refused since the last `report`; the last one counts the byte rate.
-    refused: [AtomicU64; 4],
+    refused: [AtomicU64; 6],
 }
 
-const GUARDS: [&str; 4] = [
+const GUARDS: [&str; 6] = [
     "disk: profiles",
     "disk: messages",
     "disk: media",
+    "memory: rate limited",
+    "memory: dropped",
     "traffic: bytes per second",
 ];
 
@@ -93,6 +99,7 @@ impl Service {
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),
+            memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
             config,
             deny: HashSet::new(),
             deny_signer: None,
@@ -127,11 +134,20 @@ impl Service {
     }
 
     fn busy(&self, share: u64) -> bool {
+        if self.guard(3, self.memory.share() >= SHED_MEMORY) {
+            return true;
+        }
         let busy = self.traffic.second() >= share;
         if busy {
-            self.refused[3].fetch_add(1, Ordering::Relaxed);
+            self.refused[5].fetch_add(1, Ordering::Relaxed);
         }
         busy
+    }
+
+    /// Whether the process is at `max_memory_mb`: the node then drops requests unanswered, which
+    /// resets their streams, and libp2p refuses new connections.
+    pub fn overloaded(&self) -> bool {
+        self.guard(4, self.memory.share() >= 100)
     }
 
     /// Logs and resets the refusals per guard; called hourly.
@@ -1176,10 +1192,23 @@ mod tests {
             "mailbox shed before the limit"
         );
         service.traffic.add(1 << 30);
-        let response = mailbox(&service, &mut None, put);
+        let response = mailbox(&service, &mut None, put.clone());
         assert_eq!(mailbox_status(&response), Status::RateLimited);
-        assert_eq!(service.refused[3].load(Ordering::Relaxed), 2);
+        assert_eq!(service.refused[5].load(Ordering::Relaxed), 2);
         service.report();
+
+        // Memory: refused from 80 % of max_memory_mb, without a strike; dropped from 100 %.
+        let service = service_with(|l| l.strikes_to_ban = 1);
+        service.memory.set(85);
+        let response = mailbox(&service, &mut None, put.clone());
+        assert_eq!(mailbox_status(&response), Status::RateLimited);
+        assert!(!service.overloaded() && !service.reputation.banned("p"));
+        service.memory.set(100);
+        assert!(service.overloaded());
+        service.memory.set(10);
+        assert!(!service.overloaded());
+        let response = mailbox(&service, &mut None, put);
+        assert_eq!(mailbox_status(&response), Status::Ok);
     }
 
     #[test]

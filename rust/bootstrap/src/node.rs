@@ -24,9 +24,7 @@ use std::time::{Duration, Instant};
 
 /// The node's swarm with the connection and stream limits from the config. `/dyapp/kad` is the
 /// key space of the store role: a node without it is a DHT client and serves no protocol, so it
-/// is never picked as a replica.
-/// ponytail: no memory-use threshold (libp2p memory-connection-limits is not vendored); the
-/// connection, stream and message caps bound memory instead.
+/// is never picked as a replica. New connections are refused above `max_memory_mb`.
 pub fn swarm(
     keypair: Keypair,
     limits: &Limits,
@@ -439,6 +437,23 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 SwarmEvent::ExternalAddrConfirmed { address } => {
                     tracing::info!(%address, "external address confirmed")
                 }
+                // At max_memory_mb a request is dropped unanswered: its stream is reset and the
+                // client tries another node.
+                SwarmEvent::Behaviour(
+                    BehaviourEvent::Node(Event::Message { message: Message::Request { .. }, .. })
+                    | BehaviourEvent::Profile(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    })
+                    | BehaviourEvent::Media(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    })
+                    | BehaviourEvent::Mailbox(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    }),
+                ) if service.overloaded() => {}
                 // ponytail: SQLite calls block the swarm loop; move them to spawn_blocking when
                 // load makes request latency visible.
                 SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
