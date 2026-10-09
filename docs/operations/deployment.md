@@ -85,8 +85,8 @@ Example: User opens app
 
 > **Status:** `dyappd` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
 > `/dyapp/media` over libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)).
-> A Debian 12 package with a hardened systemd unit exists ([below](#debian-12-package)); there
-> is no production container image.
+> A Debian 12 package with a hardened systemd unit ([below](#debian-12-package)) and a minimal
+> container image ([below](#container-image)) exist; neither is published yet.
 
 ### Debian 12 package
 
@@ -286,11 +286,35 @@ envelopes whole to 5 replica points; nodes repair mailbox replicas between thems
 ([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile and
 media repair and Reed–Solomon for large media are planned.
 
-### Docker and Kubernetes (planned)
+### Container image
 
-There is no production Dockerfile, published image or Kubernetes manifest.
-The repository's Dockerfiles (`docker/Dockerfile.dev`, `docker/Dockerfile.network-test`, …)
-are test images: they build in debug mode. A production image and manifests are planned.
+```bash
+make image                             # → dyappd:latest, then a read-only test run
+docker volume create dyappd
+run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
+$run dyappd:latest keygen              # once: about a minute on 2 vCPU
+$run -d --name dyappd -p 7070:7070/tcp -p 7070:7070/udp \
+    -e DYAPPD__SEEDS='["seed.example.org:7070"]' dyappd:latest
+docker exec dyappd dyappd deny add <entry> [note]   # applied within 10 s
+docker exec dyappd dyappd status
+docker logs dyappd
+```
+
+`docker/Dockerfile.dyappd` builds the release binary in the Debian 12 image and copies it with
+the glibc libraries it links onto an empty base: no shell, no package manager, no `/etc`. The
+node runs as UID 65532 and writes only `/var/lib/dyappd`, its `storage.dir` and the image's one
+volume; Docker supplies `/etc/resolv.conf` and `/etc/hosts`. So the root can be read-only and
+every capability dropped. A new named volume takes the directory's owner and mode 0700 from
+the image; a bind mount needs `chown 65532:65532`. The image
+sets `listen` to `["[::]:7070", "0.0.0.0:7070"]`; the other keys are `DYAPPD__` variables,
+`--<section>.<key>` options after the image name, or a config file mounted read-only and named
+with `--config`. Resource bounds are Docker's: `--memory 1g` with the default
+`limits.max_memory_mb = 768` sheds requests before the limit. `make image` runs the image
+read-only with no network, makes a key, starts the node, edits the deny list and checks that
+the image has no shell.
+
+The image is not published to a registry, and there are no Kubernetes manifests yet. The other
+Dockerfiles in `docker/` are test images built in debug mode.
 
 ## Client Configuration (planned)
 

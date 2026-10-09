@@ -1,0 +1,20 @@
+# The dyappd container image: the release binary and the Debian 12 glibc libraries it links, on
+# an empty base. No shell, no package manager; runs as 65532 with one volume at /var/lib/dyappd.
+FROM dyapp:deb AS build
+USER root
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY proto proto
+COPY rust rust
+RUN cargo build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
+    && install -D -s -m 0755 target/release/dyappd /out/usr/bin/dyappd \
+    && cp -L --parents $(ldd target/release/dyappd | grep -o '/[^ ]*') /out \
+    && install -d -m 0700 -o 65532 -g 65532 /out/var/lib/dyappd
+
+FROM scratch
+COPY --from=build /out /
+USER 65532:65532
+ENV RUST_LOG=info DYAPPD__LISTEN='["[::]:7070", "0.0.0.0:7070"]'
+VOLUME /var/lib/dyappd
+EXPOSE 7070/tcp 7070/udp
+ENTRYPOINT ["/usr/bin/dyappd"]

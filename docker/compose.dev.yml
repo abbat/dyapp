@@ -90,6 +90,13 @@ services:
     entrypoint: *rust-command
     command: bash scripts/build-deb.sh
     profiles: [deb]
+  # The dyappd container image for operators (docker/Dockerfile.dyappd).
+  dyappd:
+    image: dyappd:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dyappd
+    profiles: [image]
   # A clean Debian 12 as root: dpkg needs to create the user and chown.
   deb-test:
     image: debian:bookworm-slim
