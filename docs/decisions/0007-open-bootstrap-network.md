@@ -24,4 +24,7 @@ run them, and whoever controls them can control the network.
 - Node operators see public profiles and routing metadata by design
   ([ADR 0003](0003-public-signed-profile-encrypted-private-data.md)).
 - Calls behind strict NATs depend on volunteers running TURN nodes.
-- Not implemented: the bootstrap is a single REST server, not a DHT node.
+- Implemented: `dyappd` is a libp2p node in the Kademlia DHT (`/dyapp/kad`, the store role's
+  key space) and announces its roles, TURN included, through identify
+  ([Roles and discovery](../architecture/bootstrap.md#roles-and-discovery)). Separate key spaces
+  for the other roles are planned.
