@@ -60,10 +60,15 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
    signals cannot evict messages, with quotas per sender key and per IP group. A hashcash stamp on
    unsolicited writes (likes, view signals, messages without a match) is best effort: the envelope
    reserves an optional stamp field, nodes may use it to prioritise under load, and none require it
-   in v1. The exception is search: a profile carries a proof of work bound to its owner's key,
-   computed once when the key is created, and search nodes index only profiles that have it; each
-   node sets the minimum difficulty it accepts. Without it free keys could flood the search index
-   with fake profiles and evict real ones.
+   in v1. The exception is search: a profile carries a proof of work bound to its owner's key
+   and not to its content, so it is computed once. It is memory-hard (Argon2id, 8 MiB, 1 pass,
+   leading zero bits over the key and a nonce), because SHA-256 would give a GPU a thousandfold
+   edge over a phone. The client computes 11 bits, about 30 s on a phone, in the background and
+   resumably; messaging does not wait for it. Store nodes do not check it; gossip relays and
+   search nodes do, and each node sets the minimum it accepts (default 11, at most 20). Without it
+   free keys could flood the search index with fake profiles and evict real ones. It only raises
+   the cost of a flood linearly (about $100 of cloud CPU per million fake profiles at 11 bits);
+   the index limits and heartbeat eviction carry the rest.
 
 ## Consequences
 
@@ -82,4 +87,5 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
   unshared scores per peer: a ban score from strikes, and a storage trust from answers and valid
   signatures that, with a trust delay (1 h by default), decides who gets replicas
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).
-- Not implemented (planned): per-type pools in the bootstrap store.
+- Not implemented (planned): per-type pools in the bootstrap store and the profile proof of work
+  ([bootstrap.md](../architecture/bootstrap.md#profiles)).

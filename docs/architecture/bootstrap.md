@@ -167,8 +167,14 @@ resent from the sender's retry queue.
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 - The profile lists the owner's device keys, so a sender can reach every device's mailbox before
   any MLS group exists; anyone can see how many devices a user has.
-- The profile carries a proof of work bound to the owner's key, computed once when the key is
-  created ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+- The profile carries a proof of work bound to the owner's key (planned,
+  [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)): fields `pow_nonce` and
+  `pow_bits`, valid when Argon2id(salt `dyapp-profile-pow`, password signer key ‖ nonce, 8 MiB,
+  1 pass, 1 lane) starts with `pow_bits` zero bits. It does not depend on the profile's content,
+  so it is computed once, about 30 s at 11 bits on a phone. The client computes it in the
+  background, keeps the last tried nonce to resume after the app is suspended, and publishes to
+  search only when it is done; messaging works before that. A profile without a valid proof
+  counts as 0 bits: store nodes keep it, gossip does not relay it, search does not index it.
 - Deletion is a signed tombstone kept for the TTL
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 
@@ -180,8 +186,10 @@ resent from the sender's retry queue.
   publishes a signed heartbeat (key, profile version, date, about 100 bytes). Nodes check the
   signature before relaying, relay only newer versions and limit updates per key.
 - **Index.** A search node subscribes to all topics by default, or to a part and then holds a
-  uniform random sample. It indexes only profiles with enough proof of work (the minimum
-  difficulty is a node setting) and keeps as many as its limits allow, evicting by the heartbeat
+  uniform random sample. It indexes only profiles with enough proof of work, and gossip
+  relays drop the others (planned; `search.min_profile_pow_bits`, default 11, at most 20). A
+  node caches verified keys, so Argon2id runs once per key, and a bad proof is a strike against
+  the peer that sent it. It keeps as many as its limits allow, evicting by the heartbeat
   date. A node that was offline catches up by exchanging (key, version) lists with other search
   nodes.
 - **Queries.** A client asks one to three search nodes. Results come in random order, up to a
