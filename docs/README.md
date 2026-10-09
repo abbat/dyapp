@@ -17,6 +17,7 @@ it are entry points that tools discover by path (see
 - [Messaging](architecture/messaging.md)
 - [Video](architecture/video.md)
 - [Bootstrap server](architecture/bootstrap.md)
+- [Replication design](architecture/replication.md): planned acceptor fan-out, media sharding, repair
 - [FFI design](architecture/ffi-design.md)
 - [Protobuf schema](architecture/protobuf-schema.md)
 - [Platform integration](architecture/platform-integration.md)
