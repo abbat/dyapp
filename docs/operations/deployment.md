@@ -63,7 +63,8 @@ Users (iOS/Android/macOS/Linux)
 - Fast peer discovery (IP:port from bootstrap)
 - Offline message delivery
 - Profile searching
-- Node failure tolerance via erasure coding (planned; `parity` nodes, e.g. 1 of 3 — see [replication math](../architecture/bootstrap.md#replication-strategy-reed-solomon))
+- Node failure tolerance: clients write messages and profiles to 5 nodes and nodes repair
+  mailboxes; media are not replicated yet ([replication](../architecture/bootstrap.md#replication-and-repair))
 
 **Cons:**
 - Need to operate 1-3 servers (~$10-50/month)
@@ -441,8 +442,9 @@ There is no admin HTTP API.
 
 Not measured. There is no load test of the bootstrap server. Disk, the byte rate, memory and
 connections are capped by `limits`
-([resource guards](../architecture/bootstrap.md#resource-guards)). Multi-node "HA" setups are not possible
-yet (see [replication](../architecture/bootstrap.md#replication-strategy-reed-solomon)).
+([resource guards](../architecture/bootstrap.md#resource-guards)). Several nodes survive the loss of one for
+messages and profiles, not for media
+([replication](../architecture/bootstrap.md#replication-and-repair)).
 
 ## Troubleshooting
 
@@ -484,7 +486,7 @@ restarted together.
 
 ## Next Steps
 
-Planned for the node: public seed nodes and erasure-coded storage; see
+Planned for the node: public seed nodes and erasure-coded media; see
 [Bootstrap](../architecture/bootstrap.md).
 
 ## References

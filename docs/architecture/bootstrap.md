@@ -11,18 +11,20 @@ repairs mailbox replicas node to node; profile search and signaling are planned.
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
-- **Replication (target)**: messages and profiles replicated whole to 5 points, Reed-Solomon K=6/M=4 only for large media [ADR 0009](../decisions/0009-message-delivery-and-storage.md); today only a local encode/decode codec exists and each server is a single node (see [Replication](#replication-strategy-reed-solomon))
+- **Replication**: messages and profiles replicated whole to 5 points, Reed-Solomon K=6/M=4 only for large media [ADR 0009](../decisions/0009-message-delivery-and-storage.md); the client writes each replica to the node the DHT finds, nodes forward mailbox acks and repair mailboxes; media are not replicated and the Reed-Solomon codec is not wired in (see [Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon))
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
-- **Network (target)**: open, anyone may run a node, DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
+- **Network**: open, anyone may run a node, Kademlia DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md), [P2P networking](p2p-networking.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
 
 ## Target Design — planned
 
-`/dyapp/node` `info`, `/dyapp/profile` and `/dyapp/mailbox` on a single node are served today
-([Served protocol](#served-protocol)); the rest of this section is planned, and the sections
-after it describe today's code.
+Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
+`/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
+mailbox replicas and repair over the DHT. The signal and search services, media replication,
+profile proof of work and the store format path are planned; each part below says which it is,
+and the sections after it describe today's code.
 
 ### Principles
 
@@ -66,8 +68,9 @@ store role's key space: `dyappd` without the store role runs it in client mode a
 protocol. The media role needs the store role and shares its key space for now; other roles get
 their own Kademlia protocol name when they are built.
 
-Kademlia gives every node an equal share of keys; a share weighted by the node's capacity is
-still to be designed.
+Kademlia gives every node an equal share of keys, and v1 does not weight it by capacity: a weak
+node refuses or evicts what exceeds its limits and the other replicas keep the data. Several
+virtual positions per node would each need a proof of work and would open a Sybil gap.
 
 ### Protocol
 
@@ -481,18 +484,13 @@ the blob came back different.
 
 It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
-## Replication Strategy (Reed-Solomon)
+## Erasure coding (Reed-Solomon)
 
-**Status:** `rust/bootstrap/src/replication.rs` only encodes a byte buffer into
-shards and decodes it back, in one process. Nothing in `service.rs` or `storage.rs`
-calls it, the node config has no replication setting, and there is no
-transport between servers. Three separate pieces are needed for real
-replication, and only the first exists:
-
-1. **Erasure coding** (exists): split a record into `data` + `parity` shards.
-2. **Node↔shard assignment** (planned): decide which server stores which shard.
-3. **Replication protocol** (planned): send shards to peers, track their
-   state, rebuild after a failure.
+Profiles and mailboxes are replicated whole ([Replication and repair](#replication-and-repair));
+erasure coding is meant only for large media. **Status:** `rust/bootstrap/src/replication.rs`
+only encodes a byte buffer into shards and decodes it back, in one process. Nothing in
+`service.rs` or `storage.rs` calls it and the node config has no setting for it. Placing shards on
+nodes, sending them and verifying them are planned with media replication.
 
 A Reed-Solomon code with `d` data and `p` parity shards survives the loss of
 any `p` shards and needs any `d` of the `d + p` shards to rebuild. With one
@@ -524,8 +522,8 @@ Node A fails → rebuild from shards 1 + 2 (B + C)
 Nodes A and B fail → only 1 shard left, record lost
 ```
 
-Codec unit tests show that a buffer can be rebuilt with one shard missing.
-They do not show that a cluster recovers data, because no cluster exists.
+Codec unit tests show that a buffer can be rebuilt with one shard missing; no node stores shards
+yet.
 
 ## Rate Limiting
 
@@ -669,24 +667,12 @@ store retention.
 
 ## Deployment Model
 
-### Single Node (Development)
-
-```
-Client A ──┐
-Client B ─→ Bootstrap (single instance)
-Client C ──┘
-```
-
-**Limitation:** if node fails, all queued messages lost.
-
-### Multi-Node Cluster (target, not implemented)
-
-There is no cluster transport, node-to-shard assignment, failover or
-multi-master protocol. Several servers behind the same DNS name with the same
-`replication_factor` are independent: nothing synchronises their data, and a
-client may write to one and read from another. A cluster setup requires an
-implemented replication protocol and a node-failure test first. The target is
-described in [Target Design](#target-design--planned).
+Every node is independent: there is no cluster, leader or shared storage. Nodes find each other
+through the DHT ([P2P networking](p2p-networking.md)), and a client writes each profile and
+mailbox replica to the node closest to its replica key, so losing a node loses only the data whose
+other replicas are gone too. Mailboxes are repaired when their device watches; profiles and media
+wait for the owner's client to republish. A single node (development, or a network of one) keeps
+the only copy. The network test runs three nodes and stops one.
 
 ## Security
 
@@ -696,8 +682,6 @@ described in [Target Design](#target-design--planned).
 ✅ See every profile field (public by design)
 ✅ See message content too, until client crypto exists
 ✅ Rate-limit requests per libp2p peer ID and IP group and ban misbehaving peers locally (no Sybil resistance, see [Rate Limiting](#rate-limiting))
-
-DHT node role is not implemented.
 
 ### What bootstrap could not do once client crypto exists (target)
 
@@ -720,7 +704,8 @@ There is no health endpoint: `/dyapp/node` `info` answering is the liveness chec
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
 profiles, messages and media; plus refusals per
-guard and refused connections ([Resource guards](#resource-guards)). Planned: a local admin CLI, no HTTP endpoints; see the
+guard and refused connections ([Resource guards](#resource-guards)). `dyappd status` prints what
+the stores hold; there are no HTTP endpoints. See the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 ## Testing
@@ -762,8 +747,8 @@ rate limit. CI runs it with `--local`, which also stops a node and checks replic
 ## Limitations & Future
 
 **Current limitations:**
-- Single-node persistence: no HA, failover or cross-node replication (the RS codec is not wired into storage or the API)
-- Mailbox replicas are written by the client; nodes forward acks and repair gaps only when a device watches its mailbox
+- Replicas are written by the client, and no client does the replica lookup yet; nodes forward acks and repair mailbox gaps only when a device watches its mailbox
+- Media are not replicated and the Reed-Solomon codec is not wired into storage or the protocol
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).
