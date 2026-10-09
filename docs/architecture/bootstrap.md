@@ -260,10 +260,13 @@ resent from the sender's retry queue.
   file, fsync'd and renamed; the name is the SHA-256 of the data. Implemented, without an fsync
   of the directory ([Storage](#storage)).
 - No routine full `VACUUM`: stores use `auto_vacuum = INCREMENTAL` with `incremental_vacuum(N)`,
-  a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on a per-store
-  schedule with an optional maintenance window and an I/O budget. Implemented: one schedule for
-  all stores with a page budget per run ([Storage](#storage)); per-store schedules, the window
-  and a byte/time I/O budget are planned.
+  a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on one
+  schedule for all stores with a page budget per run (implemented, [Storage](#storage)). There
+  is no maintenance window: a node serves the whole world and has no quiet hours.
+- I/O budget (planned): background rebuilds write in batches and sleep after each so that they
+  average at most `maintenance.io_mb_per_s` (default 16) of written bytes; work that does not
+  finish goes on with the next batches, and each maintenance run logs its progress (file,
+  percent) in `node status`.
 - Format versions (planned): each file holds its format in `PRAGMA user_version`, one number
   that only grows; there is no downgrade, a fix ships as a higher version. On open the node runs
   the numbered steps from the file's version to its own, in order. A cheap step (a new column
@@ -734,8 +737,7 @@ and serves the protocols in [Served protocol](#served-protocol). Only the `store
 anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
-Planned: a maintenance window and per-store schedules, the remaining resource guards,
-store retention.
+Planned: `maintenance.io_mb_per_s`, the remaining resource guards, store retention.
 
 ## Deployment Model
 
