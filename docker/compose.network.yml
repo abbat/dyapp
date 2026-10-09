@@ -25,6 +25,8 @@ x-peer: &peer
       && { test -e /tmp/node/node.key || target/debug/dyappd keygen; }
       && exec target/debug/dyappd
   environment: &env
+    # The default listens on loopback only.
+    DYAPPD__LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
     DYAPPD__STORAGE__DIR: /tmp/node
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
     DYAPPD__NETWORK__ID_POW_BITS: "8"

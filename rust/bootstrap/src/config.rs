@@ -149,9 +149,8 @@ pub struct Limits {
     pub media_requests_per_second: u32,
     /// Free space kept on the file system of each store.
     pub min_free_mb: u64,
-    /// Node protocol bytes in and out per calendar month (UTC); 0 = no cap.
-    pub monthly_traffic_gb: u64,
-    /// Node protocol bytes in and out per second, shed like the monthly cap; 0 = no limit.
+    /// Node protocol bytes in and out per second: media and repair are shed from 75%, profiles
+    /// from 90%, the mailbox at 100%; 0 = no limit.
     pub bytes_per_second: u64,
     pub max_connections: u32,
     pub max_connections_per_peer: u32,
@@ -192,8 +191,9 @@ impl Default for Maintenance {
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
-            // libp2p binds IPv6 sockets v6-only, so dual stack takes both wildcards.
-            listen: vec!["[::]:7070".into(), "0.0.0.0:7070".into()],
+            // Loopback until the operator opens the node with ["[::]:7070", "0.0.0.0:7070"];
+            // libp2p binds IPv6 sockets v6-only, so dual stack takes both addresses.
+            listen: vec!["[::1]:7070".into(), "127.0.0.1:7070".into()],
             external: vec![],
             seeds: vec![],
             roles: vec![Role::Store],
@@ -230,7 +230,6 @@ impl Default for Limits {
             profile_ttl_days: 30,
             media_requests_per_second: 10,
             min_free_mb: 512,
-            monthly_traffic_gb: 0,
             bytes_per_second: 0,
             max_connections: 1000,
             max_connections_per_peer: 4,

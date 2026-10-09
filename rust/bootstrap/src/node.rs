@@ -282,9 +282,7 @@ fn after_mailbox(
             if !list.contains(&(peer, connection)) {
                 list.push((peer, connection));
             }
-            if service.traffic.add(0).max(service.traffic.second()) < SHED_MEDIA
-                && repaired.insert(mailbox.clone())
-            {
+            if service.traffic.second() < SHED_MEDIA && repaired.insert(mailbox.clone()) {
                 lookup(swarm, &mailbox, &|| Lookup::Repair(mailbox.clone()));
             }
         }
@@ -687,9 +685,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     Err(error) => tracing::error!(%error, "store maintenance failed"),
                 }
                 service.report();
-                if let Err(error) = service.traffic.save() {
-                    tracing::error!(%error, "traffic count not saved");
-                }
                 // ponytail: saved hourly, not on shutdown; a crash loses at most an hour of churn.
                 let peers = dyapp_p2p_net::known_peers(&mut swarm);
                 let storage = &service.config.storage;
@@ -752,7 +747,6 @@ fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u
         profiles_bytes = bytes(service.store.profiles_usage()),
         messages_bytes = bytes(service.store.messages_usage()),
         media_bytes = media,
-        traffic_percent = service.traffic.add(0),
         "node status"
     );
 }

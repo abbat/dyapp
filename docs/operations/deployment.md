@@ -94,8 +94,8 @@ Example: User opens app
 make deb                                   # → target/deb/dyappd_<version>_<arch>.deb
 sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables the unit
 sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # once: about a minute on 2 vCPU
+sudoedit /etc/dyappd.toml              # conffile: kept on upgrade; set listen to serve
 sudo systemctl start dyappd
-sudoedit /etc/dyappd.toml              # conffile: kept on upgrade
 sudo systemctl restart dyappd          # config changes need a restart
 sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml  # applied within 10 s
 sudo -u dyappd dyappd status --config /etc/dyappd.toml   # what the stores hold, read-only
@@ -138,20 +138,32 @@ TOML (a bare string is taken as is), for example
 `listen` and `external` take `host:port` addresses with an IP, not a host name; an IPv6
 address goes in brackets. Each address serves both transports on its port: TCP and QUIC over
 UDP, so open both in the firewall. Peers use QUIC where UDP gets through and TCP otherwise. The
-node binds IPv6 sockets IPv6-only, so `[::]` alone does not accept IPv4: a dual-stack node lists
-both wildcards, as the default does. An address that does not open (`[::]` on a host with IPv6
+default listens on loopback only (`[::1]:7070` and `127.0.0.1:7070`); a node that serves the
+network sets `listen = ["[::]:7070", "0.0.0.0:7070"]`. The node binds IPv6 sockets IPv6-only,
+so `[::]` alone does not accept IPv4: a dual-stack node lists both. An address that does not open (`[::]` on a host with IPv6
 disabled, a port already taken) is logged as `not listening` and skipped; the node exits only
 when none opens.
+
+With `external` empty, nothing is announced up front: peers learn the listen addresses through
+identify, and the address they see the node from becomes external once AutoNAT confirms it is
+reachable. Until then the node is a DHT client: it queries the DHT but serves no part of it. Set
+`external` on a host whose public address is known, or behind port forwarding.
 
 `seeds` are libp2p [multiaddrs](https://github.com/multiformats/multiaddr): `/`-separated
 protocol and value pairs. `/ip6/<address>` or `/ip4/<address>`, then `/tcp/<port>` or
 `/udp/<port>/quic-v1` (QUIC, RFC 9000), then `/p2p/<peer id>`; `/dnsaddr/<host>` instead reads
-the whole list from the `_dnsaddr.<host>` TXT records.
+the whole list from the `_dnsaddr.<host>` TXT records. The peer ID of a node is printed by
+`dyappd status` there.
+
+Roles: `store` serves profiles, mailboxes and the DHT, and the other roles need it; `media`
+serves media blobs from `storage.media`; `turn` hands out credentials for a coturn relay
+([TURN relay](#turn-relay)); `search` is planned and refused at startup. A node without a role
+answers its requests `UNSUPPORTED`.
 
 ```toml
-listen = ["[::]:7070", "0.0.0.0:7070"]  # default: IPv6 and IPv4, TCP and QUIC on each
+listen = ["[::1]:7070", "127.0.0.1:7070"]  # default: loopback; ["[::]:7070", "0.0.0.0:7070"] serves
 external = []          # addresses announced to peers, e.g. "[2001:db8::7]:7070";
-                       # AutoNAT confirms others
+                       # empty: the address AutoNAT confirms
 seeds = []             # nodes to join through, e.g. "/dnsaddr/seeds.example.org" or
                        # "/ip6/2001:db8::7/udp/7070/quic-v1/p2p/12D3Koo..."; peers seen are cached in
                        # <storage.dir>/peers, so later starts do not need them; the last 3
@@ -161,24 +173,25 @@ roles = ["store"]      # add "media" to serve /dyapp/media and "turn" to hand ou
                        # and fails at startup
 
 [storage]
-dir = "/var/lib/dyappd"   # node key and every store without its own path
-# profiles = "/fast/profiles.db"
-# messages = "/fast/messages.db"
-# media = "/big/media"        # media role: media.db and the blob files
+dir = "/var/lib/dyappd"   # node.key, node.id, deny.db, peers, anchors, and every store
+                          # without its own path
+# profiles = "/fast/profiles.db"  # default <dir>/profiles.db
+# messages = "/fast/messages.db"  # default <dir>/messages.db
+# media = "/big/media"        # default <dir>/media: media.db and the blob files
 
 [limits]
 message_ttl_hours = 24
 profile_ttl_days = 30         # after the owner's last signed request
 requests_per_second = 100
-profiles_max_mb = 1024        # a full store answers FULL to writes
+profiles_max_mb = 1024        # a full store answers FULL to writes; disk use stays below
+                              # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
 media_max_mb = 10240          # media role; media is never evicted
 media_per_owner_mb = 10
 attachment_retention_hours = 168  # unreleased chat attachments
 media_requests_per_second = 10
 min_free_mb = 512             # free space kept on each store's file system
-monthly_traffic_gb = 0        # 0 = no cap; media shed from 75 %, profiles 90 %, mailbox 100 %
-bytes_per_second = 0          # 0 = no limit; shed in the same order within each second
+bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 %, mailbox 100 %
 max_connections = 1000
 max_connections_per_peer = 4
 max_streams = 16              # per connection and protocol
@@ -318,6 +331,12 @@ A steadily growing number means `vacuum_pages` is too small for the delete rate.
 There is no online backup: copying the SQLite files while the server writes
 to them does not give a consistent snapshot. Stop the process first.
 
+`storage.dir` (`/var/lib/dyappd` from the package) holds `node.key`, the node's identity, and
+`node.id`; the stores `profiles.db`, `messages.db` and `media/` (`media.db` and the blob files),
+unless `storage.profiles`, `storage.messages` or `storage.media` move them; `deny.db`, the
+operator's deny list; and `peers` and `anchors`, the peer cache, which the node rebuilds. A
+`traffic` file left by an older version is no longer read and can be deleted.
+
 Roundtrip with `dyappd` (data in `/tmp/ai/bootstrap`):
 
 ```bash
@@ -383,7 +402,7 @@ There is no admin HTTP API.
 
 ## Cost and capacity
 
-Not measured. There is no load test of the bootstrap server. Disk, monthly traffic and
+Not measured. There is no load test of the bootstrap server. Disk, the byte rate, memory and
 connections are capped by `limits`
 ([resource guards](../architecture/bootstrap.md#resource-guards)). Multi-node "HA" setups are not possible
 yet (see [replication](../architecture/bootstrap.md#replication-strategy-reed-solomon)).
@@ -396,6 +415,7 @@ Only what applies to the code that exists today:
 |---------|-------|
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
+| `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | `not listening` warning or `no address could be opened` | Port 7070 is taken (another `dyappd`?) or IPv6 is disabled on the host; set `DYAPPD__LISTEN` |
 | Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas (see [Data cleanup](#data-cleanup)) |
 

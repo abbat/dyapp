@@ -2,16 +2,55 @@
 # All keys: docs/operations/deployment.md. Apply changes with `systemctl restart dyappd`.
 # The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
-# listen = ["[::]:7070", "0.0.0.0:7070"]  # host:port, IPv6 in brackets; TCP and UDP (QUIC) each
-# external = []        # addresses announced to peers, e.g. "[2001:db8::7]:7070"
-# seeds = []           # nodes to join through, e.g. "/dnsaddr/seeds.example.org"
-# roles = ["store"]    # add "media" to serve media blobs
+# host:port addresses; IPv6 goes in brackets. Each serves TCP and QUIC (UDP) on its port,
+# so open both in the firewall. The default is loopback only; to serve the network, use
+# listen = ["[::]:7070", "0.0.0.0:7070"]   # all addresses, IPv6 and IPv4 (dual stack)
+# listen = ["[::1]:7070", "127.0.0.1:7070"]
+
+# Addresses announced to peers, in the same form. Empty: peers learn the listen addresses,
+# and the address peers see this node from is announced once AutoNAT confirms it is
+# reachable. Until an address is confirmed the node only queries the DHT and serves no part
+# of it. Set this on a host whose public address is known, or behind port forwarding.
+# external = []    # e.g. ["[2001:db8::7]:7070", "198.51.100.7:7070"]
+
+# Nodes to join through on the first start, as libp2p multiaddrs:
+#   "/dnsaddr/seeds.example.org"   the list in the _dnsaddr.seeds.example.org TXT records
+#   "/ip6/2001:db8::7/udp/7070/quic-v1/p2p/12D3KooW..."   QUIC to one node
+#   "/ip4/198.51.100.7/tcp/7070/p2p/12D3KooW..."          TCP to one node
+# /p2p/ is the node's peer ID (`dyappd status` on that node). Later starts dial the peers
+# saved in storage.dir and need no seeds.
+# seeds = []
+
+# What this node serves:
+#   "store"   profiles and mailboxes, the DHT; required by the others
+#   "media"   media blobs (avatars, attachments), stored under storage.media
+#   "turn"    hands out credentials for a coturn relay, see [turn]
+#   "search"  planned, not implemented: refused at startup
+# roles = ["store"]
 
 [storage]
-# dir = "/var/lib/dyappd"   # another path needs ReadWritePaths= in a unit drop-in
+# Files in dir: node.key (the node's identity, keep a copy), node.id, profiles.db,
+# messages.db, media/ (media.db and blob files, media role), deny.db, peers, anchors.
+# Back up with the node stopped: SQLite files copied while it writes are inconsistent.
+# Another path needs ReadWritePaths= in a unit drop-in (`systemctl edit dyappd`).
+# dir = "/var/lib/dyappd"
+# profiles = "/var/lib/dyappd/profiles.db"
+# messages = "/var/lib/dyappd/messages.db"
+# media = "/var/lib/dyappd/media"
 
 [limits]
 # message_ttl_hours = 24
-# profile_ttl_days = 30
-# monthly_traffic_gb = 0        # 0 = no cap
-# bytes_per_second = 0          # 0 = no limit
+# profile_ttl_days = 30           # after the owner's last signed request
+# Store sizes; a full store answers FULL to writes. Disk use stays below their sum plus
+# SQLite overhead, and each store keeps min_free_mb free on its file system.
+# profiles_max_mb = 1024
+# messages_max_mb = 4096
+# media_max_mb = 10240            # media role
+# media_per_owner_mb = 10
+# min_free_mb = 512
+# Node protocol bytes in and out per second; media is shed from 75 %, profiles from 90 %,
+# the mailbox at 100 %. 0 = no limit.
+# bytes_per_second = 0
+# New connections are refused while the process uses more memory (RSS). 0 = no limit.
+# max_memory_mb = 0
+# max_connections = 1000

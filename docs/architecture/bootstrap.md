@@ -144,8 +144,8 @@ resent from the sender's retry queue.
   replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
 - **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
   visit moves data, and only the gaps, so a restart never moves the node's whole store.
-- **Budget.** One inventory per mailbox per hour on a node; repair traffic counts towards the
-  monthly cap and stops at 75 % of it, together with media.
+- **Budget.** One inventory per mailbox per hour on a node; repair traffic counts towards
+  `bytes_per_second` and stops at 75 % of it, together with media.
 - **Scale.** 120 million users on 1200 nodes with R = 5 put about 500 000 users and 750 000
   device mailboxes (1.5 devices per user) on a node. If half the devices come online daily, a
   node sends about 4 inventories a second to 4 peers each, a few hundred bytes apiece (16-byte
@@ -228,8 +228,8 @@ resent from the sender's retry queue.
 Defaults are node settings: a message up to 100 KB, a mailbox up to 10 MB per device, media up
 to 10 MB per user, each counted by the node over the data it holds. Write quotas apply per sender
 key and per IP group; the prefix length (for example /24 or /48) is the operator's choice.
-Resource guards cap disk per store and for media (with a free-space reserve), traffic (rates and
-an optional monthly cap; near it the node sheds media first, then search, the mailbox last) and
+Resource guards cap disk per store and for media (with a free-space reserve), traffic (request rates and
+an optional byte rate; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
 another replica. Implemented: the disk, traffic and connection guards in
 [Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting).
@@ -582,12 +582,11 @@ starts refusing and a line when it clears, not one per request:
   maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
   `min_free_mb` free on the media file system; media is never evicted.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
-  overhead) are counted per UTC calendar month and saved to `<storage.dir>/traffic` at each
-  maintenance run. With `monthly_traffic_gb` set (default 0, no cap), media requests get
-  `RATE_LIMITED` from 75 % of the cap, profile requests from 90 % and mailbox requests at 100 %;
-  `info` is always served. `bytes_per_second` (default 0, no limit) sheds in the same order
-  against the bytes counted in the current second; media counts toward it like any role and
-  gets at most 75 % of it. Search, once served, is shed before profiles.
+  overhead) are counted per second. With `bytes_per_second` set (default 0, no limit), media
+  requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile
+  requests from 90 % and mailbox requests at 100 %; `info` is always served. Search, once
+  served, is shed before profiles. There is no monthly cap: a node is not told its billing
+  period, and the byte rate bounds a month too.
 - **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
   per guard how many requests it refused since the last run (the byte rate, which flips every
   second under load, only here).
@@ -644,7 +643,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.{dir,profiles,messages,media}`
 (media defaults to `<dir>/media`),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
-`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,monthly_traffic_gb,bytes_per_second}`,
+`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,bytes_per_second}`,
 `limits.{max_connections,max_connections_per_peer,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
@@ -715,7 +714,7 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Metrics are
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
-profiles, messages and media, and the share of the monthly traffic cap used; plus refusals per
+profiles, messages and media; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). Planned: a local admin CLI, no HTTP endpoints; see the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
