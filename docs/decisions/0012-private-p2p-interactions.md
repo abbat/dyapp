@@ -37,11 +37,13 @@ keep likes, view history or matching preferences private, or enforce rules such 
 
 ## Consequences
 
-- Bootstrap nodes store more kinds of offline data (messages, likes, view signals). Operators need
-  per-type storage limits, and the spam load of signals is open.
+- Likes, views and other signals are ordinary encrypted mailbox envelopes marked only as
+  "signal", so a node cannot tell a like from a view. They have their own per-mailbox quota with
+  the oldest evicted first, so the likes of a popular profile never block its messages; a
+  recipient offline for long may lose the oldest signals.
 - A user with several profiles gets no cross-profile features: no shared inbox, no switching
   conversations between profiles.
 - Age, income and every other field are claims, not facts; the UI must not present them as
   verified (verification is low priority).
-- Not implemented: none of this exists in code yet; the bootstrap has no likes, signals or
-  per-type limits ([bootstrap](../architecture/bootstrap.md)).
+- Not implemented: none of this exists in code yet; the bootstrap has no signal class or
+  signal quota ([bootstrap](../architecture/bootstrap.md)).

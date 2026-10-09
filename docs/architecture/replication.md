@@ -137,7 +137,7 @@ Each step is one change with multi-node Docker tests and its docs.
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;
    [Deployment](../operations/deployment.md) for the new config key. This page is then removed.
 
-Ranged media get, signal stores and the media size limits in config build on the manifest and the
+Ranged media get and the media size limits in config build on the manifest and the
 threshold.
 
 ## Stress Test Results

@@ -22,8 +22,9 @@ repairs mailbox replicas node to node; profile search and signaling are planned.
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
-mailbox replicas and repair over the DHT. The signal and search services (gossipsub,
-`/dyapp/search-kad`, `profiles-idx.db`), media replication and retention, profile proof of work
+mailbox replicas and repair over the DHT. Signals in the mailbox (the envelope class and the
+signal quota), the search service (gossipsub, `/dyapp/search-kad`, `profiles-idx.db`), media
+replication and retention, profile proof of work
 and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
@@ -56,7 +57,7 @@ Each role is enabled separately in the node config:
 
 | Role | Holds |
 |------|-------|
-| store | signed profiles, per-device mailboxes, likes, views and other signals |
+| store | signed profiles, per-device mailboxes (messages, likes, views and other signals) |
 | media | media blobs and erasure-coded shards, thumbnails |
 | search | the search index over profiles collected from the whole network |
 | TURN | short-lived credentials for an operator-run coturn relay of call media |
@@ -88,7 +89,6 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
-| `/dyapp/signal` | store | `put(kind, envelope)`, `fetch`, `ack`; one kind per signal store (like, view, …) |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, range)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
 | `/dyapp/inventory` | search | node to node: `have(topic, (key, version) list)` → `need(list)`, for search catch-up |
@@ -106,8 +106,8 @@ on an identity's data carries a signature by a key of that identity:
 | Request | Signed by | Checked against |
 |---------|-----------|-----------------|
 | `profile.publish` | owner identity key, over the record | the key in the record |
-| `mailbox.fetch`, `mailbox.ack`, `signal.fetch`, `signal.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
-| `mailbox.put`, `signal.put` | sender's device key, over the envelope | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
+| `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
+| `mailbox.put` | sender's device key, over the envelope | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
@@ -121,9 +121,9 @@ same id or hash stores once), so replays need no nonce.
 
 ### Replication and repair
 
-Profiles, mailbox messages and signals are replicated whole to R = 5 points, replica *i* on the
-nodes closest to H(key ‖ i); media above the node's threshold are to be erasure-coded into
-K = ⌈size / 1 MiB⌉ + M = 4 shards, smaller ones such as thumbnails stored whole
+Profiles and mailbox envelopes (signals included) are replicated whole to R = 5 points,
+replica *i* on the nodes closest to H(key ‖ i); media above the node's threshold are to be
+erasure-coded into K = ⌈size / 1 MiB⌉ + M = 4 shards, smaller ones such as thumbnails stored whole
 ([ADR 0009](../decisions/0009-message-delivery-and-storage.md), planned:
 [Replication design](replication.md)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
@@ -255,8 +255,7 @@ resent from the sender's retry queue.
 ### Storage on a node
 
 - One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profiles-idx.db` (disposable, rebuilt),
-  `messages.db`, `likes.db`, `views.db` and one more per new signal type; `deny.db` for the operator's
-  deny list. No transaction spans two stores.
+  `messages.db` (messages and signals), `deny.db` for the operator's deny list. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
   file, fsync'd and renamed; the name is the SHA-256 of the data. Implemented, without an fsync
   of the directory ([Storage](#storage)).
@@ -287,8 +286,15 @@ key and per IP group; the prefix length (for example /24 or /48) is the operator
 Resource guards cap disk per store and for media (with a free-space reserve), traffic (request rates and
 an optional byte rate; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
-another replica. Implemented: the disk, traffic and connection guards in
-[Resource guards](#resource-guards) and the quotas and peer bans in [Rate Limiting](#rate-limiting).
+another replica.
+Signals (planned): a like, a view or any other signal is an ordinary end-to-end encrypted
+mailbox envelope with `class = signal`, at most 1 KiB, so a node cannot tell a like from a view.
+Signals have their own quota per mailbox, `limits.signal_max_kb` (default 2048, about 8 000
+signals), apart from the 10 MB for messages: at the quota the node deletes the mailbox's oldest
+signals instead of answering "full", so the likes of a popular profile never block its messages.
+The client sends at most one view per profile a day. Implemented: the disk, traffic and
+connection guards in [Resource guards](#resource-guards) and the quotas and peer bans in
+[Rate Limiting](#rate-limiting).
 
 The operator may refuse service to any user through a deny list (implemented, see
 [Deny list](#deny-list)). Nodes can exchange signed lists, with separate switches to share and
@@ -333,6 +339,10 @@ sender's identity: the sender key only proves someone signed it; puts are limite
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
 (`dyappd` deletes expired envelopes every hour) → fetched oldest first.
+
+Planned: `Envelope.class`, `message` (default) or `signal`, the only field that tells a node a
+signal from a message; signals count against `limits.signal_max_kb`, not the mailbox's 10 MiB
+([Limits and abuse](#limits-and-abuse)).
 
 ### Signed profile
 
