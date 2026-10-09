@@ -39,7 +39,9 @@ it or the TTL passes, and `dyappd` deletes expired envelopes every hour. A chat 
 is kept until the recipient releases it or `limits.attachment_retention_hours` (default 168)
 passes, also deleted hourly. A profile, tombstone included, is deleted hourly once its owner
 has signed nothing for `limits.profile_ttl_days` (default 30): no publish, heartbeat or media
-request. The node thereby learns roughly when each owner was last active. Backups and replicas
+request. The node thereby learns roughly when each owner was last active. Media blobs listed in
+an owner's `keep` stay until the owner replaces the list; their expiry after the same TTL is
+planned ([Bootstrap](../architecture/bootstrap.md#served-protocol)). Backups and replicas
 (if an operator adds them) keep their own copies.
 
 Target: nothing is kept forever. The operator may delete any data at any time; under a full quota

@@ -23,9 +23,9 @@ repairs mailbox replicas node to node; profile search and signaling are planned.
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
 mailbox replicas and repair over the DHT. The signal and search services (gossipsub,
-`/dyapp/search-kad`, `profiles-idx.db`), media replication, profile proof of work and the store
-format path are planned; each part below says which it is, and the sections after it describe
-today's code.
+`/dyapp/search-kad`, `profiles-idx.db`), media replication and retention, profile proof of work
+and the store format path are planned; each part below says which it is, and the sections after
+it describe today's code.
 
 ### Principles
 
@@ -413,10 +413,16 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
   identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
   once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob
   kept by two owners counts against both quotas. There is no eviction: a full node answers
-  `FULL` and the client tries another. Media requests have their own per-peer limit
-  (`limits.media_requests_per_second`, default 10, no strike) besides the shared ones. A node
-  without the media role answers `UNSUPPORTED`. Ranges, media replication and repair are
-  planned.
+  `FULL` and the client tries another. Planned retention: the media store keeps its own
+  `last_seen` per owner, refreshed by a `keep` or `attach` the owner signed, and deletes the
+  owner's `keep` with its blobs `limits.profile_ttl_days` after it. `MediaKeep` gets a signed
+  `time`; a `keep` refreshes `last_seen` only if `time` is within 10 minutes of the node's clock
+  and newer than the stored one, so a replayed `keep` extends nothing, while the client resends
+  its current `keep` with a fresh `time` when the app opens, uploads what `missing` lists and so
+  restores evicted blobs. A deny-listed key cannot refresh its `keep`, so it expires. Media
+  requests have their own per-peer limit (`limits.media_requests_per_second`, default 10, no
+  strike) besides the shared ones. A node without the media role answers `UNSUPPORTED`. Ranges,
+  media replication and repair are planned.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret (the recipient, after downloading) sends `release` and the node drops the
@@ -619,7 +625,10 @@ starts refusing and a line when it clears, not one per request:
   young), envelopes in arrival order ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
   The free-space floor is not cleared by eviction, since freed pages stay in the file until
   maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
-  `min_free_mb` free on the media file system; media is never evicted.
+  `min_free_mb` free on the media file system; media is never evicted. Planned: at
+  `media_max_mb` the node first evicts down to 95 % of it, unreleased chat attachments by oldest
+  `created` first, then the `keep` of the owners seen longest ago, and answers `FULL` only if
+  that is not enough; a blob still held by another `keep` or attachment stays.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per second. With `bytes_per_second` set (default 0, no limit), media
   requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile

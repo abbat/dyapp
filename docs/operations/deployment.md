@@ -196,7 +196,7 @@ requests_per_second = 100
 profiles_max_mb = 1024        # a full store answers FULL to writes; disk use stays below
                               # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
-media_max_mb = 10240          # media role; media is never evicted
+media_max_mb = 10240          # media role; media is never evicted (eviction planned)
 media_per_owner_mb = 10
 attachment_retention_hours = 168  # unreleased chat attachments
 media_requests_per_second = 10
