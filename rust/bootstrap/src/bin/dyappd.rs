@@ -1,5 +1,6 @@
-//! `dyappd [--config <file>]`: checks the config, opens the stores and runs the libp2p node.
-//! Any config problem stops the node before it opens a store or a socket.
+//! `dyappd [--config <file>] [--<section>.<key> <value>]...`: checks the config, opens the stores
+//! and runs the libp2p node. Any config problem stops the node before it opens a store or a
+//! socket. `dyappd --help` lists the options, one per config key.
 //!
 //! `dyappd keygen [--config <file>]`: makes the node key once (about a minute on 2 vCPU) and
 //! prints the peer ID; the node does not start without it.
@@ -11,7 +12,7 @@
 //! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
 
-use dyapp_bootstrap::config::{transports, Role};
+use dyapp_bootstrap::config::{options_help, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::service::Service;
@@ -23,22 +24,41 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 const USAGE: &str = "usage: dyappd [keygen | status | deny add <entry> [note] | \
-                     deny remove <entry> | deny list | deny received] [--config <file>]";
+                     deny remove <entry> | deny list | deny received] [--config <file>] \
+                     [--<option> <value>]...";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
-    let mut command: Vec<String> = std::env::args().skip(1).collect();
-    let file = match command.iter().position(|a| a == "--config") {
-        Some(at) if at + 1 < command.len() => {
-            let path = command.remove(at + 1);
-            command.remove(at);
-            Some(PathBuf::from(path))
+    let (mut file, mut options, mut command) = (None, Vec::new(), Vec::new());
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "-h" || arg == "--help" {
+            print!(
+                "{USAGE}\n\nOptions override the --config file and DYAPPD__ variables; a list \
+                 option is given once per item. Defaults:\n{}",
+                options_help()
+            );
+            return Ok(());
         }
-        Some(_) => anyhow::bail!(USAGE),
-        None => None,
-    };
-    let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars())?;
+        let Some(option) = arg.strip_prefix("--") else {
+            command.push(arg);
+            continue;
+        };
+        let (key, value) = match option.split_once('=') {
+            Some((key, value)) => (key.to_owned(), value.to_owned()),
+            None => match args.next() {
+                Some(value) => (option.to_owned(), value),
+                None => anyhow::bail!("--{option} needs a value\n{USAGE}"),
+            },
+        };
+        if key == "config" {
+            file = Some(PathBuf::from(value));
+        } else {
+            options.push((key, value));
+        }
+    }
+    let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
     for key in ignored {
         tracing::warn!("unknown config key ignored: {key}");
     }

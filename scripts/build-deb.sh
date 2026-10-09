@@ -10,7 +10,7 @@ rm -rf "$root"
 install -D -s -m 0755 target/release/dyappd "$root/usr/bin/dyappd"
 install -D -m 0644 packaging/debian/dyappd.service \
     "$root/lib/systemd/system/dyappd.service"
-install -D -m 0644 packaging/debian/dyappd.toml "$root/etc/dyappd.toml"
+install -D -m 0644 rust/bootstrap/dyappd.toml "$root/etc/dyappd.toml"
 install -D -m 0755 -t "$root/DEBIAN" \
     packaging/debian/postinst packaging/debian/prerm packaging/debian/postrm
 echo /etc/dyappd.toml >"$root/DEBIAN/conffiles"

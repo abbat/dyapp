@@ -1,11 +1,12 @@
-//! Node configuration: defaults, then a TOML file, then `DYAPPD__<SECTION>__<KEY>` variables.
+//! Node configuration: defaults, then a TOML file, then `DYAPPD__<SECTION>__<KEY>` variables,
+//! then `--<section>.<key> <value>` options.
 //! Every field has a default, so a config written for an older node keeps working. Unknown keys
 //! are logged and ignored, so a node rolled back to an older version still starts.
 
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::net::SocketAddr;
@@ -13,6 +14,82 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 pub const ENV_PREFIX: &str = "DYAPPD__";
+
+/// The packaged `/etc/dyappd.toml`: every key commented out with its default and a description.
+pub const REFERENCE: &str = include_str!("../dyappd.toml");
+
+/// The key lines of [`REFERENCE`]: `# key = default  # description` as (`section.`, key,
+/// default, description).
+fn documented() -> Vec<(String, &'static str, &'static str, &'static str)> {
+    let mut section = String::new();
+    let mut keys = Vec::new();
+    for line in REFERENCE.lines() {
+        if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+            section = format!("{name}.");
+        } else if let Some((key, rest)) = line
+            .strip_prefix("# ")
+            .and_then(|l| l.split_once(" = "))
+            .filter(|(key, _)| {
+                key.bytes()
+                    .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'_'))
+            })
+        {
+            let (default, about) = rest.split_once("  # ").unwrap_or((rest, ""));
+            keys.push((section.clone(), key, default.trim_end(), about));
+        }
+    }
+    keys
+}
+
+/// The options of `dyappd --help`, one per config key, with its default and description.
+pub fn options_help() -> String {
+    let flags: Vec<_> = documented()
+        .into_iter()
+        .map(|(section, key, default, about)| {
+            let flag = format!("--{section}{}", key.replace('_', "-"));
+            (flag, default, about)
+        })
+        .collect();
+    let width = flags.iter().map(|(flag, ..)| flag.len()).max().unwrap_or(0);
+    flags
+        .iter()
+        .map(|(flag, default, about)| {
+            format!("  {flag:<width$}  {default}  {about}")
+                .trim_end()
+                .to_owned()
+                + "\n"
+        })
+        .collect()
+}
+
+/// A TOML value, or the text as a string when it is not one (a bare path, for example).
+fn toml_value(text: &str) -> toml::Value {
+    format!("v = {text}")
+        .parse::<toml::Table>()
+        .ok()
+        .and_then(|mut t| t.remove("v"))
+        .unwrap_or_else(|| toml::Value::String(text.to_owned()))
+}
+
+/// Sets `path` in `table`, creating the sections on the way; `name` labels errors.
+fn set(
+    table: &mut toml::Table,
+    path: &[String],
+    value: toml::Value,
+    name: &str,
+) -> anyhow::Result<()> {
+    let (last, sections) = path.split_last().expect("split yields at least one item");
+    let mut node = table;
+    for section in sections {
+        node = node
+            .entry(section.clone())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()))
+            .as_table_mut()
+            .ok_or_else(|| anyhow::anyhow!("{name}: {section} is not a section"))?;
+    }
+    node.insert(last.clone(), value);
+    Ok(())
+}
 
 /// The TCP and QUIC (UDP) addresses of a `host:port` listen or external address.
 pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
@@ -48,7 +125,7 @@ pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     ])
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct NodeConfig {
     /// `host:port` addresses, each served over TCP and QUIC; see [`transports`].
@@ -67,7 +144,7 @@ pub struct NodeConfig {
 }
 
 /// The coturn relay next to the node (role turn), run with `use-auth-secret`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Turn {
     /// `turn:` / `turns:` URLs handed to peers.
@@ -101,7 +178,7 @@ impl Turn {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Network {
     /// Node-ID proof of work required of the own key and of every routed peer. Lower it on test
@@ -132,7 +209,7 @@ impl Default for Network {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     Store,
@@ -141,14 +218,14 @@ pub enum Role {
     Turn,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct StorageConfig {
     /// Holds the node key and every database; media blob files go in `data/`.
     pub dir: PathBuf,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Limits {
     pub message_ttl_hours: u32,
@@ -189,7 +266,7 @@ pub struct Limits {
 }
 
 /// Store maintenance: see `BootstrapStore::maintain`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Maintenance {
     pub interval_minutes: u32,
@@ -303,10 +380,13 @@ impl StorageConfig {
 }
 
 impl NodeConfig {
-    /// Reads the file (if given) and the environment. Returns the config and the ignored keys.
+    /// Reads the file (if given), the environment and the `--` options as (`section.key`,
+    /// value); an option is named as its key with `-` for `_`, and a list option is given once
+    /// per item. Returns the config and the ignored keys; an unknown option is refused.
     pub fn load(
         file: Option<&Path>,
         env: impl IntoIterator<Item = (String, String)>,
+        options: &[(String, String)],
     ) -> anyhow::Result<(Self, Vec<String>)> {
         let mut table = match file {
             Some(path) => fs::read_to_string(path)
@@ -320,22 +400,32 @@ impl NodeConfig {
                 continue;
             };
             let path: Vec<String> = key.split("__").map(str::to_lowercase).collect();
-            // A value that is not valid TOML (a bare path, for example) is taken as a string.
-            let value = format!("v = {value}")
-                .parse::<toml::Table>()
-                .ok()
-                .and_then(|mut t| t.remove("v"))
-                .unwrap_or(toml::Value::String(value));
-            let (last, sections) = path.split_last().expect("split yields at least one item");
-            let mut node = &mut table;
-            for section in sections {
-                node = node
-                    .entry(section.clone())
-                    .or_insert_with(|| toml::Value::Table(toml::Table::new()))
-                    .as_table_mut()
-                    .ok_or_else(|| anyhow::anyhow!("{name}: {section} is not a section"))?;
+            set(&mut table, &path, toml_value(&value), &name)?;
+        }
+        let defaults = toml::Value::try_from(Self::default())?;
+        let mut lists: Vec<(Vec<String>, Vec<toml::Value>)> = Vec::new();
+        for (option, text) in options {
+            let path: Vec<String> = option.split('.').map(|k| k.replace('-', "_")).collect();
+            let default = path
+                .iter()
+                .try_fold(&defaults, |node, key| node.get(key.as_str()))
+                .filter(|node| !node.is_table())
+                .ok_or_else(|| anyhow::anyhow!("unknown option --{option}, see dyappd --help"))?;
+            // Text options are never parsed: a secret of digits stays a string.
+            let value = match default {
+                toml::Value::String(_) | toml::Value::Array(_) => toml::Value::String(text.clone()),
+                _ => toml_value(text),
+            };
+            if !default.is_array() {
+                set(&mut table, &path, value, option)?;
+            } else if let Some((_, items)) = lists.iter_mut().find(|(p, _)| *p == path) {
+                items.push(value);
+            } else {
+                lists.push((path, vec![value]));
             }
-            node.insert(last.clone(), value);
+        }
+        for (path, items) in lists {
+            set(&mut table, &path, toml::Value::Array(items), "option")?;
         }
         let mut ignored = Vec::new();
         let config = serde_ignored::deserialize(table, |path| ignored.push(path.to_string()))
@@ -516,7 +606,7 @@ mod tests {
             ("DYAPPD__STORAGE__DIR".into(), "/srv/node".into()),
             ("OTHER".into(), "x".into()),
         ];
-        let (config, ignored) = NodeConfig::load(Some(&file), env).unwrap();
+        let (config, ignored) = NodeConfig::load(Some(&file), env, &[]).unwrap();
         assert_eq!(config.listen, ["127.0.0.1:7071"]);
         assert_eq!(config.limits.message_ttl_hours, 72);
         assert_eq!(config.limits.requests_per_second, 100);
@@ -526,6 +616,44 @@ mod tests {
             PathBuf::from("/srv/node/messages.db")
         );
         assert_eq!(ignored, ["future_key"]);
+    }
+
+    #[test]
+    fn options_override_env() {
+        let env = [("DYAPPD__LIMITS__MAX_CONNECTIONS".into(), "5".into())];
+        let options = [
+            ("limits.max-connections", "7"),
+            ("listen", "[::]:7070"),
+            ("listen", "0.0.0.0:7070"),
+            ("turn.secret", "123"),
+            ("network.share-deny-list", "true"),
+        ]
+        .map(|(k, v)| (k.to_owned(), v.to_owned()));
+        let (config, _) = NodeConfig::load(None, env, &options).unwrap();
+        assert_eq!(config.limits.max_connections, 7);
+        assert_eq!(config.listen, ["[::]:7070", "0.0.0.0:7070"]);
+        assert_eq!(config.turn.secret, "123");
+        assert!(config.network.share_deny_list);
+        for option in ["limits.max-conections", "limits", "x"] {
+            let options = [(option.to_owned(), "1".to_owned())];
+            assert!(NodeConfig::load(None, [], &options).is_err());
+        }
+    }
+
+    /// The packaged file, and so `--help`, lists every key with the default the code uses.
+    #[test]
+    fn reference_matches_defaults() {
+        let mut table = toml::Table::new();
+        for (section, key, default, _) in documented() {
+            let path: Vec<String> = format!("{section}{key}")
+                .split('.')
+                .map(Into::into)
+                .collect();
+            set(&mut table, &path, toml_value(default), key).unwrap();
+        }
+        let defaults = toml::Value::try_from(NodeConfig::default()).unwrap();
+        assert_eq!(toml::Value::Table(table), defaults);
+        assert!(options_help().contains("--limits.max-connections"));
     }
 
     #[test]
@@ -589,9 +717,10 @@ mod tests {
         assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
         assert!(invalid(|c| c.limits.profile_ttl_days = 0));
         assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
-        assert!(NodeConfig::load(None, [("DYAPPD__ROLES".into(), "[\"x\"]".into())]).is_err());
+        let roles = [("DYAPPD__ROLES".into(), "[\"x\"]".into())];
+        assert!(NodeConfig::load(None, roles, &[]).is_err());
         let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
-        assert!(NodeConfig::load(None, removed).is_err());
+        assert!(NodeConfig::load(None, removed, &[]).is_err());
     }
 
     #[test]

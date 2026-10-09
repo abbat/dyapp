@@ -133,7 +133,13 @@ The config is optional. Settings come from the defaults, then the TOML file, the
 environment variables `DYAPPD__<SECTION>__<KEY>`, whose value is parsed as
 TOML (a bare string is taken as is), for example
 `DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` or
-`DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`.
+`DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`, then command-line options: each key is an option
+named `--<section>.<key>` with `-` for `_`, such as `--limits.max-connections 500`,
+`--storage.dir=/srv/dyappd` or `--listen '[::]:7070' --listen 0.0.0.0:7070` (a list option is
+given once per item and replaces the list). An unknown option stops the node. `dyappd --help`
+lists every option with its default; the list is generated from the packaged
+`/etc/dyappd.toml` (`rust/bootstrap/dyappd.toml`), and a test keeps that file equal to the
+defaults in the code. Keep `turn.secret` off the command line: other users see it in `ps`.
 
 `listen` and `external` take `host:port` addresses with an IP, not a host name; an IPv6
 address goes in brackets. Each address serves both transports on its port: TCP and QUIC over

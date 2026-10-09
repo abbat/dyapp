@@ -1,6 +1,7 @@
 # dyappd configuration. Every key is optional: a commented line shows the default.
 # Apply changes with `systemctl restart dyappd`. Full reference: docs/operations/deployment.md.
-# Every key can also be set as DYAPPD__<SECTION>__<KEY>, e.g. DYAPPD__LIMITS__MAX_CONNECTIONS=500.
+# Every key can also be set as DYAPPD__<SECTION>__<KEY>, e.g. DYAPPD__LIMITS__MAX_CONNECTIONS=500,
+# or as an option, e.g. --limits.max-connections 500; `dyappd --help` lists them.
 # The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
 # --- Network addresses -------------------------------------------------------------------------
@@ -8,9 +9,8 @@
 # Each address serves TCP and QUIC (UDP) on its port: open both in the firewall.
 
 # Where the node listens. The default is loopback only, so a fresh install serves nobody.
-# To serve the network on all IPv6 and IPv4 addresses:
-# listen = ["[::]:7070", "0.0.0.0:7070"]
-# listen = ["[::1]:7070", "127.0.0.1:7070"]
+# To serve the network on all IPv6 and IPv4 addresses: ["[::]:7070", "0.0.0.0:7070"].
+# listen = ["[::1]:7070", "127.0.0.1:7070"]  # addresses the node listens on
 
 # The public addresses of this node, if known (a static address, port forwarding).
 # Empty: peers check which address they see the node from, and it is announced once they reach
@@ -36,7 +36,7 @@
 # Peers seen before: peers, anchors.
 # Back up with the node stopped: SQLite files copied while the node writes are inconsistent.
 # Another path needs ReadWritePaths= in a unit drop-in (`systemctl edit dyappd`).
-# dir = "/var/lib/dyappd"
+# dir = "/var/lib/dyappd"             # all node data
 
 [limits]
 # How long data is kept.
@@ -46,41 +46,41 @@
 
 # Disk. A full store answers FULL to writes. Disk use stays below the sum of the store sizes
 # plus SQLite overhead.
-# profiles_max_mb = 1024
-# messages_max_mb = 4096
+# profiles_max_mb = 1024              # profile store
+# messages_max_mb = 4096              # mailbox store
 # media_max_mb = 10240                # media role
 # media_per_owner_mb = 10             # media files of one user
 # min_free_mb = 512                   # writes stop while the disk of storage.dir has less free
 
 # Requests per second from one peer.
-# requests_per_second = 100
+# requests_per_second = 100           # requests per second from one peer
 # media_requests_per_second = 10      # a media reply carries up to 1 MiB
 
 # Traffic: node protocol bytes in and out per second. Media is refused from 75 %, profiles from
 # 90 %, messages at 100 %. 0 = no limit.
-# bytes_per_second = 0
+# bytes_per_second = 0                # node traffic in and out; 0 = no limit
 
 # Connections and memory.
-# max_connections = 1000
-# max_connections_per_peer = 4
+# max_connections = 1000              # connections in total
+# max_connections_per_peer = 4        # connections from one peer
 # max_streams = 16                    # concurrent streams per connection and protocol
 # max_memory_mb = 0                   # new connections are refused above this RSS; 0 = no limit
 
 # Abuse from one network or one user. Peers whose addresses share the first ipv4_prefix /
 # ipv6_prefix bits count as one group.
-# ip_group_requests_per_second = 1000
-# ipv4_prefix = 24
-# ipv6_prefix = 48
+# ip_group_requests_per_second = 1000  # requests per second from one address group
+# ipv4_prefix = 24                    # IPv4 address group
+# ipv6_prefix = 48                    # IPv6 address group
 # sender_puts_per_second = 10         # messages per second from one sender
 
 # Bans: refused floods and bad signatures that ban a peer, and for how long.
-# strikes_to_ban = 100
-# ban_minutes = 10
+# strikes_to_ban = 100                # refused floods and bad signatures that ban a peer
+# ban_minutes = 10                    # how long a ban lasts
 
 [turn]
 # Used by the turn role. coturn runs with use-auth-secret and the same static-auth-secret.
 # urls = []                           # e.g. ["turn:turn.example.org:3478", "turns:turn.example.org:5349"]
-# secret = ""                         # better set DYAPPD__TURN__SECRET in a unit drop-in
+# secret = ""                         # set DYAPPD__TURN__SECRET in a drop-in: an option shows in ps
 # credential_minutes = 60             # lifetime of the passwords handed out
 
 [maintenance]
