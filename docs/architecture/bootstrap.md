@@ -620,7 +620,9 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles
-are accepted, and `media` only together with `store`.
+are accepted, and `media` only together with `store`. On start it dials its anchors, then fills
+the routing table from the peer cache; the seeds follow
+([P2P networking](p2p-networking.md#current-code)).
 
 Planned: a maintenance window and per-store schedules, the remaining resource guards, TURN ports,
 store retention.

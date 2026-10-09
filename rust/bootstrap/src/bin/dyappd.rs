@@ -76,7 +76,13 @@ async fn main() -> anyhow::Result<()> {
     for address in &config.external {
         swarm.add_external_address(address.parse()?);
     }
-    // Seeds are dialled by the first maintenance run of `node::run`.
+    // Anchors are dialled first, the cache fills the routing table, and seeds are dialled by the
+    // first maintenance run of `node::run`.
+    for anchor in node::cached_peers(&config.storage.anchors_path()) {
+        if let Err(error) = swarm.dial(anchor.clone()) {
+            tracing::warn!(%anchor, %error, "anchor not dialed");
+        }
+    }
     let cached = node::cached_peers(&config.storage.peers_path());
     dyapp_p2p_net::join(&mut swarm, &[], &cached);
     tracing::info!(peer_id = %swarm.local_peer_id(), roles = ?config.roles, "node started");

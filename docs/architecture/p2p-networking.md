@@ -32,7 +32,11 @@ dials like an IP one; a `/dnsaddr/<host>` seed expands to the `dnsaddr=<multiadd
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
 own. `known_peers` lists the routing table for the cache. `dyappd` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
-maintenance, so a restart joins without any one seed. It dials the seeds again on every
+maintenance, so a restart joins without any one seed. The last 3 distinct peers it dialled
+that answered identify as Kademlia servers with the ID proof of work are its anchors, saved
+hourly to `<storage.dir>/anchors` and dialled first on the next start, before the cache fills
+the routing table and before the seeds, so an attacker who floods the cache does not decide the
+first peers. A unit test checks the anchor list. It dials the seeds again on every
 maintenance run (the first at start) and every 5 minutes while its routing table is empty. A unit
 test joins through a seed, then joins a second swarm from the first one's cache alone.
 
@@ -57,7 +61,7 @@ Not implemented yet:
   `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
-- No anchors or local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+- No local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 - No signal or search protocols; they are designed in

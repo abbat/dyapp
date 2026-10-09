@@ -75,6 +75,28 @@ pub fn cached_peers(path: &Path) -> Vec<Multiaddr> {
     text.lines().filter_map(|line| line.parse().ok()).collect()
 }
 
+/// Outbound peers kept as anchors (ADR 0008).
+pub const ANCHORS: usize = 3;
+
+/// Puts `peer`, dialled at `address`, first among the anchors and keeps the [`ANCHORS`] latest
+/// distinct peers.
+fn remember_anchor(anchors: &mut Vec<Multiaddr>, peer: PeerId, address: &Multiaddr) {
+    let mut address = address.clone();
+    if !matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+        address.push(Protocol::P2p(peer));
+    }
+    anchors.retain(|a| a.iter().last() != Some(Protocol::P2p(peer)));
+    anchors.insert(0, address);
+    anchors.truncate(ANCHORS);
+}
+
+fn save_peers(path: &Path, peers: &[Multiaddr]) -> std::io::Result<()> {
+    fs::write(
+        path,
+        peers.iter().map(|p| format!("{p}\n")).collect::<String>(),
+    )
+}
+
 /// Re-reads the deny list when `dyappd deny` changed it since `version`; on an error the old
 /// list stays.
 fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64>) {
@@ -312,6 +334,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),
     };
     let storage = &service.config.storage;
+    let mut anchors = cached_peers(&storage.anchors_path());
     let deny = match DenyStore::open(&storage.deny_path()) {
         Ok(deny) => deny,
         Err(error) => return tracing::error!(%error, "deny list not opened"),
@@ -328,6 +351,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     // The IP group of each open connection.
     let mut groups: HashMap<ConnectionId, String> = HashMap::new();
+    // The remote address of each connection this node dialled.
+    let mut dialed: HashMap<ConnectionId, Multiaddr> = HashMap::new();
     let mut watchers = Watchers::new();
     let mut replicas = Replicas::default();
     // Incoming connections refused by the connection limits since the last maintenance run.
@@ -440,11 +465,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
                     let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
                     groups.insert(connection_id, group);
+                    if endpoint.is_dialer() {
+                        dialed.insert(connection_id, endpoint.get_remote_address().clone());
+                    }
                     drop_banned(&mut swarm, &service, peer_id);
                 }
                 SwarmEvent::ConnectionClosed { connection_id, .. } => {
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
+                    dialed.remove(&connection_id);
                     // ponytail: a scan of all watchers per closed connection; index them by
                     // connection if many devices watch at once.
                     watchers.retain(|_, list| {
@@ -494,10 +523,17 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 // ponytail: claimed addresses pass the IP-group limits but are not verified by a
                 // dial; a peer can claim another group's address.
                 SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                    connection_id,
                     peer_id,
                     info,
-                    ..
                 })) if info.protocols.contains(&KAD_PROTOCOL) => {
+                    // A routable peer this node dialled answered: it becomes an anchor.
+                    let bits = dyapp_p2p_net::id_pow_bits();
+                    if let Some(address) = dialed.get(&connection_id) {
+                        if dyapp_p2p_net::id_has_pow(&peer_id, bits) {
+                            remember_anchor(&mut anchors, peer_id, address);
+                        }
+                    }
                     for address in info.listen_addrs {
                         dyapp_p2p_net::add_peer(&mut swarm, peer_id, address);
                     }
@@ -550,10 +586,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 }
                 // ponytail: saved hourly, not on shutdown; a crash loses at most an hour of churn.
                 let peers = dyapp_p2p_net::known_peers(&mut swarm);
+                let storage = &service.config.storage;
                 if !peers.is_empty() {
-                    let text: String = peers.iter().map(|p| format!("{p}\n")).collect();
-                    if let Err(error) = fs::write(service.config.storage.peers_path(), text) {
+                    if let Err(error) = save_peers(&storage.peers_path(), &peers) {
                         tracing::error!(%error, "peer cache not saved");
+                    }
+                }
+                if !anchors.is_empty() {
+                    if let Err(error) = save_peers(&storage.anchors_path(), &anchors) {
+                        tracing::error!(%error, "anchors not saved");
                     }
                 }
                 if refused > 0 {
@@ -599,6 +640,22 @@ mod tests {
         fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
         assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
         fs::remove_file(&dir).unwrap();
+    }
+
+    #[test]
+    fn anchors_keep_the_latest_distinct_peers() {
+        let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
+        let at = |i: usize| -> Multiaddr { format!("/ip4/10.0.0.{i}/tcp/1").parse().unwrap() };
+        let mut anchors = Vec::new();
+        for (i, peer) in peers.iter().enumerate() {
+            remember_anchor(&mut anchors, *peer, &at(i));
+        }
+        remember_anchor(&mut anchors, peers[2], &at(9));
+        let expected: Vec<Multiaddr> = [(9, 2), (4, 4), (3, 3)]
+            .iter()
+            .map(|&(i, p)| at(i).with(Protocol::P2p(peers[p])))
+            .collect();
+        assert_eq!(anchors, expected);
     }
 
     #[test]

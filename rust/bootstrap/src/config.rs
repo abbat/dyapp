@@ -208,6 +208,11 @@ impl StorageConfig {
         self.dir.join("peers")
     }
 
+    /// The last outbound peers that answered, dialled first on the next start.
+    pub fn anchors_path(&self) -> PathBuf {
+        self.dir.join("anchors")
+    }
+
     /// The operator's deny list, edited by `dyappd deny`.
     pub fn deny_path(&self) -> PathBuf {
         self.dir.join("deny.db")
