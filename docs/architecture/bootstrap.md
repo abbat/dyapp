@@ -265,6 +265,18 @@ resent from the sender's retry queue.
   schedule with an optional maintenance window and an I/O budget. Implemented: one schedule for
   all stores with a page budget per run ([Storage](#storage)); per-store schedules, the window
   and a byte/time I/O budget are planned.
+- Format versions (planned): each file holds its format in `PRAGMA user_version`, one number
+  that only grows; there is no downgrade, a fix ships as a higher version. On open the node runs
+  the numbered steps from the file's version to its own, in order. A cheap step (a new column
+  with a default, an index, a table) runs in place. A step that rewrites rows builds the new file
+  next to the old one (for example `profiles-v2.db`) from the stored signed records, in the
+  background under the I/O budget, while the old file answers and takes writes; the builder then
+  copies the rows written since it started (by rowid or `seq`), switches under a short lock and
+  deletes the old file. Deletes during the build (acks, expiry, eviction) go to both files, so
+  nothing deleted comes back. The build starts only with the old file's size plus `min_free_mb` free,
+  otherwise it waits and logs why. A binary that finds a file newer than it knows refuses to start
+  and names the file. The first user is `profiles-idx.db`, rebuilt on an index version bump.
+  Today the only step is the `last_seen` column of `profiles`, added in place on open.
 - Activity: one UPSERT of a user's last-active date per day.
 
 ### Limits and abuse
