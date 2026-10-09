@@ -38,8 +38,11 @@ test joins through a seed, then joins a second swarm from the first one's cache 
 
 **Routing defences** ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Lookups use
 disjoint query paths. Kademlia inserts nothing on its own (`BucketInserts::Manual`): every peer,
-whether dialled, found by a lookup, cached or announced by identify, goes through `add_peer`,
-which refuses a peer when its bucket already holds 2 peers of the same IP group, or the table
+whether dialled, found by a lookup, cached or announced by identify, goes through `add_peer`.
+It refuses a peer whose ID lacks the proof of work: SHA-256 of the peer ID bytes must start with
+`ID_POW_BITS` (22) zero bits, overridable per process by `set_id_pow_bits` for test networks.
+Such a peer is still served but never routed to, and `dyappd` sends it no replica.
+`generate_pow_keypair` searches a key on every CPU. `add_peer` also refuses a peer when its bucket already holds 2 peers of the same IP group, or the table
 holds 10. An IP group is an IPv4 /24, an IPv6 /48, or one DNS name. Call `route` on every swarm
 event so that the peers Kademlia finds routable reach the filter. A full bucket keeps its
 connected peers and replaces only a disconnected one, so long-lived peers stay in it. A unit test
@@ -51,8 +54,7 @@ Not implemented yet:
   `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
-- No node-ID proof of work, distinct /16 groups for outbound connections, anchors or local
-  reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+- No distinct /16 groups for outbound connections, anchors or local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 - No signal or search protocols; they are designed in

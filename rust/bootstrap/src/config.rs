@@ -25,6 +25,23 @@ pub struct NodeConfig {
     pub storage: StorageConfig,
     pub limits: Limits,
     pub maintenance: Maintenance,
+    pub network: Network,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Network {
+    /// Node-ID proof of work required of the own key and of every routed peer. Lower it on test
+    /// networks only: nodes of the public network do not route a key made with fewer bits.
+    pub id_pow_bits: u32,
+}
+
+impl Default for Network {
+    fn default() -> Self {
+        Self {
+            id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -115,6 +132,7 @@ impl Default for NodeConfig {
             storage: StorageConfig::default(),
             limits: Limits::default(),
             maintenance: Maintenance::default(),
+            network: Network::default(),
         }
     }
 }
@@ -287,6 +305,9 @@ impl NodeConfig {
         if l.ipv4_prefix > 32 || l.ipv6_prefix > 128 {
             anyhow::bail!("limits.ipv4_prefix must be at most 32 and ipv6_prefix at most 128");
         }
+        if self.network.id_pow_bits > 32 {
+            anyhow::bail!("network.id_pow_bits must be at most 32");
+        }
         if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
             anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");
         }
@@ -301,37 +322,56 @@ impl NodeConfig {
         Ok(())
     }
 
-    /// Loads the node key, or creates it on first start. A key that does not belong to the stored
-    /// data is refused: a new key is a new node, so the operator must clear the data first.
+    /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
+    /// 2 vCPU) and binds the data directory to it. Refuses an existing key or existing data: a new
+    /// key is a new node.
+    pub fn keygen(&self) -> anyhow::Result<PeerId> {
+        let key_path = self.storage.key_path();
+        let id_path = self.storage.dir.join("node.id");
+        let mut data = [key_path.clone(), id_path.clone()]
+            .into_iter()
+            .chain(self.storage.stores());
+        if let Some(file) = data.find(|s| s.exists()) {
+            anyhow::bail!(
+                "{} exists: a new key is a new node, delete the data to start from scratch",
+                file.display()
+            );
+        }
+        let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&key_path)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
+            .write_all(&keypair.to_protobuf_encoding()?)?;
+        let peer_id = keypair.public().to_peer_id();
+        fs::write(&id_path, peer_id.to_string())?;
+        Ok(peer_id)
+    }
+
+    /// Loads the node key made by [`Self::keygen`]. A key that does not belong to the stored data
+    /// or lacks the proof of work is refused.
     pub fn node_key(&self) -> anyhow::Result<Keypair> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
         let keypair = match fs::read(&key_path) {
             Ok(bytes) => Keypair::from_protobuf_encoding(&bytes)
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let mut data = self.storage.stores().into_iter().chain([id_path.clone()]);
-                if let Some(store) = data.find(|s| s.exists()) {
-                    anyhow::bail!(
-                        "{} is missing but {} exists: a new key is a new node, \
-                         delete the stores to start from scratch",
-                        key_path.display(),
-                        store.display()
-                    );
-                }
-                let keypair = Keypair::generate_ed25519();
-                OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&key_path)?
-                    .write_all(&keypair.to_protobuf_encoding()?)?;
-                fs::write(&id_path, keypair.public().to_peer_id().to_string())?;
-                keypair
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
+                "{} is missing: run `dyappd keygen` once and keep the key safe",
+                key_path.display()
+            ),
             Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
         };
         let peer_id = keypair.public().to_peer_id();
+        if !dyapp_p2p_net::id_has_pow(&peer_id, self.network.id_pow_bits) {
+            anyhow::bail!(
+                "{} lacks the node-ID proof of work of {} bits: make a new node with `dyappd keygen`",
+                key_path.display(),
+                self.network.id_pow_bits
+            );
+        }
         let stored: PeerId = fs::read_to_string(&id_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", id_path.display()))?
             .trim()
@@ -420,8 +460,13 @@ mod tests {
     fn node_key_is_bound_to_the_data() {
         let mut config = NodeConfig::default();
         config.storage.dir = temp_dir();
+        config.network.id_pow_bits = 4;
         config.validate().unwrap();
+        config.node_key().unwrap_err();
+        let peer = config.keygen().unwrap();
+        config.keygen().unwrap_err();
         let key = config.node_key().unwrap();
+        assert_eq!(key.public().to_peer_id(), peer);
         let mode = fs::metadata(config.storage.key_path()).unwrap().mode();
         assert_eq!(mode & 0o777, 0o600);
         assert_eq!(
@@ -436,12 +481,16 @@ mod tests {
         config.node_key().unwrap_err();
         fs::remove_file(config.storage.key_path()).unwrap();
         config.node_key().unwrap_err();
+        // node.id is left: keygen does not replace the node.
+        config.keygen().unwrap_err();
 
-        // A missing key next to existing stores is refused.
+        // A key without the proof of work is refused.
         let mut config = NodeConfig::default();
         config.storage.dir = temp_dir();
+        config.network.id_pow_bits = 0;
         config.validate().unwrap();
-        fs::write(config.storage.profiles_path(), b"").unwrap();
+        config.keygen().unwrap();
+        config.network.id_pow_bits = 32;
         config.node_key().unwrap_err();
     }
 }

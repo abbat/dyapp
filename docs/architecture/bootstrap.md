@@ -250,7 +250,8 @@ listed blob are not mapped yet.
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
   fails at startup ([Configuration](#configuration)).
-- The node key is a libp2p key file (mode 0600) in the data directory, created on first start.
+- The node key is a libp2p key file (mode 0600) in the data directory, made once by
+  `dyappd keygen` with the node-ID proof of work; the node does not start without it.
   A new key is a new node: the node refuses a key that does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
 - Administration is a local CLI that writes to `admin.db`; the node applies changes without a
@@ -600,7 +601,8 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `limits.{max_connections,max_connections_per_peer,max_streams}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
-([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`; the example and startup checks are in
+([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`, `network.id_pow_bits`
+([P2P networking](p2p-networking.md)); the example and startup checks are in
 [Deployment](../operations/deployment.md#dyappd). `dyappd` starts the libp2p node
 ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open and serves
 the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles are

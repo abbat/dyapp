@@ -13,6 +13,7 @@ use libp2p::{
 };
 use std::io;
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::Duration;
 
 /// Node protocol messages, generated from proto/node.proto.
@@ -235,6 +236,58 @@ pub fn build_limited_swarm(
         .build())
 }
 
+/// Leading zero bits of SHA-256 over a node's peer ID bytes: the static S/Kademlia puzzle that
+/// makes every node ID cost about a minute on 2 vCPU (ADR 0008).
+pub const ID_POW_BITS: u32 = 22;
+
+// The unit tests route random peer IDs.
+static POW_BITS: AtomicU32 = AtomicU32::new(if cfg!(test) { 0 } else { ID_POW_BITS });
+
+/// Overrides [`ID_POW_BITS`] for this process: a test network sets it low.
+pub fn set_id_pow_bits(bits: u32) {
+    POW_BITS.store(bits, Ordering::Relaxed);
+}
+
+pub fn id_pow_bits() -> u32 {
+    POW_BITS.load(Ordering::Relaxed)
+}
+
+/// Whether `peer` carries the node-ID proof of work of `bits` leading zero bits.
+pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
+    let hash = dyapp_identity::sha256(&peer.to_bytes());
+    let zeros = hash
+        .iter()
+        .position(|b| *b != 0)
+        .map_or(256, |i| i as u32 * 8 + hash[i].leading_zeros());
+    zeros >= bits
+}
+
+/// A fresh Ed25519 key whose peer ID has the proof of work of `bits`, searched on every CPU.
+pub fn generate_pow_keypair(bits: u32) -> Keypair {
+    let threads = std::thread::available_parallelism().map_or(1, usize::from);
+    let found = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                s.spawn(|| {
+                    while !found.load(Ordering::Relaxed) {
+                        let keypair = Keypair::generate_ed25519();
+                        if id_has_pow(&keypair.public().to_peer_id(), bits) {
+                            found.store(true, Ordering::Relaxed);
+                            return Some(keypair);
+                        }
+                    }
+                    None
+                })
+            })
+            .collect();
+        workers
+            .into_iter()
+            .find_map(|w| w.join().expect("key search thread panicked"))
+            .expect("a worker found the key")
+    })
+}
+
 /// Starts joining the network: adds `cached` peers (`.../p2p/<id>` addresses from
 /// [`known_peers`]) to the routing table and dials every seed. A `/dnsaddr/<host>` seed expands
 /// to the `dnsaddr=` TXT records of `_dnsaddr.<host>`; the dial stops at the first that answers.
@@ -276,9 +329,15 @@ fn ip_group(address: &Multiaddr) -> Option<String> {
 
 /// Adds `peer` at `address` to the routing table unless its IP group already has
 /// [`MAX_GROUP_PER_BUCKET`] other peers in the peer's bucket or [`MAX_GROUP_PER_TABLE`] in the
-/// table. A full bucket keeps its oldest live peers: the newcomer only replaces one that stopped
-/// answering. Returns whether the address was passed to Kademlia.
+/// table. A peer without the node-ID proof of work ([`id_pow_bits`]) is never added: it is
+/// served, but never routed to or given replicas. A full bucket keeps its oldest live peers: the
+/// newcomer only replaces one that stopped answering. Returns whether the address was passed to
+/// Kademlia.
 pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) -> bool {
+    if !id_has_pow(&peer, id_pow_bits()) {
+        tracing::debug!(%peer, "peer ID without proof of work not routed");
+        return false;
+    }
     let kad = &mut swarm.behaviour_mut().kad;
     if let Some(group) = ip_group(&address) {
         let Some(range) = kad.kbucket(peer).map(|b| b.range()) else {
@@ -345,6 +404,18 @@ mod tests {
     use libp2p::futures::StreamExt;
     use libp2p::swarm::SwarmEvent;
     use libp2p::Multiaddr;
+
+    #[test]
+    fn pow_keypair_has_the_leading_zero_bits() {
+        let peer = generate_pow_keypair(12).public().to_peer_id();
+        assert!(id_has_pow(&peer, 12));
+        assert!(id_has_pow(&peer, 0));
+        let weak = (0..64)
+            .map(|_| PeerId::random())
+            .filter(|p| !id_has_pow(p, 12))
+            .count();
+        assert!(weak > 0);
+    }
 
     #[test]
     fn unknown_request_variant_decodes_as_none() {

@@ -20,6 +20,8 @@ import time
 
 CLIENT = "/workspace/target/debug/test-peer"
 FLOOD_LIMIT = 5
+# Node-ID proof of work of the test nodes, as in docker/compose.network.yml.
+POW_BITS = "8"
 
 
 def call(client, *args):
@@ -55,7 +57,8 @@ def local(bin_dir):
                 env = {**os.environ,
                        "DYAPPD__LISTEN": json.dumps([tcp, quic]),
                        "DYAPPD__EXTERNAL": json.dumps([tcp, quic]),
-                       "DYAPPD__STORAGE__DIR": f"{storage}/{port}"}
+                       "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
+                       "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS}
                 if not peers:
                     env["DYAPPD__ROLES"] = '["store", "media"]'
                 if peers:
@@ -63,6 +66,8 @@ def local(bin_dir):
                 if port == 7073:
                     env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(
                         FLOOD_LIMIT)
+                subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
+                               check=True, stdout=subprocess.DEVNULL)
                 processes.append(subprocess.Popen(
                     [f"{bin_dir}/dyappd"], env=env))
                 peers.append((tcp, quic))

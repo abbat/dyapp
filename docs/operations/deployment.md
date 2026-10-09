@@ -92,7 +92,9 @@ Example: User opens app
 
 ```bash
 make deb                                   # → target/deb/dyappd_<version>_<arch>.deb
-sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables and starts the unit
+sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables the unit
+sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # once: about a minute on 2 vCPU
+sudo systemctl start dyappd
 sudoedit /etc/dyappd.toml              # conffile: kept on upgrade
 sudo systemctl restart dyappd          # config changes need a restart
 sudo systemctl reload dyappd           # SIGHUP: reloads <storage.dir>/deny only
@@ -122,6 +124,7 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 ### `dyappd`
 
 ```bash
+cargo run --package dyapp-bootstrap --bin dyappd -- keygen --config /etc/dyappd.toml  # once
 cargo run --package dyapp-bootstrap --bin dyappd -- --config /etc/dyappd.toml
 ```
 
@@ -171,15 +174,21 @@ ban_minutes = 10
 [maintenance]
 interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
 vacuum_pages = 2048    # free 4 KiB pages released per store and run
+
+[network]
+id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not
 stop an older one. At startup the node refuses to run as root, checks addresses,
-roles and limits, and checks that every directory is writable. On first start it
+roles and limits, and checks that every directory is writable. `dyappd keygen`
 creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
-`storage.dir`. It refuses to start when the key is missing next to existing data
-or does not match `node.id`: a new key is a new node, so delete the data to start
-from scratch. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
+`storage.dir` and prints the peer ID. The key carries the node-ID proof of work: SHA-256 of
+the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCPU
+([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Keygen refuses when a key or any
+data already exists. The node does not start without the key, with a key that lacks the proof
+of work or with one that does not match `node.id`: a new key is a new node, so delete the data
+to start from scratch. Keep a copy of `node.key` safe. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
 ### Development quick start
@@ -197,6 +206,8 @@ make test-integration   # integration tests + three dyappd containers on an inte
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
   -e DYAPPD__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
+    export DYAPPD__NETWORK__ID_POW_BITS=8
+    target/debug/dyappd keygen
     target/debug/dyappd &
     sleep 3
     target/debug/test-peer info /ip4/127.0.0.1/tcp/7070
@@ -207,7 +218,9 @@ docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
 **With a local Rust 1.99 toolchain:**
 
 ```bash
-DYAPPD__STORAGE__DIR=/tmp/ai/node cargo run --package dyapp-bootstrap --bin dyappd &
+export DYAPPD__STORAGE__DIR=/tmp/ai/node DYAPPD__NETWORK__ID_POW_BITS=8
+cargo run --package dyapp-bootstrap --bin dyappd -- keygen
+cargo run --package dyapp-bootstrap --bin dyappd &
 cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7070
 ```
 

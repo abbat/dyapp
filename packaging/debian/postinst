@@ -8,7 +8,14 @@ fi
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     if [ "$1" = configure ] && [ -z "$2" ]; then
-        systemctl enable --now dyappd.service
+        systemctl enable dyappd.service
+        if [ -e /var/lib/dyappd/node.key ]; then
+            systemctl start dyappd.service
+        else
+            echo "dyappd: make the node key, then start the node:" >&2
+            echo "  sudo -u dyappd dyappd keygen --config /etc/dyappd.toml" >&2
+            echo "  sudo systemctl start dyappd" >&2
+        fi
     else
         systemctl try-restart dyappd.service
     fi

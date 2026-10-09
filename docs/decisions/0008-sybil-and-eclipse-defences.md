@@ -73,12 +73,11 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
   replaced, which changes the node's peer ID.
 - Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
   local reputation, replica placement and store pools.
-- Implemented in `rust/p2p-net`: disjoint lookups and the per-bucket and per-table IP-group limits
-  on manual inserts ([p2p-networking.md](../architecture/p2p-networking.md)). The node
+- Implemented in `rust/p2p-net`: disjoint lookups, the node-ID proof of work (22 bits, made by
+  `dyappd keygen`) and the per-bucket and per-table IP-group limits on manual inserts ([p2p-networking.md](../architecture/p2p-networking.md)). The node
   joins through seeds (`/dnsaddr` too), dials them again periodically and caches peers across
   restarts.
-- Not implemented (planned): node-ID proof of work and the `keygen` subcommand, distinct /16
-  outbound groups, anchors, test-before-evict, the storage trust delay and reputation scores.
+- Not implemented (planned): distinct /16 outbound groups, anchors, test-before-evict, the storage trust delay and reputation scores.
   The bootstrap store has no per-type pools. Nodes rate-limit per peer ID, IP group and sender
   key and keep a local, unshared ban score per peer
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).

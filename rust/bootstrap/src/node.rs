@@ -456,7 +456,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 })) => {
                     let lookup = replicas.lookups.remove(&id);
                     if let (Some(lookup), Ok(ok)) = (lookup, result) {
-                        if let Some(node) = ok.peers.into_iter().next() {
+                        let bits = dyapp_p2p_net::id_pow_bits();
+                        let mut peers = ok.peers.into_iter();
+                        if let Some(node) =
+                            peers.find(|p| dyapp_p2p_net::id_has_pow(&p.peer_id, bits))
+                        {
                             let r = &mut replicas;
                             after_lookup(&mut swarm, &service, r, lookup, ok.key, node);
                         }
