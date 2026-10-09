@@ -37,6 +37,9 @@ pub struct Network {
     /// At most one peer per /16 (IPv6 /32) in a k-bucket. Turn it off only on a network whose
     /// nodes share a /16, such as a test network.
     pub distinct_outbound_groups: bool,
+    /// Minutes after the first connection before a peer gets replicas (repair, forwarded acks);
+    /// 0 trusts at once.
+    pub storage_trust_minutes: u32,
 }
 
 impl Default for Network {
@@ -44,6 +47,7 @@ impl Default for Network {
         Self {
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
             distinct_outbound_groups: true,
+            storage_trust_minutes: 60,
         }
     }
 }

@@ -12,7 +12,7 @@ use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
-use libp2p::request_response::{Event, Message, OutboundRequestId};
+use libp2p::request_response::{Event, Message, OutboundFailure, OutboundRequestId};
 use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
 use libp2p::{identify, kad};
 use libp2p::{Multiaddr, PeerId, Swarm};
@@ -20,7 +20,7 @@ use prost::Message as _;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// The node's swarm with the connection and stream limits from the config. `/dyapp/kad` is the
 /// key space of the store role: a node without it is a DHT client and serves no protocol, so it
@@ -144,9 +144,41 @@ enum Lookup {
     Repair(Vec<u8>),
 }
 
+/// Local trust in peers as replica targets (ADR 0008), never shared. A peer is trusted once this
+/// node first connected to it at least `delay` ago and while its score is not negative: +1 per
+/// answer to this node's mailbox requests and per signed `replica_put` or `replica_ack` accepted
+/// from it, -1 per mailbox request of this node it failed. Bad signatures and floods are strikes
+/// of the separate ban score in `Service`.
+/// ponytail: in memory only, so after a restart no peer gets replicas for `delay`.
+#[derive(Default)]
+struct Trust {
+    delay: Duration,
+    seen: HashMap<PeerId, Instant>,
+    score: HashMap<PeerId, i64>,
+}
+
+impl Trust {
+    fn trusted(&self, peer: &PeerId) -> bool {
+        let old = |seen: &Instant| seen.elapsed() >= self.delay;
+        let seen = self.delay.is_zero() || self.seen.get(peer).is_some_and(old);
+        seen && self.score.get(peer).copied().unwrap_or(0) >= 0
+    }
+
+    fn add(&mut self, peer: PeerId, points: i64) {
+        *self.score.entry(peer).or_default() += points;
+    }
+
+    /// Forgets the peers `keep` drops.
+    fn retain(&mut self, keep: impl Fn(&PeerId) -> bool) {
+        self.seen.retain(|peer, _| keep(peer));
+        self.score.retain(|peer, _| keep(peer));
+    }
+}
+
 /// Node-to-node mailbox traffic: ack forwarding and repair.
 #[derive(Default)]
 struct Replicas {
+    trust: Trust,
     lookups: HashMap<kad::QueryId, Lookup>,
     /// Inventories sent and their mailbox.
     inventories: HashMap<OutboundRequestId, Vec<u8>>,
@@ -251,7 +283,7 @@ fn after_mailbox(
                 let mut closest = kad.get_closest_local_peers(&key).take(REPLICAS.into());
                 closest.any(|p| *p.preimage() == peer)
             });
-            if near {
+            if near && replicas.trust.trusted(&peer) {
                 let listed: HashSet<Vec<u8>> = inventory.ids.into_iter().collect();
                 send_envelopes(swarm, service, peer, &inventory.mailbox, |id| {
                     !listed.contains(id)
@@ -354,7 +386,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     // The remote address of each connection this node dialled.
     let mut dialed: HashMap<ConnectionId, Multiaddr> = HashMap::new();
     let mut watchers = Watchers::new();
+    let delay = u64::from(service.config.network.storage_trust_minutes) * 60;
     let mut replicas = Replicas::default();
+    replicas.trust.delay = Duration::from_secs(delay);
     // Incoming connections refused by the connection limits since the last maintenance run.
     let mut refused = 0u64;
     // Requests answered and failed with a node error since the last maintenance run.
@@ -439,6 +473,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     let mut nonce = nonces.remove(&connection_id);
                     let from = peer(id, &groups, connection_id);
                     let kind = request.request.clone();
+                    let signed = matches!(
+                        kind,
+                        Some(mailbox_request::Request::ReplicaPut(_))
+                            | Some(mailbox_request::Request::ReplicaAck(_))
+                    );
                     let result = service.mailbox(&from, &mut nonce, request);
                     if let Some(nonce) = nonce {
                         nonces.insert(connection_id, nonce);
@@ -449,6 +488,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                             answered += 1;
                     service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                            if ok && signed {
+                                replicas.trust.add(id, 1);
+                            }
                             if ok {
                                 let at = (id, connection_id);
                                 let (w, r) = (&mut watchers, &mut replicas);
@@ -465,6 +507,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
                     let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
                     groups.insert(connection_id, group);
+                    replicas.trust.seen.entry(peer_id).or_insert_with(Instant::now);
                     if endpoint.is_dialer() {
                         dialed.insert(connection_id, endpoint.get_remote_address().clone());
                     }
@@ -492,7 +535,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         let bits = dyapp_p2p_net::id_pow_bits();
                         let mut peers = ok.peers.into_iter();
                         if let Some(node) =
-                            peers.find(|p| dyapp_p2p_net::id_has_pow(&p.peer_id, bits))
+                            peers.find(|p| {
+                                dyapp_p2p_net::id_has_pow(&p.peer_id, bits)
+                                    && replicas.trust.trusted(&p.peer_id)
+                            })
                         {
                             let r = &mut replicas;
                             after_lookup(&mut swarm, &service, r, lookup, ok.key, node);
@@ -505,6 +551,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     message: Message::Response { request_id, response },
                     ..
                 })) => {
+                    replicas.trust.add(id, 1);
                     if let Some(mailbox) = replicas.inventories.remove(&request_id) {
                         let missing: HashSet<Vec<u8>> = response.missing.into_iter().collect();
                         send_envelopes(&mut swarm, &service, id, &mailbox, |envelope| {
@@ -513,9 +560,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::OutboundFailure {
+                    peer,
                     request_id,
+                    error,
                     ..
                 })) => {
+                    // An old node lacking the protocol is no failure.
+                    if !matches!(error, OutboundFailure::UnsupportedProtocols) {
+                        replicas.trust.add(peer, -1);
+                    }
                     replicas.inventories.remove(&request_id);
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
@@ -597,6 +650,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         tracing::error!(%error, "anchors not saved");
                     }
                 }
+                let routed: HashSet<PeerId> = peers
+                    .iter()
+                    .filter_map(|a| match a.iter().last() {
+                        Some(Protocol::P2p(peer)) => Some(peer),
+                        _ => None,
+                    })
+                    .collect();
+                replicas
+                    .trust
+                    .retain(|peer| routed.contains(peer) || swarm.is_connected(peer));
                 if refused > 0 {
                     tracing::warn!(refused, "connections refused by the connection limits");
                     refused = 0;
@@ -640,6 +703,29 @@ mod tests {
         fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
         assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
         fs::remove_file(&dir).unwrap();
+    }
+
+    #[test]
+    fn replicas_go_to_peers_seen_long_enough_that_answer() {
+        let peer = PeerId::random();
+        let mut trust = Trust::default();
+        assert!(trust.trusted(&peer), "no delay: an unseen peer is trusted");
+        trust.add(peer, -1);
+        assert!(
+            !trust.trusted(&peer),
+            "a failed request outweighs no answer"
+        );
+        trust.add(peer, 1);
+        trust.delay = Duration::from_secs(3600);
+        assert!(!trust.trusted(&peer), "never seen");
+        trust.seen.insert(peer, Instant::now());
+        assert!(!trust.trusted(&peer), "seen just now");
+        trust
+            .seen
+            .insert(peer, Instant::now() - Duration::from_secs(3600));
+        assert!(trust.trusted(&peer));
+        trust.retain(|_| false);
+        assert!(!trust.trusted(&peer), "forgotten");
     }
 
     #[test]

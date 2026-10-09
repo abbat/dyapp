@@ -350,18 +350,19 @@ per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
 - **Push.** A valid `fetch` with `watch` registers its connection for that mailbox until the
   connection closes; every later `put` to the mailbox is pushed there. Replies to a push are ignored.
 - **Ack forwarding.** After a valid `ack` the node looks up the closest node of each
-  `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack`; replies are ignored.
+  `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack` if the node trusts it
+  ([Rate Limiting](#rate-limiting)); replies are ignored.
   Only the closest node per key gets it, and a node that missed it keeps the envelope until its
   TTL. A replayed `replica_ack` can only delete ids the device already acked.
 - **Mailbox repair.** A valid `fetch` with `watch` starts a repair of that mailbox, at most once
   an hour per node and only below 75 % of the traffic cap. The node looks up the closest node of
   each `replica_key(mailbox, i)`, skipping keys it is closer to itself, and sends it an
   `inventory` of the ids it holds; the envelopes the answer lists as `missing` follow in one
-  `replica_put`. The peer, if one of the first five nodes its own routing table holds for a
-  replica key is the requester, sends back the envelopes the inventory lacks the same way. A
-  batch is cut at 1 MiB, the rest waits for the next visit; repair bytes count towards the
-  traffic cap. A repaired envelope gets a fresh TTL on its new node. Old nodes answer both
-  requests `UNSUPPORTED`, and repair skips them.
+  `replica_put`, again only to a trusted node. The peer, if one of the first five nodes its own
+  routing table holds for a replica key is the requester and it trusts the requester, sends back
+  the envelopes the inventory lacks the same way. A batch is cut at 1 MiB, the rest waits for the
+  next visit; repair bytes count towards the traffic cap. A repaired envelope gets a fresh TTL on
+  its new node. Old nodes answer both requests `UNSUPPORTED`, and repair skips them.
 - **Media.** The owner's signed `keep` is the whole list of blobs the node should hold for that
   identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
   once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob
@@ -535,6 +536,15 @@ the peer is banned: the node closes its connections, closes any new ones, and an
 in memory, go with a restart and are never shared with other nodes
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
 
+**Storage trust.** Replicas (forwarded acks, repair) go only to trusted peers. A peer is trusted
+once the node first connected to it at least `network.storage_trust_minutes` ago (default 60; 0
+trusts at once) and while its score is not negative. The score gains 1 per answer to the node's
+mailbox requests and per signed `replica_put` or `replica_ack` accepted from the peer, and loses 1
+per mailbox request of the node that failed (an old node lacking the protocol does not count). A
+peer that leaves both the routing table and the node's connections is forgotten. Like the ban
+score it lives in memory and is never shared, so after a restart no peer gets replicas for the
+delay; envelopes wait on their own node until their TTL. A unit test checks it.
+
 ## Resource guards
 
 From `limits` in the config ([Configuration](#configuration)); each guard logs a warning when it
@@ -616,7 +626,8 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,
-`network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)); the
+`network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
+`network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). Only the `store` and `media` roles

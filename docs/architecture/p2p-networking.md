@@ -52,7 +52,9 @@ holds 10. An IP group is an IPv4 /24, an IPv6 /48, or one DNS name. With
 or one DNS name), so the peers Kademlia dials for one key range sit in distinct networks;
 `dyappd` sets it from `network.distinct_outbound_groups`. Call `route` on every swarm
 event so that the peers Kademlia finds routable reach the filter. A full bucket keeps its
-connected peers and replaces only a disconnected one, so long-lived peers stay in it. A unit test
+connected peers: libp2p tests before it evicts, dialling the oldest disconnected peer and
+replacing it with the new one only if it is still disconnected after 60 s, so long-lived peers
+stay in it. A unit test
 checks the limits. Addresses claimed through identify are not verified by a dial.
 
 Not implemented yet:
@@ -61,7 +63,7 @@ Not implemented yet:
   `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
   ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
   not expose `p2p-net`.
-- No local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+- Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 - No signal or search protocols; they are designed in

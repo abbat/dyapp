@@ -181,6 +181,7 @@ vacuum_pages = 2048    # free 4 KiB pages released per store and run
 [network]
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
 distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-bucket
+storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
 ```
 
 Unknown keys are logged and ignored, so a config written for a newer node does not

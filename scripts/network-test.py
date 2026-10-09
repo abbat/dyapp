@@ -60,7 +60,10 @@ def local(bin_dir):
                        "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
                        "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
                        # Loopback nodes share one /16.
-                       "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false"}
+                       "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false",
+                       # Repair and ack forwarding run seconds after
+                       # the nodes meet.
+                       "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
                 if not peers:
                     env["DYAPPD__ROLES"] = '["store", "media"]'
                 if peers:

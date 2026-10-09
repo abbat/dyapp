@@ -30,6 +30,8 @@ x-peer: &peer
     DYAPPD__NETWORK__ID_POW_BITS: "8"
     # Every test node shares one /16.
     DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS: "false"
+    # Repair and ack forwarding run seconds after the nodes meet.
+    DYAPPD__NETWORK__STORAGE_TRUST_MINUTES: "0"
   healthcheck:
     test: [CMD, python3, /workspace/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/7070]
     interval: 5s
