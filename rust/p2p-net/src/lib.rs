@@ -14,7 +14,9 @@ use libp2p::{
 use std::io;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 /// Node protocol messages, generated from proto/node.proto.
 pub mod proto {
@@ -81,23 +83,46 @@ pub struct Behaviour {
 }
 
 /// One protobuf message per stream; the writer closes the stream after it.
-pub struct ProtoCodec<Req, Resp>(PhantomData<fn() -> (Req, Resp)>);
+pub struct ProtoCodec<Req, Resp> {
+    marker: PhantomData<fn() -> (Req, Resp)>,
+    /// Shared by every connection of a media behaviour; other protocols have no permit pool.
+    permits: Option<Arc<Semaphore>>,
+    /// Held from before reading a request until its response is sent or the stream is dropped.
+    permit: Option<OwnedSemaphorePermit>,
+}
+
+impl<Req, Resp> ProtoCodec<Req, Resp> {
+    fn media() -> Self {
+        Self {
+            permits: Some(Arc::new(Semaphore::new(16))),
+            ..Self::default()
+        }
+    }
+}
 
 impl<Req, Resp> Default for ProtoCodec<Req, Resp> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            marker: PhantomData,
+            permits: None,
+            permit: None,
+        }
     }
 }
 
 impl<Req, Resp> Clone for ProtoCodec<Req, Resp> {
     fn clone(&self) -> Self {
-        Self::default()
+        Self {
+            permits: self.permits.clone(),
+            ..Self::default()
+        }
     }
 }
 
 async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
     io: &mut T,
     limit: u64,
+    response: bool,
 ) -> io::Result<M> {
     let mut buf = Vec::new();
     // One byte over the limit tells an oversized message from one that is exactly at it.
@@ -106,6 +131,12 @@ async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "message too large",
+        ));
+    }
+    if response && buf.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "stream closed without a response",
         ));
     }
     M::decode(buf.as_slice()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
@@ -132,7 +163,16 @@ where
         protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Req> {
-        read_message(io, message_limit(protocol)).await
+        if let Some(permits) = &self.permits {
+            self.permit = Some(permits.clone().try_acquire_owned().map_err(|_| {
+                io::Error::new(io::ErrorKind::WouldBlock, "media streams exhausted")
+            })?);
+        }
+        let result = read_message(io, message_limit(protocol), false).await;
+        if result.is_err() {
+            self.permit.take();
+        }
+        result
     }
 
     async fn read_response<T: AsyncRead + Unpin + Send>(
@@ -140,7 +180,7 @@ where
         protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Resp> {
-        read_message(io, message_limit(protocol)).await
+        read_message(io, message_limit(protocol), true).await
     }
 
     async fn write_request<T: AsyncWrite + Unpin + Send>(
@@ -158,7 +198,9 @@ where
         io: &mut T,
         response: Resp,
     ) -> io::Result<()> {
-        write_message(io, response).await
+        let result = write_message(io, response).await;
+        self.permit.take();
+        result
     }
 }
 
@@ -248,7 +290,11 @@ pub fn build_limited_swarm(
                     [(MAILBOX_PUSH_PROTOCOL, push)],
                     config.clone(),
                 ),
-                media: request_response::Behaviour::new([(MEDIA_PROTOCOL, support)], config),
+                media: request_response::Behaviour::with_codec(
+                    ProtoCodec::media(),
+                    [(MEDIA_PROTOCOL, support)],
+                    config.with_max_concurrent_streams(max_streams.min(2)),
+                ),
             }
         })?
         // Happy Eyeballs (RFC 8305): QUIC before TCP, IPv6 before IPv4, which starts 250 ms
@@ -468,6 +514,172 @@ mod tests {
         let bytes = frame.encode_to_vec();
         assert_eq!(bytes.len(), size);
         bytes
+    }
+
+    /// A reader that fails the test if admission touches any request-body bytes.
+    struct UnreadBody;
+
+    impl AsyncRead for UnreadBody {
+        fn poll_read(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+            _: &mut [u8],
+        ) -> std::task::Poll<io::Result<usize>> {
+            panic!("rejected media stream read its body");
+        }
+    }
+
+    #[tokio::test]
+    async fn media_permits_are_shared_and_reject_before_reading() {
+        use libp2p::futures::io::Cursor;
+        use request_response::Codec;
+        let codec = ProtoCodec::<Frame, Frame>::media();
+        let mut streams = Vec::new();
+        for _ in 0..16 {
+            let mut stream = codec.clone();
+            stream
+                .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(Vec::new()))
+                .await
+                .unwrap();
+            streams.push(stream);
+        }
+        let mut extra = codec.clone();
+        assert_eq!(
+            extra
+                .read_request(&MEDIA_PROTOCOL, &mut UnreadBody)
+                .await
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::WouldBlock
+        );
+        // A completed response frees a slot, independently of the connection's codec clone.
+        streams[0]
+            .write_response(
+                &MEDIA_PROTOCOL,
+                &mut Cursor::new(Vec::new()),
+                Frame::default(),
+            )
+            .await
+            .unwrap();
+        extra
+            .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(Vec::new()))
+            .await
+            .unwrap();
+        assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 0);
+        drop(extra);
+        // Malformed requests must return their permit as well.
+        let mut malformed = codec.clone();
+        assert!(malformed
+            .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(vec![0xff]))
+            .await
+            .is_err());
+        assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 1);
+        drop(streams);
+        assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
+        // A different swarm has its own pool.
+        let independent = ProtoCodec::<Frame, Frame>::media();
+        assert_eq!(
+            independent.permits.as_ref().unwrap().available_permits(),
+            16
+        );
+    }
+
+    #[tokio::test]
+    async fn third_media_stream_on_a_connection_is_reset() {
+        media_stream_limit(1, 3, 2).await;
+    }
+
+    #[tokio::test]
+    async fn seventeenth_media_stream_across_connections_is_reset() {
+        media_stream_limit(9, 17, 16).await;
+    }
+
+    async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
+        let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        server
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let addr = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+                break address;
+            }
+        };
+        let server_id = *server.local_peer_id();
+        let mut clients: Vec<_> = (0..peers)
+            .map(|_| {
+                let mut client = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
+                // Senders allow all requests; the receiver enforces its own limits.
+                client.behaviour_mut().media = request_response::Behaviour::new(
+                    [(MEDIA_PROTOCOL, ProtocolSupport::Outbound)],
+                    request_response::Config::default().with_max_concurrent_streams(100),
+                );
+                client.add_peer_address(server_id, addr.clone());
+                client
+            })
+            .collect();
+        for i in 0..requests {
+            clients[i % peers]
+                .behaviour_mut()
+                .media
+                .send_request(&server_id, proto::MediaRequest::default());
+        }
+        let mut held = Vec::new();
+        let mut rejected = false;
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                tokio::select! {
+                    event = server.select_next_some() => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
+                            message: request_response::Message::Request { channel, .. }, ..
+                        })) = event {
+                            held.push(channel);
+                            assert!(held.len() <= accepted);
+                        }
+                    }
+                    event = async { libp2p::futures::stream::select_all(clients.iter_mut()).select_next_some().await } => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::OutboundFailure {
+                            error, ..
+                        })) = event {
+                            assert!(matches!(error, request_response::OutboundFailure::Io(_)), "{error:?}");
+                            rejected = true;
+                        }
+                    }
+                }
+                if rejected && held.len() == accepted {
+                    break;
+                }
+            }
+        }).await.expect("excess media stream was queued instead of reset");
+        assert_eq!(held.len(), accepted);
+        for channel in held {
+            server
+                .behaviour_mut()
+                .media
+                .send_response(
+                    channel,
+                    proto::MediaResponse {
+                        status: proto::Status::Ok.into(),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+        }
+        let mut replies = 0;
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while replies < accepted {
+                tokio::select! {
+                    _ = server.select_next_some() => {}
+                    event = async { libp2p::futures::stream::select_all(clients.iter_mut()).select_next_some().await } => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
+                            message: request_response::Message::Response { response, .. }, ..
+                        })) = event {
+                            assert_eq!(response.status, proto::Status::Ok as i32);
+                            replies += 1;
+                        }
+                    }
+                }
+            }
+        }).await.expect("accepted media streams stopped working");
     }
 
     #[tokio::test]

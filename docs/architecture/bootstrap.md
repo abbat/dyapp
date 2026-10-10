@@ -706,7 +706,11 @@ starts refusing and a line when it clears, not one per request:
   second under load, only here).
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
-  concurrent streams per connection and protocol (default 16); frames are capped at
+  concurrent streams per connection and protocol (default 16). Media additionally caps this
+  at two per connection and sixteen inbound requests across the whole node. A shared codec
+  permit is acquired before reading the body and held until the response or stream drop;
+  excess streams close without a `RATE_LIMITED` response. Empty response streams are reported
+  as transport failures rather than decoded as `STATUS_UNSPECIFIED`. Frames are capped at
   1 MiB + 64 KiB, or 6 MiB + 64 KiB on `/dyapp/media`. Request-response streams time out
   after 20 seconds, leaving time for the acceptor's 10-second write deadline.
   `max_memory_mb` (default 768, the packaged unit's `MemoryHigh`; 0 = no limit) bounds the
@@ -840,6 +844,9 @@ Unit test coverage:
   a challenge, with another connection's nonce, signed as an ack, replayed; another key reads
   and acks only its own mailbox; ack and its replay
 - `ProtoCodec` round trip over TCP between two swarms (`rust/p2p-net`)
+- Media stream admission: third request on one TCP connection and seventeenth across nine
+  connections fail without a response; accepted streams still answer. Codec tests prove that
+  rejection reads no body bytes and that completed, malformed and dropped streams release permits.
 
 Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP with libp2p
 clients:
@@ -847,7 +854,7 @@ clients:
 - A challenge from one connection is `DENIED` on another and still valid on its own
 - Bad input fails only its request: undecodable protobuf and a request over its protocol's
   wire limit get the
-  stream closed without a reply (a client reads `STATUS_UNSPECIFIED`), an unknown or empty
+  stream closed without a reply (a typed client reports a transport failure), an unknown or empty
   variant gets `UNSUPPORTED`, and the node then answers the next client
 - Rate limit over the wire: `RATE_LIMITED` past the burst, `info` still answered
 

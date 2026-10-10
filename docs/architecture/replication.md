@@ -54,9 +54,10 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
 
 ### Limits and abuse controls
 
-- At most 2 media requests per connection and 16 per node run at once. The rest are reset
-  before the body is read (the request-response codec cannot answer before reading), and the
-  client retries with backoff.
+- Implemented: at most 2 media requests per connection and 16 inbound requests per node run
+  at once. Excess streams close before the body is read, without a status reply; typed clients
+  report a transport failure and retry with backoff. See
+  [Resource guards](bootstrap.md#resource-guards).
 - The originating client pays for the fan-out. A message or profile put costs 5 token-bucket
   units. A media put costs bytes × 5 for whole copies or bytes × (K+M)/K for shards, against the
   per-owner media quota and `bytes_per_second`.
@@ -117,8 +118,9 @@ Each step is one change with multi-node Docker tests and its docs.
 2. Mailbox and profile acceptor fan-out is implemented; see
    [Replication and repair](bootstrap.md#replication-and-repair).
 3. Profile repair through node inventory is implemented; see [Bootstrap](bootstrap.md#replication-and-repair).
-4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment, the
-   concurrency limits, `get` billed by bytes, distinct holders in `dyappd status`.
+4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment,
+   `get` billed by bytes, distinct holders in `dyappd status`. Stream concurrency limits are
+   implemented; the remaining write path is planned.
 5. Media shards: 6 MiB intake, the manifest and the shard requests in `proto/node.proto`, RS with
    K = ⌈size / 1 MiB⌉, M = 4 using `rust/bootstrap/src/replication.rs`, decoding on `get`,
    `media.shard_threshold`.
