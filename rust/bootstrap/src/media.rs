@@ -547,11 +547,12 @@ impl MediaStore {
         if charge > quota.saturating_mul(5) {
             return Ok(Put::OverQuota);
         }
-        if stored == 1 {
+        let held = self.get(&hash)?;
+        if stored == 1 && held.as_deref() == Some(data) {
             return Ok(Put::Stored);
         }
         let path = self.path(&hash);
-        if self.get(&hash)?.as_deref() != Some(data) {
+        if held.as_deref() != Some(data) {
             // Written aside and renamed, so a reader never sees a partial blob.
             let dir = path.parent().unwrap_or(&self.dir);
             fs::create_dir_all(dir).map_err(storage_error)?;

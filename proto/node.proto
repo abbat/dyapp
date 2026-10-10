@@ -240,6 +240,8 @@ message MediaRequest {
     MediaReplicaPut replica_put = 6;
     MediaShardPut shard_put = 7;
     MediaShardGet shard_get = 8;
+    // Node inventory, answered only to trusted peers near the replica keys.
+    MediaHave have = 9;
   }
 }
 
@@ -288,6 +290,23 @@ message MediaShardGet {
   uint32 index = 2;
 }
 
+// No index names a whole copy or manifest; an index names a shard.
+message MediaPart {
+  bytes hash = 1;
+  optional uint32 index = 2;
+}
+
+message MediaHave {
+  repeated MediaPart items = 1;
+}
+
+message MediaInventory {
+  repeated MediaPart present = 1;
+  repeated MediaPart missing = 2;
+  repeated MediaManifest manifests = 3;
+  repeated bytes whole = 4;
+}
+
 message GetMedia {
   bytes hash = 1;
 }
@@ -313,6 +332,8 @@ message MediaResponse {
   Status status = 1;
   // get: the blob.
   bytes data = 2;
-  // keep, attach: listed hashes the node does not hold yet.
+  // keep: unrecoverable or unchecked hashes; attach: hashes not held locally.
   repeated bytes missing = 3;
+  // have: no entries are returned for keys the requester may not inventory.
+  MediaInventory inventory = 4;
 }

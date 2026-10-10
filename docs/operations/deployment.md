@@ -67,7 +67,8 @@ Users (iOS/Android/macOS/Linux)
   DHT points and acknowledge two distinct stores; larger media up to 6 MiB confirms two
   manifest holders and K shard indices. Nodes repair mailboxes and profiles.
   Media uses the store DHT, so enable both `store` and `media` on its selected holders.
-  Media repair remains planned ([replication](../architecture/bootstrap.md#replication-and-repair)).
+  Owner keeps repair missing media copies/shards within the shared 75 % traffic budget
+  ([replication](../architecture/bootstrap.md#replication-and-repair)).
 
 **Cons:**
 - Need to operate 1-3 servers (~$10-50/month)
@@ -293,7 +294,8 @@ bundled SQLite, or Docker for the containerised path.
 Nodes join through `seeds` and find each other over Kademlia. Clients write profiles and
 envelopes whole to 5 replica points; nodes repair mailbox replicas between themselves
 ([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile repair
-and Reed-Solomon media up to 6 MiB are implemented; media repair remains planned.
+and Reed-Solomon media up to 6 MiB are implemented. Owner-signed keeps trigger batched media
+repair of missing items; no repair runs while the owner remains offline.
 
 ### Container image
 

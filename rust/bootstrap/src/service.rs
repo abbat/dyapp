@@ -831,6 +831,26 @@ impl Service {
                 }
                 response
             }
+            Some(media_request::Request::Have(have)) => {
+                if have.items.len() > crate::media_repair::MAX_ITEMS
+                    || have
+                        .items
+                        .iter()
+                        .map(|p| p.hash.as_slice())
+                        .collect::<HashSet<_>>()
+                        .len()
+                        > MAX_KEEP
+                    || have
+                        .items
+                        .iter()
+                        .any(|p| p.hash.len() != 32 || p.index.is_some_and(|i| i >= 10))
+                {
+                    media_status(Status::Invalid)
+                } else {
+                    // The swarm applies trust and key proximity before reading inventory.
+                    media_status(Status::Ok)
+                }
+            }
             Some(media_request::Request::ShardGet(get)) => {
                 if get.hash.len() != 32 || get.index >= 10 {
                     return Ok(media_status(Status::Invalid));
@@ -850,6 +870,61 @@ impl Service {
                 }
             }
             None => media_status(Status::Unsupported),
+        })
+    }
+
+    pub fn media_inventory(&self, items: &[proto::MediaPart]) -> crate::Result<MediaResponse> {
+        let media = self.media.as_ref().unwrap();
+        let mut inventory = proto::MediaInventory::default();
+        let mut hashes = HashSet::new();
+        for part in items {
+            if part.hash.len() != 32
+                || part.index.is_some_and(|i| i >= 10)
+                || self.listed(&part.hash)
+            {
+                continue;
+            }
+            if hashes.insert(part.hash.clone()) {
+                if media.get(&part.hash)?.is_some_and(|d| {
+                    d.len() <= crate::replication::MEDIA_OBJECT_BYTES
+                        && dyapp_identity::sha256(&d).as_slice() == part.hash
+                }) {
+                    inventory.whole.push(part.hash.clone());
+                } else if let Some(manifest) = media
+                    .manifest(&part.hash)?
+                    .filter(|m| m.hash == part.hash && m.data_shards().is_some())
+                {
+                    inventory.manifests.push(manifest);
+                }
+            }
+            let whole = inventory.whole.contains(&part.hash);
+            let manifest = inventory.manifests.iter().find(|m| m.hash == part.hash);
+            let present = match part.index {
+                None => whole || manifest.is_some(),
+                Some(index) => {
+                    if whole {
+                        media.shard(&part.hash, index as usize)?.is_some()
+                    } else if let Some(manifest) = manifest {
+                        media
+                            .shard(&part.hash, index as usize)?
+                            .is_some_and(|d| manifest.accepts(index as usize, &d))
+                    } else {
+                        false
+                    }
+                }
+            };
+            let list = if present {
+                &mut inventory.present
+            } else {
+                &mut inventory.missing
+            };
+            if !list.contains(part) {
+                list.push(part.clone());
+            }
+        }
+        Ok(MediaResponse {
+            inventory: Some(inventory),
+            ..media_status(Status::Ok)
         })
     }
 

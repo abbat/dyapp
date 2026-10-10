@@ -3,7 +3,7 @@
 **Status:** approved design (2026-10-09), **planned**. What runs today is in
 [Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): acceptors replicate
 messages, profiles and whole-copy media with a two-holder acknowledgement, and media up to
-6 MiB with Reed-Solomon shards. Nodes repair mailboxes and profiles; media repair remains planned. This page
+6 MiB with Reed-Solomon shards. Nodes repair mailboxes, profiles and media on owner presence. This page
 is the target; as each step below lands, the bootstrap page and
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md) take over its text and this page
 shrinks.
@@ -24,7 +24,7 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
 Whole-copy and Reed-Solomon media replication up to 6 MiB, signed authorization,
 byte billing, manifests, shard validation and decoding are implemented; see
 [Bootstrap](bootstrap.md#replication-and-repair) and [Erasure coding](bootstrap.md#erasure-coding-reed-solomon).
-Media repair, ranged reads and assembly caching remain planned.
+Keep-driven media repair is implemented. Ranged reads and assembly caching remain planned.
 
 ### Limits and abuse controls
 
@@ -62,14 +62,9 @@ offline is not repaired and expires by its TTL.
   fills the gaps (`rust/bootstrap/src/node.rs`).
 - **Profile:** implemented; version inventories, rolling hourly limits and byte reservations are
   described in [Bootstrap](bootstrap.md#replication-and-repair).
-- **Media:** with each `keep`, the node that takes it checks up to 256 of the listed hashes, from a
-  cursor that moves on with each `keep`. It groups (hash, j) by holder and sends each holder one
-  `have(list)`, which answers `missing(list)`, so the request count follows the number of holders,
-  not hashes. A node answers `have` only to a trusted peer its routing table places near the key,
-  as for mailbox inventories, so it is not an oracle of stored hashes. Only what is missing is
-  fetched: a whole copy is copied, a missing shard is rebuilt from K others and the decode checks
-  the blob's SHA-256. A blob with fewer than K shards left (or no copy left) is listed in the
-  `keep` reply, and the client uploads it again.
+- **Media:** keep-driven bounded inventories, trusted-neighbour checks, missing-item repair,
+  verified decoding and unrecoverable hashes in the keep reply are implemented; see
+  [Bootstrap](bootstrap.md#replication-and-repair).
 - **Network growth:** when new nodes join, the holder of some replica keys changes and the new
   holder has nothing yet. A read there misses and the client tries the next key. Repair checks the
   current holders, so for a present owner it moves the data to them. For an owner who stays
@@ -90,7 +85,8 @@ Each step is one change with multi-node Docker tests and its docs.
    [Bootstrap](bootstrap.md#replication-and-repair).
 5. Media shards, 6 MiB intake, verified assembly and `media.shard_threshold` are implemented;
    see [Bootstrap](bootstrap.md#erasure-coding-reed-solomon).
-6. Media repair by `keep`, batched per holder.
+6. Media repair by `keep`, batched per holder, is implemented; see
+   [Bootstrap](bootstrap.md#replication-and-repair).
 7. Docs: ADR 0009 edited in place, without its stale line that presence-driven repair does not
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;
    [Deployment](../operations/deployment.md) for the new config key. This page is then removed.

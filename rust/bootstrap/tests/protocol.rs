@@ -122,6 +122,20 @@ impl Client {
         .await
     }
 
+    async fn media(&mut self, request: proto::media_request::Request) -> proto::MediaResponse {
+        self.swarm.behaviour_mut().media.send_request(
+            &self.server,
+            proto::MediaRequest {
+                request: Some(request),
+            },
+        );
+        self.wait(|event| match event {
+            BehaviourEvent::Media(event) => response(event),
+            _ => None,
+        })
+        .await
+    }
+
     async fn challenge(&mut self) -> Vec<u8> {
         let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
         self.mailbox(challenge).await.nonce
@@ -239,6 +253,121 @@ impl request_response::Codec for RawCodec {
     ) -> io::Result<()> {
         unreachable!("outbound only")
     }
+}
+
+#[tokio::test]
+async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
+    use dyapp_bootstrap::{config::Role, media::MediaStore};
+    use dyapp_p2p_net::proto::media_request::Request;
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let mut swarms = Vec::new();
+    let mut services = Vec::new();
+    let mut addresses = Vec::new();
+    for _ in 0..3 {
+        let dir = format!("/tmp/ai/test-network-keep-{}", uuid::Uuid::new_v4());
+        let mut config = NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        config.roles = vec![Role::Store, Role::Media];
+        config.network.storage_trust_minutes = 0;
+        config.limits.min_free_mb = 0;
+        let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+        service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
+        let mut swarm = node::swarm(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &service.config.roles,
+        )
+        .unwrap();
+        swarm
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let addr = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = swarm.select_next_some().await {
+                break address;
+            }
+        };
+        swarm
+            .behaviour_mut()
+            .kad
+            .set_mode(Some(libp2p::kad::Mode::Server));
+        addresses.push(addr);
+        services.push(service);
+        swarms.push(swarm);
+    }
+    let ids = swarms
+        .iter()
+        .map(|s| *s.local_peer_id())
+        .collect::<Vec<_>>();
+    let (data, hash) = (0u32..1000)
+        .find_map(|n| {
+            let data = n.to_le_bytes().to_vec();
+            let hash = dyapp_identity::sha256(&data).to_vec();
+            let holders = (0..dyapp_p2p_net::REPLICAS)
+                .map(|i| {
+                    let key = libp2p::kad::KBucketKey::new(dyapp_p2p_net::replica_key(&hash, i));
+                    *ids.iter()
+                        .min_by_key(|p| libp2p::kad::KBucketKey::from(**p).distance(&key))
+                        .unwrap()
+                })
+                .collect::<std::collections::HashSet<_>>();
+            (holders.len() == 2 && !holders.contains(&ids[0])).then_some((data, hash))
+        })
+        .expect("no blob keys outside the accepting node");
+    let owner = Identity::generate();
+    let mut keep = proto::MediaKeep {
+        hashes: vec![hash.clone()],
+        version: 1,
+        time: chrono::Utc::now().timestamp().unsigned_abs(),
+    };
+    let sign = |keep: &proto::MediaKeep| owner.sign(Domain::MediaKeep, keep.encode_to_vec());
+    let record = sign(&keep);
+    for service in &services[1..] {
+        assert_eq!(
+            status(
+                service
+                    .store_media(&proto::MediaReplicaPut {
+                        data: data.clone(),
+                        authorization: Some(proto::media_replica_put::Authorization::Keep(
+                            record.clone()
+                        )),
+                        ..Default::default()
+                    })
+                    .unwrap()
+                    .status
+            ),
+            Status::Ok
+        );
+    }
+    for (i, swarm) in swarms.iter_mut().enumerate() {
+        for j in 0..3 {
+            if i != j {
+                dyapp_p2p_net::add_peer(swarm, ids[j], addresses[j].clone());
+            }
+        }
+    }
+    for (swarm, service) in swarms.into_iter().zip(services) {
+        tokio::spawn(node::run(swarm, service));
+    }
+    let mut client = Client::connect(&addresses[0]).await;
+    let reply = client.media(Request::Keep(record)).await;
+    assert_eq!(status(reply.status), Status::Ok);
+    assert!(reply.missing.is_empty());
+    assert_eq!(
+        status(
+            client
+                .media(Request::Get(proto::GetMedia { hash: hash.clone() }))
+                .await
+                .status
+        ),
+        Status::NotFound
+    );
+    keep.version += 1;
+    let reply = client.media(Request::Keep(sign(&keep))).await;
+    assert_eq!(status(reply.status), Status::Ok);
+    assert!(
+        reply.missing.is_empty(),
+        "fresh cached network availability was replaced by a local miss"
+    );
 }
 
 #[tokio::test]

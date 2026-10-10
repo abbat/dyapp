@@ -99,6 +99,7 @@ def local(bin_dir):
                     raise RuntimeError(f"Node did not start: {tcp}")
 
             profile_repair(client, bin_dir, peers, processes, environments)
+            media_repair(client, bin_dir, storage, peers)
 
             def churn():
                 processes[1].terminate()
@@ -198,6 +199,76 @@ def profile_repair(client, bin_dir, peers, processes, environments):
     else:
         raise RuntimeError(f"Heartbeat did not repair profile: {reply}")
     print("Profile repair: restarted holder receives the newer version")
+
+
+def media_repair(client, bin_dir, storage, peers):
+    """Remove only temporary fixture copies/shards and repair them by keep."""
+    ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
+    entry = peers[0][0]
+    for size in (512 * 1024, 3 * 1024 * 1024):
+        for _ in range(40):
+            seed = os.urandom(32)
+            blob_hash = hashlib.sha256(seed * (size // 32)).hexdigest()
+            if set(replica_holders(client, entry, blob_hash)) == set(ids):
+                break
+        else:
+            raise RuntimeError("No media repair keys spanning all nodes")
+        upload = call(client, "media-sized", entry, str(size), seed.hex())
+        if any(upload[k] != "STATUS_OK" for k in ("keep", "put", "get")):
+            raise RuntimeError("Media repair upload failed")
+        details = upload["details"]
+        # Every selected holder must have finished the background fan-out.
+        for tcp, _ in peers:
+            for _ in range(30):
+                if call(client, "media-get", tcp, blob_hash)["status"] == (
+                        "STATUS_OK"):
+                    break
+                time.sleep(0.2)
+            else:
+                raise RuntimeError("Media repair source not ready")
+        target = Path(storage) / "7072"
+        hash_bytes = bytes.fromhex(blob_hash)
+        if size <= 1024 * 1024:
+            copy = target / "data" / blob_hash[:2] / blob_hash[2:4]
+            (copy / blob_hash).unlink()
+
+            def check():
+                return (copy / blob_hash).is_file()
+        else:
+            with sqlite3.connect(target / "media.db") as db:
+                row = db.execute("SELECT idx FROM shards WHERE hash = ? "
+                                 "LIMIT 1", (hash_bytes,)).fetchone()
+                if row is None:
+                    raise RuntimeError("Media repair target has no shard")
+                index = row[0]
+                db.execute("DELETE FROM shards WHERE hash = ? AND idx = ?",
+                           (hash_bytes, index))
+
+            def check():
+                with sqlite3.connect(target / "media.db") as db:
+                    return db.execute(
+                        "SELECT EXISTS (SELECT 1 FROM shards "
+                        "WHERE hash = ? AND idx = ?)",
+                        (hash_bytes, index)).fetchone()[0]
+
+        # The initial keep already inventoried this hash on the acceptor.
+        # Another holder has its own hourly schedule, as on a real owner visit.
+        visit = peers[2][0]
+        refreshed = call(client, "media-refresh", visit,
+                         details["keep_record"], details["secret"])
+        if refreshed["status"] != "STATUS_OK" or blob_hash in (
+                refreshed["missing"]):
+            raise RuntimeError(f"Media keep repair failed: {refreshed}")
+        for _ in range(30):
+            if check():
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("Keep did not restore the missing media item")
+        if call(client, "media-get", peers[1][0], blob_hash)["status"] != (
+                "STATUS_OK"):
+            raise RuntimeError("Repaired media unreadable")
+    print("Media repair: keep restores a whole copy and a missing shard")
 
 
 def media_retention(client, bin_dir, storage, peer, processes, env):

@@ -96,6 +96,16 @@ SHA-256 of the device public key (32 bytes each).
   A decoded hash mismatch deletes only local manifest/shards and returns `NOT_FOUND`;
   ownership lists stay for reupload. All selected store holders must also serve media while
   these roles share one DHT.
+  An accepted `keep` starts bounded node repair before returning `missing`: up to 256 hashes,
+  one `have(MediaHave)` per current holder, one inventory per hash per rolling hour.
+  `MediaPart` has a blob hash and optional shard index; no index means whole copy/manifest.
+  `MediaResponse.inventory` partitions allowed parts into `present` and `missing`, includes
+  manifests and names available whole copies. Untrusted peers or peers outside the nearest
+  replica-key neighbourhood receive no entries. Only missing items are written; rebuilding
+  verifies the final blob hash and carries the signed keep. Repair shares the 75 % assembly
+  budget and media dispatch limits. With no copy/K indices, or an incomplete check, the keep
+  reply requests a client reupload. There are four active keeps with fifteen-second deadlines;
+  local availability without repair remains the fallback when admission is unavailable.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it on that node, so release every replica holder.
 

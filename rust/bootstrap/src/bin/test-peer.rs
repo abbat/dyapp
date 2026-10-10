@@ -27,6 +27,8 @@
 //!   `"CHANGED"` if the blob came back different;
 //! - `test-peer media-sized <multiaddr> <bytes> <32-byte seed hex>`: the same round trip
 //!   with owner details, repeating the seed to generate a large blob without a large CLI argument;
+//! - `test-peer media-refresh <multiaddr> <record hex> <secret hex>`: signs a newer keep and
+//!   returns `{"status", "missing", "keep_record"}`;
 //! - `test-peer turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
 //! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
@@ -105,13 +107,24 @@ async fn main() -> anyhow::Result<()> {
             let record = SignedRecord::decode(unhex(record)?.as_slice())?;
             timeout(media_call(addr, media_request::Request::Keep(record))).await?
         }
+        ["media-refresh", addr, record, secret] => {
+            let record = SignedRecord::decode(unhex(record)?.as_slice())?;
+            let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
+            keep.version += 1;
+            keep.time = chrono::Utc::now().timestamp().unsigned_abs();
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let record = Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
+            let mut response = timeout(media_call(addr, media_request::Request::Keep(record.clone()))).await?;
+            response["keep_record"] = hex(&record.encode_to_vec()).into();
+            response
+        }
         ["media-get", addr, hash] => {
             let get = proto::GetMedia { hash: unhex(hash)? };
             timeout(media_call(addr, media_request::Request::Get(get))).await?
         }
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
-        _ => bail!("usage: test-peer sign-profile [secret version] | heartbeat <addr> <secret> | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
+        _ => bail!("usage: test-peer sign-profile [secret version] | heartbeat <addr> <secret> | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-refresh <addr> <record> <secret> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
     };
     println!("{output}");
     Ok(())
@@ -200,7 +213,7 @@ async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
         time: chrono::Utc::now().timestamp().unsigned_abs(),
     };
     let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-    let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()) });
+    let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()), "secret": hex(&owner.secret()) });
     let steps = [
         media_request::Request::Keep(record),
         media_request::Request::Put(proto::MediaPut {
@@ -249,7 +262,9 @@ async fn media_call(addr: &str, request: media_request::Request) -> anyhow::Resu
         _ => None,
     })
     .await?;
-    Ok(json!({ "status": status(response.status), "data": hex(&response.data) }))
+    Ok(
+        json!({ "status": status(response.status), "data": hex(&response.data), "missing": response.missing.iter().map(|h| hex(h)).collect::<Vec<_>>() }),
+    )
 }
 
 async fn turn(addr: &str) -> anyhow::Result<Value> {
