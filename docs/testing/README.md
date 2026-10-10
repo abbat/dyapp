@@ -63,27 +63,28 @@ Multi-peer scenario testing:
 
 ### 3. Property-Based Tests
 
-Using `proptest` crate in each module.
+Implemented with the existing bootstrap `proptest` dev-dependency, with 64 cases per
+property:
 
-**Examples:**
-```rust
-#[cfg(test)]
-mod tests {
-    use proptest::prelude::*;
+- `config.rs`: nested assignment preserves the value and unrelated fields; file <
+  environment < CLI precedence; string CLI values remain literal; section collisions and
+  unknown options fail; media shard thresholds follow the documented range.
+- `rust/bootstrap/tests/properties.rs`: every Message JSON field survives serialization;
+  SignedRecord protobuf round-trips preserve payload and signature bytes, signatures stay
+  bound to their domain, and an altered payload fails verification.
 
-    proptest! {
-        #[test]
-        fn prop_lamport_clock_monotonic(a in 1u64..100, b in 1u64..100) {
-            let clock = LamportClock::new();
-            clock.observe(a);
-            clock.observe(b);
-            assert!(clock.current() > a && clock.current() > b);
-        }
-    }
-}
-```
+Boundary cases (including zero, the threshold endpoints and integer extremes) are selected
+explicitly rather than relying on random generation to discover them. Fixed-case unit tests
+remain useful for specific regressions. These generated checks sample inputs; they are not
+proofs for the entire input space. Round-trips do not establish compatibility with an older
+encoder; historical wire fixtures serve that separate purpose. Fuzzing remains planned.
 
-**Run:** `cargo test proptest`
+**Run:** `make test` includes all properties. For a focused run, use
+`cargo test -p dyapp-bootstrap --locked prop_` inside the prepared dev container.
+Raise the configured case count for a larger experiment. Failures print the minimal input and seed;
+regression seeds are saved under `/tmp/ai/dyapp-{config,wire}-proptest-regressions.txt`.
+Preserve a failing seed or turn its minimized input into a fixed regression before discarding
+a container; these temporary files are not committed automatically.
 
 ### 4. Fuzz Testing (Future)
 

@@ -614,6 +614,104 @@ fn check_writable(dir: &Path) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 64,
+            failure_persistence: Some(Box::new(
+                proptest::test_runner::FileFailurePersistence::Direct(
+                    "/tmp/ai/dyapp-config-proptest-regressions.txt"
+                )
+            )),
+            ..ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_set_preserves_values_and_unrelated_fields(
+            path in proptest::collection::vec("[a-z]{1,8}", 1..5),
+            value in any::<i64>(),
+        ) {
+            let mut table = toml::Table::new();
+            table.insert("__sentinel".into(), toml::Value::Boolean(true));
+            set(&mut table, &path, toml::Value::Integer(value), "generated").unwrap();
+            let root = toml::Value::Table(table);
+            let actual = path.iter().try_fold(&root, |node, key| node.get(key));
+            prop_assert_eq!(actual, Some(&toml::Value::Integer(value)));
+            prop_assert_eq!(root.get("__sentinel"), Some(&toml::Value::Boolean(true)));
+        }
+
+        #[test]
+        fn prop_config_precedence(
+            file_value in any::<u32>(),
+            env_value in any::<u32>(),
+            cli_value in any::<u32>(),
+            use_env in any::<bool>(),
+            use_cli in any::<bool>(),
+        ) {
+            let dir = temp_dir();
+            fs::create_dir_all(&dir)?;
+            let file = dir.join("config.toml");
+            fs::write(&file, format!("[limits]\nrequests_per_second = {file_value}\n"))?;
+            let env = if use_env {
+                vec![("DYAPPD__LIMITS__REQUESTS_PER_SECOND".into(), env_value.to_string())]
+            } else {
+                vec![]
+            };
+            let options = if use_cli {
+                vec![("limits.requests-per-second".into(), cli_value.to_string())]
+            } else {
+                vec![]
+            };
+            let (config, ignored) = NodeConfig::load(Some(&file), env, &options).unwrap();
+            let expected = if use_cli { cli_value } else if use_env { env_value } else { file_value };
+            prop_assert_eq!(config.limits.requests_per_second, expected);
+            prop_assert!(ignored.is_empty());
+        }
+
+        #[test]
+        fn prop_cli_strings_remain_literal(
+            text in prop_oneof![Just("00123".to_owned()), Just("a=b,c=d".to_owned()), ".{0,80}"],
+        ) {
+            let (config, _) = NodeConfig::load(
+                None,
+                Vec::<(String, String)>::new(),
+                &[("turn.secret".into(), text.clone())],
+            ).unwrap();
+            prop_assert_eq!(config.turn.secret, text);
+        }
+
+        #[test]
+        fn prop_section_collisions_and_unknown_options_are_errors(
+            key in "[a-z]{1,12}",
+            value in any::<i64>(),
+        ) {
+            let mut table = toml::Table::new();
+            table.insert("section".into(), toml::Value::Integer(value));
+            let error = set(&mut table, &["section".into(), key.clone()], toml::Value::Integer(1), "generated")
+                .unwrap_err().to_string();
+            prop_assert!(error.contains("section is not a section"));
+            let option = format!("unknown-{key}");
+            let error = NodeConfig::load(
+                None, Vec::<(String, String)>::new(), &[(option.clone(), value.to_string())]
+            ).unwrap_err().to_string();
+            let expected = format!("unknown option --{option}");
+            prop_assert!(error.contains(&expected));
+        }
+
+        #[test]
+        fn prop_media_threshold_validates_documented_range(
+            threshold in prop_oneof![
+                Just(0usize), Just(1usize), Just(1usize << 20),
+                Just((1usize << 20) + 1), Just(usize::MAX), 0usize..=(2usize << 20)
+            ],
+        ) {
+            let mut config = NodeConfig::default();
+            config.storage.dir = temp_dir();
+            config.media.shard_threshold = threshold;
+            prop_assert_eq!(config.validate().is_ok(), (1..=1048576).contains(&threshold));
+        }
+    }
 
     fn temp_dir() -> PathBuf {
         PathBuf::from(format!("/tmp/ai/test-config-{}", uuid::Uuid::new_v4()))
