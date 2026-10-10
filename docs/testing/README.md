@@ -86,7 +86,30 @@ regression seeds are saved under `/tmp/ai/dyapp-{config,wire}-proptest-regressio
 Preserve a failing seed or turn its minimized input into a fixed regression before discarding
 a container; these temporary files are not committed automatically.
 
-### 4. Fuzz Testing (Future)
+### 4. Compatibility Fixtures
+
+`rust/bootstrap/tests/compatibility.rs` protects selected v1 contracts using committed
+fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json dependencies:
+
+- A signed profile with a fixed public test key: old protobuf bytes decode and verify;
+  the current producer emits the same payload, signature and record bytes. Domain changes
+  are detected even when current sign/verify round-trips still pass.
+- A Message JSON baseline with Unicode, a newline, the maximum Lamport timestamp, status
+  and optional byte arrays: legacy fields decode correctly and current output matches.
+- Two selected operator diagnostics: an unknown config option and an invalid deny entry.
+  The CLI test uses isolated temporary storage and clears inherited configuration/backtrace
+  settings. Dynamic paths, timestamps and incidental messages are not snapshotted.
+
+`make test` runs these checks. Review fixture diffs as changes to an external contract;
+never auto-update a baseline just to make a failed check pass. For an intentional format
+migration, add a versioned fixture and test the required legacy decoding behavior, explaining
+the compatibility impact in the change. These fixtures capture a small baseline, not every
+wire type or every old release. Generated properties complement them by covering more values.
+
+No snapshot CLI is needed for these three fixtures. Consider a framework only if fixture
+volume makes manual review and loading costly.
+
+### 5. Fuzz Testing (Future)
 
 ```bash
 cargo +nightly fuzz run fuzz_message_parsing

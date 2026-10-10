@@ -1,0 +1,2 @@
+config: unknown option --missing.option, see dyappd --help
+deny: Error: not-an-entry: not a peer ID, a SHA-256 or an IP group of the node's prefix

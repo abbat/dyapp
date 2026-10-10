@@ -1,0 +1,1 @@
+{"id":"fixture-v1","sender_id":"sender","recipient_id":"recipient","text":"hello\nπ","lamport_timestamp":18446744073709551615,"created_at":1700000000000,"status":"Delivered","encrypted_payload":[0,255],"signature":[1,2,3]}
