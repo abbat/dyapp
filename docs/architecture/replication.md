@@ -2,8 +2,8 @@
 
 **Status:** approved design (2026-10-09), **planned**. What runs today is in
 [Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): acceptors replicate
-messages, profiles and media up to 1 MiB with a two-holder acknowledgement; nodes repair
-mailboxes and profiles. Media shards and repair remain planned. This page
+messages, profiles and whole-copy media with a two-holder acknowledgement, and media up to
+6 MiB with Reed-Solomon shards. Nodes repair mailboxes and profiles; media repair remains planned. This page
 is the target; as each step below lands, the bootstrap page and
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md) take over its text and this page
 shrinks.
@@ -21,36 +21,10 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
 
 ### Media
 
-Whole-copy replication up to 1 MiB, signed replica authorization, five-copy billing, byte-billed
-gets and distinct confirmed-holder status are implemented; see
-[Bootstrap](bootstrap.md#replication-and-repair). The following extensions remain planned.
-
-- The client sends a whole blob in one `put`. The protocol maximum is **6 MiB**
-  (`max_media_bytes` in `info`). The client splits a larger file into blobs, and the message lists
-  their hashes.
-- A node stores no object (whole blob, manifest or shard) larger than **1 MiB**.
-- The acceptor picks the layout by its own config key `media.shard_threshold`. The default is
-  1 MiB, and a value above 1 MiB is rejected at startup.
-  - **Size ≤ threshold:** whole copies at R=5 on the holders of `replica_key(hash, i)`, written as
-    in the steps above.
-  - **Size > threshold:** Reed-Solomon with K = ⌈size / 1 MiB⌉ data shards (so K ≤ 6) and M = 4
-    parity shards; the protocol requires M ≥ 4. Shard j goes to the holder of
-    `replica_key(hash, j)`, for j in `0..K+M`.
-- A **manifest** holds the blob length and the SHA-256 of every shard. K and M follow from the
-  length, so the manifest of a blob is unique: a node keeps the first one it gets and answers
-  `invalid` to a different one. It is stored at R=5 on the blob's own replica keys. The manifest
-  is what marks an object as sharded, so every stored object describes itself and the threshold
-  need not match across nodes. Only the 6 MiB and 1 MiB limits are protocol constants.
-- A whole blob wins: a node that holds a whole copy whose SHA-256 matches ignores manifests for
-  that hash.
-- The acceptor answers `ok` once the manifest (2 copies) and K shards are stored. The other M
-  shards are sent in the background.
-- Extend the implemented signed `replica_put(blob)` with manifests, plus
-  `shard_put(hash, j, shard)` and `shard_get(hash, j)`. Shards use the same independently
-  verified keep or attachment authorization as whole copies. A shard must match its manifest.
-- Small networks: a node may hold several copies or shards of one blob (keyed by hash and j), and
-  a copy that lands on a node that already has it counts as stored. With fewer than 10 distinct
-  holders the loss tolerance drops; `dyappd status` shows how many distinct nodes hold replicas.
+Whole-copy and Reed-Solomon media replication up to 6 MiB, signed authorization,
+byte billing, manifests, shard validation and decoding are implemented; see
+[Bootstrap](bootstrap.md#replication-and-repair) and [Erasure coding](bootstrap.md#erasure-coding-reed-solomon).
+Media repair, ranged reads and assembly caching remain planned.
 
 ### Limits and abuse controls
 
@@ -58,10 +32,8 @@ gets and distinct confirmed-holder status are implemented; see
   at once. Excess streams close before the body is read, without a status reply; typed clients
   report a transport failure and retry with backoff. See
   [Resource guards](bootstrap.md#resource-guards).
-- Whole-copy fan-out billing, byte-billed media gets and peer limits for replica puts are
-  implemented; see [Bootstrap](bootstrap.md#replication-and-repair). Sharded uploads will cost
-  bytes × (K+M)/K against the owner's quota and `bytes_per_second`; shard requests will count
-  against the sending node's peer limits.
+- Whole-copy and sharded upload billing, byte-billed gets, shard request limits and bounded
+  assembly are implemented; see [Bootstrap](bootstrap.md#erasure-coding-reed-solomon).
 - A dishonest acceptor that skips the fan-out or writes a fake manifest is caught three ways:
   owner-presence repair below, the sender's retry queue, and the hash check after decoding.
 
@@ -71,11 +43,8 @@ gets and distinct confirmed-holder status are implemented; see
   next replica key.
 - **Profile:** get from the holder of replica key 0; on a miss try the next key. The highest
   version wins.
-- **Media:** get from the holder of any replica key. If it holds the whole blob, it returns it. If
-  it holds a manifest, it fetches K shards with `shard_get`, decodes them, checks the blob's
-  SHA-256 and returns the whole blob. On a mismatch it deletes the manifest and its shards and
-  answers `not_found`. The client checks the hash too. Assembly comes out of the node's repair
-  budget below. Planned on top of the manifest: `get(hash, offset, len)` answers one
+- **Media:** whole reads and verified assembly are implemented; see
+  [Bootstrap](bootstrap.md#erasure-coding-reed-solomon). Planned on top of the manifest: `get(hash, offset, len)` answers one
   piece of at most 1 MiB with the blob's total size, so a client fetches large blobs piece by
   piece and resumes after a break; without `len` it is the whole get. A blob assembled from
   shards is kept as `<media dir>/cache/<hash>` for `limits.media_cache_minutes` (default 10)
@@ -119,9 +88,8 @@ Each step is one change with multi-node Docker tests and its docs.
 3. Profile repair through node inventory is implemented; see [Bootstrap](bootstrap.md#replication-and-repair).
 4. Media whole copies and stream concurrency limits are implemented; see
    [Bootstrap](bootstrap.md#replication-and-repair).
-5. Media shards: 6 MiB intake, the manifest and the shard requests in `proto/node.proto`, RS with
-   K = ⌈size / 1 MiB⌉, M = 4 using `rust/bootstrap/src/replication.rs`, decoding on `get`,
-   `media.shard_threshold`.
+5. Media shards, 6 MiB intake, verified assembly and `media.shard_threshold` are implemented;
+   see [Bootstrap](bootstrap.md#erasure-coding-reed-solomon).
 6. Media repair by `keep`, batched per holder.
 7. Docs: ADR 0009 edited in place, without its stale line that presence-driven repair does not
    exist; [Bootstrap](bootstrap.md) sections Replication and repair, Erasure coding and Protocol;

@@ -51,7 +51,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
   ├─ libp2p node protocol (profiles and mailbox today)
   ├─ Profile index (search by age/location)
   ├─ Peer discovery (announce presence)
-  └─ Replication (planned; whole records to 5 points, Reed-Solomon K ≤ 6/M = 4 for media above 1 MiB, see ADR 0009)
+  └─ Replication (whole records to 5 points; Reed-Solomon K ≤ 6/M = 4 for larger media, see ADR 0009)
 
                     ↓ (plaintext today; encryption planned)
 
@@ -64,7 +64,8 @@ Users (iOS/Android/macOS/Linux)
 - Offline message delivery
 - Profile searching
 - Node failure tolerance: acceptors replicate messages, profiles and media up to 1 MiB to five
-  DHT points and acknowledge two distinct stores; nodes repair mailboxes and profiles.
+  DHT points and acknowledge two distinct stores; larger media up to 6 MiB confirms two
+  manifest holders and K shard indices. Nodes repair mailboxes and profiles.
   Media uses the store DHT, so enable both `store` and `media` on its selected holders.
   Media repair remains planned ([replication](../architecture/bootstrap.md#replication-and-repair)).
 
@@ -199,7 +200,7 @@ profiles_max_mb = 1024        # a full store answers FULL to writes; disk use st
                               # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
 media_max_mb = 10240          # media role; evict attachments then oldest owners to 95%
-media_per_owner_mb = 10
+media_per_owner_mb = 10       # billed bytes: whole copies × 5, shards ceil(bytes × (K+4)/K)
 attachment_retention_hours = 168  # unreleased chat attachments
 # media_cache_minutes = 10    # planned: assembled blobs kept after their last read
 media_requests_per_second = 10
@@ -216,6 +217,9 @@ ipv6_prefix = 48
 sender_puts_per_second = 10   # envelopes per sender key
 strikes_to_ban = 100          # refused floods and bad signatures that ban a peer
 ban_minutes = 10
+
+[media]
+shard_threshold = 1048576    # bytes; 1..1048576, larger uploads use Reed-Solomon
 
 [maintenance]
 interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
@@ -288,8 +292,8 @@ bundled SQLite, or Docker for the containerised path.
 
 Nodes join through `seeds` and find each other over Kademlia. Clients write profiles and
 envelopes whole to 5 replica points; nodes repair mailbox replicas between themselves
-([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile and
-media repair and Reed–Solomon for large media are planned.
+([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile repair
+and Reed-Solomon media up to 6 MiB are implemented; media repair remains planned.
 
 ### Container image
 

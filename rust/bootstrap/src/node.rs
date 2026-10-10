@@ -2,6 +2,7 @@
 
 use crate::config::{Limits, Role};
 use crate::deny::DenyStore;
+use crate::replication::MediaManifestExt;
 use crate::service::{Peer, Service, SHED_MEDIA};
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, Status};
@@ -162,6 +163,7 @@ enum PutRecord {
     Mailbox(SignedRecord),
     Profile(SignedRecord),
     Media(proto::MediaReplicaPut),
+    Sharded(proto::MediaReplicaPut, Arc<Vec<Vec<u8>>>),
 }
 
 enum PutReply {
@@ -222,6 +224,8 @@ struct PendingPut {
     stored: HashSet<PeerId>,
     required: usize,
     stale: Option<SignedRecord>,
+    shard_sent: HashSet<(usize, PeerId)>,
+    shard_stored: HashSet<usize>,
 }
 
 impl PendingPut {
@@ -234,6 +238,8 @@ impl PendingPut {
             stored: HashSet::new(),
             required: if isolated { 1 } else { 2 },
             stale: None,
+            shard_sent: HashSet::new(),
+            shard_stored: HashSet::new(),
         }
     }
 
@@ -264,7 +270,15 @@ impl PendingPut {
     fn result(&self, now: Instant) -> Option<Status> {
         if now >= self.deadline {
             Some(Status::Full)
-        } else if self.stored.len() >= self.required {
+        } else if self.stored.len() >= self.required
+            && match &self.record {
+                PutRecord::Sharded(replica, _) => {
+                    self.shard_stored.len()
+                        >= replica.manifest.as_ref().unwrap().data_shards().unwrap()
+                }
+                _ => true,
+            }
+        {
             Some(if self.stale.is_some() {
                 Status::Stale
             } else {
@@ -274,6 +288,20 @@ impl PendingPut {
             None
         }
     }
+}
+
+struct MediaRead {
+    manifest: proto::MediaManifest,
+    reply: libp2p::request_response::ResponseChannel<proto::MediaResponse>,
+    deadline: Instant,
+    shards: HashMap<usize, Vec<u8>>,
+}
+
+#[derive(Clone, Copy)]
+enum MediaJob {
+    Put(u64),
+    ShardPut(u64, usize),
+    ShardGet(u64, usize),
 }
 
 /// Chooses the actual closest holder, including this node, before applying trust policy.
@@ -290,6 +318,8 @@ fn holder(me: PeerId, key: &[u8], nodes: &[kad::PeerInfo]) -> PeerId {
 /// A lookup of a replica key and what follows it.
 enum Lookup {
     Put(u64),
+    ShardPut(u64, usize),
+    ShardGet(u64, usize),
     /// A device's ack, forwarded to the closest node.
     Ack(SignedRecord),
     /// A mailbox whose inventory goes to the closest node.
@@ -340,6 +370,11 @@ struct Replicas {
     mailbox_puts: HashMap<OutboundRequestId, u64>,
     profile_puts: HashMap<OutboundRequestId, u64>,
     media_puts: HashMap<OutboundRequestId, u64>,
+    shard_puts: HashMap<OutboundRequestId, (u64, usize)>,
+    shard_gets: HashMap<OutboundRequestId, (u64, usize)>,
+    media_reads: HashMap<u64, MediaRead>,
+    media_queue: std::collections::VecDeque<(PeerId, MediaJob)>,
+    media_outgoing: HashMap<OutboundRequestId, PeerId>,
     /// Most recent media write and its distinct confirmed holders, including background replies.
     media_holders: (u64, usize),
     lookups: HashMap<kad::QueryId, Lookup>,
@@ -476,6 +511,29 @@ impl Replicas {
             reply.send(swarm, service, Status::Full, None);
             return;
         }
+        let record = match record {
+            PutRecord::Media(mut replica)
+                if replica.data.len() > service.config.media.shard_threshold =>
+            {
+                match crate::replication::media_encode(&replica.data) {
+                    Ok((manifest, shards)) => {
+                        replica.data.clear();
+                        replica.manifest = Some(manifest);
+                        PutRecord::Sharded(replica, Arc::new(shards))
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "media encode failed");
+                        reply.send(swarm, service, Status::Invalid, None);
+                        return;
+                    }
+                }
+            }
+            record => record,
+        };
+        let shard_count = match &record {
+            PutRecord::Sharded(_, shards) => shards.len(),
+            _ => 0,
+        };
         let isolated = dyapp_p2p_net::known_peers(swarm).is_empty();
         let key = match &record {
             PutRecord::Mailbox(record) => {
@@ -487,6 +545,7 @@ impl Replicas {
                 dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec()
             }
             PutRecord::Media(replica) => dyapp_identity::sha256(&replica.data).to_vec(),
+            PutRecord::Sharded(replica, _) => replica.manifest.as_ref().unwrap().hash.clone(),
         };
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
@@ -501,6 +560,17 @@ impl Replicas {
                     .kad
                     .get_closest_peers(replica_key(&key, i));
                 self.lookups.insert(query, Lookup::Put(id));
+            }
+        }
+        for index in 0..shard_count {
+            if isolated {
+                self.shard_holder(swarm, service, id, index, *swarm.local_peer_id());
+            } else {
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(&key, index as u8));
+                self.lookups.insert(query, Lookup::ShardPut(id, index));
             }
         }
         self.finish_puts(swarm, service, Instant::now());
@@ -535,10 +605,12 @@ impl Replicas {
                     Ok(response) => put.confirm(to, response.status, response.record),
                     Err(error) => tracing::error!(%error, "local profile replica failed"),
                 },
-                PutRecord::Media(replica) => match service.store_media(replica) {
-                    Ok(response) => put.confirm(to, response.status, None),
-                    Err(error) => tracing::error!(%error, "local media replica failed"),
-                },
+                PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
+                    match service.store_media(replica) {
+                        Ok(response) => put.confirm(to, response.status, None),
+                        Err(error) => tracing::error!(%error, "local media replica failed"),
+                    }
+                }
             }
         } else if self.trust.trusted(&to) {
             match &put.record {
@@ -560,16 +632,9 @@ impl Replicas {
                     let request_id = swarm.behaviour_mut().profile.send_request(&to, request);
                     self.profile_puts.insert(request_id, id);
                 }
-                PutRecord::Media(replica) => {
-                    let request = proto::MediaRequest {
-                        request: Some(proto::media_request::Request::ReplicaPut(replica.clone())),
-                    };
-                    // Payload fan-out was prepaid at intake; only framing is added here.
-                    service
-                        .traffic
-                        .add((request.encoded_len() - replica.data.len()) as u64);
-                    let request_id = swarm.behaviour_mut().media.send_request(&to, request);
-                    self.media_puts.insert(request_id, id);
+                PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
+                    let _ = replica;
+                    self.media_queue.push_back((to, MediaJob::Put(id)));
                 }
             }
         }
@@ -578,7 +643,9 @@ impl Replicas {
     fn finish_puts(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
         let mut profiles = Vec::new();
         for (id, put) in &mut self.puts {
-            if matches!(put.record, PutRecord::Media(_)) && *id >= self.media_holders.0 {
+            if matches!(put.record, PutRecord::Media(_) | PutRecord::Sharded(_, _))
+                && *id >= self.media_holders.0
+            {
                 self.media_holders = (*id, put.stored.len());
             }
             if let Some(status) = put.result(now) {
@@ -603,11 +670,15 @@ impl Replicas {
                 .any(|lookup| matches!(lookup, Lookup::Put(p) if p == id))
                 || self.mailbox_puts.values().any(|p| p == id)
                 || self.profile_puts.values().any(|p| p == id)
-                || self.media_puts.values().any(|p| p == id);
+                || self.media_puts.values().any(|p| p == id)
+                || self.shard_puts.values().any(|(p, _)| p == id)
+                || self.lookups.values().any(|l| matches!(l, Lookup::ShardPut(p, _) if p == id))
+                || self.media_queue.iter().any(|(_, job)| matches!(job, MediaJob::Put(p) | MediaJob::ShardPut(p, _) if p == id));
             now < put.deadline && (put.reply.is_some() || active)
         });
         for (id, lookup) in &self.lookups {
-            if matches!(lookup, Lookup::Put(put) if !self.puts.contains_key(put)) {
+            if matches!(lookup, Lookup::Put(put) | Lookup::ShardPut(put, _) if !self.puts.contains_key(put))
+            {
                 if let Some(mut query) = swarm.behaviour_mut().kad.query_mut(id) {
                     query.finish();
                 }
@@ -616,8 +687,232 @@ impl Replicas {
         self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
         self.profile_puts.retain(|_, id| self.puts.contains_key(id));
         self.media_puts.retain(|_, id| self.puts.contains_key(id));
+        self.shard_puts
+            .retain(|_, (id, _)| self.puts.contains_key(id));
         self.lookups
-            .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) if !self.puts.contains_key(id)));
+            .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) | Lookup::ShardPut(id, _) if !self.puts.contains_key(id)));
+        self.finish_reads(swarm, service, now);
+        self.drain_media(swarm, service);
+    }
+
+    fn shard_holder(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        id: u64,
+        index: usize,
+        to: PeerId,
+    ) {
+        let Some(put) = self.puts.get_mut(&id) else {
+            return;
+        };
+        let PutRecord::Sharded(replica, shards) = &put.record else {
+            return;
+        };
+        if !put.shard_sent.insert((index, to)) {
+            return;
+        }
+        if to == *swarm.local_peer_id() {
+            let request = proto::MediaShardPut {
+                replica: Some(replica.clone()),
+                index: index as u32,
+                data: shards[index].clone(),
+            };
+            match service.store_shard(&request) {
+                Ok(response) if response.status == i32::from(Status::Ok) => {
+                    put.shard_stored.insert(index);
+                }
+                Ok(_) => {}
+                Err(error) => tracing::error!(%error, "local shard failed"),
+            }
+        } else if self.trust.trusted(&to) {
+            self.media_queue
+                .push_back((to, MediaJob::ShardPut(id, index)));
+        }
+    }
+
+    /// The remote media codec admits two streams per connection: queue excess work locally.
+    fn drain_media(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service) {
+        let count = self.media_queue.len();
+        for _ in 0..count {
+            let (to, job) = self.media_queue.pop_front().unwrap();
+            let live = match job {
+                MediaJob::Put(id) | MediaJob::ShardPut(id, _) => self.puts.contains_key(&id),
+                MediaJob::ShardGet(id, _) => self.media_reads.contains_key(&id),
+            };
+            if !live {
+                continue;
+            }
+            if self.media_outgoing.len() >= 16
+                || self
+                    .media_outgoing
+                    .values()
+                    .filter(|peer| **peer == to)
+                    .count()
+                    >= 2
+            {
+                self.media_queue.push_back((to, job));
+                continue;
+            }
+            let request = match job {
+                MediaJob::Put(id) => {
+                    let Some(put) = self.puts.get(&id) else {
+                        continue;
+                    };
+                    let replica = match &put.record {
+                        PutRecord::Media(r) | PutRecord::Sharded(r, _) => r.clone(),
+                        _ => continue,
+                    };
+                    proto::media_request::Request::ReplicaPut(replica)
+                }
+                MediaJob::ShardPut(id, index) => {
+                    let Some(put) = self.puts.get(&id) else {
+                        continue;
+                    };
+                    let PutRecord::Sharded(replica, shards) = &put.record else {
+                        continue;
+                    };
+                    proto::media_request::Request::ShardPut(proto::MediaShardPut {
+                        replica: Some(replica.clone()),
+                        index: index as u32,
+                        data: shards[index].clone(),
+                    })
+                }
+                MediaJob::ShardGet(id, index) => {
+                    let Some(read) = self.media_reads.get(&id) else {
+                        continue;
+                    };
+                    if read.shards.contains_key(&index) {
+                        continue;
+                    }
+                    proto::media_request::Request::ShardGet(proto::MediaShardGet {
+                        hash: read.manifest.hash.clone(),
+                        index: index as u32,
+                    })
+                }
+            };
+            let prepaid = match &request {
+                proto::media_request::Request::ReplicaPut(r) => r.data.len(),
+                proto::media_request::Request::ShardPut(p) => p.data.len(),
+                _ => 0,
+            };
+            let request = proto::MediaRequest {
+                request: Some(request),
+            };
+            service
+                .traffic
+                .add((request.encoded_len() - prepaid) as u64);
+            let request_id = swarm.behaviour_mut().media.send_request(&to, request);
+            self.media_outgoing.insert(request_id, to);
+            match job {
+                MediaJob::Put(id) => {
+                    self.media_puts.insert(request_id, id);
+                }
+                MediaJob::ShardPut(id, index) => {
+                    self.shard_puts.insert(request_id, (id, index));
+                }
+                MediaJob::ShardGet(id, index) => {
+                    self.shard_gets.insert(request_id, (id, index));
+                }
+            }
+        }
+    }
+
+    fn start_read(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        manifest: proto::MediaManifest,
+        reply: libp2p::request_response::ResponseChannel<proto::MediaResponse>,
+    ) {
+        let id = self.next_put;
+        self.next_put = self.next_put.wrapping_add(1);
+        let mut read = MediaRead {
+            manifest,
+            reply,
+            deadline: Instant::now() + PUT_TIMEOUT,
+            shards: HashMap::new(),
+        };
+        for index in 0..read.manifest.shard_hashes.len() {
+            match service
+                .media
+                .as_ref()
+                .unwrap()
+                .shard(&read.manifest.hash, index)
+            {
+                Ok(Some(data)) if read.manifest.accepts(index, &data) => {
+                    read.shards.insert(index, data);
+                }
+                Ok(_) => {}
+                Err(error) => tracing::error!(%error, "local shard read failed"),
+            }
+        }
+        let hash = read.manifest.hash.clone();
+        let count = read.manifest.shard_hashes.len();
+        self.media_reads.insert(id, read);
+        if self.media_reads[&id].shards.len()
+            < self.media_reads[&id].manifest.data_shards().unwrap()
+        {
+            for index in 0..count {
+                if self.media_reads[&id].shards.contains_key(&index) {
+                    continue;
+                }
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(&hash, index as u8));
+                self.lookups.insert(query, Lookup::ShardGet(id, index));
+            }
+        }
+        self.finish_puts(swarm, service, Instant::now());
+    }
+
+    fn finish_reads(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
+        let done: Vec<_> = self
+            .media_reads
+            .iter()
+            .filter_map(|(id, read)| {
+                (now >= read.deadline || read.shards.len() >= read.manifest.data_shards().unwrap())
+                    .then_some(*id)
+            })
+            .collect();
+        for id in done {
+            let read = self.media_reads.remove(&id).unwrap();
+            let shards: Vec<_> = read.shards.into_iter().collect();
+            let response = if shards.len() >= read.manifest.data_shards().unwrap() {
+                service
+                    .assemble_media(&read.manifest, &shards)
+                    .unwrap_or_else(|error| {
+                        tracing::error!(%error, "media assembly failed");
+                        proto::MediaResponse {
+                            status: Status::NotFound.into(),
+                            ..Default::default()
+                        }
+                    })
+            } else {
+                proto::MediaResponse {
+                    status: Status::NotFound.into(),
+                    ..Default::default()
+                }
+            };
+            service
+                .traffic
+                .add((response.encoded_len() - response.data.len()) as u64);
+            let _ = swarm
+                .behaviour_mut()
+                .media
+                .send_response(read.reply, response);
+        }
+        for (id, lookup) in &self.lookups {
+            if matches!(lookup, Lookup::ShardGet(read, _) if !self.media_reads.contains_key(read)) {
+                if let Some(mut query) = swarm.behaviour_mut().kad.query_mut(id) {
+                    query.finish();
+                }
+            }
+        }
+        self.lookups.retain(
+            |_, l| !matches!(l, Lookup::ShardGet(id, _) if !self.media_reads.contains_key(id)),
+        );
     }
 }
 
@@ -752,7 +1047,10 @@ fn after_lookup(
     node: kad::PeerInfo,
 ) {
     let (request, repair) = match lookup {
-        Lookup::Put(_) | Lookup::ProfileRepair(_) => unreachable!("lookups use all returned peers"),
+        Lookup::Put(_)
+        | Lookup::ShardPut(_, _)
+        | Lookup::ShardGet(_, _)
+        | Lookup::ProfileRepair(_) => unreachable!("lookups use all returned peers"),
         Lookup::Ack(ack) => (mailbox_request::Request::ReplicaAck(ack), None),
         Lookup::Repair(mailbox) => {
             let target = kad::KBucketKey::new(key);
@@ -971,9 +1269,23 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         drop_banned(&mut swarm, &service, id);
                         continue;
                     }
+                    let get = match &request.request {
+                        Some(proto::media_request::Request::Get(get)) => Some(get.hash.clone()),
+                        _ => None,
+                    };
                     match service.media(&from, request) {
                         Ok(response) => {
                             answered += 1;
+                            if response.status == i32::from(Status::NotFound) {
+                                if let (Some(hash), Some(media)) = (&get, &service.media) {
+                                    if let Ok(Some(manifest)) = media.manifest(hash) {
+                                        if replicas.media_reads.len() >= 4 || !service.prepare_media_read(&from, &manifest) {
+                                            PutReply::Media(channel).send(&mut swarm, &service, Status::RateLimited, None);
+                                        } else { replicas.start_read(&mut swarm, &service, manifest, channel); }
+                                        continue;
+                                    }
+                                }
+                            }
                             // A get's payload was reserved by the service before returning it.
                             service.traffic.add((response.encoded_len() - response.data.len()) as u64);
                             let _ = swarm.behaviour_mut().media.send_response(channel, response);
@@ -1086,7 +1398,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     if let (Some(lookup), Ok(ok)) = (lookup, result) {
                         // A peer without the node-ID proof of work never holds a replica.
                         let bits = dyapp_p2p_net::id_pow_bits();
-                        if matches!(lookup, Lookup::Put(_) | Lookup::ProfileRepair(_)) {
+                        if matches!(lookup, Lookup::Put(_) | Lookup::ShardPut(_, _) | Lookup::ShardGet(_, _) | Lookup::ProfileRepair(_)) {
                             let nodes: Vec<_> = ok.peers.into_iter().filter(|node| dyapp_p2p_net::id_has_pow(&node.peer_id, bits)).collect();
                             let to = holder(*swarm.local_peer_id(), &ok.key, &nodes);
                             for node in nodes {
@@ -1097,6 +1409,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                                     replicas.put_holder(&mut swarm, &service, &watchers, put, to);
                                     replicas.finish_puts(&mut swarm, &service, Instant::now());
                                 },
+                                Lookup::ShardPut(put, index) => {
+                                    replicas.shard_holder(&mut swarm, &service, put, index, to);
+                                    replicas.finish_puts(&mut swarm, &service, Instant::now());
+                                }
+                                Lookup::ShardGet(read, index) => {
+                                    if to != *swarm.local_peer_id() && replicas.trust.trusted(&to) {
+                                        replicas.media_queue.push_back((to, MediaJob::ShardGet(read, index)));
+                                        replicas.drain_media(&mut swarm, &service);
+                                    }
+                                }
                                 Lookup::ProfileRepair(record) => replicas.profile_inventory(&mut swarm, &service, to, record),
                                 _ => unreachable!(),
                             }
@@ -1170,18 +1492,36 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
                     peer: id, message: Message::Response { request_id, response }, ..
                 })) => {
-                    service.traffic.add(response.encoded_len() as u64);
+                    replicas.media_outgoing.remove(&request_id);
+                    let prepaid = replicas.shard_gets.contains_key(&request_id);
+                    service.traffic.add((response.encoded_len() - if prepaid { response.data.len() } else { 0 }) as u64);
                     replicas.trust.add(id, 1);
+                    if let Some((put, index)) = replicas.shard_puts.remove(&request_id) {
+                        if response.status == i32::from(Status::Ok) {
+                            if let Some(put) = replicas.puts.get_mut(&put) { put.shard_stored.insert(index); }
+                        }
+                    }
+                    if let Some((read, index)) = replicas.shard_gets.remove(&request_id) {
+                        if let Some(read) = replicas.media_reads.get_mut(&read) {
+                            if response.status == i32::from(Status::Ok) && read.manifest.accepts(index, &response.data) {
+                                read.shards.insert(index, response.data.clone());
+                            }
+                        }
+                    }
                     if let Some(put) = replicas.media_puts.remove(&request_id) {
                         if let Some(put) = replicas.puts.get_mut(&put) { put.confirm(id, response.status, None); }
-                        replicas.finish_puts(&mut swarm, &service, Instant::now());
                     }
+                    replicas.finish_puts(&mut swarm, &service, Instant::now());
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::OutboundFailure {
                     peer, request_id, error, ..
                 })) => {
                     if !matches!(error, OutboundFailure::UnsupportedProtocols) { replicas.trust.add(peer, -1); }
                     replicas.media_puts.remove(&request_id);
+                    replicas.shard_puts.remove(&request_id);
+                    replicas.shard_gets.remove(&request_id);
+                    replicas.media_outgoing.remove(&request_id);
+                    replicas.finish_puts(&mut swarm, &service, Instant::now());
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
@@ -1448,6 +1788,48 @@ mod tests {
         let mut isolated = PendingPut::new(record, None, true);
         isolated.confirm(a, Status::Ok.into(), None);
         assert_eq!(isolated.result(Instant::now()), Some(Status::Ok));
+    }
+
+    #[tokio::test]
+    async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
+        let (manifest, shards) = crate::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
+        let replica = proto::MediaReplicaPut {
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+        let mut put = PendingPut::new(PutRecord::Sharded(replica, Arc::new(shards)), None, false);
+        put.confirm(PeerId::random(), Status::Ok.into(), None);
+        put.confirm(PeerId::random(), Status::Ok.into(), None);
+        put.shard_stored.insert(0);
+        put.shard_stored.insert(0);
+        assert_eq!(put.result(Instant::now()), None);
+        put.shard_stored.insert(1);
+        assert_eq!(put.result(Instant::now()), Some(Status::Ok));
+        let service = Service::new(
+            crate::BootstrapStore::new(&format!(
+                "/tmp/ai/test-shard-queue-{}",
+                uuid::Uuid::new_v4()
+            ))
+            .unwrap(),
+            crate::NodeConfig::default(),
+        );
+        let mut swarm =
+            dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        let mut replicas = Replicas::default();
+        replicas.puts.insert(1, put);
+        let to = PeerId::random();
+        for index in 0..6 {
+            replicas.shard_holder(&mut swarm, &service, 1, index, to);
+        }
+        replicas.drain_media(&mut swarm, &service);
+        assert_eq!(replicas.media_outgoing.len(), 2);
+        assert_eq!(replicas.media_queue.len(), 4);
+        let finished = *replicas.shard_puts.keys().next().unwrap();
+        replicas.media_outgoing.remove(&finished);
+        replicas.shard_puts.remove(&finished);
+        replicas.drain_media(&mut swarm, &service);
+        assert_eq!(replicas.media_outgoing.len(), 2);
+        assert_eq!(replicas.media_queue.len(), 3);
     }
 
     #[tokio::test]

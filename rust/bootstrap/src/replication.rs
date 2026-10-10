@@ -113,9 +113,147 @@ impl Replication {
     }
 }
 
+pub const MEDIA_OBJECT_BYTES: usize = 1 << 20;
+pub const MEDIA_MAX_BYTES: usize = 6 * MEDIA_OBJECT_BYTES;
+pub const MEDIA_PARITY: usize = 4;
+
+pub trait MediaManifestExt {
+    fn data_shards(&self) -> Option<usize>;
+    fn shard_size(&self) -> Option<usize>;
+    fn accepts(&self, index: usize, data: &[u8]) -> bool;
+    fn billed_bytes(&self) -> Option<u64>;
+}
+
+impl MediaManifestExt for dyapp_p2p_net::proto::MediaManifest {
+    /// Derives the codec from protocol constants, rejecting untrusted shapes before allocation.
+    fn data_shards(&self) -> Option<usize> {
+        let length = usize::try_from(self.length).ok()?;
+        let k = length.div_ceil(MEDIA_OBJECT_BYTES);
+        (self.hash.len() == 32
+            && (1..=MEDIA_MAX_BYTES).contains(&length)
+            && self.shard_hashes.len() == k + MEDIA_PARITY
+            && self.shard_hashes.iter().all(|h| h.len() == 32))
+        .then_some(k)
+    }
+
+    fn shard_size(&self) -> Option<usize> {
+        Some((self.length as usize).div_ceil(self.data_shards()?))
+    }
+
+    fn accepts(&self, index: usize, data: &[u8]) -> bool {
+        self.shard_size() == Some(data.len())
+            && self
+                .shard_hashes
+                .get(index)
+                .is_some_and(|h| h.as_slice() == dyapp_identity::sha256(data))
+    }
+
+    fn billed_bytes(&self) -> Option<u64> {
+        let k = self.data_shards()? as u64;
+        Some((self.length * (k + MEDIA_PARITY as u64)).div_ceil(k))
+    }
+}
+
+/// Returns the unique manifest and bounded fragments of a nonempty protocol-sized blob.
+pub fn media_encode(data: &[u8]) -> Result<(dyapp_p2p_net::proto::MediaManifest, Vec<Vec<u8>>)> {
+    if !(1..=MEDIA_MAX_BYTES).contains(&data.len()) {
+        return Err(BootstrapError::ReplicationError(
+            "media length outside 1..6 MiB".into(),
+        ));
+    }
+    let k = data.len().div_ceil(MEDIA_OBJECT_BYTES);
+    let fragments = Replication::new(k, MEDIA_PARITY)?.encode(data)?;
+    let shards: Vec<_> = fragments.into_iter().map(|f| f.data).collect();
+    Ok((
+        dyapp_p2p_net::proto::MediaManifest {
+            hash: dyapp_identity::sha256(data).to_vec(),
+            length: data.len() as u64,
+            shard_hashes: shards
+                .iter()
+                .map(|s| dyapp_identity::sha256(s).to_vec())
+                .collect(),
+        },
+        shards,
+    ))
+}
+
+pub fn media_decode(
+    manifest: &dyapp_p2p_net::proto::MediaManifest,
+    shards: &[(usize, Vec<u8>)],
+) -> Result<Vec<u8>> {
+    let k = manifest
+        .data_shards()
+        .ok_or_else(|| BootstrapError::ReplicationError("invalid manifest".into()))?;
+    let mut fragments = Vec::new();
+    for (index, data) in shards {
+        if !manifest.accepts(*index, data)
+            || fragments
+                .iter()
+                .any(|f: &ReplicationFragment| f.shard_id == *index)
+        {
+            return Err(BootstrapError::ReplicationError(
+                "invalid or duplicate shard".into(),
+            ));
+        }
+        fragments.push(ReplicationFragment {
+            shard_id: *index,
+            total_shards: k,
+            total_parity: MEDIA_PARITY,
+            data: data.clone(),
+        });
+    }
+    let data = Replication::new(k, MEDIA_PARITY)?.decode(&fragments, manifest.length as usize)?;
+    if dyapp_identity::sha256(&data).as_slice() != manifest.hash {
+        return Err(BootstrapError::ReplicationError(
+            "decoded media hash mismatch".into(),
+        ));
+    }
+    Ok(data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn media_layout_boundaries_and_four_lost_shards() {
+        for (size, k) in [
+            (MEDIA_OBJECT_BYTES, 1),
+            (MEDIA_OBJECT_BYTES + 1, 2),
+            (MEDIA_MAX_BYTES, 6),
+        ] {
+            let data: Vec<_> = (0..size).map(|i| (i % 251) as u8).collect();
+            let (manifest, shards) = media_encode(&data).unwrap();
+            assert_eq!(manifest.data_shards(), Some(k));
+            assert_eq!(
+                manifest.billed_bytes(),
+                Some((size as u64 * (k as u64 + 4)).div_ceil(k as u64))
+            );
+            assert!(shards.iter().all(|s| s.len() <= MEDIA_OBJECT_BYTES));
+            let surviving: Vec<_> = shards.into_iter().enumerate().skip(4).collect();
+            assert_eq!(media_decode(&manifest, &surviving).unwrap(), data);
+            assert!(media_decode(&manifest, &surviving[..k - 1]).is_err());
+        }
+        assert!(media_encode(&[]).is_err());
+        assert!(media_encode(&vec![0; MEDIA_MAX_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn media_rejects_bad_shapes_shards_and_decoded_hashes() {
+        let (mut manifest, shards) = media_encode(b"proof").unwrap();
+        let mut bad = manifest.clone();
+        bad.length = u64::MAX;
+        assert_eq!(bad.data_shards(), None);
+        assert!(!manifest.accepts(10, &shards[0]));
+        let mut altered = shards[0].clone();
+        altered[0] ^= 1;
+        assert!(media_decode(&manifest, &[(0, altered)]).is_err());
+        assert!(
+            media_decode(&manifest, &[(0, shards[0].clone()), (0, shards[0].clone())]).is_err()
+        );
+        manifest.hash[0] ^= 1;
+        assert!(media_decode(&manifest, &[(0, shards[0].clone())]).is_err());
+    }
 
     #[test]
     fn test_replication_creation() {

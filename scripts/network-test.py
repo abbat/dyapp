@@ -339,6 +339,7 @@ def network(peers, client, churn):
     if relays != [call(client, "info", entry)["peer_id"]]:
         raise RuntimeError(f"TURN relays in the DHT: {relays}")
     media_spread(client, entry, peers, ids)
+    sharded_hash = media_spread(client, entry, peers, ids, 3 * 1024 * 1024)
     holders = replicate(client, entry, ids)
     # 15 requests stay within the 16 concurrent streams a node accepts on
     # one connection; more are dropped unanswered.
@@ -356,6 +357,13 @@ def network(peers, client, churn):
         gone = churn()
         live = {peer: tcp for peer, tcp in ids.items() if tcp != gone}
         case["holders_after_churn"] = replicate(client, entry, live)
+        for tcp in live.values():
+            stored = call(client, "media-get", tcp, sharded_hash)
+            data = bytes.fromhex(stored["data"])
+            checksum = hashlib.sha256(data).hexdigest()
+            if stored["status"] != "STATUS_OK" or checksum != sharded_hash:
+                raise RuntimeError("Sharded media unreadable after node loss")
+        print("Media shards: 3 MiB survives loss of up to four shards")
     return case
 
 
@@ -504,24 +512,30 @@ def error_code(attrs):
     return (code[2] & 7) * 100 + code[3] if code else 0
 
 
-def replica_holders(client, entry, key):
+def replica_holders(client, entry, key, count=5):
     return [call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
-            for i in range(5)]
+            for i in range(count)]
 
 
-def media_spread(client, entry, peers, ids):
-    """One 512 KiB upload reaches every distinct holder, over TCP and QUIC."""
-    size = 512 * 1024
+def media_spread(client, entry, peers, ids, size=512 * 1024):
+    """One upload reaches all manifest holders, over TCP and QUIC."""
     for _ in range(40):
         seed = os.urandom(32)
         blob_hash = hashlib.sha256(seed * (size // len(seed))).hexdigest()
-        if set(replica_holders(client, entry, blob_hash)) == set(ids):
-            break
+        if set(replica_holders(client, entry, blob_hash)) != set(ids):
+            continue
+        if size > 1024 * 1024:
+            shard_holders = replica_holders(client, entry, blob_hash, 7)
+            departed = next(key for key, value in ids.items()
+                            if value == peers[1][0])
+            if shard_holders.count(departed) > 4:
+                continue
+        break
     else:
         raise RuntimeError("No media keys spanning all three nodes")
     reply = call(client, "media-sized", entry, str(size), seed.hex())
     if any(reply[key] != "STATUS_OK" for key in ("keep", "put", "get")):
-        raise RuntimeError(f"512 KiB media upload failed: {reply}")
+        raise RuntimeError(f"{size} byte media upload failed: {reply}")
     for index, (tcp, quic) in enumerate(peers):
         for _ in range(20):
             stored = call(client, "media-get", quic if index % 2 else tcp,
@@ -535,7 +549,8 @@ def media_spread(client, entry, peers, ids):
             time.sleep(0.2)
         else:
             raise RuntimeError(f"Media replica missing on {tcp}")
-    print("Media replication: one 512 KiB upload readable on all three nodes")
+    print(f"Media replication: one {size // 1024} KiB upload on all nodes")
+    return blob_hash
 
 
 def spread(client, entry):

@@ -95,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
         ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
         ["media-sized", addr, size, seed] => {
             let size: usize = size.parse()?;
-            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES { bail!("blob exceeds 1 MiB"); }
+            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES { bail!("blob exceeds 6 MiB"); }
             let seed = unhex(seed)?;
             if seed.len() != 32 { bail!("seed must be 32 bytes"); }
             let data: Vec<_> = seed.into_iter().cycle().take(size).collect();

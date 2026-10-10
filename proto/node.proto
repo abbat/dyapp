@@ -238,6 +238,8 @@ message MediaRequest {
     MediaRelease release = 5;
     // Node to node; receivers verify the owner's authorization independently.
     MediaReplicaPut replica_put = 6;
+    MediaShardPut shard_put = 7;
+    MediaShardGet shard_get = 8;
   }
 }
 
@@ -259,11 +261,31 @@ message MediaPut {
 }
 
 message MediaReplicaPut {
+  // Exactly one of whole data or manifest; whole data is at most 1 MiB.
   bytes data = 1;
+  MediaManifest manifest = 4;
   oneof authorization {
     dyapp.identity.SignedRecord keep = 2;
     dyapp.identity.SignedRecord attach = 3;
   }
+}
+
+// K = ceil(length / 1 MiB), M = 4; hashes are ordered by shard index.
+message MediaManifest {
+  bytes hash = 1;
+  uint64 length = 2;
+  repeated bytes shard_hashes = 3;
+}
+
+message MediaShardPut {
+  MediaReplicaPut replica = 1;
+  uint32 index = 2;
+  bytes data = 3;
+}
+
+message MediaShardGet {
+  bytes hash = 1;
+  uint32 index = 2;
 }
 
 message GetMedia {

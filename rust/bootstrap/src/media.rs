@@ -6,6 +6,7 @@
 //! `blobs` like an owner; the owner's puts and quota cover its slots. A slot goes on release or
 //! expiry.
 
+use crate::replication::MediaManifestExt;
 use crate::storage::{free, lock, open, storage_error};
 use crate::Result;
 use dyapp_identity::SignedRecord;
@@ -25,6 +26,7 @@ pub enum Put {
     NotListed,
     /// The owner's blobs would exceed the quota.
     OverQuota,
+    Invalid,
 }
 
 pub struct MediaStore {
@@ -45,9 +47,9 @@ fn list(tx: &Connection, owner: &str, hashes: &[Vec<u8>]) -> Result<Vec<Vec<u8>>
     let mut missing = Vec::new();
     for hash in hashes {
         tx.execute(
-            "INSERT INTO blobs (owner, hash, size) \
-             VALUES (?1, ?2, (SELECT MAX(size) FROM blobs WHERE hash = ?2)) \
-             ON CONFLICT(owner, hash) DO UPDATE SET size = COALESCE(blobs.size, excluded.size)",
+            "INSERT INTO blobs (owner, hash, size, cost) \
+             VALUES (?1, ?2, (SELECT MAX(size) FROM blobs WHERE hash = ?2), (SELECT MAX(cost) FROM blobs WHERE hash = ?2)) \
+             ON CONFLICT(owner, hash) DO UPDATE SET size = COALESCE(blobs.size, excluded.size), cost = COALESCE(blobs.cost, excluded.cost)",
             params![owner, hash],
         )
         .map_err(storage_error)?;
@@ -77,6 +79,10 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
             )
             .map_err(storage_error)?;
         if !held {
+            tx.execute("DELETE FROM shards WHERE hash = ?", [&hash])
+                .map_err(storage_error)?;
+            tx.execute("DELETE FROM manifests WHERE hash = ?", [&hash])
+                .map_err(storage_error)?;
             orphans.push(hash);
         }
     }
@@ -139,6 +145,23 @@ impl MediaStore {
                         "ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default};"
                     )).map_err(storage_error)?;
                 }
+            }
+            connection.execute_batch(
+                "CREATE TABLE IF NOT EXISTS manifests (hash BLOB PRIMARY KEY, record BLOB NOT NULL);
+                 CREATE TABLE IF NOT EXISTS shards (hash BLOB NOT NULL, idx INTEGER NOT NULL,
+                 data BLOB NOT NULL, PRIMARY KEY (hash, idx));"
+            ).map_err(storage_error)?;
+            let has_cost: bool = connection
+                .query_row(
+                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('blobs') WHERE name = 'cost')",
+                    [],
+                    |r| r.get(0),
+                )
+                .map_err(storage_error)?;
+            if !has_cost {
+                connection
+                    .execute_batch("ALTER TABLE blobs ADD COLUMN cost INTEGER;")
+                    .map_err(storage_error)?;
             }
             for table in ["owners", "attachments"] {
                 let exists: bool = connection.query_row(
@@ -483,11 +506,11 @@ impl MediaStore {
     /// owner stays within `quota` bytes. A repeated put is `Stored`.
     pub fn put(&self, owner: &str, data: &[u8], quota: u64) -> Result<Put> {
         let hash = dyapp_identity::sha256(data);
-        let db = lock(&self.db)?;
+        let mut db = lock(&self.db)?;
         let (rows, stored): (i64, i64) = db
             .query_row(
                 &format!(
-                    "SELECT COUNT(*), COALESCE(MIN(size IS NOT NULL), 0) FROM blobs \
+                    "SELECT COUNT(*), COALESCE(MIN(size IS NOT NULL AND hash NOT IN (SELECT hash FROM manifests)), 0) FROM blobs \
                      WHERE hash = ?2 AND {OWNED}"
                 ),
                 params![owner, hash.as_slice()],
@@ -499,20 +522,36 @@ impl MediaStore {
         }
         let used: i64 = db
             .query_row(
-                &format!("SELECT COALESCE(SUM(size), 0) FROM blobs WHERE {OWNED}"),
+                &format!(
+                    "SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE {OWNED}"
+                ),
                 [owner],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        let extra = if stored == 1 { 0 } else { data.len() as u64 };
-        if used.unsigned_abs().saturating_add(extra) > quota {
+        let previous: i64 = db.query_row(
+            &format!("SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE hash = ?2 AND {OWNED}"),
+            params![owner, hash.as_slice()], |r| r.get(0)
+        ).map_err(storage_error)?;
+        let charge = if stored == 1 {
+            used.unsigned_abs()
+        } else {
+            used.unsigned_abs()
+                .saturating_sub(previous.unsigned_abs())
+                .saturating_add(
+                    (data.len() as u64)
+                        .saturating_mul(5)
+                        .saturating_mul(rows.unsigned_abs()),
+                )
+        };
+        if charge > quota.saturating_mul(5) {
             return Ok(Put::OverQuota);
         }
         if stored == 1 {
             return Ok(Put::Stored);
         }
         let path = self.path(&hash);
-        if !path.exists() {
+        if self.get(&hash)?.as_deref() != Some(data) {
             // Written aside and renamed, so a reader never sees a partial blob.
             let dir = path.parent().unwrap_or(&self.dir);
             fs::create_dir_all(dir).map_err(storage_error)?;
@@ -526,12 +565,169 @@ impl MediaStore {
                     storage_error(e)
                 })?;
         }
-        db.execute(
-            "UPDATE blobs SET size = ? WHERE hash = ?",
+        let tx = db.transaction().map_err(storage_error)?;
+        tx.execute(
+            "UPDATE blobs SET size = ?1, cost = ?1 * 5 WHERE hash = ?2",
             params![data.len() as i64, hash.as_slice()],
         )
         .map_err(storage_error)?;
+        tx.execute("DELETE FROM shards WHERE hash = ?", [hash.as_slice()])
+            .map_err(storage_error)?;
+        tx.execute("DELETE FROM manifests WHERE hash = ?", [hash.as_slice()])
+            .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
         Ok(Put::Stored)
+    }
+
+    pub fn manifest(&self, hash: &[u8]) -> Result<Option<proto::MediaManifest>> {
+        let bytes: Option<Vec<u8>> = lock(&self.db)?
+            .query_row("SELECT record FROM manifests WHERE hash = ?", [hash], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(storage_error)?;
+        bytes
+            .map(|b| proto::MediaManifest::decode(b.as_slice()).map_err(storage_error))
+            .transpose()
+    }
+
+    pub fn put_manifest(
+        &self,
+        owner: &str,
+        manifest: &proto::MediaManifest,
+        quota: u64,
+    ) -> Result<Put> {
+        if let Some(data) = self.get(&manifest.hash)? {
+            if dyapp_identity::sha256(&data).as_slice() == manifest.hash {
+                return self.put(owner, &data, quota / 5);
+            }
+        }
+        let mut db = lock(&self.db)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        let previous: Option<Vec<u8>> = tx
+            .query_row(
+                "SELECT record FROM manifests WHERE hash = ?",
+                [&manifest.hash],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let bytes = manifest.encode_to_vec();
+        if previous.as_ref().is_some_and(|old| *old != bytes) {
+            return Ok(Put::Invalid);
+        }
+        let (rows, held): (i64, Option<i64>) = tx.query_row(
+            &format!("SELECT COUNT(*), MIN(COALESCE(cost, size * 5)) FROM blobs WHERE hash = ?2 AND {OWNED}"),
+            params![owner, manifest.hash], |r| Ok((r.get(0)?, r.get(1)?))
+        ).map_err(storage_error)?;
+        if rows == 0 {
+            return Ok(Put::NotListed);
+        }
+        let cost = manifest
+            .billed_bytes()
+            .ok_or_else(|| storage_error("invalid manifest"))?;
+        let used: i64 = tx
+            .query_row(
+                &format!(
+                    "SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE {OWNED}"
+                ),
+                [owner],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        let extra = cost
+            .saturating_sub(held.map_or(0, i64::unsigned_abs))
+            .saturating_mul(rows.unsigned_abs());
+        if used.unsigned_abs().saturating_add(extra) > quota {
+            return Ok(Put::OverQuota);
+        }
+        tx.execute(
+            "INSERT OR IGNORE INTO manifests (hash, record) VALUES (?, ?)",
+            params![manifest.hash, bytes],
+        )
+        .map_err(storage_error)?;
+        tx.execute(
+            "UPDATE blobs SET size = ?1, cost = ?2 WHERE hash = ?3",
+            params![manifest.length as i64, cost as i64, manifest.hash],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(Put::Stored)
+    }
+
+    pub fn put_shard(
+        &self,
+        manifest: &proto::MediaManifest,
+        index: usize,
+        data: &[u8],
+    ) -> Result<Put> {
+        if !manifest.accepts(index, data) {
+            return Ok(Put::Invalid);
+        }
+        // A verified whole copy can generate the canonical shard without another stored object.
+        if self
+            .get(&manifest.hash)?
+            .is_some_and(|d| dyapp_identity::sha256(&d).as_slice() == manifest.hash)
+        {
+            return Ok(Put::Stored);
+        }
+        let db = lock(&self.db)?;
+        let held: Option<Vec<u8>> = db
+            .query_row(
+                "SELECT record FROM manifests WHERE hash = ?",
+                [&manifest.hash],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if held.as_deref() != Some(manifest.encode_to_vec().as_slice()) {
+            return Ok(Put::NotListed);
+        }
+        db.execute(
+            "INSERT INTO shards (hash, idx, data) VALUES (?, ?, ?)
+             ON CONFLICT(hash, idx) DO UPDATE SET data = excluded.data",
+            params![manifest.hash, index as i64, data],
+        )
+        .map_err(storage_error)?;
+        Ok(Put::Stored)
+    }
+
+    pub fn shard(&self, hash: &[u8], index: usize) -> Result<Option<Vec<u8>>> {
+        let data: Option<Vec<u8>> = lock(&self.db)?
+            .query_row(
+                "SELECT data FROM shards WHERE hash = ? AND idx = ?",
+                params![hash, index as i64],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if data.is_some() {
+            return Ok(data);
+        }
+        if let Some(whole) = self.get(hash)? {
+            if dyapp_identity::sha256(&whole).as_slice() == hash && !whole.is_empty() {
+                let (_, shards) = crate::replication::media_encode(&whole)?;
+                return Ok(shards.get(index).cloned());
+            }
+        }
+        Ok(None)
+    }
+
+    /// Invalid decoded content is discarded locally; ownership lists remain for reupload.
+    pub fn discard_sharded(&self, hash: &[u8]) -> Result<()> {
+        let mut db = lock(&self.db)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        tx.execute("DELETE FROM shards WHERE hash = ?", [hash])
+            .map_err(storage_error)?;
+        tx.execute("DELETE FROM manifests WHERE hash = ?", [hash])
+            .map_err(storage_error)?;
+        tx.execute(
+            "UPDATE blobs SET size = NULL, cost = NULL WHERE hash = ?",
+            [hash],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(())
     }
 
     pub fn get(&self, hash: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -552,8 +748,8 @@ impl MediaStore {
 
     fn used(db: &Connection) -> Result<u64> {
         db.query_row(
-            "SELECT COALESCE(SUM(size), 0) FROM \
-             (SELECT MAX(size) AS size FROM blobs WHERE size IS NOT NULL GROUP BY hash)",
+            "SELECT COALESCE((SELECT SUM(length(record)) FROM manifests), 0) + COALESCE((SELECT SUM(length(data)) FROM shards), 0) + COALESCE(SUM(size), 0) FROM \
+             (SELECT MAX(size) AS size FROM blobs WHERE size IS NOT NULL AND hash NOT IN (SELECT hash FROM manifests) GROUP BY hash)",
             [],
             |row| row.get::<_, i64>(0),
         )

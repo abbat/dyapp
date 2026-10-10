@@ -141,6 +141,22 @@ pub struct NodeConfig {
     pub maintenance: Maintenance,
     pub network: Network,
     pub turn: Turn,
+    pub media: Media,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Media {
+    /// Whole-copy threshold in bytes; stored objects never exceed 1 MiB.
+    pub shard_threshold: usize,
+}
+
+impl Default for Media {
+    fn default() -> Self {
+        Self {
+            shard_threshold: 1 << 20,
+        }
+    }
 }
 
 /// The coturn relay next to the node (role turn), run with `use-auth-secret`.
@@ -240,7 +256,7 @@ pub struct Limits {
     pub attachment_retention_hours: u32,
     /// How long a profile or tombstone is kept after its owner's last signed action.
     pub profile_ttl_days: u32,
-    /// Media requests per second from one peer: a reply carries up to 1 MiB.
+    /// Media requests per second from one peer: a reply carries up to 6 MiB.
     pub media_requests_per_second: u32,
     /// Free space kept on the file system of `storage.dir`.
     pub min_free_mb: u64,
@@ -301,6 +317,7 @@ impl Default for NodeConfig {
             maintenance: Maintenance::default(),
             network: Network::default(),
             turn: Turn::default(),
+            media: Media::default(),
         }
     }
 }
@@ -488,6 +505,9 @@ impl NodeConfig {
                 "limits.requests_per_second and media_requests_per_second must be at least 1"
             );
         }
+        if self.media.shard_threshold == 0 || self.media.shard_threshold > 1 << 20 {
+            anyhow::bail!("media.shard_threshold must be between 1 and 1048576 bytes");
+        }
         let l = &self.limits;
         if l.max_connections < 1 || l.max_connections_per_peer < 1 || l.max_streams < 1 {
             anyhow::bail!("limits.max_connections, max_connections_per_peer and max_streams must be at least 1");
@@ -674,6 +694,9 @@ mod tests {
             config.validate().is_err()
         };
         assert!(!invalid(|_| {}));
+        assert!(invalid(|c| c.media.shard_threshold = (1 << 20) + 1));
+        assert!(invalid(|c| c.media.shard_threshold = 0));
+        assert!(!invalid(|c| c.media.shard_threshold = 1));
         assert!(invalid(|c| c.listen = vec!["not an address".into()]));
         assert!(invalid(|c| c.listen = vec!["/ip4/0.0.0.0/tcp/7070".into()]));
         assert!(invalid(|c| c.external = vec!["[2001:db8::1]".into()]));

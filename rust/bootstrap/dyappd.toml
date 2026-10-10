@@ -77,6 +77,9 @@
 # strikes_to_ban = 100                # refused floods and bad signatures that ban a peer
 # ban_minutes = 10                    # how long a ban lasts
 
+[media]
+# shard_threshold = 1048576           # whole-copy threshold in bytes; 1..1048576
+
 [turn]
 # Used by the turn role. coturn runs with use-auth-secret and the same static-auth-secret.
 # urls = []                           # e.g. ["turn:turn.example.org:3478", "turns:turn.example.org:5349"]

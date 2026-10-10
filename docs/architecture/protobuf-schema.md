@@ -76,14 +76,26 @@ SHA-256 of the device public key (32 bytes each).
   returns the ones still `missing`. Its signed `time` must be within 10 minutes of the node
   clock; the same version and list with a newer time refreshes media liveness, while replaying
   it does not. Inactive owners' keeps expire after `limits.profile_ttl_days`; shared blobs stay.
-  `put` sends a listed blob unsigned once; the acceptor forwards whole copies up to 1 MiB
-  to five DHT points and confirms two distinct holders. Node `replica_put(MediaReplicaPut)`
-  carries the persisted signed keep or attachment; receivers verify it independently, require
-  the hash in the latest keep (or a valid unexpired attachment), and never forward it.
+  `put` sends a listed blob unsigned once, up to 6 MiB. At or below `media.shard_threshold`
+  (default 1 MiB), the acceptor forwards whole copies to five DHT points and confirms two
+  distinct holders. Above it, K = ceil(size / 1 MiB), M = 4; `MediaManifest` holds the blob
+  hash, length and ordered shard hashes. `replica_put(MediaReplicaPut)` carries either whole
+  data or a manifest plus the persisted signed keep or attachment. `shard_put(MediaShardPut)`
+  carries that same authorized manifest, an index and data; `shard_get(hash, index)` returns
+  a shard. Stored whole copies, signed authorizations and individual shards are at most 1 MiB.
+  Receivers verify signatures, index, length and SHA-256, require the hash in the latest keep
+  (or a valid unexpired attachment), and never forward replica requests. The first manifest
+  wins; conflicts are `INVALID`, while a verified whole copy takes precedence.
   Older keep timestamps are valid on replicas within the owner TTL and cannot refresh liveness.
-  Client puts and owner quotas count bytes × 5; node puts count one payload against peer limits.
-  `get(hash)` returns a whole copy and bills reply bytes. All selected store holders must also
-  serve media while these roles share one DHT.
+  Sharded writes confirm two distinct manifest holders and K indices; an isolated node can
+  confirm its one local manifest. Remaining replicas fill in the background.
+  Client puts and owner quotas count bytes × 5 for whole copies or ceil(bytes × (K+M)/K)
+  for shards; node puts count their payload against peer limits. `get(hash)` returns a verified
+  whole copy or assembles K valid shards and checks the final blob hash, billing reply bytes.
+  Assembly uses the shared 75 % traffic budget with at most four active reads and no cache.
+  A decoded hash mismatch deletes only local manifest/shards and returns `NOT_FOUND`;
+  ownership lists stay for reupload. All selected store holders must also serve media while
+  these roles share one DHT.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it on that node, so release every replica holder.
 
