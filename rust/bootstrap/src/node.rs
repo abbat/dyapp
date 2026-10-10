@@ -701,6 +701,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     Err(error) => tracing::error!(%error, "store maintenance failed"),
                 }
                 service.report();
+                service.rebuild_budget.report();
                 // ponytail: saved hourly, not on shutdown; a crash loses at most an hour of churn.
                 let peers = dyapp_p2p_net::known_peers(&mut swarm);
                 let storage = &service.config.storage;

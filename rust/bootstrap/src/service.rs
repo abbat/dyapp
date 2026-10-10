@@ -3,6 +3,7 @@
 
 use crate::{
     config::{Role, Turn},
+    maintenance::RebuildBudget,
     media::{MediaStore, Put},
     rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
     BootstrapError, BootstrapStore, NodeConfig,
@@ -63,6 +64,7 @@ pub struct Service {
     pub reputation: Reputation,
     pub traffic: Traffic,
     pub memory: Memory,
+    pub rebuild_budget: RebuildBudget,
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
     pub deny: HashSet<String>,
@@ -100,6 +102,7 @@ impl Service {
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),
             memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
+            rebuild_budget: RebuildBudget::new(config.maintenance.io_mb_per_s),
             config,
             deny: HashSet::new(),
             deny_signer: None,

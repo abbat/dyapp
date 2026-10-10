@@ -264,10 +264,12 @@ resent from the sender's retry queue.
   a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on one
   schedule for all stores with a page budget per run (implemented, [Storage](#storage)). There
   is no maintenance window: a node serves the whole world and has no quiet hours.
-- I/O budget (planned): background rebuilds write in batches and sleep after each so that they
-  average at most `maintenance.io_mb_per_s` (default 16) of written bytes; work that does not
-  finish goes on with the next batches, and each maintenance run logs its progress (file,
-  percent) in `node status`.
+- I/O budget: the shared `RebuildBudget` (`rust/bootstrap/src/maintenance.rs`) lets background
+  rebuild workers write a batch then await a reserved time slot outside the store lock, at most
+  `maintenance.io_mb_per_s` (default 16 MiB/s, must be positive). Concurrent rebuilds share the
+  same allowance. Each maintenance run logs file and percent complete; a finished build is
+  reported once. Format rebuild workers remain planned. Incremental vacuum keeps its page
+  budget and network repair keeps its traffic cap.
 - Format versions (planned): each file holds its format in `PRAGMA user_version`, one number
   that only grows; there is no downgrade, a fix ships as a higher version. On open the node runs
   the numbered steps from the file's version to its own, in order. A cheap step (a new column
@@ -737,7 +739,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `limits.{max_connections,max_connections_per_peer,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
-([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages}`,
+([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages,io_mb_per_s}`,
 `network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
@@ -749,7 +751,7 @@ and serves the protocols in [Served protocol](#served-protocol). Only the `store
 anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
-Planned: `maintenance.io_mb_per_s`, the remaining resource guards, store retention.
+Planned: the remaining resource guards, store retention.
 
 ## Deployment Model
 

@@ -86,6 +86,7 @@
 [maintenance]
 # interval_minutes = 60               # cleanup of expired data, peer list save, seed redial
 # vacuum_pages = 2048                 # disk pages (4 KiB) released per store and run
+# io_mb_per_s = 16                    # shared background rebuild write budget (MiB/s, > 0)
 
 [network]
 # Change these only on a test network.

@@ -218,6 +218,7 @@ ban_minutes = 10
 [maintenance]
 interval_minutes = 60  # incremental vacuum, WAL checkpoint, PRAGMA optimize
 vacuum_pages = 2048    # free 4 KiB pages released per store and run
+io_mb_per_s = 16       # shared background rebuild writes in MiB/s; must be > 0
 
 [network]
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
@@ -361,6 +362,10 @@ No full `VACUUM` is needed. Every `maintenance.interval_minutes` the node return
 `maintenance.vacuum_pages` free pages per store to the file system, truncates the WAL and
 refreshes planner statistics; the log line "store maintenance done" shows the free pages left.
 A steadily growing number means `vacuum_pages` is too small for the delete rate.
+Background rebuild workers share `maintenance.io_mb_per_s` (default 16 MiB/s, positive),
+waiting after every written batch outside the store lock. Each maintenance run reports active
+rebuild files and percent complete as "store rebuild progress". Format rebuilds remain planned;
+this budget does not change incremental vacuum's page limit or network repair's traffic cap.
 
 ### Backups
 

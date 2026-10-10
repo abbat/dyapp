@@ -273,6 +273,8 @@ pub struct Maintenance {
     pub interval_minutes: u32,
     /// Free pages released per store and run (4 KiB each): bounds the I/O of one run.
     pub vacuum_pages: u32,
+    /// Shared background rebuild write budget, in MiB per second.
+    pub io_mb_per_s: u32,
 }
 
 impl Default for Maintenance {
@@ -280,6 +282,7 @@ impl Default for Maintenance {
         Self {
             interval_minutes: 60,
             vacuum_pages: 2048,
+            io_mb_per_s: 16,
         }
     }
 }
@@ -502,8 +505,13 @@ impl NodeConfig {
         if self.network.id_pow_bits > 32 {
             anyhow::bail!("network.id_pow_bits must be at most 32");
         }
-        if self.maintenance.interval_minutes < 1 || self.maintenance.vacuum_pages < 1 {
-            anyhow::bail!("maintenance.interval_minutes and vacuum_pages must be at least 1");
+        if self.maintenance.interval_minutes < 1
+            || self.maintenance.vacuum_pages < 1
+            || self.maintenance.io_mb_per_s < 1
+        {
+            anyhow::bail!(
+                "maintenance.interval_minutes, vacuum_pages and io_mb_per_s must be at least 1"
+            );
         }
         check_writable(&self.storage.dir)
     }
@@ -717,6 +725,7 @@ mod tests {
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
         assert!(invalid(|c| c.limits.profile_ttl_days = 0));
+        assert!(invalid(|c| c.maintenance.io_mb_per_s = 0));
         assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
         let roles = [("DYAPPD__ROLES".into(), "[\"x\"]".into())];
         assert!(NodeConfig::load(None, roles, &[]).is_err());
