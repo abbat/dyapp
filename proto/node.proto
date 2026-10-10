@@ -117,8 +117,8 @@ message GetProfile {
 }
 
 // The owner is active: the node keeps a profile for the retention period after the owner's last
-// signed action (publish, heartbeat, media keep or attach). A client sends one to the profile's
-// replicas when the app opens. NOT_FOUND: no profile is stored here, so publish it.
+// newer publish or fresh signed heartbeat. Replayed records and media requests do not count.
+// A client sends one to the profile's replicas when the app opens. NOT_FOUND: publish it.
 message Heartbeat {
   // Unix seconds; within 10 minutes of the node's clock, so a captured one soon goes stale.
   uint64 time = 1;

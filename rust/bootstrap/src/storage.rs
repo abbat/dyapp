@@ -308,7 +308,7 @@ impl BootstrapStore {
         records.into_iter().map(decode).collect()
     }
 
-    /// Records a signed action of the profile's owner at `now`; false when no profile is stored.
+    /// Advances liveness to the validated, signed heartbeat time; false if no profile is stored.
     pub fn touch_profile(&self, peer_id: &str, now: i64) -> Result<bool> {
         let touched = lock(&self.profiles)?
             .execute(

@@ -384,8 +384,10 @@ optional and public by design
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
 so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.
 A profile, tombstone included, is deleted `limits.profile_ttl_days` (default 30) after its
-owner was last seen: a publish, a stale republish, a heartbeat or a media keep or attach signed
-by the identity key. Mailbox requests are signed by device keys and do not count. The client is
+owner was last seen: a publish of a newer version or an identity-signed heartbeat whose time
+is within 10 minutes of the node clock and newer than the stored `last_seen`. Heartbeats advance
+`last_seen` to their signed time, so repeating one does not extend retention. Stale republishes,
+media requests and mailbox requests do not refresh profile liveness. The client is
 meant to send a heartbeat to the profile's replicas when the app opens (planned; no client yet).
 Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
@@ -405,7 +407,7 @@ the payload and storage limits below are checked separately:
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
-| `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` the profile counts as seen now; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
+| `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
 | `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK`, also for a repeated (mailbox, id); `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |

@@ -211,15 +211,6 @@ impl Service {
         <[u8; 32]>::try_from(key).is_ok_and(|key| self.listed(&dyapp_identity::key_hash(&key)))
     }
 
-    /// Refreshes the stored profile of the identity whose key hash is `owner`: it signed a
-    /// request. Mailbox requests are signed by device keys, which the node cannot tie to an
-    /// identity, so they do not count.
-    fn alive(&self, owner: &[u8]) -> crate::Result<()> {
-        self.store
-            .touch_profile(&hex(owner), chrono::Utc::now().timestamp())
-            .map(drop)
-    }
-
     /// Counts misbehaviour of `peer`; the node drops a banned peer's connections.
     fn strike(&self, peer: &Peer) {
         if self.reputation.strike(&peer.id) {
@@ -530,7 +521,10 @@ impl Service {
                 if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
                     return Ok(reply(Status::Invalid, None));
                 }
-                let found = self.store.touch_profile(&hex(&owner), now)?;
+                let Ok(time) = i64::try_from(beat.time) else {
+                    return Ok(reply(Status::Invalid, None));
+                };
+                let found = self.store.touch_profile(&hex(&owner), time)?;
                 Ok(reply(
                     if found { Status::Ok } else { Status::NotFound },
                     None,
@@ -561,8 +555,6 @@ impl Service {
             Err(BootstrapError::Profile(dyapp_profile::Error::Stale)) => {
                 // A stale record verified, so its key is a valid 32-byte key.
                 let key: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
-                // A signed republish is a liveness signal too.
-                self.alive(&dyapp_identity::key_hash(&key))?;
                 let stored = self.store.get_profile(&dyapp_identity::peer_id(&key))?;
                 Ok(reply(Status::Stale, stored))
             }
@@ -606,7 +598,6 @@ impl Service {
                 if keep.hashes.len() > MAX_KEEP || keep.hashes.iter().any(|h| h.len() != 32) {
                     return Ok(media_status(Status::Invalid));
                 }
-                self.alive(&owner)?;
                 match media.keep(&hex(&owner), keep.version, &keep.hashes)? {
                     Some(missing) => MediaResponse {
                         missing,
@@ -675,7 +666,6 @@ impl Service {
                 {
                     return Ok(media_status(Status::Invalid));
                 }
-                self.alive(&owner)?;
                 let expires = attach.created + u64::from(l.attachment_retention_hours) * 3600;
                 match media.attach(
                     &hex(&owner),
@@ -892,17 +882,56 @@ mod tests {
             ..Profile::default()
         };
         assert_eq!(send(publish(profile.sign(&identity))), Status::Ok);
-        assert_eq!(send(beat(now, &identity)), Status::Ok);
+        let db =
+            rusqlite::Connection::open(service.config.storage.dir.join("profiles.db")).unwrap();
+        let seen = || {
+            db.query_row(
+                "SELECT last_seen FROM profiles WHERE peer_id = ?",
+                [identity.peer_id()],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+        let old = i64::try_from(now).unwrap() - 120;
+        db.execute(
+            "UPDATE profiles SET last_seen = ? WHERE peer_id = ?",
+            rusqlite::params![old, identity.peer_id()],
+        )
+        .unwrap();
+        // Neither the same version nor an older version can refresh retention.
+        assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
+        let newer = Profile {
+            version: 2,
+            ..profile.clone()
+        };
+        assert_eq!(send(publish(newer.sign(&identity))), Status::Ok);
+        assert!(seen() >= i64::try_from(now).unwrap());
+        db.execute(
+            "UPDATE profiles SET last_seen = ? WHERE peer_id = ?",
+            rusqlite::params![old, identity.peer_id()],
+        )
+        .unwrap();
+        assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
+        assert_eq!(seen(), old);
+        // Store signed time, not receipt time, and never move it back on replay.
+        assert_eq!(send(beat(now - 60, &identity)), Status::Ok);
+        assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
+        assert_eq!(send(beat(now - 60, &identity)), Status::Ok);
+        assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
+        assert_eq!(send(beat(now - 90, &identity)), Status::Ok);
+        assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
         assert_eq!(send(beat(now - 3600, &identity)), Status::Invalid);
+        assert_eq!(send(beat(now + 3600, &identity)), Status::Invalid);
+        assert_eq!(send(beat(u64::MAX, &identity)), Status::Invalid);
+        assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
         let mut forged = beat(now, &identity);
         if let Some(profile_request::Request::Heartbeat(record)) = &mut forged.request {
             record.payload.push(0);
         }
         assert_eq!(send(forged), Status::Denied);
-        // A republish of the stored version still counts.
-        assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
+        assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
         let cutoff = i64::try_from(now).unwrap() - 1;
-        assert_eq!(service.store.expire_profiles(cutoff).unwrap(), 0);
+        assert_eq!(service.store.expire_profiles(cutoff).unwrap(), 1);
     }
 
     fn mailbox(

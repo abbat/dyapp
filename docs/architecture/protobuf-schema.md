@@ -55,7 +55,8 @@ SHA-256 of the device public key (32 bytes each).
   "role not served".
 - **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)` and `heartbeat(SignedRecord)`. A
   publish whose version is not newer gets `STATUS_STALE` with the stored record; a heartbeat
-  keeps the stored profile from expiring.
+  advances profile liveness to its signed time only when newer and within 10 minutes of the
+  node clock. A stale publish or replayed heartbeat does not extend retention.
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce. A node forwards a signed ack to the other replicas
