@@ -25,6 +25,8 @@
 //! - `test-peer media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
 //!   step: a fresh owner keeps the blob's hash, puts the blob and gets it back; `"get"` is
 //!   `"CHANGED"` if the blob came back different;
+//! - `test-peer media-sized <multiaddr> <bytes> <32-byte seed hex>`: the same round trip
+//!   with owner details, repeating the seed to generate a large blob without a large CLI argument;
 //! - `test-peer turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
 //! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
@@ -91,6 +93,14 @@ async fn main() -> anyhow::Result<()> {
         }
         ["media", addr, data] => timeout(media(addr, data, false)).await?,
         ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
+        ["media-sized", addr, size, seed] => {
+            let size: usize = size.parse()?;
+            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES { bail!("blob exceeds 1 MiB"); }
+            let seed = unhex(seed)?;
+            if seed.len() != 32 { bail!("seed must be 32 bytes"); }
+            let data: Vec<_> = seed.into_iter().cycle().take(size).collect();
+            timeout(media(addr, &hex(&data), true)).await?
+        }
         ["media-keep", addr, record] => {
             let record = SignedRecord::decode(unhex(record)?.as_slice())?;
             timeout(media_call(addr, media_request::Request::Keep(record))).await?

@@ -161,11 +161,13 @@ const PUT_TIMEOUT: Duration = Duration::from_secs(10);
 enum PutRecord {
     Mailbox(SignedRecord),
     Profile(SignedRecord),
+    Media(proto::MediaReplicaPut),
 }
 
 enum PutReply {
     Mailbox(libp2p::request_response::ResponseChannel<proto::MailboxResponse>),
     Profile(libp2p::request_response::ResponseChannel<proto::ProfileResponse>),
+    Media(libp2p::request_response::ResponseChannel<proto::MediaResponse>),
 }
 
 impl PutReply {
@@ -199,6 +201,14 @@ impl PutReply {
                     .behaviour_mut()
                     .profile
                     .send_response(channel, response);
+            }
+            Self::Media(channel) => {
+                let response = proto::MediaResponse {
+                    status: status.into(),
+                    ..Default::default()
+                };
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm.behaviour_mut().media.send_response(channel, response);
             }
         }
     }
@@ -329,6 +339,9 @@ struct Replicas {
     puts: HashMap<u64, PendingPut>,
     mailbox_puts: HashMap<OutboundRequestId, u64>,
     profile_puts: HashMap<OutboundRequestId, u64>,
+    media_puts: HashMap<OutboundRequestId, u64>,
+    /// Most recent media write and its distinct confirmed holders, including background replies.
+    media_holders: (u64, usize),
     lookups: HashMap<kad::QueryId, Lookup>,
     /// Inventories sent and their mailbox.
     inventories: HashMap<OutboundRequestId, Vec<u8>>,
@@ -473,6 +486,7 @@ impl Replicas {
             PutRecord::Profile(record) => {
                 dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec()
             }
+            PutRecord::Media(replica) => dyapp_identity::sha256(&replica.data).to_vec(),
         };
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
@@ -521,6 +535,10 @@ impl Replicas {
                     Ok(response) => put.confirm(to, response.status, response.record),
                     Err(error) => tracing::error!(%error, "local profile replica failed"),
                 },
+                PutRecord::Media(replica) => match service.store_media(replica) {
+                    Ok(response) => put.confirm(to, response.status, None),
+                    Err(error) => tracing::error!(%error, "local media replica failed"),
+                },
             }
         } else if self.trust.trusted(&to) {
             match &put.record {
@@ -542,13 +560,27 @@ impl Replicas {
                     let request_id = swarm.behaviour_mut().profile.send_request(&to, request);
                     self.profile_puts.insert(request_id, id);
                 }
+                PutRecord::Media(replica) => {
+                    let request = proto::MediaRequest {
+                        request: Some(proto::media_request::Request::ReplicaPut(replica.clone())),
+                    };
+                    // Payload fan-out was prepaid at intake; only framing is added here.
+                    service
+                        .traffic
+                        .add((request.encoded_len() - replica.data.len()) as u64);
+                    let request_id = swarm.behaviour_mut().media.send_request(&to, request);
+                    self.media_puts.insert(request_id, id);
+                }
             }
         }
     }
 
     fn finish_puts(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
         let mut profiles = Vec::new();
-        for put in self.puts.values_mut() {
+        for (id, put) in &mut self.puts {
+            if matches!(put.record, PutRecord::Media(_)) && *id >= self.media_holders.0 {
+                self.media_holders = (*id, put.stored.len());
+            }
             if let Some(status) = put.result(now) {
                 if let Some(reply) = put.reply.take() {
                     if matches!(status, Status::Ok | Status::Stale) {
@@ -570,7 +602,8 @@ impl Replicas {
                 .values()
                 .any(|lookup| matches!(lookup, Lookup::Put(p) if p == id))
                 || self.mailbox_puts.values().any(|p| p == id)
-                || self.profile_puts.values().any(|p| p == id);
+                || self.profile_puts.values().any(|p| p == id)
+                || self.media_puts.values().any(|p| p == id);
             now < put.deadline && (put.reply.is_some() || active)
         });
         for (id, lookup) in &self.lookups {
@@ -582,6 +615,7 @@ impl Replicas {
         }
         self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
         self.profile_puts.retain(|_, id| self.puts.contains_key(id));
+        self.media_puts.retain(|_, id| self.puts.contains_key(id));
         self.lookups
             .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) if !self.puts.contains_key(id)));
     }
@@ -919,10 +953,29 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    match service.media(&peer(id, &groups, connection_id), request) {
+                    let from = peer(id, &groups, connection_id);
+                    if let Some(proto::media_request::Request::Put(put)) = &request.request {
+                        let result = if replicas.at_capacity() { Ok(Err(Status::Full)) }
+                            else { service.prepare_media(&from, put) };
+                        match result {
+                            Ok(Ok(replica)) => {
+                                answered += 1;
+                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Media(replica), PutReply::Media(channel));
+                            }
+                            Ok(Err(status)) => {
+                                answered += 1;
+                                PutReply::Media(channel).send(&mut swarm, &service, status, None);
+                            }
+                            Err(error) => { failed += 1; tracing::error!(%error, "media admission failed"); }
+                        }
+                        drop_banned(&mut swarm, &service, id);
+                        continue;
+                    }
+                    match service.media(&from, request) {
                         Ok(response) => {
                             answered += 1;
-                    service.traffic.add(response.encoded_len() as u64);
+                            // A get's payload was reserved by the service before returning it.
+                            service.traffic.add((response.encoded_len() - response.data.len()) as u64);
                             let _ = swarm.behaviour_mut().media.send_response(channel, response);
                         }
                         Err(error) => {
@@ -1114,6 +1167,22 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     replicas.profile_puts.remove(&request_id);
                     replicas.profile_inventories.remove(&request_id);
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
+                    peer: id, message: Message::Response { request_id, response }, ..
+                })) => {
+                    service.traffic.add(response.encoded_len() as u64);
+                    replicas.trust.add(id, 1);
+                    if let Some(put) = replicas.media_puts.remove(&request_id) {
+                        if let Some(put) = replicas.puts.get_mut(&put) { put.confirm(id, response.status, None); }
+                        replicas.finish_puts(&mut swarm, &service, Instant::now());
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::OutboundFailure {
+                    peer, request_id, error, ..
+                })) => {
+                    if !matches!(error, OutboundFailure::UnsupportedProtocols) { replicas.trust.add(peer, -1); }
+                    replicas.media_puts.remove(&request_id);
+                }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
                 // ponytail: claimed addresses pass the IP-group limits but are not verified by a
@@ -1227,7 +1296,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     tracing::warn!(refused, "connections refused by the connection or memory limits");
                     refused = 0;
                 }
-                status(&service, &swarm, peers.len(), answered, failed);
+                status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1);
                 (answered, failed) = (0, 0);
                 dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
             }
@@ -1236,7 +1305,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
 }
 
 /// The hourly status line: no peer or key identifiers, counts and sizes only.
-fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u64, failed: u64) {
+fn status(
+    service: &Service,
+    swarm: &Swarm<Behaviour>,
+    known: usize,
+    answered: u64,
+    failed: u64,
+    media_replica_holders: usize,
+) {
     let bytes = |usage: crate::Result<(u64, u64)>| usage.map_or(0, |(used, _)| used);
     let media = service
         .media
@@ -1250,6 +1326,7 @@ fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u
         profiles_bytes = bytes(service.store.profiles_usage()),
         messages_bytes = bytes(service.store.messages_usage()),
         media_bytes = media,
+        media_replica_holders,
         "node status"
     );
 }
@@ -1371,6 +1448,62 @@ mod tests {
         let mut isolated = PendingPut::new(record, None, true);
         isolated.confirm(a, Status::Ok.into(), None);
         assert_eq!(isolated.result(Instant::now()), Some(Status::Ok));
+    }
+
+    #[tokio::test]
+    async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write() {
+        let service = Service::new(
+            crate::BootstrapStore::new(&format!(
+                "/tmp/ai/test-media-holders-{}",
+                uuid::Uuid::new_v4()
+            ))
+            .unwrap(),
+            crate::NodeConfig::default(),
+        );
+        let mut swarm =
+            dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        let mut replicas = Replicas::default();
+        let a = PeerId::random();
+        let b = PeerId::random();
+        let mut put = PendingPut::new(
+            PutRecord::Media(proto::MediaReplicaPut::default()),
+            None,
+            false,
+        );
+        put.confirm(a, Status::Ok.into(), None);
+        put.confirm(a, Status::Ok.into(), None);
+        put.confirm(b, Status::Full.into(), None);
+        replicas.puts.insert(1, put);
+        // Retain the put as background work while status takes its snapshot.
+        replicas.media_puts.insert(
+            swarm
+                .behaviour_mut()
+                .media
+                .send_request(&a, proto::MediaRequest::default()),
+            1,
+        );
+        replicas.finish_puts(&mut swarm, &service, Instant::now());
+        assert_eq!(replicas.media_holders, (1, 1));
+        replicas
+            .puts
+            .get_mut(&1)
+            .unwrap()
+            .confirm(b, Status::Ok.into(), None);
+        replicas.finish_puts(&mut swarm, &service, Instant::now());
+        assert_eq!(replicas.media_holders, (1, 2));
+        let mut latest = PendingPut::new(
+            PutRecord::Media(proto::MediaReplicaPut::default()),
+            None,
+            true,
+        );
+        latest.confirm(a, Status::Ok.into(), None);
+        replicas.puts.insert(2, latest);
+        replicas.finish_puts(&mut swarm, &service, Instant::now());
+        assert_eq!(
+            replicas.media_holders,
+            (2, 1),
+            "older writes cannot inflate the latest count"
+        );
     }
 
     #[test]

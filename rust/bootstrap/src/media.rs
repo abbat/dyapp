@@ -8,6 +8,9 @@
 
 use crate::storage::{free, lock, open, storage_error};
 use crate::Result;
+use dyapp_identity::SignedRecord;
+use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
+use prost::Message;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::fs;
 use std::io::Write;
@@ -137,6 +140,17 @@ impl MediaStore {
                     )).map_err(storage_error)?;
                 }
             }
+            for table in ["owners", "attachments"] {
+                let exists: bool = connection.query_row(
+                    &format!("SELECT EXISTS (SELECT 1 FROM pragma_table_info('{table}') WHERE name = 'record')"),
+                    [], |row| row.get(0),
+                ).map_err(storage_error)?;
+                if !exists {
+                    connection
+                        .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN record BLOB;"))
+                        .map_err(storage_error)?;
+                }
+            }
             connection
                 .execute_batch(
                     "CREATE INDEX IF NOT EXISTS owners_seen ON owners (last_seen);
@@ -165,6 +179,27 @@ impl MediaStore {
         hashes: &[Vec<u8>],
         time: u64,
     ) -> Result<Option<Vec<Vec<u8>>>> {
+        self.keep_record(owner, version, hashes, time, None)
+    }
+
+    /// Persists the already-verified signature atomically with the latest keep.
+    pub fn keep_signed(
+        &self,
+        owner: &str,
+        keep: &proto::MediaKeep,
+        record: &SignedRecord,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
+        self.keep_record(owner, keep.version, &keep.hashes, keep.time, Some(record))
+    }
+
+    fn keep_record(
+        &self,
+        owner: &str,
+        version: u64,
+        hashes: &[Vec<u8>],
+        time: u64,
+        record: Option<&SignedRecord>,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
         let version = i64::try_from(version).map_err(storage_error)?;
         let time = i64::try_from(time).map_err(storage_error)?;
         let mut db = lock(&self.db)?;
@@ -192,10 +227,10 @@ impl MediaStore {
             }
         }
         tx.execute(
-            "INSERT INTO owners (owner, version, last_seen) VALUES (?, ?, ?) \
+            "INSERT INTO owners (owner, version, last_seen, record) VALUES (?, ?, ?, ?) \
              ON CONFLICT(owner) DO UPDATE SET version = excluded.version, \
-             last_seen = MAX(owners.last_seen, excluded.last_seen)",
-            params![owner, version, time],
+             last_seen = MAX(owners.last_seen, excluded.last_seen), record = excluded.record",
+            params![owner, version, time, record.map(Message::encode_to_vec)],
         )
         .map_err(storage_error)?;
         let mut dropped = Vec::new();
@@ -227,6 +262,36 @@ impl MediaStore {
         created: u64,
         max: usize,
     ) -> Result<Option<Vec<Vec<u8>>>> {
+        self.attach_record(owner, release, hashes, (expires, created), max, None)
+    }
+
+    pub fn attach_signed(
+        &self,
+        owner: &str,
+        attach: &proto::MediaAttach,
+        expires: u64,
+        max: usize,
+        record: &SignedRecord,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
+        self.attach_record(
+            owner,
+            &attach.release,
+            &attach.hashes,
+            (expires, attach.created),
+            max,
+            Some(record),
+        )
+    }
+
+    fn attach_record(
+        &self,
+        owner: &str,
+        release: &[u8],
+        hashes: &[Vec<u8>],
+        (expires, created): (u64, u64),
+        max: usize,
+        record: Option<&SignedRecord>,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
         let slot = format!("r:{}:{owner}", hex(release));
         let expires = i64::try_from(expires).map_err(storage_error)?;
         let created = i64::try_from(created).map_err(storage_error)?;
@@ -244,9 +309,16 @@ impl MediaStore {
         }
         // ponytail: a replayed attach renews the expiry, at most to its `created` + retention.
         tx.execute(
-            "INSERT OR REPLACE INTO attachments (slot, release, owner, expires, created) \
-             VALUES (?, ?, ?, ?, ?)",
-            params![slot, release, owner, expires, created],
+            "INSERT OR REPLACE INTO attachments (slot, release, owner, expires, created, record) \
+             VALUES (?, ?, ?, ?, ?, ?)",
+            params![
+                slot,
+                release,
+                owner,
+                expires,
+                created,
+                record.map(Message::encode_to_vec)
+            ],
         )
         .map_err(storage_error)?;
         tx.execute(
@@ -258,6 +330,40 @@ impl MediaStore {
         let missing = list(&tx, &slot, hashes)?;
         tx.commit().map_err(storage_error)?;
         Ok(Some(missing))
+    }
+
+    /// A stored keep is authoritative even when a replica carries an older signed list.
+    pub fn kept(&self, owner: &str, hash: &[u8]) -> Result<bool> {
+        lock(&self.db)?
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM blobs WHERE owner = ? AND hash = ?)",
+                params![owner, hash],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)
+    }
+
+    /// Returns the latest signed list naming this hash; legacy unsigned rows need a fresh keep.
+    pub fn authorization(&self, owner: &str, hash: &[u8]) -> Result<Option<Authorization>> {
+        let now = chrono::Utc::now().timestamp();
+        let held: Option<(bool, Vec<u8>)> = lock(&self.db)?.query_row(
+            "SELECT 1, attachments.record FROM attachments JOIN blobs ON blobs.owner = attachments.slot
+             WHERE attachments.owner = ?1 AND blobs.hash = ?2 AND attachments.expires > ?3
+             AND attachments.record IS NOT NULL
+             UNION ALL
+             SELECT 0, owners.record FROM owners JOIN blobs USING(owner)
+             WHERE owners.owner = ?1 AND blobs.hash = ?2 AND owners.record IS NOT NULL LIMIT 1",
+            params![owner, hash, now], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).optional().map_err(storage_error)?;
+        held.map(|(attach, bytes)| {
+            let record = SignedRecord::decode(bytes.as_slice()).map_err(storage_error)?;
+            Ok(if attach {
+                Authorization::Attach(record)
+            } else {
+                Authorization::Keep(record)
+            })
+        })
+        .transpose()
     }
 
     /// Drops the attachments released by `secret`; false if there were none.
@@ -391,9 +497,6 @@ impl MediaStore {
         if rows == 0 {
             return Ok(Put::NotListed);
         }
-        if stored == 1 {
-            return Ok(Put::Stored);
-        }
         let used: i64 = db
             .query_row(
                 &format!("SELECT COALESCE(SUM(size), 0) FROM blobs WHERE {OWNED}"),
@@ -401,8 +504,12 @@ impl MediaStore {
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        if used.unsigned_abs() + data.len() as u64 > quota {
+        let extra = if stored == 1 { 0 } else { data.len() as u64 };
+        if used.unsigned_abs().saturating_add(extra) > quota {
             return Ok(Put::OverQuota);
+        }
+        if stored == 1 {
+            return Ok(Put::Stored);
         }
         let path = self.path(&hash);
         if !path.exists() {
@@ -477,7 +584,12 @@ mod tests {
         );
         assert_eq!(media.keep("alice", 1, &[], 10).unwrap(), None, "stale");
         assert_eq!(media.put("alice", &a, 1000).unwrap(), Put::Stored);
-        assert_eq!(media.put("alice", &a, 0).unwrap(), Put::Stored, "repeat");
+        assert_eq!(media.put("alice", &a, 1000).unwrap(), Put::Stored, "repeat");
+        assert_eq!(
+            media.put("alice", &a, 0).unwrap(),
+            Put::OverQuota,
+            "lowered quota"
+        );
         assert_eq!(media.put("alice", &b, 350).unwrap(), Put::OverQuota);
         assert_eq!(media.get(&ha).unwrap(), Some(a.clone()));
         assert_eq!(media.get(&hb).unwrap(), None);

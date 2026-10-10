@@ -7,8 +7,8 @@ also stops one to check that replicas skip a departed node.
 `--health MULTIADDR` checks one node.
 
 The second and third nodes join through the first; the third allows
-`FLOOD_LIMIT` requests per second per peer. Only the first serves media
-and TURN credentials; in Docker it hands out a coturn relay.
+`FLOOD_LIMIT` requests per second per peer. Every node serves media; only the
+first serves TURN credentials and, in Docker, hands out a coturn relay.
 """
 import base64
 import hashlib
@@ -67,6 +67,7 @@ def local(bin_dir):
                        "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
                        "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
                        "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
+                       "DYAPPD__ROLES": '["store", "media"]',
                        "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
                        # Loopback nodes share one /16.
                        "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false",
@@ -205,6 +206,17 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     This runs on the three-node loopback network inside the dev Docker image.
     """
     tcp, quic = peer
+    # The other two nodes have departed: restart the acceptor to exercise the
+    # isolated-node exception without their stale in-memory routing entries.
+    processes[0].terminate()
+    processes[0].wait()
+    processes[0] = subprocess.Popen([f"{bin_dir}/dyappd"], env=env)
+    for _ in range(60):
+        if healthy(client, tcp):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Media acceptor did not restart in isolation")
     expired, refreshed = [
         call(client, "media-owned", tcp, os.urandom(64).hex())
         for _ in range(2)
@@ -326,6 +338,7 @@ def network(peers, client, churn):
         time.sleep(1)
     if relays != [call(client, "info", entry)["peer_id"]]:
         raise RuntimeError(f"TURN relays in the DHT: {relays}")
+    media_spread(client, entry, peers, ids)
     holders = replicate(client, entry, ids)
     # 15 requests stay within the 16 concurrent streams a node accepts on
     # one connection; more are dropped unanswered.
@@ -397,8 +410,16 @@ def media(client, tcp, quic):
     """A blob kept, put and read back over QUIC on a media node; a
     node without the role answers UNSUPPORTED."""
     serves = "ROLE_MEDIA" in call(client, "info", tcp)["roles"]
-    blob = os.urandom(64).hex()
-    reply = call(client, "media", quic if serves else tcp, blob)
+    own = call(client, "info", tcp)["peer_id"]
+    for _ in range(40):
+        blob = os.urandom(64)
+        holders = replica_holders(client, tcp,
+                                  hashlib.sha256(blob).hexdigest())
+        if not serves or own in holders:
+            break
+    else:
+        raise RuntimeError("No media replica key held by the test node")
+    reply = call(client, "media", quic if serves else tcp, blob.hex())
     expected = "STATUS_OK" if serves else "STATUS_UNSUPPORTED"
     if reply != {"keep": expected, "put": expected, "get": expected}:
         raise RuntimeError(f"Media roundtrip on {tcp}: {reply}")
@@ -486,6 +507,35 @@ def error_code(attrs):
 def replica_holders(client, entry, key):
     return [call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
             for i in range(5)]
+
+
+def media_spread(client, entry, peers, ids):
+    """One 512 KiB upload reaches every distinct holder, over TCP and QUIC."""
+    size = 512 * 1024
+    for _ in range(40):
+        seed = os.urandom(32)
+        blob_hash = hashlib.sha256(seed * (size // len(seed))).hexdigest()
+        if set(replica_holders(client, entry, blob_hash)) == set(ids):
+            break
+    else:
+        raise RuntimeError("No media keys spanning all three nodes")
+    reply = call(client, "media-sized", entry, str(size), seed.hex())
+    if any(reply[key] != "STATUS_OK" for key in ("keep", "put", "get")):
+        raise RuntimeError(f"512 KiB media upload failed: {reply}")
+    for index, (tcp, quic) in enumerate(peers):
+        for _ in range(20):
+            stored = call(client, "media-get", quic if index % 2 else tcp,
+                          blob_hash)
+            if stored["status"] == "STATUS_OK":
+                data = bytes.fromhex(stored["data"])
+                actual_hash = hashlib.sha256(data).hexdigest()
+                if len(data) != size or actual_hash != blob_hash:
+                    raise RuntimeError("Media replica changed its bytes")
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError(f"Media replica missing on {tcp}")
+    print("Media replication: one 512 KiB upload readable on all three nodes")
 
 
 def spread(client, entry):

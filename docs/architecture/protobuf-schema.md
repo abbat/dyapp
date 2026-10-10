@@ -76,9 +76,16 @@ SHA-256 of the device public key (32 bytes each).
   returns the ones still `missing`. Its signed `time` must be within 10 minutes of the node
   clock; the same version and list with a newer time refreshes media liveness, while replaying
   it does not. Inactive owners' keeps expire after `limits.profile_ttl_days`; shared blobs stay.
-  `put` sends a listed blob unsigned; `get(hash)` returns it.
+  `put` sends a listed blob unsigned once; the acceptor forwards whole copies up to 1 MiB
+  to five DHT points and confirms two distinct holders. Node `replica_put(MediaReplicaPut)`
+  carries the persisted signed keep or attachment; receivers verify it independently, require
+  the hash in the latest keep (or a valid unexpired attachment), and never forward it.
+  Older keep timestamps are valid on replicas within the owner TTL and cannot refresh liveness.
+  Client puts and owner quotas count bytes × 5; node puts count one payload against peer limits.
+  `get(hash)` returns a whole copy and bills reply bytes. All selected store holders must also
+  serve media while these roles share one DHT.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
-  creation time; `release(secret)` drops it.
+  creation time; `release(secret)` drops it on that node, so release every replica holder.
 
 ## FFI boundary
 

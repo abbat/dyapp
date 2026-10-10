@@ -32,6 +32,7 @@ x-peer: &peer
     # The default listens on loopback only.
     DYAPPD__LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
     DYAPPD__STORAGE__DIR: /tmp/node
+    DYAPPD__ROLES: '["store", "media"]'
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
     DYAPPD__NETWORK__ID_POW_BITS: "8"
     # Every test node shares one /16.
@@ -60,7 +61,7 @@ services:
       - --log-file=stdout
       - --pidfile=/tmp/turnserver.pid
       - --userdb=/tmp/turndb
-  # The only media and turn node: network-test.py checks the others answer UNSUPPORTED.
+  # Every replica holder serves media; only bootstrap-a serves TURN.
   bootstrap-a:
     <<: *peer
     environment:

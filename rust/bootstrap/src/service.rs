@@ -59,6 +59,7 @@ pub struct Service {
     pub media: Option<MediaStore>,
     pub rate_limiter: PeerRateLimiter,
     pub media_peers: PeerRateLimiter,
+    media_bytes: PeerRateLimiter,
     pub groups: PeerRateLimiter,
     pub senders: PeerRateLimiter,
     pub reputation: Reputation,
@@ -97,6 +98,9 @@ impl Service {
             media: None,
             rate_limiter: PeerRateLimiter::new(l.requests_per_second),
             media_peers: PeerRateLimiter::new(l.media_requests_per_second),
+            media_bytes: PeerRateLimiter::new(
+                u32::try_from(l.bytes_per_second).unwrap_or(u32::MAX).max(1),
+            ),
             groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
@@ -689,6 +693,12 @@ impl Service {
 impl Service {
     /// Errors as in [`Service::profile`].
     pub fn media(&self, peer: &Peer, request: MediaRequest) -> crate::Result<MediaResponse> {
+        if let Some(media_request::Request::Put(put)) = &request.request {
+            return match self.prepare_media(peer, put)? {
+                Ok(replica) => self.store_media(&replica),
+                Err(status) => Ok(media_status(status)),
+            };
+        }
         let Some(media) = &self.media else {
             return Ok(media_status(Status::Unsupported));
         };
@@ -722,7 +732,7 @@ impl Service {
                 {
                     return Ok(media_status(Status::Invalid));
                 }
-                match media.keep(&hex(&owner), keep.version, &keep.hashes, keep.time)? {
+                match media.keep_signed(&hex(&owner), &keep, &record)? {
                     Some(missing) => MediaResponse {
                         missing,
                         ..media_status(Status::Ok)
@@ -730,35 +740,7 @@ impl Service {
                     None => media_status(Status::Stale),
                 }
             }
-            Some(media_request::Request::Put(put)) => {
-                if put.data.len() > MAX_MEDIA_BYTES {
-                    return Ok(media_status(Status::TooLarge));
-                }
-                if put.owner.len() != 32 {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if self.listed(&put.owner) || self.listed(&dyapp_identity::sha256(&put.data)) {
-                    return Ok(media_status(Status::Refused));
-                }
-                // ponytail: sums all blobs per put; keep a running total if puts get slow.
-                let max = l.media_max_mb.saturating_mul(1 << 20);
-                let (mut used, mut free) = media.usage()?;
-                if used >= max {
-                    let removed = media.evict(max / 100 * 95)?;
-                    tracing::info!(removed, "media lists evicted");
-                    (used, free) = media.usage()?;
-                }
-                let full = used >= max || free <= l.min_free_mb.saturating_mul(1 << 20);
-                if self.guard(2, full) {
-                    return Ok(media_status(Status::Full));
-                }
-                let quota = l.media_per_owner_mb.saturating_mul(1 << 20);
-                media_status(match media.put(&hex(&put.owner), &put.data, quota)? {
-                    Put::Stored => Status::Ok,
-                    Put::NotListed => Status::NotFound,
-                    Put::OverQuota => Status::Full,
-                })
-            }
+            Some(media_request::Request::Put(_)) => unreachable!("put admitted separately"),
             // ponytail: a get names no owner, so a listed owner's blobs already stored are still
             // served unless the deny list names the blob hash too.
             Some(media_request::Request::Get(get)) => {
@@ -769,10 +751,15 @@ impl Service {
                     return Ok(media_status(Status::Refused));
                 }
                 match media.get(&get.hash)? {
-                    Some(data) => MediaResponse {
-                        data,
-                        ..media_status(Status::Ok)
-                    },
+                    Some(data) => {
+                        if !self.media_charge(peer, data.len() as u64, data.len() as u64) {
+                            return Ok(media_status(Status::RateLimited));
+                        }
+                        MediaResponse {
+                            data,
+                            ..media_status(Status::Ok)
+                        }
+                    }
                     None => media_status(Status::NotFound),
                 }
             }
@@ -796,13 +783,12 @@ impl Service {
                     return Ok(media_status(Status::Invalid));
                 }
                 let expires = attach.created + u64::from(l.attachment_retention_hours) * 3600;
-                match media.attach(
+                match media.attach_signed(
                     &hex(&owner),
-                    &attach.release,
-                    &attach.hashes,
+                    &attach,
                     expires,
-                    attach.created,
                     MAX_ATTACHMENTS,
+                    &record,
                 )? {
                     Some(missing) => MediaResponse {
                         missing,
@@ -818,8 +804,174 @@ impl Service {
                     Status::NotFound
                 })
             }
+            Some(media_request::Request::ReplicaPut(replica)) => {
+                if !self.media_charge(peer, replica.data.len() as u64, 0) {
+                    return Ok(media_status(Status::RateLimited));
+                }
+                let response = self.store_media(&replica)?;
+                if response.status == i32::from(Status::Denied) {
+                    self.strike(peer);
+                }
+                response
+            }
             None => media_status(Status::Unsupported),
         })
+    }
+
+    /// Byte charges are separate from the request-count buckets; 0 disables the byte cap.
+    fn media_charge(&self, peer: &Peer, bytes: u64, reserve: u64) -> bool {
+        let admitted = self.config.limits.bytes_per_second == 0
+            || bytes == 0
+            || self
+                .media_bytes
+                .check_units(&peer.id, u32::try_from(bytes).unwrap_or(u32::MAX));
+        admitted && self.traffic.try_add(reserve, SHED_MEDIA)
+    }
+
+    /// Accepts one upload without storing locally unless this node holds a replica key.
+    pub fn prepare_media(
+        &self,
+        peer: &Peer,
+        put: &proto::MediaPut,
+    ) -> crate::Result<std::result::Result<proto::MediaReplicaPut, Status>> {
+        let Some(media) = &self.media else {
+            return Ok(Err(Status::Unsupported));
+        };
+        let request = MediaRequest {
+            request: Some(media_request::Request::Put(put.clone())),
+        };
+        if self.shed(request.encoded_len(), SHED_MEDIA)
+            || !self.admit(peer)
+            || !self.media_peers.check_limit(&peer.id)
+        {
+            return Ok(Err(Status::RateLimited));
+        }
+        if self.refused(peer)
+            || self.listed(&put.owner)
+            || self.listed(&dyapp_identity::sha256(&put.data))
+        {
+            return Ok(Err(Status::Refused));
+        }
+        if put.data.len() > MAX_MEDIA_BYTES {
+            return Ok(Err(Status::TooLarge));
+        }
+        if put.owner.len() != 32 {
+            return Ok(Err(Status::Invalid));
+        }
+        let hash = dyapp_identity::sha256(&put.data);
+        let Some(authorization) = media.authorization(&hex(&put.owner), &hash)? else {
+            return Ok(Err(Status::NotFound));
+        };
+        let bytes = put.data.len() as u64;
+        if !self.media_charge(
+            peer,
+            bytes * u64::from(dyapp_p2p_net::REPLICAS),
+            bytes * u64::from(dyapp_p2p_net::REPLICAS - 1),
+        ) {
+            return Ok(Err(Status::RateLimited));
+        }
+        Ok(Ok(proto::MediaReplicaPut {
+            data: put.data.clone(),
+            authorization: Some(authorization),
+        }))
+    }
+
+    /// Independently verifies the authorization and checks against the latest local keep.
+    pub fn store_media(&self, replica: &proto::MediaReplicaPut) -> crate::Result<MediaResponse> {
+        use proto::media_replica_put::Authorization;
+        let Some(media) = &self.media else {
+            return Ok(media_status(Status::Unsupported));
+        };
+        if replica.data.len() > MAX_MEDIA_BYTES {
+            return Ok(media_status(Status::TooLarge));
+        }
+        let hash = dyapp_identity::sha256(&replica.data);
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let l = &self.config.limits;
+        let owner = match &replica.authorization {
+            Some(Authorization::Keep(record)) => {
+                let Ok((owner, keep)) =
+                    owner_request::<proto::MediaKeep>(record, Domain::MediaKeep, |_| true)
+                else {
+                    return Ok(media_status(Status::Denied));
+                };
+                if keep.version == 0
+                    || keep.hashes.len() > MAX_KEEP
+                    || keep.hashes.iter().any(|h| h.len() != 32)
+                    || keep.time > now + CLOCK_SKEW
+                    || now.saturating_sub(keep.time) > u64::from(l.profile_ttl_days) * 86400
+                {
+                    return Ok(media_status(Status::Invalid));
+                }
+                if self.listed(&owner) || self.listed(&hash) {
+                    return Ok(media_status(Status::Refused));
+                }
+                if !keep.hashes.iter().any(|h| h.as_slice() == hash) {
+                    return Ok(media_status(Status::NotFound));
+                }
+                media.keep_signed(&hex(&owner), &keep, record)?;
+                if !media.kept(&hex(&owner), &hash)? {
+                    return Ok(media_status(Status::NotFound));
+                }
+                owner
+            }
+            Some(Authorization::Attach(record)) => {
+                let Ok((owner, attach)) =
+                    owner_request::<proto::MediaAttach>(record, Domain::MediaAttach, |_| true)
+                else {
+                    return Ok(media_status(Status::Denied));
+                };
+                let expires = attach
+                    .created
+                    .saturating_add(u64::from(l.attachment_retention_hours) * 3600);
+                if attach.release.len() != 32
+                    || attach.hashes.is_empty()
+                    || attach.hashes.len() > MAX_ATTACH
+                    || attach.hashes.iter().any(|h| h.len() != 32)
+                    || attach.created > now + CLOCK_SKEW
+                    || expires <= now
+                {
+                    return Ok(media_status(Status::Invalid));
+                }
+                if self.listed(&owner) || self.listed(&hash) {
+                    return Ok(media_status(Status::Refused));
+                }
+                if !attach.hashes.iter().any(|h| h.as_slice() == hash) {
+                    return Ok(media_status(Status::NotFound));
+                }
+                if media
+                    .attach_signed(&hex(&owner), &attach, expires, MAX_ATTACHMENTS, record)?
+                    .is_none()
+                {
+                    return Ok(media_status(Status::Full));
+                }
+                owner
+            }
+            None => return Ok(media_status(Status::Denied)),
+        };
+        let max = l.media_max_mb.saturating_mul(1 << 20);
+        let (mut used, mut free) = media.usage()?;
+        if used >= max {
+            let removed = media.evict(max / 100 * 95)?;
+            tracing::info!(removed, "media lists evicted");
+            (used, free) = media.usage()?;
+        }
+        if self.guard(
+            2,
+            used >= max || free <= l.min_free_mb.saturating_mul(1 << 20),
+        ) {
+            return Ok(media_status(Status::Full));
+        }
+        // Whole-copy ownership is charged at R=5 even when keys co-locate on a small network.
+        let quota =
+            l.media_per_owner_mb.saturating_mul(1 << 20) / u64::from(dyapp_p2p_net::REPLICAS);
+        Ok(media_status(
+            match media.put(&hex(&owner), &replica.data, quota)? {
+                Put::Stored => Status::Ok,
+                Put::NotListed => Status::NotFound,
+                Put::OverQuota => Status::Full,
+            },
+        ))
     }
 }
 
@@ -1602,6 +1754,219 @@ mod tests {
         let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
         assert_eq!(known.username, "1003600:12D3KooWpeer");
         assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc=");
+    }
+
+    fn media_service(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
+        let mut s = service_with(change);
+        s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
+        s
+    }
+
+    fn media_replica(owner: &Identity, data: Vec<u8>, version: u64) -> proto::MediaReplicaPut {
+        let keep = proto::MediaKeep {
+            version,
+            hashes: vec![dyapp_identity::sha256(&data).to_vec()],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        proto::MediaReplicaPut {
+            data,
+            authorization: Some(proto::media_replica_put::Authorization::Keep(
+                owner.sign(Domain::MediaKeep, keep.encode_to_vec()),
+            )),
+        }
+    }
+
+    #[test]
+    fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
+        use proto::media_replica_put::Authorization;
+        let mut s = media_service(|_| {});
+        let owner = Identity::generate();
+        let replica = media_replica(&owner, b"replica".to_vec(), 1);
+        let hash = dyapp_identity::sha256(&replica.data);
+        let result = |s: &Service, replica: &proto::MediaReplicaPut| {
+            Status::try_from(s.store_media(replica).unwrap().status).unwrap()
+        };
+        let mut bad = replica.clone();
+        bad.authorization = None;
+        assert_eq!(result(&s, &bad), Status::Denied);
+        bad.authorization = Some(Authorization::Keep(SignedRecord::default()));
+        assert_eq!(result(&s, &bad), Status::Denied);
+        bad.data.push(1);
+        bad.authorization = replica.authorization.clone();
+        assert_eq!(result(&s, &bad), Status::NotFound);
+        assert_eq!(result(&s, &replica), Status::Ok);
+        assert_eq!(
+            result(&s, &replica),
+            Status::Ok,
+            "already held counts as stored"
+        );
+        // The signed proof survives a restart and supports acceptor forwarding.
+        s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
+        assert_eq!(
+            s.media
+                .as_ref()
+                .unwrap()
+                .authorization(&owner.peer_id(), &hash)
+                .unwrap(),
+            replica.authorization,
+        );
+        let newer = proto::MediaKeep {
+            version: 2,
+            hashes: Vec::new(),
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        let record = owner.sign(Domain::MediaKeep, newer.encode_to_vec());
+        s.media
+            .as_ref()
+            .unwrap()
+            .keep_signed(&owner.peer_id(), &newer, &record)
+            .unwrap();
+        assert_eq!(result(&s, &replica), Status::NotFound);
+        assert_eq!(s.media.as_ref().unwrap().get(&hash).unwrap(), None);
+        assert_eq!(
+            s.media
+                .as_ref()
+                .unwrap()
+                .authorization(&owner.peer_id(), &hash)
+                .unwrap(),
+            None
+        );
+        // Even if the latest keep permits a hash, a carried proof must name it too.
+        let current = media_replica(&owner, replica.data.clone(), 3);
+        assert_eq!(result(&s, &current), Status::Ok);
+        bad = current;
+        bad.authorization = Some(Authorization::Keep(record));
+        assert_eq!(result(&s, &bad), Status::NotFound);
+        let attach = proto::MediaAttach {
+            release: dyapp_identity::sha256(b"release").to_vec(),
+            hashes: vec![hash.to_vec()],
+            created: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        let mut attachment = replica.clone();
+        attachment.authorization = Some(Authorization::Attach(
+            owner.sign(Domain::MediaAttach, attach.encode_to_vec()),
+        ));
+        assert_eq!(result(&s, &attachment), Status::Ok);
+        s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
+        assert_eq!(
+            s.media
+                .as_ref()
+                .unwrap()
+                .authorization(&owner.peer_id(), &hash)
+                .unwrap(),
+            attachment.authorization,
+            "unexpired attachments take precedence over potentially aged keeps"
+        );
+        // Releasing the attachment leaves the independently kept copy alive.
+        assert!(s.media.as_ref().unwrap().release(b"release").unwrap());
+        assert_eq!(result(&s, &replica), Status::Ok);
+        let expired = proto::MediaAttach {
+            created: 1,
+            ..attach
+        };
+        attachment.authorization = Some(Authorization::Attach(
+            owner.sign(Domain::MediaAttach, expired.encode_to_vec()),
+        ));
+        assert_eq!(result(&s, &attachment), Status::Invalid);
+    }
+
+    #[test]
+    fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
+        let mut s = media_service(|l| l.bytes_per_second = 10_000);
+        let owner = Identity::generate();
+        let replica = media_replica(&owner, vec![1; 1000], 1);
+        assert_eq!(
+            s.store_media(&replica).unwrap().status,
+            i32::from(Status::Ok)
+        );
+        let put = proto::MediaPut {
+            owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
+            data: replica.data.clone(),
+        };
+        assert!(s.prepare_media(&peer("client"), &put).unwrap().is_ok());
+        assert_eq!(
+            s.traffic.second(),
+            50,
+            "intake reserves 5 x 1000 bytes, plus framing"
+        );
+        let get = MediaRequest {
+            request: Some(media_request::Request::Get(proto::GetMedia {
+                hash: dyapp_identity::sha256(&put.data).to_vec(),
+            })),
+        };
+        assert_eq!(s.media(&peer("client"), get).unwrap().data, put.data);
+        assert_eq!(
+            s.traffic.second(),
+            60,
+            "get reserves exactly the reply payload"
+        );
+        // Isolate peer billing from the shared traffic guard.
+        s.traffic = Traffic::new(0);
+        let big = media_replica(&owner, vec![2; 1600], 2);
+        assert_eq!(s.store_media(&big).unwrap().status, i32::from(Status::Ok));
+        let put = proto::MediaPut {
+            data: big.data.clone(),
+            ..put
+        };
+        assert!(s.prepare_media(&peer("gallery"), &put).unwrap().is_ok());
+        assert_eq!(
+            s.prepare_media(&peer("gallery"), &put).unwrap(),
+            Err(Status::RateLimited)
+        );
+        let node_put = || MediaRequest {
+            request: Some(media_request::Request::ReplicaPut(big.clone())),
+        };
+        assert_eq!(
+            s.media(&peer("gallery"), node_put()).unwrap().status,
+            i32::from(Status::Ok)
+        );
+        assert_eq!(
+            s.media(&peer("gallery"), node_put()).unwrap().status,
+            i32::from(Status::RateLimited)
+        );
+        assert_eq!(
+            s.media(&peer("other-node"), node_put()).unwrap().status,
+            i32::from(Status::Ok)
+        );
+    }
+
+    #[test]
+    fn media_whole_copy_owner_quota_includes_five_copies() {
+        let s = media_service(|l| l.media_per_owner_mb = 1);
+        let owner = Identity::generate();
+        let replica = media_replica(&owner, vec![1; 210_000], 1);
+        assert_eq!(
+            s.store_media(&replica).unwrap().status,
+            i32::from(Status::Full)
+        );
+        let replica = media_replica(&owner, vec![2; 200_000], 2);
+        assert_eq!(
+            s.store_media(&replica).unwrap().status,
+            i32::from(Status::Ok)
+        );
+        // A second owner cannot bypass its quota by listing a copy already on this node.
+        let other = Identity::generate();
+        let first = media_replica(&other, vec![3; 20_000], 1);
+        assert_eq!(s.store_media(&first).unwrap().status, i32::from(Status::Ok));
+        let shared = media_replica(&other, replica.data.clone(), 2);
+        let keep = proto::MediaKeep {
+            version: 2,
+            hashes: vec![
+                dyapp_identity::sha256(&first.data).to_vec(),
+                dyapp_identity::sha256(&shared.data).to_vec(),
+            ],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        let shared = proto::MediaReplicaPut {
+            authorization: Some(proto::media_replica_put::Authorization::Keep(
+                other.sign(Domain::MediaKeep, keep.encode_to_vec()),
+            )),
+            ..shared
+        };
+        assert_eq!(
+            s.store_media(&shared).unwrap().status,
+            i32::from(Status::Full)
+        );
     }
 
     #[test]

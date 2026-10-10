@@ -11,7 +11,7 @@ repairs mailbox and profile replicas node to node; profile search and signaling 
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
-- **Replication**: messages and profiles replicated whole to 5 points, Reed-Solomon K ≤ 6, M = 4 only for media above 1 MiB [ADR 0009](../decisions/0009-message-delivery-and-storage.md); the client writes each replica to the node the DHT finds, nodes forward mailbox acks and repair mailboxes; media are not replicated and the Reed-Solomon codec is not wired in (see [Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon))
+- **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes and profiles. Larger media and Reed-Solomon placement remain planned ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
@@ -24,7 +24,7 @@ Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profi
 `/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
 mailbox replicas and repair over the DHT. Signals in the mailbox (the envelope class and the
 signal quota), the search service (gossipsub, `/dyapp/search-kad`, `profiles-idx.db`), media
-replication and retention, profile proof of work
+shards and repair, profile proof of work
 and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
@@ -46,8 +46,8 @@ it describe today's code.
   background under the I/O budget, while the old one keeps answering; the node switches when the
   new one is ready and then deletes the old one.
 - **Clients upload once, nodes replicate.** The acceptor looks up the five holders of a
-  mailbox or profile, writes each distinct holder, and waits for two stored copies. Media
-  fan-out and shard storage remain planned.
+  mailbox, profile or media blob up to 1 MiB, writes each distinct holder, and waits for two
+  stored copies. Media shard storage remains planned.
 - **Nodes see metadata, not content.** Messages, likes, views and every other signal are
   end-to-end encrypted for the recipient. Who writes to whom and when stays visible to nodes; a
   sealed sender may come later.
@@ -122,14 +122,14 @@ same id or hash stores once), so replays need no nonce.
 
 ### Replication and repair
 
-Profiles and mailbox envelopes (signals included) are replicated whole to R = 5 points,
+Profiles, mailbox envelopes (signals included) and media blobs up to 1 MiB are replicated whole to R = 5 points,
 replica *i* on the nodes closest to H(key ‖ i); media above the node's threshold are to be
 erasure-coded into K = ⌈size / 1 MiB⌉ + M = 4 shards, smaller ones such as thumbnails stored whole
 ([ADR 0009](../decisions/0009-message-delivery-and-storage.md), planned:
 [Replication design](replication.md)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
 SHA-256). A client sends one put to the holder of key 0, falling back to keys 1–4 on failure.
-The acceptor verifies and bills it five token-bucket units, runs a full DHT lookup of every
+The acceptor verifies and bills profile/mailbox writes five token-bucket units, runs a full DHT lookup of every
 replica key, stores locally only when it holds a key, and sends a signed `replica_put` to each
 other distinct holder. Receivers verify records independently and never forward replica puts.
 
@@ -140,6 +140,27 @@ confirm two. At most 64 fan-outs are active, each for 10 seconds; excess or time
 reply, without a persistent queue. A profile holder with an equal or newer verified record
 counts as stored and supplies the highest confirmed stale record in a `STALE` reply.
 The app clients do not call this protocol yet; `test-peer` exercises the single-upload path.
+
+Media keys use the blob's SHA-256. The acceptor carries a persisted signed keep or attachment
+in `MediaReplicaPut`; a receiver independently verifies it and never forwards it. A keep is
+stored only when newer, and the hash must occur in the latest stored keep: an old proof cannot
+restore a removed hash. Replica keep timestamps may be older than ten minutes, but must be
+within the owner TTL and no more than ten minutes ahead; replay never refreshes liveness.
+Attachments retain their original signed creation time and expiry. Legacy lists without a
+persisted signature require a fresh signed keep before upload. A valid unexpired attachment
+is preferred when both authorizations exist.
+
+Client media puts cost payload bytes × 5 against the peer byte bucket and owner quota, including
+repeated puts and deduplicated copies. Gets cost reply payload bytes. Node replica puts charge
+one payload against the sending peer's byte bucket. The byte bucket uses `bytes_per_second`
+(0 disables it), alongside the existing request limits. The acceptor reserves the additional
+four payload copies in the shared 75 % traffic budget before forwarding; outbound framing is
+counted separately. Physical storage deduplicates by hash, while every owner pays its quota.
+`dyappd status` reports `media_replica_holders`, distinct confirmed holders of the most recent
+media write, including late confirmations; this in-memory snapshot is not a durability census.
+Media currently shares the store DHT: all selected holders must serve media, otherwise their
+`UNSUPPORTED` replies cannot count toward confirmation. Keeps and releases are node-local;
+refresh or release each holder separately. Media repair and automatic list forwarding are planned.
 
 Repair is driven by the owner's presence; mailbox and profile repair are implemented, media
 repair is planned. When a user comes online, the nodes
@@ -437,8 +458,9 @@ the payload and storage limits below are checked separately:
 | `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off |
-| `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
-| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `NOT_FOUND`; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([Replication](replication.md)) |
+| `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct stores (one only when isolated), including an already-held blob; `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` pending cap, deadline, five-copy owner quota or disk guard; `INVALID` owner not 32 bytes |
+| `/dyapp/media` | `replica_put(MediaReplicaPut)`: data and signed keep or attachment | independently verified and stored without forwarding; `DENIED` missing/invalid signature; `NOT_FOUND` hash absent from proof or latest keep; `INVALID` expired proof; other put storage statuses apply |
+| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply byte budget; `NOT_FOUND`; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([Replication](replication.md)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 
@@ -481,10 +503,10 @@ the payload and storage limits below are checked separately:
   restores evicted blobs. A deny-listed key cannot refresh its `keep`, so it expires. Media
   requests have their own per-peer limit (`limits.media_requests_per_second`, default 10, no
   strike) besides the shared ones. A node without the media role answers `UNSUPPORTED`. Ranges,
-  media replication and repair are planned.
+  media shards and repair are planned.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
-  the secret (the recipient, after downloading) sends `release` and the node drops the
+  the secret (the recipient, after downloading) sends `release` to each holder and the node drops the
   attachment at once; a blob also kept or attached elsewhere stays. An unreleased attachment
   expires `limits.attachment_retention_hours` (default 168) after its `created` time, which may
   be at most 10 minutes ahead of the node's clock; the hourly cleanup deletes it. A sender has at
@@ -577,6 +599,7 @@ test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
 test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
 test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
 test-peer media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
+test-peer media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 1 MiB
 test-peer media-keep <multiaddr> <record hex> → {"status", "data"}
 test-peer media-get <multiaddr> <hash hex>  → {"status", "data"}
 test-peer turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
@@ -598,11 +621,11 @@ It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
 
 ## Erasure coding (Reed-Solomon)
 
-Profiles and mailboxes are replicated whole ([Replication and repair](#replication-and-repair));
+Profiles, mailboxes and media up to 1 MiB are replicated whole ([Replication and repair](#replication-and-repair));
 erasure coding is meant only for large media. **Status:** `rust/bootstrap/src/replication.rs`
 only encodes a byte buffer into shards and decodes it back, in one process. Nothing in
 `service.rs` or `storage.rs` calls it and the node config has no setting for it. Placing shards on
-nodes, sending them and verifying them are planned with media replication.
+nodes, sending them and verifying them are planned for media above 1 MiB.
 
 A Reed-Solomon code with `d` data and `p` parity shards survives the loss of
 any `p` shards and needs any `d` of the `d + p` shards to rebuild. With one
@@ -696,7 +719,9 @@ starts refusing and a line when it clears, not one per request:
   `keep` or attachment stays. Eviction is bounded to 4096 lists per category per put;
   assembled-blob cache eviction is planned with ranged media reads.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
-  overhead) are counted per second. With `bytes_per_second` set (default 0, no limit), media
+  overhead) are counted per second. Media fan-out prepays four additional payload copies at
+  acceptance; forwarded payload is not charged again, and get payload is reserved before reply.
+  With `bytes_per_second` set (default 0, no limit), media
   requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile
   requests from 90 % and mailbox requests at 100 %; `info` is always served. Search, once
   served, is shed before profiles. There is no monthly cap: a node is not told its billing
@@ -732,7 +757,10 @@ profiles.db  profiles(peer_id PK, record BLOB, live)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
                        UNIQUE (mailbox, id))
              record: the signed envelope as received; indexes on (mailbox, seq), expires_at
-media.db     owners(owner PK, version)  blobs(owner, hash, size, PK (owner, hash))
+media.db     owners(owner PK, version, last_seen, record BLOB)
+             attachments(slot PK, release, owner, expires, created, record BLOB)
+             blobs(owner, hash, size, PK (owner, hash))
+             record: signed keep or attachment; nullable on legacy rows
              owner: hex SHA-256 of the identity key; size NULL = listed, not yet put
 data/aa/bb/<hex hash>  the blob
 ```
@@ -862,12 +890,12 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
 
-The network test (`scripts/network-test.py`) runs three `dyappd` instances, the first with
-roles `store` and `media`, and drives them with `test-peer`: `info` over TCP and QUIC, publish
+The network test (`scripts/network-test.py`) runs three `dyappd` instances, all with
+roles `store` and `media` (only the first also serves TURN), and drives them with `test-peer`: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a
-media keep, put and get on the media node and `UNSUPPORTED` from the others; placement on DHT
-holders; single-upload profile and mailbox replication onto all three nodes, ack forwarding,
+media keep, put and get; one 512 KiB upload readable on all three selected holders over TCP
+and QUIC; placement on DHT holders; single-upload profile and mailbox replication onto all three nodes, ack forwarding,
 repair and the rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
 The local run ages media fixture rows, refreshes one keep through its signed protocol request,
 then restarts the media node: startup cleanup removes the expired owner's blob while the
@@ -881,7 +909,7 @@ run `make test` first to build the current `dyappd` and `test-peer` binaries.
 
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
-- Media are not replicated and the Reed-Solomon codec is not wired into storage or the protocol
+- Media above 1 MiB, shard placement, ranged reads and media repair remain planned; the Reed-Solomon codec is not wired into storage or the protocol
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

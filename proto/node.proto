@@ -236,6 +236,8 @@ message MediaRequest {
     // answer UNSUPPORTED.
     dyapp.identity.SignedRecord attach = 4;
     MediaRelease release = 5;
+    // Node to node; receivers verify the owner's authorization independently.
+    MediaReplicaPut replica_put = 6;
   }
 }
 
@@ -254,6 +256,14 @@ message MediaPut {
   // The owner's peer ID: the SHA-256 of the identity key, as in `GetProfile`.
   bytes owner = 1;
   bytes data = 2;
+}
+
+message MediaReplicaPut {
+  bytes data = 1;
+  oneof authorization {
+    dyapp.identity.SignedRecord keep = 2;
+    dyapp.identity.SignedRecord attach = 3;
+  }
 }
 
 message GetMedia {

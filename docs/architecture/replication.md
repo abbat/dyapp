@@ -2,8 +2,8 @@
 
 **Status:** approved design (2026-10-09), **planned**. What runs today is in
 [Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): acceptors replicate
-messages and profiles with a two-holder acknowledgement, nodes repair mailboxes and profiles, and media are
-not replicated. This page
+messages, profiles and media up to 1 MiB with a two-holder acknowledgement; nodes repair
+mailboxes and profiles. Media shards and repair remain planned. This page
 is the target; as each step below lands, the bootstrap page and
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md) take over its text and this page
 shrinks.
@@ -20,6 +20,10 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
 [Bootstrap](bootstrap.md#replication-and-repair).
 
 ### Media
+
+Whole-copy replication up to 1 MiB, signed replica authorization, five-copy billing, byte-billed
+gets and distinct confirmed-holder status are implemented; see
+[Bootstrap](bootstrap.md#replication-and-repair). The following extensions remain planned.
 
 - The client sends a whole blob in one `put`. The protocol maximum is **6 MiB**
   (`max_media_bytes` in `info`). The client splits a larger file into blobs, and the message lists
@@ -41,13 +45,9 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
   that hash.
 - The acceptor answers `ok` once the manifest (2 copies) and K shards are stored. The other M
   shards are sent in the background.
-- New `/dyapp/media` node-to-node requests: `replica_put(blob | manifest)`,
-  `shard_put(hash, j, shard)` and `shard_get(hash, j)`. A `replica_put` or `shard_put` carries the
-  owner's signed `keep`, or the sender's signed attachment for chat media. The receiver verifies
-  the signature itself and stores the `keep` only if it is newer than the one it holds. It
-  accepts the object only if the hash is listed in that owner's latest `keep`, so an old `keep`
-  cannot bring back a deleted blob, and charges it to that owner's quota. A shard must match the
-  hash in the manifest.
+- Extend the implemented signed `replica_put(blob)` with manifests, plus
+  `shard_put(hash, j, shard)` and `shard_get(hash, j)`. Shards use the same independently
+  verified keep or attachment authorization as whole copies. A shard must match its manifest.
 - Small networks: a node may hold several copies or shards of one blob (keyed by hash and j), and
   a copy that lands on a node that already has it counts as stored. With fewer than 10 distinct
   holders the loss tolerance drops; `dyappd status` shows how many distinct nodes hold replicas.
@@ -58,11 +58,10 @@ profile `replica_put`, and single-upload `test-peer` commands are documented in
   at once. Excess streams close before the body is read, without a status reply; typed clients
   report a transport failure and retry with backoff. See
   [Resource guards](bootstrap.md#resource-guards).
-- The originating client pays for the fan-out. A message or profile put costs 5 token-bucket
-  units. A media put costs bytes × 5 for whole copies or bytes × (K+M)/K for shards, against the
-  per-owner media quota and `bytes_per_second`.
-- A media `get` costs the requester the bytes of the reply, not one unit.
-- A `replica_put`, `shard_put` or `shard_get` from a node counts against that node's peer limits.
+- Whole-copy fan-out billing, byte-billed media gets and peer limits for replica puts are
+  implemented; see [Bootstrap](bootstrap.md#replication-and-repair). Sharded uploads will cost
+  bytes × (K+M)/K against the owner's quota and `bytes_per_second`; shard requests will count
+  against the sending node's peer limits.
 - A dishonest acceptor that skips the fan-out or writes a fake manifest is caught three ways:
   owner-presence repair below, the sender's retry queue, and the hash check after decoding.
 
@@ -118,9 +117,8 @@ Each step is one change with multi-node Docker tests and its docs.
 2. Mailbox and profile acceptor fan-out is implemented; see
    [Replication and repair](bootstrap.md#replication-and-repair).
 3. Profile repair through node inventory is implemented; see [Bootstrap](bootstrap.md#replication-and-repair).
-4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment,
-   `get` billed by bytes, distinct holders in `dyappd status`. Stream concurrency limits are
-   implemented; the remaining write path is planned.
+4. Media whole copies and stream concurrency limits are implemented; see
+   [Bootstrap](bootstrap.md#replication-and-repair).
 5. Media shards: 6 MiB intake, the manifest and the shard requests in `proto/node.proto`, RS with
    K = ⌈size / 1 MiB⌉, M = 4 using `rust/bootstrap/src/replication.rs`, decoding on `get`,
    `media.shard_threshold`.
