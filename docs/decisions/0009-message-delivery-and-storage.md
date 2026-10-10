@@ -53,10 +53,11 @@ media is different: full copies are expensive, and a node should hold no object 
 - `ok` means 2 copies; the other 3 rely on the acceptor finishing or on repair, so an owner who
   never comes back may keep only 2.
 - Implemented: envelopes expire after 24 hours, profiles and tombstones 30 days after the
-  owner's last signed request. Not implemented: eviction by profile activity (a full store
-  evicts its oldest records: profiles by last publish, envelopes by arrival);
-  `dyapp_p2p_net::replica_key` defines the lookup keys but
-  no app client writes replicas yet (only `test-peer`, which writes each replica itself); nodes
-  push to watching devices, forward acks to the closest node of each replica key and repair
-  mailboxes on fetch. Node fan-out, profile and media repair and media replication are planned;
+  owner's last newer publish or fresh signed heartbeat. Not implemented: eviction by profile
+  activity (a full store evicts its oldest records: profiles by last publish, envelopes by arrival);
+  acceptors use full DHT lookups of `dyapp_p2p_net::replica_key` for mailbox/profile fan-out
+  and wait for two distinct stored copies (one only with no routing peers), within 10 seconds
+  and a 64-write cap. `test-peer` uploads once; app clients are not wired yet. Nodes push to
+  watching devices, forward acks and repair mailboxes on watching fetch. Profile and media
+  repair and media replication are planned;
   `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec.

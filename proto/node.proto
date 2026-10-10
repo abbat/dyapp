@@ -20,7 +20,8 @@ enum Status {
   // A publish whose version is not newer than the stored one.
   STATUS_STALE = 3;
   STATUS_TOO_LARGE = 4;
-  // The store is at its limit; try another replica.
+  // Store or pending-write limit, or no second distinct holder within the write deadline;
+  // try another replica.
   STATUS_FULL = 5;
   STATUS_RATE_LIMITED = 6;
   // Bad signature or wrong key.
@@ -109,6 +110,8 @@ message ProfileRequest {
     // Payload `Heartbeat`, signed by the profile's owner. Nodes older than heartbeats answer
     // UNSUPPORTED.
     dyapp.identity.SignedRecord heartbeat = 3;
+    // Node to node: checked like publish, stored locally and never forwarded.
+    dyapp.identity.SignedRecord replica_put = 4;
   }
 }
 

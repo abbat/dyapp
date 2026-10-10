@@ -45,8 +45,9 @@ it describe today's code.
   serve side by side. A changed store or index format is built next to the old one, in the
   background under the I/O budget, while the old one keeps answering; the node switches when the
   new one is ready and then deletes the old one.
-- **Clients write, nodes store.** A client writes every replica or shard itself; nodes do not
-  fan out writes for others.
+- **Clients upload once, nodes replicate.** The acceptor looks up the five holders of a
+  mailbox or profile, writes each distinct holder, and waits for two stored copies. Media
+  fan-out and shard storage remain planned.
 - **Nodes see metadata, not content.** Messages, likes, views and every other signal are
   end-to-end encrypted for the recipient. Who writes to whom and when stays visible to nodes; a
   sealed sender may come later.
@@ -86,7 +87,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | Protocol | Role | Requests |
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
-| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)` |
+| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
@@ -127,12 +128,21 @@ erasure-coded into K = ⌈size / 1 MiB⌉ + M = 4 shards, smaller ones such as t
 ([ADR 0009](../decisions/0009-message-delivery-and-storage.md), planned:
 [Replication design](replication.md)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
-SHA-256). The client writes each replica itself; a node stores only what it is sent, and a
-repeated put is a no-op, so a duplicate or retried replica write is harmless. No client does the
-replica lookup yet.
+SHA-256). A client sends one put to the holder of key 0, falling back to keys 1–4 on failure.
+The acceptor verifies and bills it five token-bucket units, runs a full DHT lookup of every
+replica key, stores locally only when it holds a key, and sends a signed `replica_put` to each
+other distinct holder. Receivers verify records independently and never forward replica puts.
+
+The reply waits for two distinct holders to store. Several replica keys on one node count once.
+An isolated node with no routing peers may acknowledge one local copy; a node with peers must
+confirm two. At most 64 fan-outs are active, each for 10 seconds; excess or timed-out writes answer
+`FULL`, so the client tries another key. Other holders are filled in the background after the
+reply, without a persistent queue. A profile holder with an equal or newer verified record
+counts as stored and supplies the highest confirmed stale record in a `STALE` reply.
+The app clients do not call this protocol yet; `test-peer` exercises the single-upload path.
 
 Repair is driven by the owner's presence; mailbox repair is implemented, profile and media
-repair wait for a client that does the replica lookup. When a user comes online, the nodes
+repair are planned. When a user comes online, the nodes
 responsible for their keys compare inventories, *I have* and *I need*, and fill the gaps, so new
 closest nodes get the data after churn and stale replicas catch up. Data of a user who stays
 offline is not repaired and expires with the TTL; a message whose replicas are all lost is
@@ -407,16 +417,17 @@ the payload and storage limits below are checked separately:
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (1 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
-| `/dyapp/profile` | `publish(SignedRecord)` | `OK`; `STALE` with the stored record when the version is not newer; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
+| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
+| `/dyapp/profile` | `replica_put(SignedRecord)` (node to node) | stores and verifies like publish, never forwards; costs one request unit; same validation replies |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
-| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK`, also for a repeated (mailbox, id); `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
+| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
-| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored like a `put`; `OK`, else `DENIED` when any signature is forged, else the first failure |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
@@ -508,8 +519,9 @@ the payload and storage limits below are checked separately:
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
   12 hours. Clients find relays with `get_providers` on that key; using them for call ICE is
   planned.
-- **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group, puts
-  also per sender key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
+- **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group:
+  client puts cost five units and other requests one, with mailbox puts also limited per sender
+  key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
   `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
 - **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
@@ -547,7 +559,8 @@ test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stal
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 test-peer device-key                        → {"secret", "mailbox"}
 test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
-test-peer put-replicas <multiaddr> <mailbox hex> → {"id", "holders"}
+test-peer put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
+test-peer put-local <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"} (replica_put fixture)
 test-peer watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
 test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
 test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
@@ -563,10 +576,11 @@ test-peer relays  <multiaddr>               → {"providers"}   (TURN relays in 
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
-connection. `closest` lists the nodes that answered, closest first. `replicate` publishes each of
-the `REPLICAS` replicas of a profile to the node closest to `replica_key(peer_id, i)`; a second
-replica on the same node answers `STALE`, which counts as stored. `put-replicas` puts one
-envelope to the node closest to each `replica_key(mailbox, i)`. `watch` sends a watching `fetch`,
+connection. `closest` lists the nodes that answered, closest first. `replicate` and `put-replicas`
+look up the five holder keys, then send one client write to key 0's holder; only a failed write
+tries the next holder. Their `holders` lists describe the lookup placement, while the acceptor
+performs replication. `put-local` sends a non-forwarded mailbox replica for repair fixtures.
+`watch` sends a watching `fetch`,
 puts an envelope to its own mailbox on another connection and prints the ids pushed back. `flood`
 sends `n` profile gets at once on one connection. `media` has a fresh owner keep the blob's hash,
 put the blob and get it back on one connection and prints each status; `"get"` is `"CHANGED"` if
@@ -685,7 +699,8 @@ starts refusing and a line when it clears, not one per request:
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16); frames are capped at
-  1 MiB + 64 KiB, or 6 MiB + 64 KiB on `/dyapp/media`.
+  1 MiB + 64 KiB, or 6 MiB + 64 KiB on `/dyapp/media`. Request-response streams time out
+  after 20 seconds, leaving time for the acceptor's 10-second write deadline.
   `max_memory_mb` (default 768, the packaged unit's `MemoryHigh`; 0 = no limit) bounds the
   process's physical memory, sampled at most every 100 ms. From 80 % of it media, repair,
   profile and mailbox requests get `RATE_LIMITED` (no strike); at 100 % every request is
@@ -835,18 +850,21 @@ The network test (`scripts/network-test.py`) runs three `dyappd` instances, the 
 roles `store` and `media`, and drives them with `test-peer`: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a
-media keep, put and get on the media node and `UNSUPPORTED` from the others; that the nodes do
-not share storage; DHT routing, profile and mailbox replicas, ack forwarding, repair and the
-rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
+media keep, put and get on the media node and `UNSUPPORTED` from the others; placement on DHT
+holders; single-upload profile and mailbox replication onto all three nodes, ack forwarding,
+repair and the rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
 The local run ages media fixture rows, refreshes one keep through its signed protocol request,
 then restarts the media node: startup cleanup removes the expired owner's blob while the
 refreshed owner's blob remains readable. The same local suite runs inside the prepared dev
-Docker image, with temporary storage and reports under `/tmp/ai`.
+Docker image, with temporary storage and reports under `/tmp/ai`. It also stops the other
+remaining node and verifies that profile and mailbox puts answer `FULL` without a second holder.
+The Docker network compose mounts the current checkout and the dev build volume read-only;
+run `make test` first to build the current `dyappd` and `test-peer` binaries.
 
 ## Limitations & Future
 
 **Current limitations:**
-- Replicas are written by the client, and no client does the replica lookup yet; nodes forward acks and repair mailbox gaps only when a device watches its mailbox
+- App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Media are not replicated and the Reed-Solomon codec is not wired into storage or the protocol
 - No audit logging
 

@@ -152,8 +152,132 @@ fn drop_banned(swarm: &mut Swarm<Behaviour>, service: &Service, peer: PeerId) {
 /// Connections that fetched a mailbox with `watch`, by mailbox address.
 type Watchers = HashMap<Vec<u8>, Vec<(PeerId, ConnectionId)>>;
 
-/// A lookup of a mailbox's replica key and what follows it.
+/// A client write stays in memory until two distinct holders confirm it.
+const MAX_PENDING_PUTS: usize = 64;
+const PUT_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[derive(Clone)]
+enum PutRecord {
+    Mailbox(SignedRecord),
+    Profile(SignedRecord),
+}
+
+enum PutReply {
+    Mailbox(libp2p::request_response::ResponseChannel<proto::MailboxResponse>),
+    Profile(libp2p::request_response::ResponseChannel<proto::ProfileResponse>),
+}
+
+impl PutReply {
+    fn send(
+        self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        status: Status,
+        record: Option<SignedRecord>,
+    ) {
+        match self {
+            Self::Mailbox(channel) => {
+                let response = proto::MailboxResponse {
+                    status: status.into(),
+                    ..Default::default()
+                };
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm
+                    .behaviour_mut()
+                    .mailbox
+                    .send_response(channel, response);
+            }
+            Self::Profile(channel) => {
+                let response = proto::ProfileResponse {
+                    status: status.into(),
+                    record,
+                };
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm
+                    .behaviour_mut()
+                    .profile
+                    .send_response(channel, response);
+            }
+        }
+    }
+}
+
+struct PendingPut {
+    record: PutRecord,
+    reply: Option<PutReply>,
+    deadline: Instant,
+    sent: HashSet<PeerId>,
+    stored: HashSet<PeerId>,
+    required: usize,
+    stale: Option<SignedRecord>,
+}
+
+impl PendingPut {
+    fn new(record: PutRecord, reply: Option<PutReply>, isolated: bool) -> Self {
+        Self {
+            record,
+            reply,
+            deadline: Instant::now() + PUT_TIMEOUT,
+            sent: HashSet::new(),
+            stored: HashSet::new(),
+            required: if isolated { 1 } else { 2 },
+            stale: None,
+        }
+    }
+
+    fn confirm(&mut self, peer: PeerId, status: i32, held: Option<SignedRecord>) {
+        if status == i32::from(Status::Ok) {
+            self.stored.insert(peer);
+        } else if let (PutRecord::Profile(requested), Some(held)) = (&self.record, held) {
+            if status != i32::from(Status::Stale) || held.public_key != requested.public_key {
+                return;
+            }
+            let Ok(verified) = dyapp_profile::verify(&held) else {
+                return;
+            };
+            let Ok(version) = dyapp_profile::stored_version(requested) else {
+                return;
+            };
+            if verified.profile.version >= version {
+                self.stored.insert(peer);
+                if self.stale.as_ref().is_none_or(|old| {
+                    dyapp_profile::stored_version(old).is_ok_and(|v| v < verified.profile.version)
+                }) {
+                    self.stale = Some(held);
+                }
+            }
+        }
+    }
+
+    fn result(&self, now: Instant) -> Option<Status> {
+        if now >= self.deadline {
+            Some(Status::Full)
+        } else if self.stored.len() >= self.required {
+            Some(if self.stale.is_some() {
+                Status::Stale
+            } else {
+                Status::Ok
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Chooses the actual closest holder, including this node, before applying trust policy.
+fn holder(me: PeerId, key: &[u8], nodes: &[kad::PeerInfo]) -> PeerId {
+    let target = kad::KBucketKey::new(key.to_vec());
+    nodes
+        .iter()
+        .map(|node| node.peer_id)
+        .chain(std::iter::once(me))
+        .min_by_key(|peer| kad::KBucketKey::from(*peer).distance(&target))
+        .unwrap()
+}
+
+/// A lookup of a replica key and what follows it.
 enum Lookup {
+    Put(u64),
     /// A device's ack, forwarded to the closest node.
     Ack(SignedRecord),
     /// A mailbox whose inventory goes to the closest node.
@@ -195,12 +319,148 @@ impl Trust {
 #[derive(Default)]
 struct Replicas {
     trust: Trust,
+    next_put: u64,
+    puts: HashMap<u64, PendingPut>,
+    mailbox_puts: HashMap<OutboundRequestId, u64>,
+    profile_puts: HashMap<OutboundRequestId, u64>,
     lookups: HashMap<kad::QueryId, Lookup>,
     /// Inventories sent and their mailbox.
     inventories: HashMap<OutboundRequestId, Vec<u8>>,
     /// Mailboxes repaired since the last hourly cleanup.
     /// ponytail: cleared hourly, so a mailbox may be repaired twice within an hour.
     repaired: HashSet<Vec<u8>>,
+}
+
+impl Replicas {
+    fn at_capacity(&self) -> bool {
+        self.puts.len() >= MAX_PENDING_PUTS
+    }
+
+    fn start_put(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        watchers: &Watchers,
+        record: PutRecord,
+        reply: PutReply,
+    ) {
+        if self.at_capacity() {
+            reply.send(swarm, service, Status::Full, None);
+            return;
+        }
+        let isolated = dyapp_p2p_net::known_peers(swarm).is_empty();
+        let key = match &record {
+            PutRecord::Mailbox(record) => {
+                proto::Envelope::decode(record.payload.as_slice())
+                    .unwrap()
+                    .mailbox
+            }
+            PutRecord::Profile(record) => {
+                dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec()
+            }
+        };
+        let id = self.next_put;
+        self.next_put = self.next_put.wrapping_add(1);
+        self.puts
+            .insert(id, PendingPut::new(record, Some(reply), isolated));
+        if isolated {
+            self.put_holder(swarm, service, watchers, id, *swarm.local_peer_id());
+        } else {
+            for i in 0..REPLICAS {
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(&key, i));
+                self.lookups.insert(query, Lookup::Put(id));
+            }
+        }
+        self.finish_puts(swarm, service, Instant::now());
+    }
+
+    fn put_holder(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        watchers: &Watchers,
+        id: u64,
+        to: PeerId,
+    ) {
+        let Some(put) = self.puts.get_mut(&id) else {
+            return;
+        };
+        if !put.sent.insert(to) {
+            return;
+        }
+        if to == *swarm.local_peer_id() {
+            match &put.record {
+                PutRecord::Mailbox(record) => match service.store_mailbox(record) {
+                    Ok(response) => {
+                        if response.status == i32::from(Status::Ok) {
+                            push(swarm, watchers, vec![record.clone()]);
+                        }
+                        put.confirm(to, response.status, None);
+                    }
+                    Err(error) => tracing::error!(%error, "local mailbox replica failed"),
+                },
+                PutRecord::Profile(record) => match service.store_profile(record) {
+                    Ok(response) => put.confirm(to, response.status, response.record),
+                    Err(error) => tracing::error!(%error, "local profile replica failed"),
+                },
+            }
+        } else if self.trust.trusted(&to) {
+            match &put.record {
+                PutRecord::Mailbox(record) => {
+                    let request = MailboxRequest {
+                        request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                            envelopes: vec![record.clone()],
+                        })),
+                    };
+                    service.traffic.add(request.encoded_len() as u64);
+                    let request_id = swarm.behaviour_mut().mailbox.send_request(&to, request);
+                    self.mailbox_puts.insert(request_id, id);
+                }
+                PutRecord::Profile(record) => {
+                    let request = proto::ProfileRequest {
+                        request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
+                    };
+                    service.traffic.add(request.encoded_len() as u64);
+                    let request_id = swarm.behaviour_mut().profile.send_request(&to, request);
+                    self.profile_puts.insert(request_id, id);
+                }
+            }
+        }
+    }
+
+    fn finish_puts(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
+        for put in self.puts.values_mut() {
+            if let Some(status) = put.result(now) {
+                if let Some(reply) = put.reply.take() {
+                    reply.send(swarm, service, status, put.stale.clone());
+                }
+            }
+        }
+        // Keep background fan-out alive after the ack, but bound its lifetime and all indices.
+        self.puts.retain(|id, put| {
+            let active = self
+                .lookups
+                .values()
+                .any(|lookup| matches!(lookup, Lookup::Put(p) if p == id))
+                || self.mailbox_puts.values().any(|p| p == id)
+                || self.profile_puts.values().any(|p| p == id);
+            now < put.deadline && (put.reply.is_some() || active)
+        });
+        for (id, lookup) in &self.lookups {
+            if matches!(lookup, Lookup::Put(put) if !self.puts.contains_key(put)) {
+                if let Some(mut query) = swarm.behaviour_mut().kad.query_mut(id) {
+                    query.finish();
+                }
+            }
+        }
+        self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
+        self.profile_puts.retain(|_, id| self.puts.contains_key(id));
+        self.lookups
+            .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) if !self.puts.contains_key(id)));
+    }
 }
 
 /// Envelope bytes in one `replica_put`; a larger gap fills over the next repairs.
@@ -334,6 +594,7 @@ fn after_lookup(
     node: kad::PeerInfo,
 ) {
     let (request, repair) = match lookup {
+        Lookup::Put(_) => unreachable!("put lookups use all returned peers"),
         Lookup::Ack(ack) => (mailbox_request::Request::ReplicaAck(ack), None),
         Lookup::Repair(mailbox) => {
             let target = kad::KBucketKey::new(key);
@@ -412,6 +673,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     let mut turn_query = None;
     // Requests answered and failed with a node error since the last maintenance run.
     let (mut answered, mut failed) = (0u64, 0u64);
+    let mut put_check = tokio::time::interval(Duration::from_millis(100));
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
     let maintenance = service.config.maintenance.clone();
     let mut maintain = tokio::time::interval(Duration::from_secs(
@@ -481,6 +743,25 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
+                    if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
+                        answered += 1;
+                        match service.prepare_profile(&peer(id, &groups, connection_id), record.clone()) {
+                            Ok(response) if response.status == i32::from(Status::Ok) => {
+                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Profile(record.clone()), PutReply::Profile(channel));
+                            }
+                            Ok(response) => {
+                                service.traffic.add(response.encoded_len() as u64);
+                                let _ = swarm.behaviour_mut().profile.send_response(channel, response);
+                            }
+                            Err(error) => {
+                                answered -= 1;
+                                failed += 1;
+                                tracing::error!(%error, "profile admission failed");
+                            }
+                        }
+                        drop_banned(&mut swarm, &service, id);
+                        continue;
+                    }
                     match service.profile(&peer(id, &groups, connection_id), request) {
                         Ok(response) => {
                             answered += 1;
@@ -518,6 +799,25 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
+                    if let Some(mailbox_request::Request::Put(record)) = &request.request {
+                        answered += 1;
+                        match service.prepare_mailbox(&peer(id, &groups, connection_id), record.clone()) {
+                            Ok(response) if response.status == i32::from(Status::Ok) => {
+                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Mailbox(record.clone()), PutReply::Mailbox(channel));
+                            }
+                            Ok(response) => {
+                                service.traffic.add(response.encoded_len() as u64);
+                                let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                            }
+                            Err(error) => {
+                                answered -= 1;
+                                failed += 1;
+                                tracing::error!(%error, "mailbox admission failed");
+                            }
+                        }
+                        drop_banned(&mut swarm, &service, id);
+                        continue;
+                    }
                     let mut nonce = nonces.remove(&connection_id);
                     let from = peer(id, &groups, connection_id);
                     let kind = request.request.clone();
@@ -595,6 +895,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     if let (Some(lookup), Ok(ok)) = (lookup, result) {
                         // A peer without the node-ID proof of work never holds a replica.
                         let bits = dyapp_p2p_net::id_pow_bits();
+                        if let Lookup::Put(put) = lookup {
+                            let nodes: Vec<_> = ok.peers.into_iter().filter(|node| dyapp_p2p_net::id_has_pow(&node.peer_id, bits)).collect();
+                            let to = holder(*swarm.local_peer_id(), &ok.key, &nodes);
+                            for node in nodes {
+                                for address in node.addrs { swarm.add_peer_address(node.peer_id, address); }
+                            }
+                            replicas.put_holder(&mut swarm, &service, &watchers, put, to);
+                            replicas.finish_puts(&mut swarm, &service, Instant::now());
+                            continue;
+                        }
                         let mut peers = ok.peers.into_iter();
                         if let Some(node) =
                             peers.find(|p| {
@@ -614,6 +924,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     ..
                 })) => {
                     replicas.trust.add(id, 1);
+                    if let Some(put) = replicas.mailbox_puts.remove(&request_id) {
+                        if let Some(put) = replicas.puts.get_mut(&put) { put.confirm(id, response.status, None); }
+                        replicas.finish_puts(&mut swarm, &service, Instant::now());
+                    }
                     if let Some(mailbox) = replicas.inventories.remove(&request_id) {
                         let missing: HashSet<Vec<u8>> = response.missing.into_iter().collect();
                         send_envelopes(&mut swarm, &service, id, &mailbox, |envelope| {
@@ -632,6 +946,24 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         replicas.trust.add(peer, -1);
                     }
                     replicas.inventories.remove(&request_id);
+                    replicas.mailbox_puts.remove(&request_id);
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
+                    peer: id,
+                    message: Message::Response { request_id, response },
+                    ..
+                })) => {
+                    replicas.trust.add(id, 1);
+                    if let Some(put) = replicas.profile_puts.remove(&request_id) {
+                        if let Some(put) = replicas.puts.get_mut(&put) { put.confirm(id, response.status, response.record); }
+                        replicas.finish_puts(&mut swarm, &service, Instant::now());
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::OutboundFailure {
+                    peer, request_id, error, ..
+                })) => {
+                    if !matches!(error, OutboundFailure::UnsupportedProtocols) { replicas.trust.add(peer, -1); }
+                    replicas.profile_puts.remove(&request_id);
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
@@ -664,6 +996,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 _ => {}
             }
             },
+            _ = put_check.tick() => replicas.finish_puts(&mut swarm, &service, Instant::now()),
             _ = deny_check.tick() => reload_deny(&mut service, &deny, &mut deny_version),
             _ = hangup.recv() => {
                 deny_version = None;
@@ -775,6 +1108,143 @@ fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn put_ack_counts_distinct_holders_and_times_out() {
+        let record = PutRecord::Mailbox(SignedRecord::default());
+        let (a, b) = (PeerId::random(), PeerId::random());
+        let mut put = PendingPut::new(record.clone(), None, false);
+        put.confirm(a, Status::Ok.into(), None);
+        put.confirm(a, Status::Ok.into(), None);
+        put.confirm(b, Status::Denied.into(), None);
+        assert_eq!(put.result(Instant::now()), None);
+        assert_eq!(put.result(put.deadline), Some(Status::Full));
+        put.confirm(b, Status::Ok.into(), None);
+        assert_eq!(put.result(Instant::now()), Some(Status::Ok));
+        assert_eq!(
+            put.result(put.deadline),
+            Some(Status::Full),
+            "late replies beat the deadline"
+        );
+        let mut isolated = PendingPut::new(record, None, true);
+        isolated.confirm(a, Status::Ok.into(), None);
+        assert_eq!(isolated.result(Instant::now()), Some(Status::Ok));
+    }
+
+    #[test]
+    fn stale_profile_confirmation_must_verify_the_owner_and_version() {
+        let owner = dyapp_identity::Identity::generate();
+        let sign = |version| {
+            dyapp_profile::Profile {
+                version,
+                ..Default::default()
+            }
+            .sign(&owner)
+        };
+        let mut put = PendingPut::new(PutRecord::Profile(sign(2)), None, false);
+        let (a, b) = (PeerId::random(), PeerId::random());
+        put.confirm(a, Status::Stale.into(), Some(sign(1)));
+        let mut forged = sign(3);
+        forged.signature[0] ^= 1;
+        put.confirm(a, Status::Stale.into(), Some(forged));
+        assert!(put.stored.is_empty());
+        put.confirm(a, Status::Stale.into(), Some(sign(3)));
+        put.confirm(b, Status::Stale.into(), Some(sign(2)));
+        assert_eq!(put.result(Instant::now()), Some(Status::Stale));
+        assert_eq!(put.stale, Some(sign(3)));
+    }
+
+    #[tokio::test]
+    async fn holders_store_once_and_replica_puts_never_fan_out() {
+        let dir = format!("/tmp/ai/test-fanout-{}", uuid::Uuid::new_v4());
+        let mut config = crate::config::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+        let mut swarm = swarm(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &service.config.roles,
+        )
+        .unwrap();
+        let me = *swarm.local_peer_id();
+        let mut replicas = Replicas::default();
+        let mut watchers = Watchers::new();
+        let sender = dyapp_identity::Identity::generate();
+        let record = sender.sign(
+            dyapp_identity::Domain::Envelope,
+            proto::Envelope {
+                id: vec![1; 16],
+                mailbox: vec![2; 32],
+                ciphertext: vec![3],
+            }
+            .encode_to_vec(),
+        );
+        replicas.puts.insert(
+            0,
+            PendingPut::new(PutRecord::Mailbox(record.clone()), None, false),
+        );
+        replicas.put_holder(&mut swarm, &service, &watchers, 0, PeerId::random());
+        assert_eq!(replicas.mailbox_puts.len(), 1);
+        assert!(
+            service.held(&[2; 32]).unwrap().is_empty(),
+            "a forwarding acceptor stored a copy"
+        );
+        for _ in 0..REPLICAS {
+            replicas.put_holder(&mut swarm, &service, &watchers, 0, me);
+        }
+        assert_eq!(service.held(&[2; 32]).unwrap().len(), 1);
+        assert_eq!(replicas.puts[&0].stored.len(), 1);
+
+        let connection = ConnectionId::new_unchecked(1);
+        after_mailbox(
+            &mut swarm,
+            &service,
+            &mut watchers,
+            &mut replicas,
+            (PeerId::random(), connection),
+            Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                envelopes: vec![record.clone()],
+            })),
+        );
+        assert!(replicas.lookups.is_empty());
+        assert_eq!(
+            replicas.mailbox_puts.len(),
+            1,
+            "replica_put forwarded again"
+        );
+        for id in 1..MAX_PENDING_PUTS as u64 {
+            replicas.puts.insert(
+                id,
+                PendingPut::new(PutRecord::Mailbox(record.clone()), None, false),
+            );
+        }
+        assert!(replicas.at_capacity());
+        replicas.finish_puts(&mut swarm, &service, Instant::now() + PUT_TIMEOUT);
+        assert!(!replicas.at_capacity() && replicas.puts.is_empty());
+    }
+
+    #[test]
+    fn holder_selection_includes_local_and_handles_unsorted_lookup_results() {
+        let me = PeerId::random();
+        let nodes: Vec<_> = (0..8)
+            .map(|_| kad::PeerInfo {
+                peer_id: PeerId::random(),
+                addrs: vec![],
+            })
+            .collect();
+        assert_eq!(holder(me, &me.to_bytes(), &nodes), me);
+        for i in 0..128u8 {
+            let key = replica_key(&[i; 32], 0);
+            let selected = holder(me, &key, &nodes);
+            let target = kad::KBucketKey::new(key.clone());
+            let distance = kad::KBucketKey::from(selected).distance(&target);
+            assert!(nodes
+                .iter()
+                .all(|n| distance <= kad::KBucketKey::from(n.peer_id).distance(&target)));
+            assert!(distance <= kad::KBucketKey::from(me).distance(&target));
+        }
+        assert_eq!(holder(me, &[1], &[]), me);
+    }
 
     #[test]
     fn damaged_peer_cache_lines_are_skipped() {

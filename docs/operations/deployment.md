@@ -63,8 +63,8 @@ Users (iOS/Android/macOS/Linux)
 - Fast peer discovery (IP:port from bootstrap)
 - Offline message delivery
 - Profile searching
-- Node failure tolerance: clients write messages and profiles to 5 nodes and nodes repair
-  mailboxes; media are not replicated yet ([replication](../architecture/bootstrap.md#replication-and-repair))
+- Node failure tolerance: acceptors replicate messages and profiles to five DHT holders,
+  acknowledge two distinct stores, and nodes repair mailboxes; media are not replicated yet ([replication](../architecture/bootstrap.md#replication-and-repair))
 
 **Cons:**
 - Need to operate 1-3 servers (~$10-50/month)

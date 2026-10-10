@@ -58,7 +58,8 @@ async fn main() -> anyhow::Result<()> {
         ["publish", addr, record] => timeout(publish(addr, record)).await?,
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
         ["device-key"] => device_key(),
-        ["put", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext)).await?,
+        ["put", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext, false)).await?,
+        ["put-local", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext, true)).await?,
         ["fetch", addr, secret] => timeout(fetch(addr, secret)).await?,
         ["ack", addr, secret, ids @ ..] => timeout(ack(addr, secret, ids)).await?,
         ["closest", addr, key] => timeout(closest(addr, key)).await?,
@@ -87,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
         }
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
     };
     println!("{output}");
     Ok(())
@@ -287,26 +288,26 @@ async fn replicate(addr: &str, peer_id: &str, record: &str) -> anyhow::Result<Va
     let (mut swarm, _) = connect(addr).await?;
     let mut holders = Vec::new();
     for i in 0..REPLICAS {
-        let holder = closest_to(&mut swarm, replica_key(&key, i)).await?;
+        holders.push(closest_to(&mut swarm, replica_key(&key, i)).await?);
+    }
+    for holder in &holders {
         let request = proto::ProfileRequest {
             request: Some(profile_request::Request::Publish(record.clone())),
         };
-        swarm.behaviour_mut().profile.send_request(&holder, request);
+        swarm.behaviour_mut().profile.send_request(holder, request);
         let response = wait(&mut swarm, |event| match event {
             BehaviourEvent::Profile(event) => reply(event),
             _ => None,
         })
-        .await?;
-        // Two replicas on one node: the second publish finds the record stored.
-        if !matches!(
-            Status::try_from(response.status),
-            Ok(Status::Ok | Status::Stale)
-        ) {
-            bail!("replica {i} on {holder}: {}", status(response.status));
+        .await;
+        if response
+            .is_ok_and(|r| matches!(Status::try_from(r.status), Ok(Status::Ok | Status::Stale)))
+        {
+            let holders: Vec<_> = holders.iter().map(PeerId::to_string).collect();
+            return Ok(json!({ "holders": holders }));
         }
-        holders.push(holder.to_string());
     }
-    Ok(json!({ "holders": holders }))
+    bail!("no replica accepted the profile")
 }
 
 async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
@@ -376,10 +377,17 @@ fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, S
     Ok((id.to_vec(), record))
 }
 
-async fn put(addr: &str, mailbox: &str, ciphertext: &str) -> anyhow::Result<Value> {
+async fn put(addr: &str, mailbox: &str, ciphertext: &str, replica: bool) -> anyhow::Result<Value> {
     let (id, record) = envelope(unhex(mailbox)?, unhex(ciphertext)?)?;
     let (mut swarm, peer) = connect(addr).await?;
-    let response = mailbox_call(&mut swarm, peer, mailbox_request::Request::Put(record)).await?;
+    let request = if replica {
+        mailbox_request::Request::ReplicaPut(proto::Envelopes {
+            envelopes: vec![record],
+        })
+    } else {
+        mailbox_request::Request::Put(record)
+    };
+    let response = mailbox_call(&mut swarm, peer, request).await?;
     Ok(json!({ "status": status(response.status), "id": hex(&id) }))
 }
 
@@ -389,15 +397,19 @@ async fn put_replicas(addr: &str, mailbox: &str) -> anyhow::Result<Value> {
     let (mut swarm, _) = connect(addr).await?;
     let mut holders = Vec::new();
     for i in 0..REPLICAS {
-        let holder = closest_to(&mut swarm, replica_key(&mailbox, i)).await?;
-        let put = mailbox_request::Request::Put(record.clone());
-        let response = mailbox_call(&mut swarm, holder, put).await?;
-        if response.status != i32::from(Status::Ok) {
-            bail!("replica {i} on {holder}: {}", status(response.status));
-        }
-        holders.push(holder.to_string());
+        holders.push(closest_to(&mut swarm, replica_key(&mailbox, i)).await?);
     }
-    Ok(json!({ "id": hex(&id), "holders": holders }))
+    for holder in &holders {
+        let put = mailbox_request::Request::Put(record.clone());
+        if mailbox_call(&mut swarm, *holder, put)
+            .await
+            .is_ok_and(|r| r.status == i32::from(Status::Ok))
+        {
+            let holders: Vec<_> = holders.iter().map(PeerId::to_string).collect();
+            return Ok(json!({ "status": "STATUS_OK", "id": hex(&id), "holders": holders }));
+        }
+    }
+    bail!("no replica accepted the envelope")
 }
 
 async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
@@ -418,7 +430,7 @@ async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
         }) => Some(Ok(request.envelopes)),
         _ => None,
     });
-    let (put, pushed) = tokio::join!(put(addr, &mailbox, "01"), pushed);
+    let (put, pushed) = tokio::join!(put(addr, &mailbox, "01", false), pushed);
     let ids = pushed?
         .iter()
         .map(|record| Ok(hex(&proto::Envelope::decode(record.payload.as_slice())?.id)))

@@ -53,13 +53,17 @@ SHA-256 of the device public key (32 bytes each).
 
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
   "role not served".
-- **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)` and `heartbeat(SignedRecord)`. A
-  publish whose version is not newer gets `STATUS_STALE` with the stored record; a heartbeat
-  advances profile liveness to its signed time only when newer and within 10 minutes of the
+- **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)`, `heartbeat(SignedRecord)` and
+  node-to-node `replica_put(SignedRecord)`. Publish fans out to the five DHT holders and waits for
+  two distinct stores, or one local store with no routing peers. `replica_put` verifies and stores
+  without forwarding. Equal/newer holder versions yield `STATUS_STALE` with a verified record.
+  A heartbeat advances profile liveness to its signed time only when newer and within 10 minutes of the
   node clock. A stale publish or replayed heartbeat does not extend retention.
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
-  random 16-byte id, so it needs no nonce. A node forwards a signed ack to the other replicas
+  random 16-byte id, so it needs no nonce; the acceptor confirms two distinct replica holders.
+  Client profile/mailbox puts cost five request units; pending writes are capped at 64 and
+  expire after 10 seconds with `STATUS_FULL`. A node forwards a signed ack to the other replicas
   verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce. For
   repair a node sends `inventory` (the ids it holds) and gets `missing` back; envelopes move
   between nodes as `replica_put`, signed by their senders and checked like a `put`.

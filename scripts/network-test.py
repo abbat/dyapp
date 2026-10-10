@@ -103,6 +103,17 @@ def local(bin_dir):
 
             suite(peers, client, churn, relay=False,
                   reports=Path(storage) / "reports")
+            processes[2].terminate()
+            processes[2].wait()
+            signed = call(client, "sign-profile")
+            reply = call(client, "publish", peers[0][0], signed["record"])
+            if reply["status"] != "STATUS_FULL":
+                raise RuntimeError(f"No second profile holder: {reply}")
+            device = call(client, "device-key")
+            reply = call(client, "put", peers[0][0], device["mailbox"], "01")
+            if reply["status"] != "STATUS_FULL":
+                raise RuntimeError(f"No second mailbox holder: {reply}")
+            print("Missing second holder: profile and mailbox refused")
             media_retention(client, bin_dir, storage, peers[0], processes,
                             first_env)
         finally:
@@ -169,7 +180,14 @@ def suite(peers, client, churn=None, relay=False, reports=None):
         for addr in (tcp, quic):
             if not healthy(client, addr):
                 raise RuntimeError(f"Unhealthy node: {addr}")
-        signed = call(client, "sign-profile")
+        own = call(client, "info", tcp)["peer_id"]
+        for _ in range(40):
+            signed = call(client, "sign-profile")
+            holders = replica_holders(client, tcp, signed["peer_id"])
+            if own in holders and len(set(holders)) >= 2:
+                break
+        else:
+            raise RuntimeError("No profile keys held by the test node")
         peer_id, record = signed["peer_id"], signed["record"]
         if call(client, "publish", tcp, record)["status"] != "STATUS_OK":
             raise RuntimeError("Profile publish failed")
@@ -182,11 +200,19 @@ def suite(peers, client, churn=None, relay=False, reports=None):
         if reply != {"status": "STATUS_STALE", "record": record}:
             raise RuntimeError("Stale profile version was accepted")
         other = peers[(index + 1) % len(peers)][0]
-        if call(client, "get", other, peer_id)["status"] != "STATUS_NOT_FOUND":
-            raise RuntimeError("Independent node storage unexpectedly shared")
+        other_id = call(client, "info", other)["peer_id"]
+        expected_status = ("STATUS_OK" if other_id in holders
+                           else "STATUS_NOT_FOUND")
+        for _ in range(10):
+            reply = call(client, "get", other, peer_id)
+            if reply["status"] == expected_status:
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("Profile placement differs from holders")
         mailbox(client, tcp, quic, other)
         cases.append({"peer": tcp, "health": True, "roundtrip": True,
-                      "independent_storage": True, "mailbox": True,
+                      "holder_placement": True, "mailbox": True,
                       "media": media(client, tcp, quic),
                       "turn": turn(client, tcp, relay)})
     cases.append(network(peers, client, churn))
@@ -195,7 +221,7 @@ def suite(peers, client, churn=None, relay=False, reports=None):
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
     print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
-          f"stale, mailbox, push, media, TURN, independence, routing, "
+          f"stale, mailbox, push, media, TURN, holder placement, routing, "
           f"relay announcement, replication, "
           f"ack forwarding, repair, rate limit"
           f"{churned} passed")
@@ -245,14 +271,23 @@ def network(peers, client, churn):
 
 def replicate(client, entry, ids):
     """Replicate a fresh profile; every holder is a live node serving it."""
-    signed = call(client, "sign-profile")
+    for _ in range(40):
+        signed = call(client, "sign-profile")
+        if set(replica_holders(client, entry, signed["peer_id"])) == set(ids):
+            break
+    else:
+        raise RuntimeError("No replica keys spanning every live node")
     holders = call(client, "replicate", entry, signed["peer_id"],
                    signed["record"])["holders"]
     for holder in set(holders):
         if holder not in ids:
             raise RuntimeError(f"Replica on an unknown node: {holder}")
-        reply = call(client, "get", ids[holder], signed["peer_id"])
-        if reply != {"status": "STATUS_OK", "record": signed["record"]}:
+        for _ in range(10):
+            reply = call(client, "get", ids[holder], signed["peer_id"])
+            if reply == {"status": "STATUS_OK", "record": signed["record"]}:
+                break
+            time.sleep(0.2)
+        else:
             raise RuntimeError(f"Holder {holder} lost the replica")
     return holders
 
@@ -260,8 +295,7 @@ def replicate(client, entry, ids):
 def mailbox(client, tcp, quic, other):
     """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties,
     a watching fetch gets the next envelope pushed."""
-    device = call(client, "device-key")
-    put = call(client, "put", tcp, device["mailbox"], "c0ffee")
+    device, put, _ = spread(client, tcp)
     if put["status"] != "STATUS_OK":
         raise RuntimeError("Envelope put failed")
     expected = {"status": "STATUS_OK", "ids": [put["id"]], "more": False}
@@ -270,8 +304,8 @@ def mailbox(client, tcp, quic, other):
     stranger = call(client, "device-key")["secret"]
     if call(client, "fetch", tcp, stranger)["ids"]:
         raise RuntimeError("Another key read the mailbox")
-    if call(client, "fetch", other, device["secret"])["ids"]:
-        raise RuntimeError("Independent node storage unexpectedly shared")
+    if put["id"] not in call(client, "fetch", other, device["secret"])["ids"]:
+        raise RuntimeError("Acceptor did not replicate the mailbox")
     reply = call(client, "ack", tcp, device["secret"], put["id"])
     if reply["status"] != "STATUS_OK":
         raise RuntimeError("Mailbox ack failed")
@@ -372,23 +406,28 @@ def error_code(attrs):
     return (code[2] & 7) * 100 + code[3] if code else 0
 
 
+def replica_holders(client, entry, key):
+    return [call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
+            for i in range(5)]
+
+
 def spread(client, entry):
-    """An envelope on every replica node of a fresh mailbox."""
-    # Five replica keys may all land on one node of three: retry with a new
-    # mailbox until the replicas span nodes.
-    for _ in range(5):
+    """One client put reaches all three holders via acceptor fan-out."""
+    nodes = set(call(client, "closest", entry, os.urandom(8).hex())["peers"])
+    for _ in range(40):
         device = call(client, "device-key")
-        put = call(client, "put-replicas", entry, device["mailbox"])
-        holders = sorted(set(put["holders"]))
-        if len(holders) > 1:
+        found = replica_holders(client, entry, device["mailbox"])
+        holders = sorted(set(found))
+        if set(holders) == nodes and len(holders) >= 2:
+            put = call(client, "put-replicas", entry, device["mailbox"])
             return device, put, holders
-    raise RuntimeError(f"Replicas never spanned nodes: {holders}")
+    raise RuntimeError(f"Replicas never spanned all nodes: {holders}")
 
 
 def repaired(client, entry, ids):
     """An envelope on one replica node reaches another on a watching fetch."""
     device, _, holders = spread(client, entry)
-    lone = call(client, "put", ids[holders[0]], device["mailbox"], "02")
+    lone = call(client, "put-local", ids[holders[0]], device["mailbox"], "02")
     call(client, "watch", ids[holders[1]], device["secret"])
     # The inventory and its answer run after the fetch.
     for _ in range(10):

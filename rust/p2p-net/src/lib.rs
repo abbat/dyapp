@@ -36,7 +36,7 @@ pub const TURN_KEY: &[u8] = b"/dyapp/turn";
 pub const REPLICAS: u8 = 5;
 
 /// Kademlia lookup key of replica `i` (`0..REPLICAS`) of `key`: Kademlia hashes it with SHA-256,
-/// so the replica lives on the store nodes closest to H(key ‖ i). The client writes every replica.
+/// so the replica lives on the store nodes closest to H(key ‖ i). The acceptor looks up every holder and writes the replicas.
 pub fn replica_key(key: &[u8], i: u8) -> Vec<u8> {
     [key, &[i]].concat()
 }
@@ -220,8 +220,9 @@ pub fn build_limited_swarm(
                 ),
             };
             kad.set_mode(kad_mode);
-            let config =
-                request_response::Config::default().with_max_concurrent_streams(max_streams);
+            let config = request_response::Config::default()
+                .with_request_timeout(Duration::from_secs(20))
+                .with_max_concurrent_streams(max_streams);
             Behaviour {
                 limits: connection_limits::Behaviour::new(limits),
                 memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),

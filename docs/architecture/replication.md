@@ -1,8 +1,9 @@
 # Replication Design
 
 **Status:** approved design (2026-10-09), **planned**. What runs today is in
-[Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): clients write messages
-and profiles to 5 nodes themselves, nodes repair mailboxes, and media are not replicated. This page
+[Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): acceptors replicate
+messages and profiles with a two-holder acknowledgement, nodes repair mailboxes, and media are
+not replicated. This page
 is the target; as each step below lands, the bootstrap page and
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md) take over its text and this page
 shrinks.
@@ -14,23 +15,9 @@ Replica keys are `replica_key(key, i) = H(key‖i)`, `i` in `0..REPLICAS` (`REPL
 
 ### Messages, MLS commits, signals and profiles
 
-1. The client sends one put to the holder of replica key 0. If that fails, it tries key 1, then 2,
-   and so on.
-2. The node that gets the put (the acceptor) verifies the record as it does now and looks up the
-   holders of all 5 replica keys itself. It stores a copy only for the keys it holds and sends a
-   `replica_put` to the holders of the others. A node that holds none of the keys only forwards.
-   A receiver verifies a `replica_put` like a client put; no node trusts another node. A
-   `replica_put` is never forwarded again. The holders come from a full DHT lookup of each key,
-   not from the local routing table alone.
-3. The acceptor answers `ok` once copies are stored on 2 distinct holders of replica keys. The
-   other copies are sent in the background, with no queue on disk: if the acceptor dies first,
-   repair below fills the gap. A put still waiting for its second copy after a timeout gets an
-   error, and the number of waiting puts is capped.
-4. Only a node whose routing table has no peers answers `ok` after one local copy. A node that has
-   peers but reaches no second holder answers with an error, and the client tries the next key.
-
-Profiles get a `replica_put` like the one mailboxes already have
-(`rust/bootstrap/src/service.rs`). `test-peer` stops writing replicas itself.
+Implemented; the write path, two distinct confirmations, 10-second deadline, 64 active fan-outs,
+profile `replica_put`, and single-upload `test-peer` commands are documented in
+[Bootstrap](bootstrap.md#replication-and-repair).
 
 ### Media
 
@@ -127,8 +114,8 @@ offline is not repaired and expires by its TTL.
 Each step is one change with multi-node Docker tests and its docs.
 
 1. Per-protocol size limits are implemented; see [Served protocol](bootstrap.md#served-protocol).
-2. Mailbox and profile fan-out by the acceptor with the 2-copy ack; profile `replica_put`; client
-   billed ×5; `test-peer` stops writing replicas.
+2. Mailbox and profile acceptor fan-out is implemented; see
+   [Replication and repair](bootstrap.md#replication-and-repair).
 3. Profile repair through node inventory.
 4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment, the
    concurrency limits, `get` billed by bytes, distinct holders in `dyappd status`.

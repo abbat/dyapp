@@ -21,6 +21,14 @@ impl PeerRateLimiter {
     }
 
     pub fn check_limit(&self, peer_id: &str) -> bool {
+        self.check_units(peer_id, 1)
+    }
+
+    /// Charges the complete operation atomically; an insufficient bucket spends no units.
+    pub fn check_units(&self, peer_id: &str, units: u32) -> bool {
+        let Some(units) = NonZeroU32::new(units) else {
+            return false;
+        };
         let mut limiters = self.limiters.write().unwrap();
 
         let now = Instant::now();
@@ -33,7 +41,7 @@ impl PeerRateLimiter {
             (RateLimiter::direct(quota), now)
         });
         *seen = now;
-        limiter.check().is_ok()
+        matches!(limiter.check_n(units), Ok(Ok(())))
     }
 
     pub fn get_active_peers(&self) -> usize {
@@ -213,6 +221,16 @@ mod tests {
         std::thread::sleep(Duration::from_millis(1100));
         limiter.check_limit("new");
         assert_eq!(limiter.get_active_peers(), 1);
+    }
+
+    #[test]
+    fn multi_unit_charge_is_atomic_and_requires_capacity() {
+        let limiter = PeerRateLimiter::new(5);
+        assert!(limiter.check_units("put", 5));
+        assert!(!limiter.check_limit("put"));
+        assert!(!limiter.check_units("get", 6));
+        assert!(limiter.check_units("get", 5), "failed charge spent units");
+        assert!(!PeerRateLimiter::new(4).check_units("put", 5));
     }
 
     #[test]

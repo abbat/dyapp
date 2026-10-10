@@ -188,9 +188,13 @@ impl Service {
 
     /// Whether `peer` is within its own and its IP group's request rate; a refusal is a strike.
     fn admit(&self, peer: &Peer) -> bool {
+        self.admit_units(peer, 1)
+    }
+
+    fn admit_units(&self, peer: &Peer, units: u32) -> bool {
         let admitted = !self.reputation.banned(&peer.id)
-            && self.rate_limiter.check_limit(&peer.id)
-            && self.groups.check_limit(&peer.group);
+            && self.rate_limiter.check_units(&peer.id, units)
+            && self.groups.check_units(&peer.group, units);
         if !admitted {
             self.strike(peer);
         }
@@ -301,16 +305,47 @@ impl Service {
         nonce: &mut Option<[u8; 32]>,
         request: MailboxRequest,
     ) -> crate::Result<MailboxResponse> {
+        self.mailbox_inner(peer, nonce, request, true)
+    }
+
+    /// Validates and bills a client put before the swarm looks up its holders; stores nothing.
+    pub fn prepare_mailbox(
+        &self,
+        peer: &Peer,
+        record: SignedRecord,
+    ) -> crate::Result<MailboxResponse> {
+        self.mailbox_inner(
+            peer,
+            &mut None,
+            MailboxRequest {
+                request: Some(mailbox_request::Request::Put(record)),
+            },
+            false,
+        )
+    }
+
+    fn mailbox_inner(
+        &self,
+        peer: &Peer,
+        nonce: &mut Option<[u8; 32]>,
+        request: MailboxRequest,
+        store: bool,
+    ) -> crate::Result<MailboxResponse> {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(status(Status::Unsupported));
         }
-        if self.shed(request.encoded_len(), 100) || !self.admit(peer) {
+        let units = if matches!(request.request, Some(mailbox_request::Request::Put(_))) {
+            5
+        } else {
+            1
+        };
+        if self.shed(request.encoded_len(), 100) || !self.admit_units(peer, units) {
             return Ok(status(Status::RateLimited));
         }
         if self.refused(peer) {
             return Ok(status(Status::Refused));
         }
-        let response = self.mailbox_request(nonce, request)?;
+        let response = self.mailbox_request(nonce, request, store)?;
         if response.status == i32::from(Status::Denied) {
             self.strike(peer);
         }
@@ -321,6 +356,7 @@ impl Service {
         &self,
         nonce: &mut Option<[u8; 32]>,
         request: MailboxRequest,
+        store: bool,
     ) -> crate::Result<MailboxResponse> {
         match request.request {
             Some(mailbox_request::Request::Challenge(_)) => {
@@ -333,7 +369,7 @@ impl Service {
                     ..status(Status::Ok)
                 })
             }
-            Some(mailbox_request::Request::Put(record)) => self.put(&record),
+            Some(mailbox_request::Request::Put(record)) => self.put(&record, store, true),
             Some(mailbox_request::Request::Fetch(record)) => {
                 let expected = nonce.take();
                 let Ok((mailbox, fetch)) =
@@ -420,7 +456,7 @@ impl Service {
         // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
         // watching device never acks until the mailbox cap; carry the expiry if that matters.
         for record in &batch.envelopes {
-            let put = Status::try_from(self.put(record)?.status).unwrap_or_default();
+            let put = Status::try_from(self.put(record, true, true)?.status).unwrap_or_default();
             if worst == Status::Ok || put == Status::Denied {
                 worst = put;
             }
@@ -439,7 +475,17 @@ impl Service {
             .collect())
     }
 
-    fn put(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
+    /// Stores a locally held replica after admission, without billing the client twice.
+    pub fn store_mailbox(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
+        self.put(record, true, false)
+    }
+
+    fn put(
+        &self,
+        record: &SignedRecord,
+        store: bool,
+        bill_sender: bool,
+    ) -> crate::Result<MailboxResponse> {
         if record.payload.len() > MAX_ENVELOPE_BYTES {
             return Ok(status(Status::TooLarge));
         }
@@ -455,8 +501,11 @@ impl Service {
         if self.listed_key(&record.public_key) || self.listed(&envelope.mailbox) {
             return Ok(status(Status::Refused));
         }
-        if !self.senders.check_limit(&hex(&record.public_key)) {
+        if bill_sender && !self.senders.check_limit(&hex(&record.public_key)) {
             return Ok(status(Status::RateLimited));
+        }
+        if !store {
+            return Ok(status(Status::Ok));
         }
         let max_mb = self.config.limits.messages_max_mb;
         if self.full(
@@ -481,18 +530,49 @@ impl Service {
     /// `peer` is the key for rate limiting and strikes. A storage failure is an
     /// error: the caller drops the request and the client tries another node.
     pub fn profile(&self, peer: &Peer, request: ProfileRequest) -> crate::Result<ProfileResponse> {
+        self.profile_inner(peer, request, true)
+    }
+
+    pub fn prepare_profile(
+        &self,
+        peer: &Peer,
+        record: SignedRecord,
+    ) -> crate::Result<ProfileResponse> {
+        self.profile_inner(
+            peer,
+            ProfileRequest {
+                request: Some(profile_request::Request::Publish(record)),
+            },
+            false,
+        )
+    }
+
+    fn profile_inner(
+        &self,
+        peer: &Peer,
+        request: ProfileRequest,
+        store: bool,
+    ) -> crate::Result<ProfileResponse> {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
         }
-        if self.shed(request.encoded_len(), SHED_PROFILES) || !self.admit(peer) {
+        let units = if matches!(request.request, Some(profile_request::Request::Publish(_))) {
+            5
+        } else {
+            1
+        };
+        if self.shed(request.encoded_len(), SHED_PROFILES) || !self.admit_units(peer, units) {
             return Ok(reply(Status::RateLimited, None));
         }
         if self.refused(peer) {
             return Ok(reply(Status::Refused, None));
         }
         match request.request {
-            Some(profile_request::Request::Publish(record)) => {
-                let response = self.publish(&record)?;
+            Some(
+                profile_request::Request::Publish(record)
+                | profile_request::Request::ReplicaPut(record),
+            ) => {
+                let response = self.publish(&record, store)?;
                 if response.status == i32::from(Status::Denied) {
                     self.strike(peer);
                 }
@@ -537,12 +617,24 @@ impl Service {
         }
     }
 
-    fn publish(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
+    pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
+        self.publish(record, true)
+    }
+
+    fn publish(&self, record: &SignedRecord, store: bool) -> crate::Result<ProfileResponse> {
         if record.payload.len() > dyapp_profile::MAX_PAYLOAD_LEN {
             return Ok(reply(Status::TooLarge, None));
         }
         if self.listed_key(&record.public_key) {
             return Ok(reply(Status::Refused, None));
+        }
+        match dyapp_profile::verify(record) {
+            Ok(_) => {}
+            Err(dyapp_profile::Error::Signature(_)) => return Ok(reply(Status::Denied, None)),
+            Err(_) => return Ok(reply(Status::Invalid, None)),
+        }
+        if !store {
+            return Ok(reply(Status::Ok, None));
         }
         let max_mb = self.config.limits.profiles_max_mb;
         if self.full(
@@ -876,6 +968,76 @@ mod tests {
     }
 
     #[test]
+    fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
+        let identity = Identity::generate();
+        let record = Profile {
+            version: 1,
+            ..Profile::default()
+        }
+        .sign(&identity);
+        let service = service_with(|l| l.requests_per_second = 5);
+        assert_eq!(
+            status(
+                &service
+                    .prepare_profile(&peer("client"), record.clone())
+                    .unwrap()
+            ),
+            Status::Ok
+        );
+        assert!(service
+            .store
+            .get_profile(&identity.peer_id())
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            status(&service.profile(&peer("client"), get(vec![0; 32])).unwrap()),
+            Status::RateLimited
+        );
+        let replica = |record| ProfileRequest {
+            request: Some(profile_request::Request::ReplicaPut(record)),
+        };
+        assert_eq!(
+            status(
+                &service
+                    .profile(&peer("holder"), replica(record.clone()))
+                    .unwrap()
+            ),
+            Status::Ok
+        );
+        assert_eq!(
+            status(&service.profile(&peer("holder"), get(vec![0; 32])).unwrap()),
+            Status::NotFound
+        );
+        let mut forged = record;
+        forged.signature[0] ^= 1;
+        assert_eq!(
+            status(&service.profile(&peer("holder"), replica(forged)).unwrap()),
+            Status::Denied
+        );
+
+        let envelope = proto::Envelope {
+            id: vec![3; 16],
+            mailbox: vec![4; 32],
+            ciphertext: vec![5],
+        };
+        let record = identity.sign(Domain::Envelope, envelope.encode_to_vec());
+        assert_eq!(
+            mailbox_status(
+                &service
+                    .prepare_mailbox(&peer("sender"), record.clone())
+                    .unwrap()
+            ),
+            Status::Ok
+        );
+        assert!(service.held(&envelope.mailbox).unwrap().is_empty());
+        assert_eq!(
+            mailbox_status(&service.store_mailbox(&record).unwrap()),
+            Status::Ok
+        );
+        assert_eq!(service.held(&envelope.mailbox).unwrap().len(), 1);
+    }
+
+    #[test]
     fn heartbeat_keeps_the_profile_seen() {
         let service = service();
         let identity = Identity::generate();
@@ -1200,7 +1362,15 @@ mod tests {
     #[test]
     fn full_stores_and_byte_rate_refuse_requests() {
         let identity = Identity::generate();
-        let profile = || publish(Profile::default().sign(&identity));
+        let profile = || {
+            publish(
+                Profile {
+                    version: 1,
+                    ..Profile::default()
+                }
+                .sign(&identity),
+            )
+        };
         let envelope = proto::Envelope {
             id: vec![7; 16],
             mailbox: vec![1; 32],
@@ -1290,6 +1460,10 @@ mod tests {
             };
             mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
         };
+        let service = service_with(|l| {
+            l.sender_puts_per_second = 1;
+            l.strikes_to_ban = 2;
+        });
         let sender_peer = Peer {
             id: "e".into(),
             group: "i".into(),

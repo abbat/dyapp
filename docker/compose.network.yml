@@ -8,6 +8,10 @@ x-runtime: &runtime
   security_opt: [no-new-privileges:true]
   read_only: true
   networks: [test-peers]
+  # Test the current checkout and binaries, rather than a stale image snapshot.
+  volumes:
+    - ..:/workspace:ro
+    - workspace-cache:/workspace/target:ro
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
     - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
@@ -98,6 +102,8 @@ services:
       bootstrap-c:
         condition: service_healthy
     volumes:
+      - ..:/workspace:ro
+      - workspace-cache:/workspace/target:ro
       - network-reports:/reports
     command: [bash, -c, "bash scripts/check-container-isolation.sh && exec python3 scripts/network-test.py"]
 
@@ -106,4 +112,7 @@ networks:
     internal: true
 
 volumes:
+  workspace-cache:
+    external: true
+    name: dyapp_workspace-cache
   network-reports:
