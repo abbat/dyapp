@@ -5,7 +5,7 @@ use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
-use dyapp_p2p_net::{build_swarm, Behaviour, BehaviourEvent, Mode, MAX_MESSAGE_BYTES};
+use dyapp_p2p_net::{build_swarm, Behaviour, BehaviourEvent, Mode, MAX_CONTROL_MESSAGE_BYTES};
 use dyapp_profile::Profile;
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, StreamExt};
 use libp2p::identity::Keypair;
@@ -324,7 +324,7 @@ async fn bad_input_fails_only_its_request() {
     let profile = dyapp_p2p_net::PROFILE_PROTOCOL;
     // Not protobuf: field 1 with a length running past the end.
     assert_eq!(raw(&addr, profile.clone(), vec![0x0a, 0x7f, 1]).await, None);
-    let oversized = vec![0; usize::try_from(MAX_MESSAGE_BYTES).unwrap() + 1];
+    let oversized = vec![0; usize::try_from(MAX_CONTROL_MESSAGE_BYTES).unwrap() + 1];
     assert_eq!(
         raw(&addr, dyapp_p2p_net::MAILBOX_PROTOCOL, oversized).await,
         None

@@ -67,9 +67,6 @@ Profiles get a `replica_put` like the one mailboxes already have
 
 ### Limits and abuse controls
 
-- The size limit is set per protocol: 6 MiB + 64 KiB for `/dyapp/media`, 1 MiB + 64 KiB for the
-  others (the largest is a mailbox `fetch` reply, `FETCH_BYTES` = 1 MiB). Today one 2 MiB limit,
-  `MAX_MESSAGE_BYTES`, covers all of them.
 - At most 2 media requests per connection and 16 per node run at once. The rest are reset
   before the body is read (the request-response codec cannot answer before reading), and the
   client retries with backoff.
@@ -129,7 +126,7 @@ offline is not repaired and expires by its TTL.
 
 Each step is one change with multi-node Docker tests and its docs.
 
-1. Per-protocol size limits.
+1. Per-protocol size limits are implemented; see [Served protocol](bootstrap.md#served-protocol).
 2. Mailbox and profile fan-out by the acceptor with the 2-copy ack; profile `replica_put`; client
    billed ×5; `test-peer` stops writing replicas.
 3. Profile repair through node inventory.

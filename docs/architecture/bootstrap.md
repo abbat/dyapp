@@ -394,7 +394,9 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 Source: `rust/bootstrap/src/service.rs` (request handling), `node.rs` (the libp2p
 loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
 `dyappd` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
-per stream, at most 2 MiB each ([schema](protobuf-schema.md#node-protocol)):
+per stream ([schema](protobuf-schema.md#node-protocol)). Each request and reply is capped at
+1 MiB + 64 KiB, except `/dyapp/media`, which allows 6 MiB + 64 KiB. These are wire limits;
+the payload and storage limits below are checked separately:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
@@ -672,7 +674,8 @@ starts refusing and a line when it clears, not one per request:
   second under load, only here).
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
-  concurrent streams per connection and protocol (default 16); messages are capped at 2 MiB.
+  concurrent streams per connection and protocol (default 16); frames are capped at
+  1 MiB + 64 KiB, or 6 MiB + 64 KiB on `/dyapp/media`.
   `max_memory_mb` (default 768, the packaged unit's `MemoryHigh`; 0 = no limit) bounds the
   process's physical memory, sampled at most every 100 ms. From 80 % of it media, repair,
   profile and mailbox requests get `RATE_LIMITED` (no strike); at 100 % every request is
@@ -808,7 +811,8 @@ Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP
 clients:
 - Every request type: `info`, publish and get, mailbox put, challenge, fetch and ack
 - A challenge from one connection is `DENIED` on another and still valid on its own
-- Bad input fails only its request: undecodable protobuf and a request over 2 MiB get the
+- Bad input fails only its request: undecodable protobuf and a request over its protocol's
+  wire limit get the
   stream closed without a reply (a client reads `STATUS_UNSPECIFIED`), an unknown or empty
   variant gets `UNSUPPORTED`, and the node then answers the next client
 - Rate limit over the wire: `RATE_LIMITED` past the burst, `info` still answered

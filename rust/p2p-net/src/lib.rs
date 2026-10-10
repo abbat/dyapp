@@ -41,8 +41,18 @@ pub fn replica_key(key: &[u8], i: u8) -> Vec<u8> {
     [key, &[i]].concat()
 }
 
-/// Largest request or reply on the wire: a profile payload of up to 1 MiB plus its signature.
-pub const MAX_MESSAGE_BYTES: u64 = 2 * 1024 * 1024;
+/// Non-media frame limit, including protobuf and signature overhead.
+pub const MAX_CONTROL_MESSAGE_BYTES: u64 = 1024 * 1024 + 64 * 1024;
+/// Media frame limit, including protobuf and signature overhead.
+pub const MAX_MEDIA_MESSAGE_BYTES: u64 = 6 * 1024 * 1024 + 64 * 1024;
+
+fn message_limit(protocol: &StreamProtocol) -> u64 {
+    if protocol == &MEDIA_PROTOCOL {
+        MAX_MEDIA_MESSAGE_BYTES
+    } else {
+        MAX_CONTROL_MESSAGE_BYTES
+    }
+}
 
 pub type NodeBehaviour =
     request_response::Behaviour<ProtoCodec<proto::NodeRequest, proto::NodeResponse>>;
@@ -87,11 +97,12 @@ impl<Req, Resp> Clone for ProtoCodec<Req, Resp> {
 
 async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
     io: &mut T,
+    limit: u64,
 ) -> io::Result<M> {
     let mut buf = Vec::new();
     // One byte over the limit tells an oversized message from one that is exactly at it.
-    io.take(MAX_MESSAGE_BYTES + 1).read_to_end(&mut buf).await?;
-    if buf.len() as u64 > MAX_MESSAGE_BYTES {
+    io.take(limit + 1).read_to_end(&mut buf).await?;
+    if buf.len() as u64 > limit {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "message too large",
@@ -118,18 +129,18 @@ where
 
     async fn read_request<T: AsyncRead + Unpin + Send>(
         &mut self,
-        _: &StreamProtocol,
+        protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Req> {
-        read_message(io).await
+        read_message(io, message_limit(protocol)).await
     }
 
     async fn read_response<T: AsyncRead + Unpin + Send>(
         &mut self,
-        _: &StreamProtocol,
+        protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Resp> {
-        read_message(io).await
+        read_message(io, message_limit(protocol)).await
     }
 
     async fn write_request<T: AsyncWrite + Unpin + Send>(
@@ -439,6 +450,69 @@ pub fn known_peers(swarm: &mut Swarm<Behaviour>) -> Vec<Multiaddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone, PartialEq, prost::Message)]
+    struct Frame {
+        #[prost(bytes = "vec", tag = "1")]
+        data: Vec<u8>,
+    }
+
+    fn frame_bytes(size: usize) -> Vec<u8> {
+        use prost::Message;
+        let mut frame = Frame {
+            data: vec![0; size],
+        };
+        let overhead = frame.encoded_len() - size;
+        frame.data.truncate(size - overhead);
+        let bytes = frame.encode_to_vec();
+        assert_eq!(bytes.len(), size);
+        bytes
+    }
+
+    #[tokio::test]
+    async fn codec_enforces_protocol_limits_in_both_directions() {
+        use libp2p::futures::io::Cursor;
+        use request_response::Codec;
+        let mut codec = ProtoCodec::<Frame, Frame>::default();
+        for protocol in [
+            NODE_PROTOCOL,
+            PROFILE_PROTOCOL,
+            MAILBOX_PROTOCOL,
+            MAILBOX_PUSH_PROTOCOL,
+            MEDIA_PROTOCOL,
+        ] {
+            let limit = usize::try_from(message_limit(&protocol)).unwrap();
+            for size in [limit, limit + 1] {
+                let bytes = frame_bytes(size);
+                let request = codec
+                    .read_request(&protocol, &mut Cursor::new(&bytes))
+                    .await;
+                let response = codec
+                    .read_response(&protocol, &mut Cursor::new(&bytes))
+                    .await;
+                if size == limit {
+                    assert!(request.is_ok(), "{protocol}: request at limit");
+                    assert!(response.is_ok(), "{protocol}: response at limit");
+                } else {
+                    assert_eq!(request.unwrap_err().kind(), io::ErrorKind::InvalidData);
+                    assert_eq!(response.unwrap_err().kind(), io::ErrorKind::InvalidData);
+                }
+            }
+        }
+        let bytes = frame_bytes(6 * 1024 * 1024);
+        assert!(codec
+            .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
+            .await
+            .is_ok());
+        assert!(codec
+            .read_response(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
+            .await
+            .is_ok());
+        assert!(codec
+            .read_request(&MAILBOX_PROTOCOL, &mut Cursor::new(&bytes))
+            .await
+            .is_err());
+    }
     use libp2p::futures::StreamExt;
     use libp2p::swarm::SwarmEvent;
     use libp2p::Multiaddr;
