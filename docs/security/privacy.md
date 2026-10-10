@@ -43,8 +43,11 @@ has neither published a newer version nor sent a fresh identity-signed heartbeat
 within 10 minutes of the node clock and newer than the stored time; replayed heartbeats,
 stale republishes and media requests do not extend profile retention. The node thereby learns
 roughly when each owner was last active. Media blobs listed in
-an owner's `keep` stay until the owner replaces the list; their expiry after the same TTL is
-planned ([Bootstrap](../architecture/bootstrap.md#served-protocol)). Backups and replicas
+an owner's `keep` stay until that list is replaced, the owner's signed media liveness is older
+than `limits.profile_ttl_days`, or disk pressure evicts the keep. Signed keep time must be
+within 10 minutes of the node clock; replay does not advance liveness. Shared blobs remain
+while any other keep or unexpired attachment holds them
+([Bootstrap](../architecture/bootstrap.md#served-protocol)). Backups and replicas
 (if an operator adds them) keep their own copies.
 
 Target: nothing is kept forever. The operator may delete any data at any time; under a full quota

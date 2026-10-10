@@ -418,7 +418,7 @@ the payload and storage limits below are checked separately:
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
 | `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored like a `put`; `OK`, else `DENIED` when any signature is forged, else the first failure |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
-| `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` version not newer; `DENIED` bad signature; `INVALID` over 256 hashes or a hash not 32 bytes |
+| `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` with `missing`, the listed hashes the node does not hold yet; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK`, also for a blob already held; `NOT_FOUND` the owner's list lacks SHA-256(data); `TOO_LARGE` over 1 MiB; `FULL` over `limits.media_per_owner_mb` or the media disk guard; `INVALID` owner not 32 bytes |
 | `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `NOT_FOUND`; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([Replication](replication.md)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
@@ -450,11 +450,14 @@ the payload and storage limits below are checked separately:
 - **Media.** The owner's signed `keep` is the whole list of blobs the node should hold for that
   identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
   once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob
-  kept by two owners counts against both quotas. There is no eviction: a full node answers
-  `FULL` and the client tries another. Planned retention: the media store keeps its own
-  `last_seen` per owner, refreshed by a `keep` or `attach` the owner signed, and deletes the
-  owner's `keep` with its blobs `limits.profile_ttl_days` after it. `MediaKeep` gets a signed
-  `time`; a `keep` refreshes `last_seen` only if `time` is within 10 minutes of the node's clock
+  kept by two owners counts against both quotas and needs only one upload. The media store
+  keeps its own `last_seen` per owner, advanced to the signed time of a `keep` or `attach`;
+  hourly cleanup deletes an inactive owner's keep after `limits.profile_ttl_days`, together
+  with blobs held by no other keep or attachment. Attachments retain their separate expiry.
+  At the disk size limit, old attachments then inactive owners' keeps are evicted down to
+  95 %; shared blobs stay, and `FULL` is returned only if space is still insufficient.
+  `MediaKeep` carries a signed `time`; a `keep` refreshes `last_seen` only if `time` is within
+  10 minutes of the node's clock
   and newer than the stored one, so a replayed `keep` extends nothing, while the client resends
   its current `keep` with a fresh `time` when the app opens, uploads what `missing` lists and so
   restores evicted blobs. A deny-listed key cannot refresh its `keep`, so it expires. Media
@@ -552,6 +555,9 @@ test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through 
 test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
 test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
 test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
+test-peer media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
+test-peer media-keep <multiaddr> <record hex> → {"status", "data"}
+test-peer media-get <multiaddr> <hash hex>  → {"status", "data"}
 test-peer turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
 test-peer relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
 ```
@@ -662,11 +668,11 @@ starts refusing and a line when it clears, not one per request:
   young), envelopes in arrival order ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).
   The free-space floor is not cleared by eviction, since freed pages stay in the file until
   maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
-  `min_free_mb` free on the media file system; media is never evicted. Planned: at
-  `media_max_mb` the node first evicts down to 95 % of it, the cache of assembled blobs first,
-  then unreleased chat attachments by oldest `created`, then the `keep` of the owners seen
+  `min_free_mb` free on the media file system. At `media_max_mb` the node first evicts down to
+  95 % of it: unreleased chat attachments by oldest `created`, then the `keep` of owners seen
   longest ago, and answers `FULL` only if that is not enough; a blob still held by another
-  `keep` or attachment stays.
+  `keep` or attachment stays. Eviction is bounded to 4096 lists per category per put;
+  assembled-blob cache eviction is planned with ranged media reads.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per second. With `bytes_per_second` set (default 0, no limit), media
   requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile
@@ -832,6 +838,10 @@ fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetc
 media keep, put and get on the media node and `UNSUPPORTED` from the others; that the nodes do
 not share storage; DHT routing, profile and mailbox replicas, ack forwarding, repair and the
 rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
+The local run ages media fixture rows, refreshes one keep through its signed protocol request,
+then restarts the media node: startup cleanup removes the expired owner's blob while the
+refreshed owner's blob remains readable. The same local suite runs inside the prepared dev
+Docker image, with temporary storage and reports under `/tmp/ai`.
 
 ## Limitations & Future
 

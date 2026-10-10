@@ -23,7 +23,7 @@ use std::time::Duration;
 pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
 /// Stored bytes per device mailbox.
 pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
-/// Envelope bytes per fetch reply, well under the 2 MiB protocol message limit.
+/// Envelope bytes per fetch reply, leaving 64 KiB for protobuf framing.
 const FETCH_BYTES: u64 = 1024 * 1024;
 const MAX_FETCH: u32 = 100;
 /// Largest media blob, well under the protocol message limit; larger files are split.
@@ -598,10 +598,15 @@ impl Service {
                 if self.listed(&owner) {
                     return Ok(media_status(Status::Refused));
                 }
-                if keep.hashes.len() > MAX_KEEP || keep.hashes.iter().any(|h| h.len() != 32) {
+                let now = chrono::Utc::now().timestamp().unsigned_abs();
+                if keep.version == 0
+                    || keep.time.abs_diff(now) > CLOCK_SKEW
+                    || keep.hashes.len() > MAX_KEEP
+                    || keep.hashes.iter().any(|h| h.len() != 32)
+                {
                     return Ok(media_status(Status::Invalid));
                 }
-                match media.keep(&hex(&owner), keep.version, &keep.hashes)? {
+                match media.keep(&hex(&owner), keep.version, &keep.hashes, keep.time)? {
                     Some(missing) => MediaResponse {
                         missing,
                         ..media_status(Status::Ok)
@@ -620,9 +625,14 @@ impl Service {
                     return Ok(media_status(Status::Refused));
                 }
                 // ponytail: sums all blobs per put; keep a running total if puts get slow.
-                let (used, free) = media.usage()?;
-                let full = used >= l.media_max_mb.saturating_mul(1 << 20)
-                    || free <= l.min_free_mb.saturating_mul(1 << 20);
+                let max = l.media_max_mb.saturating_mul(1 << 20);
+                let (mut used, mut free) = media.usage()?;
+                if used >= max {
+                    let removed = media.evict(max / 100 * 95)?;
+                    tracing::info!(removed, "media lists evicted");
+                    (used, free) = media.usage()?;
+                }
+                let full = used >= max || free <= l.min_free_mb.saturating_mul(1 << 20);
                 if self.guard(2, full) {
                     return Ok(media_status(Status::Full));
                 }
@@ -675,6 +685,7 @@ impl Service {
                     &attach.release,
                     &attach.hashes,
                     expires,
+                    attach.created,
                     MAX_ATTACHMENTS,
                 )? {
                     Some(missing) => MediaResponse {
@@ -1395,7 +1406,16 @@ mod tests {
         let keep = proto::MediaKeep {
             version: 1,
             hashes: vec![hash.clone()],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
         };
+        for time in [keep.time - 3600, keep.time + 3600] {
+            let off_clock = proto::MediaKeep {
+                time,
+                ..keep.clone()
+            };
+            let signed = identity.sign(Domain::MediaKeep, off_clock.encode_to_vec());
+            assert_eq!(call_as(&service, "clock", Keep(signed)).0, Status::Invalid);
+        }
         let keep = identity.sign(Domain::MediaKeep, keep.encode_to_vec());
 
         assert_eq!(call(&service, put()).0, Status::NotFound);

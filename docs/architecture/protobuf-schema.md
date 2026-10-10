@@ -66,7 +66,10 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the
   same connection; the device still acknowledges with an ack.
 - **`/dyapp/media`**: `keep` is the owner's signed, versioned list of blob hashes (SHA-256) and
-  returns the ones still `missing`; `put` sends a listed blob unsigned; `get(hash)` returns it.
+  returns the ones still `missing`. Its signed `time` must be within 10 minutes of the node
+  clock; the same version and list with a newer time refreshes media liveness, while replaying
+  it does not. Inactive owners' keeps expire after `limits.profile_ttl_days`; shared blobs stay.
+  `put` sends a listed blob unsigned; `get(hash)` returns it.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it.
 

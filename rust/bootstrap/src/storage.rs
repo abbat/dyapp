@@ -117,7 +117,7 @@ impl BootstrapStore {
     }
 
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
-        // `last_seen`: Unix time of the owner's last signed action this node saw.
+        // `last_seen`: node time of a newer publish, or the latest validated heartbeat time.
         let profiles = open(
             profiles,
             "CREATE TABLE IF NOT EXISTS profiles (

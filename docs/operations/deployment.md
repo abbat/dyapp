@@ -191,12 +191,12 @@ dir = "/var/lib/dyappd"   # node.key, node.id, profiles.db, messages.db, media.d
 
 [limits]
 message_ttl_hours = 24
-profile_ttl_days = 30         # after the owner's last signed request
+profile_ttl_days = 30         # profile newer publish/heartbeat; media signed keep/attach time
 requests_per_second = 100
 profiles_max_mb = 1024        # a full store answers FULL to writes; disk use stays below
                               # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
-media_max_mb = 10240          # media role; media is never evicted (eviction planned)
+media_max_mb = 10240          # media role; evict attachments then oldest owners to 95%
 media_per_owner_mb = 10
 attachment_retention_hours = 168  # unreleased chat attachments
 # media_cache_minutes = 10    # planned: assembled blobs kept after their last read

@@ -75,10 +75,19 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .context("no reply in 60 s")??
         }
-        ["media", addr, data] => timeout(media(addr, data)).await?,
+        ["media", addr, data] => timeout(media(addr, data, false)).await?,
+        ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
+        ["media-keep", addr, record] => {
+            let record = SignedRecord::decode(unhex(record)?.as_slice())?;
+            timeout(media_call(addr, media_request::Request::Keep(record))).await?
+        }
+        ["media-get", addr, hash] => {
+            let get = proto::GetMedia { hash: unhex(hash)? };
+            timeout(media_call(addr, media_request::Request::Get(get))).await?
+        }
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | turn <addr> | relays <addr>"),
+        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
     };
     println!("{output}");
     Ok(())
@@ -158,16 +167,19 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
     Ok(output)
 }
 
-async fn media(addr: &str, data: &str) -> anyhow::Result<Value> {
+async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
     let data = unhex(data)?;
     let owner = Identity::generate();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let keep = proto::MediaKeep {
         version: 1,
         hashes: vec![hash.clone()],
+        time: chrono::Utc::now().timestamp().unsigned_abs(),
     };
+    let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
+    let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()) });
     let steps = [
-        media_request::Request::Keep(owner.sign(Domain::MediaKeep, keep.encode_to_vec())),
+        media_request::Request::Keep(record),
         media_request::Request::Put(proto::MediaPut {
             owner: unhex(&owner.peer_id())?,
             data: data.clone(),
@@ -195,7 +207,26 @@ async fn media(addr: &str, data: &str) -> anyhow::Result<Value> {
         }
         .into();
     }
+    if owned {
+        output["details"] = details;
+    }
     Ok(output)
+}
+
+async fn media_call(addr: &str, request: media_request::Request) -> anyhow::Result<Value> {
+    let (mut swarm, peer) = connect(addr).await?;
+    swarm.behaviour_mut().media.send_request(
+        &peer,
+        proto::MediaRequest {
+            request: Some(request),
+        },
+    );
+    let response = wait(&mut swarm, |event| match event {
+        BehaviourEvent::Media(event) => reply(event),
+        _ => None,
+    })
+    .await?;
+    Ok(json!({ "status": status(response.status), "data": hex(&response.data) }))
 }
 
 async fn turn(addr: &str) -> anyhow::Result<Value> {

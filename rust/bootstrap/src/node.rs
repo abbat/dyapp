@@ -691,6 +691,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         Ok(removed) => tracing::info!(removed, "expired attachments removed"),
                         Err(error) => tracing::error!(%error, "attachment cleanup failed"),
                     }
+                    match media.expire_owners(now - ttl) {
+                        Ok(removed) => tracing::info!(removed, "media keeps of inactive owners removed"),
+                        Err(error) => tracing::error!(%error, "media owner cleanup failed"),
+                    }
                 }
             }
             _ = maintain.tick() => {

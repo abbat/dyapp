@@ -235,9 +235,12 @@ message MediaRequest {
 // The complete list of an owner's blobs. The node drops the owner's blobs not listed and accepts
 // puts only of listed hashes, so a put needs no signature and a replayed put is harmless.
 message MediaKeep {
-  // Greater than the stored keep's version; the client uses its profile version.
+  // Greater than the stored keep's version, or equal for a refresh with the same hashes.
   uint64 version = 1;
   repeated bytes hashes = 2;
+  // Signed Unix seconds, within 10 minutes of the node clock. The same version and list
+  // with a newer time refreshes retention without replacing the list.
+  uint64 time = 3;
 }
 
 message MediaPut {

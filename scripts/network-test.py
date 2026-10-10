@@ -17,6 +17,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -56,7 +57,8 @@ def addresses(host, port):
 def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/test-peer"
-    with tempfile.TemporaryDirectory() as storage:
+    Path("/tmp/ai").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes = [], []
         try:
             for port in (7071, 7072, 7073):
@@ -75,6 +77,7 @@ def local(bin_dir):
                     env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
                     env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
                     env["DYAPPD__TURN__SECRET"] = TURN_SECRET
+                    first_env = env.copy()
                 if peers:
                     env["DYAPPD__SEEDS"] = '["127.0.0.1:7071"]'
                 if port == 7073:
@@ -98,11 +101,52 @@ def local(bin_dir):
                 processes[1].wait()
                 return peers[1][0]
 
-            suite(peers, client, churn, relay=False)
+            suite(peers, client, churn, relay=False,
+                  reports=Path(storage) / "reports")
+            media_retention(client, bin_dir, storage, peers[0], processes,
+                            first_env)
         finally:
             for process in processes:
                 process.terminate()
                 process.wait()
+
+
+def media_retention(client, bin_dir, storage, peer, processes, env):
+    """Age fixture rows, refresh one keep, then exercise startup cleanup.
+
+    This runs on the three-node loopback network inside the dev Docker image.
+    """
+    tcp, quic = peer
+    expired, refreshed = [
+        call(client, "media-owned", tcp, os.urandom(64).hex())
+        for _ in range(2)
+    ]
+    for result in (expired, refreshed):
+        if any(result[key] != "STATUS_OK" for key in ("keep", "put", "get")):
+            raise RuntimeError(f"Media retention setup failed: {result}")
+    with sqlite3.connect(f"{storage}/7071/media.db") as db:
+        cutoff = int(time.time()) - 31 * 86400
+        for result in (expired, refreshed):
+            db.execute("UPDATE owners SET last_seen = ? WHERE owner = ?",
+                       (cutoff, result["details"]["owner"]))
+    record = refreshed["details"]["keep_record"]
+    if call(client, "media-keep", quic, record)["status"] != "STATUS_OK":
+        raise RuntimeError("Fresh signed keep did not refresh media liveness")
+    processes[0].terminate()
+    processes[0].wait()
+    processes[0] = subprocess.Popen([f"{bin_dir}/dyappd"], env=env)
+    for _ in range(60):
+        if healthy(client, tcp):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Media node did not restart")
+    for result, expected in ((expired, "STATUS_NOT_FOUND"),
+                             (refreshed, "STATUS_OK")):
+        reply = call(client, "media-get", quic, result["details"]["hash"])
+        if reply["status"] != expected:
+            raise RuntimeError(f"Media retention cleanup failed: {reply}")
+    print("Media retention: expired blob removed, refreshed keep survives")
 
 
 def main():
@@ -119,7 +163,7 @@ def main():
           relay=True)
 
 
-def suite(peers, client, churn=None, relay=False):
+def suite(peers, client, churn=None, relay=False, reports=None):
     cases = []
     for index, (tcp, quic) in enumerate(peers):
         for addr in (tcp, quic):
@@ -146,7 +190,7 @@ def suite(peers, client, churn=None, relay=False):
                       "media": media(client, tcp, quic),
                       "turn": turn(client, tcp, relay)})
     cases.append(network(peers, client, churn))
-    reports = Path(os.environ.get("RUNNER_TEMP", "/reports"))
+    reports = reports or Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
