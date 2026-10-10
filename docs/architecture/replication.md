@@ -2,7 +2,7 @@
 
 **Status:** approved design (2026-10-09), **planned**. What runs today is in
 [Bootstrap: Replication and repair](bootstrap.md#replication-and-repair): acceptors replicate
-messages and profiles with a two-holder acknowledgement, nodes repair mailboxes, and media are
+messages and profiles with a two-holder acknowledgement, nodes repair mailboxes and profiles, and media are
 not replicated. This page
 is the target; as each step below lands, the bootstrap page and
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md) take over its text and this page
@@ -91,8 +91,8 @@ offline is not repaired and expires by its TTL.
 
 - **Mailbox:** unchanged. A node that serves a fetch sends an inventory to the other replicas and
   fills the gaps (`rust/bootstrap/src/node.rs`).
-- **Profile:** with each publish or heartbeat, the client's node compares the version held by the
-  other 4 replicas and sends the record to any that are missing it or hold an older version.
+- **Profile:** implemented; version inventories, rolling hourly limits and byte reservations are
+  described in [Bootstrap](bootstrap.md#replication-and-repair).
 - **Media:** with each `keep`, the node that takes it checks up to 256 of the listed hashes, from a
   cursor that moves on with each `keep`. It groups (hash, j) by holder and sends each holder one
   `have(list)`, which answers `missing(list)`, so the request count follows the number of holders,
@@ -116,7 +116,7 @@ Each step is one change with multi-node Docker tests and its docs.
 1. Per-protocol size limits are implemented; see [Served protocol](bootstrap.md#served-protocol).
 2. Mailbox and profile acceptor fan-out is implemented; see
    [Replication and repair](bootstrap.md#replication-and-repair).
-3. Profile repair through node inventory.
+3. Profile repair through node inventory is implemented; see [Bootstrap](bootstrap.md#replication-and-repair).
 4. Media whole copies: `replica_put(blob)` carrying the signed `keep` or attachment, the
    concurrency limits, `get` billed by bytes, distinct holders in `dyappd status`.
 5. Media shards: 6 MiB intake, the manifest and the shard requests in `proto/node.proto`, RS with

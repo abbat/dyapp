@@ -112,6 +112,8 @@ message ProfileRequest {
     dyapp.identity.SignedRecord heartbeat = 3;
     // Node to node: checked like publish, stored locally and never forwarded.
     dyapp.identity.SignedRecord replica_put = 4;
+    // Node to node: returns only the stored version, for presence-driven repair.
+    GetProfile inventory = 5;
   }
 }
 
@@ -132,6 +134,8 @@ message ProfileResponse {
   // get: the stored record (the latest version or a tombstone);
   // publish answered STATUS_STALE: the stored, newer record.
   dyapp.identity.SignedRecord record = 2;
+  // inventory: the stored version; STATUS_NOT_FOUND means no record.
+  uint64 version = 3;
 }
 
 // ---- /dyapp/mailbox: store role ----

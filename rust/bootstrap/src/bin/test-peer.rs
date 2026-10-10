@@ -1,7 +1,8 @@
 //! Node protocol client for scripts that have no libp2p, Ed25519 or protobuf library. Each command
 //! prints one JSON object; a reply of any status exits 0, a transport failure exits non-zero.
 //!
-//! - `test-peer sign-profile`: `{"peer_id", "record"}`, a freshly signed profile as hex protobuf;
+//! - `test-peer sign-profile [secret version]`: `{"peer_id", "record", "secret"}`, a signed profile;
+//! - `test-peer heartbeat <multiaddr> <secret hex>`: `{"status"}`, signed owner presence;
 //! - `test-peer info <multiaddr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
 //! - `test-peer publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
 //! - `test-peer get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
@@ -53,7 +54,19 @@ async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     let output = match args.as_slice() {
-        ["sign-profile"] => sign_profile(),
+        ["sign-profile"] => sign_profile(&Identity::generate(), 1),
+        ["sign-profile", secret, version] => {
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            sign_profile(&Identity::from_secret(&secret), version.parse()?)
+        }
+        ["heartbeat", addr, secret] => {
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let record = Identity::from_secret(&secret).sign(
+                Domain::Heartbeat,
+                proto::Heartbeat { time: chrono::Utc::now().timestamp().unsigned_abs() }.encode_to_vec(),
+            );
+            timeout(profile(addr, profile_request::Request::Heartbeat(record))).await?
+        }
         ["info", addr] => timeout(info(addr)).await?,
         ["publish", addr, record] => timeout(publish(addr, record)).await?,
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
@@ -88,21 +101,20 @@ async fn main() -> anyhow::Result<()> {
         }
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
-        _ => bail!("usage: test-peer sign-profile | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
+        _ => bail!("usage: test-peer sign-profile [secret version] | heartbeat <addr> <secret> | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
     };
     println!("{output}");
     Ok(())
 }
 
-fn sign_profile() -> Value {
-    let identity = Identity::generate();
+fn sign_profile(identity: &Identity, version: u64) -> Value {
     let record = Profile {
-        version: 1,
+        version,
         age: 26,
         ..Profile::default()
     }
-    .sign(&identity);
-    json!({ "peer_id": identity.peer_id(), "record": hex(&record.encode_to_vec()) })
+    .sign(identity);
+    json!({ "peer_id": identity.peer_id(), "record": hex(&record.encode_to_vec()), "secret": hex(&identity.secret()) })
 }
 
 async fn timeout(request: impl Future<Output = anyhow::Result<Value>>) -> anyhow::Result<Value> {

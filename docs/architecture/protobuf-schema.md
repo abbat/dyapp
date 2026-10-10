@@ -54,11 +54,14 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
   "role not served".
 - **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)`, `heartbeat(SignedRecord)` and
-  node-to-node `replica_put(SignedRecord)`. Publish fans out to the five DHT holders and waits for
+  node-to-node `replica_put(SignedRecord)` and `inventory(peer_id)` → stored version or
+  `STATUS_NOT_FOUND`, without the record. Publish fans out to the five DHT holders and waits for
   two distinct stores, or one local store with no routing peers. `replica_put` verifies and stores
   without forwarding. Equal/newer holder versions yield `STATUS_STALE` with a verified record.
   A heartbeat advances profile liveness to its signed time only when newer and within 10 minutes of the
-  node clock. A stale publish or replayed heartbeat does not extend retention.
+  node clock. A stale publish or replayed heartbeat does not extend retention. Successful
+  publishes and heartbeats start node-driven version repair, once per rolling hour per key;
+  only older or missing holders receive a signed record, within the 75 % traffic budget.
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce; the acceptor confirms two distinct replica holders.

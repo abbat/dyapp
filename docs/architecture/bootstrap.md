@@ -4,7 +4,7 @@
 
 A bootstrap node (`dyappd`) serves owner-signed profiles and per-device mailboxes over
 libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
-repairs mailbox replicas node to node; profile search and signaling are planned.
+repairs mailbox and profile replicas node to node; profile search and signaling are planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -87,7 +87,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | Protocol | Role | Requests |
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
-| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)` |
+| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
@@ -141,16 +141,20 @@ reply, without a persistent queue. A profile holder with an equal or newer verif
 counts as stored and supplies the highest confirmed stale record in a `STALE` reply.
 The app clients do not call this protocol yet; `test-peer` exercises the single-upload path.
 
-Repair is driven by the owner's presence; mailbox repair is implemented, profile and media
-repair are planned. When a user comes online, the nodes
+Repair is driven by the owner's presence; mailbox and profile repair are implemented, media
+repair is planned. When a user comes online, the nodes
 responsible for their keys compare inventories, *I have* and *I need*, and fill the gaps, so new
 closest nodes get the data after churn and stale replicas catch up. Data of a user who stays
 offline is not repaired and expires with the TTL; a message whose replicas are all lost is
 resent from the sender's retry queue.
 
-- **Profile.** The owner's client checks its profile version on each replica when it comes
-  online and republishes where the replica is missing or older; a repeated publish answers
-  `STALE` and stores nothing.
+- **Profile.** A successful publish (including `STALE`) or owner-signed heartbeat makes the
+  accepting node look up all five current replica keys and query each distinct trusted remote
+  holder with `profile.inventory(identity)`. The reply carries only the stored version, or
+  `NOT_FOUND`. Missing and older holders get the owner's verified record via `replica_put`;
+  equal or newer holders get no record. Replica puts do not start another repair.
+  A node inventories a profile at most once per rolling hour, with up to 4096 keys tracked;
+  the limit is in memory and starts over after a restart. Above the cap it waits for a later visit.
 - **Media.** The owner's client sends its `keep` list to each replica; the node answers the
   missing hashes and the client re-uploads them. Nodes never rebuild media or erasure-coded
   shards.
@@ -162,8 +166,11 @@ resent from the sender's retry queue.
   replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
 - **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
   visit moves data, and only the gaps, so a restart never moves the node's whole store.
-- **Budget.** One inventory per mailbox per hour on a node; repair traffic counts towards
-  `bytes_per_second` and stops at 75 % of it, together with media.
+- **Budget.** One inventory per mailbox per hour on a node; profile repair uses a rolling
+  one-hour limit. Repair traffic counts towards `bytes_per_second` and stops at 75 % of it,
+  together with media. Profile inventory requests and gap transfers reserve their encoded
+  bytes before sending, so a large record cannot overshoot the remaining repair budget.
+  Skipped work waits for the owner's next eligible visit.
 - **Scale.** 120 million users on 1200 nodes with R = 5 put about 500 000 users and 750 000
   device mailboxes (1.5 devices per user) on a node. If half the devices come online daily, a
   node sends about 4 inventories a second to 4 peers each, a few hundred bytes apiece (16-byte
@@ -553,7 +560,8 @@ then trusts it as the owner's own claim, not as fact:
 prints one JSON object:
 
 ```
-test-peer sign-profile                      → {"peer_id", "record"}   (hex protobuf)
+test-peer sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
+test-peer heartbeat <multiaddr> <secret hex> → {"status"}
 test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "roles", "max_profile_bytes"}
 test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
@@ -777,11 +785,12 @@ Planned: the remaining resource guards, store retention.
 ## Deployment Model
 
 Every node is independent: there is no cluster, leader or shared storage. Nodes find each other
-through the DHT ([P2P networking](p2p-networking.md)), and a client writes each profile and
-mailbox replica to the node closest to its replica key, so losing a node loses only the data whose
-other replicas are gone too. Mailboxes are repaired when their device watches; profiles and media
-wait for the owner's client to republish. A single node (development, or a network of one) keeps
-the only copy. The network test runs three nodes and stops one.
+through the DHT ([P2P networking](p2p-networking.md)). The client uploads once and the accepting
+node sends profile and mailbox replicas to the holders of their keys, so losing a node loses only
+the data whose other replicas are gone too. Mailboxes are repaired when their device watches;
+profiles on a publish or heartbeat. Media wait for the owner's client to republish.
+A single node (development, or a network of one) keeps the only copy. The network test runs
+three nodes, stops a holder during a newer publish, restarts it and checks heartbeat-driven repair.
 
 ## Security
 

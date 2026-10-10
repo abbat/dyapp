@@ -20,6 +20,7 @@ use prost::Message as _;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// The node's swarm with the connection and stream limits from the config. `/dyapp/kad` is the
@@ -191,6 +192,7 @@ impl PutReply {
                 let response = proto::ProfileResponse {
                     status: status.into(),
                     record,
+                    ..Default::default()
                 };
                 service.traffic.add(response.encoded_len() as u64);
                 let _ = swarm
@@ -282,6 +284,7 @@ enum Lookup {
     Ack(SignedRecord),
     /// A mailbox whose inventory goes to the closest node.
     Repair(Vec<u8>),
+    ProfileRepair(Arc<SignedRecord>),
 }
 
 /// Local trust in peers as replica targets (ADR 0008), never shared. A peer is trusted once this
@@ -315,7 +318,10 @@ impl Trust {
     }
 }
 
-/// Node-to-node mailbox traffic: ack forwarding and repair.
+const PROFILE_REPAIR_INTERVAL: Duration = Duration::from_secs(3600);
+const MAX_PROFILE_REPAIRS: usize = 4096;
+
+/// Node-to-node replication, ack forwarding and repair.
 #[derive(Default)]
 struct Replicas {
     trust: Trust,
@@ -329,9 +335,118 @@ struct Replicas {
     /// Mailboxes repaired since the last hourly cleanup.
     /// ponytail: cleared hourly, so a mailbox may be repaired twice within an hour.
     repaired: HashSet<Vec<u8>>,
+    profile_repaired: HashMap<Vec<u8>, (Instant, HashSet<PeerId>)>,
+    profile_inventories: HashMap<OutboundRequestId, Arc<SignedRecord>>,
 }
 
 impl Replicas {
+    fn repair_profile(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        record: SignedRecord,
+        now: Instant,
+    ) {
+        if service.traffic.second() >= SHED_MEDIA || dyapp_p2p_net::known_peers(swarm).is_empty() {
+            return;
+        }
+        let Ok(verified) = dyapp_profile::verify(&record) else {
+            return;
+        };
+        let key =
+            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
+        self.profile_repaired
+            .retain(|_, (at, _)| now < *at + PROFILE_REPAIR_INTERVAL);
+        if self.profile_repaired.contains_key(&key)
+            || self.profile_repaired.len() >= MAX_PROFILE_REPAIRS
+        {
+            return;
+        }
+        let record = match service.store.get_profile(&verified.peer_id) {
+            Ok(Some(held))
+                if dyapp_profile::stored_version(&held)
+                    .is_ok_and(|version| version > verified.profile.version) =>
+            {
+                held
+            }
+            Ok(_) => record,
+            Err(error) => return tracing::error!(%error, "profile repair failed"),
+        };
+        self.profile_repaired
+            .insert(key.clone(), (now, HashSet::new()));
+        let record = Arc::new(record);
+        for i in 0..REPLICAS {
+            let query = swarm
+                .behaviour_mut()
+                .kad
+                .get_closest_peers(replica_key(&key, i));
+            self.lookups
+                .insert(query, Lookup::ProfileRepair(record.clone()));
+        }
+    }
+
+    fn profile_inventory(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        to: PeerId,
+        record: Arc<SignedRecord>,
+    ) {
+        if to == *swarm.local_peer_id() || !self.trust.trusted(&to) {
+            return;
+        }
+        let key =
+            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
+        let Some((_, sent)) = self.profile_repaired.get_mut(&key) else {
+            return;
+        };
+        if sent.contains(&to) {
+            return;
+        }
+        let request = proto::ProfileRequest {
+            request: Some(proto::profile_request::Request::Inventory(
+                proto::GetProfile { peer_id: key },
+            )),
+        };
+        if !service
+            .traffic
+            .try_add(request.encoded_len() as u64, SHED_MEDIA)
+        {
+            return;
+        }
+        sent.insert(to);
+        let id = swarm.behaviour_mut().profile.send_request(&to, request);
+        self.profile_inventories.insert(id, record);
+    }
+
+    fn profile_gap(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        to: PeerId,
+        record: &SignedRecord,
+        response: &proto::ProfileResponse,
+    ) -> Option<OutboundRequestId> {
+        let version = dyapp_profile::stored_version(record).ok()?;
+        if response.status != i32::from(Status::NotFound)
+            && !(response.status == i32::from(Status::Ok) && response.version < version)
+        {
+            return None;
+        }
+        let request = proto::ProfileRequest {
+            request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
+        };
+        if self.trust.trusted(&to)
+            && service
+                .traffic
+                .try_add(request.encoded_len() as u64, SHED_MEDIA)
+        {
+            Some(swarm.behaviour_mut().profile.send_request(&to, request))
+        } else {
+            None
+        }
+    }
+
     fn at_capacity(&self) -> bool {
         self.puts.len() >= MAX_PENDING_PUTS
     }
@@ -432,12 +547,21 @@ impl Replicas {
     }
 
     fn finish_puts(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
+        let mut profiles = Vec::new();
         for put in self.puts.values_mut() {
             if let Some(status) = put.result(now) {
                 if let Some(reply) = put.reply.take() {
+                    if matches!(status, Status::Ok | Status::Stale) {
+                        if let PutRecord::Profile(record) = &put.record {
+                            profiles.push(put.stale.clone().unwrap_or_else(|| record.clone()));
+                        }
+                    }
                     reply.send(swarm, service, status, put.stale.clone());
                 }
             }
+        }
+        for record in profiles {
+            self.repair_profile(swarm, service, record, now);
         }
         // Keep background fan-out alive after the ack, but bound its lifetime and all indices.
         self.puts.retain(|id, put| {
@@ -594,7 +718,7 @@ fn after_lookup(
     node: kad::PeerInfo,
 ) {
     let (request, repair) = match lookup {
-        Lookup::Put(_) => unreachable!("put lookups use all returned peers"),
+        Lookup::Put(_) | Lookup::ProfileRepair(_) => unreachable!("lookups use all returned peers"),
         Lookup::Ack(ack) => (mailbox_request::Request::ReplicaAck(ack), None),
         Lookup::Repair(mailbox) => {
             let target = kad::KBucketKey::new(key);
@@ -762,10 +886,24 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         drop_banned(&mut swarm, &service, id);
                         continue;
                     }
+                    let heartbeat = match &request.request {
+                        Some(proto::profile_request::Request::Heartbeat(record)) => Some(record.public_key.clone()),
+                        _ => None,
+                    };
                     match service.profile(&peer(id, &groups, connection_id), request) {
                         Ok(response) => {
+                            if response.status == i32::from(Status::Ok) {
+                                if let Some(key) = heartbeat {
+                                    let owner = dyapp_identity::key_hash(&key.as_slice().try_into().unwrap());
+                                    match service.store.get_profile(&owner.iter().map(|byte| format!("{byte:02x}")).collect::<String>()) {
+                                        Ok(Some(record)) => replicas.repair_profile(&mut swarm, &service, record, Instant::now()),
+                                        Ok(None) => {},
+                                        Err(error) => tracing::error!(%error, "heartbeat repair failed"),
+                                    }
+                                }
+                            }
                             answered += 1;
-                    service.traffic.add(response.encoded_len() as u64);
+                            service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().profile.send_response(channel, response);
                         }
                         // Dropping the channel fails the request; the client tries another node.
@@ -895,14 +1033,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     if let (Some(lookup), Ok(ok)) = (lookup, result) {
                         // A peer without the node-ID proof of work never holds a replica.
                         let bits = dyapp_p2p_net::id_pow_bits();
-                        if let Lookup::Put(put) = lookup {
+                        if matches!(lookup, Lookup::Put(_) | Lookup::ProfileRepair(_)) {
                             let nodes: Vec<_> = ok.peers.into_iter().filter(|node| dyapp_p2p_net::id_has_pow(&node.peer_id, bits)).collect();
                             let to = holder(*swarm.local_peer_id(), &ok.key, &nodes);
                             for node in nodes {
                                 for address in node.addrs { swarm.add_peer_address(node.peer_id, address); }
                             }
-                            replicas.put_holder(&mut swarm, &service, &watchers, put, to);
-                            replicas.finish_puts(&mut swarm, &service, Instant::now());
+                            match lookup {
+                                Lookup::Put(put) => {
+                                    replicas.put_holder(&mut swarm, &service, &watchers, put, to);
+                                    replicas.finish_puts(&mut swarm, &service, Instant::now());
+                                },
+                                Lookup::ProfileRepair(record) => replicas.profile_inventory(&mut swarm, &service, to, record),
+                                _ => unreachable!(),
+                            }
                             continue;
                         }
                         let mut peers = ok.peers.into_iter();
@@ -953,7 +1097,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     message: Message::Response { request_id, response },
                     ..
                 })) => {
+                    service.traffic.add(response.encoded_len() as u64);
                     replicas.trust.add(id, 1);
+                    if let Some(record) = replicas.profile_inventories.remove(&request_id) {
+                        replicas.profile_gap(&mut swarm, &service, id, &record, &response);
+                    }
                     if let Some(put) = replicas.profile_puts.remove(&request_id) {
                         if let Some(put) = replicas.puts.get_mut(&put) { put.confirm(id, response.status, response.record); }
                         replicas.finish_puts(&mut swarm, &service, Instant::now());
@@ -964,6 +1112,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 })) => {
                     if !matches!(error, OutboundFailure::UnsupportedProtocols) { replicas.trust.add(peer, -1); }
                     replicas.profile_puts.remove(&request_id);
+                    replicas.profile_inventories.remove(&request_id);
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
@@ -1108,6 +1257,99 @@ fn status(service: &Service, swarm: &Swarm<Behaviour>, known: usize, answered: u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
+        let dir = format!("/tmp/ai/test-profile-repair-{}", uuid::Uuid::new_v4());
+        let mut config = crate::config::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        config.limits.bytes_per_second = 10_000;
+        let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+        let mut swarm = swarm(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &service.config.roles,
+        )
+        .unwrap();
+        let remote = PeerId::random();
+        swarm
+            .behaviour_mut()
+            .kad
+            .add_address(&remote, "/ip4/127.0.0.1/tcp/1".parse().unwrap());
+        let owner = dyapp_identity::Identity::generate();
+        let record = dyapp_profile::Profile {
+            version: 2,
+            ..Default::default()
+        }
+        .sign(&owner);
+        let key = dyapp_identity::key_hash(&owner.public_key()).to_vec();
+        let mut replicas = Replicas::default();
+        let now = Instant::now();
+        replicas.repair_profile(&mut swarm, &service, record.clone(), now);
+        assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
+        replicas.repair_profile(
+            &mut swarm,
+            &service,
+            record.clone(),
+            now + PROFILE_REPAIR_INTERVAL - Duration::from_nanos(1),
+        );
+        assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
+        replicas.lookups.clear();
+        replicas.repair_profile(
+            &mut swarm,
+            &service,
+            record.clone(),
+            now + PROFILE_REPAIR_INTERVAL,
+        );
+        assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
+        assert_eq!(
+            replicas.profile_repaired[&key].0,
+            now + PROFILE_REPAIR_INTERVAL
+        );
+        for _ in 0..REPLICAS {
+            replicas.profile_inventory(&mut swarm, &service, remote, Arc::new(record.clone()));
+        }
+        assert_eq!(
+            replicas.profile_inventories.len(),
+            1,
+            "co-located replicas are inventoried once"
+        );
+        for (status, version, sends) in [
+            (Status::Ok, 1, true),
+            (Status::NotFound, 0, true),
+            (Status::Ok, 2, false),
+            (Status::Ok, 3, false),
+            (Status::Denied, 0, false),
+            (Status::RateLimited, 0, false),
+        ] {
+            let response = proto::ProfileResponse {
+                status: status.into(),
+                version,
+                ..Default::default()
+            };
+            assert_eq!(
+                replicas
+                    .profile_gap(&mut swarm, &service, remote, &record, &response)
+                    .is_some(),
+                sends
+            );
+        }
+        service.traffic.add(10_000);
+        let response = proto::ProfileResponse {
+            status: Status::NotFound.into(),
+            ..Default::default()
+        };
+        assert!(replicas
+            .profile_gap(&mut swarm, &service, remote, &record, &response)
+            .is_none());
+        let other = PeerId::random();
+        replicas.profile_inventory(&mut swarm, &service, other, Arc::new(record));
+        assert_eq!(
+            replicas.profile_inventories.len(),
+            1,
+            "repair exceeded its budget"
+        );
+    }
 
     #[test]
     fn put_ack_counts_distinct_holders_and_times_out() {

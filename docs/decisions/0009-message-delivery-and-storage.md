@@ -58,6 +58,7 @@ media is different: full copies are expensive, and a node should hold no object 
   acceptors use full DHT lookups of `dyapp_p2p_net::replica_key` for mailbox/profile fan-out
   and wait for two distinct stored copies (one only with no routing peers), within 10 seconds
   and a 64-write cap. `test-peer` uploads once; app clients are not wired yet. Nodes push to
-  watching devices, forward acks and repair mailboxes on watching fetch. Profile and media
-  repair and media replication are planned;
+  watching devices, forward acks and repair mailboxes on watching fetch. Profile publish and
+  heartbeat trigger version inventories and fill older or missing holders, at most once per
+  rolling hour per key and within the 75 % repair budget. Media repair and replication are planned;
   `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec.

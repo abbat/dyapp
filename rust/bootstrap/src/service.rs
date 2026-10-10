@@ -561,7 +561,15 @@ impl Service {
         } else {
             1
         };
-        if self.shed(request.encoded_len(), SHED_PROFILES) || !self.admit_units(peer, units) {
+        let share = if matches!(
+            request.request,
+            Some(profile_request::Request::Inventory(_))
+        ) {
+            SHED_MEDIA
+        } else {
+            SHED_PROFILES
+        };
+        if self.shed(request.encoded_len(), share) || !self.admit_units(peer, units) {
             return Ok(reply(Status::RateLimited, None));
         }
         if self.refused(peer) {
@@ -589,6 +597,22 @@ impl Service {
                     Some(record) => reply(Status::Ok, Some(record)),
                     None => reply(Status::NotFound, None),
                 })
+            }
+            Some(profile_request::Request::Inventory(get)) => {
+                let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
+                    return Ok(reply(Status::Invalid, None));
+                };
+                if self.listed(&peer_id) {
+                    return Ok(reply(Status::Refused, None));
+                }
+                let response = match self.store.get_profile(&hex(&peer_id))? {
+                    Some(record) => ProfileResponse {
+                        version: dyapp_profile::stored_version(&record)?,
+                        ..reply(Status::Ok, None)
+                    },
+                    None => reply(Status::NotFound, None),
+                };
+                Ok(response)
             }
             Some(profile_request::Request::Heartbeat(record)) => {
                 let Ok((owner, beat)) =
@@ -839,6 +863,7 @@ fn reply(status: Status, record: Option<SignedRecord>) -> ProfileResponse {
     ProfileResponse {
         status: status.into(),
         record,
+        ..ProfileResponse::default()
     }
 }
 
@@ -876,6 +901,43 @@ mod tests {
     use super::*;
     use dyapp_identity::Identity;
     use dyapp_profile::Profile;
+
+    #[test]
+    fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
+        let s = service_with(|limits| limits.bytes_per_second = 10_000);
+        let owner = Identity::generate();
+        let record = Profile {
+            version: 2,
+            ..Default::default()
+        }
+        .sign(&owner);
+        s.store_profile(&record).unwrap();
+        let inventory = |key| ProfileRequest {
+            request: Some(profile_request::Request::Inventory(proto::GetProfile {
+                peer_id: key,
+            })),
+        };
+        let key = dyapp_identity::key_hash(&owner.public_key()).to_vec();
+        let response = s
+            .profile(&peer("inventory"), inventory(key.clone()))
+            .unwrap();
+        assert_eq!(status(&response), Status::Ok);
+        assert_eq!(response.version, 2);
+        assert!(response.record.is_none());
+        assert_eq!(
+            status(&s.profile(&peer("missing"), inventory(vec![0; 32])).unwrap()),
+            Status::NotFound
+        );
+        assert_eq!(
+            status(&s.profile(&peer("bad"), inventory(vec![0; 31])).unwrap()),
+            Status::Invalid
+        );
+        s.traffic.add(s.config.limits.bytes_per_second);
+        assert_eq!(
+            status(&s.profile(&peer("busy"), inventory(key)).unwrap()),
+            Status::RateLimited
+        );
+    }
 
     fn service() -> Service {
         service_with(|_| {})

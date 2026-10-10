@@ -59,7 +59,7 @@ def local(bin_dir):
     client = f"{bin_dir}/test-peer"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
-        peers, processes = [], []
+        peers, processes, environments = [], [], []
         try:
             for port in (7071, 7072, 7073):
                 tcp, quic = addresses("127.0.0.1", port)
@@ -85,6 +85,7 @@ def local(bin_dir):
                         FLOOD_LIMIT)
                 subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
                                check=True, stdout=subprocess.DEVNULL)
+                environments.append(env)
                 processes.append(subprocess.Popen(
                     [f"{bin_dir}/dyappd"], env=env))
                 peers.append((tcp, quic))
@@ -95,6 +96,8 @@ def local(bin_dir):
                     time.sleep(1)
                 else:
                     raise RuntimeError(f"Node did not start: {tcp}")
+
+            profile_repair(client, bin_dir, peers, processes, environments)
 
             def churn():
                 processes[1].terminate()
@@ -120,6 +123,80 @@ def local(bin_dir):
             for process in processes:
                 process.terminate()
                 process.wait()
+
+
+def profile_repair(client, bin_dir, peers, processes, environments):
+    """A holder misses a newer publish while offline; heartbeat repairs it."""
+    node_ids = [call(client, "info", tcp)["peer_id"] for tcp, _ in peers]
+    ids = set(node_ids)
+    for _ in range(40):
+        signed = call(client, "sign-profile")
+        if set(replica_holders(client, peers[0][0], signed["peer_id"])) == ids:
+            break
+    else:
+        raise RuntimeError("No profile replica keys spanning all three nodes")
+    reply = call(client, "publish", peers[0][0], signed["record"])
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError("Initial repair profile publish failed")
+    for tcp, _ in peers:
+        for _ in range(30):
+            reply = call(client, "get", tcp, signed["peer_id"])
+            if reply.get("record") == signed["record"]:
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("Initial profile replica missing")
+    processes[1].terminate()
+    processes[1].wait()
+    # Let DHT lookups discard the departed holder before the bounded write.
+    for _ in range(30):
+        holders = replica_holders(client, peers[0][0], signed["peer_id"])
+        if set(holders) == ids - {node_ids[1]}:
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Routing did not converge after holder departure")
+    newer = call(client, "sign-profile", signed["secret"], "2")
+    reply = call(client, "publish", peers[0][0], newer["record"])
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError(f"New publish with offline holder failed: {reply}")
+    for _ in range(30):
+        reply = call(client, "get", peers[2][0], signed["peer_id"])
+        if reply.get("record") == newer["record"]:
+            break
+        time.sleep(0.2)
+    else:
+        raise RuntimeError("Live holder did not get the newer version")
+    processes[1] = subprocess.Popen([f"{bin_dir}/dyappd"], env=environments[1])
+    for _ in range(60):
+        if healthy(client, peers[1][0]):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Profile holder did not restart")
+    reply = call(client, "get", peers[1][0], signed["peer_id"])
+    if reply.get("record") != signed["record"]:
+        raise RuntimeError("Restarted holder did not retain its old version")
+    # Replica puts never start repair. The third node has not inventoried
+    # this owner, so its first heartbeat is eligible under the hourly limit.
+    for _ in range(30):
+        holders = replica_holders(client, peers[2][0], signed["peer_id"])
+        if set(holders) == ids:
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Restarted holder missing from routing")
+    reply = call(client, "heartbeat", peers[2][1], signed["secret"])
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError("Owner heartbeat failed")
+    for _ in range(60):
+        reply = call(client, "get", peers[1][1], signed["peer_id"])
+        if reply.get("record") == newer["record"]:
+            break
+        time.sleep(0.2)
+    else:
+        raise RuntimeError(f"Heartbeat did not repair profile: {reply}")
+    print("Profile repair: restarted holder receives the newer version")
 
 
 def media_retention(client, bin_dir, storage, peer, processes, env):

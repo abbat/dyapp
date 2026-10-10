@@ -121,8 +121,17 @@ impl Traffic {
             .unwrap_or(0)
     }
 
+    /// Reserves outgoing bytes only if they fit under `share` percent of the byte rate.
+    pub fn try_add(&self, bytes: u64, share: u64) -> bool {
+        self.update(bytes, Some(share)).is_some()
+    }
+
     /// Adds `bytes` to this second's count and returns it.
     fn count(&self, bytes: u64) -> u64 {
+        self.update(bytes, None).unwrap()
+    }
+
+    fn update(&self, bytes: u64, share: Option<u64>) -> Option<u64> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |since| since.as_secs());
@@ -130,8 +139,14 @@ impl Traffic {
         if second.0 != now {
             *second = (now, 0);
         }
-        second.1 = second.1.saturating_add(bytes);
-        second.1
+        let total = second.1.saturating_add(bytes);
+        if self.rate != 0
+            && share.is_some_and(|share| total > self.rate.saturating_mul(share) / 100)
+        {
+            return None;
+        }
+        second.1 = total;
+        Some(total)
     }
 }
 
@@ -193,7 +208,14 @@ mod tests {
         let rate = Traffic::new(1000);
         rate.add(800);
         assert_eq!(rate.second(), 80);
+        let repair = Traffic::new(1000);
+        assert!(repair.try_add(700, 75));
+        assert!(!repair.try_add(51, 75));
+        assert!(repair.try_add(50, 75), "failed reservation spent bytes");
+        assert_eq!(repair.second(), 75);
+        assert!(!repair.try_add(1, 75));
         let unlimited = Traffic::new(0);
+        assert!(unlimited.try_add(u64::MAX, 75));
         unlimited.add(u64::MAX);
         assert_eq!(unlimited.second(), 0);
     }
