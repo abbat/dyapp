@@ -112,10 +112,6 @@ impl CodecNegotiation {
                     .any(|remote| remote.format == local.format)
             })
             .cloned();
-
-        if self.agreed_codec.is_none() && !self.local_codecs.is_empty() {
-            self.agreed_codec = Some(self.local_codecs[0].clone());
-        }
     }
 
     pub fn agreed_codec(&self) -> Option<&CodecInfo> {
@@ -175,15 +171,15 @@ mod tests {
     }
 
     #[test]
-    fn test_codec_negotiation_fallback() {
+    fn test_codec_negotiation_without_common_codec_fails() {
         let local = vec![CodecInfo::vp8()];
         let mut negotiation = CodecNegotiation::new(local);
 
         let remote = vec![CodecInfo::h264(), CodecInfo::av1()];
         negotiation.set_remote_codecs(remote);
 
-        assert!(negotiation.has_agreed());
-        assert_eq!(negotiation.agreed_codec().unwrap().format, CodecFormat::VP8);
+        assert!(!negotiation.has_agreed());
+        assert!(negotiation.agreed_codec().is_none());
     }
 
     #[test]

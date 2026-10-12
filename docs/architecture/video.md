@@ -115,8 +115,8 @@ affect the SDP.
 - `default_codecs()` = `[VP8, H264, VP9]` (local preference order).
 - The agreed codec is the first **local** codec the remote list contains.
   With defaults, VP8 wins whenever the remote has it.
-- If there is no common codec it falls back to the first local codec, i.e. a
-  codec the remote does not support. Real negotiation must fail instead.
+- If there is no common codec nothing is agreed: `has_agreed()` is false and
+  `agreed_codec()` is `None`.
 
 There is no platform-specific default (H.264 on mobile is a target idea, not
 code), no resolution, frame rate or bitrate setting, and AV1 is only an enum

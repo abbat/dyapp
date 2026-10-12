@@ -35,7 +35,7 @@ Located in `#[cfg(test)]` modules within each crate.
 **Video** (rust/video)
 - VideoSession: state machine (Idle→OfferCreated→Connected), SDP generation
 - ICECandidate: type detection (host/srflx/relay), priority ranking
-- CodecNegotiation: agreement algorithm, fallback behavior
+- CodecNegotiation: agreement algorithm, no agreement without a common codec
 - FrameEncryption: frame counter, roundtrip encrypt/decrypt
 
 **Bootstrap** (rust/bootstrap)
