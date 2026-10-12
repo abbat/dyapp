@@ -1,6 +1,7 @@
 //! The node protocol end to end: a `node::run` loop on loopback TCP and libp2p clients.
 
-use dyapp_bootstrap::config::Limits;
+use dyapp_bootstrap::config::{Limits, Role};
+use dyapp_bootstrap::search::SearchIndex;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -22,13 +23,24 @@ async fn start(requests_per_second: u32) -> Multiaddr {
 }
 
 async fn start_with(change: impl FnOnce(&mut Limits)) -> Multiaddr {
+    start_config(|c| change(&mut c.limits)).await
+}
+
+/// Starts a node with a changed config, opening the search index when the role asks for it.
+async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    change(&mut config.limits);
-    let mut swarm =
-        node::swarm(Keypair::generate_ed25519(), &config.limits, &config.roles).unwrap();
-    let service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    change(&mut config);
+    let keypair = Keypair::generate_ed25519();
+    let peer = keypair.public().to_peer_id();
+    let mut swarm = node::swarm(keypair, &config.limits, &config.roles).unwrap();
+    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    if service.config.roles.contains(&Role::Search) {
+        let path = service.config.storage.search_path();
+        let index = SearchIndex::open(&path, service.config.search.max_bytes).unwrap();
+        service.search = Some(std::sync::Arc::new(index));
+    }
     swarm
         .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
         .unwrap();
@@ -38,7 +50,7 @@ async fn start_with(change: impl FnOnce(&mut Limits)) -> Multiaddr {
         }
     };
     tokio::spawn(node::run(swarm, service));
-    addr
+    addr.with(libp2p::multiaddr::Protocol::P2p(peer))
 }
 
 /// A typed client on one connection, so mailbox challenges stay valid between calls.
@@ -131,6 +143,20 @@ impl Client {
         );
         self.wait(|event| match event {
             BehaviourEvent::Media(event) => response(event),
+            _ => None,
+        })
+        .await
+    }
+
+    async fn search(&mut self, request: proto::search_request::Request) -> proto::SearchResponse {
+        self.swarm.behaviour_mut().search.send_request(
+            &self.server,
+            proto::SearchRequest {
+                request: Some(request),
+            },
+        );
+        self.wait(|event| match event {
+            BehaviourEvent::Search(event) => response(event),
             _ => None,
         })
         .await
@@ -518,4 +544,116 @@ async fn connections_over_the_memory_limit_are_refused() {
         raw(&addr, dyapp_p2p_net::NODE_PROTOCOL, info.encode_to_vec()).await,
         None
     );
+}
+
+/// Starts a store and search node; `seed` joins it to an earlier one.
+async fn start_search(seed: Option<&Multiaddr>) -> Multiaddr {
+    let seed = seed.map(|addr| {
+        let port = addr.iter().find_map(|p| match p {
+            libp2p::multiaddr::Protocol::Tcp(port) => Some(port),
+            _ => None,
+        });
+        format!("127.0.0.1:{}", port.unwrap())
+    });
+    start_config(|c| {
+        c.roles = vec![Role::Store, Role::Search];
+        c.seeds = seed.into_iter().collect();
+        c.limits.requests_per_second = 1_000;
+        c.limits.bytes_per_second = 1 << 20;
+    })
+    .await
+}
+
+fn age_query(age: i64) -> proto::search_request::Request {
+    proto::search_request::Request::Query(proto::SearchQuery {
+        conditions: vec![proto::Condition {
+            field: 3,
+            op: proto::Op::Eq.into(),
+            ints: vec![age],
+            strings: vec![],
+        }],
+        limit: 0,
+    })
+}
+
+#[tokio::test]
+async fn search_profile_spreads_between_nodes() {
+    use proto::search_request::Request;
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let a = start_search(None).await;
+    let b = start_search(Some(&a)).await;
+    let mut to_a = Client::connect(&a).await;
+    let mut to_b = Client::connect(&b).await;
+    let mut published = Vec::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    // Gossip only reaches B once the two nodes have exchanged subscriptions, so keep publishing.
+    let hit = loop {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "no profile reached B"
+        );
+        let age = 20 + published.len() as i64;
+        let record = Profile {
+            version: 1,
+            age: age as u32,
+            ..Profile::default()
+        }
+        .sign(&Identity::generate());
+        let r = to_a.search(Request::Publish(record.clone())).await;
+        assert_eq!(status(r.status), Status::Ok);
+        published.push(record);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let r = to_b.search(age_query(age)).await;
+        if let Some(hit) = r.hits.into_iter().next() {
+            break hit;
+        }
+    };
+    let get = Request::Get(proto::SearchGet {
+        keys: vec![hit.key],
+    });
+    let r = to_b.search(get).await;
+    assert_eq!(r.records.len(), 1);
+    assert!(published.contains(&r.records[0]));
+}
+
+#[tokio::test]
+async fn search_queries_do_not_hold_up_the_node() {
+    let addr = start_search(None).await;
+    let mut client = Client::connect(&addr).await;
+    for age in 0..8 {
+        client.swarm.behaviour_mut().search.send_request(
+            &client.server,
+            proto::SearchRequest {
+                request: Some(age_query(age)),
+            },
+        );
+    }
+    let info = proto::NodeRequest {
+        request: Some(node_request::Request::Info(proto::InfoRequest {})),
+    };
+    client
+        .swarm
+        .behaviour_mut()
+        .node
+        .send_request(&client.server, info);
+    let sent = tokio::time::Instant::now();
+    let (mut answered, mut info_after) = (0, None);
+    while answered < 8 || info_after.is_none() {
+        let reply = client
+            .wait(|event| match event {
+                BehaviourEvent::Search(event) => response(event).map(Ok),
+                BehaviourEvent::Node(event) => response(event).map(Err),
+                _ => None,
+            })
+            .await;
+        match reply {
+            Ok(r) => {
+                let busy = status(r.status) == Status::RateLimited && r.retry_after == 1;
+                assert!(status(r.status) == Status::Ok || busy);
+                answered += 1;
+            }
+            Err(_) => info_after = Some(sent.elapsed()),
+        }
+    }
+    assert!(info_after.unwrap() < Duration::from_secs(1));
 }

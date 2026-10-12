@@ -152,7 +152,7 @@ impl Service {
         self.busy(share)
     }
 
-    fn busy(&self, share: u64) -> bool {
+    pub(crate) fn busy(&self, share: u64) -> bool {
         if self.guard(3, self.memory.share() >= SHED_MEMORY) {
             return true;
         }
@@ -235,7 +235,7 @@ impl Service {
     }
 
     /// Counts misbehaviour of `peer`; the node drops a banned peer's connections.
-    fn strike(&self, peer: &Peer) {
+    pub(crate) fn strike(&self, peer: &Peer) {
         if self.reputation.strike(&peer.id) {
             tracing::warn!(peer = peer.id, group = peer.group, "peer banned");
         }

@@ -4,7 +4,8 @@
 
 A bootstrap node (`dyappd`) serves owner-signed profiles and per-device mailboxes over
 libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
-repairs mailbox, profile and media replicas node to node; profile search and signaling are planned.
+repairs mailbox, profile and media replicas node to node; an experimental [profile search](#search)
+runs as its own role, and signaling is planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -13,7 +14,7 @@ repairs mailbox, profile and media replicas node to node; profile search and sig
 **Key principles:**
 - **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
-- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
+- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the experimental [search role](#search)
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network**: open, anyone may run a node, Kademlia DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md), [P2P networking](p2p-networking.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
@@ -21,11 +22,11 @@ repairs mailbox, profile and media replicas node to node; profile search and sig
 ## Target Design — planned
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
-`/dyapp/mailbox`, `/dyapp/mailbox-push` and `/dyapp/media`, the store, media and TURN roles,
-mailbox replicas and repair over the DHT. Signals in the mailbox (the envelope class and the
-signal quota), the search service (gossipsub, `/dyapp/search-kad`, `profiles-idx.db`),
-ranged media reads, profile proof of work
-and the store format path are planned; each part below says which it is, and the sections after
+`/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
+the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
+`profiles-idx.db`), mailbox replicas and repair over the DHT. Signals in the mailbox (the
+envelope class and the signal quota), ranged media reads, profile proof of work, the search
+index rebuild and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
 ### Principles
@@ -68,8 +69,8 @@ that run it. A node announces its roles through libp2p identify. A reachable nod
 server; a node behind NAT is a bootstrap only for peers in its local network. Mobile clients run
 the DHT in client mode: they store nothing and answer no DHT queries. Today `/dyapp/kad` is the
 store role's key space: `dyappd` without the store role runs it in client mode and serves no
-protocol. The media role needs the store role and shares its key space for now; other roles get
-their own Kademlia protocol name when they are built.
+protocol. The media role needs the store role and shares its key space for now. The search role
+runs its own Kademlia, `/dyapp/search-kad`, besides the main one ([Search](#search)).
 
 Kademlia gives every node an equal share of keys, and v1 does not weight it by capacity: a weak
 node refuses or evicts what exceeds its limits and the other replicas keep the data. Several
@@ -79,7 +80,8 @@ virtual positions per node would each need a proof of work and would open a Sybi
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
-`/dyapp/mailbox-push` and `/dyapp/media` ([schema](protobuf-schema.md#node-protocol)); the other services get their
+`/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`
+([schema](protobuf-schema.md#node-protocol)); the other services get their
 schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
 `unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
 `stale`, `too_large`, `full`, `rate_limited`, `denied`, `unsupported`, `invalid`, `refused`.
@@ -92,7 +94,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
-| `/dyapp/inventory` | search | node to node: `have(topic, (key, version) list)` → `need(list)`, for search catch-up |
+| `/dyapp/inventory` | search | node to node: `(topic, after)` → up to 10 000 (key, version) pairs sorted by key, for search catch-up |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
@@ -245,17 +247,25 @@ resent from the sender's retry queue.
 
 ### Search
 
-- **Discovery.** Search nodes find each other and clients find them through their own Kademlia,
-  `/dyapp/search-kad`: a client looks up the nodes closest to a random key.
+> ⚠️ Experimental. Without the planned proof of work anyone can fill the index with generated
+> profiles, so the role is unsafe on a public network; no shipped or seed config enables it.
+
+- **Discovery.** Once its routing table has a peer, a search node announces itself as a
+  Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
+  republishes the record every 12 hours. Clients and new search nodes find search nodes with
+  `get_providers` on that key. A peer that lists `/dyapp/search-kad` in identify joins the
+  node's search Kademlia, which links the search nodes to each other.
 - **Dissemination.** Clients do not run gossipsub. On every change the owner's client sends its
   `SignedRecord` to 2 search nodes with `/dyapp/search` `publish`, and once a day a signed
-  `heartbeat` (key, profile version, date). The entry node checks the signature, the proof of
-  work, the version and the per-key limit, stores the record and publishes it to the gossipsub
-  topic `/dyapp/profiles/<n>`, n = H(key) mod 16. The mesh holds search nodes only, not store
-  nodes or phones. Gossipsub uses its default degree (D = 6), a message id of
-  H(key‖version‖kind) and manual validation before relaying; a bad message is a strike in the
-  node's own ban score, gossipsub scoring is not used. The largest message is
-  `search.max_profile_bytes` plus overhead.
+  `heartbeat` (key, profile version, time). The entry node checks the signature, the size, the
+  version and the per-key limit, stores the record and publishes the request as received to the
+  gossipsub topic `/dyapp/profiles/<n>`, n = H(key) mod 16. A node whose `search.topics` leaves
+  out a key's topic does not store it, but as an entry node still publishes it and answers `OK`.
+  The mesh holds search nodes only, not store nodes or phones. Gossipsub uses its default degree
+  (D = 6), a message id of SHA-256 of the message bytes and manual validation before relaying;
+  a forged or undecodable message is a strike against the peer that relayed it in the node's own
+  ban score, gossipsub scoring is not used. The largest message is `search.max_profile_bytes`
+  plus overhead.
 - **Per-key limits.** At most 1 profile update per 10 min and 2 heartbeats per day per key. The
   entry node answers an excess publish `RATE_LIMITED` with `retry_after` in seconds and never
   drops it silently; gossip relays drop extras silently. The client remembers when it last
@@ -263,24 +273,32 @@ resent from the sender's retry queue.
   it, sends it when the window ends (or on the next app start if the app was closed) and tells
   the user "changes appear in search in N min". The profile in the store DHT is updated at once,
   without this limit.
-- **Proof of work.** Gossip relays and search nodes index and relay only profiles with enough
+- **Proof of work (planned).** Gossip relays and search nodes index and relay only profiles with enough
   proof of work (`search.min_profile_pow_bits`, default 11, at most 20). A node caches verified
   keys, so Argon2id runs once per key, and a bad proof is a strike against the peer that sent it.
 - **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
   `search.topics`, and then holds a uniform sample. The index is its own disposable file,
-  `profiles-idx.db`, built from `profiles.db`: typed columns for every `Profile` field except
-  photos, plus key, version, heartbeat date and a random u64 `r`, and a table of (key, interest)
-  pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
+  `profiles-idx.db`, which also keeps the signed records in a `record` table, so the search role
+  does not need the store role; catch-up refills a lost file. It holds typed columns for every
+  `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
+  table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
   and (r). A profile larger than `search.max_profile_bytes` (default 64 KiB, at most 1 MiB,
   reported in `info`) is not indexed; raising the limit later brings such profiles back through
   heartbeat → `NOT_FOUND` → republish and through inventory. Storage is bounded by
-  `search.max_bytes`; a profile leaves the index on a tombstone, when no heartbeat came within the
-  retention TTL, or under `search.max_bytes` pressure, oldest heartbeat first. A new indexed field
-  bumps the index version; the node builds the new index next to the old one, keeps answering from
-  the old one and switches when the new one is ready.
-- **Catch-up.** At start and then hourly a node exchanges (key, version) lists per topic, in
-  batches of up to 10 000, with one random search node over `/dyapp/inventory`, out of its repair
-  budget.
+  `search.max_bytes`, records and index together, checked on every put; a profile leaves the
+  index on a tombstone, under `search.max_bytes` pressure, oldest heartbeat first, or when no
+  heartbeat came within `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such
+  keys per run. Planned: a new indexed field bumps the index version; the node builds the new
+  index next to the old one, keeps answering from the old one and switches when the new one is
+  ready.
+- **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks one
+  random search node of its gossip mesh and pulls each kept topic over `/dyapp/inventory`:
+  `(topic, after)` returns up to 10 000 (key, version) pairs sorted by key, and the node asks
+  again from the last key while a page comes back full. The keys it lacks or holds older it
+  fetches with `get`, 50 keys and at most 4 requests in flight per peer, paced by the shared
+  `maintenance.io_mb_per_s` budget, and stores them without the 10-minute limit. A search node
+  pays for these gets and inventories out of its own budget of `maintenance.io_mb_per_s` reply
+  bytes per second instead of request units.
 - **Conditions.** A condition is (`Profile` field number, op, values), at most 16 per query and
   one per field. Ops: `eq`; `in` with up to 8 values (for interests: any of them); `range`,
   inclusive, for numbers. Values are int64 or strings; strings match exactly. Income "at least X"
@@ -294,11 +312,13 @@ resent from the sender's retry queue.
   with the conditions applied, `partial` and the index version. A repeated query gives a new
   sample; there is no pagination. The client fetches the records it does not have in its cache
   with `get(keys)`, up to 50 keys, from the same node; the reply is cut at 1 MiB and the client
-  asks again for the rest. A `query` costs 1 unit and a `get` the bytes of its reply, limited per
-  peer ID and IP group; scraping public profiles is accepted.
+  asks again for the rest. A `query` costs 1 unit and a `get` one unit per started 64 KiB of its
+  reply, limited per peer ID and IP group; scraping public profiles is accepted. Queries and gets
+  run off the swarm loop, at most 2 at a time; without a free slot the node answers
+  `RATE_LIMITED` with `retry_after` 1.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
-  by `r` (planned): a single SQLite query sorts every row of the places in a temporary B-tree and
+  by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and
   escapes `max_scan_rows`.
 
 ### Mailboxes
@@ -469,7 +489,7 @@ the payload and storage limits below are checked separately:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`), `max_media_bytes` (6 MiB, media role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
@@ -493,6 +513,11 @@ the payload and storage limits below are checked separately:
 | `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([ranged get](#ranged-media-get)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
+| `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update; `DENIED` bad signature, which strikes the peer; `INVALID` bad content; `TOO_LARGE` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
+| `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` time more than 10 min off; `REFUSED`; `UNSUPPORTED` |
+| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when both query slots are busy; `UNSUPPORTED` |
+| `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |
+| `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
 
 - **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
   signing key, so a device reaches only its own mailbox. They are signed over
@@ -584,7 +609,8 @@ the payload and storage limits below are checked separately:
   `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
 - **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
-  planned once request latency shows.
+  planned once request latency shows. Search `query` and `get` already run on the blocking pool,
+  at most two at a time.
 - An unknown `oneof` variant (decoded as empty) gets `UNSUPPORTED`.
 
 ### Trusted vs untrusted fields
@@ -731,6 +757,10 @@ Scope and limits:
   libp2p peer ID (`requests_per_second`) and its IP group (`ip_group_requests_per_second`,
   default 1000), the connection's remote IP masked to `ipv4_prefix` / `ipv6_prefix` bits
   (defaults /24 and /48). `/dyapp/node` `info` is not limited.
+- `/dyapp/search` and `/dyapp/inventory` count in units against the same two buckets: a query
+  1, a publish or heartbeat 5, a get 1 per started 64 KiB of its reply, an inventory 10. Requests
+  from a connected search node (one listing `/dyapp/search-kad` in identify) skip the units for
+  get and inventory and are paid from the node's `maintenance.io_mb_per_s` byte budget instead.
 - A mailbox `put` also counts against the envelope's sender key (`sender_puts_per_second`,
   default 10), after the signature is checked.
 - libp2p keys and sender keys are free to generate; the IP-group bucket bounds what a client
@@ -780,8 +810,9 @@ starts refusing and a line when it clears, not one per request:
   acceptance; forwarded payload is not charged again, and get payload is reserved before reply.
   With `bytes_per_second` set (default 0, no limit), media
   requests and repair get `RATE_LIMITED` from 75 % of it within the current second, profile
-  requests from 90 % and mailbox requests at 100 %; `info` is always served. Search, once
-  served, is shed before profiles. There is no monthly cap: a node is not told its billing
+  requests from 90 % and mailbox requests at 100 %; `info` is always served. Search and
+  inventory requests are shed with media, from 75 %, and catch-up is skipped while that share
+  is busy. There is no monthly cap: a node is not told its billing
   period, and the byte rate bounds a month too.
 - **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
   per guard how many requests it refused since the last run (the byte rate, which flips every
@@ -824,6 +855,10 @@ media.db     owners(owner PK, version, last_seen, record BLOB)
              shards.data: at most 1 MiB per index; physical usage sums shards and manifests
              owner: hex SHA-256 of the identity key; size NULL = listed, not yet put
 data/aa/bb/<hex hash>  the blob
+profiles-idx.db  profile(key PK, topic, version, search fields, place, r), interest(key, interest)
+                 record(key PK, record BLOB), key(key PK, topic, version, deleted, updated,
+                      heartbeat, beat_day, beats)
+                 search role only; key = SHA-256 of the identity key; disposable
 ```
 
 A `messages` table left by an older version is not read; it can be dropped by hand.
@@ -840,7 +875,8 @@ to M; run a newer dyappd`. Rebuilding a file next to the old one is planned
 
 **Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour, then `expire_profiles` deletes profiles and tombstones whose owner was last
 seen more than `limits.profile_ttl_days` ago (`last_seen` column, added on upgrade with the
-upgrade time for existing rows); under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order.
+upgrade time for existing rows), and the search index drops keys not heard from in that time,
+at most 4096 per run; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order.
 
 **Maintenance:** every `maintenance.interval_minutes` (default 60) `dyappd` calls
 `BootstrapStore::maintain`, which, one store at a time under its lock, frees at most
@@ -875,8 +911,8 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 the role); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
-and serves the protocols in [Served protocol](#served-protocol). Only the `store`, `media` and
-`turn` roles are accepted, `media` and `turn` only together with `store`. On start it dials its
+and serves the protocols in [Served protocol](#served-protocol). The `store`, `media`, `turn`
+and experimental `search` roles are accepted, the last three only together with `store`. On start it dials its
 anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
@@ -957,6 +993,9 @@ clients:
   stream closed without a reply (a typed client reports a transport failure), an unknown or empty
   variant gets `UNSUPPORTED`, and the node then answers the next client
 - Rate limit over the wire: `RATE_LIMITED` past the burst, `info` still answered
+- Search between two search nodes: a profile published to one is found by a query on the other
+  (`search_profile_spreads_between_nodes`); eight queries at once each get `OK` or `RATE_LIMITED`
+  with `retry_after` 1, and `info` is answered within a second (`search_queries_do_not_hold_up_the_node`, timing-based)
 
 Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
@@ -995,6 +1034,8 @@ run `make test` first to build the current `dyappd` and `test-peer` binaries.
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Ranged media reads and assembly caching remain planned
+- The search role is experimental: no proof of work on publish, no index rebuild on a version
+  bump, and expiry drops at most 4096 silent keys an hour
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

@@ -28,7 +28,7 @@ impl RebuildBudget {
         }
     }
 
-    fn reserve(&self, now: Instant, bytes: u64, file: &str, percent: u8) -> Instant {
+    pub(crate) fn reserve(&self, now: Instant, bytes: u64, file: &str, percent: u8) -> Instant {
         let rate = self.bytes_per_second;
         // Round up to avoid granting extra bandwidth to small batches.
         let nanos = (u128::from(bytes % rate) * 1_000_000_000).div_ceil(u128::from(rate));

@@ -173,9 +173,10 @@ multiaddrs (`/dnsaddr/...`, `/ip6/.../p2p/...`) are refused at startup.
 
 Roles are a list, so `roles = ["store", "media", "turn"]` combines them. `store` serves
 profiles, mailboxes and the DHT; `media` serves media blobs and `turn` hands out credentials
-for a coturn relay ([TURN relay](#turn-relay)), and neither includes `store`: both are refused
-at startup without it in the list. `search` is planned and refused at startup. A node without
-a role answers its requests `UNSUPPORTED`.
+for a coturn relay ([TURN relay](#turn-relay)), and the experimental `search` serves profile
+search ([Search](../architecture/bootstrap.md#search)); none includes `store`, and each is refused
+at startup without it in the list. Keep `search` off public nodes: publish has no proof of
+work yet. A node without a role answers its requests `UNSUPPORTED`.
 
 ```toml
 listen = ["[::1]:7070", "127.0.0.1:7070"]  # default: loopback; ["[::]:7070", "0.0.0.0:7070"] serves
@@ -186,12 +187,13 @@ seeds = []             # nodes to join through, e.g. "seed.example.org:7070" or
                        # <storage.dir>/peers, so later starts do not need them; the last 3
                        # outbound peers that answered, in <storage.dir>/anchors, are dialled first
 roles = ["store"]      # e.g. ["store", "media", "turn"]: media serves /dyapp/media, turn
-                       # hands out TURN credentials, both need store in the list;
-                       # search is not implemented and fails at startup
+                       # hands out TURN credentials, search (experimental) answers
+                       # profile search; all need store in the list
 
 [storage]
 dir = "/var/lib/dyappd"   # node.key, node.id, profiles.db, messages.db, media.db,
-                          # deny.db, peers, anchors; media blob files in data/
+                          # deny.db, profiles-idx.db (search), peers, anchors;
+                          # media blob files in data/
 
 [limits]
 message_ttl_hours = 24
@@ -233,6 +235,12 @@ distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-
 storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
 share_deny_list = false          # answer other nodes with the signed deny list (no notes)
 accept_deny_lists = false        # fetch and store other nodes' lists; no action taken
+
+[search]               # search role only
+max_profile_bytes = 65536
+max_bytes = 53687091200     # profiles-idx.db; above it the oldest heartbeats leave
+max_scan_rows = 10000       # rows one query scans; past it the reply is partial
+topics = []                 # gossip topics 0..15 kept; empty = all 16
 
 [turn]                 # turn role only
 urls = []              # e.g. "turn:turn.example.org:3478", "turns:turn.example.org:5349"

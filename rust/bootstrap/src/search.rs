@@ -354,7 +354,7 @@ impl SearchIndex {
     }
 
     /// Removes keys whose last heartbeat (or update) is before `before`, at most
-    /// `EXPIRE_BATCHES` batches per call; the node calls it every `maintain` tick. Returns keys
+    /// `EXPIRE_BATCHES` batches per call; the node calls it on its hourly cleanup. Returns keys
     /// removed.
     pub fn expire(&self, before: i64) -> Result<usize> {
         let mut removed = 0;

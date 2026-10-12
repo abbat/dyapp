@@ -108,13 +108,13 @@ SHA-256 of the device public key (32 bytes each).
   local availability without repair remains the fallback when admission is unavailable.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it on that node, so release every replica holder.
-- **`/dyapp/search`** (search role, planned): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
+- **`/dyapp/search`** (experimental search role): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
   as on `/dyapp/profile`; `Heartbeat.version` names the owner's current profile version, and a
   search node holding an older one answers `STATUS_NOT_FOUND` (store nodes ignore the field).
   `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 8 values,
   inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and
   `partial` when the scan budget ran out; `get(SearchGet)` returns up to 50 records, cut at 1 MiB.
-- **`/dyapp/inventory`** (search role, planned): node to node, `InventoryRequest(topic, after)`
+- **`/dyapp/inventory`** (experimental search role): node to node, `InventoryRequest(topic, after)`
   returns up to 10 000 `SearchHit`s of that gossip topic sorted by key, for catch-up.
 
 ## FFI boundary

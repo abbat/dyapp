@@ -22,16 +22,17 @@
 # seeds = []                     # e.g. ["seed.example.org:7070", "[2001:db8::7]:7070"]
 
 # --- Roles -------------------------------------------------------------------------------------
-# What the node serves; list several to combine them. "media" and "turn" do not include "store"
-# and need it in the list too.
+# What the node serves; list several to combine them. "media", "turn" and "search" do not
+# include "store" and need it in the list too.
 #   "store"   profiles, mailboxes and the network directory (DHT); the base role
 #   "media"   media files (avatars, attachments), see limits.media_max_mb
 #   "turn"    passwords for a coturn relay that helps calls through NAT, see [turn]
-#   "search"  planned, not implemented: the node refuses to start
+#   "search"  experimental profile search, see [search]; keep it off public nodes
 # roles = ["store"]              # e.g. ["store", "media"] or ["store", "media", "turn"]
 
 [storage]
-# All node data. Databases: profiles.db, messages.db, media.db (media role), deny.db.
+# All node data. Databases: profiles.db, messages.db, media.db (media role), deny.db,
+# profiles-idx.db (search role).
 # Media files: data/. Identity: node.key (keep a copy: a lost key is a new node) and node.id.
 # Peers seen before: peers, anchors.
 # Back up with the node stopped: SQLite files copied while the node writes are inconsistent.

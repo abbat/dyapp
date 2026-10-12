@@ -2,24 +2,29 @@
 
 use crate::config::{Limits, Role};
 use crate::deny::DenyStore;
+use crate::maintenance::RebuildBudget;
 use crate::media_repair::{Repair as MediaRepair, Schedule as MediaRepairSchedule};
 use crate::replication::MediaManifestExt;
-use crate::service::{Peer, Service, SHED_MEDIA};
+use crate::search::SEARCH_TOPICS;
+use crate::service::{run_get, run_query, search_key, Peer, Search, Service, Verdict, SHED_MEDIA};
 use dyapp_identity::SignedRecord;
-use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, Status};
+use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, SearchResponse, Status};
 use dyapp_p2p_net::{
-    build_limited_swarm, replica_key, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL, REPLICAS,
+    build_limited_swarm, replica_key, search_topic, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL,
+    REPLICAS, SEARCH_KAD_PROTOCOL, SEARCH_KEY,
 };
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
-use libp2p::request_response::{Event, Message, OutboundFailure, OutboundRequestId};
+use libp2p::request_response::{
+    Event, Message, OutboundFailure, OutboundRequestId, ResponseChannel,
+};
 use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
-use libp2p::{identify, kad};
+use libp2p::{gossipsub, identify, kad};
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -1375,6 +1380,38 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     // key; shard the key (by region or prefix) when the network has more relays than that.
     let mut turn_unannounced = service.config.roles.contains(&Role::Turn);
     let mut turn_query = None;
+    // A search node announces itself the same way, under SEARCH_KEY.
+    let mut search_unannounced = service.search.is_some();
+    let mut search_query = None;
+    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+        for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
+            if let Err(error) = gossip.subscribe(&search_topic(topic)) {
+                tracing::error!(%error, topic, "search topic not joined");
+            }
+        }
+    }
+    // The IP group of each connected peer, to strike the source of a bad gossip message.
+    let mut peer_groups: HashMap<PeerId, String> = HashMap::new();
+    // Index reads run off the swarm loop; two at a time, the rest get RATE_LIMITED. At most
+    // two items are ever in the channel: one per permit.
+    struct SearchDone {
+        from: Peer,
+        channel: ResponseChannel<SearchResponse>,
+        get: bool,
+        reply: crate::Result<SearchResponse>,
+    }
+    let search_permits = Arc::new(tokio::sync::Semaphore::new(2));
+    let (search_done_tx, mut search_done) = tokio::sync::mpsc::unbounded_channel::<SearchDone>();
+    // Search catch-up: the topic of each inventory request, the keys still to fetch per peer,
+    // the keys of each get in flight, and when the next get may go out.
+    let mut inventory_asked: HashMap<OutboundRequestId, u32> = HashMap::new();
+    let mut catch_up_queue: HashMap<PeerId, VecDeque<[u8; 32]>> = HashMap::new();
+    let mut catch_up_asked: HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)> = HashMap::new();
+    let mut catch_up_at = tokio::time::Instant::now();
+    let mut catch_up = tokio::time::interval_at(
+        tokio::time::Instant::now() + Duration::from_secs(60),
+        Duration::from_secs(3600),
+    );
     // Requests answered and failed with a node error since the last maintenance run.
     let (mut answered, mut failed) = (0u64, 0u64);
     let mut put_check = tokio::time::interval(Duration::from_millis(100));
@@ -1416,6 +1453,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         ..
                     })
                     | BehaviourEvent::Mailbox(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    })
+                    | BehaviourEvent::Search(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    })
+                    | BehaviourEvent::Inventory(Event::Message {
                         message: Message::Request { .. },
                         ..
                     }),
@@ -1625,8 +1670,181 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                     drop_banned(&mut swarm, &service, id);
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
+                    peer: id,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    let key = search_key(&request);
+                    let bytes = key.is_some().then(|| request.encode_to_vec());
+                    let from = peer(id, &groups, connection_id);
+                    match service.search(&from, request) {
+                        Ok(Search::Reply(response)) => {
+                            answered += 1;
+                            // An accepted publish or heartbeat spreads to the topic's other nodes.
+                            if let (Some(key), Some(bytes), true) =
+                                (key, bytes, response.status == i32::from(Status::Ok))
+                            {
+                                let topic = search_topic(crate::search::topic(&key));
+                                if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+                                    if let Err(error) = gossip.publish(topic, bytes) {
+                                        tracing::debug!(%error, "search gossip not sent");
+                                    }
+                                }
+                            }
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                        }
+                        Ok(work) => match (search_permits.clone().try_acquire_owned(), &service.search) {
+                            (Ok(permit), Some(index)) => {
+                                let index = index.clone();
+                                let rows = service.config.search.max_scan_rows;
+                                let done = search_done_tx.clone();
+                                tokio::task::spawn_blocking(move || {
+                                    let _permit = permit;
+                                    let (get, reply) = match work {
+                                        Search::Get(keys) => (true, run_get(&index, &keys)),
+                                        Search::Query(query) => (false, run_query(&index, &query, rows)),
+                                        Search::Reply(_) => unreachable!("answered above"),
+                                    };
+                                    let _ = done.send(SearchDone { from, channel, get, reply });
+                                });
+                            }
+                            _ => {
+                                answered += 1;
+                                let response = SearchResponse {
+                                    status: Status::RateLimited.into(),
+                                    retry_after: 1,
+                                    ..SearchResponse::default()
+                                };
+                                let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                            }
+                        },
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "search request failed");
+                        }
+                    }
+                    drop_banned(&mut swarm, &service, id);
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
+                    peer: id,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    match service.search_inventory(&peer(id, &groups, connection_id), request) {
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().inventory.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "inventory request failed");
+                        }
+                    }
+                    drop_banned(&mut swarm, &service, id);
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Gossip(gossipsub::Event::Message {
+                    propagation_source,
+                    message_id,
+                    message,
+                })) => {
+                    let verdict = service.search_gossip(&message.data);
+                    let acceptance = match verdict {
+                        Verdict::Accept => gossipsub::MessageAcceptance::Accept,
+                        Verdict::Ignore => gossipsub::MessageAcceptance::Ignore,
+                        Verdict::Reject => gossipsub::MessageAcceptance::Reject,
+                    };
+                    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+                        gossip.report_message_validation_result(&message_id, &propagation_source, acceptance);
+                    }
+                    if matches!(verdict, Verdict::Reject) {
+                        let group = peer_groups.get(&propagation_source).cloned().unwrap_or_default();
+                        service.strike(&Peer { id: propagation_source.to_string(), group });
+                        drop_banned(&mut swarm, &service, propagation_source);
+                    }
+                }
+                // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
+                // while pages are full.
+                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
+                    peer: id,
+                    message: Message::Response { request_id, response },
+                    ..
+                })) => {
+                    let (Some(topic), Some(index)) = (inventory_asked.remove(&request_id), &service.search) else {
+                        continue;
+                    };
+                    let have: Vec<([u8; 32], u64)> = response
+                        .have
+                        .iter()
+                        .filter_map(|h| Some((h.key.as_slice().try_into().ok()?, h.version)))
+                        .collect();
+                    let keys: Vec<[u8; 32]> = have.iter().map(|h| h.0).collect();
+                    match index.versions(&keys) {
+                        Ok(local) => {
+                            let queue = catch_up_queue.entry(id).or_default();
+                            // ponytail: O(n) contains per key; a page holds at most 10 000 keys.
+                            for ((key, version), local) in have.iter().zip(local) {
+                                if local.is_none_or(|l| l < *version) && !queue.contains(key) {
+                                    queue.push_back(*key);
+                                }
+                            }
+                            catch_up_at = catch_up_at.min(tokio::time::Instant::now());
+                        }
+                        Err(error) => tracing::error!(%error, "search catch-up failed"),
+                    }
+                    if have.len() == 10_000 {
+                        let after = have.last().map(|h| h.0.to_vec()).unwrap_or_default();
+                        let request = proto::InventoryRequest { topic, after };
+                        let next = swarm.behaviour_mut().inventory.send_request(&id, request);
+                        inventory_asked.insert(next, topic);
+                    }
+                }
+                // A catch-up get: apply what came, queue again what a reply cut at 1 MiB left out.
+                // A reply with no records ends the chunk, so keys the peer no longer has drop out.
+                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
+                    message: Message::Response { request_id, response },
+                    ..
+                })) => {
+                    let Some((id, keys)) = catch_up_asked.remove(&request_id) else { continue };
+                    let mut got = HashSet::new();
+                    let mut stored = 0;
+                    for record in &response.records {
+                        if let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) {
+                            got.insert(dyapp_identity::key_hash(&key));
+                        }
+                        match service.search_apply(record) {
+                            Ok(true) => stored += 1,
+                            Ok(false) => {}
+                            Err(error) => tracing::error!(%error, "search catch-up record not stored"),
+                        }
+                    }
+                    tracing::debug!(stored, "search catch-up records applied");
+                    if !got.is_empty() {
+                        catch_up_queue.entry(id).or_default().extend(keys.into_iter().filter(|k| !got.contains(k)));
+                    }
+                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked) {
+                        catch_up_at = next;
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::OutboundFailure {
+                    peer: id, request_id, ..
+                })) => {
+                    if let Some((_, keys)) = catch_up_asked.remove(&request_id) {
+                        if swarm.is_connected(&id) {
+                            catch_up_queue.entry(id).or_default().extend(keys);
+                        }
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::OutboundFailure {
+                    request_id, ..
+                })) => {
+                    inventory_asked.remove(&request_id);
+                }
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
                     let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
+                    peer_groups.insert(peer_id, group.clone());
                     groups.insert(connection_id, group);
                     replicas.trust.seen.entry(peer_id).or_insert_with(Instant::now);
                     if endpoint.is_dialer() {
@@ -1634,7 +1852,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                     drop_banned(&mut swarm, &service, peer_id);
                 }
-                SwarmEvent::ConnectionClosed { connection_id, .. } => {
+                SwarmEvent::ConnectionClosed { peer_id, connection_id, num_established, .. } => {
+                    if num_established == 0 {
+                        peer_groups.remove(&peer_id);
+                        catch_up_queue.remove(&peer_id);
+                        service.search_peer(&peer_id.to_string(), false);
+                    }
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
                     dialed.remove(&connection_id);
@@ -1657,6 +1880,31 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                             tracing::info!("TURN relay announced");
                         }
                         Err(error) => tracing::warn!(%error, "TURN relay not announced"),
+                    }
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                    id,
+                    result: kad::QueryResult::StartProviding(result),
+                    ..
+                })) if search_query == Some(id) => {
+                    search_query = None;
+                    match result {
+                        Ok(_) => {
+                            search_unannounced = false;
+                            tracing::info!("search node announced");
+                        }
+                        Err(error) => tracing::warn!(%error, "search node not announced"),
+                    }
+                }
+                // Only a search node with too few gossip peers looks for providers: dial them.
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                    result: kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FoundProviders { providers, .. })),
+                    ..
+                })) => {
+                    for provider in providers {
+                        if provider != *swarm.local_peer_id() && !swarm.is_connected(&provider) {
+                            let _ = swarm.dial(provider);
+                        }
                     }
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
@@ -1824,9 +2072,19 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     peer_id,
                     info,
-                })) if info.protocols.contains(&KAD_PROTOCOL) => {
-                    // A routable peer this node dialled answered: it becomes an anchor.
+                })) if info.protocols.contains(&KAD_PROTOCOL) || info.protocols.contains(&SEARCH_KAD_PROTOCOL) => {
                     let bits = dyapp_p2p_net::id_pow_bits();
+                    // Only search nodes serve the search DHT, so its protocol marks one.
+                    if info.protocols.contains(&SEARCH_KAD_PROTOCOL) && dyapp_p2p_net::id_has_pow(&peer_id, bits) {
+                        for address in &info.listen_addrs {
+                            swarm.behaviour_mut().search_kad.add_address(&peer_id, address.clone());
+                        }
+                        service.search_peer(&peer_id.to_string(), true);
+                    }
+                    if !info.protocols.contains(&KAD_PROTOCOL) {
+                        continue;
+                    }
+                    // A routable peer this node dialled answered: it becomes an anchor.
                     if let Some(address) = dialed.get(&connection_id) {
                         if dyapp_p2p_net::id_has_pow(&peer_id, bits) {
                             remember_anchor(&mut anchors, peer_id, address);
@@ -1839,6 +2097,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     if turn_unannounced && turn_query.is_none() {
                         let key = kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY);
                         turn_query = swarm.behaviour_mut().kad.start_providing(key).ok();
+                    }
+                    if search_unannounced && search_query.is_none() {
+                        let key = kad::RecordKey::new(&SEARCH_KEY);
+                        search_query = swarm.behaviour_mut().kad.start_providing(key).ok();
                     }
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
@@ -1880,6 +2142,53 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         Ok(removed) => tracing::info!(removed, "media keeps of inactive owners removed"),
                         Err(error) => tracing::error!(%error, "media owner cleanup failed"),
                     }
+                }
+                if let Some(index) = &service.search {
+                    match index.expire(now - ttl) {
+                        Ok(0) => {}
+                        Ok(removed) => tracing::info!(removed, "search entries of silent owners removed"),
+                        Err(error) => tracing::error!(%error, "search cleanup failed"),
+                    }
+                }
+            }
+            Some(done) = search_done.recv() => {
+                let response = match done.reply {
+                    Ok(reply) if done.get && !service.charge_get(&done.from, reply.encoded_len()) => SearchResponse {
+                        status: Status::RateLimited.into(),
+                        retry_after: 1,
+                        ..SearchResponse::default()
+                    },
+                    Ok(reply) => reply,
+                    Err(error) => {
+                        failed += 1;
+                        tracing::error!(%error, "search failed");
+                        continue;
+                    }
+                };
+                answered += 1;
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm.behaviour_mut().search.send_response(done.channel, response);
+            }
+            _ = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
+                catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
+                    .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
+            }
+            // Hourly, each kept topic's inventory from one random search peer fills what gossip missed.
+            _ = catch_up.tick(), if service.search.is_some() => {
+                if service.busy(SHED_MEDIA) {
+                    continue;
+                }
+                let Some(gossip) = swarm.behaviour().gossip.as_ref() else { continue };
+                let peers: Vec<PeerId> = gossip.all_peers().map(|(peer, _)| *peer).collect();
+                if peers.is_empty() {
+                    continue;
+                }
+                let Ok(pick) = getrandom::u32() else { continue };
+                let peer = peers[pick as usize % peers.len()];
+                for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
+                    let request = proto::InventoryRequest { topic, after: Vec::new() };
+                    let id = swarm.behaviour_mut().inventory.send_request(&peer, request);
+                    inventory_asked.insert(id, topic);
                 }
             }
             _ = maintain.tick() => {
@@ -1933,10 +2242,48 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1);
                 state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
                 (answered, failed) = (0, 0);
+                if service.search.is_some()
+                    && swarm.behaviour().gossip.as_ref().is_some_and(|g| g.all_peers().count() < 6)
+                {
+                    swarm.behaviour_mut().kad.get_providers(kad::RecordKey::new(&SEARCH_KEY));
+                }
+                let _ = swarm.behaviour_mut().search_kad.bootstrap();
                 dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
             }
         }
     }
+}
+
+/// Sends catch-up gets, at most four in flight per peer, each of up to 50 keys, as the shared
+/// rebuild budget allows. Returns when the budget allows the next get.
+fn send_catch_up(
+    swarm: &mut Swarm<Behaviour>,
+    budget: &RebuildBudget,
+    queue: &mut HashMap<PeerId, VecDeque<[u8; 32]>>,
+    asked: &mut HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)>,
+) -> Option<tokio::time::Instant> {
+    queue.retain(|_, keys| !keys.is_empty());
+    for (peer, keys) in queue.iter_mut() {
+        let mut in_flight = asked.values().filter(|(p, _)| p == peer).count();
+        while in_flight < 4 && !keys.is_empty() {
+            let chunk: Vec<[u8; 32]> = keys.drain(..keys.len().min(50)).collect();
+            let request = proto::SearchRequest {
+                request: Some(proto::search_request::Request::Get(proto::SearchGet {
+                    keys: chunk.iter().map(|k| k.to_vec()).collect(),
+                })),
+            };
+            let id = swarm.behaviour_mut().search.send_request(peer, request);
+            asked.insert(id, (*peer, chunk));
+            in_flight += 1;
+            // A reply holds at most 1 MiB; the next get waits until the budget covers it.
+            let now = tokio::time::Instant::now();
+            let next = budget.reserve(now, 1 << 20, "profiles-idx.db", 0);
+            if next > now {
+                return Some(next);
+            }
+        }
+    }
+    None
 }
 
 /// The hourly status line: no peer or key identifiers, counts and sizes only.

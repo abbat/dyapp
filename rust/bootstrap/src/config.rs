@@ -530,7 +530,7 @@ impl NodeConfig {
         if let Some(role) = self
             .roles
             .iter()
-            .find(|r| !matches!(r, Role::Store | Role::Media | Role::Turn))
+            .find(|r| !matches!(r, Role::Store | Role::Media | Role::Turn | Role::Search))
         {
             anyhow::bail!("role {role:?} is not implemented yet");
         }
@@ -547,6 +547,10 @@ impl NodeConfig {
             self.turn.validate()?;
         }
         if self.roles.contains(&Role::Search) {
+            // As with turn: a client-mode node serves no protocol.
+            if !self.roles.contains(&Role::Store) {
+                anyhow::bail!("role search needs role store");
+            }
             self.search.validate()?;
         }
         let l = &self.limits;
@@ -921,6 +925,8 @@ mod tests {
         }));
         assert!(invalid(|c| c.roles = vec![Role::Media]));
         assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
+        assert!(invalid(|c| c.roles = vec![Role::Search]));
+        assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Search]));
         assert!(invalid(|c| c.limits.message_ttl_hours = 0));
         assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
         assert!(invalid(|c| c.limits.profile_ttl_days = 0));

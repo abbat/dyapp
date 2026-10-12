@@ -15,6 +15,7 @@
 use dyapp_bootstrap::config::{options_help, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
+use dyapp_bootstrap::search::SearchIndex;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_p2p_net::proto;
@@ -130,6 +131,11 @@ async fn main() -> anyhow::Result<()> {
         .transpose()?;
     let mut service = Service::new(store, config);
     service.media = media;
+    if service.config.roles.contains(&Role::Search) {
+        let search = &service.config;
+        let index = SearchIndex::open(&search.storage.search_path(), search.search.max_bytes)?;
+        service.search = Some(std::sync::Arc::new(index));
+    }
     service.deny_signer = deny_signer;
     node::run(swarm, service).await;
     Ok(())
