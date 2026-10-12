@@ -419,9 +419,11 @@ Scheduled backups, retention and off-host storage are not provided.
 nodes ([replication](../architecture/bootstrap.md#replication-and-repair)), so
 upgrade nodes one at a time: while one is down, clients read the other replicas,
 and the owner's next visit repairs what it missed. A single node keeps the only
-copy. Building a changed store format next to the old one while the old one
-keeps answering is planned
-([bootstrap design](../architecture/bootstrap.md#principles)).
+copy. On start a new `dyappd` upgrades its store files in place (each file keeps
+its format in `PRAGMA user_version`); an older `dyappd` refuses files a newer one
+has upgraded, so a downgrade needs the backup taken before the update. Building a
+changed store format next to the old one while the old one keeps answering is
+planned ([bootstrap design](../architecture/bootstrap.md#principles)).
 
 ## Security
 
@@ -468,6 +470,7 @@ Only what applies to the code that exists today:
 |---------|-------|
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
+| `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
 | `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | `not listening` warning or `no address could be opened` | Port 7070 is taken (another `dyappd`?) or IPv6 is disabled on the host; set `DYAPPD__LISTEN` |
 | Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas (see [Data cleanup](#data-cleanup)) |

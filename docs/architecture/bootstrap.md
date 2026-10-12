@@ -331,18 +331,18 @@ resent from the sender's retry queue.
   same allowance. Each maintenance run logs file and percent complete; a finished build is
   reported once. Format rebuild workers remain planned. Incremental vacuum keeps its page
   budget and network repair keeps its traffic cap.
-- Format versions (planned): each file holds its format in `PRAGMA user_version`, one number
-  that only grows; there is no downgrade, a fix ships as a higher version. On open the node runs
-  the numbered steps from the file's version to its own, in order. A cheap step (a new column
-  with a default, an index, a table) runs in place. A step that rewrites rows builds the new file
-  next to the old one (for example `profiles-v2.db`) from the stored signed records, in the
-  background under the I/O budget, while the old file answers and takes writes; the builder then
-  copies the rows written since it started (by rowid or `seq`), switches under a short lock and
-  deletes the old file. Deletes during the build (acks, expiry, eviction) go to both files, so
-  nothing deleted comes back. The build starts only with the old file's size plus `min_free_mb` free,
-  otherwise it waits and logs why. A binary that finds a file newer than it knows refuses to start
-  and names the file. The first user is `profiles-idx.db`, rebuilt on an index version bump.
-  Today the only step is the `last_seen` column of `profiles`, added in place on open.
+- Format versions (implemented, [Storage](#storage)): each file holds its format in
+  `PRAGMA user_version`, one number that only grows; there is no downgrade, a fix ships as a
+  higher version. On open the node runs the numbered steps from the file's version to its own, in
+  order, one transaction each. A cheap step (a new column with a default, an index, a table) runs
+  in place. A binary that finds a file newer than it knows refuses to start and names the file.
+  Planned: a step that rewrites rows builds the new file next to the old one (for example
+  `profiles-v2.db`) from the stored signed records, in the background under the I/O budget, while
+  the old file answers and takes writes; the builder then copies the rows written since it
+  started (by rowid or `seq`), switches under a short lock and deletes the old file. Deletes during
+  the build (acks, expiry, eviction) go to both files, so nothing deleted comes back. The build
+  starts only with the old file's size plus `min_free_mb` free, otherwise it waits and logs why.
+  The first user is `profiles-idx.db`, rebuilt on an index version bump.
 - Activity: one UPSERT of a user's last-active date per day.
 
 ### Limits and abuse
@@ -805,7 +805,7 @@ One SQLite file per data type in the storage directory, WAL journal,
 `auto_vacuum = INCREMENTAL`, `journal_size_limit` 64 MiB:
 
 ```
-profiles.db  profiles(peer_id PK, record BLOB, live)
+profiles.db  profiles(peer_id PK, record BLOB, live, last_seen)
              record: SignedRecord (protobuf), latest version or tombstone (live = 0)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
                        UNIQUE (mailbox, id))
@@ -825,8 +825,13 @@ data/aa/bb/<hex hash>  the blob
 A `messages` table left by an older version is not read; it can be dropped by hand.
 `put_envelope` sums the mailbox's `size` on each put under the store lock.
 
-Each file has one connection behind a mutex. There is no schema version and no
-format change path yet; the target builds a new format next to the old one
+Each file has one connection behind a mutex. `storage::open` keeps the format version in
+`PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
+`profiles.db` 1 adds `last_seen`, `media.db` 1 adds the owner `last_seen`, the attachment
+`created`, the signed `record` columns, `cost` and the replica tables; `messages.db` and `deny.db`
+are at 0. A file from before versions counts as 0 and its steps skip changes already there. A
+file newer than the binary fails the start with `<file> has store format N, this dyappd knows up
+to M; run a newer dyappd`. Rebuilding a file next to the old one is planned
 ([Principles](#principles)).
 
 **Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour, then `expire_profiles` deletes profiles and tombstones whose owner was last

@@ -92,6 +92,7 @@ impl DenyStore {
                      `record` BLOB NOT NULL,
                      `received` INTEGER NOT NULL
                  );",
+                &[],
             )?,
         })
     }

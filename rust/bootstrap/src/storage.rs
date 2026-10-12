@@ -17,15 +17,78 @@ pub(crate) fn storage_error(error: impl ToString) -> BootstrapError {
     BootstrapError::StorageError(error.to_string())
 }
 
-pub(crate) fn open(path: &Path, schema: &str) -> Result<Mutex<Connection>> {
-    let db = Connection::open(path).map_err(storage_error)?;
+/// A format step: brings a store file from version `i` to `i + 1`, where `i` is its index. Files
+/// from before format versions are at 0 whatever they hold, so a step must also succeed when its
+/// change is already there.
+pub(crate) type Step = fn(&Connection) -> rusqlite::Result<()>;
+
+/// Opens a store file, creates `schema` (version 0) and runs `steps` from the file's
+/// `PRAGMA user_version` on, one transaction each. A file newer than `steps` is refused.
+pub(crate) fn open(path: &Path, schema: &str, steps: &[Step]) -> Result<Mutex<Connection>> {
+    let mut db = Connection::open(path).map_err(storage_error)?;
+    let version: i64 = db
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(storage_error)?;
+    let version = usize::try_from(version).unwrap_or(usize::MAX);
+    if version > steps.len() {
+        return Err(storage_error(format!(
+            "{} has store format {version}, this dyappd knows up to {}; run a newer dyappd",
+            path.display(),
+            steps.len()
+        )));
+    }
     // auto_vacuum takes effect only before the first table is created.
     db.execute_batch(&format!(
         "PRAGMA auto_vacuum = INCREMENTAL; PRAGMA journal_mode = WAL; \
          PRAGMA synchronous = NORMAL; PRAGMA journal_size_limit = {WAL_LIMIT}; {schema}"
     ))
     .map_err(storage_error)?;
+    for (done, step) in steps.iter().enumerate().skip(version) {
+        let tx = db.transaction().map_err(storage_error)?;
+        step(&tx).map_err(storage_error)?;
+        let next = i64::try_from(done + 1).map_err(storage_error)?;
+        tx.pragma_update(None, "user_version", next)
+            .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        tracing::info!(file = %path.display(), version = done + 1, "store format step done");
+    }
     Ok(Mutex::new(db))
+}
+
+/// Adds `column` to `table` unless the table has it already.
+pub(crate) fn add_column(
+    db: &Connection,
+    table: &'static str,
+    column: &'static str,
+    declaration: &str,
+) -> rusqlite::Result<()> {
+    let exists: bool = db.query_row(
+        "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE `name` = ?2)",
+        [table, column],
+        |row| row.get(0),
+    )?;
+    if !exists {
+        db.execute_batch(&format!(
+            "ALTER TABLE `{table}` ADD COLUMN `{column}` {declaration};"
+        ))?;
+    }
+    Ok(())
+}
+
+/// `profiles.db` format steps.
+const PROFILE_STEPS: &[Step] = &[profiles_last_seen];
+
+/// `last_seen`: node time of a newer publish, or the latest validated heartbeat time. Rows
+/// stored before the column count as seen now, so an upgrade deletes nothing.
+fn profiles_last_seen(db: &Connection) -> rusqlite::Result<()> {
+    let now = chrono::Utc::now().timestamp();
+    add_column(
+        db,
+        "profiles",
+        "last_seen",
+        &format!("INTEGER NOT NULL DEFAULT {now}"),
+    )?;
+    db.execute_batch("CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);")
 }
 
 /// Bytes a WAL file is truncated to after a checkpoint.
@@ -117,7 +180,6 @@ impl BootstrapStore {
     }
 
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
-        // `last_seen`: node time of a newer publish, or the latest validated heartbeat time.
         let profiles = open(
             profiles,
             "CREATE TABLE IF NOT EXISTS `profiles` (
@@ -125,30 +187,8 @@ impl BootstrapStore {
                  `record` BLOB NOT NULL,
                  `live` INTEGER NOT NULL
              );",
+            PROFILE_STEPS,
         )?;
-        {
-            let db = lock(&profiles)?;
-            let seen: bool = db
-                .query_row(
-                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('profiles') \
-                     WHERE `name` = 'last_seen')",
-                    [],
-                    |row| row.get(0),
-                )
-                .map_err(storage_error)?;
-            if !seen {
-                // Rows stored before the column count as seen now, so an upgrade deletes nothing.
-                db.execute_batch(&format!(
-                    "ALTER TABLE `profiles` ADD COLUMN `last_seen` INTEGER NOT NULL DEFAULT {};",
-                    chrono::Utc::now().timestamp()
-                ))
-                .map_err(storage_error)?;
-            }
-            db.execute_batch(
-                "CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);",
-            )
-            .map_err(storage_error)?;
-        }
         Ok(Self {
             profiles,
             messages: open(
@@ -165,6 +205,7 @@ impl BootstrapStore {
                  );
                  CREATE INDEX IF NOT EXISTS `envelopes_mailbox` ON `envelopes` (`mailbox`, `seq`);
                  CREATE INDEX IF NOT EXISTS `envelopes_expiry` ON `envelopes` (`expires_at`);",
+                &[],
             )?,
         })
     }
@@ -429,6 +470,41 @@ mod tests {
         assert!(store.get_profile("old").unwrap().is_none());
         assert!(store.get_profile(&owner.peer_id()).unwrap().is_some());
         assert_eq!(store.expire_profiles(now + 100).unwrap(), 1);
+    }
+
+    #[test]
+    fn store_format_steps_run_once_and_a_newer_file_is_refused() {
+        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = format!("{dir}/profiles.db");
+        let version = || -> i64 {
+            Connection::open(&path)
+                .unwrap()
+                .query_row("PRAGMA user_version", [], |row| row.get(0))
+                .unwrap()
+        };
+        // A version 0 file that already has the step's column, as nodes before versions left it.
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE `profiles` (`peer_id` TEXT PRIMARY KEY, `record` BLOB NOT NULL, \
+                 `live` INTEGER NOT NULL, `last_seen` INTEGER NOT NULL DEFAULT 0);",
+            )
+            .unwrap();
+        drop(BootstrapStore::new(&dir).unwrap());
+        assert_eq!(version(), PROFILE_STEPS.len() as i64);
+        drop(BootstrapStore::new(&dir).unwrap());
+        assert_eq!(version(), PROFILE_STEPS.len() as i64);
+
+        Connection::open(&path)
+            .unwrap()
+            .pragma_update(None, "user_version", 99)
+            .unwrap();
+        let error = BootstrapStore::new(&dir).err().unwrap().to_string();
+        assert!(
+            error.contains("profiles.db") && error.contains("99"),
+            "{error}"
+        );
     }
 
     #[test]

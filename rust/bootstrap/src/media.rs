@@ -7,7 +7,7 @@
 //! expiry.
 
 use crate::replication::MediaManifestExt;
-use crate::storage::{free, lock, open, storage_error};
+use crate::storage::{add_column, free, lock, open, storage_error, Step};
 use crate::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
@@ -90,6 +90,32 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
     Ok(orphans)
 }
 
+/// `media.db` format steps.
+const MEDIA_STEPS: &[Step] = &[media_replicas];
+
+/// Owner `last_seen` (rows stored before it count as seen now), attachment `created`, the
+/// signed records, blob `cost`, and the manifest and shard tables of erasure-coded replicas.
+fn media_replicas(db: &Connection) -> rusqlite::Result<()> {
+    let now = chrono::Utc::now().timestamp();
+    add_column(
+        db,
+        "owners",
+        "last_seen",
+        &format!("INTEGER NOT NULL DEFAULT {now}"),
+    )?;
+    add_column(db, "attachments", "created", "INTEGER NOT NULL DEFAULT 0")?;
+    add_column(db, "owners", "record", "BLOB")?;
+    add_column(db, "attachments", "record", "BLOB")?;
+    add_column(db, "blobs", "cost", "INTEGER")?;
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
+         CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
+         `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
+         CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
+         CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);",
+    )
+}
+
 impl MediaStore {
     /// Opens `dir/media.db` with the blob files under `dir/data`.
     pub fn open(dir: &Path) -> Result<Self> {
@@ -127,64 +153,16 @@ impl MediaStore {
              );
              CREATE INDEX IF NOT EXISTS `attachments_owner` ON `attachments` (`owner`);
              CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);",
+            MEDIA_STEPS,
         )?;
-        {
-            let connection = lock(&db)?;
-            for (table, column, default) in [
-                ("owners", "last_seen", chrono::Utc::now().timestamp()),
-                ("attachments", "created", 0),
-            ] {
-                let exists: bool = connection
-                    .query_row(
-                        "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE `name` = ?2)",
-                        [table, column],
-                        |row| row.get(0),
-                    )
-                    .map_err(storage_error)?;
-                if !exists {
-                    connection.execute_batch(&format!(
-                        "ALTER TABLE `{table}` ADD COLUMN `{column}` INTEGER NOT NULL DEFAULT {default};"
-                    )).map_err(storage_error)?;
-                }
-            }
-            connection.execute_batch(
-                "CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
-                 CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
-                 `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));"
-            ).map_err(storage_error)?;
-            let has_cost: bool = connection
-                .query_row(
-                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('blobs') WHERE `name` = 'cost')",
-                    [],
-                    |r| r.get(0),
-                )
-                .map_err(storage_error)?;
-            if !has_cost {
-                connection
-                    .execute_batch("ALTER TABLE `blobs` ADD COLUMN `cost` INTEGER;")
-                    .map_err(storage_error)?;
-            }
-            for table in ["owners", "attachments"] {
-                let exists: bool = connection.query_row(
-                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?) WHERE `name` = 'record')",
-                    [table], |row| row.get(0),
-                ).map_err(storage_error)?;
-                if !exists {
-                    connection
-                        .execute_batch(&format!("ALTER TABLE `{table}` ADD COLUMN `record` BLOB;"))
-                        .map_err(storage_error)?;
-                }
-            }
-            connection
-                .execute_batch(
-                    "CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
-                 CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);
-                 UPDATE `blobs` SET `size` = (SELECT MAX(`held`.`size`) FROM `blobs` AS `held`
+        // A blob listed again while already held takes its size.
+        lock(&db)?
+            .execute_batch(
+                "UPDATE `blobs` SET `size` = (SELECT MAX(`held`.`size`) FROM `blobs` AS `held`
                                           WHERE `held`.`hash` = `blobs`.`hash`)
                  WHERE `size` IS NULL;",
-                )
-                .map_err(storage_error)?;
-        }
+            )
+            .map_err(storage_error)?;
         Ok(Self { dir: data, db })
     }
 
