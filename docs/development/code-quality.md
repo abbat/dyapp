@@ -12,7 +12,7 @@ All checks run in Docker; build the image once with `make prepare`.
 | `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, actionlint, `bash -n scripts/*.sh`, Python unittest, flake8, `cargo fmt --check`, clippy `-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 75% workspace line gate |
-| `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses` (offline, the advisory DB from the image) |
+| `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
@@ -47,11 +47,13 @@ Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
 `deny.toml`, run by `rust-check.sh security`. Under `make security` it runs offline against the advisory
 databases baked into the dev image. In the CI `core / build` step `deny` it fetches them at run time:
 
-- **advisories**: any RustSec advisory fails (no CVSS threshold); yanked crates warn. Ignored: RUSTSEC-2024-0436
+- **advisories**: any RustSec advisory fails (no CVSS threshold); a yanked crate fails. Ignored: RUSTSEC-2024-0436
   (`paste` unmaintained, a proc-macro reached only through libp2p's `if-watch`, no upgrade yet).
 - **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.
-- **bans**: `openssl` and `openssl-sys` are denied; duplicate versions only **warn**.
-- **sources**: crates.io only; unknown registries or git sources warn.
+- **bans**: `openssl` and `openssl-sys` are denied; a second version of a crate fails unless
+  `[bans] skip` lists that older version with the dependency that keeps it. cargo-deny warns about
+  a skip that no longer matches; remove it then.
+- **sources**: crates.io only; an unknown registry or git source fails.
 
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.

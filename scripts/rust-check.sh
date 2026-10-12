@@ -72,9 +72,9 @@ step() {
                 for database in /tmp/ai/advisory-dbs/advisory-db-*; do
                     git -C "$database" log -1 --format="advisory DB: %H %cI"
                 done
-                cargo deny --frozen check advisories bans licenses
+                cargo deny --frozen check advisories bans licenses sources
             else
-                cargo deny --locked check advisories bans licenses
+                cargo deny --locked check advisories bans licenses sources
             fi
             ;;
         *) echo "Unknown step: $1" >&2; exit 2 ;;

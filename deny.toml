@@ -1,11 +1,11 @@
-# Configuration for the pinned cargo-deny 0.19.9 Docker gate.
+# Configuration for the pinned cargo-deny 0.20.2 gate (dev image and CI).
 [graph]
 all-features = true
 
 [advisories]
 db-urls = ["https://github.com/rustsec/advisory-db"]
 db-path = "/tmp/ai/advisory-dbs"
-yanked = "warn"
+yanked = "deny"
 ignore = [
     # paste is unmaintained (no fix): a compile-time proc-macro pulled in by
     # libp2p-quic/tcp -> if-watch -> netlink-packet-core. Drop when if-watch
@@ -35,12 +35,66 @@ exceptions = [
 ]
 
 [bans]
-multiple-versions = "warn"
+multiple-versions = "deny"
 highlight = "all"
 deny = ["openssl", "openssl-sys"]
+# Older copies kept by dependencies, not by our own choice. A new duplicate fails; drop an
+# entry when its last user upgrades (cargo-deny warns about an unmatched skip).
+skip = [
+    # RustCrypto 0.10 generation: snow (libp2p-noise), aes-gcm and ccm (webrtc rtc-crypto).
+    { crate = "aead@0.5.2", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "block-buffer@0.10.4", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "chacha20@0.9.1", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "chacha20poly1305@0.10.1", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "cipher@0.4.4", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "cpufeatures@0.2.17", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "crypto-common@0.1.7", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "curve25519-dalek@4.1.3", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "digest@0.10.7", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "fiat-crypto@0.2.9", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "hmac@0.12.1", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "inout@0.1.4", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "poly1305@0.8.0", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "sha2@0.10.9", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "universal-hash@0.5.1", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    { crate = "rand_core@0.6.4", reason = "snow and webrtc stay on RustCrypto 0.10" },
+    # rand 0.9 / getrandom 0.2-0.3: ring, governor, proptest, libp2p-noise.
+    { crate = "getrandom@0.2.17", reason = "ring and ahash use getrandom 0.2" },
+    { crate = "getrandom@0.3.4", reason = "governor, libp2p-noise and snow use getrandom 0.3" },
+    { crate = "r-efi@5.3.0", reason = "getrandom 0.3" },
+    { crate = "rand@0.9.5", reason = "governor and proptest use rand 0.9" },
+    { crate = "rand_core@0.9.5", reason = "governor and proptest use rand 0.9" },
+    # X.509 and DTLS: webrtc on x509-parser 0.16, libp2p-tls on rcgen 0.13.
+    { crate = "asn1-rs@0.6.2", reason = "webrtc uses x509-parser 0.16" },
+    { crate = "asn1-rs-derive@0.5.1", reason = "webrtc uses x509-parser 0.16" },
+    { crate = "der-parser@9.0.0", reason = "webrtc uses x509-parser 0.16" },
+    { crate = "oid-registry@0.7.1", reason = "webrtc uses x509-parser 0.16" },
+    { crate = "x509-parser@0.16.0", reason = "webrtc uses x509-parser 0.16" },
+    { crate = "thiserror@1.0.69", reason = "x509-parser 0.16 and rtnetlink use thiserror 1" },
+    { crate = "thiserror-impl@1.0.69", reason = "x509-parser 0.16 and rtnetlink use thiserror 1" },
+    { crate = "synstructure@0.13.2", reason = "asn1-rs-derive uses synstructure 0.13" },
+    { crate = "syn@2.0.119", reason = "asn1-rs-derive, curve25519-dalek-derive and jni-macros use syn 2" },
+    { crate = "rcgen@0.13.2", reason = "libp2p-tls uses rcgen 0.13" },
+    { crate = "pem@3.0.6", reason = "rcgen 0.13 and webrtc use pem 3" },
+    { crate = "yasna@0.5.2", reason = "rcgen 0.13 uses yasna 0.5" },
+    # Single stragglers.
+    { crate = "base64@0.22.1", reason = "attohttpc and rtc-stun use base64 0.22" },
+    { crate = "bitflags@1.3.2", reason = "webrtc rtc-shared uses bitflags 1" },
+    { crate = "nix@0.30.1", reason = "rtnetlink uses nix 0.30" },
+    { crate = "quinn-udp@0.5.16", reason = "quinn and webrtc pin different quinn-udp" },
+    { crate = "logos@0.15.1", reason = "protox-parse uses logos 0.15" },
+    { crate = "logos-codegen@0.15.1", reason = "protox-parse uses logos 0.15" },
+    { crate = "logos-derive@0.15.1", reason = "protox-parse uses logos 0.15" },
+    { crate = "foldhash@0.1.5", reason = "hashbrown 0.15 (petgraph) uses foldhash 0.1" },
+    { crate = "hashbrown@0.12.3", reason = "lru 0.7" },
+    { crate = "hashbrown@0.14.5", reason = "dashmap 6" },
+    { crate = "hashbrown@0.15.5", reason = "petgraph 0.8" },
+    { crate = "hashbrown@0.16.1", reason = "governor and rsqlite-vfs" },
+    { crate = "windows-sys@0.52.0", reason = "ring and memory-stats use windows-sys 0.52" },
+]
 
 [sources]
-unknown-registry = "warn"
-unknown-git = "warn"
+unknown-registry = "deny"
+unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []

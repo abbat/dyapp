@@ -40,7 +40,7 @@ docker run --rm dyapp:dev cargo fmt -- --check
 docker run --rm dyapp:dev cargo clippy --workspace --all-features -- -D warnings
 
 # Dependency check
-docker run --rm dyapp:dev cargo deny check advisories duplicates bans licenses
+docker run --rm dyapp:dev cargo deny check advisories bans licenses sources
 ```
 
 ## Using Docker Compose
