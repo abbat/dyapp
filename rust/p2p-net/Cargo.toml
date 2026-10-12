@@ -13,8 +13,19 @@ prost.workspace = true
 tracing = "0.1"
 tokio = { version = "1", features = ["sync"] }
 libp2p = { version = "0.57", features = [
-    "autonat", "dns", "gossipsub", "identify", "kad", "macros", "memory-connection-limits", "noise", "quic",
-    "request-response", "tcp", "tokio", "yamux",
+    "autonat",
+    "dns",
+    "gossipsub",
+    "identify",
+    "kad",
+    "macros",
+    "memory-connection-limits",
+    "noise",
+    "quic",
+    "request-response",
+    "tcp",
+    "tokio",
+    "yamux",
 ] }
 
 [build-dependencies]

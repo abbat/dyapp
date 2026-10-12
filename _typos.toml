@@ -1,0 +1,4 @@
+# typos: spelling check of the source tree in the quality step.
+[default.extend-words]
+# Apple device identifier (simctl).
+udid = "udid"

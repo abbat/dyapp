@@ -828,7 +828,7 @@ mod tests {
         assert_eq!(config.listen, ["[::]:7070", "0.0.0.0:7070"]);
         assert_eq!(config.turn.secret, "123");
         assert!(config.network.share_deny_list);
-        for option in ["limits.max-conections", "limits", "x"] {
+        for option in ["limits.max-connection", "limits", "x"] {
             let options = [(option.to_owned(), "1".to_owned())];
             assert!(NodeConfig::load(None, [], &options).is_err());
         }

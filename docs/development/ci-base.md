@@ -20,6 +20,8 @@ Both jobs run directly on the runner, without Docker. Every check is a step of
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `docker/Dockerfile.dev` uses;
+- downloads the `typos` 1.50.3 and `taplo` 0.10.0 release binaries and checks them against the
+  sha256 sums `docker/Dockerfile.dev` uses;
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
 
@@ -48,6 +50,8 @@ This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it runs
 | Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve |
 | Workflow lint | `actionlint` |
 | Secret scan | `gitleaks git --redact`: the git history (the shallow CI checkout: its one commit); known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
+| Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
+| TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |
 | Shell lint | `shellcheck scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |

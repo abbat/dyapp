@@ -1,0 +1,8 @@
+# taplo: TOML formatting, checked by `taplo fmt --check` in the quality step.
+include = ["**/*.toml"]
+exclude = ["**/target/**", "**/build/**", "**/.gradle/**", ".beads/**", ".lean-ctx/**"]
+
+[formatting]
+indent_string = "    "
+column_width = 100
+array_auto_collapse = false

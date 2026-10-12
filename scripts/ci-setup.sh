@@ -27,6 +27,16 @@ if [[ $1 == rust ]]; then
     container=$(docker create zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f)
     sudo docker cp "$container:/usr/bin/gitleaks" /usr/local/bin/gitleaks
     docker rm "$container" > /dev/null
+    # typos 1.50.3 and taplo 0.10.0 release binaries, the same checksums as docker/Dockerfile.dev.
+    tmp=$(mktemp -d)
+    curl -fsSL -o "$tmp/typos.tgz" https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-unknown-linux-musl.tar.gz
+    curl -fsSL -o "$tmp/taplo.gz" https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz
+    (cd "$tmp" && printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  typos.tgz' \
+        '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156  taplo.gz' | sha256sum -c -)
+    tar -xzf "$tmp/typos.tgz" -C "$tmp" ./typos
+    gunzip "$tmp/taplo.gz"
+    sudo install -m 755 "$tmp/typos" "$tmp/taplo" /usr/local/bin/
+    rm -rf "$tmp"
 fi
 rustup toolchain install "$toolchain" --profile minimal "${components[@]}"
 echo "RUSTUP_TOOLCHAIN=$toolchain" >> "${GITHUB_ENV:?GitHub Actions only}"
