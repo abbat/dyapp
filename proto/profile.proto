@@ -7,7 +7,7 @@ package dyapp.profile;
 message Profile {
   // Starts at 1; the highest validly signed version wins.
   uint64 version = 1;
-  // Tombstone: every other field is empty.
+  // Tombstone: every other field except the proof of work is empty.
   bool deleted = 2;
   uint32 age = 3;
   // ISO 3166-1 alpha-2 code; income is compared only within one country.
@@ -32,6 +32,10 @@ message Profile {
   // City or district within `country`, no coordinates; matched exactly.
   string place = 20;
   repeated Photo photos = 21;
+  // Argon2id proof of work over the signer's key, see docs/architecture/bootstrap.md
+  // "Proof of work". Missing = 0 bits.
+  uint64 pow_nonce = 22;
+  uint32 pow_bits = 23;
 }
 
 // A photo as `/dyapp/media` blobs, each named by the SHA-256 of its data. Lists and search results

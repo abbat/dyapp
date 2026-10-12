@@ -19,7 +19,8 @@ Located in `#[cfg(test)]` modules within each crate.
 - Identity: secret key round trip keeps the Peer ID
 
 **Profile** (rust/profile)
-- Highest valid version wins; a tombstone supersedes and must carry no fields
+- Highest valid version wins; a tombstone supersedes and carries no fields but the proof of work
+- Proof of work: pinned Argon2id output, `solve` round-trips and resumes
 - Rejects a bad signature or invalid content
 
 **P2P Network** (rust/p2p-net)

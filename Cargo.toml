@@ -35,3 +35,13 @@ opt-level = 0
 [profile.test]
 opt-level = 0
 debug = 0
+
+# Argon2 runs at release speed in debug and test builds: profile PoW tests hash thousands of times.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.test.package.argon2]
+opt-level = 3
+[profile.test.package.blake2]
+opt-level = 3

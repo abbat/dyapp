@@ -677,7 +677,7 @@ mod tests {
         assert!(store.list_profiles(1, 10).unwrap().is_empty());
 
         store
-            .put_profile(&Profile::tombstone(3).sign(&owner))
+            .put_profile(&Profile::tombstone(3, 0, 0).sign(&owner))
             .unwrap();
         assert!(store.list_profiles(0, 10).unwrap().is_empty());
         assert!(store.put_profile(&profile(2).sign(&owner)).is_err());

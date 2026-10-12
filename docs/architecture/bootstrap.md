@@ -466,7 +466,8 @@ optional and public by design
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
   place at most 1024 characters without control characters, at most 16 `photos`, each a
-  32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`) carries no other field.
+  32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
+  carries no other field but the proof of work (`pow_nonce`, `pow_bits`).
 
 Deletion publishes a tombstone with a higher version. The server keeps the tombstone
 so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.

@@ -701,7 +701,7 @@ mod tests {
         );
         assert_eq!(index.put(&key, &p2, &r2, 1_600, true).unwrap(), Put::Stored);
         assert_eq!(index.records(&[key], 1 << 20).unwrap(), vec![r2.clone()]);
-        let (_, p3, r3) = signed(&id, Profile::tombstone(3));
+        let (_, p3, r3) = signed(&id, Profile::tombstone(3, 0, 0));
         assert_eq!(index.put(&key, &p3, &r3, 2_300, true).unwrap(), Put::Stored);
         assert!(index.records(&[key], 1 << 20).unwrap().is_empty());
         assert_eq!(index.versions(&[key]).unwrap(), vec![Some(3)]);

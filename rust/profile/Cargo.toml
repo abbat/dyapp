@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+argon2 = { version = "0.5.3", default-features = false, features = ["alloc"] }
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
 thiserror = "2"

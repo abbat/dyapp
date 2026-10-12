@@ -2,8 +2,10 @@
 //!
 //! Each published version carries a version number; the highest validly signed version wins.
 //! Deleting a profile publishes a tombstone: a signed version with `deleted` set and every other
-//! field empty. Nodes keep the tombstone so older versions are not re-imported.
+//! field but the proof of work empty. Nodes keep the tombstone so older versions are not
+//! re-imported.
 
+use argon2::{Algorithm, Argon2, Params, Version};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use prost::Message;
 
@@ -36,10 +38,12 @@ mod generated {
 pub use generated::{Photo, Profile};
 
 impl Profile {
-    pub fn tombstone(version: u64) -> Self {
+    pub fn tombstone(version: u64, pow_nonce: u64, pow_bits: u32) -> Self {
         Self {
             version,
             deleted: true,
+            pow_nonce,
+            pow_bits,
             ..Self::default()
         }
     }
@@ -52,7 +56,7 @@ impl Profile {
         if self.version == 0 {
             return Err(Error::Invalid("version must start at 1"));
         }
-        if self.deleted && *self != Self::tombstone(self.version) {
+        if self.deleted && *self != Self::tombstone(self.version, self.pow_nonce, self.pow_bits) {
             return Err(Error::Invalid("tombstone carries data"));
         }
         if !self.country.is_empty()
@@ -118,6 +122,38 @@ impl VerifiedProfile {
     }
 }
 
+const POW_SALT: &[u8] = b"dyapp-profile-pow";
+
+/// Leading zero bits of Argon2id(key ‖ nonce): the profile proof of work. 8 MiB, one pass.
+pub fn pow_leading_bits(key: &[u8; 32], nonce: u64) -> u32 {
+    let params = Params::new(8192, 1, 1, Some(32)).expect("valid Argon2 parameters");
+    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut password = [0u8; 40];
+    password[..32].copy_from_slice(key);
+    password[32..].copy_from_slice(&nonce.to_le_bytes());
+    let mut out = [0u8; 32];
+    argon
+        .hash_password_into(&password, POW_SALT, &mut out)
+        .expect("fixed-size Argon2 input");
+    let mut bits = 0;
+    for byte in out {
+        bits += byte.leading_zeros();
+        if byte != 0 {
+            break;
+        }
+    }
+    bits
+}
+
+/// Tries nonces `start..start + tries`: `Ok` with the first reaching `bits`, else `Err` with the
+/// nonce to resume from.
+pub fn solve(key: &[u8; 32], bits: u32, start: u64, tries: u64) -> Result<u64, u64> {
+    let end = start.saturating_add(tries);
+    (start..end)
+        .find(|n| pow_leading_bits(key, *n) >= bits)
+        .ok_or(end)
+}
+
 /// Version of a record that was verified before it was stored.
 pub fn stored_version(record: &SignedRecord) -> Result<u64, Error> {
     Profile::decode(record.payload.as_slice())
@@ -160,7 +196,7 @@ mod tests {
     #[test]
     fn tombstone_supersedes_and_must_be_empty() {
         let owner = Identity::generate();
-        let tombstone = Profile::tombstone(3).sign(&owner);
+        let tombstone = Profile::tombstone(3, 0, 0).sign(&owner);
         assert!(accept(&tombstone, Some(2)).unwrap().profile.deleted);
         assert_eq!(accept(&sample(2).sign(&owner), Some(3)), Err(Error::Stale));
 
@@ -169,6 +205,42 @@ mod tests {
         assert_eq!(
             verify(&leaky.sign(&owner)),
             Err(Error::Invalid("tombstone carries data"))
+        );
+    }
+
+    #[test]
+    fn pow_is_pinned_and_solvable() {
+        // Pinned format: change only with a protocol version bump. The first 6-bit nonce also
+        // pins every hash before it.
+        assert_eq!(pow_leading_bits(&[7; 32], 42), 1);
+        assert_eq!(solve(&[7; 32], 6, 0, 10_000), Ok(154));
+        let key = [9; 32];
+        let nonce = solve(&key, 4, 0, 10_000).unwrap();
+        assert!(pow_leading_bits(&key, nonce) >= 4);
+        // `nonce` is the first match: a window ending before it fails and says where to resume.
+        assert_eq!(solve(&key, 4, 0, nonce), Err(nonce));
+        assert_eq!(solve(&key, 4, nonce, 1), Ok(nonce));
+    }
+
+    #[test]
+    fn tombstone_keeps_pow() {
+        let owner = Identity::generate();
+        let tombstone = Profile::tombstone(3, 77, 11).sign(&owner);
+        let verified = verify(&tombstone).unwrap().profile;
+        assert_eq!((verified.pow_nonce, verified.pow_bits), (77, 11));
+    }
+
+    #[test]
+    #[ignore = "benchmark: cargo test -p dyapp-profile --release -- --ignored --nocapture"]
+    fn pow_timing() {
+        let start = std::time::Instant::now();
+        for nonce in 0..20 {
+            pow_leading_bits(&[1; 32], nonce);
+        }
+        let ms = start.elapsed().as_secs_f64() * 1000.0 / 20.0;
+        println!(
+            "{ms:.1} ms per hash, ~{:.0} s for 11 bits",
+            ms * 2048.0 / 1000.0
         );
     }
 

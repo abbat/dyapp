@@ -39,7 +39,9 @@ as received, so a node keeps fields it does not understand.
 Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, unset
 optionals and an age of 0 mean "not published". `version` orders updates (the highest validly
-signed version wins); `deleted` marks a tombstone with every other field empty. Tag 5 held
+signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and
+`pow_bits` empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
+key (see [Proof of work](bootstrap.md#proof-of-work)); missing means 0 bits. Tag 5 held
 coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
 full image as ordered blobs plus one small `thumbnail` blob for lists and search results. See
 the [bootstrap signed profile](bootstrap.md#signed-profile).
