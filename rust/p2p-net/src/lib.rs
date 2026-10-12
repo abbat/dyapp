@@ -508,7 +508,11 @@ mod tests {
     fn old_heartbeat_decodes_with_version_zero() {
         use prost::Message;
         // Field 2 is absent on the wire when it is zero, as from a client older than it.
-        let old = proto::Heartbeat { time: 7, version: 0 }.encode_to_vec();
+        let old = proto::Heartbeat {
+            time: 7,
+            version: 0,
+        }
+        .encode_to_vec();
         assert_eq!(proto::Heartbeat::decode(old.as_slice()).unwrap().version, 0);
     }
 
