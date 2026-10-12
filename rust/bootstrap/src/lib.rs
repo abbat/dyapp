@@ -7,6 +7,7 @@ mod media_repair;
 pub mod node;
 pub mod rate_limit;
 pub mod replication;
+pub mod search;
 pub mod service;
 pub mod storage;
 
