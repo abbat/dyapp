@@ -296,6 +296,10 @@ resent from the sender's retry queue.
   with `get(keys)`, up to 50 keys, from the same node; the reply is cut at 1 MiB and the client
   asks again for the rest. A `query` costs 1 unit and a `get` the bytes of its reply, limited per
   peer ID and IP group; scraping public profiles is accepted.
+- **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
+  holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
+  by `r` (planned): a single SQLite query sorts every row of the places in a temporary B-tree and
+  escapes `max_scan_rows`.
 
 ### Mailboxes
 

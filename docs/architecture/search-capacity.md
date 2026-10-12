@@ -1,9 +1,8 @@
 # Search capacity
 
-> **Status: planned.** This page states the method for checking whether the agreed profile search
-> design ([bootstrap.md, Search](bootstrap.md#search)) holds at scale. The model, the SQLite
-> measurement and the results below are not written yet; numbers here are inputs and thresholds,
-> not findings.
+> **Status: done.** This page checks whether the agreed profile search design
+> ([bootstrap.md, Search](bootstrap.md#search)) holds at scale: the method, the model, the SQLite
+> measurement and the [results](#results).
 
 The check covers the current design only: every search node collects the whole network up to
 `search.max_bytes`, or a uniform sample when it subscribes to some topics. If it fails at a scale
@@ -35,8 +34,9 @@ Query classes: **place only**; **typical** (place + gender + age, ≈ 11 % of th
 
 ## Model
 
-`scripts/search-model.py` (planned; stdlib only, runs in seconds) computes for every
-step × activity × node count × search share:
+`scripts/search-model.py` (stdlib only, runs in seconds; `--bench <json>` takes the measured
+bytes per row, query capacity and `partial` share, otherwise it uses 300 B per row and 500 queries
+per second and says so) computes for every step × activity × node count × search share:
 
 | Output | Computed as | Holds when |
 |--------|-------------|------------|
@@ -59,7 +59,8 @@ more nodes), not as a failure.
 An **adversary** section adds what honest load hides: how many fake profiles one machine can
 sign and publish a day at the current proof of work (keys are free, limits are per key), how fast
 they push real inactive users out of a 50 GB node under oldest-heartbeat eviction, which
-`min_profile_pow_bits` (≤ 20) makes that costly while a phone still publishes in 1–2 s, and the
+`min_profile_pow_bits` (≤ 20) makes that costly while a phone still finishes within 30 s (iOS
+suspends the app after that), and the
 query rate many peers reach past the per-peer limits. Fixes found here go to a separate task.
 
 `--self-check` asserts the model against hand-computed numbers (1M users, base: ≈ 5 GB of full
@@ -68,9 +69,11 @@ Zipf place shares sum to 1; it runs before the report.
 
 ## SQLite measurement
 
-`scripts/search-bench.py` (planned; stdlib `sqlite3`) runs once by hand in the dev container
-limited to `--cpus 2 --memory 4g`, within 10 minutes and at most 10 GB of disk. A node at 50 GB
-keeps ≈ 10M profiles; that size is extrapolated, not built:
+`scripts/search-bench.py --rows 100000 --rows 1000000 --rows 2500000 --dir <db dir> --out
+<json>` (stdlib `sqlite3`) runs once by hand in the dev container limited to
+`--cpus 2 --memory 4g`, within 10 minutes and at most 10 GB of disk; past the budget it writes the
+sizes done so far with `partial_run`. `<db dir>` must hold ≈ 1.5 GB, more than the container's
+`/tmp`. A node at 50 GB keeps ≈ 10M profiles; that size is extrapolated, not built:
 
 1. Generate a synthetic `profiles-idx.db` with the schema from bootstrap.md (typed columns,
    interests table, random `r`) at 100K, 1M and 2.5M rows (`--rows`), with the place and filter
@@ -80,8 +83,9 @@ keeps ≈ 10M profiles; that size is extrapolated, not built:
    free space.
 2. Run 1 000 queries for each query class × place class (top place, rank ≈ 100, rank ≈ 10 000),
    in the design's form `WHERE … AND r ≥ s ORDER BY r LIMIT 50` with wrap-around and
-   `max_scan_rows` = 10 000, and record `EXPLAIN QUERY PLAN` per class (the intended index, no
-   temporary B-tree for the sort).
+   `max_scan_rows` = 10 000 (an inner `ORDER BY r LIMIT 10000` over the scope, the filter
+   outside it), and record `EXPLAIN QUERY PLAN` per class: the index the planner picks and
+   whether it sorts in a temporary B-tree.
 3. Record p50/p99 latency, queries per second on 2 threads, `partial` share, rows scanned, index
    file size and RSS as JSON. The model fits latency as log N plus rows scanned on 100K and 1M,
    checks the fit against 2.5M, and calls the extrapolation to 10M unreliable if the 2.5M error
@@ -92,7 +96,87 @@ exact timings may not. The scripts are a one-off study: no CI job, no Make targe
 
 ## Results
 
-Planned. This section will give the per-step table, the measured numbers, the threshold, and
-answers to: users per place and filter selectivity in practice; whether asking 1–3 nodes is
-enough; how small places and rare filters are found; whether hot places need a dedicated sharded
-index. Parameter changes that keep the mechanism go into bootstrap.md in the same commit.
+Measured on 2026-10-12: SQLite 3.46.1, 100K + 1M + 2.5M rows in 232 s, `--cpus 2 --memory 4g`.
+The model ran with that JSON. **The design holds at every step up to 50M users** in all 18
+activity × node share × search share combinations; no parameter in bootstrap.md changes. Its
+limits are at the bottom of the scale (too few search nodes), in the long tail of places at 50M,
+in the `place IN` query plan and against an adversary.
+
+### SQLite
+
+| Size | File | Bytes per row | RSS | Build | Typical qps, 2 threads |
+|------|------|---------------|-----|-------|------------------------|
+| 100K | 45 MiB | 472 | 72 MB | 1 s | 2 575 |
+| 1M | 441 MiB | 462 | 556 MB | 14 s | 1 312 |
+| 2.5M | 1 100 MiB | 461 | 1.0 GB | 41 s | 1 079 |
+
+At 2.5M rows, place rank 1 / 100 / 10 000 of the largest country:
+
+| Class | Plan | p50 / p99, ms | Rows scanned | Matches | `partial` |
+|-------|------|---------------|--------------|---------|-----------|
+| place only | covering (country, place, r) | 0.03 / 0.06 | 50 | 50 | 0 |
+| typical, rank 1 | (country, place, r) | 1.34 / 2.07 | 463 | 50 | 0 |
+| typical, rank 100 | (country, place, r) | 0.51 / 0.84 | 460 | 50 | 0 |
+| typical, rank 10 000 | (country, place, r) | 0.04 / 0.07 | 29 (whole place) | 3.1 | 0 |
+| rare, rank 1 | (country, place, r) | 13.7 / 251 | 5 051 | 50 | 0 |
+| rare, rank 100 | (country, place, r) | 0.78 / 1.02 | 720 (whole place) | 6.4 | 0 |
+| country + rare | (country, r) | 30.7 / 326 | 10 000 | 22.5 | 1.0, expected |
+| place IN, 8 places | (country, place, r) + **temporary B-tree** | **65.7 / 445** | all rows of the 8 places | 50 | 0 |
+
+The typical p50 grows as log N plus rows scanned; the fit on 100K and 1M is 25 % off at 2.5M
+(within 30 %), so the 10M extrapolation holds: ≈ 1.3 ms, ≈ 1 079 queries per second warm. A
+10M index (≈ 4.6 GB) exceeds half the node's RAM, so the model also counts a cold cache:
+≈ 455 page reads × 0.1 ms ≈ 44 queries per second.
+
+**`place IN` sorts.** SQLite merges the 8 index ranges in a temporary B-tree: it reads and sorts
+every row of the 8 places before `LIMIT`, so `max_scan_rows` does not bound it and the cost grows
+with the places (50 × typical at p50). The fix is in the node, not in the protocol: one ordered
+scan per place merged by `r`, each capped by the shared scan budget.
+
+### Model
+
+The threshold is set by search nodes, not by load: a step holds once at least 2 search nodes
+exist. That is from 1K users (1 % of DAU run bootstrap, all of them search) to 100K (0.1 %, 10 %);
+2 search nodes need 200–20 000 DAU depending on the shares. Above it, with base activity,
+0.5 % nodes and 50 % search:
+
+| Users | Search nodes | Disk per node | Sample | Queries per node at peak | Nodes for a page: typical r1 / r100 / r10k | Rare r1 / r100 / r10k |
+|-------|--------------|---------------|--------|---------------------------|---------------------------------------------|-----------------------|
+| 100K | 75 | 0.55 GB | 1.00 | 0.14/s | 1 / 1 / 1 | 1 / 1 / 1 |
+| 1M | 750 | 5.5 GB | 1.00 | 0.14/s | 1 / 1 / 1 | 1 / 1 / 1 |
+| 10M | 7 500 | 50 GB | 0.92 | 0.14/s | 1 / 1 / 2 | 1 / 2 / 2 |
+| 50M | 37 500 | 50 GB | 0.18 | 0.14/s | 1 / 1 / 15 | 1 / 2 / 15 |
+
+The tightest case (stress activity, 0.1 % nodes, 10 % search: 2 500 search nodes at 50M) peaks at
+10.4 queries per second per node, under the 44 of a cold cache; gossip at 6 copies reaches
+3.3 MB/s of the 4 MB/s budget and `get` 2.6 MB/s of 3.75. First sync of a full node takes ≈ 3.7 h.
+Halving or doubling `search.max_bytes`, D = 3 or 12, 2 heartbeats a day and `max_scan_rows`
+5 000 or 20 000 do not move the threshold.
+
+### Adversary
+
+Keys are free and limits are per key. At 11 bits one 16-core PC signs ≈ 135 000 fake profiles a
+day and fills an empty 50 GB node in ≈ 68 days (10 PCs: a week); once full, each fake pushes out
+one real inactive profile. 14 bits cut that eightfold but take a phone 240 s, past the 30 s
+limit, so proof of work alone cannot stop this flood. Queries: 50 peers × 100 per second give
+5 000 per second, about 5 × the warm capacity, and the IP-group limit (1 000) does not stop peers
+spread over groups. Both need a defence other than proof of work bits.
+
+### Answers
+
+- **Users per place and selectivity.** On one node at 10M users the largest place holds ≈ 250 000
+  profiles and rank 100 ≈ 2 800; the typical filter (≈ 11 %) leaves ≈ 27 000 and ≈ 310 matches.
+  A page then costs ≈ 460 rows scanned; a rare filter (≈ 1 %) ≈ 5 000; country + rare
+  (≈ 0.25 %) exhausts 10 000 rows and is `partial`, as designed.
+- **Are 1–3 nodes enough?** Yes up to 10M users (at most 2). At 50M a node keeps a 18 % sample:
+  places down to rank ≈ 100 still need 1–2 nodes, the long tail (rank ≈ 10 000) needs ≈ 15.
+- **Small places and rare filters.** A small place is read whole through (country, place, r) in
+  well under 1 ms and never `partial`; a page is short because the place is. A rare filter in a
+  large place stays under `max_scan_rows` (p99 ≈ 250 ms). Country-wide rare filters are
+  `partial`, and the client asks again.
+- **A sharded index for hot places?** No: the largest place costs 1.3 ms per typical query and a
+  node at peak needs at most ≈ 10 queries per second. Partitioning by place would only help the
+  long tail at 50M, where a node holds too small a sample.
+
+Follow-up work, tracked separately: `place IN` as a per-place merge; a defence against fake
+profile floods and against query floods from many peers; long-tail places at 50M users.
