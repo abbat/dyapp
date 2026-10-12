@@ -1,9 +1,8 @@
 use tauri::utils::assets::AssetKey;
-use tauri::Assets;
 
 #[test]
 fn frontend_is_bundled_and_contains_ready_screen() {
-    let context = tauri::generate_context!();
+    let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
     let assets = context.assets();
     let index = assets.get(&AssetKey::from("index.html")).expect("bundled frontend");
     let html = std::str::from_utf8(&index).expect("UTF-8 frontend");

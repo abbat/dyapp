@@ -84,9 +84,11 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 ### Linux
 
 - **Image** `dyapp:linux-test` (`docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
-  WebKit2GTK 4.0 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
-  the Tauri app from `linux/` (+ `desktop/`) and writes the test-binary inventory
-  `linux/target/unit-build.json` at build time.
+  WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
+  the Tauri 2 app from `linux/` (+ `desktop/`) and writes the test-binary inventory
+  `linux/target/unit-build.json` at build time. The container has no checkout mount and no
+  network, so `ui-test.sh linux` rebuilds the image first (a cached no-op when the sources are
+  unchanged); a stale image would otherwise test old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   It then calls `run-cargo-unit-binaries.py` runs every test binary in

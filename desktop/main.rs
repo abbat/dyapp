@@ -33,7 +33,7 @@ fn main() {
 mod tests {
     #[test]
     fn configured_window_is_visible_and_local() {
-        let context = tauri::generate_context!();
+        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
         let app = &context.config().app;
         assert_eq!(app.windows.len(), 1);
         assert!(app.windows[0].visible);

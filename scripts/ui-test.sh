@@ -11,14 +11,20 @@ fi
 run() {
     python3 scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }
+# The linux-test image compiles the app at build time and has no checkout mount: rebuild it
+# (a cached no-op when nothing changed) so a stale image cannot pass for the current code.
+linux() {
+    python3 scripts/docker-local.py "${compose[@]}" --profile all build linux-test
+    run linux-test
+}
 case "${1:-help}" in
     android) run android-unit-test ;;
     android-emulator) run android-emulator-test ;;
-    linux) run linux-test ;;
+    linux) linux ;;
     all)
         run android-unit-test
         run android-emulator-test
-        run linux-test
+        linux
         echo 'Local Docker UI inventory passed; Apple/Windows native CI is required separately.'
         ;;
     prepare) python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build ;;
