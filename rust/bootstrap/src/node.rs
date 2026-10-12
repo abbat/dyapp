@@ -413,6 +413,11 @@ impl Trust {
         *self.score.entry(peer).or_default() += points;
     }
 
+    fn forget(&mut self, peer: &PeerId) {
+        self.seen.remove(peer);
+        self.score.remove(peer);
+    }
+
     /// Forgets the peers `keep` drops.
     fn retain(&mut self, keep: impl Fn(&PeerId) -> bool) {
         self.seen.retain(|peer, _| keep(peer));
@@ -1958,6 +1963,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         peer_groups.remove(&peer_id);
                         catch_up_queue.remove(&peer_id);
                         service.search_peer(&peer_id.to_string(), false);
+                        if !dyapp_p2p_net::routed(&mut swarm, &peer_id) {
+                            replicas.trust.forget(&peer_id);
+                        }
                     }
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
@@ -2894,8 +2902,14 @@ mod tests {
             .seen
             .insert(peer, Instant::now() - Duration::from_secs(3600));
         assert!(trust.trusted(&peer));
-        trust.retain(|_| false);
+        trust.forget(&peer);
         assert!(!trust.trusted(&peer), "forgotten");
+        assert!(trust.seen.is_empty() && trust.score.is_empty());
+        trust
+            .seen
+            .insert(peer, Instant::now() - Duration::from_secs(3600));
+        trust.retain(|_| false);
+        assert!(!trust.trusted(&peer), "swept");
     }
 
     #[test]

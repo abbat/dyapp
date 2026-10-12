@@ -545,6 +545,13 @@ pub fn route(swarm: &mut Swarm<Behaviour>, event: &SwarmEvent<BehaviourEvent>) {
     }
 }
 
+/// Whether `peer` is in the routing table.
+pub fn routed(swarm: &mut Swarm<Behaviour>, peer: &PeerId) -> bool {
+    let kad = &mut swarm.behaviour_mut().kad;
+    kad.kbucket(*peer)
+        .is_some_and(|b| b.iter().any(|e| e.node.key.preimage() == peer))
+}
+
 /// Every address in the routing table as `.../p2p/<id>`, for a peer cache that lets the next
 /// start join without any one seed.
 pub fn known_peers(swarm: &mut Swarm<Behaviour>) -> Vec<Multiaddr> {
@@ -964,6 +971,11 @@ mod tests {
             add_peer(swarm, PeerId::random(), address)
         };
         assert!((1..=5).all(|i| add(&mut swarm, format!("10.{i}.0.1"))));
+        let peer = PeerId::random();
+        assert!(!routed(&mut swarm, &peer));
+        let address = "/ip4/10.6.0.1/tcp/1".parse().unwrap();
+        assert!(add_peer(&mut swarm, peer, address));
+        assert!(routed(&mut swarm, &peer));
         let admitted = (1..=30)
             .filter(|i| add(&mut swarm, format!("10.9.9.{i}")))
             .count();

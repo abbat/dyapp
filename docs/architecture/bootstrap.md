@@ -792,7 +792,9 @@ once the node first connected to it at least `network.storage_trust_minutes` ago
 trusts at once) and while its score is not negative. The score gains 1 per answer to the node's
 mailbox requests and per signed `replica_put` or `replica_ack` accepted from the peer, and loses 1
 per mailbox request of the node that failed (an old node lacking the protocol does not count). A
-peer that leaves both the routing table and the node's connections is forgotten. Like the ban
+peer is forgotten when its last connection closes while it is outside the routing table, and at
+the next maintenance run once it has left both, so clients that rotate peer IDs do not pile up in
+memory. Like the ban
 score it lives in memory and is never shared, so after a restart no peer gets replicas for the
 delay; envelopes wait on their own node until their TTL. A unit test checks it.
 
