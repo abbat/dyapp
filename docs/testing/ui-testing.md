@@ -87,8 +87,9 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
   the Tauri 2 app from `linux/` (+ `desktop/`) and writes the test-binary inventory
   `linux/target/unit-build.json` at build time. The container has no checkout mount and no
-  network, so `ui-test.sh linux` rebuilds the image first (a cached no-op when the sources are
-  unchanged); a stale image would otherwise test old binaries.
+  network, and `ui-test.sh` never builds images: after changing `linux/`, `desktop/` or the
+  Dockerfile, run `make prepare` (or `bash scripts/ui-test.sh prepare`) first, or
+  `make ui-test-linux` tests the old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   It then calls `run-cargo-unit-binaries.py` runs every test binary in
