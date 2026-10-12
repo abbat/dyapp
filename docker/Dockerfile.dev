@@ -20,4 +20,4 @@ RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
 RUN mkdir -p /workspace/target && chown -R 999:999 /workspace/target
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
 USER 999:999
-CMD ["cargo", "test", "--workspace", "--locked", "--offline", "--", "--test-threads=1"]
+CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

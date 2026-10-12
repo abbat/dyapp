@@ -132,7 +132,7 @@ docker run --rm dyapp:dev cargo test -p dyapp-video
 ```bash
 # Show test output (useful for debugging)
 docker run --rm dyapp:dev \
-  cargo test --workspace --lib -- --nocapture --test-threads=1
+  cargo test --workspace --lib -- --nocapture
 ```
 
 ### Example 4: Code Coverage

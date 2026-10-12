@@ -71,7 +71,7 @@ nothing.
 | Step | `rust-check.sh` step | What it runs |
 |------|----------------------|--------------|
 | build | `cov-build` | `cargo llvm-cov clean --workspace`; `cargo test --workspace --all-features --locked --no-run` |
-| tests | `cov-test` | `cargo test --workspace --all-features --locked -- --test-threads=1` on that build |
+| tests | `cov-test` | `cargo test --workspace --all-features --locked` on that build |
 | coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses sources`; it fetches the advisory DB at run time |

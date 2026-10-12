@@ -27,7 +27,7 @@ step() {
             RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;
-        test) cargo test --workspace --all-features --locked -- --test-threads=1 ;;
+        test) cargo test --workspace --all-features --locked ;;
         cov-build)
             instrument
             cargo llvm-cov clean --workspace
@@ -36,7 +36,7 @@ step() {
             ;;
         cov-test)
             instrument
-            cargo test --workspace --all-features --locked -- --test-threads=1
+            cargo test --workspace --all-features --locked
             ;;
         cov-report)
             instrument
