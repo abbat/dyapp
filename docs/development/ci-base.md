@@ -52,6 +52,7 @@ and runs `rust-check.sh quality`, which runs these checks in order:
 | Python lint | `flake8 scripts tools tests` |
 | Format | `cargo fmt --all -- --check` |
 | Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, tests included, so there is no separate `cargo check`) |
+| Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 
 `quality` does not run `cargo test`: the tests run once, in `core`. Locally `make test` runs them.
 
