@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import shutil
 import socket
 import sqlite3
 import struct
@@ -54,16 +55,31 @@ def addresses(host, port):
     return f"/ip4/{host}/tcp/{port}", f"/ip4/{host}/udp/{port}/quic-v1"
 
 
+def start_node(bin_dir, environment):
+    """Append every incarnation of a local node to its retained log."""
+    if environment.get("DYAPP_VERBOSE") == "1":
+        return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment)
+    directory = Path(environment["DYAPP_NODE_LOG_DIR"])
+    port = Path(environment["DYAPPD__STORAGE__DIR"]).name
+    with (directory / f"node-{port}.log").open("ab") as output:
+        return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment,
+                                stdout=output, stderr=subprocess.STDOUT)
+
+
 def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/test-peer"
     Path("/tmp/ai").mkdir(exist_ok=True)
+    logs = tempfile.mkdtemp(prefix="dyapp-network-", dir="/tmp/ai")
+    print(f"Local node logs: {logs}", flush=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []
+        failed = False
         try:
             for port in (7071, 7072, 7073):
                 tcp, quic = addresses("127.0.0.1", port)
                 env = {**os.environ,
+                       "DYAPP_NODE_LOG_DIR": logs,
                        "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
                        "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
                        "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
@@ -87,8 +103,7 @@ def local(bin_dir):
                 subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
                                check=True, stdout=subprocess.DEVNULL)
                 environments.append(env)
-                processes.append(subprocess.Popen(
-                    [f"{bin_dir}/dyappd"], env=env))
+                processes.append(start_node(bin_dir, env))
                 peers.append((tcp, quic))
                 # A node dials its seed once, at start.
                 for _ in range(60):
@@ -121,10 +136,19 @@ def local(bin_dir):
             print("Missing second holder: profile and mailbox refused")
             media_retention(client, bin_dir, storage, peers[0], processes,
                             first_env)
+        except BaseException:
+            failed = True
+            raise
         finally:
             for process in processes:
                 process.terminate()
                 process.wait()
+            if failed:
+                for log in sorted(Path(logs).glob("node-*.log")):
+                    print(f"--- {log} ---", flush=True)
+                    with log.open(errors="replace") as captured:
+                        shutil.copyfileobj(captured, sys.stdout)
+                sys.stdout.flush()
 
 
 def profile_repair(client, bin_dir, peers, processes, environments):
@@ -169,7 +193,7 @@ def profile_repair(client, bin_dir, peers, processes, environments):
         time.sleep(0.2)
     else:
         raise RuntimeError("Live holder did not get the newer version")
-    processes[1] = subprocess.Popen([f"{bin_dir}/dyappd"], env=environments[1])
+    processes[1] = start_node(bin_dir, environments[1])
     for _ in range(60):
         if healthy(client, peers[1][0]):
             break
@@ -281,7 +305,7 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     # isolated-node exception without their stale in-memory routing entries.
     processes[0].terminate()
     processes[0].wait()
-    processes[0] = subprocess.Popen([f"{bin_dir}/dyappd"], env=env)
+    processes[0] = start_node(bin_dir, env)
     for _ in range(60):
         if healthy(client, tcp):
             break
@@ -305,7 +329,7 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
         raise RuntimeError("Fresh signed keep did not refresh media liveness")
     processes[0].terminate()
     processes[0].wait()
-    processes[0] = subprocess.Popen([f"{bin_dir}/dyappd"], env=env)
+    processes[0] = start_node(bin_dir, env)
     for _ in range(60):
         if healthy(client, tcp):
             break

@@ -19,7 +19,7 @@ case "${1:-test}" in
         python3 scripts/docker-local.py -f docker/compose.network.yml run --pull never network-test
         bash scripts/ui-test.sh all
         ;;
-    shell) python3 scripts/docker-local.py -f docker/compose.dev.yml --profile test run --no-deps dev bash ;;
+    shell) DYAPP_VERBOSE=1 python3 scripts/docker-local.py -f docker/compose.dev.yml --profile test run --no-deps dev bash ;;
     help|--help|-h) echo 'Usage: docker-test.sh test|build|quality|coverage|security|prepare|network|network-prepare|all|shell' ;;
     *) echo "Unknown command: $1" >&2; exit 2 ;;
 esac

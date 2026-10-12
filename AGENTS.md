@@ -15,6 +15,10 @@ All targets run in Docker; `make prepare` builds the images once. Main checks: `
 `make quality`, `make test-all`. Full command table, layout and limits:
 [docs/agents/project.md](docs/agents/project.md).
 
+Prefer these Make targets: successful Docker stages print one summary with a retained log
+under `/tmp/ai/dyapp-docker-*/output.log`; failures replay the full log. Set
+`DYAPP_VERBOSE=1` for live output. Interactive shell targets stream automatically.
+
 ## Rules
 
 User instructions take priority over this file. Details:

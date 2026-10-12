@@ -28,7 +28,7 @@ case "${1:-help}" in
             linux) service=linux-test ;;
             *) echo "Unknown platform: $2" >&2; exit 2 ;;
         esac
-        python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all run --no-deps "$service" bash
+        DYAPP_VERBOSE=1 python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all run --no-deps "$service" bash
         ;;
     help|--help|-h) echo 'Usage: ui-test.sh android|android-emulator|linux|all|prepare|shell [platform]' ;;
     *) echo "Unknown or unsupported command: $1" >&2; exit 2 ;;

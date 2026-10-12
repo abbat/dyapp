@@ -70,6 +70,7 @@ fn documented_config_and_deny_diagnostics_remain_stable() {
     let dir = format!("/tmp/ai/test-deny-diagnostic-{}", uuid::Uuid::new_v4());
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
         .args(["deny", "add", "not-an-entry", "--storage.dir", &dir])
         .output()
         .unwrap();

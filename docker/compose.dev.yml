@@ -30,6 +30,7 @@ x-runtime: &runtime
     CXXFLAGS: "-g0"
     CARGO_PROFILE_DEV_DEBUG: "0"
     RUST_BACKTRACE: "1"
+    DYAPP_VERBOSE: "${DYAPP_VERBOSE:-0}"
   working_dir: /workspace
 
 services:

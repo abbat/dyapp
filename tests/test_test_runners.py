@@ -8,13 +8,13 @@ import subprocess
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class Runners(unittest.TestCase):
-    def run_script(self, script, command, failing_service=""):
+    def run_script(self, script, command, failing_service="", verbose="0"):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             docker = Path(directory) / "docker"
@@ -22,6 +22,7 @@ class Runners(unittest.TestCase):
             docker.write_text(
                 '#!/bin/bash\n'
                 'printf "%s\\n" "$*" >> "$CALL_LOG"\n'
+                'printf "fake stdout\\n"; printf "fake stderr\\n" >&2\n'
                 'if [[ $* == *"--no-build"* ]]; then exit 1; fi\n'
                 'if [[ -n $FAIL_SERVICE && $* == *"$FAIL_SERVICE"* ]]; '
                 'then exit 23; fi\n'
@@ -30,7 +31,8 @@ class Runners(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts" / script), command],
                 env={**os.environ, "PATH": f"{directory}:{os.environ['PATH']}",
-                     "CALL_LOG": str(log), "FAIL_SERVICE": failing_service},
+                     "CALL_LOG": str(log), "FAIL_SERVICE": failing_service,
+                     "DYAPP_VERBOSE": verbose},
                 capture_output=True, text=True, check=False,
             )
             return result, log.read_text() if log.exists() else ""
@@ -59,9 +61,116 @@ class Runners(unittest.TestCase):
         self.assertEqual(len(runs), 3)
         for service in (
                 "android-unit-test", "android-emulator-test", "linux-test"):
-            self.assertIn(f"--profile all run --pull never {service}", calls)
+            self.assertIn(
+                f"--profile all run --no-TTY --pull never {service}", calls)
         self.assertNotIn("build", calls)
         self.assertNotIn("linux-gui", calls)
+
+    def test_success_retains_full_logs_and_failure_replays_them(self):
+        result, calls = self.run_script("docker-test.sh", "test")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(result.stdout.splitlines()), 1)
+        self.assertEqual(result.stderr, "")
+        log = Path(result.stdout.strip().split("; log: ")[1])
+        self.assertEqual(log.read_text(),
+                         "fake stdout\nfake stderr\n" * 2)
+        self.assertIn("run --no-TTY", calls)
+        failed, _ = self.run_script("docker-test.sh", "test", "dev")
+        self.assertEqual(failed.returncode, 23)
+        self.assertEqual(failed.stdout, log.read_text())
+        self.assertIn("FAILED Docker Compose test (exit 23); log: ",
+                      failed.stderr)
+
+    def test_verbose_and_interactive_shells_stream_output(self):
+        for script, command, verbose in (("docker-test.sh", "test", "1"),
+                                         ("docker-test.sh", "shell", "0"),
+                                         ("ui-test.sh", "shell", "0")):
+            with self.subTest(script=script, command=command):
+                result, calls = self.run_script(script, command,
+                                                verbose=verbose)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("fake stdout", result.stdout)
+                self.assertIn("fake stderr", result.stderr)
+                self.assertNotIn("; log: ", result.stdout)
+                self.assertNotIn("--no-TTY", calls)
+
+    def test_cleanup_failure_and_interrupt_preserve_status_and_log(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        for run_status, stop_status, expected in ((0, 19, 19), (23, 19, 23),
+                                                  (130, 0, 130)):
+            with self.subTest(run_status=run_status):
+                def execute(command, **kwargs):
+                    kwargs["stdout"].write((command[0] + "\n").encode())
+                    if command == ["run"] and run_status == 130:
+                        raise KeyboardInterrupt
+                    return subprocess.CompletedProcess(
+                        command, run_status if command == ["run"]
+                        else stop_status)
+                out, error = io.StringIO(), io.StringIO()
+                with patch.object(runner.subprocess, "run",
+                                  side_effect=execute), \
+                        patch.object(runner.sys, "stdout", out), \
+                        patch.object(runner.sys, "stderr", error):
+                    self.assertEqual(runner.run_logged(
+                        ["run"], {}, "stage", ["stop"]), expected)
+                self.assertEqual(out.getvalue(), "run\nstop\n")
+                log = Path(error.getvalue().strip().split("; log: ")[1])
+                self.assertEqual(log.read_text(), out.getvalue())
+
+    def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
+        spec = importlib.util.spec_from_file_location(
+            "network_test", ROOT / "scripts/network-test.py")
+        network = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(network)
+        Path("/tmp/ai").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
+            environment = {"DYAPP_NODE_LOG_DIR": directory,
+                           "DYAPPD__STORAGE__DIR": "/storage/7071"}
+
+            def spawn(command, **kwargs):
+                kwargs["stdout"].write(b"node output\n")
+                self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
+            with patch.object(network.subprocess, "Popen", side_effect=spawn):
+                network.start_node("/bin", environment)
+                network.start_node("/bin", environment)
+            self.assertEqual(Path(directory, "node-7071.log").read_text(),
+                             "node output\n" * 2)
+            with patch.object(network.subprocess, "Popen") as invoke:
+                network.start_node(
+                    "/bin", {**environment, "DYAPP_VERBOSE": "1"})
+            self.assertNotIn("stdout", invoke.call_args.kwargs)
+            self.assertNotIn("stderr", invoke.call_args.kwargs)
+
+    def test_local_node_failure_prints_retained_diagnostics(self):
+        spec = importlib.util.spec_from_file_location(
+            "network_test", ROOT / "scripts/network-test.py")
+        network = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(network)
+
+        process = Mock()
+
+        def spawn(command, **kwargs):
+            kwargs["stdout"].write(b"node startup failed\n")
+            return process
+
+        out = io.StringIO()
+        with patch.object(network.subprocess, "run"), \
+                patch.object(network.subprocess, "Popen", side_effect=spawn), \
+                patch.object(network, "healthy", return_value=False), \
+                patch.object(network.time, "sleep"), \
+                patch.object(network.sys, "stdout", out), \
+                patch.dict(os.environ, {"DYAPP_VERBOSE": "0"}):
+            with self.assertRaisesRegex(RuntimeError, "Node did not start"):
+                network.local("/bin")
+        self.assertIn("node startup failed", out.getvalue())
+        logs = Path(out.getvalue().splitlines()[0].split(": ")[1])
+        self.assertEqual((logs / "node-7071.log").read_bytes(),
+                         b"node startup failed\n")
+        process.terminate.assert_called_once()
+        process.wait.assert_called_once()
 
     def test_local_docker_runs_serialize(self):
         Path("/tmp/ai").mkdir(exist_ok=True)
@@ -105,14 +214,15 @@ class Runners(unittest.TestCase):
         for status in (0, 23):
             with self.subTest(status=status):
                 log = b"build log\n"
-                results = [config,
-                           subprocess.CompletedProcess([], status, stdout=log)]
-                if status == 0:
-                    results.append(
-                        subprocess.CompletedProcess([], 0, stdout=log))
+
+                def execute(command, **kwargs):
+                    if command[1] == "compose":
+                        return config
+                    kwargs["stdout"].write(log)
+                    return subprocess.CompletedProcess([], status)
                 output = io.TextIOWrapper(io.BytesIO())
                 with patch.object(runner.subprocess, "run",
-                                  side_effect=results) as invoke, \
+                                  side_effect=execute) as invoke, \
                         patch.object(runner.sys, "stdout", output), \
                         patch.object(runner.sys, "stderr", io.StringIO()):
                     self.assertEqual(runner.build_images(
@@ -122,8 +232,13 @@ class Runners(unittest.TestCase):
                 printed = output.buffer.getvalue().decode()
                 # The build log is shown only for a failed build.
                 if status == 0:
-                    self.assertEqual(printed,
-                                     "OK test:first\nOK test:second\n")
+                    summaries = printed.splitlines()
+                    self.assertEqual(len(summaries), 2)
+                    for name, summary in zip(("first", "second"), summaries):
+                        self.assertTrue(summary.startswith(
+                            f"OK test:{name}; log: "))
+                        self.assertEqual(Path(summary.split("; log: ")[1])
+                                         .read_bytes(), log)
                 else:
                     self.assertEqual(printed, "build log\n")
                 builds = invoke.call_args_list[1:]
@@ -152,15 +267,14 @@ class Runners(unittest.TestCase):
                        "build": {"context": directory, "dockerfile": name}}
                 for name in ("remote", "local")
             }
-            ok = subprocess.CompletedProcess([], 0, stdout=b"")
             config = subprocess.CompletedProcess(
                 [], 0, stdout=json.dumps({"services": services}))
-            with patch.object(runner.subprocess, "run",
-                              side_effect=[config, ok, ok]) as invoke, \
-                    patch.object(runner.sys, "stdout", io.StringIO()):
+            with patch.object(runner.subprocess, "run", return_value=config), \
+                    patch.object(runner, "run_logged",
+                                 return_value=0) as invoke:
                 self.assertEqual(runner.build_images(
                     ["build"], {"DYAPP_BUILD_CACHE": "gha"}), 0)
-        remote, local = (call.args[0] for call in invoke.call_args_list[1:])
+        remote, local = (call.args[0] for call in invoke.call_args_list)
         self.assertEqual(remote[:3], ["docker", "buildx", "build"])
         self.assertIn("type=gha,scope=test-remote", remote)
         self.assertEqual(local[:2], ["docker", "build"])

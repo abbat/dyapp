@@ -2,6 +2,10 @@
 
 ## Overview
 
+Local Make checks retain complete Docker output and print a short result on success;
+failures replay the log. Use `DYAPP_VERBOSE=1` for live output. See
+[local check output](../agents/project.md#local-check-output) for paths and retention.
+
 Multi-layer testing. Rust coverage is gated at **75% line coverage on the workspace total** — see [Coverage policy](#coverage-policy).
 
 ## Test Layers

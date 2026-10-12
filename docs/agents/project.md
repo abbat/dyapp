@@ -46,6 +46,28 @@ pulls anything).
 There are no other targets (no `ui-test-all`, no npm). Details: [testing](../testing/README.md),
 [Docker](../testing/docker.md), [CI](../development/ci-matrix.md).
 
+## Local check output
+
+Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
+stdout and stderr from each Docker stage, including Compose stop, in a unique
+`/tmp/ai/dyapp-docker-*/output.log`. Success prints one `OK` line with its path; a nonzero
+exit replays the complete log and reports the failure and path. The original stage failure
+wins over a later stop failure; a failed stop also fails an otherwise successful stage.
+Logs remain for inspection and are never deleted by the runner. Large logs consume disk.
+
+`DYAPP_VERBOSE=1 make test-all` streams output instead of capturing it. Shell targets set
+this automatically to preserve interaction and TTY behavior. Quiet checks disable the
+Compose TTY; no Cargo/Gradle warnings or test details are discarded from the saved log.
+Long stages have no live progress in quiet mode; inspect the newest log or use verbose mode.
+Image builds use the same capture behavior. Commands that run tools directly in CI keep
+those tools' existing output.
+
+`network-test.py --local BIN_DIR` keeps each local node's stdout/stderr in
+`/tmp/ai/dyapp-network-*/node-PORT.log`, appending across restarts; suite result lines still
+print. Failures also print node logs. `DYAPP_VERBOSE=1` restores node streaming. Paths are
+in the process's filesystem: logs in a container tmpfs must be copied out before stopping
+that container; the outer Docker stage log retains any printed failure diagnostics.
+
 ## Limits to keep in mind
 
 - The FFI layer is unfinished: no platform app calls Rust. Do not document or test as if it did.

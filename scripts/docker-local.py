@@ -3,9 +3,55 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
+
+
+def run_logged(command, environment, label, cleanup=None):
+    """Keep complete stage output on disk; show it on failure or on request."""
+    verbose = environment.get("DYAPP_VERBOSE") == "1"
+    directory = Path("/tmp/ai")
+    directory.mkdir(parents=True, exist_ok=True)
+    log = None if verbose else Path(tempfile.mkdtemp(
+        prefix="dyapp-docker-", dir=directory)) / "output.log"
+    output = None if log is None else log.open("wb")
+    status = 0
+    error_stream = None if verbose else subprocess.STDOUT
+    try:
+        try:
+            status = subprocess.run(command, env=environment, stdout=output,
+                                    stderr=error_stream,
+                                    check=False).returncode
+        except KeyboardInterrupt:
+            status = 130
+        if cleanup is not None:
+            result = subprocess.run(cleanup, env=environment, stdout=output,
+                                    stderr=error_stream, check=False)
+            if status == 0:
+                status = result.returncode
+    except OSError as error:
+        message = f"{error}\n"
+        if output is None:
+            print(message, file=sys.stderr, end="")
+        else:
+            output.write(message.encode())
+        status = status or 1
+    finally:
+        if output is not None:
+            output.close()
+    if status and log is not None:
+        sys.stdout.flush()
+        with log.open(errors="replace") as captured:
+            shutil.copyfileobj(captured, sys.stdout)
+        sys.stdout.flush()
+    summary = f"FAILED {label} (exit {status})" if status else f"OK {label}"
+    print(f"{summary}; log: {log}" if log is not None else summary,
+          file=sys.stderr if status else sys.stdout, flush=True)
+    return status
+
 
 # Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners).
 CPUS = min(4, os.cpu_count() or 1)
@@ -63,18 +109,12 @@ def build_images(arguments, environment):
             command.extend(["--build-arg", key if value is None
                             else f"{key}={value}"])
         command.append(build["context"])
-        # Build logs are long; show them only when the build fails.
-        result = subprocess.run(
-            command, env={**environment, "DOCKER_BUILDKIT": buildkit},
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        status = run_logged(
+            command, {**environment, "DOCKER_BUILDKIT": buildkit},
+            service["image"],
         )
-        if result.returncode:
-            sys.stdout.flush()
-            sys.stdout.buffer.write(result.stdout)
-            print(f"FAILED {service['image']} (exit {result.returncode})",
-                  file=sys.stderr)
-            return result.returncode
-        print(f"OK {service['image']}")
+        if status:
+            return status
     return 0
 
 
@@ -91,21 +131,21 @@ def main():
                    "DYAPP_EMULATOR_CPUS": str(max(1, CPUS - 1))}
     with (temporary / "dyapp-docker.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
-            if "build" in arguments and "run" not in arguments:
-                return build_images(arguments, environment)
-            result = subprocess.run(["docker", "compose", *arguments],
-                                    env=environment, check=False)
-            status = result.returncode
-        except KeyboardInterrupt:
-            status = 130
+        if "build" in arguments and "run" not in arguments:
+            return build_images(arguments, environment)
+        cleanup = None
         if "run" in arguments:
             prefix = arguments[:arguments.index("run")]
-            cleanup = subprocess.run(["docker", "compose", *prefix, "stop"],
-                                     env=environment, check=False)
-            if status == 0:
-                status = cleanup.returncode
-        return status
+            cleanup = ["docker", "compose", *prefix, "stop"]
+            # Captured checks must not allocate a pseudo-terminal.
+            if environment.get("DYAPP_VERBOSE") != "1":
+                index = arguments.index("run") + 1
+                arguments.insert(index, "--no-TTY")
+        label = "Docker Compose"
+        if "--profile" in arguments:
+            label += f" {arguments[arguments.index('--profile') + 1]}"
+        return run_logged(["docker", "compose", *arguments], environment,
+                          label, cleanup)
 
 
 if __name__ == "__main__":
