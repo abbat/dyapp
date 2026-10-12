@@ -20,8 +20,8 @@ Both jobs run directly on the runner, without Docker. Every check is a step of
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `docker/Dockerfile.dev` uses;
-- downloads the `typos` 1.50.3 and `taplo` 0.10.0 release binaries and checks them against the
-  sha256 sums `docker/Dockerfile.dev` uses;
+- downloads the `typos` 1.50.3, `taplo` 0.10.0 and `cargo-shear` 1.14.0 release binaries and
+  checks them against the sha256 sums `docker/Dockerfile.dev` uses;
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
 
@@ -56,6 +56,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it runs
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
 | Format | `cargo fmt --all -- --check` |
+| Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |
 | Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, tests included, so there is no separate `cargo check`) |
 | Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 

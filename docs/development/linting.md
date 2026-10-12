@@ -16,6 +16,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Secrets | gitleaks on the git history | `.gitleaksignore` | yes | — | enforced |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
+| Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint | `.swiftlint.yml` | no | no | config only |
 | Kotlin | detekt | `detekt.yml` | no | no | config only, not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |

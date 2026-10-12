@@ -23,8 +23,8 @@ here instead of repeating guarantees.
 | Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; envelopes and profiles as the signed protobuf record |
 
 `EncryptionConfig::default_secure()` only sets strings such as
-`"ChaCha20-Poly1305"`; nothing reads them to select an algorithm. The
-`chacha20poly1305` dependency is declared but unused.
+`"ChaCha20-Poly1305"`; nothing reads them to select an algorithm, and no
+cipher crate is a dependency.
 
 Existing unit tests of `rust/messaging` and `rust/video` (roundtrip, `verify`
 returns true) exercise the stubs. **They are not evidence of any security

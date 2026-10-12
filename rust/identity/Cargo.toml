@@ -13,6 +13,10 @@ sha2 = "0.11"
 prost.workspace = true
 thiserror = "2"
 
+# The prost-build output, include!d from OUT_DIR, is invisible to cargo-shear.
+[package.metadata.cargo-shear]
+ignored = ["prost"]
+
 [build-dependencies]
 prost-build.workspace = true
 protox.workspace = true
