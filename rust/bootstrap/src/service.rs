@@ -2670,7 +2670,7 @@ mod tests {
         // Vector from Python: base64(hmac.new(b"secret", user, sha1).digest()).
         let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
         assert_eq!(known.username, "1003600:12D3KooWpeer");
-        assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc=");
+        assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc="); // gitleaks:allow (test vector)
     }
 
     fn media_service(change: impl FnOnce(&mut crate::config::Limits)) -> Service {

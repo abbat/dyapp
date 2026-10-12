@@ -18,6 +18,9 @@ step() {
         quality)
             python3 -B scripts/check-repository.py
             actionlint
+            # Secrets in the git history; a shallow CI checkout scans its one commit, the whole tree.
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD" \
+                gitleaks git --no-banner --redact .
             shellcheck scripts/*.sh
             python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             python3 -m flake8 scripts tools tests

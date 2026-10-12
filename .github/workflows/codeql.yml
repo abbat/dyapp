@@ -80,11 +80,6 @@ jobs:
       run: |
         grep -rn "unsafe {" rust/ --include="*.rs" || echo "  No unsafe code found ✓"
 
-    - name: hardcoded secrets
-      run: |
-        grep -rn "password\|secret\|token\|key\|credential" rust/ --include="*.rs" | grep -v "// " || echo "  No hardcoded secrets found ✓"
-        true
-
     - name: diagnostics
       run: cargo clippy --workspace --all-features --all-targets --locked --message-format=json > clippy.json
 

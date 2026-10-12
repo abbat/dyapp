@@ -1,0 +1,3 @@
+# Known false positives (gitleaks fingerprints): a test vector of the TURN credential HMAC,
+# committed before it carried an inline gitleaks:allow.
+29eae31dde7a1dc1564d4a1f1080c93428ae0672:rust/bootstrap/src/service.rs:generic-api-key:1307

@@ -18,8 +18,8 @@ Both jobs run directly on the runner, without Docker. Every check is a step of
 
 - installs the apt packages that mirror `docker/Dockerfile.dev`: build tools, clang,
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
-- copies `actionlint` 1.7.12 out of the official `rhysd/actionlint` image, pinned to the
-  digest `docker/Dockerfile.dev` uses;
+- copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
+  digests `docker/Dockerfile.dev` uses;
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
 
@@ -40,13 +40,14 @@ the schedule and the wait.
 
 ### `quality` → **quality**
 
-This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it installs actionlint 1.7.12
-and runs `rust-check.sh quality`, which runs these checks in order:
+This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it runs
+`rust-check.sh quality`, which runs these checks in order:
 
 | Check | Command |
 |-------|---------|
 | Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve |
 | Workflow lint | `actionlint` |
+| Secret scan | `gitleaks git --redact`: the git history (the shallow CI checkout: its one commit); known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
 | Shell lint | `shellcheck scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
