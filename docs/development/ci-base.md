@@ -47,7 +47,7 @@ and runs `rust-check.sh quality`, which runs these checks in order:
 |-------|---------|
 | Repository rules | `scripts/check-repository.py` |
 | Workflow lint | `actionlint` |
-| Shell syntax | `bash -n scripts/*.sh` |
+| Shell lint | `shellcheck scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
 | Format | `cargo fmt --all -- --check` |

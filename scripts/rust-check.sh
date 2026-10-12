@@ -18,7 +18,7 @@ step() {
         quality)
             python3 -B scripts/check-repository.py
             actionlint
-            for script in scripts/*.sh; do bash -n "$script"; done
+            shellcheck scripts/*.sh
             python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             python3 -m flake8 scripts tools tests
             cargo fmt --all -- --check

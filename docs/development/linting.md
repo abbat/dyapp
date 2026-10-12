@@ -12,7 +12,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`, no `[lints]` table) | yes | `codeql.yml` (clippy, see below) | enforced |
 | Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
-| Shell | `bash -n` on `scripts/*.sh` (syntax only) | none | yes | — | enforced |
+| Shell | ShellCheck on `scripts/*.sh` | none (defaults) | yes | — | enforced |
 | Swift | SwiftLint | `.swiftlint.yml` | no | no | config only |
 | Kotlin | detekt | `detekt.yml` | no | no | config only, not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |

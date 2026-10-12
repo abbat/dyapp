@@ -7,7 +7,7 @@ case "${1:?usage: ci-setup.sh rust|linux}" in
     rust)
         packages=(build-essential pkg-config protobuf-compiler libssl-dev
                   python3-flake8 python3-yaml python3-pyflakes shellcheck)
-        components=(--component rustfmt,clippy,llvm-tools-preview)
+        components=(--component "rustfmt,clippy,llvm-tools-preview")
         ;;
     linux)
         packages=(build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libxdo-dev

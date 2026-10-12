@@ -10,7 +10,15 @@ case "${1:?suite required}" in
         cd /tmp/ai/android
         report_dir="/reports/$HOSTNAME"
         mkdir -p "$report_dir"
-        trap 'code=$?; for crash in /tmp/ai/android/hs_err*.log; do if [[ -f $crash ]]; then head -60 "$crash"; cp -f "$crash" "$report_dir/"; fi; done; cp -rf app/build/test-results "$report_dir/" 2>/dev/null || true; exit "$code"' EXIT
+        save_reports() {
+            local code=$? crash
+            for crash in /tmp/ai/android/hs_err*.log; do
+                if [[ -f $crash ]]; then head -60 "$crash"; cp -f "$crash" "$report_dir/"; fi
+            done
+            cp -rf app/build/test-results "$report_dir/" 2>/dev/null || true
+            exit "$code"
+        }
+        trap save_reports EXIT
         sh ./gradlew --offline --no-daemon --version > "$report_dir/gradle-version.txt"
         cat "$report_dir/gradle-version.txt"
         sh ./gradlew --offline --no-daemon tasks --all > "$report_dir/gradle-tasks.txt"
