@@ -20,7 +20,7 @@ identity and close.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 3 instrumented (`AppUITests.kt` ×2, `RustBridgeTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 3 instrumented (`AppUITests.kt` ×2, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 2 cargo tests (`desktop/main.rs`, `linux/tests/integration_tests.rs`) | 2 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | same 2 cargo tests (`windows/` includes `desktop/` and `linux/tests`) | same 2 smoke cases | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 2 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |

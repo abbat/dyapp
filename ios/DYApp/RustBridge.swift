@@ -8,13 +8,13 @@ class RustBridge {
 
   /// Initialize the Rust core
   func initialize() throws {
-    // TODO: Call Rust init via UniFFI
+    // Pending the UniFFI bindings: call Rust init
     // let result = rustInitialize()
   }
 
   /// Shutdown the Rust core
   func shutdown() throws {
-    // TODO: Call Rust shutdown via UniFFI
+    // Pending the UniFFI bindings: call Rust shutdown
     // let result = rustShutdown()
   }
 }

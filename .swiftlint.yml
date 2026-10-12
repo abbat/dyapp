@@ -16,6 +16,7 @@ opt_in_rules:
   - contains_over_first_not_nil
   - empty_count
   - empty_string
+  - enum_case_associated_values_count
   - explicit_init
   - fallthrough
   - fatal_error_message
@@ -37,7 +38,6 @@ opt_in_rules:
   - overridden_super_call
   - override_in_extension
   - pattern_matching_keywords
-  - prefer_none_over_optional_empty_array
   - prefer_self_in_static_references
   - prefer_self_type_over_type_of_self
   - prefer_zero_over_explicit_init
@@ -46,10 +46,9 @@ opt_in_rules:
   - quick_discouraged_call
   - quick_discouraged_focused_test
   - redundant_nil_coalescing
-  - redundant_optional_initialization
+  - implicit_optional_initialization
   - redundant_string_enum_value
   - redundant_type_annotation
-  - required_deinit
   - single_test_class
   - sorted_first_last
   - sorted_imports
@@ -74,7 +73,6 @@ opt_in_rules:
 disabled_rules:
   - line_length  # Use indentation-based limits instead
   - type_name
-  - variable_name
   - unused_closure_parameter
 
 # Rule configurations
@@ -107,23 +105,16 @@ nesting:
   function_level: 2
 
 trailing_comma:
-  mandatory_trailing_comma: false
+  mandatory_comma: true
 
 vertical_whitespace:
   max_empty_lines: 2
-
-indentation_width:
-  indentation_width: 2
-
-line_breaks:
-  complex_level: 2
-  trailing_newlines: true
 
 large_tuple:
   warning: 3
   error: 4
 
-enum_case_associated_values_length:
+enum_case_associated_values_count:
   warning: 5
   error: 6
 

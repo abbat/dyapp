@@ -1,5 +1,5 @@
-import XCTest
 @testable import DYApp
+import XCTest
 
 class RustBridgeTests: XCTestCase {
     func testRustBridgeInitialization() throws {

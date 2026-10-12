@@ -17,8 +17,8 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
-| Swift | SwiftLint | `.swiftlint.yml` | no | no | config only |
-| Kotlin | detekt | `detekt.yml` | no | no | config only, not wired into Gradle |
+| Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `ios macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
+| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml` | yes | — | enforced; not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
 The quality checks are `scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
@@ -58,40 +58,42 @@ flake8 .                                # python-lint.yml, only when *.py or .fl
 off. flake8 only reports; it does not fix anything. `autopep8` or similar is not used by the
 project.
 
-## Swift (`.swiftlint.yml`) — not run
+## Swift (`.swiftlint.yml`)
 
-No Makefile target, script, Xcode build phase or workflow runs SwiftLint; the SwiftLint version is
-not pinned. What the config sets:
+The quality step runs `swiftlint lint --strict --quiet --no-cache ios macos` (the source tree is
+read-only in the container, so no cache): every warning fails. The binary is the static Linux
+build of SwiftLint 0.65.1 (`swiftlint-static` from `swiftlint_linux_amd64.zip`, sha256-checked),
+so no Swift toolchain is needed. Without SourceKit
+it skips `statement_position`, `vertical_whitespace_opening_braces` and
+`vertical_whitespace_closing_braces` and prints a warning for each; on macOS they apply. What the
+config sets:
 
-- SwiftLint default rules, plus 58 rules in `opt_in_rules` (including `force_unwrapping`,
+- SwiftLint default rules, plus 57 rules in `opt_in_rules` (including `force_unwrapping`,
   `implicitly_unwrapped_optional`, `missing_docs`, `sorted_imports`, `trailing_closure`). This is
   not "all rules".
 - `disabled_rules`: `line_length` (so there is **no** line-length limit), `type_name`,
-  `variable_name`, `unused_closure_parameter`. `variable_name` is the old name of
-  `identifier_name`; check with `swiftlint rules` whether your version applies the
-  `identifier_name` thresholds below.
+  `unused_closure_parameter`.
 - Thresholds (warning / error): `file_length` 500 / 1000, `type_body_length` 300 / 500,
   `function_body_length` 50 / 100, `cyclomatic_complexity` 10 / 20, `identifier_name` length min
-  2 / 1 and max 50 / 60, `large_tuple` 3 / 4, `enum_case_associated_values_length` 5 / 6,
+  2 / 1 and max 50 / 60, `large_tuple` 3 / 4, `enum_case_associated_values_count` 5 / 6,
   `nesting` type and function level 2, `vertical_whitespace` max 2 empty lines.
-- `indentation_width: 2` is configured, but `indentation_width` is opt-in and not listed in
-  `opt_in_rules`, so the setting has no effect.
+- `trailing_comma: mandatory_comma: true`: a multi-line collection ends with a comma.
 - `reporter: xcode`.
 
-To try it on macOS: `swiftlint lint ios/` and `swiftlint lint macos/`. `swiftlint --fix` rewrites
-only rules that support correction; review the diff.
+`swiftlint --fix` rewrites only rules that support correction; review the diff.
 
-## Kotlin (`detekt.yml`) — not run
+## Kotlin (`detekt.yml`)
 
-`detekt.yml` is at the repository root, but `android/build.gradle` and `android/app/build.gradle`
-apply no detekt (or ktlint) plugin, so **`./gradlew detekt` does not exist** and no report is
-produced. What the config sets: `jvmTarget: "11"`; `ComplexMethod` threshold 10, `LongMethod` 30,
-`LargeClass` 150, `LongParameterList` 5 (functions) / 7 (constructors), `MaxLineLength` 120; most
-rule sets active. The `formatting` section only takes effect with the separate
-`detekt-formatting` plugin.
-
-Wiring it in would mean adding the Gradle plugin with `config = files("$rootDir/../detekt.yml")`
-(the file is outside `android/`) and a CI step; that is not done.
+The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
+`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android
+--build-upon-default-config`. Any finding fails. `--build-upon-default-config` keeps every
+default setting `detekt.yml` does not override. The Gradle build applies no detekt plugin, so
+`./gradlew detekt` does not exist. What the config sets: `CyclomaticComplexMethod` threshold 10,
+`LongMethod` 30, `LargeClass` 150, `LongParameterList` 5 (functions) / 7 (constructors),
+`MaxLineLength` 120; most rule sets active, including the `Undocumented*` comment rules for public
+declarations. `FunctionNaming` ignores `@Composable` functions, `MagicNumber` ignores property
+declarations, and `FunctionMaxLength` skips the test sources. The `formatting` (ktlint) rule set
+is not used.
 
 A detekt **baseline** (`detektBaseline`) records the current findings so they stop failing the
 build. It hides them; it does not fix anything. Only add one with an issue to remove the recorded
@@ -135,6 +137,5 @@ guard let value = object as? String else { return }
 
 ## Gaps
 
-- SwiftLint and detekt: configs exist, nothing runs them (local or CI).
 - `codeql.yml` clippy flags differ from the quality container (pedantic only there).
 - Required status checks are not established.

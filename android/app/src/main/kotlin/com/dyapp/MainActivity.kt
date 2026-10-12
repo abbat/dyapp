@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.dyapp.ui.theme.DYAppTheme
 
+/** The single activity; hosts the Compose UI. */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,6 +22,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** The start screen; `app-ready` tags the element UI tests wait for. */
 @Composable
 fun MainScreen() {
     Column(

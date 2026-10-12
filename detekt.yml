@@ -1,8 +1,5 @@
 # Detekt configuration for dyapp Kotlin code
 
-build:
-  jvmTarget: "11"
-
 output-reports:
   active: true
   exclude:
@@ -15,8 +12,6 @@ comments:
   CommentOverPrivateProperty:
     active: true
   DeprecatedBlockTag:
-    active: true
-  EndOfBlockComment:
     active: true
   UndocumentedPublicClass:
     active: true
@@ -37,7 +32,7 @@ complexity:
     active: true
     threshold: 10
     includeStaticDeclarations: false
-  ComplexMethod:
+  CyclomaticComplexMethod:
     active: true
     threshold: 10
   LargeClass:
@@ -100,8 +95,6 @@ empty-blocks:
     active: true
   EmptyInitBlock:
     active: true
-  EmptyKtEmptyBody:
-    active: true
   EmptySecondaryConstructor:
     active: true
   EmptyWhenBlock:
@@ -121,8 +114,6 @@ exceptions:
   PrintStackTrace:
     active: true
   RethrowCaughtException:
-    active: true
-  ReturnFromCatchBlock:
     active: true
   SwallowedException:
     active: true
@@ -147,70 +138,6 @@ exceptions:
       - Exception
       - Throwable
       - RuntimeException
-  UnsafeCallOnNullableType:
-    active: true
-  UnsafeCast:
-    active: true
-
-formatting:
-  active: true
-  Indentation:
-    active: true
-    indentSize: 4
-  MaximumLineLength:
-    active: true
-    maxLineLength: 120
-  NoBlankLineBeforeRbrace:
-    active: true
-  NoConsecutiveBlankLines:
-    active: true
-  NoEmptyClassBody:
-    active: true
-  NoEmptyFirstLineInMethodBlock:
-    active: true
-  NoMultipleSpaces:
-    active: true
-  NoSemicolons:
-    active: true
-  NoTrailingSpaces:
-    active: true
-  NoUnitReturn:
-    active: true
-  NoUnusedImports:
-    active: true
-  NoWildcardImports:
-    active: true
-  PackageName:
-    active: true
-  ParameterListWrapping:
-    active: true
-  SpacingAroundColon:
-    active: true
-  SpacingAroundComma:
-    active: true
-  SpacingAroundCurly:
-    active: true
-  SpacingAroundDot:
-    active: true
-  SpacingAroundKeyword:
-    active: true
-  SpacingAroundOperators:
-    active: true
-  SpacingAroundParens:
-    active: true
-  SpacingAroundRangeOperator:
-    active: true
-  SpacingBetweenDeclarationsWithAnnotationsOrModifierList:
-    active: true
-  SpacingBetweenDeclarationsWithTypeAliasOrTypeParameterList:
-    active: true
-  TrailingCommaOnArgumentList:
-    active: false
-  TrailingCommaOnCallSite:
-    active: false
-  WrappingFirstArgumentOrParameter:
-    active: true
-
 naming:
   active: true
   BooleanPropertyNaming:
@@ -224,12 +151,10 @@ naming:
   EnumNaming:
     active: true
     enumEntryPattern: '[A-Z][_a-zA-Z0-9]*'
-  ForbiddenClassName:
-    active: true
-    forbiddenName: [ 'Test' ]
   FunctionMaxLength:
     active: true
     maximumFunctionNameLength: 30
+    excludes: [ '**/test/**', '**/androidTest/**' ]
   FunctionMinLength:
     active: true
     minimumFunctionNameLength: 1
@@ -237,6 +162,7 @@ naming:
     active: true
     functionPattern: '([a-z][a-zA-Z0-9]*)|(`.*`)'
     excludeClassPattern: '$^'
+    ignoreAnnotated: [ 'Composable' ]
   InvalidPackageDeclaration:
     active: true
   MatchingDeclarationName:
@@ -250,21 +176,6 @@ naming:
   ObjectPropertyNaming:
     active: true
     constantPattern: '[A-Za-z][_A-Za-z0-9]*'
-  ParameterNaming:
-    active: true
-    parameterPattern: '[a-z][a-zA-Z0-9]*|_'
-  PrivatePropertyNaming:
-    active: true
-    privatePropertyPattern: '_?[a-z][a-zA-Z0-9]*'
-  PropertyMaxLength:
-    active: true
-    maximumPropertyNameLength: 32
-  PropertyMinLength:
-    active: true
-    minimumPropertyNameLength: 1
-  PropertyNaming:
-    active: true
-    propertyPattern: '[a-z][a-zA-Z0-9]*|_'
   TopLevelPropertyNaming:
     active: true
     constantPattern: '[A-Z][_A-Z0-9]*|[a-z][a-zA-Z0-9]*'
@@ -279,8 +190,6 @@ naming:
 
 performance:
   active: true
-  ArrayPrimitiveCast:
-    active: true
   ForEachOnRange:
     active: true
   SpreadOperator:
@@ -292,11 +201,7 @@ potential-bugs:
   active: true
   Deprecation:
     active: true
-  DontDowncastCollectionCast:
-    active: true
   DoubleMutabilityForCollection:
-    active: true
-  DuplicateCaseInWhenExpression:
     active: true
   EqualsAlwaysReturnsTrueOrFalse:
     active: true
@@ -312,14 +217,11 @@ potential-bugs:
     active: true
   InvalidRange:
     active: true
-  IteratorImplementation:
-    active: true
   IteratorNotThrowingNoSuchElementException:
     active: true
   LateinitUsage:
     active: true
-    excludeAnnotatedProperties: [ 'Inject', 'BindView' ]
-    ignoreOnClassProperties: false
+    ignoreAnnotated: [ 'Inject', 'BindView' ]
   MapGetWithNotNullAssertionOperator:
     active: true
   MissingPackageDeclaration:
@@ -327,10 +229,6 @@ potential-bugs:
   NullableToStringCall:
     active: true
   NullCheckOnMutableProperty:
-    active: true
-  NullableCollectionElement:
-    active: true
-  NullInsteadOfDefault:
     active: true
   PropertyUsedBeforeDeclaration:
     active: true
@@ -367,8 +265,6 @@ style:
     active: true
   DataClassContainsFunctions:
     active: true
-  DataClassInheritance:
-    active: true
   DataClassShouldBeImmutable:
     active: true
   DestructuringDeclarationWithTooManyEntries:
@@ -384,11 +280,9 @@ style:
     active: true
   ExpressionBodySyntax:
     active: true
-  FinalNewline:
-    active: true
   ForbiddenComment:
     active: true
-    values: [ 'FIXME:', 'STOPSHIP:' ]
+    comments: [ 'FIXME:', 'STOPSHIP:' ]
   ForbiddenImport:
     active: true
     imports: [ ]
@@ -399,9 +293,6 @@ style:
   FunctionOnlyReturningConstant:
     active: true
     ignoreOverridableFunction: true
-    ignoreActualFunctions: true
-  LibraryCodeMustSpecifyReturnType:
-    active: true
   LoopWithTooManyJumpStatements:
     active: true
     maxJumpCount: 5
@@ -409,7 +300,7 @@ style:
     active: true
     ignoreNumbers: [ '-1', '0', '1', '2' ]
     ignoreHashCodeFunction: true
-    ignorePropertyDeclaration: false
+    ignorePropertyDeclaration: true
     ignoreLocalVariableDeclaration: false
   MandatoryBracesLoops:
     active: true
@@ -439,8 +330,6 @@ style:
     active: true
   OptionalUnit:
     active: true
-  OptionalWhenBraces:
-    active: true
   PreferToOverPairSyntax:
     active: true
   ProtectedMemberInFinalClass:
@@ -448,8 +337,6 @@ style:
   RedundantExplicitType:
     active: true
   RedundantHigherOrderMapUsage:
-    active: true
-  RedundantInnerClassModifier:
     active: true
   RedundantVisibilityModifierRule:
     active: true
@@ -464,14 +351,10 @@ style:
     max: 2
   TrailingWhitespace:
     active: true
-  TrimMultilineString:
-    active: true
   UnderscoresInNumericLiterals:
     active: true
-    acceptableDecimalLength: 4
+    acceptableLength: 4
   UnnecessaryAbstractClass:
-    active: true
-  UnnecessaryAnnotationUseSiteTargetOnType:
     active: true
   UnnecessaryApply:
     active: true
@@ -487,8 +370,6 @@ style:
     active: true
   UnnecessaryParentheses:
     active: true
-  UnnecessaryTrim:
-    active: true
   UnusedImports:
     active: true
   UnusedParameter:
@@ -499,11 +380,6 @@ style:
   UnusedPrivateMember:
     active: true
     allowedNames: '(_|ignored|expected)'
-  UnusedVariable:
-    active: true
-    allowedNames: '(_|ignored|expected)'
-  UseArrayLiterals:
-    active: true
   UseCheckOrError:
     active: true
   UseEmptyCounterpart:
@@ -512,19 +388,11 @@ style:
     active: true
   UseIfInsteadOfWhen:
     active: true
-  UseIsEven:
-    active: true
   UseOrEmpty:
     active: true
   UseRequire:
     active: true
-  UseRunCatching:
-    active: true
   UselessCallOnNotNull:
-    active: true
-  UseSingleConditionStringTextProcessing:
-    active: true
-  UseSpreadOperator:
     active: true
   VarCouldBeVal:
     active: true
