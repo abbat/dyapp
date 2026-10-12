@@ -415,12 +415,12 @@ Scheduled backups, retention and off-host storage are not provided.
 
 ### Updates
 
-**Rolling update (planned).** Without cross-node replication, taking a node
-offline makes its stored messages and profiles unavailable until it returns;
-other nodes do not hold copies. Rolling upgrades need the replication protocol
-and a node-failure test first. Target: an upgrade never stops the network
-serving; nodes upgrade one at a time, and a changed store format is built next
-to the old one while the old one keeps answering
+**Rolling update.** Profiles, mailboxes and media have five replicas on other
+nodes ([replication](../architecture/bootstrap.md#replication-and-repair)), so
+upgrade nodes one at a time: while one is down, clients read the other replicas,
+and the owner's next visit repairs what it missed. A single node keeps the only
+copy. Building a changed store format next to the old one while the old one
+keeps answering is planned
 ([bootstrap design](../architecture/bootstrap.md#principles)).
 
 ## Security

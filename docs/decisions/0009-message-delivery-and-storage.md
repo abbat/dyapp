@@ -39,7 +39,7 @@ media is different: full copies are expensive, and a node should hold no object 
 - **Repair while the owner is present, by nodes:** a fetch, a profile publish or a media `keep`
   makes the node compare the replica holders and fill the gaps. Data of an absent owner is not
   repaired and expires by TTL.
-- Details: [Replication design](../architecture/replication.md).
+- Details: [Bootstrap: Replication and repair](../architecture/bootstrap.md#replication-and-repair).
 - All stored message data is end-to-end encrypted
   ([ADR 0005](0005-openmls-end-to-end-encryption.md)).
 
@@ -60,5 +60,8 @@ media is different: full copies are expensive, and a node should hold no object 
   and a 64-write cap. `test-peer` uploads once; app clients are not wired yet. Nodes push to
   watching devices, forward acks and repair mailboxes on watching fetch. Profile publish and
   heartbeat trigger version inventories and fill older or missing holders, at most once per
-  rolling hour per key and within the 75 % repair budget. Media repair and replication are planned;
-  `rust/bootstrap/src/replication.rs` is a local Reed-Solomon codec.
+  rolling hour per key and within the 75 % repair budget. Acceptors store media up to the node's
+  threshold as whole copies and larger blobs up to 6 MiB as Reed-Solomon shards under a
+  manifest; a signed `keep` repairs missing copies, manifests and shards on the current holders.
+  Planned: ranged media reads with an assembled-blob cache, and a holder that is no longer
+  closest to a replica key pushing the object on.

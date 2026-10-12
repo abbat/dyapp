@@ -11,7 +11,7 @@ repairs mailbox, profile and media replicas node to node; profile search and sig
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
-- **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes and profiles. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
+- **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); no search endpoint yet
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
@@ -205,6 +205,11 @@ resent from the sender's retry queue.
   replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
 - **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
   visit moves data, and only the gaps, so a restart never moves the node's whole store.
+- **Network growth.** When nodes join, the holder of some replica keys changes and the new
+  holder has nothing yet; a read there misses and the client tries the next key. Repair checks
+  the current holders, so a present owner's data moves to them. An offline owner's data stays on
+  the old holders until its TTL; a holder that sees it is no longer closest and pushes the object
+  on is planned.
 - **Budget.** One inventory per mailbox per hour on a node; profile repair uses a rolling
   one-hour limit. Repair traffic counts towards `bytes_per_second` and stops at 75 % of it,
   together with media. Profile inventory requests and gap transfers reserve their encoded
@@ -481,7 +486,7 @@ the payload and storage limits below are checked separately:
 | `/dyapp/media` | `shard_put(MediaShardPut)`: signed manifest replica, index, data | `OK` after proof, manifest hash and shard length/hash validation; never forwarded; invalid data gives `INVALID` |
 | `/dyapp/media` | `have(MediaHave)`: at most 256 hashes/2816 parts | `OK` with an inventory of allowed present/missing parts, manifests and whole-copy availability; untrusted/far entries omitted; `INVALID` malformed or oversized batch; `RATE_LIMITED` traffic budget |
 | `/dyapp/media` | `shard_get(MediaShardGet)`: hash, index | `OK` with at most 1 MiB; `NOT_FOUND`; `RATE_LIMITED` reply byte budget; `INVALID` malformed hash or index |
-| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([Replication](replication.md)) |
+| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([ranged get](#ranged-media-get)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 
@@ -668,6 +673,14 @@ Media RPCs are queued with at most two outstanding requests per peer and sixteen
 queued jobs keep shard data in the shared upload rather than cloning it until dispatch.
 There is no assembly cache yet; keep-driven media repair is described above. `media_replica_holders` counts manifest holders
 for the latest sharded write, not distinct shard holders or guaranteed fault tolerance.
+
+<a id="ranged-media-get"></a>**Ranged get and assembly cache (planned).** `get(hash, offset, len)`
+answers one piece of at most 1 MiB with the blob's total size, so a client fetches a large blob
+piece by piece and resumes after a break; without `len` it is the whole get. A blob assembled from
+shards is kept as `<media dir>/cache/<hash>` for `limits.media_cache_minutes` (default 10) after
+its last read, so later pieces read that file instead of assembling again. The cache counts towards
+`media_max_mb` and is evicted first; the hourly cleanup deletes expired entries. Piece bytes count
+towards the traffic cap like a get; the client checks the hash once it has all pieces.
 
 A Reed-Solomon code with `d` data and `p` parity shards survives the loss of
 any `p` shards and needs any `d` of the `d + p` shards to rebuild. With one
@@ -862,9 +875,9 @@ Planned: the remaining resource guards, store retention.
 
 Every node is independent: there is no cluster, leader or shared storage. Nodes find each other
 through the DHT ([P2P networking](p2p-networking.md)). The client uploads once and the accepting
-node sends profile and mailbox replicas to the holders of their keys, so losing a node loses only
-the data whose other replicas are gone too. Mailboxes are repaired when their device watches;
-profiles on a publish or heartbeat. Media wait for the owner's client to republish.
+node sends profile, mailbox and media replicas to the holders of their keys, so losing a node loses
+only the data whose other replicas are gone too. Mailboxes are repaired when their device watches,
+profiles on a publish or heartbeat, media on the owner's signed `keep`.
 A single node (development, or a network of one) keeps the only copy. The network test runs
 three nodes, stops a holder during a newer publish, restarts it and checks heartbeat-driven repair.
 
