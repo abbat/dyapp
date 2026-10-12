@@ -30,7 +30,8 @@ All inputs live in one parameter block of the model and can be changed.
 | Filter selectivity | gender and orientation ≈ 45 %, age ± 5 years ≈ 25 %, goal ≈ 40 %, rare filter (education, kids) ≈ 5–10 % |
 
 Query classes: **place only**; **typical** (place + gender + age, ≈ 11 % of the place);
-**rare** (≈ 1 % of the place).
+**rare** (≈ 1 % of the place); **country + rare** (no place, ≈ 0.25 % of the country);
+**place IN** (8 places + typical filter).
 
 ## Model
 
@@ -40,8 +41,10 @@ step × activity × node count × search share:
 | Output | Computed as | Holds when |
 |--------|-------------|------------|
 | Disk | users × (profile + index row) | ≤ `search.max_bytes`; above it, the share of the network a node keeps |
-| Gossip in | (edits + heartbeats) × up to D copies | ≤ 30 % of the link (≈ 4 MB/s) |
+| Search nodes | bootstrap nodes × search share | ≥ 2 (a client publishes to 2); the report gives the DAU at which the shares reach 2–3 nodes |
+| Gossip in | (edits + heartbeats) × copies 1 / 3 / 6 | ≤ 30 % of the link (≈ 4 MB/s) at 6 copies; holding only at 3 is reported as depending on gossipsub IDONTWANT |
 | Inventory | hourly exchange in 10 000-key batches | ≤ 10 % of the link |
+| First sync | a new or long-offline node fills its index at 30 % of the link | ≤ 24 h; it answers `partial` meanwhile; the load on the peers it pulls from is reported |
 | Queries per node at peak | DAU × queries × 3 / search nodes | ≤ 50 % of the measured SQLite capacity |
 | `get` per node at peak | queries × 50 × 5 KB | ≤ 30 % of the link |
 | Place coverage | expected matches on one node for Zipf place ranks under a partial sample | ≥ 50 (one page); else the client asks another node |
@@ -50,20 +53,39 @@ step × activity × node count × search share:
 
 The model prints a verdict and the limiting resource per step, the DAU at which the design stops
 holding, and how `search.max_bytes`, D, heartbeat rate and `max_scan_rows` move that threshold.
+A `country + rare` query that is always `partial` is reported as expected (the client pages or asks
+more nodes), not as a failure.
+
+An **adversary** section adds what honest load hides: how many fake profiles one machine can
+sign and publish a day at the current proof of work (keys are free, limits are per key), how fast
+they push real inactive users out of a 50 GB node under oldest-heartbeat eviction, which
+`min_profile_pow_bits` (≤ 20) makes that costly while a phone still publishes in 1–2 s, and the
+query rate many peers reach past the per-peer limits. Fixes found here go to a separate task.
+
+`--self-check` asserts the model against hand-computed numbers (1M users, base: ≈ 5 GB of full
+records, ≈ 0.01 MB/s of edits), that disk and traffic do not shrink as the step grows, and that the
+Zipf place shares sum to 1; it runs before the report.
 
 ## SQLite measurement
 
 `scripts/search-bench.py` (planned; stdlib `sqlite3`) runs once by hand in the dev container
-limited to `--cpus 2 --memory 4g`, within 10 minutes:
+limited to `--cpus 2 --memory 4g`, within 10 minutes and at most 10 GB of disk. A node at 50 GB
+keeps ≈ 10M profiles; that size is extrapolated, not built:
 
 1. Generate a synthetic `profiles-idx.db` with the schema from bootstrap.md (typed columns,
-   interests table, random `r`, indexes (country, place, r), (country, r), (r)) at 10M rows —
-   the profiles one node keeps at 50 GB — with the place and filter distributions above.
+   interests table, random `r`) at 100K, 1M and 2.5M rows (`--rows`), with the place and filter
+   distributions above. Rows are generated inside SQLite (`INSERT … SELECT` from a recursive CTE
+   over small place-weight tables); the indexes (country, place, r), (country, r), (r) are built
+   after the insert. The script stops before generating if the expected file exceeds 10 GB or the
+   free space.
 2. Run 1 000 queries for each query class × place class (top place, rank ≈ 100, rank ≈ 10 000),
    in the design's form `WHERE … AND r ≥ s ORDER BY r LIMIT 50` with wrap-around and
-   `max_scan_rows` = 10 000.
+   `max_scan_rows` = 10 000, and record `EXPLAIN QUERY PLAN` per class (the intended index, no
+   temporary B-tree for the sort).
 3. Record p50/p99 latency, queries per second on 2 threads, `partial` share, rows scanned, index
-   file size and RSS as JSON; the model reads query capacity and bytes per index row from it.
+   file size and RSS as JSON. The model fits latency as log N plus rows scanned on 100K and 1M,
+   checks the fit against 2.5M, and calls the extrapolation to 10M unreliable if the 2.5M error
+   exceeds 30 %; bytes per row come straight from the measured sizes.
 
 Python's `sqlite3` is not the rusqlite bundled build; plans and orders of magnitude carry over,
 exact timings may not. The scripts are a one-off study: no CI job, no Make target.
