@@ -25,8 +25,7 @@ Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profi
 `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
 the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT. Signals in the mailbox (the
-envelope class and the signal quota), ranged media reads, profile proof of work, the search
-index rebuild and the store format path are planned; each part below says which it is, and the sections after
+envelope class and the signal quota), ranged media reads, the search index rebuild and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
 ### Principles
@@ -234,7 +233,7 @@ resent from the sender's retry queue.
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 - The profile lists the owner's device keys, so a sender can reach every device's mailbox before
   any MLS group exists; anyone can see how many devices a user has.
-- The profile carries a proof of work bound to the owner's key (planned,
+- The profile carries a proof of work bound to the owner's key (
   [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)): fields `pow_nonce` and
   `pow_bits`, valid when Argon2id(salt `dyapp-profile-pow`, password signer key ‖ nonce, 8 MiB,
   1 pass, 1 lane) starts with `pow_bits` zero bits. It does not depend on the profile's content,
@@ -247,8 +246,8 @@ resent from the sender's retry queue.
 
 ### Search
 
-> ⚠️ Experimental. Without the planned proof of work anyone can fill the index with generated
-> profiles, so the role is unsafe on a public network; no shipped or seed config enables it.
+> ⚠️ Experimental: no index rebuild on a version bump yet, and no shipped or seed config enables
+> the role.
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
@@ -273,13 +272,23 @@ resent from the sender's retry queue.
   it, sends it when the window ends (or on the next app start if the app was closed) and tells
   the user "changes appear in search in N min". The profile in the store DHT is updated at once,
   without this limit.
-- **Proof of work (planned).** Gossip relays and search nodes index and relay only profiles with enough
-  proof of work (`search.min_profile_pow_bits`, default 11, at most 20). A node caches verified
-  keys, so Argon2id runs once per key, and a bad proof is a strike against the peer that sent it.
+- **Proof of work.** A search node indexes and relays only profiles whose `pow_bits` reach
+  `search.min_profile_pow_bits` (default 11, at most 20, reported in `info` as
+  `min_profile_pow`); a lower claim is `INVALID` with no strike. The claim is checked with
+  Argon2id (above, [Profiles](#profiles)) off the swarm loop on its own two permits, so checks
+  cannot starve queries: a client publish that finds both busy gets `RATE_LIMITED` with
+  `retry_after` 1, a gossip message waits in a queue of at most 64 and is ignored without a
+  strike when it is full, and a catch-up reply waits for a permit as one job. A forged claim is
+  `DENIED` on publish and rejected in gossip, both a strike against the sending peer. Only
+  confirmed (key, nonce, bits) triples are cached, so Argon2id runs once per key and a forger
+  cannot fill the cache. A tombstone keeps the proof fields, so it is checked like the profile.
+  Store nodes do not check the proof. Raising the minimum does not purge indexed profiles; they
+  leave through the usual expiry.
 - **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
   `search.topics`, and then holds a uniform sample. The index is its own disposable file,
-  `profiles-idx.db`, which also keeps the signed records in a `record` table, so the search role
-  does not need the store role; catch-up refills a lost file. It holds typed columns for every
+  `profiles-idx.db`, which also keeps the signed records in a `record` table apart from the
+  store's profiles; catch-up refills a lost file. The search role needs the store role, since a
+  node without it serves no protocol. It holds typed columns for every
   `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
   and (r). A profile larger than `search.max_profile_bytes` (default 64 KiB, at most 1 MiB,
@@ -490,7 +499,7 @@ the payload and storage limits below are checked separately:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
@@ -514,7 +523,7 @@ the payload and storage limits below are checked separately:
 | `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([ranged get](#ranged-media-get)) |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
-| `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update; `DENIED` bad signature, which strikes the peer; `INVALID` bad content; `TOO_LARGE` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
+| `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content or `pow_bits` below `search.min_profile_pow_bits`; `TOO_LARGE` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` time more than 10 min off; `REFUSED`; `UNSUPPORTED` |
 | `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when both query slots are busy; `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |
@@ -1036,8 +1045,7 @@ run `make test` first to build the current `dyappd` and `test-peer` binaries.
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Ranged media reads and assembly caching remain planned
-- The search role is experimental: no proof of work on publish, no index rebuild on a version
-  bump, and expiry drops at most 4096 silent keys an hour
+- The search role is experimental: no index rebuild on a version bump, and expiry drops at most 4096 silent keys an hour
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

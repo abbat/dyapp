@@ -6,7 +6,9 @@ use crate::maintenance::RebuildBudget;
 use crate::media_repair::{Repair as MediaRepair, Schedule as MediaRepairSchedule};
 use crate::replication::MediaManifestExt;
 use crate::search::SEARCH_TOPICS;
-use crate::service::{run_get, run_query, search_key, Peer, Search, Service, Verdict, SHED_MEDIA};
+use crate::service::{
+    run_get, run_query, search_key, Caught, Peer, Search, Service, Verdict, SHED_MEDIA,
+};
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, SearchResponse, Status};
 use dyapp_p2p_net::{
@@ -154,6 +156,50 @@ fn peer(peer: PeerId, groups: &HashMap<ConnectionId, String>, connection: Connec
     Peer {
         id: peer.to_string(),
         group: groups.get(&connection).cloned().unwrap_or_default(),
+    }
+}
+
+/// Spreads an accepted publish or heartbeat to the topic's other search nodes.
+fn spread(
+    swarm: &mut Swarm<Behaviour>,
+    gossip: Option<([u8; 32], Vec<u8>)>,
+    response: &SearchResponse,
+) {
+    let (Some((key, bytes)), true) = (gossip, response.status == i32::from(Status::Ok)) else {
+        return;
+    };
+    let topic = search_topic(crate::search::topic(&key));
+    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+        if let Err(error) = gossip.publish(topic, bytes) {
+            tracing::debug!(%error, "search gossip not sent");
+        }
+    }
+}
+
+/// Reports a gossip verdict; a rejected message strikes the peer that propagated it.
+fn judge(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    peer_groups: &HashMap<PeerId, String>,
+    id: &gossipsub::MessageId,
+    source: &PeerId,
+    verdict: Verdict,
+) {
+    let acceptance = match verdict {
+        Verdict::Accept => gossipsub::MessageAcceptance::Accept,
+        Verdict::Reject => gossipsub::MessageAcceptance::Reject,
+        Verdict::Ignore | Verdict::Pow(_) => gossipsub::MessageAcceptance::Ignore,
+    };
+    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+        gossip.report_message_validation_result(id, source, acceptance);
+    }
+    if matches!(verdict, Verdict::Reject) {
+        let group = peer_groups.get(source).cloned().unwrap_or_default();
+        service.strike(&Peer {
+            id: source.to_string(),
+            group,
+        });
+        drop_banned(swarm, service, *source);
     }
 }
 
@@ -1402,6 +1448,31 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     }
     let search_permits = Arc::new(tokio::sync::Semaphore::new(2));
     let (search_done_tx, mut search_done) = tokio::sync::mpsc::unbounded_channel::<SearchDone>();
+    // Profile proof-of-work checks run off the loop on their own two permits, so a flood of
+    // them cannot starve queries. A client publish without a permit gets RATE_LIMITED; gossip
+    // and catch-up wait, gossip at most POW_GOSSIP_QUEUE messages.
+    enum PowDone {
+        Publish {
+            peer: PeerId,
+            from: Peer,
+            channel: ResponseChannel<SearchResponse>,
+            record: SignedRecord,
+            ok: bool,
+        },
+        Gossip {
+            source: PeerId,
+            id: gossipsub::MessageId,
+            data: Vec<u8>,
+            ok: bool,
+        },
+        CatchUp {
+            records: Vec<SignedRecord>,
+        },
+    }
+    const POW_GOSSIP_QUEUE: usize = 64;
+    let pow_permits = Arc::new(tokio::sync::Semaphore::new(2));
+    let (pow_tx, mut pow_done) = tokio::sync::mpsc::unbounded_channel::<PowDone>();
+    let mut pow_gossip = 0usize;
     // Search catch-up: the topic of each inventory request, the keys still to fetch per peer,
     // the keys of each get in flight, and when the next get may go out.
     let mut inventory_asked: HashMap<OutboundRequestId, u32> = HashMap::new();
@@ -1675,26 +1746,34 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let key = search_key(&request);
-                    let bytes = key.is_some().then(|| request.encode_to_vec());
+                    let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
                     let from = peer(id, &groups, connection_id);
                     match service.search(&from, request) {
                         Ok(Search::Reply(response)) => {
                             answered += 1;
-                            // An accepted publish or heartbeat spreads to the topic's other nodes.
-                            if let (Some(key), Some(bytes), true) =
-                                (key, bytes, response.status == i32::from(Status::Ok))
-                            {
-                                let topic = search_topic(crate::search::topic(&key));
-                                if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
-                                    if let Err(error) = gossip.publish(topic, bytes) {
-                                        tracing::debug!(%error, "search gossip not sent");
-                                    }
-                                }
-                            }
+                            spread(&mut swarm, gossip, &response);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
+                        Ok(Search::Pow(check, record)) => match pow_permits.clone().try_acquire_owned() {
+                            Ok(permit) => {
+                                let (cache, done) = (service.pow.clone(), pow_tx.clone());
+                                tokio::task::spawn_blocking(move || {
+                                    let _permit = permit;
+                                    let ok = cache.check(&check);
+                                    let _ = done.send(PowDone::Publish { peer: id, from, channel, record, ok });
+                                });
+                            }
+                            Err(_) => {
+                                answered += 1;
+                                let response = SearchResponse {
+                                    status: Status::RateLimited.into(),
+                                    retry_after: 1,
+                                    ..SearchResponse::default()
+                                };
+                                let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                            }
+                        },
                         Ok(work) => match (search_permits.clone().try_acquire_owned(), &service.search) {
                             (Ok(permit), Some(index)) => {
                                 let index = index.clone();
@@ -1705,7 +1784,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                                     let (get, reply) = match work {
                                         Search::Get(keys) => (true, run_get(&index, &keys)),
                                         Search::Query(query) => (false, run_query(&index, &query, rows)),
-                                        Search::Reply(_) => unreachable!("answered above"),
+                                        Search::Reply(_) | Search::Pow(..) => unreachable!("answered above"),
                                     };
                                     let _ = done.send(SearchDone { from, channel, get, reply });
                                 });
@@ -1750,19 +1829,26 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     message_id,
                     message,
                 })) => {
-                    let verdict = service.search_gossip(&message.data);
-                    let acceptance = match verdict {
-                        Verdict::Accept => gossipsub::MessageAcceptance::Accept,
-                        Verdict::Ignore => gossipsub::MessageAcceptance::Ignore,
-                        Verdict::Reject => gossipsub::MessageAcceptance::Reject,
-                    };
-                    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
-                        gossip.report_message_validation_result(&message_id, &propagation_source, acceptance);
-                    }
-                    if matches!(verdict, Verdict::Reject) {
-                        let group = peer_groups.get(&propagation_source).cloned().unwrap_or_default();
-                        service.strike(&Peer { id: propagation_source.to_string(), group });
-                        drop_banned(&mut swarm, &service, propagation_source);
+                    match service.search_gossip(&message.data) {
+                        // Queue full: drop without a strike.
+                        Verdict::Pow(_) if pow_gossip >= POW_GOSSIP_QUEUE => {
+                            judge(&mut swarm, &service, &peer_groups, &message_id, &propagation_source, Verdict::Ignore);
+                        }
+                        Verdict::Pow(check) => {
+                            pow_gossip += 1;
+                            let (permits, cache, done) = (pow_permits.clone(), service.pow.clone(), pow_tx.clone());
+                            let data = message.data;
+                            tokio::spawn(async move {
+                                let Ok(permit) = permits.acquire_owned().await else { return };
+                                let _ = tokio::task::spawn_blocking(move || {
+                                    let _permit = permit;
+                                    let ok = cache.check(&check);
+                                    let _ = done.send(PowDone::Gossip { source: propagation_source, id: message_id, data, ok });
+                                })
+                                .await;
+                            });
+                        }
+                        verdict => judge(&mut swarm, &service, &peer_groups, &message_id, &propagation_source, verdict),
                     }
                 }
                 // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
@@ -1810,15 +1896,30 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     let Some((id, keys)) = catch_up_asked.remove(&request_id) else { continue };
                     let mut got = HashSet::new();
                     let mut stored = 0;
+                    let mut pending = Vec::new();
                     for record in &response.records {
                         if let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) {
                             got.insert(dyapp_identity::key_hash(&key));
                         }
                         match service.search_apply(record) {
-                            Ok(true) => stored += 1,
-                            Ok(false) => {}
+                            Ok(Caught::Stored) => stored += 1,
+                            Ok(Caught::Dropped) => {}
+                            Ok(Caught::Pow(check)) => pending.push((check, record.clone())),
                             Err(error) => tracing::error!(%error, "search catch-up record not stored"),
                         }
+                    }
+                    // One job per reply checks the unproven records, then applies those that pass.
+                    if !pending.is_empty() {
+                        let (permits, cache, done) = (pow_permits.clone(), service.pow.clone(), pow_tx.clone());
+                        tokio::spawn(async move {
+                            let Ok(permit) = permits.acquire_owned().await else { return };
+                            let _ = tokio::task::spawn_blocking(move || {
+                                let _permit = permit;
+                                let records = pending.into_iter().filter(|(c, _)| cache.check(c)).map(|(_, r)| r).collect();
+                                let _ = done.send(PowDone::CatchUp { records });
+                            })
+                            .await;
+                        });
                     }
                     tracing::debug!(stored, "search catch-up records applied");
                     if !got.is_empty() {
@@ -2169,6 +2270,41 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 service.traffic.add(response.encoded_len() as u64);
                 let _ = swarm.behaviour_mut().search.send_response(done.channel, response);
             }
+            Some(done) = pow_done.recv() => match done {
+                PowDone::Publish { peer, from, channel, record, ok } => {
+                    answered += 1;
+                    match service.search_pow_done(&from, &record, ok) {
+                        Ok(response) => {
+                            let request = proto::SearchRequest {
+                                request: Some(proto::search_request::Request::Publish(record)),
+                            };
+                            let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
+                            spread(&mut swarm, gossip, &response);
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "search request failed");
+                        }
+                    }
+                    drop_banned(&mut swarm, &service, peer);
+                }
+                PowDone::Gossip { source, id, data, ok } => {
+                    pow_gossip -= 1;
+                    let verdict = match ok.then(|| service.search_gossip(&data)) {
+                        None => Verdict::Reject,
+                        // A cache cleared since the check asks again: drop without a strike.
+                        Some(Verdict::Pow(_)) => Verdict::Ignore,
+                        Some(verdict) => verdict,
+                    };
+                    judge(&mut swarm, &service, &peer_groups, &id, &source, verdict);
+                }
+                PowDone::CatchUp { records } => {
+                    let stored = records.iter().filter(|r| matches!(service.search_apply(r), Ok(Caught::Stored))).count();
+                    tracing::debug!(stored, "search catch-up records applied after proof of work");
+                }
+            },
             _ = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
                 catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
                     .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));

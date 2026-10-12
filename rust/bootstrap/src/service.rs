@@ -6,6 +6,7 @@ use crate::{
     config::{Role, Turn},
     maintenance::RebuildBudget,
     media::{MediaStore, Put},
+    pow::PowCheck,
     rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
     search::{SearchIndex, SEARCH_FIELDS},
     BootstrapError, BootstrapStore, NodeConfig,
@@ -727,6 +728,17 @@ pub enum Verdict {
     Accept,
     Ignore,
     Reject,
+    /// A proof of work not cached yet: check it off the loop, then apply the message again.
+    Pow(PowCheck),
+}
+
+/// What catch-up did with one record.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Caught {
+    Stored,
+    Dropped,
+    /// A proof of work not cached yet: check it off the loop, then apply the record again.
+    Pow(PowCheck),
 }
 
 /// Search get replies are cut here, like the profile record limit.
@@ -763,6 +775,8 @@ enum Applied {
     Bad,
     Status(Status),
     Limited(u64),
+    /// The proof of work is not cached: it needs an Argon2 check first.
+    Pow(PowCheck),
 }
 
 /// A search request after admission: a ready reply, or read work the node runs in
@@ -771,6 +785,9 @@ pub enum Search {
     Reply(SearchResponse),
     Query(proto::SearchQuery),
     Get(Vec<[u8; 32]>),
+    /// A publish whose proof of work is not cached: the node checks it off the loop, then
+    /// calls [`Service::search_pow_done`].
+    Pow(PowCheck, SignedRecord),
 }
 
 pub fn run_query(
@@ -829,7 +846,10 @@ impl Service {
         }
         Ok(match request.request {
             Some(search_request::Request::Publish(record)) => {
-                Search::Reply(self.applied(peer, self.publish_search(&record, true)?))
+                match self.publish_search(&record, true)? {
+                    Applied::Pow(check) => Search::Pow(check, record),
+                    applied => Search::Reply(self.applied(peer, applied)),
+                }
             }
             Some(search_request::Request::Heartbeat(record)) => {
                 Search::Reply(self.applied(peer, self.beat_search(&record)?))
@@ -893,7 +913,25 @@ impl Service {
                 retry_after,
                 ..search_reply(Status::RateLimited)
             },
+            // The cache was cleared between the check and this run: the client retries.
+            Applied::Pow(_) => SearchResponse {
+                retry_after: 1,
+                ..search_reply(Status::RateLimited)
+            },
         }
+    }
+
+    /// Finishes a publish after its off-loop proof-of-work check; a forged proof is a strike.
+    pub fn search_pow_done(
+        &self,
+        peer: &Peer,
+        record: &SignedRecord,
+        ok: bool,
+    ) -> crate::Result<SearchResponse> {
+        if !ok {
+            return Ok(self.applied(peer, Applied::Bad));
+        }
+        Ok(self.applied(peer, self.publish_search(record, true)?))
     }
 
     /// `limit = false` (catch-up) skips only the 10-minute update limit.
@@ -910,13 +948,27 @@ impl Service {
             Err(_) => return Ok(Applied::Status(Status::Invalid)),
         };
         // A verified record has a valid 32-byte key.
-        let key: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
-        let key = dyapp_identity::key_hash(&key);
+        let signer: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
+        let key = dyapp_identity::key_hash(&signer);
         if self.listed(&key) {
             return Ok(Applied::Status(Status::Refused));
         }
         if !self.config.search.keeps(crate::search::topic(&key)) {
             return Ok(Applied::Skipped);
+        }
+        let profile = &verified.profile;
+        if profile.pow_bits < self.config.search.min_profile_pow_bits {
+            return Ok(Applied::Status(Status::Invalid));
+        }
+        if !self
+            .pow
+            .confirmed(&signer, profile.pow_nonce, profile.pow_bits)
+        {
+            return Ok(Applied::Pow(PowCheck {
+                key: signer,
+                nonce: profile.pow_nonce,
+                bits: profile.pow_bits,
+            }));
         }
         let now = chrono::Utc::now().timestamp();
         Ok(
@@ -968,6 +1020,7 @@ impl Service {
         match applied {
             Ok(Applied::Done) => Verdict::Accept,
             Ok(Applied::Bad) => Verdict::Reject,
+            Ok(Applied::Pow(check)) => Verdict::Pow(check),
             Ok(_) => Verdict::Ignore,
             Err(error) => {
                 tracing::error!(%error, "search gossip not stored");
@@ -976,10 +1029,13 @@ impl Service {
         }
     }
 
-    /// Stores a record fetched in catch-up, without the update limit; returns whether it was
-    /// stored.
-    pub fn search_apply(&self, record: &SignedRecord) -> crate::Result<bool> {
-        Ok(matches!(self.publish_search(record, false)?, Applied::Done))
+    /// Stores a record fetched in catch-up, without the update limit.
+    pub fn search_apply(&self, record: &SignedRecord) -> crate::Result<Caught> {
+        Ok(match self.publish_search(record, false)? {
+            Applied::Done => Caught::Stored,
+            Applied::Pow(check) => Caught::Pow(check),
+            _ => Caught::Dropped,
+        })
     }
 
     /// `/dyapp/inventory`: the key hashes and versions of one topic, for catch-up.
@@ -1624,9 +1680,27 @@ mod tests {
     fn search_service() -> Service {
         let mut s = service_with(|limits| limits.bytes_per_second = 1 << 20);
         s.config.roles.push(Role::Search);
+        s.config.search.min_profile_pow_bits = 2;
         let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
         s.search = Some(Arc::new(index.unwrap()));
         s
+    }
+
+    /// A profile carrying a solved proof of work for `bits`.
+    fn proven(id: &Identity, mut profile: Profile, bits: u32) -> SignedRecord {
+        profile.pow_nonce = dyapp_profile::solve(&id.public_key(), bits, 0, 100_000).unwrap();
+        profile.pow_bits = bits;
+        profile.sign(id)
+    }
+
+    /// Applies a gossip message, running its proof-of-work check inline as the node does off
+    /// the loop.
+    fn gossip(s: &Service, data: &[u8]) -> Verdict {
+        match s.search_gossip(data) {
+            Verdict::Pow(check) if s.pow.check(&check) => s.search_gossip(data),
+            Verdict::Pow(_) => Verdict::Reject,
+            verdict => verdict,
+        }
     }
 
     /// Runs deferred work inline, as the node does in `spawn_blocking`.
@@ -1646,6 +1720,10 @@ mod tests {
                 } else {
                     search_reply(Status::RateLimited)
                 }
+            }
+            Search::Pow(check, record) => {
+                let ok = s.pow.check(&check);
+                s.search_pow_done(peer, &record, ok).unwrap()
             }
         }
     }
@@ -1667,20 +1745,26 @@ mod tests {
     fn search_publish_query_get() {
         let s = search_service();
         let id = Identity::generate();
-        let record = Profile {
-            version: 1,
-            age: 33,
-            country: "DE".into(),
-            ..Profile::default()
-        }
-        .sign(&id);
+        let record = proven(
+            &id,
+            Profile {
+                version: 1,
+                age: 33,
+                country: "DE".into(),
+                ..Profile::default()
+            },
+            2,
+        );
         let r = search(&s, search_request::Request::Publish(record.clone()));
         assert_eq!(search_status(&r), Status::Ok);
-        let newer = Profile {
-            version: 2,
-            ..Profile::default()
-        }
-        .sign(&id);
+        let newer = proven(
+            &id,
+            Profile {
+                version: 2,
+                ..Profile::default()
+            },
+            2,
+        );
         let r = search(&s, search_request::Request::Publish(newer));
         assert_eq!(search_status(&r), Status::RateLimited);
         assert!(r.retry_after > 0 && r.retry_after <= 600);
@@ -1727,7 +1811,7 @@ mod tests {
         assert!(info.roles.contains(&proto::Role::Search.into()));
         assert_eq!(info.search_fields, SEARCH_FIELDS);
         assert_eq!(info.max_search_profile_bytes, 64 << 10);
-        assert_eq!(info.min_profile_pow, 11);
+        assert_eq!(info.min_profile_pow, 2);
         assert_eq!(service().info().min_profile_pow, 0);
         assert!(service().info().search_fields.is_empty());
     }
@@ -1781,15 +1865,18 @@ mod tests {
             }
             .encode_to_vec()
         };
-        assert_eq!(s.search_gossip(&wrap(forged)), Verdict::Reject);
-        assert_eq!(s.search_gossip(b"junk"), Verdict::Reject);
-        let good = Profile {
-            version: 1,
-            ..Profile::default()
-        }
-        .sign(&id);
-        assert_eq!(s.search_gossip(&wrap(good.clone())), Verdict::Accept);
-        assert_eq!(s.search_gossip(&wrap(good)), Verdict::Ignore);
+        assert_eq!(gossip(&s, &wrap(forged)), Verdict::Reject);
+        assert_eq!(gossip(&s, b"junk"), Verdict::Reject);
+        let good = proven(
+            &id,
+            Profile {
+                version: 1,
+                ..Profile::default()
+            },
+            2,
+        );
+        assert_eq!(gossip(&s, &wrap(good.clone())), Verdict::Accept);
+        assert_eq!(gossip(&s, &wrap(good)), Verdict::Ignore);
         s.traffic.add(s.config.limits.bytes_per_second);
         let q = proto::SearchQuery::default();
         let r = search(&s, search_request::Request::Query(q));
@@ -1797,23 +1884,88 @@ mod tests {
     }
 
     #[test]
+    fn search_profile_pow() {
+        // One strike bans, so both a missing strike and a given one are visible.
+        let mut s = service_with(|l| {
+            l.bytes_per_second = 1 << 20;
+            l.strikes_to_ban = 1;
+        });
+        s.config.roles.push(Role::Search);
+        s.config.search.min_profile_pow_bits = 2;
+        let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+        s.search = Some(Arc::new(index.unwrap()));
+        let id = Identity::generate();
+        let v1 = || Profile {
+            version: 1,
+            ..Profile::default()
+        };
+        let publish = |who: &str, r: SignedRecord| {
+            search_status(&search_as(
+                &s,
+                &peer(who),
+                search_request::Request::Publish(r),
+            ))
+        };
+        // Below the minimum: INVALID, no strike.
+        assert_eq!(publish("weak", proven(&id, v1(), 1)), Status::Invalid);
+        assert!(!s.reputation.banned("weak"));
+        // A 20-bit claim at nonce 0 holds with probability 2^-20: DENIED and a strike.
+        let forged = Profile {
+            pow_bits: 20,
+            ..v1()
+        };
+        assert_eq!(publish("liar", forged.sign(&id)), Status::Denied);
+        assert!(s.reputation.banned("liar"));
+        // Valid: OK; the tombstone keeping the same proof needs no Argon2.
+        let good = proven(&id, v1(), 2);
+        assert_eq!(publish("good", good.clone()), Status::Ok);
+        let (checks, _) = s.pow.take_counts();
+        assert!(checks >= 1);
+        let nonce = dyapp_profile::verify(&good).unwrap().profile.pow_nonce;
+        let tomb = Profile::tombstone(2, nonce, 2).sign(&id);
+        assert_eq!(s.search_apply(&tomb).unwrap(), Caught::Stored);
+        assert_eq!(s.pow.take_counts(), (0, 0));
+        // Gossip: below the minimum is ignored, a forged proof rejected.
+        let wrap = |r: SignedRecord| {
+            SearchRequest {
+                request: Some(search_request::Request::Publish(r)),
+            }
+            .encode_to_vec()
+        };
+        let other = Identity::generate();
+        assert_eq!(s.search_gossip(&wrap(v1().sign(&other))), Verdict::Ignore);
+        let lie = Profile {
+            pow_bits: 20,
+            ..v1()
+        };
+        assert_eq!(gossip(&s, &wrap(lie.sign(&other))), Verdict::Reject);
+        assert_eq!(gossip(&s, &wrap(proven(&other, v1(), 2))), Verdict::Accept);
+    }
+
+    #[test]
     fn search_peers_sync_on_their_own_budget() {
         let s = search_service();
         let id = Identity::generate();
-        let record = Profile {
-            version: 1,
-            ..Profile::default()
-        }
-        .sign(&id);
+        let record = proven(
+            &id,
+            Profile {
+                version: 1,
+                ..Profile::default()
+            },
+            2,
+        );
         search(&s, search_request::Request::Publish(record));
-        let newer = Profile {
-            version: 2,
-            age: 40,
-            ..Profile::default()
-        }
-        .sign(&id);
+        let newer = proven(
+            &id,
+            Profile {
+                version: 2,
+                age: 40,
+                ..Profile::default()
+            },
+            2,
+        );
         // Inside 10 minutes: catch-up skips the update limit.
-        assert!(s.search_apply(&newer).unwrap());
+        assert_eq!(s.search_apply(&newer).unwrap(), Caught::Stored);
         let key = search_key(&SearchRequest {
             request: Some(search_request::Request::Publish(newer.clone())),
         })

@@ -87,5 +87,6 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
   unshared scores per peer: a ban score from strikes, and a storage trust from answers and valid
   signatures that, with a trust delay (1 h by default), decides who gets replicas
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).
-- Not implemented (planned): per-type pools in the bootstrap store and the profile proof of work
-  ([bootstrap.md](../architecture/bootstrap.md#profiles)).
+- Implemented in `rust/profile` and `rust/bootstrap`: the profile proof of work, checked by
+  search nodes ([bootstrap.md](../architecture/bootstrap.md#search)).
+- Not implemented (planned): per-type pools in the bootstrap store.

@@ -560,6 +560,7 @@ async fn start_search(seed: Option<&Multiaddr>) -> Multiaddr {
         c.seeds = seed.into_iter().collect();
         c.limits.requests_per_second = 1_000;
         c.limits.bytes_per_second = 1 << 20;
+        c.search.min_profile_pow_bits = 2;
     })
     .await
 }
@@ -593,12 +594,16 @@ async fn search_profile_spreads_between_nodes() {
             "no profile reached B"
         );
         let age = 20 + published.len() as i64;
+        let identity = Identity::generate();
+        let pow_nonce = dyapp_profile::solve(&identity.public_key(), 2, 0, 100_000).unwrap();
         let record = Profile {
             version: 1,
             age: age as u32,
+            pow_nonce,
+            pow_bits: 2,
             ..Profile::default()
         }
-        .sign(&Identity::generate());
+        .sign(&identity);
         let r = to_a.search(Request::Publish(record.clone())).await;
         assert_eq!(status(r.status), Status::Ok);
         published.push(record);
