@@ -67,11 +67,10 @@ docker-compose -f docker/compose.dev.yml run --rm --profile security security
 ## Using the Helper Script
 
 Prefer `make test`, `make quality` and `make test-all` (or the equivalent helper commands
-below). Each Docker stage prints one `OK` or `ERROR` line with its retained host log path under
-`/tmp/ai/dyapp-docker-*/output.log`. Set `DYAPP_VERBOSE=1`
-for live output. Interactive shells stream automatically. See
-[local check output](../agents/project.md#local-check-output) for retention and container
-node-log limits.
+below). Each Docker stage prints one `OK` line, or its captured output and an `ERROR` line.
+Set `DYAPP_VERBOSE=1` for live output. Interactive shells stream automatically. See
+[local check output](../agents/project.md#local-check-output) for capture limits and
+`--log-file`.
 
 ```bash
 ./scripts/docker-test.sh --help

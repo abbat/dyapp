@@ -5,17 +5,44 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from capture import Capture  # noqa: E402
+
+
+class Captures(unittest.TestCase):
+    def test_keeps_head_and_tail_with_marker(self):
+        captured = Capture(head=4, tail=4)
+        for chunk in (b"ab", b"cdef", b"ghij"):
+            captured.write(chunk)
+        self.assertEqual(captured.getvalue(),
+                         b"abcd\n[... 2 bytes truncated ...]\nghij")
+        self.assertEqual(captured.since(7), b"hij")
+        self.assertEqual(captured.since(0), b"ghij")
+        small = Capture(head=4, tail=4)
+        small.write(b"abcdef")
+        self.assertEqual(small.getvalue(), b"abcdef")
+        self.assertEqual(small.since(3), b"def")
+
+    def test_pipe_copies_child_output(self):
+        captured = Capture()
+        output, drain = captured.pipe()
+        subprocess.run(["sh", "-c", "echo out; echo err >&2"],
+                       stdout=output, stderr=subprocess.STDOUT, check=True)
+        os.close(output)
+        drain.join(timeout=10)
+        self.assertEqual(captured.getvalue(), b"out\nerr\n")
 
 
 class Runners(unittest.TestCase):
-    def run_script(self, script, command, failing_service="", verbose="0",
-                   ci=""):
+    def run_script(self, script, command, failing_service="", verbose="0"):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             docker = Path(directory) / "docker"
@@ -33,7 +60,7 @@ class Runners(unittest.TestCase):
                 ["bash", str(ROOT / "scripts" / script), command],
                 env={**os.environ, "PATH": f"{directory}:{os.environ['PATH']}",
                      "CALL_LOG": str(log), "FAIL_SERVICE": failing_service,
-                     "DYAPP_VERBOSE": verbose, "GITHUB_ACTIONS": ci},
+                     "DYAPP_VERBOSE": verbose},
                 capture_output=True, text=True, check=False,
             )
             return result, log.read_text() if log.exists() else ""
@@ -67,23 +94,17 @@ class Runners(unittest.TestCase):
         self.assertNotIn("build", calls)
         self.assertNotIn("linux-gui", calls)
 
-    def test_failure_names_its_log_and_ci_replays_it(self):
+    def test_failure_prints_captured_output(self):
         result, calls = self.run_script("docker-test.sh", "test")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(result.stdout.splitlines()), 1)
+        self.assertEqual(result.stdout, "OK Docker Compose test\n")
         self.assertEqual(result.stderr, "")
-        log = Path(result.stdout.strip().split("; log: ")[1])
-        self.assertEqual(log.read_text(),
-                         "fake stdout\nfake stderr\n" * 2)
         self.assertIn("run --no-TTY", calls)
         failed, _ = self.run_script("docker-test.sh", "test", "dev")
         self.assertEqual(failed.returncode, 23)
-        self.assertEqual(failed.stdout, "")
-        self.assertIn("ERROR Docker Compose test (exit 23); log: ",
-                      failed.stderr)
-        replayed, _ = self.run_script("docker-test.sh", "test", "dev",
-                                      ci="true")
-        self.assertEqual(replayed.stdout, log.read_text())
+        self.assertEqual(failed.stdout, "fake stdout\nfake stderr\n" * 2)
+        self.assertEqual(failed.stderr,
+                         "ERROR Docker Compose test (exit 23)\n")
 
     def test_verbose_and_interactive_shells_stream_output(self):
         for script, command, verbose in (("docker-test.sh", "test", "1"),
@@ -98,7 +119,7 @@ class Runners(unittest.TestCase):
                 self.assertNotIn("; log: ", result.stdout)
                 self.assertNotIn("--no-TTY", calls)
 
-    def test_cleanup_failure_and_interrupt_preserve_status_and_log(self):
+    def test_cleanup_failure_and_interrupt_preserve_status_and_output(self):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
@@ -107,7 +128,7 @@ class Runners(unittest.TestCase):
                                                   (130, 0, 130)):
             with self.subTest(run_status=run_status):
                 def execute(command, **kwargs):
-                    kwargs["stdout"].write((command[0] + "\n").encode())
+                    os.write(kwargs["stdout"], (command[0] + "\n").encode())
                     if command == ["run"] and run_status == 130:
                         raise KeyboardInterrupt
                     return subprocess.CompletedProcess(
@@ -121,33 +142,47 @@ class Runners(unittest.TestCase):
                         patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                     self.assertEqual(runner.run_logged(
                         ["run"], {}, "stage", ["stop"]), expected)
-                self.assertEqual(out.getvalue(), "")
-                log = Path(error.getvalue().strip().split("; log: ")[1])
-                self.assertEqual(log.read_text(), "run\nstop\n")
+                self.assertEqual(out.getvalue(), "run\nstop\n")
+                self.assertEqual(error.getvalue(),
+                                 f"ERROR stage (exit {expected})\n")
+
+    def test_log_file_gets_a_full_copy(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        Path("/tmp/ai").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
+            log = Path(directory, "output.log")
+            out = io.StringIO()
+            with patch.object(runner.sys, "stdout", out):
+                self.assertEqual(runner.run_logged(
+                    ["echo", "hello"], {}, "stage", log_file=log), 0)
+            self.assertEqual(out.getvalue(), f"OK stage; log: {log}\n")
+            self.assertEqual(log.read_text(), "hello\n")
 
     def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
         spec = importlib.util.spec_from_file_location(
             "network_test", ROOT / "scripts/network-test.py")
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
-        Path("/tmp/ai").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
-            environment = {"DYAPP_NODE_LOG_DIR": directory,
-                           "DYAPPD__STORAGE__DIR": "/storage/7071"}
+        environment = {"DYAPPD__STORAGE__DIR": "/storage/7071"}
 
-            def spawn(command, **kwargs):
-                kwargs["stdout"].write(b"node output\n")
-                self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
-            with patch.object(network.subprocess, "Popen", side_effect=spawn):
-                network.start_node("/bin", environment)
-                network.start_node("/bin", environment)
-            self.assertEqual(Path(directory, "node-7071.log").read_text(),
-                             "node output\n" * 2)
-            with patch.object(network.subprocess, "Popen") as invoke:
-                network.start_node(
-                    "/bin", {**environment, "DYAPP_VERBOSE": "1"})
-            self.assertNotIn("stdout", invoke.call_args.kwargs)
-            self.assertNotIn("stderr", invoke.call_args.kwargs)
+        def spawn(command, **kwargs):
+            os.write(kwargs["stdout"], b"node output\n")
+            self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
+        with patch.object(network.subprocess, "Popen", side_effect=spawn):
+            network.start_node("/bin", environment)
+            network.start_node("/bin", environment)
+        for drain in network.DRAINS:
+            drain.join(timeout=10)
+        self.assertEqual(network.LOGS["7071"].getvalue(),
+                         b"node output\n" * 2)
+        with patch.object(network.subprocess, "Popen") as invoke:
+            network.start_node(
+                "/bin", {**environment, "DYAPP_VERBOSE": "1"})
+        self.assertNotIn("stdout", invoke.call_args.kwargs)
+        self.assertNotIn("stderr", invoke.call_args.kwargs)
 
     def test_local_node_failure_prints_retained_diagnostics(self):
         spec = importlib.util.spec_from_file_location(
@@ -158,7 +193,7 @@ class Runners(unittest.TestCase):
         process = Mock()
 
         def spawn(command, **kwargs):
-            kwargs["stdout"].write(b"node startup failed\n")
+            os.write(kwargs["stdout"], b"node startup failed\n")
             return process
 
         out = io.StringIO()
@@ -170,10 +205,8 @@ class Runners(unittest.TestCase):
                 patch.dict(os.environ, {"DYAPP_VERBOSE": "0"}):
             with self.assertRaisesRegex(RuntimeError, "Node did not start"):
                 network.local("/bin")
-        self.assertIn("node startup failed", out.getvalue())
-        logs = Path(out.getvalue().splitlines()[0].split(": ")[1])
-        self.assertEqual((logs / "node-7071.log").read_bytes(),
-                         b"node startup failed\n")
+        self.assertIn("--- node 7071 ---\nnode startup failed\n",
+                      out.getvalue())
         process.terminate.assert_called_once()
         process.wait.assert_called_once()
 
@@ -223,7 +256,7 @@ class Runners(unittest.TestCase):
                 def execute(command, **kwargs):
                     if command[1] == "compose":
                         return config
-                    kwargs["stdout"].write(log)
+                    os.write(kwargs["stdout"], log)
                     return subprocess.CompletedProcess([], status)
                 output = io.TextIOWrapper(io.BytesIO())
                 with patch.object(runner.subprocess, "run",
@@ -236,17 +269,9 @@ class Runners(unittest.TestCase):
                         {}), status)
                 output.flush()
                 printed = output.buffer.getvalue().decode()
-                # A local failed build prints only its ERROR line on stderr.
-                if status == 0:
-                    summaries = printed.splitlines()
-                    self.assertEqual(len(summaries), 2)
-                    for name, summary in zip(("first", "second"), summaries):
-                        self.assertTrue(summary.startswith(
-                            f"OK test:{name}; log: "))
-                        self.assertEqual(Path(summary.split("; log: ")[1])
-                                         .read_bytes(), log)
-                else:
-                    self.assertEqual(printed, "")
+                # A failed build prints its output, then ERROR on stderr.
+                self.assertEqual(printed, "OK test:first\nOK test:second\n"
+                                 if status == 0 else log.decode())
                 builds = invoke.call_args_list[1:]
                 self.assertEqual(len(builds), 2 if status == 0 else 1)
                 for call in builds:

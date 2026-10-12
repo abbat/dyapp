@@ -6,9 +6,9 @@
 > from logs. For the target contract see [empty-app-contract.md](../platforms/empty-app-contract.md);
 > for the CI jobs see [ci-matrix.md](../development/ci-matrix.md).
 
-Docker UI stages retain Gradle/emulator output in the host stage log and print one `OK` or
-`ERROR` line with its path. `DYAPP_VERBOSE=1 make ui-test` streams
-live output. See [local check output](../agents/project.md#local-check-output) for retention.
+Docker UI stages capture Gradle/emulator output in memory and print one `OK` line, or the
+captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live output. See
+[local check output](../agents/project.md#local-check-output) for capture limits.
 
 ## What is tested
 

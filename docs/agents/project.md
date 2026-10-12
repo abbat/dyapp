@@ -49,27 +49,28 @@ There are no other targets (no `ui-test-all`, no npm). Details: [testing](../tes
 ## Local check output
 
 Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
-stdout and stderr from each Docker stage, including Compose stop, in a unique
-`/tmp/ai/dyapp-docker-*/output.log`. Success prints one `OK` line with its path; a nonzero
-exit prints one `ERROR` line with the exit code and path. On a GitHub runner
-(`GITHUB_ACTIONS` set) a failure also replays the complete log, which is lost with the runner.
+stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
+and the last 256 KiB, with a `[... N bytes truncated ...]` marker between them. Nothing is
+written to disk, so capture works on a read-only filesystem. Success prints one `OK` line; a
+nonzero exit prints the captured output on stdout, then one `ERROR` line with the exit code
+on stderr. `python3 scripts/docker-local.py --log-file PATH ...` (the first argument) also
+appends the complete output to `PATH` and names it in the summary line.
 Agents run long checks in the background, wait for the completion notice instead of polling
-with `sleep`/`tail`, and read only the failing lines of a log after `ERROR`. The original stage failure
-wins over a later stop failure; a failed stop also fails an otherwise successful stage.
-Logs remain for inspection and are never deleted by the runner. Large logs consume disk.
+with `sleep`/`tail`, and read only the failing lines of the output after `ERROR`. The original
+stage failure wins over a later stop failure; a failed stop also fails an otherwise successful
+stage.
 
 `DYAPP_VERBOSE=1 make test-all` streams output instead of capturing it. Shell targets set
 this automatically to preserve interaction and TTY behavior. Quiet checks disable the
-Compose TTY; no Cargo/Gradle warnings or test details are discarded from the saved log.
-Long stages have no live progress in quiet mode; inspect the newest log or use verbose mode.
+Compose TTY. Output beyond the retained head and tail of a failed stage is lost unless
+`--log-file` is given. Long stages have no live progress in quiet mode; use verbose mode.
 Image builds use the same capture behavior. Commands that run tools directly in CI keep
 those tools' existing output.
 
-`network-test.py --local BIN_DIR` keeps each local node's stdout/stderr in
-`/tmp/ai/dyapp-network-*/node-PORT.log`, appending across restarts; suite result lines still
-print. Failures also print node logs. `DYAPP_VERBOSE=1` restores node streaming. Paths are
-in the process's filesystem: logs in a container tmpfs must be copied out before stopping
-that container; the outer Docker stage log retains any printed failure diagnostics.
+`network-test.py --local BIN_DIR` captures each local node's stdout/stderr in memory with the
+same head and tail limits, one capture per port across restarts; suite result lines still
+print. A failure prints every node's output under a `--- node PORT ---` header.
+`DYAPP_VERBOSE=1` restores node streaming.
 
 ## Limits to keep in mind
 

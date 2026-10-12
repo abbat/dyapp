@@ -3,24 +3,24 @@ import fcntl
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
-import tempfile
 import uuid
 
+from capture import Capture
 
-def run_logged(command, environment, label, cleanup=None):
-    """Keep complete stage output on disk; print one line with its path."""
+
+def run_logged(command, environment, label, cleanup=None, log_file=None):
+    """Hold stage output in memory; print one line, after a failure also the
+    output. Only an explicit `log_file` gets a complete copy."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
-    directory = Path("/tmp/ai")
-    directory.mkdir(parents=True, exist_ok=True)
-    log = None if verbose else Path(tempfile.mkdtemp(
-        prefix="dyapp-docker-", dir=directory)) / "output.log"
-    output = None if log is None else log.open("wb")
+    captured = output = drain = error_stream = None
     status = 0
-    error_stream = None if verbose else subprocess.STDOUT
     try:
+        if not verbose:
+            captured = Capture(log_file=log_file)
+            output, drain = captured.pipe()
+            error_stream = subprocess.STDOUT
         try:
             status = subprocess.run(command, env=environment, stdout=output,
                                     stderr=error_stream,
@@ -34,23 +34,27 @@ def run_logged(command, environment, label, cleanup=None):
                 status = result.returncode
     except OSError as error:
         message = f"{error}\n"
-        if output is None:
+        if captured is None:
             print(message, file=sys.stderr, end="")
         else:
-            output.write(message.encode())
+            captured.write(message.encode())
         status = status or 1
     finally:
         if output is not None:
-            output.close()
-    # A local failure names its log; a CI runner's log is lost with the runner.
-    if status and log is not None and os.environ.get("GITHUB_ACTIONS"):
+            os.close(output)
+            # ponytail: a helper that outlives the stage keeps the pipe open;
+            # its later output is lost rather than waited for.
+            drain.join(timeout=10)
+        if captured is not None:
+            captured.close()
+    if status and captured is not None:
         sys.stdout.flush()
-        with log.open(errors="replace") as captured:
-            shutil.copyfileobj(captured, sys.stdout)
+        sys.stdout.write(captured.getvalue().decode(errors="replace"))
         sys.stdout.flush()
     summary = f"ERROR {label} (exit {status})" if status else f"OK {label}"
-    print(f"{summary}; log: {log}" if log is not None else summary,
-          file=sys.stderr if status else sys.stdout, flush=True)
+    if log_file is not None and captured is not None:
+        summary += f"; log: {log_file}"
+    print(summary, file=sys.stderr if status else sys.stdout, flush=True)
     return status
 
 
@@ -58,7 +62,7 @@ def run_logged(command, environment, label, cleanup=None):
 CPUS = min(4, os.cpu_count() or 1)
 
 
-def build_images(arguments, environment):
+def build_images(arguments, environment, log_file=None):
     value_options = {"-f", "--file", "--profile", "-p", "--project-name"}
     candidates = [i for i, value in enumerate(arguments) if value == "build"]
     index = next(i for i in candidates
@@ -112,7 +116,7 @@ def build_images(arguments, environment):
         command.append(build["context"])
         status = run_logged(
             command, {**environment, "DOCKER_BUILDKIT": buildkit},
-            service["image"],
+            service["image"], log_file=log_file,
         )
         if status:
             return status
@@ -126,6 +130,9 @@ def main():
     # read-only checkout; Docker cannot create that mountpoint itself.
     (Path(__file__).resolve().parents[1] / "target").mkdir(exist_ok=True)
     arguments = sys.argv[1:]
+    log_file = None
+    if arguments[:1] == ["--log-file"]:
+        log_file, arguments = arguments[1], arguments[2:]
     environment = {**os.environ, "COMPOSE_PARALLEL_LIMIT": "1",
                    "COVERAGE_RUN_ID": uuid.uuid4().hex,
                    "DYAPP_CPUS": str(CPUS),
@@ -133,7 +140,7 @@ def main():
     with (temporary / "dyapp-docker.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if "build" in arguments and "run" not in arguments:
-            return build_images(arguments, environment)
+            return build_images(arguments, environment, log_file)
         cleanup = None
         if "run" in arguments:
             prefix = arguments[:arguments.index("run")]
@@ -146,7 +153,7 @@ def main():
         if "--profile" in arguments:
             label += f" {arguments[arguments.index('--profile') + 1]}"
         return run_logged(["docker", "compose", *arguments], environment,
-                          label, cleanup)
+                          label, cleanup, log_file)
 
 
 if __name__ == "__main__":

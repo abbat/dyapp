@@ -19,7 +19,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import signal
 import socket
 import sqlite3
@@ -28,6 +27,8 @@ import subprocess
 import sys
 import tempfile
 import time
+
+from capture import Capture
 
 CLIENT = "/workspace/target/debug/test-peer"
 FLOOD_LIMIT = 5
@@ -40,6 +41,9 @@ PLATEAU_SECONDS = 300
 # fails runs without a leak.
 PLATEAU_GROWTH = 0.10
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# Output of every local node by port, across restarts, and its drain threads.
+LOGS = {}
+DRAINS = []
 
 
 def call(client, *args):
@@ -65,14 +69,17 @@ def addresses(host, port):
 
 
 def start_node(bin_dir, environment):
-    """Append every incarnation of a local node to its retained log."""
+    """Capture every incarnation of a local node in its port's buffer."""
     if environment.get("DYAPP_VERBOSE") == "1":
         return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment)
-    directory = Path(environment["DYAPP_NODE_LOG_DIR"])
     port = Path(environment["DYAPPD__STORAGE__DIR"]).name
-    with (directory / f"node-{port}.log").open("ab") as output:
+    output, drain = LOGS.setdefault(port, Capture()).pipe()
+    DRAINS.append(drain)
+    try:
         return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment,
                                 stdout=output, stderr=subprocess.STDOUT)
+    finally:
+        os.close(output)
 
 
 def dyappd(bin_dir, env, *args):
@@ -81,7 +88,7 @@ def dyappd(bin_dir, env, *args):
                           capture_output=True, text=True).stdout
 
 
-def start(bin_dir, storage, logs, peers, processes, environments,
+def start(bin_dir, storage, peers, processes, environments,
           flood=True):
     """Start three loopback nodes, appending to the lists the caller stops.
 
@@ -93,7 +100,6 @@ def start(bin_dir, storage, logs, peers, processes, environments,
     for port in (7071, 7072, 7073):
         tcp, quic = addresses("127.0.0.1", port)
         env = {**os.environ,
-               "DYAPP_NODE_LOG_DIR": logs,
                "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
                "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
                "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
@@ -130,8 +136,8 @@ def start(bin_dir, storage, logs, peers, processes, environments,
             raise RuntimeError(f"Node did not start: {tcp}")
 
 
-def stop(processes, logs, failed):
-    """Stop every node; after a failure print their logs."""
+def stop(processes, failed):
+    """Stop every node; after a failure print their output."""
     if failed:
         # The node state line shows what each node still held.
         for process in processes:
@@ -142,10 +148,11 @@ def stop(processes, logs, failed):
         process.terminate()
         process.wait()
     if failed:
-        for log in sorted(Path(logs).glob("node-*.log")):
-            print(f"--- {log} ---", flush=True)
-            with log.open(errors="replace") as captured:
-                shutil.copyfileobj(captured, sys.stdout)
+        for drain in DRAINS:
+            drain.join(timeout=10)
+        for port, captured in sorted(LOGS.items()):
+            print(f"--- node {port} ---", flush=True)
+            sys.stdout.write(captured.getvalue().decode(errors="replace"))
         sys.stdout.flush()
 
 
@@ -153,13 +160,11 @@ def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/test-peer"
     Path("/tmp/ai").mkdir(exist_ok=True)
-    logs = tempfile.mkdtemp(prefix="dyapp-network-", dir="/tmp/ai")
-    print(f"Local node logs: {logs}", flush=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []
         failed = False
         try:
-            start(bin_dir, storage, logs, peers, processes, environments)
+            start(bin_dir, storage, peers, processes, environments)
             denied = deny_mailbox(client, bin_dir, peers[0], processes[0],
                                   environments[0])
             profile_repair(client, bin_dir, peers, processes, environments)
@@ -172,7 +177,7 @@ def local(bin_dir):
 
             suite(peers, client, churn, relay=False,
                   reports=Path(storage) / "reports")
-            drained(processes, logs, (0, 2))
+            drained(processes, (0, 2))
             sharer = call(client, "info", peers[0][0])["peer_id"]
             shared_deny(bin_dir, environments[2], sharer, denied)
             deny_group(client, bin_dir, peers[2], processes[2],
@@ -194,7 +199,7 @@ def local(bin_dir):
             failed = True
             raise
         finally:
-            stop(processes, logs, failed)
+            stop(processes, failed)
 
 
 def plateau(bin_dir):
@@ -206,14 +211,12 @@ def plateau(bin_dir):
     """
     client = f"{bin_dir}/test-peer"
     Path("/tmp/ai").mkdir(exist_ok=True)
-    logs = tempfile.mkdtemp(prefix="dyapp-plateau-", dir="/tmp/ai")
-    print(f"Local node logs: {logs}", flush=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []
         failed = False
         try:
             # Without the flood limit: node-to-node replication would hit it.
-            start(bin_dir, storage, logs, peers, processes, environments,
+            start(bin_dir, storage, peers, processes, environments,
                   flood=False)
 
             def load():
@@ -244,7 +247,7 @@ def plateau(bin_dir):
             failed = True
             raise
         finally:
-            stop(processes, logs, failed)
+            stop(processes, failed)
 
 
 def rss(process):
@@ -253,24 +256,21 @@ def rss(process):
     return int(re.search(r"^VmRSS:\s+(\d+)", status, re.M).group(1))
 
 
-def node_state(process, log):
+def node_state(process, captured):
     """Send SIGHUP and return the fields of the node state line it logs."""
-    def lines():
-        text = ANSI.sub("", log.read_text(errors="replace"))
-        return [line for line in text.splitlines() if "node state" in line]
-
-    before = len(lines())
+    mark = captured.total
     process.send_signal(signal.SIGHUP)
     for _ in range(50):
-        found = lines()
-        if len(found) > before:
+        text = ANSI.sub("", captured.since(mark).decode(errors="replace"))
+        found = [line for line in text.splitlines() if "node state" in line]
+        if found:
             return {key: int(value)
                     for key, value in re.findall(r"(\w+)=(\d+)", found[-1])}
         time.sleep(0.1)
-    raise RuntimeError(f"No node state line after SIGHUP in {log}")
+    raise RuntimeError("No node state line after SIGHUP")
 
 
-def drained(processes, logs, indexes):
+def drained(processes, indexes):
     """Idle nodes hold no pending request and nothing of a closed connection.
 
     Pending requests end by answer or the 20 s request timeout; lookups that
@@ -280,9 +280,9 @@ def drained(processes, logs, indexes):
         print("Node state: skipped, node logs are streamed")
         return
     for index in indexes:
-        log = Path(logs) / f"node-{7071 + index}.log"
+        captured = LOGS[str(7071 + index)]
         for _ in range(90):
-            state = node_state(processes[index], log)
+            state = node_state(processes[index], captured)
             idle = state["pending"] == state["watches"] == 0
             if idle and state["connection_entries"] <= state["connections"]:
                 break
