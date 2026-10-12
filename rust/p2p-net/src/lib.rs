@@ -504,6 +504,14 @@ mod tests {
         data: Vec<u8>,
     }
 
+    #[test]
+    fn old_heartbeat_decodes_with_version_zero() {
+        use prost::Message;
+        // Field 2 is absent on the wire when it is zero, as from a client older than it.
+        let old = proto::Heartbeat { time: 7, version: 0 }.encode_to_vec();
+        assert_eq!(proto::Heartbeat::decode(old.as_slice()).unwrap().version, 0);
+    }
+
     fn frame_bytes(size: usize) -> Vec<u8> {
         use prost::Message;
         let mut frame = Frame {

@@ -98,6 +98,10 @@ message NodeInfo {
   // Minimum proof-of-work difficulty of a profile key, in leading zero bits.
   uint32 min_profile_pow = 6;
   uint64 retention_seconds = 7;
+  // Profile field numbers a search node filters on; empty without the search role.
+  repeated uint32 search_fields = 8;
+  // Largest profile record a search node indexes, in bytes.
+  uint64 max_search_profile_bytes = 9;
 }
 
 // ---- /dyapp/profile: store role ----
@@ -127,6 +131,9 @@ message GetProfile {
 message Heartbeat {
   // Unix seconds; within 10 minutes of the node's clock, so a captured one soon goes stale.
   uint64 time = 1;
+  // The owner's current profile version; a search node answers NOT_FOUND when it holds an older
+  // one. Store nodes ignore it.
+  uint64 version = 2;
 }
 
 message ProfileResponse {
@@ -336,4 +343,80 @@ message MediaResponse {
   repeated bytes missing = 3;
   // have: no entries are returned for keys the requester may not inventory.
   MediaInventory inventory = 4;
+}
+
+// ---- /dyapp/search: search role ----
+
+enum Op {
+  OP_UNSPECIFIED = 0;
+  OP_EQ = 1;
+  // Up to 8 values; for a repeated field (interests): any of them.
+  OP_IN = 2;
+  // Two int values, inclusive.
+  OP_RANGE = 3;
+}
+
+message Condition {
+  // `dyapp.profile.Profile` field number.
+  uint32 field = 1;
+  Op op = 2;
+  repeated int64 ints = 3;
+  repeated string strings = 4;
+}
+
+message SearchQuery {
+  // At most 16, one per field.
+  repeated Condition conditions = 1;
+  // 0 = 50, at most 200.
+  uint32 limit = 2;
+}
+
+message SearchGet {
+  // Key hashes, at most 50.
+  repeated bytes keys = 1;
+}
+
+message SearchRequest {
+  oneof request {
+    // A `SignedRecord` whose payload is a `dyapp.profile.Profile`, signed by its owner.
+    dyapp.identity.SignedRecord publish = 1;
+    // Payload `Heartbeat`, signed by the profile's owner.
+    dyapp.identity.SignedRecord heartbeat = 2;
+    SearchQuery query = 3;
+    SearchGet get = 4;
+  }
+}
+
+message SearchHit {
+  // Key hash.
+  bytes key = 1;
+  uint64 version = 2;
+}
+
+message SearchResponse {
+  Status status = 1;
+  // Seconds, with RATE_LIMITED.
+  uint64 retry_after = 2;
+  repeated SearchHit hits = 3;
+  // Condition fields the node applied.
+  repeated uint32 applied = 4;
+  // The scan budget ran out before `limit` hits.
+  bool partial = 5;
+  uint32 index_version = 6;
+  // get: the stored records, cut at 1 MiB.
+  repeated dyapp.identity.SignedRecord records = 7;
+}
+
+// ---- /dyapp/inventory: search nodes catch up ----
+
+message InventoryRequest {
+  uint32 topic = 1;
+  // Key hash; empty = from the start.
+  bytes after = 2;
+}
+
+message InventoryResponse {
+  Status status = 1;
+  // Sorted by key, at most 10 000.
+  repeated SearchHit have = 2;
 }

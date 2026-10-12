@@ -13,11 +13,10 @@
 |------|---------|----------|
 | `proto/identity.proto` | `dyapp.identity` | `SignedRecord` |
 | `proto/profile.proto` | `dyapp.profile` | `Profile` |
-| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media` |
+| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` |
 
-The files are the source; comments in them define each field. Schemas for `/dyapp/search`
-and `/dyapp/inventory` and the `Envelope.class` field are planned and are added
-together with their roles ([protocol](bootstrap.md#protocol)).
+The files are the source; comments in them define each field. The `Envelope.class` field is
+planned and is added together with its role ([protocol](bootstrap.md#protocol)).
 
 ## Signed records
 
@@ -52,7 +51,8 @@ are raw bytes: the peer ID of an identity is SHA-256 of its public key, a mailbo
 SHA-256 of the device public key (32 bytes each).
 
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
-  "role not served".
+  "role not served". A search node also reports `search_fields` (the `Profile` field numbers it
+  filters on) and `max_search_profile_bytes`.
 - **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)`, `heartbeat(SignedRecord)` and
   node-to-node `replica_put(SignedRecord)` and `inventory(peer_id)` → stored version or
   `STATUS_NOT_FOUND`, without the record. Publish fans out to the five DHT holders and waits for
@@ -108,6 +108,14 @@ SHA-256 of the device public key (32 bytes each).
   local availability without repair remains the fallback when admission is unavailable.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it on that node, so release every replica holder.
+- **`/dyapp/search`** (search role, planned): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
+  as on `/dyapp/profile`; `Heartbeat.version` names the owner's current profile version, and a
+  search node holding an older one answers `STATUS_NOT_FOUND` (store nodes ignore the field).
+  `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 8 values,
+  inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and
+  `partial` when the scan budget ran out; `get(SearchGet)` returns up to 50 records, cut at 1 MiB.
+- **`/dyapp/inventory`** (search role, planned): node to node, `InventoryRequest(topic, after)`
+  returns up to 10 000 `SearchHit`s of that gossip topic sorted by key, for catch-up.
 
 ## FFI boundary
 

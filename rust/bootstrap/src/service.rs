@@ -1455,7 +1455,7 @@ mod tests {
         let identity = Identity::generate();
         let now = chrono::Utc::now().timestamp().unsigned_abs();
         let beat = |time, identity: &Identity| {
-            let beat = proto::Heartbeat { time };
+            let beat = proto::Heartbeat { time, version: 0 };
             ProfileRequest {
                 request: Some(profile_request::Request::Heartbeat(
                     identity.sign(Domain::Heartbeat, beat.encode_to_vec()),

@@ -870,7 +870,9 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
-`turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)); the
+`turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
+`search.{max_profile_bytes,max_bytes,max_scan_rows,topics}` ([Search](#search), checked only with
+the role); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). Only the `store`, `media` and

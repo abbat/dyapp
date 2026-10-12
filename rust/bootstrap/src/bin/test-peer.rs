@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
             let record = Identity::from_secret(&secret).sign(
                 Domain::Heartbeat,
-                proto::Heartbeat { time: chrono::Utc::now().timestamp().unsigned_abs() }.encode_to_vec(),
+                proto::Heartbeat { time: chrono::Utc::now().timestamp().unsigned_abs(), version: 0 }.encode_to_vec(),
             );
             timeout(profile(addr, profile_request::Request::Heartbeat(record))).await?
         }

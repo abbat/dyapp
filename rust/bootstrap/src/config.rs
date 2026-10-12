@@ -142,6 +142,52 @@ pub struct NodeConfig {
     pub network: Network,
     pub turn: Turn,
     pub media: Media,
+    pub search: Search,
+}
+
+/// The search role, see docs/architecture/bootstrap.md#search.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Search {
+    /// Largest profile record indexed, in bytes; at most 1 MiB, reported in `info`.
+    pub max_profile_bytes: usize,
+    /// Bytes of `profiles-idx.db`: records plus index; above it the oldest heartbeats leave.
+    pub max_bytes: u64,
+    /// Rows one query scans at most; past it the reply is `partial`.
+    pub max_scan_rows: u32,
+    /// Gossip topics (0..16) this node keeps; empty = all.
+    pub topics: Vec<u32>,
+}
+
+impl Default for Search {
+    fn default() -> Self {
+        Self {
+            max_profile_bytes: 64 << 10,
+            max_bytes: 50 << 30,
+            max_scan_rows: 10_000,
+            topics: vec![],
+        }
+    }
+}
+
+impl Search {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.max_profile_bytes == 0 || self.max_profile_bytes > 1 << 20 {
+            anyhow::bail!("search.max_profile_bytes must be between 1 and 1048576 bytes");
+        }
+        if self.max_scan_rows == 0 || self.max_bytes == 0 {
+            anyhow::bail!("search.max_scan_rows and max_bytes must be at least 1");
+        }
+        if self.topics.iter().any(|t| *t >= 16) {
+            anyhow::bail!("search.topics must be in 0..16");
+        }
+        Ok(())
+    }
+
+    /// Whether this node keeps keys of `topic`.
+    pub fn keeps(&self, topic: u32) -> bool {
+        self.topics.is_empty() || self.topics.contains(&topic)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -318,6 +364,7 @@ impl Default for NodeConfig {
             network: Network::default(),
             turn: Turn::default(),
             media: Media::default(),
+            search: Search::default(),
         }
     }
 }
@@ -363,6 +410,11 @@ impl StorageConfig {
         self.dir.join("profiles.db")
     }
 
+    /// The search role's index, `profiles-idx.db`.
+    pub fn search_path(&self) -> PathBuf {
+        self.dir.join("profiles-idx.db")
+    }
+
     pub fn messages_path(&self) -> PathBuf {
         self.dir.join("messages.db")
     }
@@ -391,9 +443,10 @@ impl StorageConfig {
         self.dir.join("deny.db")
     }
 
-    fn stores(&self) -> [PathBuf; 3] {
+    fn stores(&self) -> [PathBuf; 4] {
         [
             self.profiles_path(),
+            self.search_path(),
             self.messages_path(),
             self.media_path(),
         ]
@@ -492,6 +545,9 @@ impl NodeConfig {
                 anyhow::bail!("role turn needs role store");
             }
             self.turn.validate()?;
+        }
+        if self.roles.contains(&Role::Search) {
+            self.search.validate()?;
         }
         let l = &self.limits;
         if l.message_ttl_hours < 1 || l.attachment_retention_hours < 1 || l.profile_ttl_days < 1 {
@@ -781,6 +837,28 @@ mod tests {
         let defaults = toml::Value::try_from(NodeConfig::default()).unwrap();
         assert_eq!(toml::Value::Table(table), defaults);
         assert!(options_help().contains("--limits.max-connections"));
+    }
+
+    #[test]
+    fn search_limits_are_checked() {
+        let search = |change: fn(&mut Search)| {
+            let mut config = NodeConfig::default();
+            change(&mut config.search);
+            config.search.validate()
+        };
+        assert!(search(|_| {}).is_ok());
+        assert!(search(|s| s.max_profile_bytes = 0).is_err());
+        assert!(search(|s| s.max_profile_bytes = (1 << 20) + 1).is_err());
+        assert!(search(|s| s.max_scan_rows = 0).is_err());
+        assert!(search(|s| s.topics = vec![16]).is_err());
+        assert!(search(|s| s.max_bytes = 0).is_err());
+        assert_eq!(Search::default().max_profile_bytes, 64 << 10);
+        assert!(Search::default().keeps(15));
+        let one = Search {
+            topics: vec![3],
+            ..Search::default()
+        };
+        assert!(one.keeps(3) && !one.keeps(4));
     }
 
     #[test]
