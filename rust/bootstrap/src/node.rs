@@ -46,7 +46,15 @@ pub fn swarm(
         0 => usize::MAX,
         mb => usize::try_from(mb.saturating_mul(1 << 20)).unwrap_or(usize::MAX),
     };
-    build_limited_swarm(keypair, mode, connections, limits.max_streams, memory)
+    let search = roles.contains(&Role::Search);
+    build_limited_swarm(
+        keypair,
+        mode,
+        connections,
+        limits.max_streams,
+        memory,
+        search,
+    )
 }
 
 /// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits.

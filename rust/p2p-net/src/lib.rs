@@ -1,15 +1,17 @@
 //! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
 //! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`,
-//! `/dyapp/media`) over request-response with protobuf messages.
+//! `/dyapp/media`) over request-response with protobuf messages. A search node adds
+//! `/dyapp/search-kad`, gossipsub, `/dyapp/search` and `/dyapp/inventory`.
 
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
+use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{
-    autonat, connection_limits, identify, kad, memory_connection_limits, noise, tcp, yamux,
-    Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+    autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits, noise, tcp,
+    yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 use std::io;
 use std::marker::PhantomData;
@@ -31,6 +33,20 @@ pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 pub const MAILBOX_PUSH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox-push");
 pub const MEDIA_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/media");
+/// Key space of the search role, separate from the store role's `/dyapp/kad`.
+pub const SEARCH_KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search-kad");
+pub const SEARCH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search");
+pub const INVENTORY_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/inventory");
+/// Provider key under which search nodes announce themselves in `/dyapp/search-kad`.
+pub const SEARCH_KEY: &[u8] = b"dyapp/search";
+/// Gossip frame limit: a profile record of at most 1 MiB plus framing.
+pub const MAX_GOSSIP_BYTES: usize = (1 << 20) + 4096;
+
+/// Gossipsub topic `n` of the search index (`/dyapp/profiles/<n>`).
+pub fn search_topic(n: u32) -> gossipsub::IdentTopic {
+    gossipsub::IdentTopic::new(format!("/dyapp/profiles/{n}"))
+}
+
 /// Kademlia provider key under which nodes with the turn role announce their relay.
 pub const TURN_KEY: &[u8] = b"/dyapp/turn";
 
@@ -66,6 +82,10 @@ pub type PushBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxPush, proto::MailboxPushResponse>>;
 pub type MediaBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MediaRequest, proto::MediaResponse>>;
+pub type SearchBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::SearchRequest, proto::SearchResponse>>;
+pub type InventoryBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::InventoryRequest, proto::InventoryResponse>>;
 
 #[derive(NetworkBehaviour)]
 pub struct Behaviour {
@@ -80,6 +100,13 @@ pub struct Behaviour {
     /// Node to client only: a node sends, a client receives.
     pub push: PushBehaviour,
     pub media: MediaBehaviour,
+    /// Server mode on search nodes only; others look search nodes up as clients.
+    pub search_kad: kad::Behaviour<kad::store::MemoryStore>,
+    /// Search nodes only.
+    pub gossip: Toggle<gossipsub::Behaviour>,
+    /// Inbound on search nodes only.
+    pub search: SearchBehaviour,
+    pub inventory: InventoryBehaviour,
 }
 
 /// One protobuf message per stream; the writer closes the stream after it.
@@ -219,18 +246,20 @@ pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behavio
         connection_limits::ConnectionLimits::default(),
         100,
         usize::MAX,
+        false,
     )
 }
 
 /// [`build_swarm`] with connection limits and at most `max_streams` concurrent streams per
 /// connection and protocol; new connections are refused while the process uses more than
-/// `max_memory_bytes` of physical memory.
+/// `max_memory_bytes` of physical memory. `search` serves the search protocols and gossip.
 pub fn build_limited_swarm(
     keypair: Keypair,
     mode: Mode,
     limits: connection_limits::ConnectionLimits,
     max_streams: usize,
     max_memory_bytes: usize,
+    search: bool,
 ) -> anyhow::Result<Swarm<Behaviour>> {
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -262,6 +291,37 @@ pub fn build_limited_swarm(
                 ),
             };
             kad.set_mode(kad_mode);
+            let mut search_kad = kad::Behaviour::with_config(
+                peer_id,
+                kad::store::MemoryStore::new(peer_id),
+                kad::Config::new(SEARCH_KAD_PROTOCOL),
+            );
+            search_kad.set_mode(Some(if search {
+                kad::Mode::Server
+            } else {
+                kad::Mode::Client
+            }));
+            let gossip = search.then(|| {
+                let config = gossipsub::ConfigBuilder::default()
+                    .validation_mode(gossipsub::ValidationMode::Strict)
+                    .validate_messages()
+                    .max_transmit_size(MAX_GOSSIP_BYTES)
+                    .message_id_fn(|m: &gossipsub::Message| {
+                        gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
+                    })
+                    .build()
+                    .expect("valid gossipsub config");
+                gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    config,
+                )
+                .expect("valid gossipsub behaviour")
+            });
+            let search_support = if search {
+                ProtocolSupport::Full
+            } else {
+                ProtocolSupport::Outbound
+            };
             let config = request_response::Config::default()
                 .with_request_timeout(Duration::from_secs(20))
                 .with_max_concurrent_streams(max_streams);
@@ -288,6 +348,16 @@ pub fn build_limited_swarm(
                 ),
                 push: request_response::Behaviour::new(
                     [(MAILBOX_PUSH_PROTOCOL, push)],
+                    config.clone(),
+                ),
+                search_kad,
+                gossip: gossip.into(),
+                search: request_response::Behaviour::new(
+                    [(SEARCH_PROTOCOL, search_support.clone())],
+                    config.clone(),
+                ),
+                inventory: request_response::Behaviour::new(
+                    [(INVENTORY_PROTOCOL, search_support)],
                     config.clone(),
                 ),
                 media: request_response::Behaviour::with_codec(
@@ -594,6 +664,55 @@ mod tests {
             independent.permits.as_ref().unwrap().available_permits(),
             16
         );
+    }
+
+    #[tokio::test]
+    async fn search_nodes_gossip() {
+        let search_swarm = || {
+            let limits = connection_limits::ConnectionLimits::default();
+            let keypair = Keypair::generate_ed25519();
+            let mut s = build_limited_swarm(keypair, Mode::Auto, limits, 64, usize::MAX, true);
+            let gossip = s.as_mut().unwrap().behaviour_mut().gossip.as_mut().unwrap();
+            gossip.subscribe(&search_topic(3)).unwrap();
+            s.unwrap()
+        };
+        let (mut a, mut b) = (search_swarm(), search_swarm());
+        a.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let addr = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = a.select_next_some().await {
+                break address;
+            }
+        };
+        b.dial(addr).unwrap();
+        let got = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                tokio::select! {
+                    e = a.select_next_some() => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Gossip(
+                            gossipsub::Event::Subscribed { .. },
+                        )) = e
+                        {
+                            let gossip = a.behaviour_mut().gossip.as_mut().unwrap();
+                            gossip.publish(search_topic(3), b"hello".to_vec()).unwrap();
+                        }
+                    }
+                    e = b.select_next_some() => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Gossip(
+                            gossipsub::Event::Message { message, .. },
+                        )) = e
+                        {
+                            break message.data;
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(got, b"hello");
+        let plain = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        assert!(plain.behaviour().gossip.as_ref().is_none());
     }
 
     #[tokio::test]
