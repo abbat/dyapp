@@ -6,7 +6,7 @@ Issues.
 
 The installed binary is the reference: run `bd <command> --help` before using an unfamiliar
 command, and `bd prime` for session context. The agent skill is
-[`.agents/skills/beads/SKILL.md`](../../.agents/skills/beads/SKILL.md) (Codex), shared with Claude
+`.agents/skills/beads/SKILL.md` (Codex, local and not in the repository), shared with Claude
 Code through the symlink `.claude/skills/beads` (`/beads`).
 
 ## Rules

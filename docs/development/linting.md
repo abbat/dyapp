@@ -1,7 +1,7 @@
 # Linting
 
 What each linter checks, where it actually runs, and what is only a config file. CI wiring is
-described in [ci-base.md](ci-base.md#quality--lintingyml) and
+described in [ci-base.md](ci-base.md#quality--quality) and
 [ci-matrix.md](ci-matrix.md#other-workflows); whether any check is required for merge is **not
 established** ([required checks](ci-matrix.md#required-checks)).
 

@@ -45,7 +45,7 @@ and runs `rust-check.sh quality`, which runs these checks in order:
 
 | Check | Command |
 |-------|---------|
-| Repository rules | `scripts/check-repository.py` |
+| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve |
 | Workflow lint | `actionlint` |
 | Shell lint | `shellcheck scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
