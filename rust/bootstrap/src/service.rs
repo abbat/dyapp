@@ -7,17 +7,20 @@ use crate::{
     maintenance::RebuildBudget,
     media::{MediaStore, Put},
     rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
+    search::{SearchIndex, SEARCH_FIELDS},
     BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
-    self, mailbox_request, media_request, node_request, profile_request, MailboxRequest,
-    MailboxResponse, MediaRequest, MediaResponse, NodeInfo, NodeRequest, NodeResponse,
-    ProfileRequest, ProfileResponse, Status, TurnCredentials,
+    self, mailbox_request, media_request, node_request, profile_request, search_request,
+    InventoryRequest, InventoryResponse, MailboxRequest, MailboxResponse, MediaRequest,
+    MediaResponse, NodeInfo, NodeRequest, NodeResponse, ProfileRequest, ProfileResponse,
+    SearchRequest, SearchResponse, Status, TurnCredentials,
 };
 use prost::Message;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Largest signed envelope payload a mailbox accepts.
@@ -40,8 +43,7 @@ const CLOCK_SKEW: u64 = 600;
 pub const MAX_INVENTORY: usize = 10_000;
 
 /// Shares of `bytes_per_second` (percent) from which media and profile requests are shed; the
-/// mailbox is shed only at the limit; repair stops with media. ponytail: search, once served,
-/// is shed with media.
+/// mailbox is shed only at the limit; repair and search stop with media.
 pub const SHED_MEDIA: u64 = 75;
 const SHED_PROFILES: u64 = 90;
 /// Share of `max_memory_mb` (percent) from which requests that shed by the byte rate are
@@ -58,6 +60,12 @@ pub struct Service {
     pub store: BootstrapStore,
     /// Set when the node serves the media role.
     pub media: Option<MediaStore>,
+    /// Set when the node serves the search role.
+    pub search: Option<Arc<SearchIndex>>,
+    /// Connected search nodes: their get and inventory requests are charged to `search_sync`.
+    search_peers: Mutex<HashSet<String>>,
+    /// Reply bytes per second to search nodes catching up, `maintenance.io_mb_per_s`.
+    pub search_sync: Traffic,
     pub rate_limiter: PeerRateLimiter,
     pub media_peers: PeerRateLimiter,
     media_bytes: PeerRateLimiter,
@@ -97,6 +105,9 @@ impl Service {
         Self {
             store,
             media: None,
+            search: None,
+            search_peers: Mutex::default(),
+            search_sync: Traffic::new(u64::from(config.maintenance.io_mb_per_s) << 20),
             rate_limiter: PeerRateLimiter::new(l.requests_per_second),
             media_peers: PeerRateLimiter::new(l.media_requests_per_second),
             media_bytes: PeerRateLimiter::new(
@@ -274,9 +285,11 @@ impl Service {
         let store = self.config.roles.contains(&Role::Store);
         let media = self.media.is_some();
         let turn = self.config.roles.contains(&Role::Turn);
+        let search = self.search.is_some();
         let roles = [
             (store, proto::Role::Store),
             (media, proto::Role::Media),
+            (search, proto::Role::Search),
             (turn, proto::Role::Turn),
         ];
         NodeInfo {
@@ -293,6 +306,16 @@ impl Service {
             max_message_bytes: if store { MAX_ENVELOPE_BYTES as u64 } else { 0 },
             max_mailbox_bytes: if store { MAX_MAILBOX_BYTES } else { 0 },
             retention_seconds: if store { self.retention() } else { 0 },
+            search_fields: if search {
+                SEARCH_FIELDS.to_vec()
+            } else {
+                vec![]
+            },
+            max_search_profile_bytes: if search {
+                self.config.search.max_profile_bytes as u64
+            } else {
+                0
+            },
             ..NodeInfo::default()
         }
     }
@@ -688,6 +711,308 @@ impl Service {
             Err(BootstrapError::Profile(_)) => Ok(reply(Status::Invalid, None)),
             Err(error) => Err(error),
         }
+    }
+}
+
+/// What the node does with a search gossip message.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Verdict {
+    Accept,
+    Ignore,
+    Reject,
+}
+
+/// Search get replies are cut here, like the profile record limit.
+const MAX_SEARCH_REPLY: usize = 1 << 20;
+/// Keys in one search get.
+const MAX_SEARCH_GET: usize = 50;
+/// Keys in one inventory reply.
+const MAX_SEARCH_INVENTORY: u32 = 10_000;
+
+fn search_reply(status: Status) -> SearchResponse {
+    SearchResponse {
+        status: status.into(),
+        ..SearchResponse::default()
+    }
+}
+
+/// The key hash of a publish or heartbeat, which picks its gossip topic.
+pub fn search_key(request: &SearchRequest) -> Option<[u8; 32]> {
+    match &request.request {
+        Some(search_request::Request::Publish(r) | search_request::Request::Heartbeat(r)) => {
+            let key: [u8; 32] = r.public_key.as_slice().try_into().ok()?;
+            Some(dyapp_identity::key_hash(&key))
+        }
+        _ => None,
+    }
+}
+
+/// What applying a publish or heartbeat did, before it becomes a reply or a gossip verdict.
+enum Applied {
+    Done,
+    /// Valid, but of a topic this node does not keep.
+    Skipped,
+    /// A bad signature: a strike for the sender.
+    Bad,
+    Status(Status),
+    Limited(u64),
+}
+
+/// A search request after admission: a ready reply, or read work the node runs in
+/// `spawn_blocking` so a slow query never holds the swarm loop.
+pub enum Search {
+    Reply(SearchResponse),
+    Query(proto::SearchQuery),
+    Get(Vec<[u8; 32]>),
+}
+
+pub fn run_query(
+    index: &SearchIndex,
+    query: &proto::SearchQuery,
+    max_scan_rows: u32,
+) -> crate::Result<SearchResponse> {
+    Ok(
+        match index.query(&query.conditions, query.limit, max_scan_rows)? {
+            Err(()) => search_reply(Status::Invalid),
+            Ok(found) => SearchResponse {
+                hits: found
+                    .hits
+                    .into_iter()
+                    .map(|(key, version)| proto::SearchHit {
+                        key: key.to_vec(),
+                        version,
+                    })
+                    .collect(),
+                applied: found.applied,
+                partial: found.partial,
+                index_version: crate::search::INDEX_VERSION,
+                ..search_reply(Status::Ok)
+            },
+        },
+    )
+}
+
+pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchResponse> {
+    Ok(SearchResponse {
+        records: index.records(keys, MAX_SEARCH_REPLY)?,
+        ..search_reply(Status::Ok)
+    })
+}
+
+impl Service {
+    /// Errors as in [`Service::profile`].
+    pub fn search(&self, peer: &Peer, request: SearchRequest) -> crate::Result<Search> {
+        let reply = |status| Ok(Search::Reply(search_reply(status)));
+        if self.search.is_none() {
+            return reply(Status::Unsupported);
+        }
+        // A get is also charged by its reply size in `charge_get`; search nodes only there.
+        let units = match &request.request {
+            Some(search_request::Request::Publish(_) | search_request::Request::Heartbeat(_)) => 5,
+            Some(search_request::Request::Get(_)) if self.is_search_peer(peer) => 0,
+            _ => 1,
+        };
+        if self.shed(request.encoded_len(), SHED_MEDIA)
+            || (units > 0 && !self.admit_units(peer, units))
+        {
+            return reply(Status::RateLimited);
+        }
+        if self.refused(peer) {
+            return reply(Status::Refused);
+        }
+        Ok(match request.request {
+            Some(search_request::Request::Publish(record)) => {
+                Search::Reply(self.applied(peer, self.publish_search(&record, true)?))
+            }
+            Some(search_request::Request::Heartbeat(record)) => {
+                Search::Reply(self.applied(peer, self.beat_search(&record)?))
+            }
+            Some(search_request::Request::Query(query)) => Search::Query(query),
+            Some(search_request::Request::Get(get)) => {
+                let keys: Option<Vec<[u8; 32]>> = (get.keys.len() <= MAX_SEARCH_GET)
+                    .then(|| {
+                        get.keys
+                            .iter()
+                            .map(|k| k.as_slice().try_into().ok())
+                            .collect()
+                    })
+                    .flatten();
+                let Some(keys) = keys else {
+                    return reply(Status::Invalid);
+                };
+                Search::Get(keys.into_iter().filter(|k| !self.listed(k)).collect())
+            }
+            None => Search::Reply(search_reply(Status::Invalid)),
+        })
+    }
+
+    /// Charges a built get reply: a unit per started 64 KiB for clients, `search_sync` bytes for
+    /// search nodes. `false` means the node replies `RATE_LIMITED` instead.
+    pub fn charge_get(&self, peer: &Peer, bytes: usize) -> bool {
+        if self.is_search_peer(peer) {
+            return self.search_sync.try_add(bytes as u64, 100);
+        }
+        let units = u32::try_from(bytes.div_ceil(64 << 10)).unwrap_or(u32::MAX);
+        units == 0 || self.admit_units(peer, units)
+    }
+
+    /// Marks `peer_id` as a connected search node or forgets it.
+    pub fn search_peer(&self, peer_id: &str, on: bool) {
+        let Ok(mut peers) = self.search_peers.lock() else {
+            return;
+        };
+        if on {
+            peers.insert(peer_id.to_owned());
+        } else {
+            peers.remove(peer_id);
+        }
+    }
+
+    fn is_search_peer(&self, peer: &Peer) -> bool {
+        self.search_peers
+            .lock()
+            .is_ok_and(|peers| peers.contains(&peer.id))
+    }
+
+    fn applied(&self, peer: &Peer, applied: Applied) -> SearchResponse {
+        match applied {
+            Applied::Done | Applied::Skipped => search_reply(Status::Ok),
+            Applied::Bad => {
+                self.strike(peer);
+                search_reply(Status::Denied)
+            }
+            Applied::Status(status) => search_reply(status),
+            Applied::Limited(retry_after) => SearchResponse {
+                retry_after,
+                ..search_reply(Status::RateLimited)
+            },
+        }
+    }
+
+    /// `limit = false` (catch-up) skips only the 10-minute update limit.
+    fn publish_search(&self, record: &SignedRecord, limit: bool) -> crate::Result<Applied> {
+        let Some(index) = &self.search else {
+            return Ok(Applied::Status(Status::Unsupported));
+        };
+        if record.encoded_len() > self.config.search.max_profile_bytes {
+            return Ok(Applied::Status(Status::TooLarge));
+        }
+        let verified = match dyapp_profile::verify(record) {
+            Ok(verified) => verified,
+            Err(dyapp_profile::Error::Signature(_)) => return Ok(Applied::Bad),
+            Err(_) => return Ok(Applied::Status(Status::Invalid)),
+        };
+        // A verified record has a valid 32-byte key.
+        let key: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
+        let key = dyapp_identity::key_hash(&key);
+        if self.listed(&key) {
+            return Ok(Applied::Status(Status::Refused));
+        }
+        if !self.config.search.keeps(crate::search::topic(&key)) {
+            return Ok(Applied::Skipped);
+        }
+        let now = chrono::Utc::now().timestamp();
+        Ok(
+            match index.put(&key, &verified.profile, record, now, limit)? {
+                crate::search::Put::Stored => Applied::Done,
+                crate::search::Put::Stale => Applied::Status(Status::Stale),
+                crate::search::Put::Limited { retry_after } => Applied::Limited(retry_after),
+            },
+        )
+    }
+
+    fn beat_search(&self, record: &SignedRecord) -> crate::Result<Applied> {
+        let Some(index) = &self.search else {
+            return Ok(Applied::Status(Status::Unsupported));
+        };
+        let Ok((key, beat)) =
+            owner_request::<proto::Heartbeat>(record, Domain::Heartbeat, |_| true)
+        else {
+            return Ok(Applied::Bad);
+        };
+        if self.listed(&key) {
+            return Ok(Applied::Status(Status::Refused));
+        }
+        let now = chrono::Utc::now().timestamp();
+        if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
+            return Ok(Applied::Status(Status::Invalid));
+        }
+        if !self.config.search.keeps(crate::search::topic(&key)) {
+            return Ok(Applied::Skipped);
+        }
+        Ok(match index.heartbeat(&key, beat.version, now)? {
+            crate::search::Beat::Ok => Applied::Done,
+            crate::search::Beat::NotFound => Applied::Status(Status::NotFound),
+            crate::search::Beat::Limited { retry_after } => Applied::Limited(retry_after),
+        })
+    }
+
+    /// Applies a gossiped publish or heartbeat. On `Reject` the node strikes the peer that
+    /// propagated it.
+    pub fn search_gossip(&self, data: &[u8]) -> Verdict {
+        let Ok(request) = SearchRequest::decode(data) else {
+            return Verdict::Reject;
+        };
+        let applied = match &request.request {
+            Some(search_request::Request::Publish(record)) => self.publish_search(record, true),
+            Some(search_request::Request::Heartbeat(record)) => self.beat_search(record),
+            _ => return Verdict::Reject,
+        };
+        match applied {
+            Ok(Applied::Done) => Verdict::Accept,
+            Ok(Applied::Bad) => Verdict::Reject,
+            Ok(_) => Verdict::Ignore,
+            Err(error) => {
+                tracing::error!(%error, "search gossip not stored");
+                Verdict::Ignore
+            }
+        }
+    }
+
+    /// Stores a record fetched in catch-up, without the update limit; returns whether it was
+    /// stored.
+    pub fn search_apply(&self, record: &SignedRecord) -> crate::Result<bool> {
+        Ok(matches!(self.publish_search(record, false)?, Applied::Done))
+    }
+
+    /// `/dyapp/inventory`: the key hashes and versions of one topic, for catch-up.
+    pub fn search_inventory(
+        &self,
+        peer: &Peer,
+        request: InventoryRequest,
+    ) -> crate::Result<InventoryResponse> {
+        let reply = |status: Status| InventoryResponse {
+            status: status.into(),
+            have: vec![],
+        };
+        let Some(index) = &self.search else {
+            return Ok(reply(Status::Unsupported));
+        };
+        let sync = self.is_search_peer(peer);
+        if self.shed(request.encoded_len(), SHED_MEDIA) || (!sync && !self.admit_units(peer, 10)) {
+            return Ok(reply(Status::RateLimited));
+        }
+        if self.refused(peer) {
+            return Ok(reply(Status::Refused));
+        }
+        if request.topic >= crate::search::SEARCH_TOPICS || request.after.len() > 32 {
+            return Ok(reply(Status::Invalid));
+        }
+        let have = index.inventory(request.topic, &request.after, MAX_SEARCH_INVENTORY)?;
+        let response = InventoryResponse {
+            status: Status::Ok.into(),
+            have: have
+                .into_iter()
+                .map(|(key, version)| proto::SearchHit {
+                    key: key.to_vec(),
+                    version,
+                })
+                .collect(),
+        };
+        if sync && !self.search_sync.try_add(response.encoded_len() as u64, 100) {
+            return Ok(reply(Status::RateLimited));
+        }
+        Ok(response)
     }
 }
 
@@ -1287,6 +1612,239 @@ mod tests {
             status(&s.profile(&peer("busy"), inventory(key)).unwrap()),
             Status::RateLimited
         );
+    }
+
+    fn search_service() -> Service {
+        let mut s = service_with(|limits| limits.bytes_per_second = 1 << 20);
+        s.config.roles.push(Role::Search);
+        let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+        s.search = Some(Arc::new(index.unwrap()));
+        s
+    }
+
+    /// Runs deferred work inline, as the node does in `spawn_blocking`.
+    fn search_as(s: &Service, peer: &Peer, request: search_request::Request) -> SearchResponse {
+        let index = s.search.clone().unwrap();
+        let request = SearchRequest {
+            request: Some(request),
+        };
+        match s.search(peer, request).unwrap() {
+            Search::Reply(reply) => reply,
+            Search::Query(q) => run_query(&index, &q, s.config.search.max_scan_rows).unwrap(),
+            Search::Get(keys) => {
+                let reply = run_get(&index, &keys).unwrap();
+                let bytes = reply.records.iter().map(Message::encoded_len).sum();
+                if s.charge_get(peer, bytes) {
+                    reply
+                } else {
+                    search_reply(Status::RateLimited)
+                }
+            }
+        }
+    }
+
+    fn search(s: &Service, request: search_request::Request) -> SearchResponse {
+        search_as(s, &peer("p"), request)
+    }
+
+    fn search_status(response: &SearchResponse) -> Status {
+        Status::try_from(response.status).unwrap()
+    }
+
+    fn beat(identity: &Identity, version: u64, time: u64) -> SignedRecord {
+        let beat = proto::Heartbeat { time, version };
+        identity.sign(Domain::Heartbeat, beat.encode_to_vec())
+    }
+
+    #[test]
+    fn search_publish_query_get() {
+        let s = search_service();
+        let id = Identity::generate();
+        let record = Profile {
+            version: 1,
+            age: 33,
+            country: "DE".into(),
+            ..Profile::default()
+        }
+        .sign(&id);
+        let r = search(&s, search_request::Request::Publish(record.clone()));
+        assert_eq!(search_status(&r), Status::Ok);
+        let newer = Profile {
+            version: 2,
+            ..Profile::default()
+        }
+        .sign(&id);
+        let r = search(&s, search_request::Request::Publish(newer));
+        assert_eq!(search_status(&r), Status::RateLimited);
+        assert!(r.retry_after > 0 && r.retry_after <= 600);
+        let q = proto::SearchQuery {
+            conditions: vec![proto::Condition {
+                field: 3,
+                op: proto::Op::Eq.into(),
+                ints: vec![33],
+                strings: vec![],
+            }],
+            limit: 0,
+        };
+        let r = search(&s, search_request::Request::Query(q));
+        assert_eq!(r.hits.len(), 1);
+        assert_eq!(r.applied, vec![3]);
+        assert_eq!(r.index_version, crate::search::INDEX_VERSION);
+        let bad = proto::SearchQuery {
+            conditions: vec![proto::Condition::default(); 17],
+            limit: 0,
+        };
+        let r = search(&s, search_request::Request::Query(bad));
+        assert_eq!(search_status(&r), Status::Invalid);
+        let get = |keys| search_request::Request::Get(proto::SearchGet { keys });
+        let key = r_key(&s, 33);
+        let r = search(&s, get(vec![key.clone()]));
+        assert_eq!(r.records, vec![record]);
+        assert_eq!(
+            search_status(&search(&s, get(vec![vec![0; 31]]))),
+            Status::Invalid
+        );
+        assert_eq!(
+            search_status(&search(&s, get(vec![key; 51]))),
+            Status::Invalid
+        );
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let r = search(&s, search_request::Request::Heartbeat(beat(&id, 1, now)));
+        assert_eq!(search_status(&r), Status::Ok);
+        let r = search(
+            &s,
+            search_request::Request::Heartbeat(beat(&id, 1, now - 3_600)),
+        );
+        assert_eq!(search_status(&r), Status::Invalid);
+        let info = s.info();
+        assert!(info.roles.contains(&proto::Role::Search.into()));
+        assert_eq!(info.search_fields, SEARCH_FIELDS);
+        assert_eq!(info.max_search_profile_bytes, 64 << 10);
+        assert!(service().info().search_fields.is_empty());
+    }
+
+    /// The key of the one profile aged `age`.
+    fn r_key(s: &Service, age: i64) -> Vec<u8> {
+        let q = proto::SearchQuery {
+            conditions: vec![proto::Condition {
+                field: 3,
+                op: proto::Op::Eq.into(),
+                ints: vec![age],
+                strings: vec![],
+            }],
+            limit: 0,
+        };
+        search_as(s, &peer("key"), search_request::Request::Query(q)).hits[0]
+            .key
+            .clone()
+    }
+
+    #[test]
+    fn search_refusals_and_gossip() {
+        let unsupported = service()
+            .search(&peer("p"), SearchRequest::default())
+            .unwrap();
+        assert!(
+            matches!(unsupported, Search::Reply(r) if search_status(&r) == Status::Unsupported)
+        );
+        let s = search_service();
+        let id = Identity::generate();
+        let mut forged = Profile {
+            version: 1,
+            ..Profile::default()
+        }
+        .sign(&id);
+        forged.payload.push(0);
+        let r = search(&s, search_request::Request::Publish(forged.clone()));
+        assert_eq!(search_status(&r), Status::Denied);
+        let big = Profile {
+            version: 1,
+            place: "x".repeat(1000),
+            interests: vec!["y".repeat(900); 80],
+            ..Profile::default()
+        }
+        .sign(&id);
+        let r = search(&s, search_request::Request::Publish(big));
+        assert_eq!(search_status(&r), Status::TooLarge);
+        let wrap = |r: SignedRecord| {
+            SearchRequest {
+                request: Some(search_request::Request::Publish(r)),
+            }
+            .encode_to_vec()
+        };
+        assert_eq!(s.search_gossip(&wrap(forged)), Verdict::Reject);
+        assert_eq!(s.search_gossip(b"junk"), Verdict::Reject);
+        let good = Profile {
+            version: 1,
+            ..Profile::default()
+        }
+        .sign(&id);
+        assert_eq!(s.search_gossip(&wrap(good.clone())), Verdict::Accept);
+        assert_eq!(s.search_gossip(&wrap(good)), Verdict::Ignore);
+        s.traffic.add(s.config.limits.bytes_per_second);
+        let q = proto::SearchQuery::default();
+        let r = search(&s, search_request::Request::Query(q));
+        assert_eq!(search_status(&r), Status::RateLimited);
+    }
+
+    #[test]
+    fn search_peers_sync_on_their_own_budget() {
+        let s = search_service();
+        let id = Identity::generate();
+        let record = Profile {
+            version: 1,
+            ..Profile::default()
+        }
+        .sign(&id);
+        search(&s, search_request::Request::Publish(record));
+        let newer = Profile {
+            version: 2,
+            age: 40,
+            ..Profile::default()
+        }
+        .sign(&id);
+        // Inside 10 minutes: catch-up skips the update limit.
+        assert!(s.search_apply(&newer).unwrap());
+        let key = search_key(&SearchRequest {
+            request: Some(search_request::Request::Publish(newer.clone())),
+        })
+        .unwrap();
+        let sync = peer("sync");
+        s.search_peer(&sync.id, true);
+        let get = |peer: &Peer| {
+            let keys = vec![key.to_vec()];
+            search_as(
+                &s,
+                peer,
+                search_request::Request::Get(proto::SearchGet { keys }),
+            )
+        };
+        // Far past the client budget of `requests_per_second`.
+        for _ in 0..1_000 {
+            assert_eq!(get(&sync).records, vec![newer.clone()]);
+        }
+        let client = peer("client");
+        assert!((0..1_000).any(|_| search_status(&get(&client)) == Status::RateLimited));
+        let inventory = |peer: &Peer, topic| {
+            let request = InventoryRequest {
+                topic,
+                after: vec![],
+            };
+            s.search_inventory(peer, request).unwrap()
+        };
+        let have = inventory(&sync, crate::search::topic(&key)).have;
+        assert_eq!(have[0].key, key.to_vec());
+        assert_eq!(status_of(inventory(&sync, 16).status), Status::Invalid);
+        s.search_sync
+            .add(u64::from(s.config.maintenance.io_mb_per_s) << 20);
+        assert_eq!(search_status(&get(&sync)), Status::RateLimited);
+        assert_eq!(status_of(inventory(&sync, 0).status), Status::RateLimited);
+        s.search_peer(&sync.id, false);
+        assert!(!s.search_peers.lock().unwrap().contains(&sync.id));
+    }
+
+    fn status_of(status: i32) -> Status {
+        Status::try_from(status).unwrap()
     }
 
     fn service() -> Service {
