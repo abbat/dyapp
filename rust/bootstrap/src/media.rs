@@ -40,22 +40,23 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// Rows of the owner `?1`: its keep and its attachments.
-const OWNED: &str = "(owner = ?1 OR owner IN (SELECT slot FROM attachments WHERE owner = ?1))";
+const OWNED: &str =
+    "(`owner` = ?1 OR `owner` IN (SELECT `slot` FROM `attachments` WHERE `owner` = ?1))";
 
 /// Lists `hashes` for `owner`; returns those it has not stored yet.
 fn list(tx: &Connection, owner: &str, hashes: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
     let mut missing = Vec::new();
     for hash in hashes {
         tx.execute(
-            "INSERT INTO blobs (owner, hash, size, cost) \
-             VALUES (?1, ?2, (SELECT MAX(size) FROM blobs WHERE hash = ?2), (SELECT MAX(cost) FROM blobs WHERE hash = ?2)) \
-             ON CONFLICT(owner, hash) DO UPDATE SET size = COALESCE(blobs.size, excluded.size), cost = COALESCE(blobs.cost, excluded.cost)",
+            "INSERT INTO `blobs` (`owner`, `hash`, `size`, `cost`) \
+             VALUES (?1, ?2, (SELECT MAX(`size`) FROM `blobs` WHERE `hash` = ?2), (SELECT MAX(`cost`) FROM `blobs` WHERE `hash` = ?2)) \
+             ON CONFLICT(`owner`, `hash`) DO UPDATE SET `size` = COALESCE(`blobs`.`size`, `excluded`.`size`), `cost` = COALESCE(`blobs`.`cost`, `excluded`.`cost`)",
             params![owner, hash],
         )
         .map_err(storage_error)?;
         let size: Option<i64> = tx
             .query_row(
-                "SELECT size FROM blobs WHERE owner = ? AND hash = ?",
+                "SELECT `size` FROM `blobs` WHERE `owner` = ? AND `hash` = ?",
                 params![owner, hash],
                 |row| row.get(0),
             )
@@ -73,15 +74,15 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
     for hash in dropped {
         let held: bool = tx
             .query_row(
-                "SELECT EXISTS (SELECT 1 FROM blobs WHERE hash = ?)",
+                "SELECT EXISTS (SELECT 1 FROM `blobs` WHERE `hash` = ?)",
                 [&hash],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
         if !held {
-            tx.execute("DELETE FROM shards WHERE hash = ?", [&hash])
+            tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [&hash])
                 .map_err(storage_error)?;
-            tx.execute("DELETE FROM manifests WHERE hash = ?", [&hash])
+            tx.execute("DELETE FROM `manifests` WHERE `hash` = ?", [&hash])
                 .map_err(storage_error)?;
             orphans.push(hash);
         }
@@ -107,25 +108,25 @@ impl MediaStore {
         let db = open(
             &db,
             // `size` is NULL while a listed blob has not been put.
-            "CREATE TABLE IF NOT EXISTS owners (
-                 owner TEXT PRIMARY KEY,
-                 version INTEGER NOT NULL
+            "CREATE TABLE IF NOT EXISTS `owners` (
+                 `owner` TEXT PRIMARY KEY,
+                 `version` INTEGER NOT NULL
              );
-             CREATE TABLE IF NOT EXISTS blobs (
-                 owner TEXT NOT NULL,
-                 hash BLOB NOT NULL,
-                 size INTEGER,
-                 PRIMARY KEY (owner, hash)
+             CREATE TABLE IF NOT EXISTS `blobs` (
+                 `owner` TEXT NOT NULL,
+                 `hash` BLOB NOT NULL,
+                 `size` INTEGER,
+                 PRIMARY KEY (`owner`, `hash`)
              );
-             CREATE INDEX IF NOT EXISTS blobs_hash ON blobs (hash);
-             CREATE TABLE IF NOT EXISTS attachments (
-                 slot TEXT PRIMARY KEY,
-                 release BLOB NOT NULL,
-                 owner TEXT NOT NULL,
-                 expires INTEGER NOT NULL
+             CREATE INDEX IF NOT EXISTS `blobs_hash` ON `blobs` (`hash`);
+             CREATE TABLE IF NOT EXISTS `attachments` (
+                 `slot` TEXT PRIMARY KEY,
+                 `release` BLOB NOT NULL,
+                 `owner` TEXT NOT NULL,
+                 `expires` INTEGER NOT NULL
              );
-             CREATE INDEX IF NOT EXISTS attachments_owner ON attachments (owner);
-             CREATE INDEX IF NOT EXISTS attachments_release ON attachments (release);",
+             CREATE INDEX IF NOT EXISTS `attachments_owner` ON `attachments` (`owner`);
+             CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);",
         )?;
         {
             let connection = lock(&db)?;
@@ -135,52 +136,52 @@ impl MediaStore {
             ] {
                 let exists: bool = connection
                     .query_row(
-                        &format!("SELECT EXISTS (SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?)"),
-                        [column],
+                        "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE `name` = ?2)",
+                        [table, column],
                         |row| row.get(0),
                     )
                     .map_err(storage_error)?;
                 if !exists {
                     connection.execute_batch(&format!(
-                        "ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default};"
+                        "ALTER TABLE `{table}` ADD COLUMN `{column}` INTEGER NOT NULL DEFAULT {default};"
                     )).map_err(storage_error)?;
                 }
             }
             connection.execute_batch(
-                "CREATE TABLE IF NOT EXISTS manifests (hash BLOB PRIMARY KEY, record BLOB NOT NULL);
-                 CREATE TABLE IF NOT EXISTS shards (hash BLOB NOT NULL, idx INTEGER NOT NULL,
-                 data BLOB NOT NULL, PRIMARY KEY (hash, idx));"
+                "CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
+                 CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
+                 `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));"
             ).map_err(storage_error)?;
             let has_cost: bool = connection
                 .query_row(
-                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('blobs') WHERE name = 'cost')",
+                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info('blobs') WHERE `name` = 'cost')",
                     [],
                     |r| r.get(0),
                 )
                 .map_err(storage_error)?;
             if !has_cost {
                 connection
-                    .execute_batch("ALTER TABLE blobs ADD COLUMN cost INTEGER;")
+                    .execute_batch("ALTER TABLE `blobs` ADD COLUMN `cost` INTEGER;")
                     .map_err(storage_error)?;
             }
             for table in ["owners", "attachments"] {
                 let exists: bool = connection.query_row(
-                    &format!("SELECT EXISTS (SELECT 1 FROM pragma_table_info('{table}') WHERE name = 'record')"),
-                    [], |row| row.get(0),
+                    "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?) WHERE `name` = 'record')",
+                    [table], |row| row.get(0),
                 ).map_err(storage_error)?;
                 if !exists {
                     connection
-                        .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN record BLOB;"))
+                        .execute_batch(&format!("ALTER TABLE `{table}` ADD COLUMN `record` BLOB;"))
                         .map_err(storage_error)?;
                 }
             }
             connection
                 .execute_batch(
-                    "CREATE INDEX IF NOT EXISTS owners_seen ON owners (last_seen);
-                 CREATE INDEX IF NOT EXISTS attachments_created ON attachments (created);
-                 UPDATE blobs SET size = (SELECT MAX(held.size) FROM blobs AS held
-                                          WHERE held.hash = blobs.hash)
-                 WHERE size IS NULL;",
+                    "CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
+                 CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);
+                 UPDATE `blobs` SET `size` = (SELECT MAX(`held`.`size`) FROM `blobs` AS `held`
+                                          WHERE `held`.`hash` = `blobs`.`hash`)
+                 WHERE `size` IS NULL;",
                 )
                 .map_err(storage_error)?;
         }
@@ -229,14 +230,14 @@ impl MediaStore {
         let tx = db.transaction().map_err(storage_error)?;
         let stored: Option<(i64, i64)> = tx
             .query_row(
-                "SELECT version, last_seen FROM owners WHERE owner = ?",
+                "SELECT `version`, `last_seen` FROM `owners` WHERE `owner` = ?",
                 [owner],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
             .map_err(storage_error)?;
         let old: Vec<Vec<u8>> = tx
-            .prepare("SELECT hash FROM blobs WHERE owner = ?")
+            .prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
             .and_then(|mut q| q.query_map([owner], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
         if let Some((stored_version, seen)) = stored {
@@ -250,16 +251,16 @@ impl MediaStore {
             }
         }
         tx.execute(
-            "INSERT INTO owners (owner, version, last_seen, record) VALUES (?, ?, ?, ?) \
-             ON CONFLICT(owner) DO UPDATE SET version = excluded.version, \
-             last_seen = MAX(owners.last_seen, excluded.last_seen), record = excluded.record",
+            "INSERT INTO `owners` (`owner`, `version`, `last_seen`, `record`) VALUES (?, ?, ?, ?) \
+             ON CONFLICT(`owner`) DO UPDATE SET `version` = `excluded`.`version`, \
+             `last_seen` = MAX(`owners`.`last_seen`, `excluded`.`last_seen`), `record` = `excluded`.`record`",
             params![owner, version, time, record.map(Message::encode_to_vec)],
         )
         .map_err(storage_error)?;
         let mut dropped = Vec::new();
         for hash in old.into_iter().filter(|hash| !hashes.contains(hash)) {
             tx.execute(
-                "DELETE FROM blobs WHERE owner = ? AND hash = ?",
+                "DELETE FROM `blobs` WHERE `owner` = ? AND `hash` = ?",
                 params![owner, hash],
             )
             .map_err(storage_error)?;
@@ -322,7 +323,7 @@ impl MediaStore {
         let tx = db.transaction().map_err(storage_error)?;
         let others: i64 = tx
             .query_row(
-                "SELECT COUNT(*) FROM attachments WHERE owner = ? AND slot != ?",
+                "SELECT COUNT(*) FROM `attachments` WHERE `owner` = ? AND `slot` != ?",
                 params![owner, slot],
                 |row| row.get(0),
             )
@@ -332,7 +333,7 @@ impl MediaStore {
         }
         // ponytail: a replayed attach renews the expiry, at most to its `created` + retention.
         tx.execute(
-            "INSERT OR REPLACE INTO attachments (slot, release, owner, expires, created, record) \
+            "INSERT OR REPLACE INTO `attachments` (`slot`, `release`, `owner`, `expires`, `created`, `record`) \
              VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 slot,
@@ -345,8 +346,8 @@ impl MediaStore {
         )
         .map_err(storage_error)?;
         tx.execute(
-            "INSERT INTO owners (owner, version, last_seen) VALUES (?, 0, ?) \
-             ON CONFLICT(owner) DO UPDATE SET last_seen = MAX(owners.last_seen, excluded.last_seen)",
+            "INSERT INTO `owners` (`owner`, `version`, `last_seen`) VALUES (?, 0, ?) \
+             ON CONFLICT(`owner`) DO UPDATE SET `last_seen` = MAX(`owners`.`last_seen`, `excluded`.`last_seen`)",
             params![owner, created],
         )
         .map_err(storage_error)?;
@@ -359,7 +360,7 @@ impl MediaStore {
     pub fn kept(&self, owner: &str, hash: &[u8]) -> Result<bool> {
         lock(&self.db)?
             .query_row(
-                "SELECT EXISTS (SELECT 1 FROM blobs WHERE owner = ? AND hash = ?)",
+                "SELECT EXISTS (SELECT 1 FROM `blobs` WHERE `owner` = ? AND `hash` = ?)",
                 params![owner, hash],
                 |row| row.get(0),
             )
@@ -370,12 +371,12 @@ impl MediaStore {
     pub fn authorization(&self, owner: &str, hash: &[u8]) -> Result<Option<Authorization>> {
         let now = chrono::Utc::now().timestamp();
         let held: Option<(bool, Vec<u8>)> = lock(&self.db)?.query_row(
-            "SELECT 1, attachments.record FROM attachments JOIN blobs ON blobs.owner = attachments.slot
-             WHERE attachments.owner = ?1 AND blobs.hash = ?2 AND attachments.expires > ?3
-             AND attachments.record IS NOT NULL
+            "SELECT 1, `attachments`.`record` FROM `attachments` JOIN `blobs` ON `blobs`.`owner` = `attachments`.`slot`
+             WHERE `attachments`.`owner` = ?1 AND `blobs`.`hash` = ?2 AND `attachments`.`expires` > ?3
+             AND `attachments`.`record` IS NOT NULL
              UNION ALL
-             SELECT 0, owners.record FROM owners JOIN blobs USING(owner)
-             WHERE owners.owner = ?1 AND blobs.hash = ?2 AND owners.record IS NOT NULL LIMIT 1",
+             SELECT 0, `owners`.`record` FROM `owners` JOIN `blobs` USING(`owner`)
+             WHERE `owners`.`owner` = ?1 AND `blobs`.`hash` = ?2 AND `owners`.`record` IS NOT NULL LIMIT 1",
             params![owner, hash, now], |row| Ok((row.get(0)?, row.get(1)?)),
         ).optional().map_err(storage_error)?;
         held.map(|(attach, bytes)| {
@@ -392,19 +393,19 @@ impl MediaStore {
     /// Drops the attachments released by `secret`; false if there were none.
     pub fn release(&self, secret: &[u8]) -> Result<bool> {
         let release = dyapp_identity::sha256(secret);
-        Ok(self.drop_attachments("release = ?", release.as_slice())? > 0)
+        Ok(self.drop_attachments("`release` = ?", release.as_slice())? > 0)
     }
 
     /// Drops the attachments expired at `now` (Unix seconds); returns how many.
     pub fn expire(&self, now: u64) -> Result<usize> {
-        self.drop_attachments("expires <= ?", i64::try_from(now).map_err(storage_error)?)
+        self.drop_attachments("`expires` <= ?", i64::try_from(now).map_err(storage_error)?)
     }
 
-    fn drop_attachments(&self, which: &str, param: impl rusqlite::ToSql) -> Result<usize> {
+    fn drop_attachments(&self, which: &'static str, param: impl rusqlite::ToSql) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
         let slots: Vec<String> = tx
-            .prepare(&format!("SELECT slot FROM attachments WHERE {which}"))
+            .prepare(&format!("SELECT `slot` FROM `attachments` WHERE {which}"))
             .and_then(|mut q| q.query_map([param], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
         let orphans = Self::drop_lists(&tx, &slots, true)?;
@@ -418,7 +419,7 @@ impl MediaStore {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
         let owners: Vec<String> = tx
-            .prepare("SELECT owner FROM owners WHERE last_seen <= ?")
+            .prepare("SELECT `owner` FROM `owners` WHERE `last_seen` <= ?")
             .and_then(|mut q| q.query_map([cutoff], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
         let orphans = Self::drop_lists(&tx, &owners, false)?;
@@ -431,16 +432,16 @@ impl MediaStore {
         let mut dropped = Vec::new();
         for owner in owners {
             let hashes: Vec<Vec<u8>> = tx
-                .prepare("SELECT hash FROM blobs WHERE owner = ?")
+                .prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
                 .and_then(|mut q| q.query_map([owner], |row| row.get(0))?.collect())
                 .map_err(storage_error)?;
             dropped.extend(hashes);
-            tx.execute("DELETE FROM blobs WHERE owner = ?", [owner])
+            tx.execute("DELETE FROM `blobs` WHERE `owner` = ?", [owner])
                 .and_then(|_| {
                     if attachments {
-                        tx.execute("DELETE FROM attachments WHERE slot = ?", [owner])
+                        tx.execute("DELETE FROM `attachments` WHERE `slot` = ?", [owner])
                     } else {
-                        tx.execute("DELETE FROM owners WHERE owner = ?", [owner])
+                        tx.execute("DELETE FROM `owners` WHERE `owner` = ?", [owner])
                     }
                 })
                 .map_err(storage_error)?;
@@ -455,11 +456,11 @@ impl MediaStore {
         for (attachments, query) in [
             (
                 true,
-                "SELECT slot FROM attachments ORDER BY created, slot LIMIT 1",
+                "SELECT `slot` FROM `attachments` ORDER BY `created`, `slot` LIMIT 1",
             ),
             (
                 false,
-                "SELECT owner FROM owners ORDER BY last_seen, owner LIMIT 1",
+                "SELECT `owner` FROM `owners` ORDER BY `last_seen`, `owner` LIMIT 1",
             ),
         ] {
             // Bound work per request even when many lists hold the same blob.
@@ -480,7 +481,7 @@ impl MediaStore {
             }
             if attachments {
                 let remain: bool = db
-                    .query_row("SELECT EXISTS (SELECT 1 FROM attachments)", [], |row| {
+                    .query_row("SELECT EXISTS (SELECT 1 FROM `attachments`)", [], |row| {
                         row.get(0)
                     })
                     .map_err(storage_error)?;
@@ -510,8 +511,8 @@ impl MediaStore {
         let (rows, stored): (i64, i64) = db
             .query_row(
                 &format!(
-                    "SELECT COUNT(*), COALESCE(MIN(size IS NOT NULL AND hash NOT IN (SELECT hash FROM manifests)), 0) FROM blobs \
-                     WHERE hash = ?2 AND {OWNED}"
+                    "SELECT COUNT(*), COALESCE(MIN(`size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`)), 0) FROM `blobs` \
+                     WHERE `hash` = ?2 AND {OWNED}"
                 ),
                 params![owner, hash.as_slice()],
                 |row| Ok((row.get(0)?, row.get(1)?)),
@@ -523,14 +524,14 @@ impl MediaStore {
         let used: i64 = db
             .query_row(
                 &format!(
-                    "SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE {OWNED}"
+                    "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
                 ),
                 [owner],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
         let previous: i64 = db.query_row(
-            &format!("SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE hash = ?2 AND {OWNED}"),
+            &format!("SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE `hash` = ?2 AND {OWNED}"),
             params![owner, hash.as_slice()], |r| r.get(0)
         ).map_err(storage_error)?;
         let charge = if stored == 1 {
@@ -568,23 +569,28 @@ impl MediaStore {
         }
         let tx = db.transaction().map_err(storage_error)?;
         tx.execute(
-            "UPDATE blobs SET size = ?1, cost = ?1 * 5 WHERE hash = ?2",
+            "UPDATE `blobs` SET `size` = ?1, `cost` = ?1 * 5 WHERE `hash` = ?2",
             params![data.len() as i64, hash.as_slice()],
         )
         .map_err(storage_error)?;
-        tx.execute("DELETE FROM shards WHERE hash = ?", [hash.as_slice()])
+        tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [hash.as_slice()])
             .map_err(storage_error)?;
-        tx.execute("DELETE FROM manifests WHERE hash = ?", [hash.as_slice()])
-            .map_err(storage_error)?;
+        tx.execute(
+            "DELETE FROM `manifests` WHERE `hash` = ?",
+            [hash.as_slice()],
+        )
+        .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
         Ok(Put::Stored)
     }
 
     pub fn manifest(&self, hash: &[u8]) -> Result<Option<proto::MediaManifest>> {
         let bytes: Option<Vec<u8>> = lock(&self.db)?
-            .query_row("SELECT record FROM manifests WHERE hash = ?", [hash], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT `record` FROM `manifests` WHERE `hash` = ?",
+                [hash],
+                |r| r.get(0),
+            )
             .optional()
             .map_err(storage_error)?;
         bytes
@@ -607,7 +613,7 @@ impl MediaStore {
         let tx = db.transaction().map_err(storage_error)?;
         let previous: Option<Vec<u8>> = tx
             .query_row(
-                "SELECT record FROM manifests WHERE hash = ?",
+                "SELECT `record` FROM `manifests` WHERE `hash` = ?",
                 [&manifest.hash],
                 |r| r.get(0),
             )
@@ -618,7 +624,7 @@ impl MediaStore {
             return Ok(Put::Invalid);
         }
         let (rows, held): (i64, Option<i64>) = tx.query_row(
-            &format!("SELECT COUNT(*), MIN(COALESCE(cost, size * 5)) FROM blobs WHERE hash = ?2 AND {OWNED}"),
+            &format!("SELECT COUNT(*), MIN(COALESCE(`cost`, `size` * 5)) FROM `blobs` WHERE `hash` = ?2 AND {OWNED}"),
             params![owner, manifest.hash], |r| Ok((r.get(0)?, r.get(1)?))
         ).map_err(storage_error)?;
         if rows == 0 {
@@ -630,7 +636,7 @@ impl MediaStore {
         let used: i64 = tx
             .query_row(
                 &format!(
-                    "SELECT COALESCE(SUM(COALESCE(cost, size * 5)), 0) FROM blobs WHERE {OWNED}"
+                    "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
                 ),
                 [owner],
                 |r| r.get(0),
@@ -643,12 +649,12 @@ impl MediaStore {
             return Ok(Put::OverQuota);
         }
         tx.execute(
-            "INSERT OR IGNORE INTO manifests (hash, record) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO `manifests` (`hash`, `record`) VALUES (?, ?)",
             params![manifest.hash, bytes],
         )
         .map_err(storage_error)?;
         tx.execute(
-            "UPDATE blobs SET size = ?1, cost = ?2 WHERE hash = ?3",
+            "UPDATE `blobs` SET `size` = ?1, `cost` = ?2 WHERE `hash` = ?3",
             params![manifest.length as i64, cost as i64, manifest.hash],
         )
         .map_err(storage_error)?;
@@ -675,7 +681,7 @@ impl MediaStore {
         let db = lock(&self.db)?;
         let held: Option<Vec<u8>> = db
             .query_row(
-                "SELECT record FROM manifests WHERE hash = ?",
+                "SELECT `record` FROM `manifests` WHERE `hash` = ?",
                 [&manifest.hash],
                 |r| r.get(0),
             )
@@ -685,8 +691,8 @@ impl MediaStore {
             return Ok(Put::NotListed);
         }
         db.execute(
-            "INSERT INTO shards (hash, idx, data) VALUES (?, ?, ?)
-             ON CONFLICT(hash, idx) DO UPDATE SET data = excluded.data",
+            "INSERT INTO `shards` (`hash`, `idx`, `data`) VALUES (?, ?, ?)
+             ON CONFLICT(`hash`, `idx`) DO UPDATE SET `data` = `excluded`.`data`",
             params![manifest.hash, index as i64, data],
         )
         .map_err(storage_error)?;
@@ -696,7 +702,7 @@ impl MediaStore {
     pub fn shard(&self, hash: &[u8], index: usize) -> Result<Option<Vec<u8>>> {
         let data: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
-                "SELECT data FROM shards WHERE hash = ? AND idx = ?",
+                "SELECT `data` FROM `shards` WHERE `hash` = ? AND `idx` = ?",
                 params![hash, index as i64],
                 |r| r.get(0),
             )
@@ -718,12 +724,12 @@ impl MediaStore {
     pub fn discard_sharded(&self, hash: &[u8]) -> Result<()> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
-        tx.execute("DELETE FROM shards WHERE hash = ?", [hash])
+        tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [hash])
             .map_err(storage_error)?;
-        tx.execute("DELETE FROM manifests WHERE hash = ?", [hash])
+        tx.execute("DELETE FROM `manifests` WHERE `hash` = ?", [hash])
             .map_err(storage_error)?;
         tx.execute(
-            "UPDATE blobs SET size = NULL, cost = NULL WHERE hash = ?",
+            "UPDATE `blobs` SET `size` = NULL, `cost` = NULL WHERE `hash` = ?",
             [hash],
         )
         .map_err(storage_error)?;
@@ -749,8 +755,8 @@ impl MediaStore {
 
     fn used(db: &Connection) -> Result<u64> {
         db.query_row(
-            "SELECT COALESCE((SELECT SUM(length(record)) FROM manifests), 0) + COALESCE((SELECT SUM(length(data)) FROM shards), 0) + COALESCE(SUM(size), 0) FROM \
-             (SELECT MAX(size) AS size FROM blobs WHERE size IS NOT NULL AND hash NOT IN (SELECT hash FROM manifests) GROUP BY hash)",
+            "SELECT COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE(SUM(`size`), 0) FROM \
+             (SELECT MAX(`size`) AS `size` FROM `blobs` WHERE `size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`) GROUP BY `hash`)",
             [],
             |row| row.get::<_, i64>(0),
         )
@@ -829,7 +835,7 @@ mod tests {
         let db = lock(&media.db).unwrap();
         let seen: i64 = db
             .query_row(
-                "SELECT last_seen FROM owners WHERE owner = 'alice'",
+                "SELECT `last_seen` FROM `owners` WHERE `owner` = 'alice'",
                 [],
                 |row| row.get(0),
             )

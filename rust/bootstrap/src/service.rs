@@ -1474,7 +1474,7 @@ mod tests {
             rusqlite::Connection::open(service.config.storage.dir.join("profiles.db")).unwrap();
         let seen = || {
             db.query_row(
-                "SELECT last_seen FROM profiles WHERE peer_id = ?",
+                "SELECT `last_seen` FROM `profiles` WHERE `peer_id` = ?",
                 [identity.peer_id()],
                 |row| row.get::<_, i64>(0),
             )
@@ -1482,7 +1482,7 @@ mod tests {
         };
         let old = i64::try_from(now).unwrap() - 120;
         db.execute(
-            "UPDATE profiles SET last_seen = ? WHERE peer_id = ?",
+            "UPDATE `profiles` SET `last_seen` = ? WHERE `peer_id` = ?",
             rusqlite::params![old, identity.peer_id()],
         )
         .unwrap();
@@ -1495,7 +1495,7 @@ mod tests {
         assert_eq!(send(publish(newer.sign(&identity))), Status::Ok);
         assert!(seen() >= i64::try_from(now).unwrap());
         db.execute(
-            "UPDATE profiles SET last_seen = ? WHERE peer_id = ?",
+            "UPDATE `profiles` SET `last_seen` = ? WHERE `peer_id` = ?",
             rusqlite::params![old, identity.peer_id()],
         )
         .unwrap();

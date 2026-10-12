@@ -72,6 +72,15 @@ branches.
 - Do not leave `todo!()` or `unimplemented!()` in committed code; open an issue and return an
   error instead.
 - There are no benchmarks (`criterion` is not a dependency and there are no `benches/`).
+- <a id="sql"></a>**SQLite statements.** Quote every table, column, index and alias name with
+  backticks; SQL keywords, functions and pragma names stay bare:
+  ``"SELECT `record` FROM `profiles` WHERE `peer_id` = ?"``. Backticks keep column names that
+  are SQLite keywords (`attachments`.`release`) safe, and one style keeps the queries greppable; SQLite
+  accepts them as identifier quotes, as it does the ANSI double quotes, which would need escaping
+  in Rust strings. Bind every runtime value as a parameter (`?`, `?1`); never `format!` a value
+  into SQL. A `format!` fragment may only be an identifier or clause from an in-code constant
+  (`&'static str`), or an integer the code computes where SQLite has no parameter (a `DEFAULT`
+  in DDL, a pragma argument). Constant literals written in the SQL itself are fine.
 
 ## CI
 

@@ -81,16 +81,16 @@ impl DenyStore {
         Ok(Self {
             db: open(
                 path,
-                "CREATE TABLE IF NOT EXISTS deny (
-                     entry TEXT PRIMARY KEY,
-                     note TEXT NOT NULL,
-                     added INTEGER NOT NULL
+                "CREATE TABLE IF NOT EXISTS `deny` (
+                     `entry` TEXT PRIMARY KEY,
+                     `note` TEXT NOT NULL,
+                     `added` INTEGER NOT NULL
                  );
-                 CREATE TABLE IF NOT EXISTS received (
-                     peer TEXT PRIMARY KEY,
-                     time INTEGER NOT NULL,
-                     record BLOB NOT NULL,
-                     received INTEGER NOT NULL
+                 CREATE TABLE IF NOT EXISTS `received` (
+                     `peer` TEXT PRIMARY KEY,
+                     `time` INTEGER NOT NULL,
+                     `record` BLOB NOT NULL,
+                     `received` INTEGER NOT NULL
                  );",
             )?,
         })
@@ -102,10 +102,10 @@ impl DenyStore {
         let db = lock(&self.db)?;
         let kept = db
             .execute(
-                "INSERT INTO received (peer, time, record, received) VALUES (?, ?, ?, ?)
-                 ON CONFLICT (peer) DO UPDATE SET time = excluded.time,
-                     record = excluded.record, received = excluded.received
-                 WHERE excluded.time > received.time",
+                "INSERT INTO `received` (`peer`, `time`, `record`, `received`) VALUES (?, ?, ?, ?)
+                 ON CONFLICT (`peer`) DO UPDATE SET `time` = `excluded`.`time`,
+                     `record` = `excluded`.`record`, `received` = `excluded`.`received`
+                 WHERE `excluded`.`time` > `received`.`time`",
                 params![
                     peer,
                     i64::try_from(time).unwrap_or(i64::MAX),
@@ -115,8 +115,8 @@ impl DenyStore {
             )
             .map_err(storage_error)?;
         db.execute(
-            "DELETE FROM received WHERE peer NOT IN
-                 (SELECT peer FROM received ORDER BY received DESC, peer LIMIT ?)",
+            "DELETE FROM `received` WHERE `peer` NOT IN
+                 (SELECT `peer` FROM `received` ORDER BY `received` DESC, `peer` LIMIT ?)",
             [MAX_RECEIVED],
         )
         .map_err(storage_error)?;
@@ -127,7 +127,7 @@ impl DenyStore {
     pub fn received(&self) -> Result<Vec<(String, i64, SignedRecord)>> {
         let db = lock(&self.db)?;
         let mut statement = db
-            .prepare("SELECT peer, time, record FROM received ORDER BY peer")
+            .prepare("SELECT `peer`, `time`, `record` FROM `received` ORDER BY `peer`")
             .map_err(storage_error)?;
         let rows = statement
             .query_map([], |row| {
@@ -147,7 +147,7 @@ impl DenyStore {
     pub fn add(&self, entry: &str, note: &str) -> Result<bool> {
         let added = lock(&self.db)?
             .execute(
-                "INSERT OR IGNORE INTO deny (entry, note, added) VALUES (?, ?, ?)",
+                "INSERT OR IGNORE INTO `deny` (`entry`, `note`, `added`) VALUES (?, ?, ?)",
                 params![entry, note, chrono::Utc::now().timestamp()],
             )
             .map_err(storage_error)?;
@@ -157,7 +157,7 @@ impl DenyStore {
     /// Removes an entry; false when it was not listed.
     pub fn remove(&self, entry: &str) -> Result<bool> {
         let removed = lock(&self.db)?
-            .execute("DELETE FROM deny WHERE entry = ?", [entry])
+            .execute("DELETE FROM `deny` WHERE `entry` = ?", [entry])
             .map_err(storage_error)?;
         Ok(removed > 0)
     }
@@ -166,7 +166,7 @@ impl DenyStore {
     pub fn list(&self) -> Result<Vec<(String, String, i64)>> {
         let db = lock(&self.db)?;
         let mut statement = db
-            .prepare("SELECT entry, note, added FROM deny ORDER BY added, entry")
+            .prepare("SELECT `entry`, `note`, `added` FROM `deny` ORDER BY `added`, `entry`")
             .map_err(storage_error)?;
         let rows = statement
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))

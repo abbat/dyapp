@@ -192,36 +192,36 @@ fn status(config: &NodeConfig) -> String {
         ("peer_id", peer_id.trim().to_string()),
         (
             "profiles",
-            count(&s.profiles_path(), "SELECT count(*) FROM profiles"),
+            count(&s.profiles_path(), "SELECT count(*) FROM `profiles`"),
         ),
         (
             "envelopes",
-            count(&s.messages_path(), "SELECT count(*) FROM envelopes"),
+            count(&s.messages_path(), "SELECT count(*) FROM `envelopes`"),
         ),
         (
             "envelope_bytes",
             count(
                 &s.messages_path(),
-                "SELECT coalesce(sum(size), 0) FROM envelopes",
+                "SELECT coalesce(sum(`size`), 0) FROM `envelopes`",
             ),
         ),
         (
             "media_blobs",
             count(
                 &media,
-                "SELECT count(DISTINCT hash) FROM blobs WHERE size IS NOT NULL",
+                "SELECT count(DISTINCT `hash`) FROM `blobs` WHERE `size` IS NOT NULL",
             ),
         ),
         (
             "media_bytes",
             count(
                 &media,
-                "SELECT coalesce(sum(size), 0) FROM (SELECT DISTINCT hash, size FROM blobs)",
+                "SELECT coalesce(sum(`size`), 0) FROM (SELECT DISTINCT `hash`, `size` FROM `blobs`)",
             ),
         ),
         (
             "deny_entries",
-            count(&s.deny_path(), "SELECT count(*) FROM deny"),
+            count(&s.deny_path(), "SELECT count(*) FROM `deny`"),
         ),
         (
             "cached_peers",

@@ -31,6 +31,9 @@ User instructions take priority over this file. Details:
 - End each commit with the Co-Authored-By line of the agent that made it, e.g.
   `Co-Authored-By: Claude <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`.
   The model name may follow the agent name; keep the email unchanged.
+- SQLite: quote identifiers with backticks and bind runtime values as parameters, e.g.
+  ``"DELETE FROM `deny` WHERE `entry` = ?"``; `format!` only in-code constant identifiers. Details:
+  [code-quality.md](docs/development/code-quality.md#sql).
 - **Docs change with the code.** A new feature, a behaviour fix, or a changed command, config or
   interface updates the affected pages in [docs/](docs/README.md) in the same commit: describe
   what the code does, mark unimplemented parts as planned, delete statements that are no longer

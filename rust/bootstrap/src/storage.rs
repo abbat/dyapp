@@ -55,7 +55,7 @@ const EVICT_STEPS: u32 = 64;
 
 /// Deletes the rows of `table` with the lowest rowid, step by step, until the store holds less
 /// than `target` bytes or the step budget runs out. Returns the rows deleted.
-fn evict(db: &Mutex<Connection>, table: &str, target: u64) -> Result<usize> {
+fn evict(db: &Mutex<Connection>, table: &'static str, target: u64) -> Result<usize> {
     let db = lock(db)?;
     let mut evicted = 0;
     for _ in 0..EVICT_STEPS {
@@ -65,8 +65,8 @@ fn evict(db: &Mutex<Connection>, table: &str, target: u64) -> Result<usize> {
         let deleted = db
             .execute(
                 &format!(
-                    "DELETE FROM {table} WHERE rowid IN \
-                     (SELECT rowid FROM {table} ORDER BY rowid LIMIT {EVICT_ROWS})"
+                    "DELETE FROM `{table}` WHERE `rowid` IN \
+                     (SELECT `rowid` FROM `{table}` ORDER BY `rowid` LIMIT {EVICT_ROWS})"
                 ),
                 [],
             )
@@ -120,10 +120,10 @@ impl BootstrapStore {
         // `last_seen`: node time of a newer publish, or the latest validated heartbeat time.
         let profiles = open(
             profiles,
-            "CREATE TABLE IF NOT EXISTS profiles (
-                 peer_id TEXT PRIMARY KEY,
-                 record BLOB NOT NULL,
-                 live INTEGER NOT NULL
+            "CREATE TABLE IF NOT EXISTS `profiles` (
+                 `peer_id` TEXT PRIMARY KEY,
+                 `record` BLOB NOT NULL,
+                 `live` INTEGER NOT NULL
              );",
         )?;
         {
@@ -131,7 +131,7 @@ impl BootstrapStore {
             let seen: bool = db
                 .query_row(
                     "SELECT EXISTS (SELECT 1 FROM pragma_table_info('profiles') \
-                     WHERE name = 'last_seen')",
+                     WHERE `name` = 'last_seen')",
                     [],
                     |row| row.get(0),
                 )
@@ -139,30 +139,32 @@ impl BootstrapStore {
             if !seen {
                 // Rows stored before the column count as seen now, so an upgrade deletes nothing.
                 db.execute_batch(&format!(
-                    "ALTER TABLE profiles ADD COLUMN last_seen INTEGER NOT NULL DEFAULT {};",
+                    "ALTER TABLE `profiles` ADD COLUMN `last_seen` INTEGER NOT NULL DEFAULT {};",
                     chrono::Utc::now().timestamp()
                 ))
                 .map_err(storage_error)?;
             }
-            db.execute_batch("CREATE INDEX IF NOT EXISTS profiles_seen ON profiles (last_seen);")
-                .map_err(storage_error)?;
+            db.execute_batch(
+                "CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);",
+            )
+            .map_err(storage_error)?;
         }
         Ok(Self {
             profiles,
             messages: open(
                 messages,
                 // `seq` keeps arrival order; `size` is the stored record length.
-                "CREATE TABLE IF NOT EXISTS envelopes (
-                     seq INTEGER PRIMARY KEY,
-                     mailbox BLOB NOT NULL,
-                     id BLOB NOT NULL,
-                     record BLOB NOT NULL,
-                     size INTEGER NOT NULL,
-                     expires_at INTEGER NOT NULL,
-                     UNIQUE (mailbox, id)
+                "CREATE TABLE IF NOT EXISTS `envelopes` (
+                     `seq` INTEGER PRIMARY KEY,
+                     `mailbox` BLOB NOT NULL,
+                     `id` BLOB NOT NULL,
+                     `record` BLOB NOT NULL,
+                     `size` INTEGER NOT NULL,
+                     `expires_at` INTEGER NOT NULL,
+                     UNIQUE (`mailbox`, `id`)
                  );
-                 CREATE INDEX IF NOT EXISTS envelopes_mailbox ON envelopes (mailbox, seq);
-                 CREATE INDEX IF NOT EXISTS envelopes_expiry ON envelopes (expires_at);",
+                 CREATE INDEX IF NOT EXISTS `envelopes_mailbox` ON `envelopes` (`mailbox`, `seq`);
+                 CREATE INDEX IF NOT EXISTS `envelopes_expiry` ON `envelopes` (`expires_at`);",
             )?,
         })
     }
@@ -183,7 +185,7 @@ impl BootstrapStore {
         let db = lock(&self.messages)?;
         let stored: bool = db
             .query_row(
-                "SELECT EXISTS (SELECT 1 FROM envelopes WHERE mailbox = ? AND id = ?)",
+                "SELECT EXISTS (SELECT 1 FROM `envelopes` WHERE `mailbox` = ? AND `id` = ?)",
                 params![mailbox, id],
                 |row| row.get(0),
             )
@@ -194,7 +196,7 @@ impl BootstrapStore {
         // ponytail: sums the mailbox on every put; keep a per-mailbox total if puts get slow.
         let used: i64 = db
             .query_row(
-                "SELECT COALESCE(SUM(size), 0) FROM envelopes WHERE mailbox = ?",
+                "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` WHERE `mailbox` = ?",
                 [mailbox],
                 |row| row.get(0),
             )
@@ -204,7 +206,7 @@ impl BootstrapStore {
             return Ok(false);
         }
         db.execute(
-            "INSERT INTO envelopes (mailbox, id, record, size, expires_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`) VALUES (?, ?, ?, ?, ?)",
             params![mailbox, id, record, size, expires_at],
         )
         .map_err(storage_error)?;
@@ -221,7 +223,7 @@ impl BootstrapStore {
     ) -> Result<(Vec<SignedRecord>, bool)> {
         let db = lock(&self.messages)?;
         let mut query = db
-            .prepare("SELECT record FROM envelopes WHERE mailbox = ? ORDER BY seq LIMIT ?")
+            .prepare("SELECT `record` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `seq` LIMIT ?")
             .map_err(storage_error)?;
         let rows: Vec<Vec<u8>> = query
             .query_map(params![mailbox, limit + 1], |row| row.get(0))
@@ -247,7 +249,7 @@ impl BootstrapStore {
         let tx = db.transaction().map_err(storage_error)?;
         for id in ids {
             tx.execute(
-                "DELETE FROM envelopes WHERE mailbox = ? AND id = ?",
+                "DELETE FROM `envelopes` WHERE `mailbox` = ? AND `id` = ?",
                 params![mailbox, id],
             )
             .map_err(storage_error)?;
@@ -266,7 +268,7 @@ impl BootstrapStore {
             .transpose()?;
         verified.check_newer(current)?;
         db.execute(
-            "INSERT OR REPLACE INTO profiles (peer_id, record, live, last_seen) \
+            "INSERT OR REPLACE INTO `profiles` (`peer_id`, `record`, `live`, `last_seen`) \
              VALUES (?, ?, ?, ?)",
             params![
                 verified.peer_id,
@@ -281,7 +283,7 @@ impl BootstrapStore {
 
     fn profile(db: &Connection, peer_id: &str) -> Result<Option<SignedRecord>> {
         db.query_row(
-            "SELECT record FROM profiles WHERE peer_id = ?",
+            "SELECT `record` FROM `profiles` WHERE `peer_id` = ?",
             [peer_id],
             |row| row.get(0),
         )
@@ -299,7 +301,9 @@ impl BootstrapStore {
     pub fn list_profiles(&self, skip: u32, limit: u32) -> Result<Vec<SignedRecord>> {
         let db = lock(&self.profiles)?;
         let mut query = db
-            .prepare("SELECT record FROM profiles WHERE live ORDER BY peer_id LIMIT ? OFFSET ?")
+            .prepare(
+                "SELECT `record` FROM `profiles` WHERE `live` ORDER BY `peer_id` LIMIT ? OFFSET ?",
+            )
             .map_err(storage_error)?;
         let records: Vec<Vec<u8>> = query
             .query_map([limit, skip], |row| row.get(0))
@@ -312,7 +316,7 @@ impl BootstrapStore {
     pub fn touch_profile(&self, peer_id: &str, now: i64) -> Result<bool> {
         let touched = lock(&self.profiles)?
             .execute(
-                "UPDATE profiles SET last_seen = MAX(last_seen, ?) WHERE peer_id = ?",
+                "UPDATE `profiles` SET `last_seen` = MAX(`last_seen`, ?) WHERE `peer_id` = ?",
                 params![now, peer_id],
             )
             .map_err(storage_error)?;
@@ -322,13 +326,13 @@ impl BootstrapStore {
     /// Deletes profiles and tombstones whose owner was last seen at `cutoff` or before.
     pub fn expire_profiles(&self, cutoff: i64) -> Result<usize> {
         lock(&self.profiles)?
-            .execute("DELETE FROM profiles WHERE last_seen <= ?", [cutoff])
+            .execute("DELETE FROM `profiles` WHERE `last_seen` <= ?", [cutoff])
             .map_err(storage_error)
     }
 
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
         lock(&self.messages)?
-            .execute("DELETE FROM envelopes WHERE expires_at <= ?", [now])
+            .execute("DELETE FROM `envelopes` WHERE `expires_at` <= ?", [now])
             .map_err(storage_error)
     }
 
@@ -405,8 +409,8 @@ mod tests {
         Connection::open(format!("{dir}/profiles.db"))
             .unwrap()
             .execute_batch(
-                "CREATE TABLE profiles (peer_id TEXT PRIMARY KEY, record BLOB NOT NULL, \
-                 live INTEGER NOT NULL); INSERT INTO profiles VALUES ('old', x'', 1);",
+                "CREATE TABLE `profiles` (`peer_id` TEXT PRIMARY KEY, `record` BLOB NOT NULL, \
+                 `live` INTEGER NOT NULL); INSERT INTO `profiles` VALUES ('old', x'', 1);",
             )
             .unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
@@ -504,7 +508,7 @@ mod tests {
         publish(&owners[0], 2);
         let order: Vec<String> = lock(&store.profiles)
             .unwrap()
-            .prepare("SELECT peer_id FROM profiles ORDER BY rowid")
+            .prepare("SELECT `peer_id` FROM `profiles` ORDER BY `rowid`")
             .unwrap()
             .query_map([], |row| row.get(0))
             .unwrap()
