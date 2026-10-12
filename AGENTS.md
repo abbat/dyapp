@@ -15,9 +15,13 @@ All targets run in Docker; `make prepare` builds the images once. Main checks: `
 `make quality`, `make test-all`. Full command table, layout and limits:
 [docs/agents/project.md](docs/agents/project.md).
 
-Prefer these Make targets: successful Docker stages print one summary with a retained log
-under `/tmp/ai/dyapp-docker-*/output.log`; failures replay the full log. Set
-`DYAPP_VERBOSE=1` for live output. Interactive shell targets stream automatically.
+Prefer these Make targets: each Docker stage prints one `OK` or `ERROR` line with its retained
+log under `/tmp/ai/dyapp-docker-*/output.log`. Set `DYAPP_VERBOSE=1` for live output.
+Interactive shell targets stream automatically.
+
+Run long checks in the background and wait for the completion notice: do not poll with
+`sleep`, `tail` or `grep`. Read the log only after `ERROR`, and only the failing lines
+(`grep -E 'Error|FAILED|panicked'`), never the whole log or progress output.
 
 ## Rules
 

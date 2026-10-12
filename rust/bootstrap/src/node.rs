@@ -401,6 +401,25 @@ struct Replicas {
 }
 
 impl Replicas {
+    /// Entries that wait for a reply, a lookup or a queue slot; each leaves on its answer, failure
+    /// or timeout, so an idle node holds none.
+    fn pending(&self) -> usize {
+        self.puts.len()
+            + self.mailbox_puts.len()
+            + self.profile_puts.len()
+            + self.media_puts.len()
+            + self.shard_puts.len()
+            + self.shard_gets.len()
+            + self.media_reads.len()
+            + self.media_repairs.len()
+            + self.media_repair_requests.len()
+            + self.media_queue.len()
+            + self.media_outgoing.len()
+            + self.lookups.len()
+            + self.inventories.len()
+            + self.profile_inventories.len()
+    }
+
     fn repair_media(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -1825,6 +1844,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
             _ = hangup.recv() => {
                 deny_version = None;
                 reload_deny(&mut service, &deny, &mut deny_version);
+                state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
             }
             _ = rejoin.tick() => {
                 if dyapp_p2p_net::known_peers(&mut swarm).is_empty() {
@@ -1903,6 +1923,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     refused = 0;
                 }
                 status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1);
+                state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
                 (answered, failed) = (0, 0);
                 dyapp_p2p_net::join(&mut swarm, &seeds, &[]);
             }
@@ -1934,6 +1955,24 @@ fn status(
         media_bytes = media,
         media_replica_holders,
         "node status"
+    );
+}
+
+/// The in-memory state line, hourly and on SIGHUP: requests still pending, the largest per-connection
+/// map against the open connections, and mailbox watches. Growth that idling does not undo is a leak.
+fn state(
+    replicas: &Replicas,
+    swarm: &Swarm<Behaviour>,
+    per_connection: &[usize],
+    watchers: &Watchers,
+) {
+    tracing::info!(
+        pending = replicas.pending(),
+        connection_entries = per_connection.iter().max().copied().unwrap_or(0),
+        connections = swarm.network_info().connection_counters().num_connections(),
+        watches = watchers.values().map(Vec::len).sum::<usize>(),
+        trusted_peers = replicas.trust.score.len().max(replicas.trust.seen.len()),
+        "node state"
     );
 }
 

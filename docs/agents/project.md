@@ -31,7 +31,7 @@ pulls anything).
 | Goal | Command | Runs |
 |------|---------|------|
 | Unit tests | `make test` | `scripts/docker-test.sh test` |
-| Integration | `make test-integration` | bootstrap `integration_tests` + network compose |
+| Integration | `make test-integration` | bootstrap `integration_tests` + network compose + `rust-check.sh memory` (5-minute RSS plateau) |
 | Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
 | Debian 12 package | `make deb` | `scripts/build-deb.sh`, then `scripts/deb-test.sh` on bookworm-slim |
 | Container image | `make image` | builds `dyappd:latest` (`docker/Dockerfile.dyappd`), then `scripts/image-test.sh` |
@@ -51,7 +51,10 @@ There are no other targets (no `ui-test-all`, no npm). Details: [testing](../tes
 Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in a unique
 `/tmp/ai/dyapp-docker-*/output.log`. Success prints one `OK` line with its path; a nonzero
-exit replays the complete log and reports the failure and path. The original stage failure
+exit prints one `ERROR` line with the exit code and path. On a GitHub runner
+(`GITHUB_ACTIONS` set) a failure also replays the complete log, which is lost with the runner.
+Agents run long checks in the background, wait for the completion notice instead of polling
+with `sleep`/`tail`, and read only the failing lines of a log after `ERROR`. The original stage failure
 wins over a later stop failure; a failed stop also fails an otherwise successful stage.
 Logs remain for inspection and are never deleted by the runner. Large logs consume disk.
 

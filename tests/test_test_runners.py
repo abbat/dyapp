@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Runners(unittest.TestCase):
-    def run_script(self, script, command, failing_service="", verbose="0"):
+    def run_script(self, script, command, failing_service="", verbose="0",
+                   ci=""):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             docker = Path(directory) / "docker"
@@ -32,7 +33,7 @@ class Runners(unittest.TestCase):
                 ["bash", str(ROOT / "scripts" / script), command],
                 env={**os.environ, "PATH": f"{directory}:{os.environ['PATH']}",
                      "CALL_LOG": str(log), "FAIL_SERVICE": failing_service,
-                     "DYAPP_VERBOSE": verbose},
+                     "DYAPP_VERBOSE": verbose, "GITHUB_ACTIONS": ci},
                 capture_output=True, text=True, check=False,
             )
             return result, log.read_text() if log.exists() else ""
@@ -66,7 +67,7 @@ class Runners(unittest.TestCase):
         self.assertNotIn("build", calls)
         self.assertNotIn("linux-gui", calls)
 
-    def test_success_retains_full_logs_and_failure_replays_them(self):
+    def test_failure_names_its_log_and_ci_replays_it(self):
         result, calls = self.run_script("docker-test.sh", "test")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(result.stdout.splitlines()), 1)
@@ -77,9 +78,12 @@ class Runners(unittest.TestCase):
         self.assertIn("run --no-TTY", calls)
         failed, _ = self.run_script("docker-test.sh", "test", "dev")
         self.assertEqual(failed.returncode, 23)
-        self.assertEqual(failed.stdout, log.read_text())
-        self.assertIn("FAILED Docker Compose test (exit 23); log: ",
+        self.assertEqual(failed.stdout, "")
+        self.assertIn("ERROR Docker Compose test (exit 23); log: ",
                       failed.stderr)
+        replayed, _ = self.run_script("docker-test.sh", "test", "dev",
+                                      ci="true")
+        self.assertEqual(replayed.stdout, log.read_text())
 
     def test_verbose_and_interactive_shells_stream_output(self):
         for script, command, verbose in (("docker-test.sh", "test", "1"),
@@ -113,12 +117,13 @@ class Runners(unittest.TestCase):
                 with patch.object(runner.subprocess, "run",
                                   side_effect=execute), \
                         patch.object(runner.sys, "stdout", out), \
-                        patch.object(runner.sys, "stderr", error):
+                        patch.object(runner.sys, "stderr", error), \
+                        patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                     self.assertEqual(runner.run_logged(
                         ["run"], {}, "stage", ["stop"]), expected)
-                self.assertEqual(out.getvalue(), "run\nstop\n")
+                self.assertEqual(out.getvalue(), "")
                 log = Path(error.getvalue().strip().split("; log: ")[1])
-                self.assertEqual(log.read_text(), out.getvalue())
+                self.assertEqual(log.read_text(), "run\nstop\n")
 
     def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
         spec = importlib.util.spec_from_file_location(
@@ -224,13 +229,14 @@ class Runners(unittest.TestCase):
                 with patch.object(runner.subprocess, "run",
                                   side_effect=execute) as invoke, \
                         patch.object(runner.sys, "stdout", output), \
-                        patch.object(runner.sys, "stderr", io.StringIO()):
+                        patch.object(runner.sys, "stderr", io.StringIO()), \
+                        patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                     self.assertEqual(runner.build_images(
                         ["--profile", "build", "build", "first", "second"],
                         {}), status)
                 output.flush()
                 printed = output.buffer.getvalue().decode()
-                # The build log is shown only for a failed build.
+                # A local failed build prints only its ERROR line on stderr.
                 if status == 0:
                     summaries = printed.splitlines()
                     self.assertEqual(len(summaries), 2)
@@ -240,7 +246,7 @@ class Runners(unittest.TestCase):
                         self.assertEqual(Path(summary.split("; log: ")[1])
                                          .read_bytes(), log)
                 else:
-                    self.assertEqual(printed, "build log\n")
+                    self.assertEqual(printed, "")
                 builds = invoke.call_args_list[1:]
                 self.assertEqual(len(builds), 2 if status == 0 else 1)
                 for call in builds:

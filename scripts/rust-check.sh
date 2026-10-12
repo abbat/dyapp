@@ -58,6 +58,11 @@ step() {
             instrument
             python3 scripts/network-test.py --local "$CARGO_TARGET_DIR/debug"
             ;;
+        memory)
+            # Release binaries, as deployed: resident memory must level off under repeated load.
+            cargo build --release -p dyapp-bootstrap --bins --locked
+            python3 scripts/network-test.py --plateau "${CARGO_TARGET_DIR:-target}/release"
+            ;;
         security)
             if [[ -d /opt/advisory-dbs ]]; then
                 # The dev image ships the advisory DB; --frozen also skips fetching it. The workspace
@@ -75,4 +80,4 @@ step() {
         *) echo "Unknown step: $1" >&2; exit 2 ;;
     esac
 }
-step "${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|network|security}"
+step "${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|network|memory|security}"

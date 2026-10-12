@@ -20,6 +20,7 @@ test:
 test-integration:
 	$(DEV) cargo test -p dyapp-bootstrap --test integration_tests --all-features --locked --offline -- --test-threads=1
 	bash scripts/docker-test.sh network
+	$(DEV) bash scripts/rust-check.sh memory
 
 test-all:
 	bash scripts/docker-test.sh all

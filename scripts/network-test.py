@@ -3,8 +3,10 @@
 `test-peer` is the client: the script has no libp2p library. Without
 arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
 starts three dyappd processes from BIN_DIR on the loopback instead and
-also stops one to check that replicas skip a departed node.
-`--health MULTIADDR` checks one node.
+also stops one to check that replicas skip a departed node, checks the deny
+list and that idle nodes hold no pending state. `--plateau BIN_DIR` runs the
+suite on three loopback nodes for `PLATEAU_SECONDS` and checks that their
+memory levels off. `--health MULTIADDR` checks one node.
 
 The second and third nodes join through the first; the third allows
 `FLOOD_LIMIT` requests per second per peer. Every node serves media; only the
@@ -16,7 +18,9 @@ import hmac
 import json
 import os
 from pathlib import Path
+import re
 import shutil
+import signal
 import socket
 import sqlite3
 import struct
@@ -31,6 +35,11 @@ FLOOD_LIMIT = 5
 POW_BITS = "8"
 # coturn static-auth-secret, as in docker/compose.network.yml.
 TURN_SECRET = "network-test-secret"
+PLATEAU_SECONDS = 300
+# ponytail: a fixed share of the warm-up peak; tune it if allocator noise
+# fails runs without a leak.
+PLATEAU_GROWTH = 0.10
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def call(client, *args):
@@ -66,6 +75,80 @@ def start_node(bin_dir, environment):
                                 stdout=output, stderr=subprocess.STDOUT)
 
 
+def dyappd(bin_dir, env, *args):
+    """Run a dyappd subcommand on a node's storage; its standard output."""
+    return subprocess.run([f"{bin_dir}/dyappd", *args], env=env, check=True,
+                          capture_output=True, text=True).stdout
+
+
+def start(bin_dir, storage, logs, peers, processes, environments,
+          flood=True):
+    """Start three loopback nodes, appending to the lists the caller stops.
+
+    The first serves TURN and shares its deny list; the third accepts deny
+    lists, fetching them every maintenance minute, and with `flood` limits
+    every peer to FLOOD_LIMIT requests per second.
+    """
+    client = f"{bin_dir}/test-peer"
+    for port in (7071, 7072, 7073):
+        tcp, quic = addresses("127.0.0.1", port)
+        env = {**os.environ,
+               "DYAPP_NODE_LOG_DIR": logs,
+               "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
+               "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
+               "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
+               "DYAPPD__ROLES": '["store", "media"]',
+               "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
+               # Loopback nodes share one /16.
+               "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false",
+               # Repair and ack forwarding run seconds after
+               # the nodes meet.
+               "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
+        if not peers:
+            env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
+            env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
+            env["DYAPPD__TURN__SECRET"] = TURN_SECRET
+            env["DYAPPD__NETWORK__SHARE_DENY_LIST"] = "true"
+        if peers:
+            env["DYAPPD__SEEDS"] = '["127.0.0.1:7071"]'
+        if port == 7073 and flood:
+            env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(FLOOD_LIMIT)
+        if port == 7073:
+            env["DYAPPD__NETWORK__ACCEPT_DENY_LISTS"] = "true"
+            env["DYAPPD__MAINTENANCE__INTERVAL_MINUTES"] = "1"
+        subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
+                       check=True, stdout=subprocess.DEVNULL)
+        environments.append(env)
+        processes.append(start_node(bin_dir, env))
+        peers.append((tcp, quic))
+        # A node dials its seed once, at start.
+        for _ in range(60):
+            if healthy(client, tcp):
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError(f"Node did not start: {tcp}")
+
+
+def stop(processes, logs, failed):
+    """Stop every node; after a failure print their logs."""
+    if failed:
+        # The node state line shows what each node still held.
+        for process in processes:
+            if process.poll() is None:
+                process.send_signal(signal.SIGHUP)
+        time.sleep(1)
+    for process in processes:
+        process.terminate()
+        process.wait()
+    if failed:
+        for log in sorted(Path(logs).glob("node-*.log")):
+            print(f"--- {log} ---", flush=True)
+            with log.open(errors="replace") as captured:
+                shutil.copyfileobj(captured, sys.stdout)
+        sys.stdout.flush()
+
+
 def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/test-peer"
@@ -76,43 +159,9 @@ def local(bin_dir):
         peers, processes, environments = [], [], []
         failed = False
         try:
-            for port in (7071, 7072, 7073):
-                tcp, quic = addresses("127.0.0.1", port)
-                env = {**os.environ,
-                       "DYAPP_NODE_LOG_DIR": logs,
-                       "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
-                       "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
-                       "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
-                       "DYAPPD__ROLES": '["store", "media"]',
-                       "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
-                       # Loopback nodes share one /16.
-                       "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false",
-                       # Repair and ack forwarding run seconds after
-                       # the nodes meet.
-                       "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
-                if not peers:
-                    env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
-                    env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
-                    env["DYAPPD__TURN__SECRET"] = TURN_SECRET
-                    first_env = env.copy()
-                if peers:
-                    env["DYAPPD__SEEDS"] = '["127.0.0.1:7071"]'
-                if port == 7073:
-                    env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(
-                        FLOOD_LIMIT)
-                subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
-                               check=True, stdout=subprocess.DEVNULL)
-                environments.append(env)
-                processes.append(start_node(bin_dir, env))
-                peers.append((tcp, quic))
-                # A node dials its seed once, at start.
-                for _ in range(60):
-                    if healthy(client, tcp):
-                        break
-                    time.sleep(1)
-                else:
-                    raise RuntimeError(f"Node did not start: {tcp}")
-
+            start(bin_dir, storage, logs, peers, processes, environments)
+            denied = deny_mailbox(client, bin_dir, peers[0], processes[0],
+                                  environments[0])
             profile_repair(client, bin_dir, peers, processes, environments)
             media_repair(client, bin_dir, storage, peers)
 
@@ -123,6 +172,11 @@ def local(bin_dir):
 
             suite(peers, client, churn, relay=False,
                   reports=Path(storage) / "reports")
+            drained(processes, logs, (0, 2))
+            sharer = call(client, "info", peers[0][0])["peer_id"]
+            shared_deny(bin_dir, environments[2], sharer, denied)
+            deny_group(client, bin_dir, peers[2], processes[2],
+                       environments[2])
             processes[2].terminate()
             processes[2].wait()
             signed = call(client, "sign-profile")
@@ -135,20 +189,152 @@ def local(bin_dir):
                 raise RuntimeError(f"No second mailbox holder: {reply}")
             print("Missing second holder: profile and mailbox refused")
             media_retention(client, bin_dir, storage, peers[0], processes,
-                            first_env)
+                            environments[0])
         except BaseException:
             failed = True
             raise
         finally:
-            for process in processes:
-                process.terminate()
-                process.wait()
-            if failed:
-                for log in sorted(Path(logs).glob("node-*.log")):
-                    print(f"--- {log} ---", flush=True)
-                    with log.open(errors="replace") as captured:
-                        shutil.copyfileobj(captured, sys.stdout)
-                sys.stdout.flush()
+            stop(processes, logs, failed)
+
+
+def plateau(bin_dir):
+    """Repeat mailbox and media load for PLATEAU_SECONDS; resident memory
+    must level off.
+
+    The first round warms caches up. Afterwards the peak of the second half
+    may exceed the peak of the first half by PLATEAU_GROWTH at most.
+    """
+    client = f"{bin_dir}/test-peer"
+    Path("/tmp/ai").mkdir(exist_ok=True)
+    logs = tempfile.mkdtemp(prefix="dyapp-plateau-", dir="/tmp/ai")
+    print(f"Local node logs: {logs}", flush=True)
+    with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
+        peers, processes, environments = [], [], []
+        failed = False
+        try:
+            # Without the flood limit: node-to-node replication would hit it.
+            start(bin_dir, storage, logs, peers, processes, environments,
+                  flood=False)
+
+            def load():
+                # The suite's per-node load; the full suite assumes one pass
+                # (repair is shed under load).
+                for index, (tcp, quic) in enumerate(peers):
+                    mailbox(client, tcp, quic,
+                            peers[(index + 1) % len(peers)][0])
+                    media(client, tcp, quic)
+
+            load()
+            samples, end = [], time.monotonic() + PLATEAU_SECONDS
+            while time.monotonic() < end:
+                load()
+                samples.append([rss(process) for process in processes])
+            half = len(samples) // 2
+            if half < 1:
+                raise RuntimeError("Too few rounds for a plateau")
+            for node in range(len(processes)):
+                first = max(sample[node] for sample in samples[:half])
+                second = max(sample[node] for sample in samples[half:])
+                print(f"Node {node + 1} RSS peak: {first} kB, then "
+                      f"{second} kB over {len(samples)} rounds")
+                if second > first * (1 + PLATEAU_GROWTH):
+                    raise RuntimeError(f"Node {node + 1} memory still grows")
+            print("Memory plateau: every node levels off")
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            stop(processes, logs, failed)
+
+
+def rss(process):
+    """Resident memory of a running process in kB."""
+    status = Path(f"/proc/{process.pid}/status").read_text()
+    return int(re.search(r"^VmRSS:\s+(\d+)", status, re.M).group(1))
+
+
+def node_state(process, log):
+    """Send SIGHUP and return the fields of the node state line it logs."""
+    def lines():
+        text = ANSI.sub("", log.read_text(errors="replace"))
+        return [line for line in text.splitlines() if "node state" in line]
+
+    before = len(lines())
+    process.send_signal(signal.SIGHUP)
+    for _ in range(50):
+        found = lines()
+        if len(found) > before:
+            return {key: int(value)
+                    for key, value in re.findall(r"(\w+)=(\d+)", found[-1])}
+        time.sleep(0.1)
+    raise RuntimeError(f"No node state line after SIGHUP in {log}")
+
+
+def drained(processes, logs, indexes):
+    """Idle nodes hold no pending request and nothing of a closed connection.
+
+    Pending requests end by answer or the 20 s request timeout; lookups that
+    still route to the stopped node take longer.
+    """
+    if os.environ.get("DYAPP_VERBOSE") == "1":
+        print("Node state: skipped, node logs are streamed")
+        return
+    for index in indexes:
+        log = Path(logs) / f"node-{7071 + index}.log"
+        for _ in range(90):
+            state = node_state(processes[index], log)
+            idle = state["pending"] == state["watches"] == 0
+            if idle and state["connection_entries"] <= state["connections"]:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError(f"Node state did not drain: {state}")
+    print("Node state: no pending request or closed connection left")
+
+
+def deny_mailbox(client, bin_dir, peer, process, env):
+    """An operator entry refuses a mailbox on the running node after SIGHUP."""
+    mailbox = call(client, "device-key")["mailbox"]
+    dyappd(bin_dir, env, "deny", "add", mailbox, "network test")
+    process.send_signal(signal.SIGHUP)
+    for _ in range(50):
+        reply = call(client, "put", peer[0], mailbox, "01")
+        if reply["status"] == "STATUS_REFUSED":
+            break
+        time.sleep(0.1)
+    else:
+        raise RuntimeError(f"Denied mailbox accepted: {reply}")
+    print("Deny list: a listed mailbox is refused after SIGHUP")
+    return mailbox
+
+
+def shared_deny(bin_dir, env, sharer, entry):
+    """The accepting node stores the sharing node's signed list."""
+    for _ in range(90):
+        received = dyappd(bin_dir, env, "deny", "received")
+        if f"{sharer}\t" in received and f"\t{entry}\n" in received:
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"Shared deny list not received: {received}")
+    print("Deny list: a shared list reaches an accepting node")
+
+
+def deny_group(client, bin_dir, peer, process, env):
+    """The client's IP group is refused while listed, served once removed."""
+    group = "127.0.0.1/24"
+    for action, refused in (("add", True), ("remove", False)):
+        dyappd(bin_dir, env, "deny", action, group)
+        process.send_signal(signal.SIGHUP)
+        for _ in range(50):
+            mailbox = call(client, "device-key")["mailbox"]
+            reply = call(client, "put", peer[0], mailbox, "01")
+            if (reply["status"] == "STATUS_REFUSED") == refused:
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError(f"Deny {action} {group}: {reply}")
+    print("Deny list: a listed IP group is refused, served once removed")
 
 
 def profile_repair(client, bin_dir, peers, processes, environments):
@@ -200,6 +386,8 @@ def profile_repair(client, bin_dir, peers, processes, environments):
         time.sleep(1)
     else:
         raise RuntimeError("Profile holder did not restart")
+    if call(client, "info", peers[1][0])["peer_id"] != node_ids[1]:
+        raise RuntimeError("Restarted holder changed its peer ID")
     reply = call(client, "get", peers[1][0], signed["peer_id"])
     if reply.get("record") != signed["record"]:
         raise RuntimeError("Restarted holder did not retain its old version")
@@ -239,7 +427,7 @@ def media_repair(client, bin_dir, storage, peers):
             raise RuntimeError("No media repair keys spanning all nodes")
         upload = call(client, "media-sized", entry, str(size), seed.hex())
         if any(upload[k] != "STATUS_OK" for k in ("keep", "put", "get")):
-            raise RuntimeError("Media repair upload failed")
+            raise RuntimeError(f"Media repair upload failed: {upload}")
         details = upload["details"]
         # Every selected holder must have finished the background fan-out.
         for tcp, _ in peers:
@@ -301,6 +489,7 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     This runs on the three-node loopback network inside the dev Docker image.
     """
     tcp, quic = peer
+    peer_id = call(client, "info", tcp)["peer_id"]
     # The other two nodes have departed: restart the acceptor to exercise the
     # isolated-node exception without their stale in-memory routing entries.
     processes[0].terminate()
@@ -312,6 +501,8 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
         time.sleep(1)
     else:
         raise RuntimeError("Media acceptor did not restart in isolation")
+    if call(client, "info", tcp)["peer_id"] != peer_id:
+        raise RuntimeError("Restarted node changed its peer ID")
     expired, refreshed = [
         call(client, "media-owned", tcp, os.urandom(64).hex())
         for _ in range(2)
@@ -351,6 +542,9 @@ def main():
         return
     if len(sys.argv) == 3 and sys.argv[1] == "--local":
         local(sys.argv[2])
+        return
+    if len(sys.argv) == 3 and sys.argv[1] == "--plateau":
+        plateau(sys.argv[2])
         return
     # The client has no DNS transport: resolve the container names here.
     suite([addresses(socket.gethostbyname(host), 7070)
@@ -518,7 +712,8 @@ def media(client, tcp, quic):
         blob = os.urandom(64)
         holders = replica_holders(client, tcp,
                                   hashlib.sha256(blob).hexdigest())
-        if not serves or own in holders:
+        # A put needs a second holder; all three keys may land on one node.
+        if not serves or (own in holders and len(set(holders)) >= 2):
             break
     else:
         raise RuntimeError("No media replica key held by the test node")

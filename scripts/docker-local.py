@@ -11,7 +11,7 @@ import uuid
 
 
 def run_logged(command, environment, label, cleanup=None):
-    """Keep complete stage output on disk; show it on failure or on request."""
+    """Keep complete stage output on disk; print one line with its path."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
     directory = Path("/tmp/ai")
     directory.mkdir(parents=True, exist_ok=True)
@@ -42,12 +42,13 @@ def run_logged(command, environment, label, cleanup=None):
     finally:
         if output is not None:
             output.close()
-    if status and log is not None:
+    # A local failure names its log; a CI runner's log is lost with the runner.
+    if status and log is not None and os.environ.get("GITHUB_ACTIONS"):
         sys.stdout.flush()
         with log.open(errors="replace") as captured:
             shutil.copyfileobj(captured, sys.stdout)
         sys.stdout.flush()
-    summary = f"FAILED {label} (exit {status})" if status else f"OK {label}"
+    summary = f"ERROR {label} (exit {status})" if status else f"OK {label}"
     print(f"{summary}; log: {log}" if log is not None else summary,
           file=sys.stderr if status else sys.stdout, flush=True)
     return status

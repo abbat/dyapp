@@ -916,7 +916,11 @@ There is no health endpoint: `/dyapp/node` `info` answering is the liveness chec
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
 profiles, messages and media; plus refusals per
-guard and refused connections ([Resource guards](#resource-guards)). `dyappd status` prints what
+guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
+log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
+map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and
+peers with a trust score. An idle node drains to no pending request and no entry of a closed
+connection; a count that idling does not lower is a leak. `dyappd status` prints what
 the stores hold; there are no HTTP endpoints. See the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
@@ -967,6 +971,16 @@ then restarts the media node: startup cleanup removes the expired owner's blob w
 refreshed owner's blob remains readable. The same local suite runs inside the prepared dev
 Docker image, with temporary storage and reports under `/tmp/ai`. It also stops the other
 remaining node and verifies that profile and mailbox puts answer `FULL` without a second holder.
+The local run also adds a mailbox address to the first node's deny list and, after SIGHUP,
+gets `REFUSED` for a put to it; the third node accepts deny lists and, within a maintenance
+minute, `dyappd deny received` shows the first node's signed list with that entry. On the third
+node `127.0.0.1/24` is refused while listed and served once removed. Restarted nodes keep their
+peer ID. After the suite, SIGHUP on the first and third node must show `node state` drained:
+nothing pending, no watch, no more per-connection entries than open connections.
+`network-test.py --plateau BIN_DIR` (`rust-check.sh memory`, part of `make test-integration`, not
+CI) repeats the suite's mailbox and media load on three release nodes for 5 minutes, without
+the flood limit, and fails when a node's resident memory peak in the second half exceeds the first
+half's by more than 10 %.
 The Docker network compose mounts the current checkout and the dev build volume read-only;
 run `make test` first to build the current `dyappd` and `test-peer` binaries.
 

@@ -263,7 +263,8 @@ a new node, so delete the data to start from scratch. Keep a copy of `node.key` 
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
-make test-integration   # integration tests + three dyappd containers on an internal network
+make test-integration   # integration tests, three dyappd containers on an internal network,
+                        # and a 5-minute memory plateau on release binaries
 
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
@@ -350,8 +351,9 @@ The reply holds roles and limits only: no counts, peer numbers or replication fi
 These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
-- Metrics: beyond the hourly `node status`, guard and connection log lines, none; no `/metrics`
-  endpoint
+- Metrics: beyond the hourly `node status`, guard and connection log lines and the
+  `node state` line (hourly and on `kill -HUP`, [Monitoring](../architecture/bootstrap.md#monitoring--metrics)),
+  none; no `/metrics` endpoint
 - Request logs: `dyappd` logs startup, listen addresses, storage errors and cleanup
   (`RUST_LOG`), not individual requests
 
