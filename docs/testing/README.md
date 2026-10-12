@@ -59,6 +59,7 @@ Multi-peer scenario testing:
 - **Reputation**: peer tracking, trust scoring
 - **Bootstrap**: replication fault tolerance; the node protocol end to end is in
   `rust/bootstrap/tests/protocol.rs` ([bootstrap](../architecture/bootstrap.md#testing))
+  and the acceptance list in [bootstrap-acceptance.md](bootstrap-acceptance.md)
 - **Rate limiting**: per-peer governors, active peer tracking
 - **Lamport clock**: causality preservation across peers
 - **Codec negotiation**: agreement algorithm with remote offers

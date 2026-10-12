@@ -38,6 +38,7 @@ it are entry points that tools discover by path (see
 - [Testing overview](testing/README.md)
 - [UI testing](testing/ui-testing.md)
 - [Docker testing](testing/docker.md)
+- [Bootstrap acceptance tests](testing/bootstrap-acceptance.md)
 
 ### Platforms
 - [Empty app contract](platforms/empty-app-contract.md)
