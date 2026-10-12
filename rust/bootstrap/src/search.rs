@@ -4,6 +4,7 @@
 use crate::error::Result;
 use crate::storage::{self, lock, storage_error, Step};
 use dyapp_identity::SignedRecord;
+use dyapp_p2p_net::proto::{Condition, Op};
 use dyapp_profile::Profile;
 use prost::Message;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
@@ -398,6 +399,245 @@ impl SearchIndex {
     }
 }
 
+/// Profile field number → column and whether it holds integers. Constant identifiers only.
+const COLUMNS: &[(u32, &str, bool)] = &[
+    (3, "age", true),
+    (4, "country", false),
+    (6, "income_from", true),
+    (7, "income_to", true),
+    (8, "has_kids", true),
+    (9, "wants_more_kids", true),
+    (10, "relationship_goal", false),
+    (11, "career_ambition", false),
+    (12, "education", false),
+    (13, "orientation", false),
+    (14, "role_preference", false),
+    (15, "zodiac", false),
+    (16, "financial_philosophy", false),
+    (17, "employment_status", false),
+    (18, "fitness_level", false),
+    (20, "place", false),
+];
+const INTERESTS: u32 = 19;
+pub const SEARCH_FIELDS: &[u32] = &[3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
+#[derive(Debug)]
+pub struct Found {
+    pub hits: Vec<([u8; 32], u64)>,
+    pub applied: Vec<u32>,
+    pub partial: bool,
+}
+
+/// A condition turned into SQL over the `p` alias, with its bound values.
+struct Filter {
+    field: u32,
+    sql: String,
+    values: Vec<rusqlite::types::Value>,
+}
+
+/// `Ok(None)`: an unknown field or op, or `range` on a string field — skipped.
+/// `Err(())`: a malformed condition — the query is `INVALID`.
+fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
+    use rusqlite::types::Value;
+    let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
+    let interests = c.field == INTERESTS;
+    let Some(&(_, column, int)) = COLUMNS
+        .iter()
+        .find(|(f, ..)| *f == c.field)
+        .or(interests.then_some(&(INTERESTS, "", false)))
+    else {
+        return Ok(None);
+    };
+    let values: Vec<Value> = if int {
+        if !c.strings.is_empty() {
+            return Err(());
+        }
+        c.ints.iter().map(|v| Value::Integer(*v)).collect()
+    } else {
+        if !c.ints.is_empty() {
+            return Err(());
+        }
+        c.strings.iter().map(|v| Value::Text(v.clone())).collect()
+    };
+    let n = values.len();
+    let target = if interests {
+        "EXISTS (SELECT 1 FROM `interest` AS `i` WHERE `i`.`key` = `p`.`key` AND `i`.`interest`"
+            .to_string()
+    } else {
+        format!("`p`.`{column}`")
+    };
+    let close = if interests { ")" } else { "" };
+    let sql = match op {
+        Op::Unspecified => return Ok(None),
+        Op::Range if !int => return Ok(None),
+        Op::Eq if n == 1 => format!("{target} = ?{close}"),
+        Op::In if (1..=8).contains(&n) => {
+            format!("{target} IN ({}){close}", vec!["?"; n].join(", "))
+        }
+        Op::Range if n == 2 && c.ints[0] <= c.ints[1] => format!("{target} BETWEEN ? AND ?"),
+        _ => return Err(()),
+    };
+    Ok(Some(Filter {
+        field: c.field,
+        sql,
+        values,
+    }))
+}
+
+impl SearchIndex {
+    /// A random sample of up to `limit` matching keys, reading at most `max_scan_rows` rows.
+    /// The inner `Err(())` means the conditions are `INVALID`.
+    pub fn query(
+        &self,
+        conditions: &[Condition],
+        limit: u32,
+        max_scan_rows: u32,
+    ) -> Result<std::result::Result<Found, ()>> {
+        use rusqlite::types::Value;
+        if conditions.len() > 16 {
+            return Ok(Err(()));
+        }
+        let mut seen = std::collections::HashSet::new();
+        if !conditions.iter().all(|c| seen.insert(c.field)) {
+            return Ok(Err(()));
+        }
+        let mut filters = Vec::new();
+        for c in conditions {
+            match filter(c) {
+                Ok(Some(f)) => filters.push(f),
+                Ok(None) => {}
+                Err(()) => return Ok(Err(())),
+            }
+        }
+        let applied = filters.iter().map(|f| f.field).collect();
+        let limit = match limit {
+            0 => 50,
+            n => n.min(200),
+        } as usize;
+        // Scopes: (country, place) pairs on the index prefix; the rest filters inside the scan.
+        // ponytail: 8 × 8 statements per query; a country `in` with many places multiplies
+        // scans, cap holds.
+        let take = |field: u32, filters: &mut Vec<Filter>| {
+            filters
+                .iter()
+                .position(|f| f.field == field)
+                .map(|i| filters.remove(i).values)
+        };
+        let countries = take(4, &mut filters);
+        let places = if countries.is_some() {
+            take(20, &mut filters)
+        } else {
+            None
+        };
+        let mut scopes: Vec<(&str, Vec<Value>)> = Vec::new();
+        match (&countries, &places) {
+            (Some(cs), Some(ps)) => {
+                for c in cs {
+                    for p in ps {
+                        scopes.push((
+                            "`p`.`country` = ? AND `p`.`place` = ?",
+                            vec![c.clone(), p.clone()],
+                        ));
+                    }
+                }
+            }
+            (Some(cs), None) => {
+                for c in cs {
+                    scopes.push(("`p`.`country` = ?", vec![c.clone()]));
+                }
+            }
+            _ => scopes.push(("1", vec![])),
+        }
+        let rest = if filters.is_empty() {
+            "1".to_string()
+        } else {
+            filters
+                .iter()
+                .map(|f| f.sql.as_str())
+                .collect::<Vec<_>>()
+                .join(" AND ")
+        };
+        let rest_values: Vec<Value> = filters.into_iter().flat_map(|f| f.values).collect();
+        let db = self.reader()?;
+        let s = i64::from_ne_bytes(rand_bytes());
+        let (mut hits, mut scanned) = (Vec::new(), 0u32);
+        // From `s` up, then wrap to below `s`.
+        for (lo, hi) in [(s, i64::MAX), (i64::MIN, s.saturating_sub(1))] {
+            if hits.len() >= limit || scanned >= max_scan_rows || lo > hi {
+                break;
+            }
+            let budget = max_scan_rows - scanned;
+            let mut statements = Vec::new();
+            for (scope, _) in &scopes {
+                statements.push(
+                    db.prepare(&format!(
+                        "SELECT `p`.`key`, `p`.`version`, `p`.`r`, ({rest}) FROM `profile` AS `p`
+                     WHERE {scope} AND `p`.`r` BETWEEN ? AND ? ORDER BY `p`.`r` LIMIT ?"
+                    ))
+                    .map_err(storage_error)?,
+                );
+            }
+            // The `({rest})` placeholders come first, then the scope, the range and LIMIT.
+            let mut cursors = Vec::new();
+            for (statement, (_, scope_values)) in statements.iter_mut().zip(&scopes) {
+                let mut values = rest_values.clone();
+                values.extend(scope_values.iter().cloned());
+                values.extend([
+                    Value::Integer(lo),
+                    Value::Integer(hi),
+                    Value::Integer(i64::from(budget)),
+                ]);
+                cursors.push(
+                    statement
+                        .query(rusqlite::params_from_iter(values))
+                        .map_err(storage_error)?,
+                );
+            }
+            let mut heads = Vec::new();
+            for rows in &mut cursors {
+                heads.push(next(rows)?);
+            }
+            // Merge the scopes by `r`.
+            while hits.len() < limit && scanned < max_scan_rows {
+                let Some(i) = (0..heads.len())
+                    .filter(|i| heads[*i].is_some())
+                    .min_by_key(|i| heads[*i].as_ref().map(|h| h.2))
+                else {
+                    break;
+                };
+                let (key, version, _, ok) = heads[i].take().expect("picked a live head");
+                scanned += 1;
+                if ok {
+                    hits.push((key, version));
+                }
+                heads[i] = next(&mut cursors[i])?;
+            }
+        }
+        let partial = hits.len() < limit && scanned >= max_scan_rows;
+        Ok(Ok(Found {
+            hits,
+            applied,
+            partial,
+        }))
+    }
+}
+
+/// A scanned row: key, version, `r` and whether the other filters matched.
+type Head = ([u8; 32], u64, i64, bool);
+
+fn next(rows: &mut rusqlite::Rows<'_>) -> Result<Option<Head>> {
+    let Some(row) = rows.next().map_err(storage_error)? else {
+        return Ok(None);
+    };
+    let key: Vec<u8> = row.get(0).map_err(storage_error)?;
+    Ok(Some((
+        key.try_into().map_err(|_| storage_error("bad key"))?,
+        row.get::<_, i64>(1).map_err(storage_error)?.unsigned_abs(),
+        row.get(2).map_err(storage_error)?,
+        row.get(3).map_err(storage_error)?,
+    )))
+}
+
 fn rand_bytes() -> [u8; 8] {
     let mut bytes = [0; 8];
     getrandom::fill(&mut bytes).expect("OS random source");
@@ -567,5 +807,109 @@ mod tests {
         fill(&index, u64::try_from(cap).unwrap() + 10, 0);
         assert_eq!(index.expire(i64::MAX).unwrap(), cap);
         assert_eq!(index.expire(i64::MAX).unwrap(), 10);
+    }
+
+    fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
+        Condition {
+            field,
+            op: op.into(),
+            ints,
+            strings: strings.into_iter().map(String::from).collect(),
+        }
+    }
+
+    /// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd.
+    /// Returns the index and the keys in p0/p3.
+    fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
+        let index = index();
+        let mut p03 = std::collections::HashSet::new();
+        for i in 0..600i64 {
+            let id = Identity::generate();
+            let p = Profile {
+                version: 1,
+                age: u32::try_from(20 + i % 60).unwrap(),
+                country: "DE".into(),
+                place: format!("p{}", i % 6),
+                interests: if i % 3 == 0 {
+                    vec!["chess".into()]
+                } else {
+                    vec![]
+                },
+                ..Profile::default()
+            };
+            let (key, p, r) = signed(&id, p);
+            index.put(&key, &p, &r, 0, true).unwrap();
+            if i % 3 == 0 {
+                p03.insert(key);
+            }
+        }
+        (index, p03)
+    }
+
+    #[test]
+    fn query_filters_place_in_and_budget() {
+        let (index, p03) = population();
+        let q = [
+            cond(4, Op::Eq, vec![], vec!["DE"]),
+            cond(20, Op::In, vec![], vec!["p1", "p2"]),
+            cond(3, Op::Range, vec![30, 39], vec![]),
+            cond(19, Op::In, vec![], vec!["chess", "go"]),
+            cond(99, Op::Eq, vec![1], vec![]),
+        ];
+        let found = index.query(&q, 200, 10_000).unwrap().unwrap();
+        assert_eq!(found.applied, vec![4, 20, 3, 19]);
+        assert!(!found.partial);
+        // Places p1/p2 are i % 6 in {1, 2}, so i % 3 != 0: nobody there plays chess.
+        assert!(found.hits.is_empty());
+        let q = [
+            cond(4, Op::Eq, vec![], vec!["DE"]),
+            cond(20, Op::In, vec![], vec!["p0", "p3"]),
+            cond(19, Op::Eq, vec![], vec!["chess"]),
+        ];
+        let found = index.query(&q, 200, 10_000).unwrap().unwrap();
+        // p0/p3 are the 200 rows with i % 3 == 0, all with chess.
+        assert_eq!(found.hits.len(), 200);
+        let keys: std::collections::HashSet<_> = found.hits.iter().map(|h| h.0).collect();
+        assert_eq!(keys, p03);
+        let small = index.query(&q, 50, 30).unwrap().unwrap();
+        assert!(small.partial && small.hits.len() <= 30);
+        let a = index.query(&q, 10, 10_000).unwrap().unwrap().hits;
+        assert_eq!(a.len(), 10);
+        // A new random start each time.
+        assert!((0..5).any(|_| index.query(&q, 10, 10_000).unwrap().unwrap().hits != a));
+    }
+
+    #[test]
+    fn invalid_conditions() {
+        let (index, _) = population();
+        let bad = |q: Vec<Condition>| index.query(&q, 50, 10_000).unwrap().is_err();
+        assert!(bad(vec![cond(3, Op::Eq, vec![], vec!["thirty"])]));
+        assert!(bad(vec![cond(4, Op::Eq, vec![1], vec![])]));
+        assert!(bad(vec![cond(3, Op::Range, vec![40, 30], vec![])]));
+        assert!(bad(vec![
+            cond(3, Op::Eq, vec![1], vec![]),
+            cond(3, Op::Eq, vec![2], vec![])
+        ]));
+        assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 9])]));
+        assert!(bad((0..17)
+            .map(|f| cond(100 + f, Op::Eq, vec![1], vec![]))
+            .collect()));
+        let skipped = index
+            .query(&[cond(4, Op::Range, vec![], vec!["a", "b"])], 50, 10_000)
+            .unwrap()
+            .unwrap();
+        assert!(skipped.applied.is_empty());
+        let unknown_op = Condition {
+            field: 3,
+            op: 42,
+            ints: vec![1],
+            strings: vec![],
+        };
+        assert!(index
+            .query(&[unknown_op], 50, 10_000)
+            .unwrap()
+            .unwrap()
+            .applied
+            .is_empty());
     }
 }
