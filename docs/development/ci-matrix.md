@@ -33,7 +33,7 @@ layer cache, each image exists twice, in the buildx builder and, after `--load`,
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
-| `linux` → **native - linux** | ubuntu-22.04 (webkit2gtk-4.0 is not packaged for 24.04) | `ci-setup.sh linux` (apt packages mirroring `docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `linux/` and writes `linux/target/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
+| `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `linux/` and writes `linux/target/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
 | `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD on the `android-avd` disk volume because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | Downloads XcodeGen 2.46.0, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), then XCTest/XCUITest (iOS on first available iPhone simulator) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
@@ -46,7 +46,7 @@ Every platform app is an empty shell. None of them links the Rust core:
 - `android/.../RustBridge.kt`: `System.loadLibrary` is a commented-out TODO.
 - `ios/DYApp/RustBridge.swift`: init/shutdown are TODOs; the XcodeGen specs have no Rust
   framework dependency.
-- `linux/` and `windows/` are Tauri 1.8.3 apps with no dependency on workspace crates.
+- `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) with no dependency on workspace crates.
 
 So a green matrix means "the shells build and their own tests pass". It does **not** mean an
 APK/AAB, `.app` or installer containing the Rust core was built, signed or tested. No job

@@ -1,3 +1,5 @@
+use tauri::webview::PageLoadEvent;
+
 #[tauri::command]
 fn ui_test_result(app: tauri::AppHandle, window: tauri::Window, passed: bool) {
     if !std::env::args().any(|arg| arg == "--ui-test") {
@@ -13,13 +15,14 @@ fn main() {
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![ui_test_result])
-        .on_page_load(move |window, _| {
-            if test_mode {
+        .on_page_load(move |webview, payload| {
+            if test_mode && payload.event() == PageLoadEvent::Finished {
                 if break_ui {
-                    window.eval("document.getElementById('app-ready').style.display = 'none'")
+                    webview
+                        .eval("document.getElementById('app-ready').style.display = 'none'")
                         .expect("inject UI failure");
                 }
-                window.eval(include_str!("ui-test.js")).expect("start UI test");
+                webview.eval(include_str!("ui-test.js")).expect("start UI test");
             }
         })
         .run(tauri::generate_context!())
@@ -31,11 +34,12 @@ mod tests {
     #[test]
     fn configured_window_is_visible_and_local() {
         let context = tauri::generate_context!();
-        let windows = &context.config().tauri.windows;
-        assert_eq!(windows.len(), 1);
-        assert!(windows[0].visible);
-        assert_eq!(windows[0].title, "DYApp");
-        assert!(matches!(windows[0].url, tauri::WindowUrl::App(_)));
-        assert!(!context.config().tauri.allowlist.all);
+        let app = &context.config().app;
+        assert_eq!(app.windows.len(), 1);
+        assert!(app.windows[0].visible);
+        assert_eq!(app.windows[0].title, "DYApp");
+        assert!(matches!(app.windows[0].url, tauri::WebviewUrl::App(_)));
+        // No capabilities: the page can call only the app's own command, no plugin APIs.
+        assert!(app.security.capabilities.is_empty());
     }
 }

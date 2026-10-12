@@ -10,7 +10,7 @@ case "${1:?usage: ci-setup.sh rust|linux}" in
         components=(--component rustfmt,clippy,llvm-tools-preview)
         ;;
     linux)
-        packages=(build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.0-dev
+        packages=(build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libxdo-dev
                   libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus-x11)
         components=()
         ;;

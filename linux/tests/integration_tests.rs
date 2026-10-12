@@ -1,4 +1,5 @@
-use tauri::utils::assets::{AssetKey, Assets};
+use tauri::utils::assets::AssetKey;
+use tauri::Assets;
 
 #[test]
 fn frontend_is_bundled_and_contains_ready_screen() {

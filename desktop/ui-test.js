@@ -9,5 +9,5 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
     && rect.width > 0 && rect.height > 0
     && style.visibility === 'visible' && style.opacity !== '0'
     && document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready;
-  window.__TAURI__.tauri.invoke('ui_test_result', { passed: Boolean(passed) });
+  window.__TAURI__.core.invoke('ui_test_result', { passed: Boolean(passed) });
 }));
