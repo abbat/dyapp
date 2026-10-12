@@ -337,6 +337,18 @@ the image has no shell.
 The image is not published to a registry, and there are no Kubernetes manifests yet. The other
 Dockerfiles in `docker/` are test images built in debug mode.
 
+### Dependency list in the binary
+
+Both `make deb` and `make image` build dyappd with `cargo auditable build` (cargo-auditable
+0.7.6, installed in `docker/Dockerfile.deb`). The binary carries its crate names and versions as
+zlib-compressed JSON in the ELF section `.dep-v0`, which `strip` keeps.
+`scripts/check-auditable.py` checks the stripped binary that goes into the package and the image:
+it fails unless the list names `dyapp-bootstrap` and every entry matches `Cargo.lock`. To check a
+deployed binary against RustSec, run `cargo audit bin /usr/bin/dyappd` (cargo-audit) or extract
+the list with `rust-audit-info`. Neither tool runs in this repository. The list names the crates
+compiled in. It is not an SPDX SBOM and says nothing about whether an advisory's code is
+reachable. Other platform binaries are not built this way yet.
+
 ## Client Configuration (planned)
 
 No platform app connects to a bootstrap server yet, and there is no client API

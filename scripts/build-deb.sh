@@ -2,12 +2,13 @@
 # Builds target/dyappd_<version>_<arch>.deb with a release dyappd. Runs in the Debian 12
 # image (docker/Dockerfile.deb), so the binary needs no newer glibc than Debian 12 has.
 set -euo pipefail
-cargo build --release --locked --offline --package dyapp-bootstrap --bin dyappd
+cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 arch=$(dpkg --print-architecture)
 root=target/deb-root
 rm -rf "$root"
 install -D -s -m 0755 target/release/dyappd "$root/usr/bin/dyappd"
+python3 -B scripts/check-auditable.py "$root/usr/bin/dyappd" Cargo.lock
 install -D -m 0644 packaging/debian/dyappd.service \
     "$root/lib/systemd/system/dyappd.service"
 install -D -m 0644 rust/bootstrap/dyappd.toml "$root/etc/dyappd.toml"

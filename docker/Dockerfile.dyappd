@@ -6,8 +6,10 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY proto proto
 COPY rust rust
-RUN cargo build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
+COPY scripts/check-auditable.py scripts/
+RUN cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
     && install -D -s -m 0755 target/release/dyappd /out/usr/bin/dyappd \
+    && python3 -B scripts/check-auditable.py /out/usr/bin/dyappd Cargo.lock \
     && cp -L --parents $(ldd target/release/dyappd | grep -o '/[^ ]*') /out \
     && install -d -m 0700 -o 65532 -g 65532 /out/var/lib/dyappd
 
