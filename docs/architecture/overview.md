@@ -38,7 +38,7 @@ node, and there is no WebRTC signaling channel.
 |-----------|--------|--------|---------------------|
 | Identity | `rust/identity/src/` | library | Ed25519 identity key, `SignedRecord` (protobuf) signed over a domain label, peer ID = hex SHA-256 of the public key; the key is not persisted or exposed over FFI yet |
 | Profile | `rust/profile/src/` | library | Public `Profile` (protobuf), signature and content checks, highest version wins, tombstone for deletion |
-| Messaging | `rust/messaging/src/` | library prototype | Message types, Lamport clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
+| Messaging | `rust/messaging/src/` | library prototype | Message types, hybrid logical clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
 | P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; request-response `/dyapp/node`, `/dyapp/profile` with `ProtoCodec` ([P2P networking](p2p-networking.md)) |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
@@ -98,8 +98,7 @@ Decided (see the [ADRs](../decisions/README.md)):
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 - **No Automerge:** signed profile versions, append-only messages ordered by a
   hybrid logical clock ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)).
-  Signed profile versions are implemented (`rust/profile`); the Lamport ordering in
-  `rust/messaging` is still to be replaced.
+  Signed profile versions (`rust/profile`) and the clock (`rust/messaging`) are implemented.
 - **Delivery:** direct push, else an LRU store on bootstrap nodes; records
   replicated whole to 5 points, erasure coding (K ≤ 6, M = 4) only for media above 1 MiB
   ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)).

@@ -1,10 +1,10 @@
 pub mod encryption;
-pub mod lamport_clock;
+pub mod hlc;
 pub mod message;
 pub mod queue;
 
 pub use encryption::{E2EEncryption, EncryptionConfig};
-pub use lamport_clock::LamportClock;
+pub use hlc::{HybridClock, Timestamp};
 pub use message::{Message, MessageStatus};
 pub use queue::{MessageQueue, QueueEntry};
 
@@ -13,7 +13,7 @@ pub struct MessagingService {
     queue: MessageQueue,
     #[allow(dead_code)]
     crypto: E2EEncryption,
-    clock: LamportClock,
+    clock: HybridClock,
 }
 
 impl MessagingService {
@@ -21,12 +21,12 @@ impl MessagingService {
         Self {
             queue: MessageQueue::new(),
             crypto,
-            clock: LamportClock::new(),
+            clock: HybridClock::new(),
         }
     }
 
     pub fn send_message(&mut self, peer_id: String, text: String) -> Result<String, String> {
-        let timestamp = self.clock.increment();
+        let timestamp = self.clock.now();
         let message_id = format!("msg-{}", uuid::Uuid::new_v4());
 
         let message = Message::new(

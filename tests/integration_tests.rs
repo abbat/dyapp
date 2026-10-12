@@ -14,7 +14,7 @@ async fn test_message_offline_queue_and_delivery() {
         "alice".to_string(),
         "bob".to_string(),
         "Hello Bob!".to_string(),
-        1,
+        1.into(),
     );
 
     queue.enqueue(msg.clone()).unwrap();
@@ -45,7 +45,7 @@ async fn test_multi_peer_message_retry() {
         "alice".to_string(),
         "bob".to_string(),
         "Try 1".to_string(),
-        1,
+        1.into(),
     );
 
     queue.enqueue(msg).unwrap();
@@ -93,28 +93,34 @@ async fn test_video_session_lifecycle() {
 }
 
 #[tokio::test]
-async fn test_lamport_clock_ordering() {
-    use dyapp_messaging::lamport_clock::LamportClock;
+async fn test_hybrid_clock_ordering() {
+    use dyapp_messaging::hlc::{HybridClock, MessageOrdering};
 
-    let alice_clock = LamportClock::new();
-    let bob_clock = LamportClock::new();
+    let alice_clock = HybridClock::new();
+    let bob_clock = HybridClock::new();
 
-    // Alice sends msg1
-    let t1 = alice_clock.increment();
-    assert_eq!(t1, 1);
-
-    // Bob receives, updates his clock
-    bob_clock.observe(t1);
-    let t2 = bob_clock.increment();
-    assert_eq!(t2, 3);
-
-    // Alice receives msg from Bob, updates her clock
-    alice_clock.observe(t2);
-    let t3 = alice_clock.increment();
-    assert_eq!(t3, 5);
+    // Alice sends msg1, Bob receives it and replies, Alice receives the reply
+    let t1 = alice_clock.now();
+    let t2 = {
+        bob_clock.observe(t1).unwrap();
+        bob_clock.now()
+    };
+    alice_clock.observe(t2).unwrap();
+    let t3 = alice_clock.now();
 
     // Causality preserved: t1 < t2 < t3
     assert!(t1 < t2 && t2 < t3);
+
+    // Every peer orders the same messages the same way, ties broken by peer ID
+    let mut ordering = MessageOrdering::new();
+    ordering.add(t3, "alice".into(), "msg3".into());
+    ordering.add(t2, "bob".into(), "msg2".into());
+    ordering.add(t1, "alice".into(), "msg1".into());
+    ordering.add(t1, "aaron".into(), "concurrent".into());
+    assert_eq!(
+        ordering.get_ordered(),
+        vec!["concurrent", "msg1", "msg2", "msg3"]
+    );
 }
 
 #[tokio::test]

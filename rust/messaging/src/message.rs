@@ -1,3 +1,4 @@
+use crate::hlc::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -16,7 +17,9 @@ pub struct Message {
     pub sender_id: String,
     pub recipient_id: String,
     pub text: String,
-    pub lamport_timestamp: u64,
+    /// Hybrid logical clock; the wire name predates the switch from a Lamport clock.
+    #[serde(rename = "lamport_timestamp")]
+    pub timestamp: Timestamp,
     pub created_at: i64,
     pub status: MessageStatus,
     pub encrypted_payload: Option<Vec<u8>>,
@@ -29,7 +32,7 @@ impl Message {
         sender_id: String,
         recipient_id: String,
         text: String,
-        lamport_timestamp: u64,
+        timestamp: Timestamp,
     ) -> Self {
         let created_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -41,7 +44,7 @@ impl Message {
             sender_id,
             recipient_id,
             text,
-            lamport_timestamp,
+            timestamp,
             created_at,
             status: MessageStatus::Pending,
             encrypted_payload: None,
@@ -90,7 +93,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         assert_eq!(msg.id, "msg1");
@@ -105,7 +108,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         msg.mark_sent();
@@ -125,7 +128,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         msg.set_encrypted(vec![1, 2, 3], vec![4, 5, 6]);

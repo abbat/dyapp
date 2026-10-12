@@ -30,7 +30,8 @@ Located in `#[cfg(test)]` modules within each crate.
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
 - MessageQueue: enqueue/dequeue, pending filtering, mark/remove delivered (no TTL; `retry_failed` only in integration tests, first retry)
 - E2EEncryption: algorithm config, roundtrip encryption/decryption, signatures
-- LamportClock: increment, observe, merge, clock synchronization
+- HybridClock: wall-clock tracking, counter on a stalled or backward clock, observe, skew
+  rejection, peer-ID tie-break
 
 **Video** (rust/video)
 - VideoSession: state machine (Idle→OfferCreated→Connected), SDP generation
@@ -62,7 +63,7 @@ Multi-peer scenario testing:
   `rust/bootstrap/tests/protocol.rs` ([bootstrap](../architecture/bootstrap.md#testing))
   and the acceptance list in [bootstrap-acceptance.md](bootstrap-acceptance.md)
 - **Rate limiting**: per-peer governors, active peer tracking
-- **Lamport clock**: causality preservation across peers
+- **Hybrid logical clock**: causality preservation and the same order on every peer
 - **Codec negotiation**: agreement algorithm with remote offers
 
 **Run:** `cargo test --test integration_tests`
@@ -100,7 +101,7 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
 - A signed profile with a fixed public test key: old protobuf bytes decode and verify;
   the current producer emits the same payload, signature and record bytes. Domain changes
   are detected even when current sign/verify round-trips still pass.
-- A Message JSON baseline with Unicode, a newline, the maximum Lamport timestamp, status
+- A Message JSON baseline with Unicode, a newline, the maximum clock timestamp, status
   and optional byte arrays: legacy fields decode correctly and current output matches.
 - Two selected operator diagnostics: an unknown config option and an invalid deny entry.
   The CLI test uses isolated temporary storage and clears inherited configuration/backtrace
@@ -235,7 +236,7 @@ Examples:
 - `test_message_queue_enqueue_adds_entry`
 - `test_video_session_state_transitions`
 - `test_bootstrap_cleanup_removes_expired`
-- `test_lamport_clock_observe_advances_properly`
+- `test_hybrid_clock_observe_moves_past_remote`
 
 ## Debugging Tests
 

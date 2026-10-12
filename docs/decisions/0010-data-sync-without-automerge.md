@@ -20,7 +20,7 @@ append-only. `rust/messaging` orders messages by a scalar Lamport clock with no 
 ## Consequences
 
 - Signed profile versions are implemented (`rust/identity`, `rust/profile`, bootstrap storage) and
-  `rust/crdt-sync` (Automerge) is removed. The Lamport ordering in `rust/messaging` must still be
-  replaced; dependent docs describe today's code until then.
+  `rust/crdt-sync` (Automerge) is removed. `rust/messaging` orders messages by an HLC with a
+  peer-ID tie-break and rejects remote clocks more than 60 s ahead.
 - A device with a badly wrong clock can reorder its own messages; HLC bounds this but does not
   remove it.

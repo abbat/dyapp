@@ -2,7 +2,7 @@
 
 ## Overview
 
-Message model, in-memory queue and Lamport clock in `rust/messaging`. There is no network
+Message model, in-memory queue and hybrid logical clock in `rust/messaging`. There is no network
 delivery yet: nothing sends, retries on a timer, or persists messages.
 
 > ⚠️ Encryption and signatures are **stubs**: messages are plaintext today.
@@ -11,9 +11,9 @@ delivery yet: nothing sends, retries on a timer, or persists messages.
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence
 - Retry bookkeeping (`retry_failed()`), called by the owner; no background worker
-- Scalar Lamport timestamps for ordering (target: hybrid logical clock with a peer-ID
-  tie-break and an append-only log, see
-  [ADR 0010](../decisions/0010-data-sync-without-automerge.md))
+- Hybrid logical clock timestamps with a peer-ID tie-break for ordering
+  ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
+  planned
 - Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
 - E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)): *planned, stubbed*
 - Signatures for authenticity (Ed25519): *planned, stubbed*
@@ -26,7 +26,7 @@ pub struct Message {
     pub sender_id: String,           // Public key hash
     pub recipient_id: String,        // Public key hash
     pub text: String,                // Plaintext
-    pub lamport_timestamp: u64,      // scalar Lamport clock
+    pub timestamp: Timestamp,        // HLC; JSON key "lamport_timestamp"
     pub created_at: i64,             // Unix millis
     pub status: MessageStatus,       // Pending, Sent, Delivered, Read, Failed
     pub encrypted_payload: Option<Vec<u8>>,  // reserved; not populated with ciphertext
@@ -121,35 +121,29 @@ Shared Secret (X25519) + Salt
 32-byte Session Key
 ```
 
-## Lamport Clock Ordering
+## Hybrid Logical Clock Ordering
 
-Current code. The target replaces it with a hybrid logical clock and a peer-ID tie-break
-([ADR 0010](../decisions/0010-data-sync-without-automerge.md)).
+`HybridClock` (`rust/messaging/src/hlc.rs`) stamps messages with a hybrid logical clock;
+clones share state. A `Timestamp` packs wall-clock milliseconds into the high 48 bits and a
+counter into the low 16, so comparing timestamps compares wall time, then the counter. On the
+wire it stays a single integer under the old `lamport_timestamp` key.
 
-`LamportClock` is a single `u64` counter shared between clones:
-- `increment()`: `c = c + 1`, returns `c` (used when sending)
-- `observe(remote)`: `c = max(c, remote) + 1` (on receive; always advances)
-- `merge(other)`: same rule with another clock; `current()`, `reset()`
-
-```
-Peer A                           Peer B
-  | send msg1 (A: 1)               |
-  |------------------------------->| observe(1): B = max(0,1)+1 = 2
-  | send msg2 (A: 2)               |
-  |------------X (delayed)         |
-  |                                | send msg3 (B: 3)
-  |<-------------------------------|
-  | observe(3): A = max(2,3)+1 = 4 |
-  |            (msg2 arrives late) |
-  |------------------------------->| observe(2): B = max(3,2)+1 = 4
-```
+- `now()` (on send): the current wall time with counter 0 if it is ahead of the last timestamp,
+  otherwise the last timestamp plus one. A stalled or backward wall clock never moves the clock
+  back; a full counter carries into the wall part.
+- `observe(remote)` (on receive): the same rule applied to `max(last, remote)`, so the clock
+  moves past every timestamp it has seen. A remote timestamp more than `MAX_CLOCK_SKEW_MS`
+  (60 s) ahead of the local wall clock is rejected with `ClockSkew` and leaves the clock
+  unchanged.
+- `MessageOrdering` sorts by `(timestamp, sender peer ID, message id)`, so every peer orders the
+  same set of messages the same way.
 
 What this gives and what it does not:
-- If event X causally precedes Y, then `ts(X) < ts(Y)`. The converse is false: msg2 (2) and msg3
-  (3) above are concurrent, and a scalar clock cannot detect that (a vector clock could).
-- `MessageOrdering` sorts by timestamp with a stable sort, so equal timestamps keep insertion
-  order. That order can differ between peers; a deterministic tie-break (for example by sender id)
-  is not implemented.
+- If event X causally precedes Y, then `ts(X) < ts(Y)`, and timestamps stay close to wall time.
+  Concurrent messages are ordered by their timestamps, not detected as concurrent.
+- A device whose clock runs up to 60 s fast can place its messages ahead of others' by up to
+  that much; one further ahead has its messages rejected.
+- Nothing calls `observe` yet: there is no receive path in `rust/messaging`.
 - Ordering says nothing about delivery: a message that never arrives leaves no gap to detect.
 
 ## Mailbox Delivery — planned

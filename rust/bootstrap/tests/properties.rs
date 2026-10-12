@@ -57,7 +57,7 @@ proptest! {
             sender_id: ids[1].clone(),
             recipient_id: ids[2].clone(),
             text,
-            lamport_timestamp: timestamp,
+            timestamp: timestamp.into(),
             created_at,
             status: statuses[status_index].clone(),
             encrypted_payload: payload,
@@ -68,7 +68,7 @@ proptest! {
         prop_assert_eq!(decoded.sender_id, message.sender_id);
         prop_assert_eq!(decoded.recipient_id, message.recipient_id);
         prop_assert_eq!(decoded.text, message.text);
-        prop_assert_eq!(decoded.lamport_timestamp, message.lamport_timestamp);
+        prop_assert_eq!(decoded.timestamp, message.timestamp);
         prop_assert_eq!(decoded.created_at, message.created_at);
         prop_assert_eq!(decoded.status, message.status);
         prop_assert_eq!(decoded.encrypted_payload, message.encrypted_payload);

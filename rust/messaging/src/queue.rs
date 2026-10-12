@@ -120,7 +120,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         queue.enqueue(msg.clone()).ok();
@@ -139,7 +139,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         let mut msg2 = Message::new(
@@ -147,7 +147,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "world".to_string(),
-            2,
+            2.into(),
         );
         msg2.mark_delivered();
 
@@ -167,7 +167,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
 
         queue.enqueue(msg).ok();
@@ -185,7 +185,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "hello".to_string(),
-            1,
+            1.into(),
         );
         msg1.mark_delivered();
 
@@ -194,7 +194,7 @@ mod tests {
             "sender".to_string(),
             "recipient".to_string(),
             "world".to_string(),
-            2,
+            2.into(),
         );
 
         queue.enqueue(msg1).ok();

@@ -40,7 +40,7 @@ fn message_v1_json_remains_compatible() {
         sender_id: "sender".into(),
         recipient_id: "recipient".into(),
         text: "hello\nπ".into(),
-        lamport_timestamp: u64::MAX,
+        timestamp: u64::MAX.into(),
         created_at: 1700000000000,
         status: MessageStatus::Delivered,
         encrypted_payload: Some(vec![0, 255]),
@@ -50,7 +50,7 @@ fn message_v1_json_remains_compatible() {
     assert_eq!(decoded.sender_id, expected.sender_id);
     assert_eq!(decoded.recipient_id, expected.recipient_id);
     assert_eq!(decoded.text, expected.text);
-    assert_eq!(decoded.lamport_timestamp, expected.lamport_timestamp);
+    assert_eq!(decoded.timestamp, expected.timestamp);
     assert_eq!(decoded.created_at, expected.created_at);
     assert_eq!(decoded.status, expected.status);
     assert_eq!(decoded.encrypted_payload, expected.encrypted_payload);
