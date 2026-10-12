@@ -157,6 +157,9 @@ pub struct Search {
     pub max_scan_rows: u32,
     /// Gossip topics (0..16) this node keeps; empty = all.
     pub topics: Vec<u32>,
+    /// Leading zero bits of the Argon2id proof of work a profile needs to be indexed; at most
+    /// 20, reported in `info`.
+    pub min_profile_pow_bits: u32,
 }
 
 impl Default for Search {
@@ -166,6 +169,7 @@ impl Default for Search {
             max_bytes: 50 << 30,
             max_scan_rows: 10_000,
             topics: vec![],
+            min_profile_pow_bits: 11,
         }
     }
 }
@@ -180,6 +184,9 @@ impl Search {
         }
         if self.topics.iter().any(|t| *t >= 16) {
             anyhow::bail!("search.topics must be in 0..16");
+        }
+        if self.min_profile_pow_bits > 20 {
+            anyhow::bail!("search.min_profile_pow_bits must be at most 20");
         }
         Ok(())
     }
@@ -857,6 +864,9 @@ mod tests {
         assert!(search(|s| s.topics = vec![16]).is_err());
         assert!(search(|s| s.max_bytes = 0).is_err());
         assert_eq!(Search::default().max_profile_bytes, 64 << 10);
+        assert_eq!(Search::default().min_profile_pow_bits, 11);
+        assert!(search(|s| s.min_profile_pow_bits = 20).is_ok());
+        assert!(search(|s| s.min_profile_pow_bits = 21).is_err());
         assert!(Search::default().keeps(15));
         let one = Search {
             topics: vec![3],

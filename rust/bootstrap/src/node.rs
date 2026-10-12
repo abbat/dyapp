@@ -2300,6 +2300,7 @@ fn status(
         .media
         .as_ref()
         .map_or(0, |media| bytes(media.usage()));
+    let (pow_checks, pow_forged) = service.pow.take_counts();
     tracing::info!(
         connected = swarm.connected_peers().count(),
         known,
@@ -2309,6 +2310,8 @@ fn status(
         messages_bytes = bytes(service.store.messages_usage()),
         media_bytes = media,
         media_replica_holders,
+        pow_checks,
+        pow_forged,
         "node status"
     );
 }

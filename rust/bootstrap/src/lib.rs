@@ -5,6 +5,7 @@ pub mod maintenance;
 pub mod media;
 mod media_repair;
 pub mod node;
+pub mod pow;
 pub mod rate_limit;
 pub mod replication;
 pub mod search;

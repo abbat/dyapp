@@ -241,6 +241,7 @@ max_profile_bytes = 65536
 max_bytes = 53687091200     # profiles-idx.db; above it the oldest heartbeats leave
 max_scan_rows = 10000       # rows one query scans; past it the reply is partial
 topics = []                 # gossip topics 0..15 kept; empty = all 16
+min_profile_pow_bits = 11   # Argon2id proof of work a profile needs to be indexed; 0..20
 
 [turn]                 # turn role only
 urls = []              # e.g. "turn:turn.example.org:3478", "turns:turn.example.org:5349"

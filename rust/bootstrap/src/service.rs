@@ -64,6 +64,8 @@ pub struct Service {
     pub search: Option<Arc<SearchIndex>>,
     /// Connected search nodes: their get and inventory requests are charged to `search_sync`.
     search_peers: Mutex<HashSet<String>>,
+    /// Profile proof-of-work results, shared with the blocking pool.
+    pub pow: Arc<crate::pow::PowCache>,
     /// Reply bytes per second to search nodes catching up, `maintenance.io_mb_per_s`.
     pub search_sync: Traffic,
     pub rate_limiter: PeerRateLimiter,
@@ -107,6 +109,7 @@ impl Service {
             media: None,
             search: None,
             search_peers: Mutex::default(),
+            pow: Arc::default(),
             search_sync: Traffic::new(u64::from(config.maintenance.io_mb_per_s) << 20),
             rate_limiter: PeerRateLimiter::new(l.requests_per_second),
             media_peers: PeerRateLimiter::new(l.media_requests_per_second),
@@ -316,7 +319,11 @@ impl Service {
             } else {
                 0
             },
-            ..NodeInfo::default()
+            min_profile_pow: if search {
+                self.config.search.min_profile_pow_bits
+            } else {
+                0
+            },
         }
     }
 
@@ -1720,6 +1727,8 @@ mod tests {
         assert!(info.roles.contains(&proto::Role::Search.into()));
         assert_eq!(info.search_fields, SEARCH_FIELDS);
         assert_eq!(info.max_search_profile_bytes, 64 << 10);
+        assert_eq!(info.min_profile_pow, 11);
+        assert_eq!(service().info().min_profile_pow, 0);
         assert!(service().info().search_fields.is_empty());
     }
 

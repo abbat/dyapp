@@ -958,7 +958,8 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Metrics are
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
-profiles, messages and media; plus refusals per
+profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
+(`pow_forged`); plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and
