@@ -75,7 +75,7 @@ defences already in place. Nodes are untrusted by design
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures, version checks |
-| 16 | Client-side exposure: backups, notifications, logs | High | Medium | ❌ Planned |
+| 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
 | 19 | Replay | Medium | Low | ⚠️ Partial (rows above) |
@@ -299,6 +299,25 @@ no security policy and no private channel for vulnerability reports.
 | A vulnerability is published before a fix | Public issues | High × medium | Fix: a security policy with GitHub private vulnerability reporting |
 | A scammer in a chat asks for a code or sends a lookalike link | Messages | Medium × medium | Fix: messages from people who are not contacts are marked and land in a separate requests list; links show their full host, IDN hosts in punycode. Verification of contacts is class 5 ([above](#spoofing)) |
 | Signing keys, the domain and the accounts are held by one person | Maintainer loss | Medium × low | Accept: the code is open and can be forked; a fork gets new names and keys |
+
+### Client-side exposure
+
+Class 16 in detail. In place: none on the client yet. The Android manifest still sets
+`allowBackup="true"`. Keys are to be wrapped by the platform keystore, device-only and outside
+backups ([encryption](encryption.md)); the local database and MLS state rely on platform data
+protection. A compromised OS, root and accessibility malware are out of scope.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Android auto-backup or iCloud copies the database and MLS state to the cloud | OS backups | High × high | Fix: `allowBackup="false"` and data extraction rules that exclude everything; iOS marks app data as excluded from backup; keys are device-only (planned key storage) |
+| Lock-screen notifications show the sender and the text | Notifications | Medium × high | Fix: by default a notification says only "New message"; a setting shows the name or the text. Android private visibility, iOS hidden previews |
+| Screenshots or the recent-apps thumbnail show chats | OS screenshots, app switcher | Medium × medium | Fix: the app-switcher thumbnail is always blurred; a setting, off by default, blocks screenshots (`FLAG_SECURE`) |
+| Other apps read copied keys or safety numbers | Clipboard | Medium × low | Fix: keys and safety numbers are copied marked as sensitive and cleared after 60 seconds. Accept: ordinary copied text |
+| Logs or crash reports carry content, keys or contacts | Logs, crash reporters | High × medium | Fix: client logs never carry message content, keys or contacts' identifiers; release builds log warnings and errors only; no third-party crash reporting |
+| The local database is read from a device without disk encryption | Desktop files | High × low | Accept: platform data protection on phones, disk encryption on desktops; flash may keep deleted data |
+| Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | Fix: no exported components and no files readable by other apps (checked in CI). Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
+| A lost or sold device keeps access to the account | Device loss | High × medium | Fix: another device of the owner revokes it: it leaves the signed device list, contacts remove it from MLS groups and its mailbox is no longer served. Accept: history stored on a stolen unlocked device; app lock (planned) narrows it |
+| A compromised OS reads everything | Root, malware | High × low | Out of scope |
 
 ## Out of scope
 
