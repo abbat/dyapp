@@ -72,7 +72,7 @@ defences already in place. Nodes are untrusted by design
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
-| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
+| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ⚠️ Partial: no metrics endpoint, no software version in `NodeInfo`, logs without peer identifiers; global-only addresses and a plain agent version in identify are planned ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list; a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
@@ -318,6 +318,26 @@ protection. A compromised OS, root and accessibility malware are out of scope.
 | Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | Fix: no exported components and no files readable by other apps (checked in CI). Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
 | A lost or sold device keeps access to the account | Device loss | High × medium | Fix: another device of the owner revokes it: it leaves the signed device list, contacts remove it from MLS groups and its mailbox is no longer served. Accept: history stored on a stolen unlocked device; app lock (planned) narrows it |
 | A compromised OS reads everything | Root, malware | High × low | Out of scope |
+
+### Node internals disclosure
+
+Class 13 in detail. In place: `NodeInfo` carries roles, limits and retention but no software
+version; nodes have no HTTP admin or metrics endpoint; `node status` and `node state` log lines
+carry no peer or key identifiers and request logs are not written; `dyappd status` is a local
+command. Identify still sends the libp2p default agent version (`rust-libp2p/<version>`) and every
+listen address, so a node listening on `[::]` or `0.0.0.0` announces its LAN, Docker and VPN
+addresses, and receivers add them to their routing tables unfiltered.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Learn a node's private LAN, Docker or VPN addresses | Identify listen addresses | Medium × high | Fix: a node announces only global addresses unless all its listen addresses are non-global (a LAN or test network); receivers drop non-global addresses learned from identify of a peer with a global address |
+| Pick an exploit by the libp2p version | Identify agent version | Medium × medium | Fix: the agent version is the constant `dyapp`, no version. Accept: protocol versions stay visible, they are needed to talk |
+| Learn a node's roles from its protocol list and `NodeInfo` | Identify protocols, `node.info` | Low × high | Accept: clients need roles and limits to choose nodes |
+| Map the network from Kademlia replies | `FIND_NODE` | Low × high | Accept: routing needs it; Sybil limits are in [Hostile node](#hostile-node) |
+| Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |
+| Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers |
+| Scrape a future metrics endpoint | Metrics (planned) | Medium × medium | Fix: when metrics land, they bind to loopback by default and carry no peer or key identifiers |
+| Fingerprint a node by response timing | Any request | Low × low | See side channels (class 21) |
 
 ### Illegal content and legal pressure
 
