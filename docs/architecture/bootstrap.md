@@ -25,7 +25,8 @@ Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profi
 `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
 the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT. Signals in the mailbox (the
-envelope class and the signal quota), ranged media reads, the search index rebuild and the store format path are planned; each part below says which it is, and the sections after
+envelope class and the signal quota), ranged media reads, the search index rebuild, search defences against fake-profile and query
+floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
 ### Principles

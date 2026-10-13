@@ -162,6 +162,36 @@ limit, so proof of work alone cannot stop this flood. Queries: 50 peers × 100 p
 5 000 per second, about 5 × the warm capacity, and the IP-group limit (1 000) does not stop peers
 spread over groups. Both need a defence other than proof of work bits.
 
+Planned defences (not implemented):
+
+- **Canonical places.** `place` becomes a GeoNames ID from cities1000 (population ≥ 1 000, CC BY
+  4.0), checked against a set embedded in the node; an unknown or missing place is indexed in the
+  country bucket (`place = ""`), so invented rare places buy nothing.
+- **Newcomer quota.** A key is a newcomer for `search.newcomer_days` (30) after a node first sees
+  it; newcomers hold at most `search.newcomer_share` (10 %) of `search.max_bytes`, and a new key
+  past the quota evicts the newcomer with the oldest heartbeat. Keys a new node receives from
+  other search nodes in its own first 30 days count as established, so it can fill from its
+  neighbours. `dyappd status` counts newcomer evictions.
+- **Water-filling eviction.** A full node evicts established keys from the place with the most
+  profiles, highest random rank `r` first, so each node keeps its own subsample of big places and
+  small places stay whole; the country bucket goes first. Tombstones leave by TTL only. If 16
+  places in a row hold only newcomers, eviction falls back to all established keys by `r`.
+- **Heartbeat proof of work.** A search heartbeat carries an Argon2id proof for its UTC day
+  (`search.min_heartbeat_pow_bits`, 8 by default, ≈ 4 s on a phone once a day), so keeping a
+  fake alive costs work every day.
+- **Fair queue.** `query` and `get` wait in one queue per IP group (/24, /48): at most 4 per
+  group, 256 in total, served round-robin; a full queue answers `RATE_LIMITED`.
+- **Load puzzle.** When the median queue wait passes `search.puzzle_wait_ms` (100), a query or
+  get must carry a SHA-256 solution bound to the peer ID and a challenge rotated every minute;
+  difficulty climbs from 12 to `search.max_puzzle_bits` (20) and falls back to off when load
+  drops. A new status `PUZZLE` carries the challenge.
+
+Accepted residual risks: a fake that pays heartbeat proof of work for 30 days becomes established
+(one 16-core PC keeps ≈ 1M alive); fakes piled into a real rare place dilute it; fakes paying the
+proof share the newcomer quota with real newcomers; a hostile search node can push fakes during a
+new node's grace window; a GPU solves 20-bit puzzles at ≈ 10 000 per second, against which only
+the fair share protects. These are left to client checks and deny lists.
+
 ### Answers
 
 - **Users per place and selectivity.** On one node at 10M users the largest place holds ≈ 250 000
@@ -178,5 +208,6 @@ spread over groups. Both need a defence other than proof of work bits.
   node at peak needs at most ≈ 10 queries per second. Partitioning by place would only help the
   long tail at 50M, where a node holds too small a sample.
 
-Follow-up work, tracked separately: `place IN` as a per-place merge; a defence against fake
-profile floods and against query floods from many peers; long-tail places at 50M users.
+Follow-up work, tracked separately: `place IN` as a per-place merge; the planned defences in
+[Adversary](#adversary), which also cover long-tail places at 50M users; rerunning this model with
+them.
