@@ -27,9 +27,6 @@ the peer ID is 64 lowercase hex characters.
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 2 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 1 XCTest | 2 XCUITest | `check-apple-results.py` (≥3) |
 
-`ios/Tests/RustBridgeTests.swift` exists but is **not compiled**: `ios/project.yml` lists only
-`Tests/AppTests.swift` for `DYAppTests`, and its three tests are placeholders anyway.
-
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty
 `--list` per binary), `check-instrumentation-results.py` (needs `OK (n tests)` with n ≥ 3 and
@@ -131,10 +128,7 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   applies `check-apple-results.py`. Artifacts: `apple-ios`, `apple-macos`.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with
-  XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
-  `ios/Package.swift` and `macos/Package.swift` exist but are not used by CI and do not link
-  the core.
-- **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
+  XcodeGen and run the scheme in Xcode yourself; that path is not scripted.- **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
   `cargo test --manifest-path windows/Cargo.toml --locked` and
   `python scripts/desktop-smoke.py windows/target/debug/dyapp-windows.exe` (report goes to

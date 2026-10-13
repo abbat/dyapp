@@ -20,7 +20,7 @@
 |------|-------|--------|
 | Rust toolchain | `1.99.0` (pinned), components `rustfmt`, `clippy` | `rust-toolchain.toml` |
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
-| Swift tools | 5.9, which needs **Xcode 15+** | `ios/Package.swift`, `macos/Package.swift` |
+| Swift | language mode 5 (`SWIFT_VERSION`) | `ios/project.yml`, `macos/project.yml` |
 | iOS / macOS minimum | iOS 14, macOS 11 | same |
 | Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |
@@ -98,4 +98,3 @@ Not implemented. This is the order in which the gaps block each other:
 | iOS script says "XCFramework created", but there is nothing in `frameworks/` except `Modules/` | Expected: the step is a placeholder |
 | Android script ends with "No libraries found in build output" | Expected: the built crates are rlib-only |
 | `ANDROID_NDK_HOME not set` | `export ANDROID_NDK_HOME=<sdk>/ndk/<version>` |
-| Xcode refuses `ios/Package.swift` | Swift tools 5.9 needs Xcode 15 or newer |
