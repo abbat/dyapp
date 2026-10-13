@@ -42,9 +42,9 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Request floods | Token buckets per peer ID and IP group, local ban after repeated refusals | ✅ Implemented ([rate limiting](../architecture/bootstrap.md#rate-limiting)) |
 | Disk, traffic or connection exhaustion | Store size caps, free-space floor, byte rate, connection, stream and memory limits | ✅ Implemented ([resource guards](../architecture/bootstrap.md#resource-guards)) |
 | Oversized or malformed messages | Per-protocol wire caps: 1 MiB + 64 KiB, or 6 MiB + 64 KiB for media, protobuf decoding, unknown variants answered `UNSUPPORTED` | ✅ Implemented |
-| Operator withholds or drops data | R = 5 replicas on independent nodes; the client tries another replica ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) | ❌ Planned: a node stores only what it is sent |
+| Operator withholds or drops data | R = 5 replicas on independent nodes; the client tries another replica ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) | ⚠️ Partial: nodes replicate and repair ([replication](../architecture/bootstrap.md#replication-and-repair)); client checks are planned ([below](#hostile-node)) |
 | Abuser keeps using one node | Operator deny list of peer IDs, IP groups and key hashes | ✅ Implemented ([deny list](../architecture/bootstrap.md#deny-list)); a key is free to regenerate, so IP-group quotas carry the rest |
-| Sybil eclipse of a key or a node | Node-ID proof of work, routing-table IP diversity, disjoint lookups, replicas at H(key ‖ i), local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | ❌ Planned: the DHT is plain Kademlia |
+| Sybil eclipse of a key or a node | Node-ID proof of work, routing-table IP diversity, disjoint lookups, replicas at H(key ‖ i), local reputation ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | ✅ Implemented ([routing defences](../architecture/p2p-networking.md)); per-type store pools are planned |
 | No way in without one seed | Several seeds, DNS seed names, a cache of peers seen before | ⚠️ Partial: seeds, the node's peer cache and anchors exist; no list ships ([joining](../architecture/p2p-networking.md)) |
 | Search index flooded with fake profiles | Profile proof of work bound to the owner's key ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | ✅ Implemented: search nodes index and relay only profiles with enough proof of work ([search](../architecture/bootstrap.md#search)) |
 | Metadata: who talks to whom | Mailbox addresses are device keys, not user IDs; delivery receipts travel as ordinary encrypted messages | ⚠️ Partial: the operator still sees which sender key writes to which mailbox, and IPs ([privacy](privacy.md)) |
@@ -67,7 +67,7 @@ defences already in place. Nodes are untrusted by design
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; text rules, local names and checked search results are planned ([below](#spoofing)) |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
-| 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial (rows above) |
+| 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial (rows above) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ❌ Planned |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ❌ Planned |
@@ -216,6 +216,30 @@ carry a `Co-Authored-By` trailer. They run with the maintainer's git, GitHub and
 | A secret is committed | git | High × medium | Fix: GitHub secret scanning and push protection |
 | A hostile pull request by a person | Pull requests | Critical × medium | Out of scope here: class 7 |
 | A taken-over maintainer account | GitHub account | Critical × low | Out of scope here: class 11 |
+
+### Hostile node
+
+Class 8 in detail. In place on nodes: replicas at R = 5 points with repair
+([replication](../architecture/bootstrap.md#replication-and-repair)), node-ID proof of work,
+disjoint lookups and IP-group limits ([routing defences](../architecture/p2p-networking.md)),
+local reputation and storage trust, and the profile proof of work. Every record is signed or
+encrypted end to end, so a node can withhold or delay data but not forge it. Clients do not
+check nodes yet.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| The accepting node drops an envelope or claims two holders it does not have | `mailbox.put` | High × high | Fix: the recipient answers with a delivery receipt inside MLS; without it in time the sender's retry queue resends through another replica key and the node loses client reputation |
+| A node hides part of a mailbox from its owner | `mailbox.fetch` | High × high | Fix: the client fetches from one node and also from another replica key on an MLS gap and once a day |
+| A node refuses one user | put, fetch, get | High × medium | Fix: the client moves to another replica key ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) |
+| A node serves an older signed profile | `profile.get` | High × medium | Fix: the client keeps the newest version seen and asks several replicas ([above](#mitm-and-key-verification)) |
+| A search node poisons, reorders or hides results | Search | Medium × high | Fix: the client checks results and asks 2 nodes ([above](#spoofing)) and ranks results itself. Accept: a node still picks which matches it returns |
+| A node lies in inventory during repair | Node to node | Medium × medium | Accept: every copy is verified on its own, and only holders of a replica key can pull its envelopes |
+| A forged node-ID or profile proof of work | DHT, search | High × medium | Accept: both are checked; such a node is not routed to, such a profile is not indexed |
+| False roles or false limits in `info` and status | DHT, `/dyapp/node` | Medium × medium | Accept: the client treats `info` as a hint; a role that is not served costs the node reputation |
+| Harvesting peer and profile data | DHT, search | Medium × high | Accept: profiles are public by design and Kademlia routing tables are open; metadata is class 4 ([above](#traffic-analysis)) |
+| Colluding or Sybil nodes take every replica of a key | DHT | High × medium | Accept: [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) makes a targeted eclipse costly, not impossible. Fix: per-type pools in the node store |
+| A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish (planned) |
+| A client keeps using nodes that failed it | Client | Medium × high | Fix: the client keeps local scores of nodes (refusals, invalid data, missing receipts, timeouts) and prefers good ones |
 
 ## Out of scope
 
