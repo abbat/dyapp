@@ -73,7 +73,7 @@ defences already in place. Nodes are untrusted by design
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
-| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list |
+| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list; a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
@@ -318,6 +318,23 @@ protection. A compromised OS, root and accessibility malware are out of scope.
 | Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | Fix: no exported components and no files readable by other apps (checked in CI). Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
 | A lost or sold device keeps access to the account | Device loss | High × medium | Fix: another device of the owner revokes it: it leaves the signed device list, contacts remove it from MLS groups and its mailbox is no longer served. Accept: history stored on a stolen unlocked device; app lock (planned) narrows it |
 | A compromised OS reads everything | Root, malware | High × low | Out of scope |
+
+### Illegal content and legal pressure
+
+Class 14 in detail. In place: a per-node deny list of peer IDs, IP groups, key hashes and blob
+hashes; received lists are only stored and applied by hand; envelopes are to be end-to-end
+encrypted, so an operator can act on a named hash or key, never on content it cannot read.
+Nothing scans content.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Illegal media put on a chosen node to expose its operator (a blob is ground until its hash lands there) | `/dyapp/media` `put`, `shard_put` | High × medium | Fix: listing a blob hash deletes the stored copy, its manifest and its shards at once, refuses `shard_put`, `shard_get` and replica puts of it, and repair never restores it. Accept: the node holds it until the operator lists it |
+| Replication spreads a listed blob to honest nodes | Replica puts, repair | Medium × medium | Fix: the same purge on each node that lists it. Accept: each operator lists it on their own; received lists stay manual, so one node cannot censor through another |
+| Illegal photo in a public profile | Profile media | High × medium | Accept: the operator lists the blob hash or the owner's key |
+| A lawful-access or takedown request asks what the node holds | Operator | High × medium | Fix: an operator page says what the node stores and for how long, what it never has (IP logs, readable envelopes), how to take a blob or a key down and how to answer a request |
+| False copyright or abuse complaints used to censor a user | Operator | Medium × medium | Accept: one node's list removes no one; the client moves to another replica after `REFUSED` |
+| Content scanning demanded on the client or the node | Law, operator | High × low | Out of scope: it breaks end-to-end encryption; an operator acts on a named hash or key only |
+| Seeds and nodes in one jurisdiction, all pressured at once | Seeds, hosting | High × medium | Accept: the network starts with two seeds and a node's location cannot be checked, so there is no jurisdiction rule; spreading seeds over distant address ranges is a recommendation, not a guarantee |
 
 ### Data tampering
 
