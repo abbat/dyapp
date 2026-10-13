@@ -79,7 +79,7 @@ defences already in place. Nodes are untrusted by design
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
-| 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: both transports are strong; version negotiation is not designed |
+| 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: nothing is negotiated; client bounds on announced limits planned ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
 
@@ -430,6 +430,23 @@ by the hex hash of their content; no node code runs a command; peer-supplied tex
 | Command injection | Packaging scripts, systemd unit, Makefile | High × low | Accept: no node code runs a command and the scripts take no network input |
 | Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML, autolinks or WebView, and register no URL schemes ([code quality](../development/code-quality.md)) |
 | Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | Fix: every profile string gets a character limit and the text rule planned in [Spoofing](#spoofing); `interests` gets a count limit. Today only `place` is checked |
+
+### Downgrade
+
+Class 20 in detail. In place: nothing is negotiated. Both transports are strong (QUIC with
+TLS 1.3, TCP with Noise only), protocol IDs carry no version and protobuf evolves additively, MLS
+accepts only ciphersuite 0x0001 ([Cryptography](#cryptography)), and the Argon2id parameters of
+the proof of work are fixed in code.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Block UDP to force TCP instead of QUIC | Network | Low × medium | Accept: Noise over TCP is as strong as TLS 1.3 over QUIC |
+| Strip the security upgrade or offer a weaker one | multistream-select on TCP | High × low | Accept: Noise is the only upgrade offered and accepted; a plaintext or second security upgrade is never added |
+| Force an old protocol version | Protocol IDs | High × low | Accept: there are no versions; a node enforces every rule whatever the client sends ([ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)) |
+| Weak MLS ciphersuite | KeyPackages, Welcomes | Critical × low | Accept: only 0x0001 ([Cryptography](#cryptography)) |
+| A node announces a tiny size limit or a huge proof-of-work minimum | `node.info`, replies | Medium × medium | Fix (planned with API evolution): the client clamps announced values to protocol bounds, proof of work at most 20 bits and size limits not below the protocol floors |
+| A node announces weak Argon2id parameters | Proof of work | High × low | Accept: the parameters are constants, not announced |
+| An operator lowers `search.min_profile_pow_bits` or other limits | `dyappd` config | Low × medium | Accept: it weakens only that node; every other node checks gossip against its own minimum, and config validation bounds each value |
 
 ## Out of scope
 
