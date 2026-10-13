@@ -1641,6 +1641,46 @@ mod tests {
     use dyapp_profile::Profile;
 
     #[test]
+    fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
+        let legacy = [0x08, Status::TooLarge as u8];
+        let mut profile = ProfileResponse::decode(legacy.as_slice()).unwrap();
+        let mut mailbox = MailboxResponse::decode(legacy.as_slice()).unwrap();
+        let mut media = MediaResponse::decode(legacy.as_slice()).unwrap();
+        let mut search = SearchResponse::decode(legacy.as_slice()).unwrap();
+        assert_eq!(profile.max_bytes, 0);
+        assert_eq!(mailbox.max_bytes, 0);
+        assert_eq!(media.max_bytes, 0);
+        assert_eq!((search.max_bytes, search.required_pow_bits), (0, 0));
+
+        profile.max_bytes = 100;
+        mailbox.max_bytes = 100;
+        media.max_bytes = 100;
+        search.max_bytes = 100;
+        search.required_pow_bits = 11;
+        let wire = |fields: &[u8]| [legacy.as_slice(), fields].concat();
+        assert_eq!(profile.encode_to_vec(), wire(&[0x20, 100]));
+        assert_eq!(mailbox.encode_to_vec(), wire(&[0x30, 100]));
+        assert_eq!(media.encode_to_vec(), wire(&[0x28, 100]));
+        assert_eq!(search.encode_to_vec(), wire(&[0x40, 100, 0x48, 11]));
+        assert_eq!(
+            ProfileResponse::decode(profile.encode_to_vec().as_slice()).unwrap(),
+            profile
+        );
+        assert_eq!(
+            MailboxResponse::decode(mailbox.encode_to_vec().as_slice()).unwrap(),
+            mailbox
+        );
+        assert_eq!(
+            MediaResponse::decode(media.encode_to_vec().as_slice()).unwrap(),
+            media
+        );
+        assert_eq!(
+            SearchResponse::decode(search.encode_to_vec().as_slice()).unwrap(),
+            search
+        );
+    }
+
+    #[test]
     fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
         let s = service_with(|limits| limits.bytes_per_second = 10_000);
         let owner = Identity::generate();

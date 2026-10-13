@@ -143,6 +143,8 @@ message ProfileResponse {
   dyapp.identity.SignedRecord record = 2;
   // inventory: the stored version; STATUS_NOT_FOUND means no record.
   uint64 version = 3;
+  // TOO_LARGE: the checked payload limit; 0 means not reported.
+  uint64 max_bytes = 4;
 }
 
 // ---- /dyapp/mailbox: store role ----
@@ -217,6 +219,8 @@ message MailboxResponse {
   bool more = 4;
   // inventory: listed ids this node does not hold.
   repeated bytes missing = 5;
+  // TOO_LARGE: the checked envelope limit; 0 means not reported.
+  uint64 max_bytes = 6;
 }
 
 // ---- /dyapp/mailbox-push: client, opened by the node after a fetch with `watch` ----
@@ -343,6 +347,8 @@ message MediaResponse {
   repeated bytes missing = 3;
   // have: no entries are returned for keys the requester may not inventory.
   MediaInventory inventory = 4;
+  // TOO_LARGE: the checked blob, shard or authorization limit; 0 means not reported.
+  uint64 max_bytes = 5;
 }
 
 // ---- /dyapp/search: search role ----
@@ -405,6 +411,10 @@ message SearchResponse {
   uint32 index_version = 6;
   // get: the stored records, cut at 1 MiB.
   repeated dyapp.identity.SignedRecord records = 7;
+  // TOO_LARGE: the checked record limit; 0 means not reported.
+  uint64 max_bytes = 8;
+  // INVALID because profile PoW is below the node threshold; 0 means not reported.
+  uint32 required_pow_bits = 9;
 }
 
 // ---- /dyapp/inventory: search nodes catch up ----

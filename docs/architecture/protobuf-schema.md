@@ -119,6 +119,24 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/inventory`** (experimental search role): node to node, `InventoryRequest(topic, after)`
   returns up to 10 000 `SearchHit`s of that gossip topic sorted by key, for catch-up.
 
+### Rejection hints
+
+The response schemas reserve additive hints for limits checked by the receiving node:
+
+| Message | Field | Tag |
+|---------|-------|-----|
+| `ProfileResponse` | `max_bytes` | 4 |
+| `MailboxResponse` | `max_bytes` | 6 |
+| `MediaResponse` | `max_bytes` | 5 |
+| `SearchResponse` | `max_bytes` | 8 |
+| `SearchResponse` | `required_pow_bits` | 9 |
+
+`max_bytes` describes the size bound for a `STATUS_TOO_LARGE` rejection;
+`required_pow_bits` describes the node's profile PoW threshold for a `STATUS_INVALID`
+rejection caused by insufficient PoW. Zero means not reported, including replies from older
+nodes. The schemas and generated Rust types include these fields; **populating them in node
+replies is planned**. Client retries and validation of reported values are also planned.
+
 ## FFI boundary
 
 Protobuf types do not cross the FFI. `rust/ffi` exports UniFFI types; see the
