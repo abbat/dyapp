@@ -35,7 +35,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 |--------|---------|--------|
 | Observer reads or tampers with traffic | libp2p QUIC (TLS 1.3) and TCP + Noise | ✅ Implemented ([p2p-net](../architecture/p2p-networking.md)) |
 | Operator or observer reads messages | MLS end-to-end encryption ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) | ❌ Planned: payload crypto is a stub |
-| Forged or rolled-back profile | Ed25519 signature by the owner; a node rejects an older version | ✅ Implemented; a node can still serve an older version it kept |
+| Forged or rolled-back profile | Ed25519 signature by the owner; a node rejects an older version | ✅ Implemented; a node can still serve an older version it kept, a client check is planned ([below](#data-tampering)) |
 | Another client reads or empties a mailbox | Fetch and ack signed by the device key over a nonce issued for this connection | ✅ Implemented ([mailboxes](../architecture/bootstrap.md#mailboxes)) |
 | Replayed mailbox request | The nonce is bound to one libp2p connection; other requests are idempotent | ✅ Implemented |
 | Spam into a mailbox | Size limits per envelope and mailbox, puts limited per sender key and IP group | ✅ Implemented; the sender key is free, so the IP group is the real bound |
@@ -74,7 +74,7 @@ defences already in place. Nodes are untrusted by design
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list |
-| 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures, version checks |
+| 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
@@ -318,6 +318,24 @@ protection. A compromised OS, root and accessibility malware are out of scope.
 | Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | Fix: no exported components and no files readable by other apps (checked in CI). Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
 | A lost or sold device keeps access to the account | Device loss | High × medium | Fix: another device of the owner revokes it: it leaves the signed device list, contacts remove it from MLS groups and its mailbox is no longer served. Accept: history stored on a stolen unlocked device; app lock (planned) narrows it |
 | A compromised OS reads everything | Root, malware | High × low | Out of scope |
+
+### Data tampering
+
+Class 15 in detail. In place: every signed record is verified with `verify_strict` over the bytes as
+received, under a versioned domain label, and unknown fields stay inside the signed bytes; media
+is addressed by its SHA-256 and a rebuilt shard must match it; the highest profile version wins,
+a signed tombstone blocks older versions, and the keep list is versioned.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A node swaps a media blob or a shard | Media fetch, shard rebuild | High × medium | Accept: the key is the SHA-256 of the blob and a rebuilt shard is checked against it; media is encrypted with a key sent inside MLS (planned) |
+| A node re-encodes a record, adds or drops fields, or mauls the signature | Any `SignedRecord` | High × low | Accept: the signature covers the bytes as received, never a re-encoding; unknown fields are kept; `verify_strict` |
+| Rust and Dart parse the same signed bytes differently | FFI | High × low | Accept: signed records are parsed and verified only in Rust; Dart gets checked records, never Protobuf ([FFI rules](../architecture/ffi-design.md#design-rules-target)) |
+| A node serves an older, validly signed profile of a contact (rollback or freeze) | `profile.get` | High × medium | Fix: the client keeps the highest version it has seen per contact and refuses lower ones; it asks two holders with different replica keys and takes the higher version |
+| A rolled-back device list or a stale KeyPackage | KeyPackage fetch | Critical × medium | Fix (planned): see [MITM and key verification](#mitm-and-key-verification) |
+| An old keep list or a tombstone replayed | `media.keep`, `profile.publish` | Medium × low | Accept: the keep list is versioned and cannot restore a removed hash; a tombstone blocks older versions |
+| A node strips or forges the verified mark of a contact | Contact list | High × low | Accept: verification is stored only on the client and bound to the identity key; nodes never see it |
+| A forged or poisoned shared deny list | Deny-list exchange | Medium × low | Accept: lists are signed with the node key under their own label; received lists are only stored, an operator applies them by hand |
 
 ## Out of scope
 

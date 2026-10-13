@@ -105,6 +105,7 @@ depends on the native side not using a handle after freeing it.
 - Business logic in Rust; platform code is UI and event handling.
 - Cross the boundary with primitives, strings, records and opaque objects; no
   Protobuf messages or raw key bytes.
+- Signed records are parsed and verified only in Rust; Dart never parses signed bytes.
 - Typed `uniffi::Error` enums with per-case variants instead of the single `CoreError::Failed`.
 - Blocking calls are acceptable for the prototype; if push-style updates are
   needed, prefer polling (`poll_new_messages`) over foreign callbacks.
