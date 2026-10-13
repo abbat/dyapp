@@ -467,6 +467,35 @@ pub fn set_distinct_groups(on: bool) {
     DISTINCT_GROUPS.store(on, Ordering::Relaxed);
 }
 
+/// Whether two direct addresses name exactly the same IP, independent of port and transport.
+/// DNS, relayed routes and multiple IP components cannot prove a direct remote endpoint.
+pub fn same_ip(observed: &Multiaddr, claimed: &Multiaddr) -> bool {
+    fn direct_ip(address: &Multiaddr) -> Option<std::net::IpAddr> {
+        let mut parts = address.iter();
+        let ip = match parts.next()? {
+            Protocol::Ip4(ip) => ip.into(),
+            Protocol::Ip6(ip) => ip.into(),
+            _ => return None,
+        };
+        if parts.any(|p| {
+            matches!(
+                p,
+                Protocol::Ip4(_)
+                    | Protocol::Ip6(_)
+                    | Protocol::Dns(_)
+                    | Protocol::Dns4(_)
+                    | Protocol::Dns6(_)
+                    | Protocol::Dnsaddr(_)
+                    | Protocol::P2pCircuit
+            )
+        }) {
+            return None;
+        }
+        Some(ip)
+    }
+    direct_ip(observed).is_some_and(|ip| direct_ip(claimed) == Some(ip))
+}
+
 /// The IP group of `address`: /24 (IPv6 /48), or /16 (IPv6 /32) when `wide`; a DNS name is its
 /// own group.
 fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
@@ -584,6 +613,41 @@ pub fn known_peers(swarm: &mut Swarm<Behaviour>) -> Vec<Multiaddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn same_ip_compares_direct_hosts_not_groups_or_ports() {
+        let addr = |s: &str| s.parse::<Multiaddr>().unwrap();
+        for (a, b, expected) in [
+            ("/ip4/1.2.3.4/tcp/1", "/ip4/1.2.3.4/udp/9/quic-v1", true),
+            ("/ip4/1.2.3.4/tcp/1", "/ip4/1.2.3.5/tcp/1", false),
+            ("/ip6/2001:db8::1/tcp/1", "/ip6/2001:db8::1/tcp/2", true),
+            ("/ip6/2001:db8::1/tcp/1", "/ip6/2001:db8::2/tcp/1", false),
+            ("/ip4/1.2.3.4/tcp/1", "/ip6/::ffff:1.2.3.4/tcp/1", false),
+        ] {
+            assert_eq!(same_ip(&addr(a), &addr(b)), expected, "{a} vs {b}");
+            assert_eq!(same_ip(&addr(b), &addr(a)), expected, "{b} vs {a}");
+        }
+        let direct = addr("/ip4/1.2.3.4/tcp/1");
+        let pinned = direct.clone().with(Protocol::P2p(PeerId::random()));
+        assert!(same_ip(&direct, &pinned));
+        for unproven in [
+            "",
+            "/tcp/1",
+            "/dns/example.org/tcp/1",
+            "/dns4/example.org/tcp/1",
+            "/dns6/example.org/tcp/1",
+            "/dnsaddr/example.org",
+            "/tcp/1/ip4/1.2.3.4",
+            "/ip4/1.2.3.4/dns/example.org/tcp/1",
+            "/ip4/1.2.3.4/ip4/1.2.3.4/tcp/1",
+            "/ip4/1.2.3.4/tcp/1/p2p-circuit",
+        ] {
+            let unproven = addr(unproven);
+            assert!(!same_ip(&direct, &unproven), "{unproven}");
+            assert!(!same_ip(&unproven, &direct), "{unproven}");
+            assert!(!same_ip(&unproven, &unproven), "{unproven}");
+        }
+    }
 
     #[derive(Clone, PartialEq, prost::Message)]
     struct Frame {

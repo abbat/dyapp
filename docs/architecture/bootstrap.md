@@ -78,6 +78,12 @@ virtual positions per node would each need a proof of work and would open a Sybi
 
 ### Protocol
 
+Address admission is being tightened. The shared `same_ip` helper compares exact leading
+IPv4 or IPv6 addresses independently of ports and transport; it rejects DNS, relay/circuit
+routes, missing IPs and embedded or multiple IP components. Using it for identify and
+provider records, and authenticating alternative addresses through bounded probes, are
+planned; the node still admits identify listen addresses without that verification.
+
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
 `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`
