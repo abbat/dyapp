@@ -81,7 +81,7 @@ defences already in place. Nodes are untrusted by design
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: nothing is negotiated; client bounds on announced limits planned ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
-| 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
+| 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |
 
 ### Cryptography
 
@@ -447,6 +447,22 @@ the proof of work are fixed in code.
 | A node announces a tiny size limit or a huge proof-of-work minimum | `node.info`, replies | Medium × medium | Fix (planned with API evolution): the client clamps announced values to protocol bounds, proof of work at most 20 bits and size limits not below the protocol floors |
 | A node announces weak Argon2id parameters | Proof of work | High × low | Accept: the parameters are constants, not announced |
 | An operator lowers `search.min_profile_pow_bits` or other limits | `dyappd` config | Low × medium | Accept: it weakens only that node; every other node checks gossip against its own minimum, and config validation bounds each value |
+
+### Clock manipulation
+
+Class 22 in detail. In place: signed heartbeat and keep times must be within 10 minutes of the
+node's clock, an attachment's `created` at most 10 minutes ahead, and a replayed record never
+extends retention ([Replay](#replay)). Retention and expiry run on the node's clock.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Future-dated heartbeat, keep or attach to live longer | `profile.heartbeat`, `search.heartbeat`, `media.keep`, `media.attach` | Medium × low | Accept: the 10-minute window bounds the gain to 10 minutes |
+| Backdated record | Same | Low × low | Accept: a heartbeat or keep outside the window is `INVALID`; a backdated attach only expires sooner |
+| A user's device clock is more than 10 minutes off | Client | Medium × medium | Fix: `info` and an `INVALID` time reply carry the node's clock; the client signs with the median offset of at least 3 nodes, so one lying node cannot shift it. Today heartbeats and keeps fail and the profile and media silently expire |
+| Spoofed NTP pushes a node's clock forward or back | Node host | Medium × low | Accept: the node is a cache and other replicas keep the data; [deployment](../operations/deployment.md#clock) asks for authenticated time sync (chrony with NTS) |
+| Clock step against per-second rate limits | `limits.*_per_second` | Low × low | Accept: a step resets or extends one second's count |
+| Fake send time in a message | Client | Low × medium | Accept: the app shows it as the sender's claim |
+| TURN credential expiry on a skewed relay | `node.turn` | Low × low | Accept: the node and its relay belong to one operator |
 
 ## Out of scope
 

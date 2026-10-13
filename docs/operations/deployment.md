@@ -463,6 +463,14 @@ carries a Sigstore keyless signature, SLSA build provenance and the SBOM, checke
 Every connection is libp2p: TCP with Noise and yamux, or QUIC (TLS 1.3), authenticated by the
 node's libp2p key; there is no certificate authority.
 
+### Clock
+
+Retention, expiry and the 10-minute windows for signed times all use the node's clock. A clock
+pushed forward, for example by a spoofed NTP server, makes the hourly cleanup delete envelopes,
+profiles and attachments early; one pushed back refuses fresh heartbeats and keeps. Synchronise
+the host with an authenticated source, such as `chrony` with NTS (`server <host> iburst nts`),
+and watch for large steps in its log.
+
 ### Access Control
 
 **The node protocol is public** (no client authentication):
