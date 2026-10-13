@@ -56,7 +56,44 @@ These are goals. Nothing here is a current guarantee.
   user's identity key; users are authenticated end to end, not by the transport [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md).
 - Storage: bootstrap stores only ciphertext; searchable fields are an explicit, documented exception.
 - Forward secrecy and post-compromise security: from MLS [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md).
+- Video frames: SFrame ([RFC 9605](https://www.rfc-editor.org/rfc/rfc9605)), a key per sender
+  from the MLS exporter, a 64-bit counter as the nonce, never a random nonce.
+- Attachments: a fresh random 256-bit key per attachment, AES-256-GCM per chunk with the chunk
+  index as the nonce, key and blob hashes inside the MLS message; the release secret is 32 random
+  bytes.
+- Only ciphersuite 0x0001 is accepted; a KeyPackage or Welcome with any other is rejected.
+  Nothing is negotiated: a new algorithm comes with a new domain label or ciphersuite and a dated
+  cut-over. 0x0001 is not post-quantum; a hybrid suite is planned once openmls ships an audited
+  one.
 
 Before any of these may be documented as current, each needs a real
 implementation **and** tests that show tampering and wrong-key decryption
 fail.
+
+## Keys
+
+One key per purpose; no key signs or encrypts for another.
+
+| Key | Signs or encrypts | Stored | Status |
+|-----|-------------------|--------|--------|
+| Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; storage planned |
+| Device (Ed25519) | Envelopes, mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
+| MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Planned |
+| libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: `node.key`, mode 0600 | Node: implemented. Client: planned |
+| MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | Planned |
+| Attachment key | One attachment | Inside the MLS message | Planned |
+
+Rules:
+
+- Randomness for keys, nonces and secrets comes only from the OS generator (`getrandom`). It
+  blocks until the kernel pool is seeded and fails closed.
+- Every Ed25519 check goes through `dyapp_identity::SignedRecord::verify` (`verify_strict`). Each
+  record kind has its own label `dyapp/<kind>/v1\0`; a label ends in `\0`, so no label is a prefix
+  of another.
+- A secret key crosses FFI only into the platform keystore's wrap and unwrap calls, never as a
+  string, and copies are wiped after use (planned).
+- `dyappd` refuses a `node.key` readable by group or others (planned); back it up with
+  `umask 077` ([backups](../operations/deployment.md#backups)).
+- MLS state at rest relies on platform data protection (iOS file protection, Android
+  credential-encrypted storage) and desktop disk encryption; flash may keep deleted epoch
+  secrets.

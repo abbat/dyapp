@@ -83,6 +83,30 @@ defences already in place. Nodes are untrusted by design
 | 21 | Side channels and timing | Medium | Low | ❌ Planned |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
 
+### Cryptography
+
+Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#keys).
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, placeholder keys, random unchecked frame tags | `rust/messaging/src/encryption.rs`, `rust/video/src/encryption.rs`, FFI `generate_keypair` | Critical × certain | Fix: MLS, frame encryption and identity storage replace and delete the stubs |
+| Forged, malleable or weak-key Ed25519 signature | Any `SignedRecord` | Critical × low | Accept: `verify_strict` rejects non-canonical and small-order input; every check goes through `dyapp-identity` |
+| A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: versioned labels ending in `\0` are prefix-free and differ from libp2p's own labels; fix: a test pins it |
+| One key serving two purposes | Identity, device, MLS and libp2p keys | High × medium | Fix: one key per purpose, listed in [keys](encryption.md#keys) |
+| MLS ciphersuite downgrade or unknown suite | KeyPackages and Welcomes from untrusted nodes | Critical × medium | Fix: only 0x0001 is accepted, nothing is negotiated |
+| A group member whose credential does not chain to the Peer ID | MLS Add, Welcome | Critical × medium | Fix: checked on every Add and Welcome; verifying the Peer ID itself is class 3 |
+| Frame nonce reuse under one key | Video frames | Critical × high with random nonces | Fix: SFrame ([RFC 9605](https://www.rfc-editor.org/rfc/rfc9605)), a counter nonce per sender key, keys from the MLS exporter |
+| Attachment key or nonce reuse, a guessable release secret | Media blobs | High × medium | Fix: a fresh random key per attachment, counter nonces, a 32-byte release secret |
+| Weak or failed randomness | Key generation, nonces, secrets | Critical × low | Accept: only the OS generator (`getrandom`), which blocks until seeded and fails closed; a cloned VM relies on the kernel's VM generation ID (Linux 6.1 on Debian 12) |
+| Identity or device key read from disk or backups | Client storage | Critical × medium | Fix: wrapped by the platform keystore, excluded from backups and cloud sync |
+| Secret copies left in memory | `Identity::secret`, key generation, key file buffers | Medium × low | Fix: wiped after use; swap and core dumps of a compromised OS are out of scope |
+| Node key read from disk or backups | `node.key` | Medium × medium | ⚠️ Partial: created with mode 0600; fix: refuse a key readable by group or others; backups made with `umask 077` |
+| MLS state read from a stolen device | Client database | High × low | Accept: platform data protection (iOS file protection, Android credential-encrypted storage) and desktop disk encryption; flash may keep deleted epoch secrets |
+| Proof-of-work parameters too cheap or too costly to check | Profile Argon2id (8 MiB, 1 pass), node-ID SHA-256 | Medium × low | Accept: pinned by tests; the cost to a checking node is class 9 |
+| Harvest now, decrypt later | X25519 in 0x0001, Ed25519 | High × medium | Accept for now: neither is post-quantum; a hybrid MLS ciphersuite is planned when openmls ships an audited one |
+| Algorithm migration opens a downgrade | Domain labels, ciphersuite | High × low | Accept: a new algorithm comes with a new label or suite and a dated cut-over, never by negotiation; negotiation in general is class 20 |
+| Timing leaks in crypto code | Signatures, AEAD | Medium × low | Out of scope here: class 21 |
+
 ## Out of scope
 
 - Global passive adversaries correlating traffic across the network.

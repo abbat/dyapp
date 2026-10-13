@@ -259,7 +259,8 @@ the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCP
 data already exists. Turn `network.distinct_outbound_groups` off only on a network whose
 nodes share a /16, such as a LAN or a test network. The node does not start without the key,
 with a key that lacks the proof of work or with one that does not match `node.id`: a new key is
-a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
+a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe and readable only by its owner; a node that refuses a key
+readable by group or others is planned. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
 ### Development quick start
@@ -418,8 +419,9 @@ Roundtrip with `dyappd` (data in `/tmp/ai/bootstrap`):
 # 1. Stop writers
 kill <dyappd pid>
 
-# 2. Archive with a relative layout (top-level entry: bootstrap/)
-tar czf bootstrap-backup-$(date +%Y%m%d).tar.gz -C /tmp/ai bootstrap
+# 2. Archive with a relative layout (top-level entry: bootstrap/); umask 077 keeps the
+#    archive with node.key private
+(umask 077; tar czf bootstrap-backup-$(date +%Y%m%d).tar.gz -C /tmp/ai bootstrap)
 
 # 3. Restore into an empty test directory and inspect it
 mkdir /tmp/restore-test

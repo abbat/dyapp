@@ -20,6 +20,8 @@ Encrypt everything private with **MLS via the `openmls` crate**:
 
 - Each conversation is an MLS group; a one-to-one chat is a group of the two users' devices.
 - Ciphersuite `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (0x0001, mandatory to implement).
+  It is the only suite accepted: a KeyPackage or Welcome with another is rejected, and nothing is
+  negotiated. A new suite comes with a dated cut-over.
 - **Credentials.** Every device has its own MLS signature key (RFC 9420 requires unique keys per
   member), certified by the user's Ed25519 identity key. A client accepts a member only if the
   certificate chains to the Peer ID ([ADR 0004](0004-identity-keys.md)).
@@ -36,4 +38,6 @@ Encrypt everything private with **MLS via the `openmls` crate**:
   messages.
 - Consumed KeyPackages must be replenished; an exhausted device falls back to its last-resort
   KeyPackage, which weakens forward secrecy for that first message.
+- 0x0001 is not post-quantum: ciphertext recorded today can be read once X25519 falls. A hybrid
+  post-quantum suite is planned once openmls ships an audited one.
 - Not implemented: `rust/messaging` has no MLS; `encryption.rs` is a stub.

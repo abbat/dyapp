@@ -343,8 +343,9 @@ resent from the sender's retry queue.
   sender's mailboxes; nodes never link the two.
 - Reading and deleting a mailbox needs a signature over a nonce the node issued for this libp2p
   connection, so a captured request cannot be replayed. Other requests are idempotent.
-- Chat attachments are encrypted media blobs. The sender attaches them under the SHA-256 of a
-  random release secret and sends the secret inside the message; the recipient releases them
+- Chat attachments are encrypted media blobs (planned: a fresh key per attachment,
+  [Encryption](../security/encryption.md#target-design-not-implemented)). The sender attaches them under the SHA-256 of a
+  release secret of 32 random bytes and sends the secret inside the message; the recipient releases them
   after downloading, and unreleased ones expire after an operator-set retention.
 
 ### Storage on a node

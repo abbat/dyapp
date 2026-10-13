@@ -34,4 +34,5 @@ user signatures), which key separation forbids.
 - A node on the path learns a device's network key and IP address, not which user it belongs to.
 - How a contact learns a device's current libp2p address without revealing presence to everyone is
   open ([ADR 0012](0012-private-p2p-interactions.md)).
-- Not implemented: `rust/p2p-net` has no transport security yet.
+- Implemented: `rust/p2p-net` builds libp2p QUIC (TLS 1.3) and TCP with Noise, and `dyappd`
+  uses it; no app does yet.
