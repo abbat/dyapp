@@ -80,7 +80,7 @@ defences already in place. Nodes are untrusted by design
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
 | 19 | Replay | Medium | Low | ⚠️ Partial (rows above) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: both transports are strong; version negotiation is not designed |
-| 21 | Side channels and timing | Medium | Low | ❌ Planned |
+| 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
 
 ### Cryptography
@@ -337,7 +337,26 @@ addresses, and receivers add them to their routing tables unfiltered.
 | Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |
 | Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers |
 | Scrape a future metrics endpoint | Metrics (planned) | Medium × medium | Fix: when metrics land, they bind to loopback by default and carry no peer or key identifiers |
-| Fingerprint a node by response timing | Any request | Low × low | See side channels (class 21) |
+| Fingerprint a node by response timing | Any request | Low × low | See [Side channels and timing](#side-channels-and-timing) |
+
+### Side channels and timing
+
+Class 21 in detail. In place: nodes compare no secrets. A mailbox nonce is public to the
+connection that asked for it, single-use, and checked after the signature; a media release
+secret is hashed and looked up by the hash; TURN passwords are checked by coturn. Signature, PoW
+and MLS operations come from libraries that keep secret-dependent work constant-time. Message
+sizes are covered in [Traffic analysis](#traffic-analysis).
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Recover a secret from comparison timing | Rust and Dart code | High × low | Fix: secrets are compared in constant time ([code quality](../development/code-quality.md#conventions-not-enforced-by-tooling)); no node code compares one today |
+| Guess a mailbox nonce from `==` timing | `mailbox` fetch and ack | Low × low | Accept: the nonce is not secret, is single-use and bound to the connection |
+| Time signature or PoW checks | Any signed request | Low × low | Accept: the inputs are public; the PoW cache only tells that a public profile was checked recently |
+| Learn whether a profile or blob exists from NOT_FOUND | `profile.get`, `media.get` | Low × high | Accept: profiles are public; attachment blobs are addressed by the hash of their ciphertext |
+| Learn whether someone's mailbox holds mail | `mailbox` fetch | Medium × low | Accept: a fetch needs the owner's signature; anyone else gets DENIED |
+| Tell when a user is online from response delays | Mailbox, presence | Medium × low | Accept: presence goes only to allowed peers; the replica holding the connection is a residual in [Traffic analysis](#traffic-analysis) |
+| See a neighbour's activity behind the same NAT from THROTTLED answers | IP-group quotas | Low × low | Accept |
+| Read activity from a phone's power use or network pattern | OS, carrier | Low × low | Out of scope: a compromised OS; the network observer is in [Traffic analysis](#traffic-analysis) |
 
 ### Illegal content and legal pressure
 

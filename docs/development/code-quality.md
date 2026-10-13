@@ -74,6 +74,8 @@ branches.
 - Do not leave `todo!()` or `unimplemented!()` in committed code; open an issue and return an
   error instead.
 - There are no benchmarks (`criterion` is not a dependency and there are no `benches/`).
+- Compare secrets (keys, MACs, release secrets) in constant time with `subtle::ConstantTimeEq`,
+  never `==`; public values such as nonces, hashes and signatures may use `==`.
 - <a id="sql"></a>**SQLite statements.** Quote every table, column, index and alias name with
   backticks; SQL keywords, functions and pragma names stay bare:
   ``"SELECT `record` FROM `profiles` WHERE `peer_id` = ?"``. Backticks keep column names that
