@@ -1260,13 +1260,14 @@ impl Replicas {
     }
 }
 
-/// Envelope bytes in one `replica_put`; a larger gap fills over the next repairs.
+/// Envelope bytes selected by one repair; a larger gap fills over the next repairs.
 const REPAIR_BYTES: usize = 1024 * 1024;
 
-/// Sends `to` the held envelopes of `mailbox` that `wanted` picks, in one `replica_put`.
+/// Sends wanted held envelopes in immediately admitted batches of at most 50 units.
 fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
+    cap: &mut ReplicaCap,
     to: PeerId,
     mailbox: &[u8],
     wanted: impl Fn(&Vec<u8>) -> bool,
@@ -1285,14 +1286,16 @@ fn send_envelopes(
             bytes <= REPAIR_BYTES
         })
         .collect();
-    if !envelopes.is_empty() {
-        service
-            .traffic
-            .add(envelopes.iter().map(|r| r.encoded_len() as u64).sum());
-        let request = mailbox_request::Request::ReplicaPut(proto::Envelopes { envelopes });
+    for batch in envelopes.chunks(usize::try_from(REPLICA_UNITS_PER_SECOND).unwrap()) {
+        if !cap.allow(&to, u32::try_from(batch.len()).unwrap()) {
+            continue;
+        }
         let request = MailboxRequest {
-            request: Some(request),
+            request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                envelopes: batch.to_vec(),
+            })),
         };
+        service.traffic.add(request.encoded_len() as u64);
         swarm.behaviour_mut().mailbox.send_request(&to, request);
     }
 }
@@ -1356,9 +1359,14 @@ fn after_mailbox(
             });
             if near && replicas.trust.trusted(&peer) {
                 let listed: HashSet<Vec<u8>> = inventory.ids.into_iter().collect();
-                send_envelopes(swarm, service, peer, &inventory.mailbox, |id| {
-                    !listed.contains(id)
-                });
+                send_envelopes(
+                    swarm,
+                    service,
+                    &mut replicas.cap,
+                    peer,
+                    &inventory.mailbox,
+                    |id| !listed.contains(id),
+                );
             }
         }
         _ => {}
@@ -2130,7 +2138,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     }
                     if let Some(mailbox) = replicas.inventories.remove(&request_id) {
                         let missing: HashSet<Vec<u8>> = response.missing.into_iter().collect();
-                        send_envelopes(&mut swarm, &service, id, &mailbox, |envelope| {
+                        send_envelopes(&mut swarm, &service, &mut replicas.cap, id, &mailbox, |envelope| {
                             missing.contains(envelope)
                         });
                     }
@@ -2524,6 +2532,130 @@ fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    async fn receive_repair_batch(
+        sender: &mut Swarm<Behaviour>,
+        receiver: &mut Swarm<Behaviour>,
+        service: &Service,
+    ) -> usize {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                tokio::select! {
+                    _ = sender.select_next_some() => {}
+                    event = receiver.select_next_some() => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
+                            peer,
+                            message: Message::Request { request, channel, .. },
+                            ..
+                        })) = event {
+                            let Some(mailbox_request::Request::ReplicaPut(batch)) = &request.request else {
+                                panic!("expected repair batch");
+                            };
+                            let count = batch.envelopes.len();
+                            assert!((1..=50).contains(&count));
+                            assert!(request.encoded_len() <= REPAIR_BYTES + 64 * 1024);
+                            let response = service.mailbox(
+                                &Peer { id: peer.to_string(), group: "g".into() },
+                                &mut None,
+                                request,
+                            ).unwrap();
+                            assert_eq!(response.status, i32::from(Status::Ok));
+                            receiver.behaviour_mut().mailbox.send_response(channel, response).unwrap();
+                            return count;
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .expect("repair batch never arrived")
+    }
+
+    #[tokio::test]
+    async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
+        let service = || {
+            let dir = format!("/tmp/ai/test-repair-cap-{}", uuid::Uuid::new_v4());
+            let mut config = crate::config::NodeConfig::default();
+            config.storage.dir = dir.clone().into();
+            config.network.id_pow_bits = 0;
+            config.limits.sender_puts_per_second = 1000;
+            Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config)
+        };
+        let (source, destination) = (service(), service());
+        let mut sender = swarm(
+            Keypair::generate_ed25519(),
+            &source.config.limits,
+            &source.config.roles,
+        )
+        .unwrap();
+        let mut receiver = swarm(
+            Keypair::generate_ed25519(),
+            &destination.config.limits,
+            &destination.config.roles,
+        )
+        .unwrap();
+        let remote = *receiver.local_peer_id();
+        receiver
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let addr = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = receiver.select_next_some().await {
+                break address;
+            }
+        };
+        sender.dial(addr.with(Protocol::P2p(remote))).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                tokio::select! {
+                    event = sender.select_next_some() => {
+                        if matches!(event, SwarmEvent::ConnectionEstablished { .. }) { break; }
+                    }
+                    _ = receiver.select_next_some() => {}
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let owner = dyapp_identity::Identity::generate();
+        let mailbox = vec![2; 32];
+        for i in 0..75u8 {
+            let record = owner.sign(
+                dyapp_identity::Domain::Envelope,
+                proto::Envelope {
+                    id: vec![i; 16],
+                    mailbox: mailbox.clone(),
+                    ciphertext: vec![3],
+                }
+                .encode_to_vec(),
+            );
+            assert_eq!(
+                source.store_mailbox(&record).unwrap().status,
+                i32::from(Status::Ok)
+            );
+        }
+        let mut cap = ReplicaCap::default();
+        send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| true);
+        assert_eq!(cap.take_dropped(), 1, "only the second batch is refused");
+        assert_eq!(
+            receive_repair_batch(&mut sender, &mut receiver, &destination).await,
+            50
+        );
+        let held = destination.held(&mailbox).unwrap();
+        assert_eq!(held.len(), 50);
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |id| {
+            !held.contains_key(id)
+        });
+        assert_eq!(
+            receive_repair_batch(&mut sender, &mut receiver, &destination).await,
+            25
+        );
+        assert_eq!(destination.held(&mailbox).unwrap().len(), 75);
+        assert_eq!(cap.take_dropped(), 0);
+        // Inventory of the complete mailbox sends nothing and consumes no units.
+        send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| false);
+        assert!(cap.allow(&remote, 25));
+    }
 
     #[test]
     fn replica_cap_has_atomic_burst_separate_destinations_and_refill() {

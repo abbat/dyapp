@@ -144,8 +144,11 @@ Regular mailbox/profile fan-out and profile-gap repair share one sender token bu
 destination: average 50 write units/s, burst 50. A refused send is dropped without queuing or
 lowering the destination's trust; a local write bypasses the bucket. `replica_dropped` counts
 refused send operations since the preceding hourly status line, and taking the count does not
-refill the bucket. Mailbox repair batches and media writes will use the same budget; their
-integration is planned. A batch will be split into at most 50 envelopes, charged one unit each.
+refill the bucket. Mailbox repair uses the same budget, splitting at most 1 MiB of selected
+records into batches of at most 50 envelopes and charging one unit per envelope. Only admitted
+batches are sent; refused batches are dropped and counted once per batch. Subsequent inventories
+omit envelopes already received, so larger gaps can make progress after refill. Media integration
+is planned.
 
 The reply waits for two distinct holders to store. Several replica keys on one node count once.
 An isolated node with no routing peers may acknowledge one local copy; a node with peers must
@@ -819,7 +822,7 @@ before record verification. Eligibility uses transport-ID proof of work; adverti
 change this check.
 Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
 bad signed records still return `DENIED` and strike. Sender caps cover regular mailbox/profile
-fan-out and profile-gap repair; mailbox repair batches and media integration are planned.
+fan-out, profile-gap repair and mailbox repair batches; media integration is planned.
 
 **Local peer reputation.** Each non-replica refusal by the peer or IP-group bucket and each `DENIED` reply
 (a bad signature, a replayed or missing mailbox nonce) is a strike against the peer ID. At
