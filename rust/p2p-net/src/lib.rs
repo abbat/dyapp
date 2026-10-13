@@ -20,6 +20,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod protocols;
+pub use protocols::Protocols;
 mod wire;
 pub use wire::{Dir, WireBytes, WireCounts};
 

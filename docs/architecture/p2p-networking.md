@@ -67,8 +67,23 @@ Not implemented yet:
 - Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
-- No signal or search protocols; they are designed in
+- No signal protocol yet; signal envelopes are planned in
   [Bootstrap — Protocol](bootstrap.md#protocol).
+
+## Protocol namespaces
+
+`Protocols::public()` describes the existing public IDs and gossip defaults.
+`Protocols::new(name)` validates at most 64 printable ASCII bytes, with no leading or
+trailing space; empty means public, and case is preserved. Named IDs use
+`/dyapp/net-<ns>/<protocol>`, where `ns` is the first eight bytes of
+SHA-256(`dyapp/network/` || name) in hex. The identify version is `/dyapp/net-<ns>`,
+the gossip prefix is `/dyapp/net-<ns>/meshsub`, and search topics are
+`/dyapp/net-<ns>/profiles/<n>`. The reserved digest ID receives the same namespace
+but has no behaviour yet; `all()` lists the nine existing protocol IDs.
+
+The value type and name validation are implemented. **Passing it into swarm builders,
+bootstrap network configuration, storage guards and peer isolation remain planned**;
+current builders continue to use the public constants.
 
 ## Planned
 

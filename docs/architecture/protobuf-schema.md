@@ -142,6 +142,13 @@ replies is planned**. Client retries and validation of reported values are also 
 Protobuf types do not cross the FFI. `rust/ffi` exports UniFFI types; see the
 [FFI contract](ffi-design.md).
 
+## Network namespaces
+
+`dyapp-p2p-net::Protocols` can derive namespaced protocol IDs and search topics from a
+validated network name ([P2P networking](p2p-networking.md#protocol-namespaces)).
+Protobuf packages, schemas and field numbers are shared across networks. Runtime builder
+integration and network selection remain planned; current swarms use the public IDs.
+
 ## Evolution rules (proto3)
 
 - **No versions.** Protocol IDs and packages carry no version. Messages change only by new
