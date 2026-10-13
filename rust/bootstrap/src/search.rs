@@ -8,6 +8,7 @@ use dyapp_p2p_net::proto::{Condition, Op};
 use dyapp_profile::Profile;
 use prost::Message;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -41,12 +42,80 @@ CREATE TABLE IF NOT EXISTS `key` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NU
   WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `key_heartbeat` ON `key` (`heartbeat`);
 CREATE INDEX IF NOT EXISTS `key_topic` ON `key` (`topic`, `key`);
+CREATE TABLE IF NOT EXISTS `digest` (`topic` INTEGER, `bucket` INTEGER, `hash` BLOB,
+  PRIMARY KEY (`topic`, `bucket`)) WITHOUT ROWID;
 ";
 const STEPS: &[Step] = &[];
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
 pub fn topic(key: &[u8; 32]) -> u32 {
     u32::from(key[0] % 16)
+}
+
+/// Slots per topic: bucket = slot >> 8, sub-bucket = slot & 255.
+pub const SLOTS: u32 = 1 << 16;
+
+/// Position inside a topic, using the first 16 key bits after its topic nibble.
+pub fn slot(key: &[u8; 32]) -> u32 {
+    u32::from(key[0] >> 4) << 12 | u32::from(key[1]) << 4 | u32::from(key[2] >> 4)
+}
+
+/// Smallest key of slot `p` in `topic`.
+///
+/// # Panics
+/// Panics if `topic >= SEARCH_TOPICS` or `p >= SLOTS`.
+pub fn slot_start(topic: u32, p: u32) -> [u8; 32] {
+    assert!(topic < SEARCH_TOPICS && p < SLOTS);
+    let position = p.to_be_bytes();
+    let mut key = [0; 32];
+    key[0] = (position[2] & 0xf0) | topic.to_be_bytes()[3];
+    key[1] = (position[2] << 4) | (position[3] >> 4);
+    key[2] = position[3] << 4;
+    key
+}
+
+fn row_hash(key: &[u8; 32], version: u64) -> [u8; 32] {
+    let mut row = [0; 40];
+    row[..32].copy_from_slice(key);
+    row[32..].copy_from_slice(&version.to_be_bytes());
+    dyapp_identity::sha256(&row)
+}
+
+fn xor(into: &mut [u8; 32], hash: &[u8; 32]) {
+    into.iter_mut().zip(hash).for_each(|(a, b)| *a ^= b);
+}
+
+/// XOR a row into or out of its bucket in the same transaction as the key mutation.
+fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
+    let (topic, bucket) = (topic(key), slot(key) >> 8);
+    let stored: Option<Vec<u8>> = tx
+        .query_row(
+            "SELECT `hash` FROM `digest` WHERE `topic` = ? AND `bucket` = ?",
+            params![topic, bucket],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let mut hash = match stored {
+        Some(hash) => hash
+            .try_into()
+            .map_err(|_| storage_error("invalid digest hash length"))?,
+        None => [0; 32],
+    };
+    xor(&mut hash, &row_hash(key, version));
+    if hash == [0; 32] {
+        tx.execute(
+            "DELETE FROM `digest` WHERE `topic` = ? AND `bucket` = ?",
+            params![topic, bucket],
+        )
+    } else {
+        tx.execute(
+            "INSERT OR REPLACE INTO `digest` VALUES (?, ?, ?)",
+            params![topic, bucket, &hash[..]],
+        )
+    }
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -103,14 +172,122 @@ fn sql(v: u64) -> Option<i64> {
 
 impl SearchIndex {
     pub fn open(path: &Path, max_bytes: u64) -> Result<Self> {
-        Ok(Self {
+        let index = Self {
             db: storage::open(path, SCHEMA, STEPS)?,
             readers: Mutex::new(Vec::new()),
             path: path.to_owned(),
             max_bytes,
             written: AtomicU64::new(0),
             over: AtomicBool::new(false),
-        })
+        };
+        index.rebuild_digest()?;
+        Ok(index)
+    }
+
+    /// Heal derived state on open, including files last written by an older binary.
+    fn rebuild_digest(&self) -> Result<()> {
+        let started = std::time::Instant::now();
+        let mut rows_seen = 0u64;
+        let mut db = lock(&self.db)?;
+        let tx = db.transaction().map_err(storage_error)?;
+        tx.execute("DELETE FROM `digest`", [])
+            .map_err(storage_error)?;
+        let mut sums: HashMap<(u32, u32), [u8; 32]> = HashMap::new();
+        {
+            let mut statement = tx
+                .prepare("SELECT `key`, `version` FROM `key`")
+                .map_err(storage_error)?;
+            let mut rows = statement.query([]).map_err(storage_error)?;
+            while let Some(row) = rows.next().map_err(storage_error)? {
+                let key: Vec<u8> = row.get(0).map_err(storage_error)?;
+                let version: i64 = row.get(1).map_err(storage_error)?;
+                let key: [u8; 32] = key
+                    .try_into()
+                    .map_err(|_| storage_error("invalid search key length"))?;
+                rows_seen += 1;
+                xor(
+                    sums.entry((topic(&key), slot(&key) >> 8)).or_default(),
+                    &row_hash(&key, version.unsigned_abs()),
+                );
+            }
+        }
+        for ((topic, bucket), hash) in sums.into_iter().filter(|(_, hash)| *hash != [0; 32]) {
+            tx.execute(
+                "INSERT INTO `digest` VALUES (?, ?, ?)",
+                params![topic, bucket, &hash[..]],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)?;
+        tracing::info!(rows = rows_seen, elapsed_ms = %started.elapsed().as_millis(), "search digest rebuilt");
+        Ok(())
+    }
+
+    /// The 256 bucket hashes of a topic; an empty bucket has an all-zero hash.
+    pub fn digest(&self, topic: u32) -> Result<Vec<[u8; 32]>> {
+        let db = self.reader()?;
+        let mut out = vec![[0; 32]; 256];
+        let mut statement = db
+            .prepare_cached("SELECT `bucket`, `hash` FROM `digest` WHERE `topic` = ?")
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map([topic], |row| {
+                Ok((row.get::<_, u32>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })
+            .map_err(storage_error)?;
+        for row in rows {
+            let (bucket, hash) = row.map_err(storage_error)?;
+            let target = out
+                .get_mut(usize::try_from(bucket).map_err(storage_error)?)
+                .ok_or_else(|| storage_error("invalid digest bucket"))?;
+            *target = hash
+                .try_into()
+                .map_err(|_| storage_error("invalid digest hash length"))?;
+        }
+        Ok(out)
+    }
+
+    /// Hashes of the 256 sub-buckets, plus the number of scanned rows for service billing.
+    pub fn sub_digest(&self, topic: u32, bucket: u8) -> Result<(Vec<[u8; 32]>, usize)> {
+        if topic >= SEARCH_TOPICS {
+            return Err(storage_error("invalid search topic"));
+        }
+        let first = u32::from(bucket) << 8;
+        let after = slot_start(topic, first);
+        let before = if first + 256 == SLOTS {
+            Vec::new()
+        } else {
+            slot_start(topic, first + 256).to_vec()
+        };
+        let mut out = vec![[0; 32]; 256];
+        let db = self.reader()?;
+        // Separate statements let SQLite use both bounds of the key_topic range.
+        let sql = if before.is_empty() {
+            "SELECT `key`, `version` FROM `key` WHERE `topic` = ?1 AND `key` >= ?2"
+        } else {
+            "SELECT `key`, `version` FROM `key` WHERE `topic` = ?1 AND `key` >= ?2 AND `key` < ?3"
+        };
+        let mut statement = db.prepare_cached(sql).map_err(storage_error)?;
+        let read = |row: &rusqlite::Row<'_>| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?));
+        let rows = if before.is_empty() {
+            statement.query_map(params![topic, &after[..]], read)
+        } else {
+            statement.query_map(params![topic, &after[..], before], read)
+        }
+        .map_err(storage_error)?;
+        let mut scanned = 0;
+        for row in rows {
+            let (key, version) = row.map_err(storage_error)?;
+            let key: [u8; 32] = key
+                .try_into()
+                .map_err(|_| storage_error("invalid search key length"))?;
+            scanned += 1;
+            xor(
+                &mut out[(slot(&key) & 255) as usize],
+                &row_hash(&key, version.unsigned_abs()),
+            );
+        }
+        Ok((out, scanned))
     }
 
     pub(crate) fn reader(&self) -> Result<Reader<'_>> {
@@ -196,6 +373,10 @@ impl SearchIndex {
             }
             _ => {}
         }
+        if let Some((stored, _)) = known {
+            flip(&tx, key, stored.unsigned_abs())?;
+        }
+        flip(&tx, key, version.unsigned_abs())?;
         for table in ["profile", "interest", "record"] {
             tx.execute(
                 &format!("DELETE FROM `{table}` WHERE `key` = ?"),
@@ -332,20 +513,31 @@ impl SearchIndex {
             .collect()
     }
 
-    /// Up to `limit` (key, version) of one topic, sorted by key, after `after`.
-    pub fn inventory(&self, topic: u32, after: &[u8], limit: u32) -> Result<Vec<([u8; 32], u64)>> {
+    /// Up to `limit` (key, version) of one topic, after `after` and before `before`.
+    /// Empty `before` means no upper bound; keys are sorted.
+    pub fn inventory(
+        &self,
+        topic: u32,
+        after: &[u8],
+        before: &[u8],
+        limit: u32,
+    ) -> Result<Vec<([u8; 32], u64)>> {
         let db = lock(&self.db)?;
-        let mut statement = db
-            .prepare_cached(
-                "SELECT `key`, `version` FROM `key` WHERE `topic` = ? AND `key` > ?
-                 ORDER BY `key` LIMIT ?",
-            )
-            .map_err(storage_error)?;
-        let rows = statement
-            .query_map(params![topic, after, limit], |row| {
-                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?))
-            })
-            .map_err(storage_error)?;
+        let sql = if before.is_empty() {
+            "SELECT `key`, `version` FROM `key` WHERE `topic` = ?1 AND `key` > ?2
+             ORDER BY `key` LIMIT ?3"
+        } else {
+            "SELECT `key`, `version` FROM `key` WHERE `topic` = ?1 AND `key` > ?2
+             AND `key` < ?3 ORDER BY `key` LIMIT ?4"
+        };
+        let mut statement = db.prepare_cached(sql).map_err(storage_error)?;
+        let read = |row: &rusqlite::Row<'_>| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?));
+        let rows = if before.is_empty() {
+            statement.query_map(params![topic, after, limit], read)
+        } else {
+            statement.query_map(params![topic, after, before, limit], read)
+        }
+        .map_err(storage_error)?;
         rows.filter_map(|row| match row {
             Ok((key, version)) => key.try_into().ok().map(|k| Ok((k, version.unsigned_abs()))),
             Err(error) => Some(Err(storage_error(error))),
@@ -376,26 +568,29 @@ impl SearchIndex {
     fn remove_batch(&self, before: i64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
-        let keys: Vec<Vec<u8>> = {
+        let rows: Vec<(Vec<u8>, i64)> = {
             let mut statement = tx
                 .prepare_cached(
-                    "SELECT `key` FROM `key` WHERE `heartbeat` < ? ORDER BY `heartbeat` LIMIT ?",
+                    "SELECT `key`, `version` FROM `key` WHERE `heartbeat` < ? ORDER BY `heartbeat` LIMIT ?",
                 )
                 .map_err(storage_error)?;
             let rows = statement
-                .query_map(params![before, BATCH], |row| row.get(0))
+                .query_map(params![before, BATCH], |row| Ok((row.get(0)?, row.get(1)?)))
                 .map_err(storage_error)?;
             rows.collect::<rusqlite::Result<_>>()
                 .map_err(storage_error)?
         };
-        for key in &keys {
+        for (key, version) in &rows {
+            let key_array = <&[u8; 32]>::try_from(key.as_slice())
+                .map_err(|_| storage_error("invalid search key length"))?;
+            flip(&tx, key_array, version.unsigned_abs())?;
             for table in ["profile", "interest", "record", "key"] {
                 tx.execute(&format!("DELETE FROM `{table}` WHERE `key` = ?"), [key])
                     .map_err(storage_error)?;
             }
         }
         tx.commit().map_err(storage_error)?;
-        Ok(keys.len())
+        Ok(rows.len())
     }
 }
 
@@ -687,6 +882,127 @@ mod tests {
             .collect()
     }
 
+    fn assert_digest_consistent(index: &SearchIndex) {
+        for topic in 0..SEARCH_TOPICS {
+            let rows = index.inventory(topic, &[], &[], u32::MAX).unwrap();
+            let mut expected = vec![[0; 32]; 256];
+            for (key, version) in &rows {
+                xor(
+                    &mut expected[(slot(key) >> 8) as usize],
+                    &row_hash(key, *version),
+                );
+            }
+            assert_eq!(index.digest(topic).unwrap(), expected);
+            for bucket in 0..=255u8 {
+                let (sub, scanned) = index.sub_digest(topic, bucket).unwrap();
+                let mut sum = [0; 32];
+                for hash in sub {
+                    xor(&mut sum, &hash);
+                }
+                assert_eq!(sum, expected[usize::from(bucket)]);
+                assert_eq!(
+                    scanned,
+                    rows.iter()
+                        .filter(|(key, _)| slot(key) >> 8 == u32::from(bucket))
+                        .count()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn digest_follows_mutations_and_rejections() {
+        let index = index();
+        let keys = fill(&index, 40, 0);
+        let owner = Identity::generate();
+        let (key, p, record) = signed(&owner, profile(1));
+        index.put(&key, &p, &record, 1000, true).unwrap();
+        assert_digest_consistent(&index);
+        assert_eq!(
+            index.put(&key, &p, &record, 2000, true).unwrap(),
+            Put::Stale
+        );
+        let (_, p, record) = signed(&owner, profile(2));
+        assert!(matches!(
+            index.put(&key, &p, &record, 1001, true).unwrap(),
+            Put::Limited { .. }
+        ));
+        assert_digest_consistent(&index);
+        index.put(&key, &p, &record, 1600, true).unwrap();
+        assert_digest_consistent(&index);
+        let (_, p, record) = signed(&owner, Profile::tombstone(3, 0, 0));
+        index.put(&key, &p, &record, 2300, true).unwrap();
+        assert_digest_consistent(&index);
+        index.heartbeat(&keys[0], 1, 5000).unwrap();
+        assert_digest_consistent(&index);
+        index.expire(2500).unwrap();
+        assert_digest_consistent(&index);
+        index.expire(i64::MAX).unwrap();
+        assert_digest_consistent(&index);
+    }
+
+    #[test]
+    fn digest_rebuilt_on_open() {
+        let index = index();
+        fill(&index, 20, 0);
+        let path = index.path.clone();
+        lock(&index.db)
+            .unwrap()
+            .execute("UPDATE `digest` SET `hash` = ?", [vec![1u8; 32]])
+            .unwrap();
+        drop(index);
+        let index = SearchIndex::open(&path, u64::MAX).unwrap();
+        assert_digest_consistent(&index);
+        // Older binaries do not update the derived table.
+        lock(&index.db)
+            .unwrap()
+            .execute("DROP TABLE `digest`", [])
+            .unwrap();
+        drop(index);
+        assert_digest_consistent(&SearchIndex::open(&path, u64::MAX).unwrap());
+    }
+
+    #[test]
+    fn slots_and_inventory_range_boundaries() {
+        let mut key = [0; 32];
+        key[..3].copy_from_slice(&[0x5a, 0xbc, 0xde]);
+        assert_eq!(slot(&key), 0x5bcd);
+        assert!(slot_start(topic(&key), slot(&key)) <= key);
+        assert!(key < slot_start(topic(&key), slot(&key) + 1));
+        for topic in 0..SEARCH_TOPICS {
+            for p in [0, 1, 255, 256, 4095, 4096, SLOTS - 1] {
+                assert_eq!(slot(&slot_start(topic, p)), p);
+                assert_eq!(super::topic(&slot_start(topic, p)), topic);
+            }
+        }
+        let index = index();
+        let (_, p, record) = signed(&Identity::generate(), profile(1));
+        let keys: Vec<_> = [0, 1, 255, 256, SLOTS - 1]
+            .map(|p| slot_start(3, p))
+            .into_iter()
+            .collect();
+        for key in &keys {
+            index.put(key, &p, &record, 0, false).unwrap();
+        }
+        let all = index.inventory(3, &[], &[], 10_000).unwrap();
+        assert_eq!(all.iter().map(|(key, _)| *key).collect::<Vec<_>>(), keys);
+        assert_eq!(index.inventory(3, &[], &keys[2], 10_000).unwrap(), all[..2]);
+        assert_eq!(
+            index.inventory(3, &keys[0], &keys[3], 10_000).unwrap(),
+            all[1..3]
+        );
+        assert!(index
+            .inventory(3, &keys[2], &keys[2], 10_000)
+            .unwrap()
+            .is_empty());
+        assert_eq!(index.inventory(3, &[], &[], 0).unwrap().len(), 0);
+        assert_digest_consistent(&index);
+        let (sub, count) = index.sub_digest(3, 255).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(sub[255], row_hash(&keys[4], 1));
+        assert!(index.sub_digest(SEARCH_TOPICS, 0).is_err());
+    }
+
     #[test]
     fn versions_limits_and_tombstones() {
         let index = index();
@@ -768,6 +1084,7 @@ mod tests {
         assert!(index.usage().unwrap() <= max + max / 50);
         assert_eq!(index.versions(&old[..64]).unwrap(), vec![None; 64]);
         assert!(index.versions(&new[1_999..]).unwrap()[0].is_some());
+        assert_digest_consistent(&index);
     }
 
     #[test]
@@ -781,14 +1098,14 @@ mod tests {
             })
             .collect();
         let all: usize = (0..16)
-            .map(|t| index.inventory(t, &[], 10_000).unwrap().len())
+            .map(|t| index.inventory(t, &[], &[], 10_000).unwrap().len())
             .sum();
         assert_eq!(all, 40);
         let t = topic(&keys[0]);
-        let listed = index.inventory(t, &[], 10_000).unwrap();
+        let listed = index.inventory(t, &[], &[], 10_000).unwrap();
         assert!(listed.windows(2).all(|w| w[0].0 < w[1].0));
         assert!(listed.iter().all(|(k, _)| topic(k) == t));
-        let after = index.inventory(t, &listed[0].0, 10_000).unwrap();
+        let after = index.inventory(t, &listed[0].0, &[], 10_000).unwrap();
         assert_eq!(after.len(), listed.len() - 1);
         // Heartbeats 0..900 are before 1 000.
         assert_eq!(index.expire(1_000).unwrap(), 10);

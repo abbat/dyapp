@@ -306,6 +306,15 @@ resent from the sender's retry queue.
   keys per run. Planned: a new indexed field bumps the index version; the node builds the new
   index next to the old one, keeps answering from the old one and switches when the new one is
   ready.
+  A derived `digest` table stores, per (topic, bucket), the XOR of
+  SHA-256(key || version as eight big-endian bytes), including tombstones. Each topic has
+  256 contiguous buckets and each bucket 256 sub-buckets, selected by the first 16 key bits
+  after the topic nibble. Puts, overwrites, tombstones, expiry and eviction update bucket hashes
+  in the same transaction as `key`; heartbeats do not change them. Sub-bucket hashes are
+  computed with a range scan and report the scanned row count. Every open rebuilds the derived
+  table from `key` and logs rows and elapsed milliseconds; this full scan adds startup time
+  proportional to the number of keys. The internal inventory supports an exclusive upper bound;
+  the network still uses unbounded inventory pages. Digest-based network catch-up is planned.
 - **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks one
   random search node of its gossip mesh and pulls each kept topic over `/dyapp/inventory`:
   `(topic, after)` returns up to 10 000 (key, version) pairs sorted by key, and the node asks

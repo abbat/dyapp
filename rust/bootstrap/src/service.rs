@@ -1061,7 +1061,7 @@ impl Service {
         if request.topic >= crate::search::SEARCH_TOPICS || request.after.len() > 32 {
             return Ok(reply(Status::Invalid));
         }
-        let have = index.inventory(request.topic, &request.after, MAX_SEARCH_INVENTORY)?;
+        let have = index.inventory(request.topic, &request.after, &[], MAX_SEARCH_INVENTORY)?;
         let response = InventoryResponse {
             status: Status::Ok.into(),
             have: have
