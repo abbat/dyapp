@@ -5,8 +5,9 @@ exports, errors, ownership, threading, security — is defined only in
 [FFI Contract](../architecture/ffi-design.md); this page does not repeat it.
 
 > **Status:** the Android app generates Kotlin bindings and builds the core for
-> each ABI during its Gradle build. Swift bindings and the Apple packaging are
-> planned. Generated files are build outputs and are never committed.
+> each ABI during its Gradle build; `scripts/build-apple-core.sh` generates Swift
+> bindings and an XCFramework for iOS and macOS. Generated files are build outputs
+> and are never committed.
 
 ## Inputs
 
@@ -51,12 +52,24 @@ the NDK (`ANDROID_NDK_HOME`, r29 `29.0.14206865`) and a host C toolchain;
 `-Pdyapp.prebuiltRust` skips both tasks and reuses `build/rust` from an earlier
 build; the Docker unit-test run uses it because it has no Rust sources.
 
-## Apple (planned)
+## Apple
 
-Not implemented: `staticlib` in `crate-type`, per-platform static libraries,
-`xcodebuild -create-xcframework` (device, simulator and macOS slices; `lipo`
-only merges architectures of the same platform), Swift bindings
-(`dyapp.swift`, `dyappFFI.h`, `dyappFFI.modulemap`) and an Xcode build phase.
+`scripts/build-apple-core.sh [ios|macos]` runs on macOS with Xcode; without an
+argument it builds all three slices. Outputs land in `target/apple`:
+
+| Step | Runs | Output |
+|------|------|--------|
+| Bindings | `cargo build --locked -p dyapp-ffi --target <host>`, then `uniffi-bindgen generate --library …/libdyapp_ffi.dylib --language swift` | `swift/dyapp.swift`; `headers/dyappFFI.h` and `headers/module.modulemap` (module `dyappFFI`) |
+| Static libraries | `cargo rustc --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `target/<t>/debug/libdyapp_ffi.a` |
+| Slices | `lipo` merges the architectures of one platform: `ios` = `aarch64-apple-ios`; `ios-simulator` = `aarch64-apple-ios-sim` + `x86_64-apple-ios`; `macos` = `aarch64-apple-darwin` + `x86_64-apple-darwin` | `<slice>/libdyapp_ffi.a` |
+| XCFramework | `xcodebuild -create-xcframework` with one `-library`/`-headers` pair per slice | `DyappFFI.xcframework` |
+
+The libraries are unoptimised builds without debuginfo, built for iOS 14 and
+macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
+deployment targets. `ios/project.yml` and `macos/project.yml` compile
+`target/apple/swift/dyapp.swift` into the app and link the XCFramework without
+embedding it, so run the script before XcodeGen. There is no Xcode build phase:
+Xcode resolves an XCFramework before any script phase could build it.
 
 ## Linux, Windows
 
@@ -82,7 +95,7 @@ Android build does not use it.
 
 ## What is not implemented
 
-- Swift bindings and Apple packaging (above).
-- A drift check of the generated interface; the Android UI test only calls it.
-- FFI tests beyond the Android UI test, which checks the peer ID from
-  `generate_peer_id`.
+- Optimised (release) Apple libraries; the script builds the dev profile only.
+- A drift check of the generated interface; the UI tests only call it.
+- FFI tests beyond the Android, iOS and macOS UI tests, which check the peer ID
+  from `generate_peer_id`.

@@ -13,11 +13,11 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 ## What is tested
 
 The UI suites test the **platform shells** (`android/`, `ios/`, `macos/`, `linux/`, `windows/`).
-The Android and desktop shells call the Rust core for one value, a peer ID (see
+The shells call the Rust core for one value, a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
-identity and close; the Android UI test and the desktop smoke also check that the peer ID is 64
-lowercase hex characters.
+identity and close; the Android, iOS and macOS UI tests and the desktop smoke also check that
+the peer ID is 64 lowercase hex characters.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
@@ -123,15 +123,17 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 - **iOS / macOS:** XcodeGen 2.46.0 generates `<platform>/DYApp.xcodeproj` from
   `<platform>/project.yml` (targets `DYApp`, `DYAppTests`, `DYAppUITests`; scheme
-  `DYApp`). There is no `.xcworkspace`, and the generated project is not committed.
+  `DYApp`) after `scripts/build-apple-core.sh <platform>` has built the XCFramework and Swift
+  bindings the app target needs. There is no `.xcworkspace`, and the generated project is not committed.
   `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then
   `xcodebuild test` into `$RUNNER_TEMP/apple-results/<platform>.xcresult` (iOS on the first
   available iPhone simulator, macOS on `platform=macOS`), summarizes it with `xcresulttool` and
   applies `check-apple-results.py`. Artifacts: `apple-ios`, `apple-macos`.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
-  command. On a Mac you can generate the project with XcodeGen and run the scheme in Xcode
-  yourself; that path is not scripted. `ios/Package.swift` and `macos/Package.swift` exist but
-  are not used by CI.
+  command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with
+  XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
+  `ios/Package.swift` and `macos/Package.swift` exist but are not used by CI and do not link
+  the core.
 - **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
   `cargo test --manifest-path windows/Cargo.toml --locked` and

@@ -14,7 +14,11 @@ targets:
   DYApp:
     type: application
     platform: iOS
-    sources: [DYApp/App.swift, DYApp/ContentView.swift]
+    sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/RustBridge.swift, ../target/apple/swift/dyapp.swift]
+    dependencies:
+      # Built by scripts/build-apple-core.sh before XcodeGen runs.
+      - framework: ../target/apple/DyappFFI.xcframework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios

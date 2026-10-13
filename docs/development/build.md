@@ -5,8 +5,10 @@
 > crate, do not create an XCFramework or AAR, and do not produce a web module.
 > Cross-compiled crates are not an installable application. This page states
 > what each script actually does; the packaging that is missing is in
-> [FFI bindings](ffi-bindings.md). The Android app does not use these scripts: its Gradle
-> build compiles the core itself ([FFI bindings → Android](ffi-bindings.md#android)).
+> [FFI bindings](ffi-bindings.md). The apps do not use these scripts: the Android Gradle
+> build compiles the core itself ([FFI bindings → Android](ffi-bindings.md#android)), and the
+> iOS and macOS apps link the XCFramework from `scripts/build-apple-core.sh`
+> ([FFI bindings → Apple](ffi-bindings.md#apple)).
 >
 > Everything below is read from the script sources. The scripts were **not
 > run** for this page: they need Xcode or the Android NDK, and they write files
@@ -77,20 +79,16 @@ Fails to generate bindings and still reports success. See
 
 Not implemented. This is the order in which the gaps block each other:
 
-1. Build `dyapp-ffi` instead of the four internal crates. Add
-   `staticlib` to its `crate-type` for iOS.
-2. Generate Swift bindings (Kotlin is done, see [FFI bindings](ffi-bindings.md)).
-3. **iOS:** package per-platform static libraries with
-   `xcodebuild -create-xcframework`. Device (`aarch64-apple-ios`) and simulator
-   (`aarch64-apple-ios-sim` + `x86_64-apple-ios`, merged with `lipo` because they
-   are the same platform) are separate slices. `lipo` alone cannot create an
-   XCFramework.
-4. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
+1. Build `dyapp-ffi` instead of the four internal crates.
+2. **iOS and macOS:** done in `scripts/build-apple-core.sh` (Swift bindings and an
+   XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); release builds,
+   signing and an App Store archive are not.
+3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA); release signing and an AAB are not.
-5. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
+4. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
    crates can target `wasm32` (sockets and `sled` storage cannot). There is no
    such crate today.
-6. CI: there is no build-matrix workflow. `.github/workflows/` has no
+5. CI: there is no build-matrix workflow. `.github/workflows/` has no
    cross-compile job.
 
 ## Troubleshooting

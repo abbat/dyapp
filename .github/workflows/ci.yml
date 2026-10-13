@@ -59,13 +59,26 @@ jobs:
   apple:
     name: native - ${{ matrix.platform }}
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        platform: [ios, macos]
+        include:
+          - platform: ios
+            targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          - platform: macos
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
+        with:
+          toolchain: '1.99.0'
+          targets: ${{ matrix.targets }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.platform }}
+      - name: build core
+        run: bash scripts/build-apple-core.sh "${{ matrix.platform }}"
       - name: prepare xcode
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"

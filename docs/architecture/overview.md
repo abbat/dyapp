@@ -11,15 +11,15 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
 ## Actual architecture (today)
 
 ```text
- Platform apps (skeletons; Android and desktop call the core for a peer ID)
+ Platform apps (skeletons; each calls the core for a peer ID)
  ┌──────────────┬───────────────┬──────────────┬──────────────────────────┐
  │ android/     │ ios/, macos/  │ desktop/     │ linux/, windows/          │
  │ Kotlin       │ Swift         │ Tauri shell  │ Tauri apps (excluded from │
- │ RustBridge.kt│               │              │ the Cargo workspace)      │
- │ (UniFFI,     │               │              │                           │
- │  Kotlin)     │               │              │                           │
+ │ RustBridge.kt│ RustBridge    │              │ the Cargo workspace)      │
+ │ (UniFFI,     │ .swift (UniFFI│              │                           │
+ │  Kotlin)     │  Swift)       │              │                           │
  └──────┬───────┴───────────────┴──────────────┴──────────────────────────┘
-        │  UniFFI (Android only; iOS/macOS planned)
+        │  UniFFI (Android, iOS, macOS)
         ▼
  rust/ffi  (uniffi, dyapp.udl)
    ├──► rust/profile    (signed profile) ──► rust/identity (Ed25519)

@@ -9,6 +9,10 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
         XCTAssertEqual(ready.value as? String, "Ready") // macOS exposes Text in value; label is empty
         XCTAssertTrue(ready.isHittable)
+        // The peer ID comes from the Rust core through the UniFFI bindings.
+        let peerId = app.staticTexts["peer-id"]
+        XCTAssertTrue(peerId.waitForExistence(timeout: 10))
+        XCTAssertNotNil((peerId.value as? String ?? "").range(of: "^[0-9a-f]{64}$", options: .regularExpression), "Unexpected peer ID")
         app.terminate()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
     }

@@ -9,24 +9,24 @@ All platforms use **UniFFI-generated FFI bindings** from the Rust core. Each pla
 ## FFI Boundary
 
 The exported surface, error model, ownership and threading are defined in
-[FFI Contract](ffi-design.md). Only the Android app links the Rust library,
-through generated Kotlin bindings; Swift bindings are planned.
+[FFI Contract](ffi-design.md). The Android app links the Rust library through
+generated Kotlin bindings, the iOS and macOS apps through generated Swift bindings.
 
 The code samples and directory trees below show the **target** wrapper API and
-layout. Apart from Android's one-call `RustBridge.kt`, none of it exists yet.
+layout. Apart from the one-call `RustBridge.kt` and `RustBridge.swift`, none of it
+exists yet.
 
 ## iOS (Swift)
 
 ### Setup
 
-Not available yet: no Swift bindings or XCFramework are built. The planned
-pipeline (native library → bindings → XCFramework) is in
-[FFI bindings](../development/ffi-bindings.md#apple-planned).
+`scripts/build-apple-core.sh` builds `target/apple/DyappFFI.xcframework` and the
+Swift bindings; the app calls `generatePeerId()` through `RustBridge.swift`. See
+[FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 
 ### Integration (target sketch)
 
 ```swift
-// Module name not final: no bindings are generated yet.
 let client = DYappClient()
 
 // Send message (business logic in Rust)
@@ -44,7 +44,7 @@ platform/ios-swift/
 ├── Sources/
 │   └── DYappClient.swift       # Thin wrapper
 └── Frameworks/
-    └── DYappFFI.xcframework    # target; not generated yet
+    └── DyappFFI.xcframework    # built today in target/apple
 ```
 
 **No UIKit/SwiftUI in the wrapper** — view controllers call client methods.
@@ -91,7 +91,8 @@ platform/android-kotlin/
 
 ### Setup
 
-Same pipeline as iOS, with macOS slices in the XCFramework. Not available yet.
+Same pipeline as iOS, with the macOS slice of the XCFramework; the app shares
+`ContentView.swift` and `RustBridge.swift` with iOS.
 
 ### Integration
 

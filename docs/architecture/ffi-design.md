@@ -2,7 +2,7 @@
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
-> generated during the Android build; Swift bindings are planned
+> generated during the Android build, Swift bindings by `scripts/build-apple-core.sh`
 > ([FFI bindings](../development/ffi-bindings.md)).
 
 ## Which source is the contract
@@ -11,9 +11,9 @@
 |--------|--------|
 | `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
 | `android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Calls `generatePeerId()` from the generated bindings. |
-| `ios/DYApp/RustBridge.swift` | `initialize()`/`shutdown()` are empty `TODO`s. |
+| `ios/DYApp/RustBridge.swift` | Calls `generatePeerId()` from the generated bindings; shared by the iOS and macOS apps. |
 
-Only the Android app links the library.
+The Android, iOS and macOS apps link the library.
 
 ## Exported surface
 
@@ -61,7 +61,7 @@ Every fallible export returns `Result<T, CoreError>`. `CoreError` is a
 `#[uniffi(flat_error)]` enum with one variant, `Failed(String)`, carrying
 free-form text (`"Session not initialized"`, `"Failed to create runtime: …"`, or
 `{:?}` of the internal video error), so messages may echo internal state. The
-Kotlin bindings throw it as `CoreException`. Generation commands are in
+Kotlin bindings throw it as `CoreException`, the Swift bindings as `CoreError`. Generation commands are in
 [FFI bindings](../development/ffi-bindings.md).
 
 ## Ownership and threading
@@ -112,5 +112,5 @@ depends on the native side not using a handle after freeing it.
 ## Testing
 
 `cargo test -p dyapp-ffi` runs no tests: the crate has none. The Android UI test
-(`AppUITests.kt`) calls `generate_peer_id` through the Kotlin bindings; the Swift
-bridge tests exercise the hand-written stub, not Rust.
+(`AppUITests.kt`) and the iOS and macOS UI tests (`LaunchTests.swift`) check the
+peer ID that the apps get from `generate_peer_id` through the generated bindings.
