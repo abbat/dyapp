@@ -76,6 +76,8 @@ branches.
 - There are no benchmarks (`criterion` is not a dependency and there are no `benches/`).
 - Compare secrets (keys, MACs, release secrets) in constant time with `subtle::ConstantTimeEq`,
   never `==`; public values such as nonces, hashes and signatures may use `==`.
+- Apps show data from peers (profile text, names, messages) as plain text: no markdown, HTML,
+  autolinks or WebView, and no URL scheme or deep link built from it.
 - <a id="sql"></a>**SQLite statements.** Quote every table, column, index and alias name with
   backticks; SQL keywords, functions and pragma names stay bare:
   ``"SELECT `record` FROM `profiles` WHERE `peer_id` = ?"``. Backticks keep column names that

@@ -77,7 +77,7 @@ defences already in place. Nodes are untrusted by design
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
-| 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
+| 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: both transports are strong; version negotiation is not designed |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
@@ -414,6 +414,22 @@ record from being replayed as another ([Cryptography](#cryptography)).
 | Reuse TURN credentials | `node.turn` | Low × medium | Accept: the username carries an expiry |
 | Replay an MLS message or an old commit | Client | High × low | Accept: OpenMLS deletes used keys and refuses old epochs |
 | Feed an old deny list | Manual import | Low × low | Accept: received lists are applied by hand |
+
+### Injection
+
+Class 18 in detail. In place: every SQL value is a bound parameter and `format!` builds SQL only
+from in-code constants ([code quality](../development/code-quality.md#sql)); media files are named
+by the hex hash of their content; no node code runs a command; peer-supplied text is not logged.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| SQL injection through profile fields, search filters or keys | `search`, `profile`, `media` | High × low | Accept: bound parameters only; no `LIKE` or full-text patterns are built from input |
+| Path traversal through a blob name | `media.put`, `shard_put` | High × low | Accept: file paths are the hex hash split into two directory levels; temporary files use a UUID |
+| Path tricks in config | `dyappd` config | Low × low | Accept: paths are set by the operator, who already controls the host |
+| Log injection: newlines or ANSI escapes in logged values | `tracing` | Low × low | Accept: logs carry peer ids, addresses and error kinds, not peer text; `tracing-subscriber` escapes ANSI sequences in fields |
+| Command injection | Packaging scripts, systemd unit, Makefile | High × low | Accept: no node code runs a command and the scripts take no network input |
+| Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML, autolinks or WebView, and register no URL schemes ([code quality](../development/code-quality.md)) |
+| Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | Fix: every profile string gets a character limit and the text rule planned in [Spoofing](#spoofing); `interests` gets a count limit. Today only `place` is checked |
 
 ## Out of scope
 

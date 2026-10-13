@@ -232,8 +232,9 @@ resent from the sender's retry queue.
 - Location is `place`, a city or district name, never coordinates
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 - Planned: an optional public `name`, and one rule for every profile string: NFC, no control,
-  format (bidi, zero-width) or private-use characters; `publish` refuses a profile that breaks it.
-  Today only `place` is checked, for control characters
+  format (bidi, zero-width) or private-use characters, a character limit per string and a count
+  limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,
+  for length and control characters
   ([Threat Model](../security/threat-model.md#spoofing)).
 - The profile lists the owner's device keys, so a sender can reach every device's mailbox before
   any MLS group exists; anyone can see how many devices a user has.
