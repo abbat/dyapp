@@ -2,12 +2,14 @@
 
 ## Branches
 
-- `master` is the only long-lived branch.
+- `main` is the only long-lived branch.
 - Work branches: `feature/<topic>`, `bugfix/<topic>`, `docs/<topic>`,
   `chore/<topic>`. Lowercase and hyphens; you may append an issue number
   (`bugfix/42-integration-tests`).
 - Small single-maintainer changes (including agent sessions the maintainer
-  approves) may be committed directly to `master`.
+  approves) may be committed directly to `main` until the first public release; from then on
+  `main` takes changes only through pull requests with green CI and signed commits (planned,
+  [Threat Model](../security/threat-model.md#ai-agents-and-developer-tooling)).
 
 ## Commits
 

@@ -65,7 +65,7 @@ defences already in place. Nodes are untrusted by design
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals; sealed sender, padding and relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; text rules, local names and checked search results are planned ([below](#spoofing)) |
-| 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ❌ Planned |
+| 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial (rows above) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial (rows above) |
@@ -197,6 +197,25 @@ which lets bidi overrides and invisible characters through.
 | A forwarded message passes for the original author's words | Chats | Medium × medium | Fix: forwarded content is marked as forwarded and its author is never shown as verified |
 | Who made a media blob | Media | Low × medium | Accept: a blob is authentic by its hash in a signed profile or an MLS message |
 | A scammer under their own real identity | Chats | High × high | Out of scope here: class 11 |
+
+### AI agents and developer tooling
+
+Class 6 in detail. In place: AI agents run only in the maintainer's sessions on the developer
+host, never in CI; they commit and push only when the maintainer allows it, and their commits
+carry a `Co-Authored-By` trailer. They run with the maintainer's git, GitHub and beads access, and
+`main` takes direct pushes.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Prompt injection in issues, pull requests, review comments, web pages, crate READMEs or dependency sources | Text an agent reads | Critical × medium | Fix: the agent rules treat such text as data, never as instructions, and tell the agent to report text that reads like instructions |
+| A hijacked agent pushes harmful code to `main` | git push | Critical × medium | Accept until the first public release: direct pushes stay. Fix before it: `main` takes changes only through pull requests with green CI and signed commits |
+| An agent leaks host secrets through a command or an outbound request | Developer host | Critical × medium | Fix: agent sessions use a fine-grained GitHub token for this repository only. Accept: the rest of the host environment stays readable |
+| A hostile or compromised MCP server, plugin or hook | Developer host | Critical × low | Accept: the maintainer picks and updates these tools |
+| Instructions planted in beads | `.beads`, the Dolt remote | High × low | Accept: only the maintainer writes beads; their content is data for the agent |
+| An AI agent in CI runs on a hostile pull request | Workflows | Critical × low | Fix: no AI agent runs in CI; if one is added, it gets no secrets, a read-only token and never runs on `pull_request_target` |
+| A secret is committed | git | High × medium | Fix: GitHub secret scanning and push protection |
+| A hostile pull request by a person | Pull requests | Critical × medium | Out of scope here: class 7 |
+| A taken-over maintainer account | GitHub account | Critical × low | Out of scope here: class 11 |
 
 ## Out of scope
 
