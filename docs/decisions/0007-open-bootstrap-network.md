@@ -1,7 +1,7 @@
 # 0007. Open bootstrap network with DHT and no commercial relays
 
 - **Status:** Accepted
-- **Date:** 2026-10-06
+- **Date:** 2026-10-13
 
 ## Context
 
@@ -16,11 +16,24 @@ run them, and whoever controls them can control the network.
 - **No commercial relay providers** (Twilio and similar). TURN is provided only by network nodes.
 - **Baseline defence against fake nodes:** all data is signed by its owner and verified by every
   recipient, so a node can drop or withhold data but cannot forge it.
+- **Nodes are untrusted.** Clients and nodes rely on a node only for availability, and only
+  through redundancy (several replicas on several nodes). Everything else is checked by the
+  recipient:
+  - content: the owner's signature, and end-to-end encryption for private data;
+  - keys a node hands out (identity keys, MLS key packages): a node's claim until the user
+    verifies them out of band;
+  - claims about the network (addresses, roles, proof of work, inventory): verified locally or
+    used only as hints.
+- **Nodes get only what routing and storage need:** public profiles, ciphertext and routing
+  metadata ([Privacy](../security/privacy.md)).
 
 ## Consequences
 
 - Withholding, eclipse and Sybil attacks remain possible; the measures that make them harder
   are in [ADR 0008](0008-sybil-and-eclipse-defences.md).
+- A node that withholds data is detected only by asking other replicas; a key handed out by a
+  node protects against that node only after out-of-band verification, which is not designed yet.
+  Threat classes and their status: [Threat Model](../security/threat-model.md#threat-classes).
 - Node operators see public profiles and routing metadata by design
   ([ADR 0003](0003-public-signed-profile-encrypted-private-data.md)).
 - Calls behind strict NATs depend on volunteers running TURN nodes.

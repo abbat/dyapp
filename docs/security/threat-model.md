@@ -26,6 +26,8 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | **Malicious client or peer** | Send any request to any node: floods, oversized or malformed messages, forged signatures, replayed requests, writes into strangers' mailboxes |
 | **Sybil** | Create unlimited libp2p peer IDs and identity keys for free, run many nodes, surround a key in the DHT (eclipse) |
 | **Compromised device** | Everything that device's keys allow |
+| **Hostile contributor** | Open pull requests and issues, write text that maintainers and AI agents read |
+| **Supply-chain attacker** | Publish or take over a dependency, base image, CI action or a maintainer account |
 
 ## Threats and defences
 
@@ -48,6 +50,38 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Metadata: who talks to whom | Mailbox addresses are device keys, not user IDs; delivery receipts travel as ordinary encrypted messages | ⚠️ Partial: the operator still sees which sender key writes to which mailbox, and IPs ([privacy](privacy.md)) |
 | Stolen identity or device key | Keys stay on the device, separate transport keys ([ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md)); MLS post-compromise security | ❌ Planned: no key storage, no MLS |
 | Operator links peer IDs to IPs | — | Not defended: no relay or proxy is designed |
+
+## Threat classes
+
+Every class, rated impact × likelihood for the project today and ordered by criticality. Each
+class gets its own analysis that decides fix or accept per attack; the table above lists the
+defences already in place. Nodes are untrusted by design
+([ADR 0007](../decisions/0007-open-bootstrap-network.md)).
+
+| # | Class | Impact | Likelihood | Status |
+|---|-------|--------|------------|--------|
+| 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Certain: payload crypto is a stub | ❌ Planned |
+| 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, CodeQL |
+| 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification is not designed |
+| 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial ([privacy](privacy.md)) |
+| 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work |
+| 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ❌ Planned |
+| 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
+| 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial (rows above) |
+| 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial (rows above) |
+| 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ❌ Planned |
+| 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ❌ Planned |
+| 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
+| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
+| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list |
+| 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures, version checks |
+| 16 | Client-side exposure: backups, notifications, logs | High | Medium | ❌ Planned |
+| 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
+| 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
+| 19 | Replay | Medium | Low | ⚠️ Partial (rows above) |
+| 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: both transports are strong; version negotiation is not designed |
+| 21 | Side channels and timing | Medium | Low | ❌ Planned |
+| 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
 
 ## Out of scope
 
