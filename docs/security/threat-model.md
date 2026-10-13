@@ -64,7 +64,7 @@ defences already in place. Nodes are untrusted by design
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals; sealed sender, padding and relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
-| 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work |
+| 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; text rules, local names and checked search results are planned ([below](#spoofing)) |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ❌ Planned |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial (rows above) |
@@ -175,6 +175,28 @@ who writes to whom and when.
 | Push notifications through APNs or FCM reveal sender and content to Apple or Google | Push (not designed) | High × medium | Fix (requirement for the design): a push only wakes the app, without sender or content |
 | Colluding or Sybil nodes take every replica of a user | DHT | High × medium | Out of scope here: class 8 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) |
 | A network observer fingerprints dyapp traffic | ISP, Wi-Fi | Medium × high | Accept: transport encryption hides content only; DPI resistance is research |
+
+### Spoofing
+
+Class 5 in detail. In place: profiles are signed by the owner's identity key and the Peer ID is
+its hash, so a profile cannot be forged, only copied under a new key; node IDs carry proof of
+work. The profile has no name field yet, and only `place` is checked for control characters,
+which lets bidi overrides and invisible characters through.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A clone: a new key with someone's photos, fields and name | Search, profile links | High × high | Accept: a contact is shown as unverified until the safety number or QR code is compared; reports are class 14 |
+| A clone lists the same photo blob hashes | Profile photos | Medium × high | Accept: an exact-hash check is defeated by re-encoding; the unverified mark is the defence |
+| A lookalike name: homoglyphs, invisible characters, bidi overrides | Profile strings | High × high | Fix: an optional public `name`; every profile string is NFC and refuses control, format (bidi, zero-width) and private-use characters, checked by the node on publish and by the client on input and display |
+| A public name passes for an identity | Contacts, chats | High × high | Fix: a local name the user gives a contact replaces the public one; a public name is always shown with the verified or unverified mark |
+| A Peer ID ground to share a visible prefix or suffix | Contact list, links | High × medium | Fix: the UI never shows part of a Peer ID as identity; contacts are checked only by the full safety number or QR code |
+| A search node claims the role and returns profiles that do not match, or hides those that do | Search | Medium × medium | Fix: the client checks the conditions on the signed profiles it gets, drops mismatches and asks 2 search nodes; withholding is class 8 |
+| A node claims the TURN or store role it does not serve | DHT providers | Medium × medium | Accept: TURN sees SRTP only and store data is signed; a node that only withholds is class 8 |
+| Lookalike seed hosts or domains | Seeds, DNS | High × medium | Out of scope here: seeds carry peer IDs ([above](#mitm-and-key-verification)), domains are class 10 |
+| A group member poses as another member | MLS groups | High × medium | Fix: an MLS credential is accepted only for a device listed in the newest profile of the identity it names |
+| A forwarded message passes for the original author's words | Chats | Medium × medium | Fix: forwarded content is marked as forwarded and its author is never shown as verified |
+| Who made a media blob | Media | Low × medium | Accept: a blob is authentic by its hash in a signed profile or an MLS message |
+| A scammer under their own real identity | Chats | High × high | Out of scope here: class 11 |
 
 ## Out of scope
 
