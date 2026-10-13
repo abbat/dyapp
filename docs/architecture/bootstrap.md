@@ -49,8 +49,8 @@ it describe today's code.
   mailbox, profile or media blob up to 1 MiB, writes each distinct holder, and waits for two
   stored copies. Sharded media confirms two manifests and K shards.
 - **Nodes see metadata, not content.** Messages, likes, views and every other signal are
-  end-to-end encrypted for the recipient. Who writes to whom and when stays visible to nodes; a
-  sealed sender may come later.
+  end-to-end encrypted for the recipient. Nodes see which mailbox gets mail and when; the planned
+  sealed sender signs each envelope with a fresh key, so they do not see who wrote it.
 
 ### Roles and discovery
 
@@ -109,7 +109,7 @@ on an identity's data carries a signature by a key of that identity:
 |---------|-----------|-----------------|
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
-| `mailbox.put` | sender's device key, over the envelope | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
+| `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
@@ -432,7 +432,7 @@ mapped yet.
 
 ### Mailbox envelope
 
-A message for one device is a `SignedRecord` signed by the sender's device key over
+A message for one device is a `SignedRecord` signed by a sender key over
 `"dyapp/envelope/v1\0" || payload`, where the payload is an `Envelope`
 ([schema](protobuf-schema.md#node-protocol)):
 
@@ -442,7 +442,9 @@ Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), cipherte
 
 The node stores the signed record as received, once per (mailbox, id), and never learns the
 sender's identity: the sender key only proves someone signed it; puts are limited per sender key
-([Rate Limiting](#rate-limiting)).
+([Rate Limiting](#rate-limiting)). The client is meant to use a fresh key for every envelope
+(sealed sender, planned), never its published device key, and to pad the plaintext to the next
+power of two from 1 KiB before encryption ([Threat Model](../security/threat-model.md#traffic-analysis)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
 (`dyappd` deletes expired envelopes every hour) → fetched oldest first.
@@ -486,7 +488,8 @@ owner was last seen: a publish of a newer version or an identity-signed heartbea
 is within 10 minutes of the node clock and newer than the stored `last_seen`. Heartbeats advance
 `last_seen` to their signed time, so repeating one does not extend retention. Stale republishes,
 media requests and mailbox requests do not refresh profile liveness. The client is
-meant to send a heartbeat to the profile's replicas when the app opens (planned; no client yet).
+meant to send a heartbeat to the profile's replicas at most once a day, at a random time rather
+than on app open, so `last_seen` does not track app use (planned; no client yet).
 Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Served protocol

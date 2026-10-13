@@ -63,7 +63,7 @@ defences already in place. Nodes are untrusted by design
 | 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Certain: payload crypto is a stub | ❌ Planned |
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
-| 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial ([privacy](privacy.md)) |
+| 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals; sealed sender, padding and relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ❌ Planned |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
@@ -148,6 +148,33 @@ checked by SHA-256, and an SPDX SBOM per CI run.
 | An operator rolls back to a vulnerable release | Node updates | Medium × low | Accept: the operator's choice; signatures prove origin, not freshness |
 | A hostile pull request | Repository | Critical × medium | Out of scope here: class 7 |
 | A hijacked AI agent or maintainer account | Developer tooling, GitHub account | Critical × medium | Out of scope here: classes 6 and 11 |
+
+### Traffic analysis
+
+Class 4 in detail; who sees which field: [Privacy](privacy.md). In place: libp2p traffic is
+encrypted, likes and views are end-to-end signals a node cannot tell from messages
+([ADR 0012](../decisions/0012-private-p2p-interactions.md)), presence goes only to allowed
+peers. Today an envelope is signed by the sender's device key, which the sender's public profile
+lists, and the mailbox is the hash of the recipient's listed device key, so a node operator sees
+who writes to whom and when.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| An operator maps the envelope's sender key and the mailbox to two public profiles: the social graph | Stored envelopes | Critical × high | Fix: sealed sender. Each envelope is signed by a fresh one-off key; the sender's identity is only inside the MLS ciphertext. Per-key quotas then bound nothing; the IP-group and mailbox quotas remain |
+| An operator learns whose mailbox an envelope is for | Mailbox address | Medium × high | Accept: the recipient is known, as in Signal; the mailbox hash is derived from the public device list |
+| Envelope size tells a like or view from text or a photo message | Stored envelopes, network | Medium × high | Fix: the plaintext is padded to the next power of two from 1 KiB before encryption |
+| Send and delivery times correlate two users | Node, network | Medium × medium | Accept: batching would delay chats; a global passive observer is out of scope |
+| Heartbeats and `last_seen` track when a user opens the app | Profile replicas | Medium × high | Fix: the client sends a heartbeat at most once a day at a random time, not on every app open; the 30-day profile TTL allows it |
+| The replica holding an online device's connection sees its time online | Mailbox connection | Medium × medium | Accept: needed for delivery |
+| An operator links a client IP to an identity: publish, heartbeat, mailbox fetch, media keep | Every request | High × high | Accept: named residual; a client proxy or Tor for the TCP transport is research, together with DPI resistance |
+| Fetching another profile's photos or searching tells a node who looks at whom and for what | Media and search requests | Medium × high | Accept: same residual and research as the IP above |
+| Several profiles of one person are linked by IP and timing | Every request | High × medium | Accept: documented; separate profiles are unlinked identities only for other users |
+| Mass harvesting of public profiles | Profile `get`, search | High × high | Accept: profiles are public by design ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); rate limits and hostile nodes are classes 9 and 8. Fix: a warning before publishing that published fields cannot be withdrawn |
+| EXIF and GPS metadata in a photo reveal coordinates or the device | Profile and chat photos | High × high | Fix: the client strips metadata from every image before upload |
+| ICE candidates reveal a caller's IP to the other side | Calls | High × medium | Fix: until a contact is verified, calls use only TURN relays (relay-only ICE); a setting forces relays for every call |
+| Push notifications through APNs or FCM reveal sender and content to Apple or Google | Push (not designed) | High × medium | Fix (requirement for the design): a push only wakes the app, without sender or content |
+| Colluding or Sybil nodes take every replica of a user | DHT | High × medium | Out of scope here: class 8 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) |
+| A network observer fingerprints dyapp traffic | ISP, Wi-Fi | Medium × high | Accept: transport encryption hides content only; DPI resistance is research |
 
 ## Out of scope
 

@@ -79,7 +79,8 @@ One key per purpose; no key signs or encrypts for another.
 | Key | Signs or encrypts | Stored | Status |
 |-----|-------------------|--------|--------|
 | Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; storage planned |
-| Device (Ed25519) | Envelopes, mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
+| Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
+| Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Planned |
 | MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Planned |
 | libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: `node.key`, mode 0600 | Node: implemented. Client: planned |
 | MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | Planned |

@@ -22,15 +22,14 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
 
 | Data | Who sees it today | Protection today | Retention today | Target protection | Residual risk even in target |
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
-| Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; crypto stub) | Until acked or the TTL (default 24 h) | E2E AEAD, only recipient decrypts | Size and timing |
-| Mailbox address, sender device key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Same | Operator learns which keys write to which mailbox and when (routing metadata) |
+| Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; crypto stub) | Until acked or the TTL (default 24 h) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB (planned) | Size bucket and timing |
+| Mailbox address, sender key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Sealed sender (planned): a fresh key per envelope, the sender only inside the ciphertext | Operator learns which mailbox gets mail and when, and the sender's IP; today, with the published device key, also who writes to whom |
 | Profile fields (age, country, location, income, kids, goals, orientation, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after a newer profile publish or fresh signed heartbeat, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
-
-| Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | Optional relay/proxy (not designed) | Direct P2P and WebRTC reveal IPs to the other peer |
+| Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | A client proxy or Tor is research, not designed | Nodes link the IP to identity on publish, heartbeat, fetch and media requests, so several profiles of one person are linkable; calls with verified contacts reveal IPs to the peer |
 | Video frame content | Peer; network once transport exists | None (stub returns plaintext) | Not stored | Frame AEAD | — |
 | Video `FrameHeader` (`frame_id`, `timestamp`, `width`, `height`, `nonce`, `tag`) | Peer and network path | None | Not stored | Unencrypted by design | Resolution, frame rate, call duration |
-| SDP / ICE candidates | Whoever relays signaling; no signaling channel exists yet (bootstrap has no endpoint for it) | — | — | Encrypted signaling (not designed) | IP addresses inside ICE candidates |
+| SDP / ICE candidates | Whoever relays signaling; no signaling channel exists yet (bootstrap has no endpoint for it) | — | — | Encrypted signaling (not designed); relay-only ICE until the contact is verified, a setting for every call (planned) | IP addresses of verified contacts inside ICE candidates |
 
 ## Retention
 
@@ -68,7 +67,12 @@ not "safe" data. The target design therefore needs:
 - location published only as a place name (city or district), never as coordinates, and optional;
 - a warning before publishing that replicated data cannot be reliably withdrawn
   ([ADR 0011](../decisions/0011-best-effort-deletion.md));
-- documentation that peer ID + IP + age + location can deanonymize a user.
+- documentation that peer ID + IP + age + location can deanonymize a user;
+- photo metadata (EXIF, GPS, device) stripped on the client before any upload;
+- a heartbeat at most once a day at a random time, so `last_seen` does not track app use;
+- push notifications (not designed) that only wake the app, with no sender or content.
+
+Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 
 ## Rules for other docs
 
