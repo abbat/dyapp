@@ -70,6 +70,19 @@ Not implemented yet:
 - No signal protocol yet; signal envelopes are planned in
   [Bootstrap — Protocol](bootstrap.md#protocol).
 
+## Dial filtering
+
+`DialFilter::new(Vec<IpNet>)` describes denied outgoing IP ranges; its empty default allows
+all addresses. It examines the first IP component anywhere in a multiaddress and treats
+IPv4-mapped IPv6 as IPv4. `DenyDial<T>` refuses a denied dial before calling the inner
+transport and counts refusals; clones share the counter and `take_denied()` resets it.
+Listening, inbound transport events and allowed dials are delegated unchanged.
+
+The wrapper and address tests are implemented. **Placing wrappers around raw TCP and QUIC
+beneath DNS, configuring the bootstrap denylist and reporting its counters remain planned**.
+A DNS-only address has no IP for the predicate to check; resolver placement is required to
+refuse names resolving to denied IPs. Current swarm builders do not yet apply this wrapper.
+
 ## Protocol namespaces
 
 `Protocols::public()` describes the existing public IDs and gossip defaults.

@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = "1.0"
+ipnet = "2.12"
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
 tracing = "0.1"

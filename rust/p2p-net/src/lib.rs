@@ -20,6 +20,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod dial_filter;
+pub use dial_filter::{DenyDial, DialFilter};
+pub use ipnet::IpNet;
 mod protocols;
 pub use protocols::Protocols;
 mod wire;
