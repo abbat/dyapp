@@ -78,7 +78,7 @@ defences already in place. Nodes are untrusted by design
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters |
-| 19 | Replay | Medium | Low | ⚠️ Partial (rows above) |
+| 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: both transports are strong; version negotiation is not designed |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows |
@@ -392,6 +392,28 @@ a signed tombstone blocks older versions, and the keep list is versioned.
 | An old keep list or a tombstone replayed | `media.keep`, `profile.publish` | Medium × low | Accept: the keep list is versioned and cannot restore a removed hash; a tombstone blocks older versions |
 | A node strips or forges the verified mark of a contact | Contact list | High × low | Accept: verification is stored only on the client and bound to the identity key; nodes never see it |
 | A forged or poisoned shared deny list | Deny-list exchange | Medium × low | Accept: lists are signed with the node key under their own label; received lists are only stored, an operator applies them by hand |
+
+### Replay
+
+Class 19 in detail. In place: `fetch` and `ack` carry a single-use nonce bound to the connection;
+every other request is idempotent ([bootstrap](../architecture/bootstrap.md#served-protocol)).
+Profiles and keep lists are versioned, and signed times must be within 10 minutes of the node's
+clock to refresh liveness, so a replay extends nothing. Signature domains keep one kind of
+record from being replayed as another ([Cryptography](#cryptography)).
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Replay a captured `fetch` or `ack` | `mailbox` | High × low | Accept: the nonce is single-use and bound to the connection |
+| Replay a `replica_ack` | Node to node | Low × low | Accept: it deletes only ids the device already acked |
+| Replay an acked envelope, or repair it back from a replica that missed the ack | `mailbox.put`, repair | Low × medium | Accept: the device drops duplicates by message id and MLS refuses a reused key generation; the copy costs the sender's quota until the TTL |
+| Replay an old profile, heartbeat or keep list | `profile.publish`, `search.heartbeat`, `media.keep` | Medium × low | Accept: the version and the 10-minute window; a replay never refreshes liveness |
+| Bring back a released attachment by replaying its signed `attach` | `media.attach`, media replica put, repair | Medium × medium | Fix: a node keeps the release hash of a released attachment until the attachment's expiry and refuses an `attach`, replica put or repair with it. Accept: a holder that missed the `release` keeps the attachment until its expiry |
+| Replay a `release` | `media.release` | Low × low | Accept: idempotent; only the sender and the recipient know the secret |
+| Send a record signed for one node to another | `keep`, `attach`, `publish` | Low × high | Accept: these records are meant for every holder; `fetch` and `ack` are bound to the connection |
+| Replay a record from a test network on the main one | Any signed record | Low × low | Accept: it only publishes the owner's own data |
+| Reuse TURN credentials | `node.turn` | Low × medium | Accept: the username carries an expiry |
+| Replay an MLS message or an old commit | Client | High × low | Accept: OpenMLS deletes used keys and refuses old epochs |
+| Feed an old deny list | Manual import | Low × low | Accept: received lists are applied by hand |
 
 ## Out of scope
 
