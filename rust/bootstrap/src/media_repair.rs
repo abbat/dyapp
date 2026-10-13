@@ -546,6 +546,7 @@ mod tests {
         let dir = format!("/tmp/ai/media-repair-{}", uuid::Uuid::new_v4());
         let mut config = NodeConfig::default();
         config.storage.dir = dir.clone().into();
+        config.network.id_pow_bits = 0;
         config.limits.min_free_mb = 0;
         let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
         service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());

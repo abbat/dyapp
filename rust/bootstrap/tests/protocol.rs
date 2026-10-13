@@ -31,6 +31,7 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
+    config.network.id_pow_bits = 0;
     change(&mut config);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
@@ -53,6 +54,42 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
     addr.with(libp2p::multiaddr::Protocol::P2p(peer))
 }
 
+#[tokio::test]
+async fn replica_profile_checks_transport_pow_before_accepting_the_record() {
+    let addr = start_config(|config| config.network.id_pow_bits = 8).await;
+    let weak = loop {
+        let key = Keypair::generate_ed25519();
+        if !dyapp_p2p_net::id_has_pow(&key.public().to_peer_id(), 8) {
+            break key;
+        }
+    };
+    let mut client = Client::connect_with_key(&addr, weak).await;
+    let record = Profile {
+        version: 1,
+        ..Default::default()
+    }
+    .sign(&Identity::generate());
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::ReplicaPut(record.clone()))
+                .await
+                .status
+        ),
+        Status::Denied
+    );
+    let key = dyapp_p2p_net::generate_pow_keypair(8);
+    let mut node = Client::connect_with_key(&addr, key).await;
+    assert_eq!(
+        status(
+            node.profile(profile_request::Request::ReplicaPut(record))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+}
+
 /// A typed client on one connection, so mailbox challenges stay valid between calls.
 struct Client {
     swarm: Swarm<Behaviour>,
@@ -61,7 +98,11 @@ struct Client {
 
 impl Client {
     async fn connect(addr: &Multiaddr) -> Self {
-        let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
+        Self::connect_with_key(addr, Keypair::generate_ed25519()).await
+    }
+
+    async fn connect_with_key(addr: &Multiaddr, keypair: Keypair) -> Self {
+        let mut swarm = build_swarm(keypair, Mode::Client).unwrap();
         swarm.dial(addr.clone()).unwrap();
         loop {
             if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
@@ -293,6 +334,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         let dir = format!("/tmp/ai/test-network-keep-{}", uuid::Uuid::new_v4());
         let mut config = NodeConfig::default();
         config.storage.dir = dir.clone().into();
+        config.network.id_pow_bits = 0;
         config.roles = vec![Role::Store, Role::Media];
         config.network.storage_trust_minutes = 0;
         config.limits.min_free_mb = 0;

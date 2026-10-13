@@ -212,13 +212,24 @@ impl Service {
     }
 
     fn admit_units(&self, peer: &Peer, units: u32) -> bool {
-        let admitted = !self.reputation.banned(&peer.id)
-            && self.rate_limiter.check_units(&peer.id, units)
-            && self.groups.check_units(&peer.group, units);
+        let admitted = self.admit_quiet(peer, units);
         if !admitted {
             self.strike(peer);
         }
         admitted
+    }
+
+    /// Replication can exceed shared buckets through no fault of the sending node.
+    fn admit_quiet(&self, peer: &Peer, units: u32) -> bool {
+        !self.reputation.banned(&peer.id)
+            && self.rate_limiter.check_units(&peer.id, units)
+            && self.groups.check_units(&peer.group, units)
+    }
+
+    fn node_peer(&self, peer: &Peer) -> bool {
+        peer.id
+            .parse()
+            .is_ok_and(|id| dyapp_p2p_net::id_has_pow(&id, self.config.network.id_pow_bits))
     }
 
     /// Whether the deny list names `peer` or its IP group. A refusal is no strike: a listed
@@ -370,12 +381,26 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(status(Status::Unsupported));
         }
+        let is_replica = matches!(
+            request.request,
+            Some(mailbox_request::Request::ReplicaPut(_))
+        );
+        if is_replica && !self.node_peer(peer) {
+            self.strike(peer);
+            return Ok(status(Status::Denied));
+        }
         let units = if matches!(request.request, Some(mailbox_request::Request::Put(_))) {
             5
         } else {
             1
         };
-        if self.shed(request.encoded_len(), 100) || !self.admit_units(peer, units) {
+        if self.shed(request.encoded_len(), 100)
+            || !if is_replica {
+                self.admit_quiet(peer, units)
+            } else {
+                self.admit_units(peer, units)
+            }
+        {
             return Ok(status(Status::RateLimited));
         }
         if self.refused(peer) {
@@ -592,6 +617,14 @@ impl Service {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
         }
+        let is_replica = matches!(
+            request.request,
+            Some(profile_request::Request::ReplicaPut(_))
+        );
+        if is_replica && !self.node_peer(peer) {
+            self.strike(peer);
+            return Ok(reply(Status::Denied, None));
+        }
         let units = if matches!(request.request, Some(profile_request::Request::Publish(_))) {
             5
         } else {
@@ -605,7 +638,13 @@ impl Service {
         } else {
             SHED_PROFILES
         };
-        if self.shed(request.encoded_len(), share) || !self.admit_units(peer, units) {
+        if self.shed(request.encoded_len(), share)
+            || !if is_replica {
+                self.admit_quiet(peer, units)
+            } else {
+                self.admit_units(peer, units)
+            }
+        {
             return Ok(reply(Status::RateLimited, None));
         }
         if self.refused(peer) {
@@ -1091,9 +1130,18 @@ impl Service {
         let Some(media) = &self.media else {
             return Ok(media_status(Status::Unsupported));
         };
+        let is_replica = matches!(request.request, Some(media_request::Request::ReplicaPut(_)));
+        if is_replica && !self.node_peer(peer) {
+            self.strike(peer);
+            return Ok(media_status(Status::Denied));
+        }
         // The media limit is no strike: a client loading a gallery is not misbehaving.
         if self.shed(request.encoded_len(), SHED_MEDIA)
-            || !self.admit(peer)
+            || !if is_replica {
+                self.admit_quiet(peer, 1)
+            } else {
+                self.admit(peer)
+            }
             || !self.media_peers.check_limit(&peer.id)
         {
             return Ok(media_status(Status::RateLimited));
@@ -2059,10 +2107,24 @@ mod tests {
         }
     }
 
+    fn replica_peer(label: &str) -> Peer {
+        let key = dyapp_identity::sha256(label.as_bytes());
+        let id = libp2p::identity::Keypair::ed25519_from_bytes(key)
+            .unwrap()
+            .public()
+            .to_peer_id()
+            .to_string();
+        Peer {
+            id,
+            group: "g".into(),
+        }
+    }
+
     fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
         let dir = format!("/tmp/ai/test-service-{}", uuid::Uuid::new_v4());
         let mut config = NodeConfig::default();
         config.storage.dir = dir.clone().into();
+        config.network.id_pow_bits = 0;
         change(&mut config.limits);
         Service::new(BootstrapStore::new(&dir).unwrap(), config)
     }
@@ -2138,6 +2200,126 @@ mod tests {
         );
     }
 
+    fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
+        let status = match protocol {
+            0 => {
+                service
+                    .mailbox(
+                        sender,
+                        &mut None,
+                        MailboxRequest {
+                            request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                                envelopes: vec![SignedRecord::default()],
+                            })),
+                        },
+                    )
+                    .unwrap()
+                    .status
+            }
+            1 => {
+                service
+                    .profile(
+                        sender,
+                        ProfileRequest {
+                            request: Some(profile_request::Request::ReplicaPut(
+                                SignedRecord::default(),
+                            )),
+                        },
+                    )
+                    .unwrap()
+                    .status
+            }
+            2 => {
+                service
+                    .media(
+                        sender,
+                        MediaRequest {
+                            request: Some(media_request::Request::ReplicaPut(
+                                proto::MediaReplicaPut {
+                                    data: vec![0],
+                                    ..Default::default()
+                                },
+                            )),
+                        },
+                    )
+                    .unwrap()
+                    .status
+            }
+            _ => unreachable!(),
+        };
+        Status::try_from(status).unwrap()
+    }
+
+    #[test]
+    fn replicas_reject_missing_pow_and_bad_signatures_with_strikes() {
+        let valid = dyapp_p2p_net::generate_pow_keypair(8).public().to_peer_id();
+        let invalid = loop {
+            let id = libp2p::PeerId::random();
+            if !dyapp_p2p_net::id_has_pow(&id, 8) {
+                break id;
+            }
+        };
+        for protocol in 0..3 {
+            for sender in [
+                peer("not-a-peer"),
+                peer(&invalid.to_string()),
+                peer(&valid.to_string()),
+            ] {
+                let mut service = media_service(|l| l.strikes_to_ban = 1);
+                service.config.network.id_pow_bits = 8;
+                assert_eq!(replica_status(&service, &sender, protocol), Status::Denied);
+                assert!(service.reputation.banned(&sender.id), "protocol {protocol}");
+            }
+        }
+    }
+
+    #[test]
+    fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
+        let sender = replica_peer("node");
+        for protocol in 0..3 {
+            for bucket in 0..4 {
+                if bucket >= 2 && protocol != 2 {
+                    continue;
+                }
+                let mut service = media_service(|l| {
+                    l.strikes_to_ban = 1;
+                    l.requests_per_second = 1;
+                    l.ip_group_requests_per_second = 1;
+                    l.media_requests_per_second = 1;
+                    l.bytes_per_second = 1_000_000;
+                });
+                service.media_bytes = PeerRateLimiter::new(1);
+                assert!(match bucket {
+                    0 => service.rate_limiter.check_limit(&sender.id),
+                    1 => service.groups.check_limit(&sender.group),
+                    2 => service.media_peers.check_limit(&sender.id),
+                    3 => service.media_bytes.check_limit(&sender.id),
+                    _ => unreachable!(),
+                });
+                assert_eq!(
+                    replica_status(&service, &sender, protocol),
+                    Status::RateLimited,
+                    "protocol {protocol}, bucket {bucket}"
+                );
+                assert!(
+                    !service.reputation.banned(&sender.id),
+                    "protocol {protocol}, bucket {bucket}"
+                );
+            }
+        }
+        // A plain client still receives a strike when the peer bucket refuses it.
+        let service = service_with(|l| {
+            l.strikes_to_ban = 1;
+            l.requests_per_second = 1;
+        });
+        assert!(service.rate_limiter.check_limit("client"));
+        assert_eq!(
+            status(&service.profile(&peer("client"), get(vec![0; 32])).unwrap()),
+            Status::RateLimited
+        );
+        assert!(service.reputation.banned("client"));
+    }
+
     #[test]
     fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         let identity = Identity::generate();
@@ -2170,19 +2352,27 @@ mod tests {
         assert_eq!(
             status(
                 &service
-                    .profile(&peer("holder"), replica(record.clone()))
+                    .profile(&replica_peer("holder"), replica(record.clone()))
                     .unwrap()
             ),
             Status::Ok
         );
         assert_eq!(
-            status(&service.profile(&peer("holder"), get(vec![0; 32])).unwrap()),
+            status(
+                &service
+                    .profile(&replica_peer("holder"), get(vec![0; 32]))
+                    .unwrap()
+            ),
             Status::NotFound
         );
         let mut forged = record;
         forged.signature[0] ^= 1;
         assert_eq!(
-            status(&service.profile(&peer("holder"), replica(forged)).unwrap()),
+            status(
+                &service
+                    .profile(&replica_peer("holder"), replica(forged))
+                    .unwrap()
+            ),
             Status::Denied
         );
 
@@ -2286,10 +2476,15 @@ mod tests {
         nonce: &mut Option<[u8; 32]>,
         request: mailbox_request::Request,
     ) -> MailboxResponse {
+        let sender = if matches!(request, mailbox_request::Request::ReplicaPut(_)) {
+            replica_peer("replica")
+        } else {
+            peer("p")
+        };
         let request = MailboxRequest {
             request: Some(request),
         };
-        service.mailbox(&peer("p"), nonce, request).unwrap()
+        service.mailbox(&sender, nonce, request).unwrap()
     }
 
     fn challenge(service: &Service, nonce: &mut Option<[u8; 32]>) -> Vec<u8> {
@@ -2906,24 +3101,33 @@ mod tests {
             data: big.data.clone(),
             ..put
         };
-        assert!(s.prepare_media(&peer("gallery"), &put).unwrap().is_ok());
+        assert!(s
+            .prepare_media(&replica_peer("gallery"), &put)
+            .unwrap()
+            .is_ok());
         assert_eq!(
-            s.prepare_media(&peer("gallery"), &put).unwrap(),
+            s.prepare_media(&replica_peer("gallery"), &put).unwrap(),
             Err(Status::RateLimited)
         );
         let node_put = || MediaRequest {
             request: Some(media_request::Request::ReplicaPut(big.clone())),
         };
         assert_eq!(
-            s.media(&peer("gallery"), node_put()).unwrap().status,
+            s.media(&replica_peer("gallery"), node_put())
+                .unwrap()
+                .status,
             i32::from(Status::Ok)
         );
         assert_eq!(
-            s.media(&peer("gallery"), node_put()).unwrap().status,
+            s.media(&replica_peer("gallery"), node_put())
+                .unwrap()
+                .status,
             i32::from(Status::RateLimited)
         );
         assert_eq!(
-            s.media(&peer("other-node"), node_put()).unwrap().status,
+            s.media(&replica_peer("other-node"), node_put())
+                .unwrap()
+                .status,
             i32::from(Status::Ok)
         );
     }

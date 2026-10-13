@@ -675,7 +675,7 @@ test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 test-peer device-key                        → {"secret", "mailbox"}
 test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
 test-peer put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
-test-peer put-local <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"} (replica_put fixture)
+test-peer put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
 test-peer watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
 test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
 test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
@@ -697,6 +697,8 @@ connection. `closest` lists the nodes that answered, closest first. `replicate` 
 look up the five holder keys, then send one client write to key 0's holder; only a failed write
 tries the next holder. Their `holders` lists describe the lookup placement, while the acceptor
 performs replication. `put-local` sends a non-forwarded mailbox replica for repair fixtures.
+It generates a transport key with node-ID PoW before the network timeout begins: 22 bits by
+default, or the optional `node-pow-bits` (0..32) for a test network. The network fixture passes 8.
 `watch` sends a watching `fetch`,
 puts an envelope to its own mailbox on another connection and prints the ids pushed back. `flood`
 sends `n` profile gets at once on one connection. `media` has a fresh owner keep the blob's hash,
@@ -798,7 +800,14 @@ Scope and limits:
 - Once a map holds 10 000 buckets, buckets idle for a second (refilled, so dropping them changes
   nothing) are removed before a new one is added.
 
-**Local peer reputation.** Each refusal by the peer or IP-group bucket and each `DENIED` reply
+**Replica eligibility.** Mailbox, profile and media `replica_put` require a valid transport
+peer ID meeting this node's `network.id_pow_bits`; a missing proof returns `DENIED` and a strike
+before record verification. Eligibility uses transport-ID proof of work; advertised roles do not
+change this check.
+Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
+bad signed records still return `DENIED` and strike. Sender fan-out caps are planned.
+
+**Local peer reputation.** Each non-replica refusal by the peer or IP-group bucket and each `DENIED` reply
 (a bad signature, a replayed or missing mailbox nonce) is a strike against the peer ID. At
 `strikes_to_ban` strikes (default 100), each within `ban_minutes` (default 10) of the previous one,
 the peer is banned: the node closes its connections, closes any new ones, and answers

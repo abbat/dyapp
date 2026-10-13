@@ -32,6 +32,7 @@
 //! - `test-peer turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
 //! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
+//! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
 //! `fetch` and `ack` ask for a challenge and sign it on one connection.
 
 use anyhow::{anyhow, bail, Context};
@@ -75,8 +76,9 @@ async fn main() -> anyhow::Result<()> {
         ["publish", addr, record] => timeout(publish(addr, record)).await?,
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
         ["device-key"] => device_key(),
-        ["put", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext, false)).await?,
-        ["put-local", addr, mailbox, ciphertext] => timeout(put(addr, mailbox, ciphertext, true)).await?,
+        ["put", addr, mailbox, ciphertext] => put(addr, mailbox, ciphertext, None).await?,
+        ["put-local", addr, mailbox, ciphertext] => put(addr, mailbox, ciphertext, Some(dyapp_p2p_net::ID_POW_BITS)).await?,
+        ["put-local", addr, mailbox, ciphertext, bits] => put(addr, mailbox, ciphertext, Some(bits.parse()?)).await?,
         ["fetch", addr, secret] => timeout(fetch(addr, secret)).await?,
         ["ack", addr, secret, ids @ ..] => timeout(ack(addr, secret, ids)).await?,
         ["closest", addr, key] => timeout(closest(addr, key)).await?,
@@ -414,18 +416,33 @@ fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, S
     Ok((id.to_vec(), record))
 }
 
-async fn put(addr: &str, mailbox: &str, ciphertext: &str, replica: bool) -> anyhow::Result<Value> {
+async fn put(
+    addr: &str,
+    mailbox: &str,
+    ciphertext: &str,
+    replica_pow: Option<u32>,
+) -> anyhow::Result<Value> {
     let (id, record) = envelope(unhex(mailbox)?, unhex(ciphertext)?)?;
-    let (mut swarm, peer) = connect(addr).await?;
-    let request = if replica {
-        mailbox_request::Request::ReplicaPut(proto::Envelopes {
-            envelopes: vec![record],
-        })
+    let keypair = if let Some(bits) = replica_pow {
+        anyhow::ensure!(bits <= 32, "node-ID PoW must be at most 32 bits");
+        tokio::task::spawn_blocking(move || dyapp_p2p_net::generate_pow_keypair(bits)).await?
     } else {
-        mailbox_request::Request::Put(record)
+        Keypair::generate_ed25519()
     };
-    let response = mailbox_call(&mut swarm, peer, request).await?;
-    Ok(json!({ "status": status(response.status), "id": hex(&id) }))
+    // Key generation may take longer than the network operation's timeout.
+    timeout(async {
+        let (mut swarm, peer) = connect_with_key(addr, keypair).await?;
+        let request = if replica_pow.is_some() {
+            mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                envelopes: vec![record],
+            })
+        } else {
+            mailbox_request::Request::Put(record)
+        };
+        let response = mailbox_call(&mut swarm, peer, request).await?;
+        Ok(json!({ "status": status(response.status), "id": hex(&id) }))
+    })
+    .await
 }
 
 async fn put_replicas(addr: &str, mailbox: &str) -> anyhow::Result<Value> {
@@ -467,7 +484,7 @@ async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
         }) => Some(Ok(request.envelopes)),
         _ => None,
     });
-    let (put, pushed) = tokio::join!(put(addr, &mailbox, "01", false), pushed);
+    let (put, pushed) = tokio::join!(put(addr, &mailbox, "01", None), pushed);
     let ids = pushed?
         .iter()
         .map(|record| Ok(hex(&proto::Envelope::decode(record.payload.as_slice())?.id)))
@@ -537,7 +554,14 @@ async fn mailbox_call(
 
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
 async fn connect(addr: &str) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
-    let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Client)?;
+    connect_with_key(addr, Keypair::generate_ed25519()).await
+}
+
+async fn connect_with_key(
+    addr: &str,
+    keypair: Keypair,
+) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
+    let mut swarm = build_swarm(keypair, Mode::Client)?;
     let addr: Multiaddr = addr.parse()?;
     swarm.dial(addr.clone())?;
     loop {

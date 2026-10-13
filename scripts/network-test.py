@@ -859,7 +859,9 @@ def spread(client, entry):
 def repaired(client, entry, ids):
     """An envelope on one replica node reaches another on a watching fetch."""
     device, _, holders = spread(client, entry)
-    lone = call(client, "put-local", ids[holders[0]], device["mailbox"], "02")
+    lone = call(
+        client, "put-local", ids[holders[0]], device["mailbox"], "02", POW_BITS
+    )
     call(client, "watch", ids[holders[1]], device["secret"])
     # The inventory and its answer run after the fetch.
     for _ in range(10):
