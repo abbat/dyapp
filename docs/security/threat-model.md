@@ -68,7 +68,7 @@ defences already in place. Nodes are untrusted by design
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
-| 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial (rows above) |
+| 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps; write tokens, per-group connection limits and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ❌ Planned |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ❌ Planned |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
@@ -240,6 +240,27 @@ check nodes yet.
 | Colluding or Sybil nodes take every replica of a key | DHT | High × medium | Accept: [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) makes a targeted eclipse costly, not impossible. Fix: per-type pools in the node store |
 | A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish (planned) |
 | A client keeps using nodes that failed it | Client | Medium × high | Fix: the client keeps local scores of nodes (refusals, invalid data, missing receipts, timeouts) and prefers good ones |
+
+### Denial of service
+
+Class 9 in detail. In place: token buckets per peer ID and IP group with local bans
+([rate limiting](../architecture/bootstrap.md#rate-limiting)), disk, traffic, memory, connection
+and stream guards, frame size caps and request timeouts
+([resource guards](../architecture/bootstrap.md#resource-guards)), and Argon2id checks on their
+own two permits with a cache of confirmed proofs ([search](../architecture/bootstrap.md#search)).
+Volumetric floods below libp2p stay out of scope ([below](#out-of-scope)).
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A stranger fills a mailbox to its 10 MiB with junk, so the owner gets `FULL` and no messages | `mailbox.put` | High × high | Fix: write tokens. The owner gives each contact, inside MLS, a write token signed by the mailbox key; envelopes with a token use the 10 MiB, envelopes without one (a first message) go to a small pool per mailbox whose oldest entries are dropped. The node sees a token pseudonym, not the sender |
+| Fresh keys flood a store with envelopes or profiles, so it evicts the oldest real records | `mailbox.put`, `profile.publish` | High × medium | Fix: the tokenless pool bounds envelopes; store nodes check the profile proof of work as search nodes do |
+| Many peer IDs from one IP group open thousands of connections; the per-peer limit is 4 | libp2p | Medium × high | Fix: a connection limit per IP group |
+| An attacker rotates /48 prefixes inside its /32, or IPv4 addresses inside a /16 | All requests | Medium × medium | Fix: a second, coarse bucket per /16 and /32 with ten times the budget. Accept: users behind one CGNAT share a bucket |
+| Crafted protobuf, SDP or MLS input panics a decoder or allocates without bound | Every codec | High × medium | Fix: cargo-fuzz targets for every network codec, run in CI |
+| Relay traffic through TURN | `node.turn`, coturn | Medium × medium | Fix: the coturn example sets `user-quota`, `total-quota` and `max-bps` |
+| Expensive search queries, fake profile floods, signal spam, catch-up traffic, messages to non-matches | Search, mailbox | Medium × high | Fix: planned separately (search query and profile floods, the signal quota, catch-up traffic, the non-match limit) |
+| Signature and Argon2id checks used to burn CPU | Writes, search | Low × medium | Accept: Ed25519 is cheap and runs after the buckets; Argon2id has its own permits and a cache |
+| Slow or idle streams hold connections | libp2p | Low × medium | Accept: requests time out after 20 s, idle connections after 60 s |
 
 ## Out of scope
 
