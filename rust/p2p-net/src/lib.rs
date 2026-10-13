@@ -20,6 +20,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod wire;
+pub use wire::{Dir, WireBytes, WireCounts};
+
 /// Node protocol messages, generated from proto/node.proto.
 pub mod proto {
     #![allow(clippy::pedantic)]
@@ -37,6 +40,8 @@ pub const MEDIA_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/media");
 pub const SEARCH_KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search-kad");
 pub const SEARCH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search");
 pub const INVENTORY_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/inventory");
+/// Reserved for search bucket digests; no behaviour serves it yet.
+pub const DIGEST_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/digest");
 /// Provider key under which search nodes announce themselves in the main `/dyapp/kad`.
 pub const SEARCH_KEY: &[u8] = b"dyapp/search";
 /// Gossip frame limit: a profile record of at most 1 MiB plus framing.

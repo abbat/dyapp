@@ -989,6 +989,15 @@ connection; a count that idling does not lower is a leak. `dyappd status` prints
 the stores hold; there are no HTTP endpoints. See the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
+`dyapp-p2p-net` provides `WireBytes` / `WireCounts` for interval payload-byte accounting.
+The fixed slots are node, profile, mailbox, push, media, search, inventory, digest, gossip and
+other; counts display as `name=in/out`. Digest is reserved and has no served protocol yet.
+Each `take()` atomically resets individual counters; concurrent increments fall into this or
+the next interval, so the snapshot across counters is not globally atomic. These are interval
+counts, not monotonic monitoring totals. Codec and gossip instrumentation and the
+`wire_bytes` status field are **planned**. The intended measurement excludes transport
+overhead and gossip control traffic, duplicate delivery and forwarding fan-out.
+
 ## Testing
 
 Unit test coverage:
