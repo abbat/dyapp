@@ -61,7 +61,7 @@ defences already in place. Nodes are untrusted by design
 | # | Class | Impact | Likelihood | Status |
 |---|-------|--------|------------|--------|
 | 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Certain: payload crypto is a stub | ❌ Planned |
-| 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, CodeQL |
+| 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial ([privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work |
@@ -129,6 +129,25 @@ Peer ID and a new contact. What a node can still substitute is everything below 
 | A hijacked DNS name, domain or seed host: a new node or client sees only the attacker's nodes (eclipse) | Seeds, DNS | Critical × medium | Fix: a seed may carry a peer ID and a node with another key is refused; the client's built-in list always does; the client asks several seeds and cross-checks with disjoint lookups |
 | A fake node answers every protocol | Client to node | High × medium | Accept: it cannot forge signed or MLS data, only withhold it, which is class 8 |
 | Lookalike Peer IDs, names or domains | Contact list, links | High × medium | Out of scope here: classes 5 and 10 |
+
+### Supply chain
+
+Class 2 in detail. In place: `Cargo.lock` with `--locked` builds, `cargo deny` (crates.io only, no
+git sources, yanked crates refused, OpenSSL banned), `cargo audit` weekly and on every change,
+GitHub Actions and Docker build images pinned by digest, downloaded tools and the Gradle wrapper
+checked by SHA-256, and an SPDX SBOM per CI run.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A malicious or hijacked crate version, a typosquat, a `build.rs` or proc macro that runs at build time | Cargo dependencies | Critical × medium | Fix: no version younger than 14 days, enforced by a `make quality` check against the crates.io index and a 14-day Dependabot cooldown (today 7); a new dependency is reviewed by hand |
+| A malicious Gradle artifact | Android dependencies | Critical × medium | Fix: Gradle dependency verification (`verification-metadata.xml` with SHA-256) |
+| An unpinned tool pulled in CI: `cargo install cargo-deny` in CodeQL, `pip install flake8`, xcodegen without a checksum, `dtolnay/rust-toolchain` at a branch, `debian:bookworm-slim` by tag | CI workflows, test Dockerfiles | High × medium | Fix: pinned versions with `--locked`, checksums and digests |
+| A pull request poisons the GitHub Actions build cache read by `main` | Docker builds with the GHA cache | High × medium | Fix: only pushes to `main` write the cache, pull requests read it; every workflow sets `permissions` at the top |
+| A tampered Debian package from the mirror | apt in build images | Medium × low | Accept: Debian repositories are signed; versions are not pinned |
+| A forged or tampered release: deb, APK, app bundle, container image | Downloads, image registry | Critical × medium | Fix (no release pipeline yet): release artifacts get Sigstore keyless signatures, SLSA build provenance and the SBOM; [Deployment](../operations/deployment.md#updates) documents how to verify them |
+| An operator rolls back to a vulnerable release | Node updates | Medium × low | Accept: the operator's choice; signatures prove origin, not freshness |
+| A hostile pull request | Repository | Critical × medium | Out of scope here: class 7 |
+| A hijacked AI agent or maintainer account | Developer tooling, GitHub account | Critical × medium | Out of scope here: classes 6 and 11 |
 
 ## Out of scope
 

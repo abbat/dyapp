@@ -452,6 +452,10 @@ has upgraded, so a downgrade needs the backup taken before the update. Building 
 changed store format next to the old one while the old one keeps answering is
 planned ([bootstrap design](../architecture/bootstrap.md#principles)).
 
+**Verifying a release.** Releases are not published or signed yet. Planned: every artifact
+carries a Sigstore keyless signature, SLSA build provenance and the SBOM, checked with
+`gh attestation verify` before install ([supply chain](../security/threat-model.md#supply-chain)).
+
 ## Security
 
 ### Network
