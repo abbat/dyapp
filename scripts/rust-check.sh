@@ -28,7 +28,7 @@ step() {
             python3 -m flake8 scripts tools tests
             swiftlint lint --strict --quiet --no-cache ios macos
             java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android \
-                --build-upon-default-config
+                --excludes '**/build/**' --build-upon-default-config
             cargo fmt --all -- --check
             cargo shear
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).

@@ -22,7 +22,8 @@ case "${1:?suite required}" in
         sh ./gradlew --offline --no-daemon --version > "$report_dir/gradle-version.txt"
         cat "$report_dir/gradle-version.txt"
         sh ./gradlew --offline --no-daemon tasks --all > "$report_dir/gradle-tasks.txt"
-        sh ./gradlew --offline --no-daemon --rerun-tasks :app:testDebugUnitTest
+        # The Rust sources are not copied here: reuse the core and bindings from the image build.
+        sh ./gradlew --offline --no-daemon --rerun-tasks -Pdyapp.prebuiltRust :app:testDebugUnitTest
         python3 /app/scripts/check-junit-results.py app/build/test-results/testDebugUnitTest
         ;;
     emulator)

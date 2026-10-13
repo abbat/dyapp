@@ -1,20 +1,19 @@
 # FFI Contract
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
-> boundary. Everything here was checked against `rust/ffi/src/lib.rs` and a build
-> of `dyapp-ffi` (UniFFI 0.24.3) on 2026-10-06; the crate has since moved to UniFFI 0.32
-> (2026-10-07, to drop unmaintained `bincode`/`paste`) and binding generation was not
-> re-checked. **No Swift or Kotlin
-> bindings can currently be generated** — see [Error model](#error-model).
+> boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
+> generated during the Android build; Swift bindings are planned
+> ([FFI bindings](../development/ffi-bindings.md)).
 
 ## Which source is the contract
 
 | Source | Status |
 |--------|--------|
 | `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
+| `android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Calls `generatePeerId()` from the generated bindings. |
 | `ios/DYApp/RustBridge.swift` | `initialize()`/`shutdown()` are empty `TODO`s. |
 
-No platform app links the Rust library today.
+Only the Android app links the library.
 
 ## Exported surface
 
@@ -25,19 +24,20 @@ or returns constants.
 |-------------|------|-----------|-----------|
 | `PeerConnection` | Object | `new(peer_id: String)`, `get_id() -> String` | Holds the string; no networking. |
 | `MessageService` | Object | `new()` | Stub. |
-| | method | `send_message(peer_id: String, text: String) -> Result<String, String>` | **Stub.** Drops `text`, returns `"Message queued to <peer_id>"`. Nothing is queued, encrypted or sent. |
+| | method | `send_message(peer_id: String, text: String) -> Result<String, CoreError>` | **Stub.** Drops `text`, returns `"Message queued to <peer_id>"`. Nothing is queued, encrypted or sent. |
 | | method | `queue_size() -> i32` | Stub, always `0`. |
-| `VideoSession` | Object | `new() -> Result<Self, String>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer`. |
-| | method | `create_offer() -> Result<String, String>` | Creates the inner session on first call, returns an SDP offer. |
-| | method | `mark_offer_sent() -> Result<(), String>` | OfferCreated → OfferSent. |
-| | method | `receive_answer(sdp: String) -> Result<(), String>` | Stores the answer; **not applied** to the peer connection (see [video](video.md)). |
-| | method | `close() -> Result<(), String>` | Closes the session. |
-| | method | `get_session_id() -> Result<String, String>` | Session UUID. |
-| `generate_keypair()` | function | `-> Result<KeyPair, String>` | **Stub.** Returns `{ public_key: "placeholder", secret_key: "placeholder" }`. |
+| `VideoSession` | Object | `new() -> Result<Self, CoreError>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer`. |
+| | method | `create_offer() -> Result<String, CoreError>` | Creates the inner session on first call, returns an SDP offer. |
+| | method | `mark_offer_sent() -> Result<(), CoreError>` | OfferCreated → OfferSent. |
+| | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Stores the answer; **not applied** to the peer connection (see [video](video.md)). |
+| | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
+| | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |
+| `generate_peer_id()` | function | `-> String` | Peer ID (hex SHA-256 of the public key) of a freshly generated `rust/identity` key; the key is dropped. |
+| `generate_keypair()` | function | `-> Result<KeyPair, CoreError>` | **Stub.** Returns `{ public_key: "placeholder", secret_key: "placeholder" }`. |
 | `KeyPair` | Record | `public_key: String`, `secret_key: String` | Copied by value. |
 | `ProfileService` | Object | `new()` | Stub. |
-| | method | `get_profile() -> Result<UserProfile, String>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
-| | method | `update_field(field: String, value: String) -> Result<(), String>` | **Stub.** No-op. |
+| | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
+| | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
 | `UserProfile` | Record | `user_id: String`, `age: i32`, `verified: bool` | Copied by value. |
 
 Not exported: `start`/`stop` video, `add_ice_candidate`, `mark_connected`, any
@@ -57,23 +57,11 @@ consumer would need a separate `extern "C"` layer, which does not exist.
 
 ## Error model
 
-Every fallible export returns `Result<T, String>`; errors are free-form text
-(`"Session not initialized"`, `"Failed to create runtime: …"`, or `{:?}` of the
-internal video error).
-
-**This blocks binding generation.** The Rust scaffolding compiles, but
-`uniffi-bindgen` 0.24.3 rejected the interface (not re-checked with 0.32):
-
-```text
-panicked at uniffi_bindgen-0.24.3/src/interface/function.rs:162:18:
-unsupported error type Some(String)
-```
-
-(UDL mode with `--lib-file`, both `--language swift` and `kotlin`; library mode
-fails earlier on the `dyapp-ffi` vs `dyapp_ffi` package name.)
-Until the errors become a `#[derive(uniffi::Error)]` type, there are no Swift
-or Kotlin files, so **generated type and method names are unverified**; do not
-rely on any name in other docs. Generation commands are in
+Every fallible export returns `Result<T, CoreError>`. `CoreError` is a
+`#[uniffi(flat_error)]` enum with one variant, `Failed(String)`, carrying
+free-form text (`"Session not initialized"`, `"Failed to create runtime: …"`, or
+`{:?}` of the internal video error), so messages may echo internal state. The
+Kotlin bindings throw it as `CoreException`. Generation commands are in
 [FFI bindings](../development/ffi-bindings.md).
 
 ## Ownership and threading
@@ -117,12 +105,12 @@ depends on the native side not using a handle after freeing it.
 - Business logic in Rust; platform code is UI and event handling.
 - Cross the boundary with primitives, strings, records and opaque objects; no
   Protobuf messages or raw key bytes.
-- Typed `uniffi::Error` enums instead of `String` errors.
+- Typed `uniffi::Error` enums with per-case variants instead of the single `CoreError::Failed`.
 - Blocking calls are acceptable for the prototype; if push-style updates are
   needed, prefer polling (`poll_new_messages`) over foreign callbacks.
 
 ## Testing
 
-`cargo test -p dyapp-ffi` runs no tests: the crate has none. There are no
-binding-generation checks or native FFI tests; Swift/Kotlin "bridge" tests
-exercise the hand-written stubs above, not Rust.
+`cargo test -p dyapp-ffi` runs no tests: the crate has none. The Android UI test
+(`AppUITests.kt`) calls `generate_peer_id` through the Kotlin bindings; the Swift
+bridge tests exercise the hand-written stub, not Rust.

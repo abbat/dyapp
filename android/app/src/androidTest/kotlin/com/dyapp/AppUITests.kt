@@ -2,6 +2,7 @@ package com.dyapp
 
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
@@ -22,6 +23,12 @@ class AppUITests {
     fun launchesAndRendersReady() {
         compose.onNodeWithText("DYApp").assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals("Ready")
+        // The peer ID comes from the Rust core through the UniFFI bindings.
+        val peerId = compose.onNodeWithTag("peer-id").assertIsDisplayed()
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.Text]
+            .joinToString()
+        check(Regex("[0-9a-f]{64}").matches(peerId)) { "Unexpected peer ID: $peerId" }
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val ownsActiveWindow = {
             instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() ==

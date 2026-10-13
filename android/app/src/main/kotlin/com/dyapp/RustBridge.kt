@@ -1,21 +1,7 @@
 package com.dyapp
 
-/** Bridge to the Rust core via UniFFI. */
+/** Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings. */
 object RustBridge {
-  init {
-    // TODO: Load native Rust library
-    // System.loadLibrary("dyapp_core")
-  }
-
-  /** Initializes the Rust core. */
-  fun initialize() {
-    // TODO: Call Rust init via UniFFI
-    // rustInitialize()
-  }
-
-  /** Shuts the Rust core down. */
-  fun shutdown() {
-    // TODO: Call Rust shutdown via UniFFI
-    // rustShutdown()
-  }
+    /** Peer ID of a key generated per call; the key is not stored. */
+    fun peerId(): String = uniffi.dyapp.generatePeerId()
 }

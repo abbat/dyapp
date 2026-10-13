@@ -34,16 +34,17 @@ layer cache, each image exists twice, in the buildx builder and, after `--load`,
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
 | `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `linux/` and writes `linux/target/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
-| `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test`; `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD on the `android-avd` disk volume because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
+| `docker` → **docker - android** | ubuntu-24.04 | build `android-unit-test` (compiles `rust/ffi` for arm64-v8a and x86_64 and generates the Kotlin bindings); `ui-test.sh android` (`:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD on the `android-avd` disk volume because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | none (logs only) | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | Downloads XcodeGen 2.46.0, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), then XCTest/XCUITest (iOS on first available iPhone simulator) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
 | `summary` → **required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
 
 ### What the platform jobs do **not** validate
 
-The mobile apps are empty shells, and the desktop apps link only `rust/identity`:
+The apps are shells that call one core function at most:
 
-- `android/.../RustBridge.kt`: `System.loadLibrary` is a commented-out TODO.
+- `android/` loads `libdyapp_ffi.so` through the UniFFI Kotlin bindings and shows the peer ID
+  from `generate_peer_id`.
 - `ios/DYApp/RustBridge.swift`: init/shutdown are TODOs; the XcodeGen specs have no Rust
   framework dependency.
 - `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on

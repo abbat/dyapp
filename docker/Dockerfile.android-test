@@ -1,9 +1,10 @@
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS rust
 FROM debian:bookworm-slim AS android-tools
 ENV DEBIAN_FRONTEND=noninteractive \
     JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=4 \
     CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk-headless curl unzip ca-certificates python3 \
+    openjdk-17-jdk-headless curl unzip ca-certificates python3 build-essential \
     libnss3 libpulse0 libx11-6 libxcb1 libxcomposite1 libxcursor1 \
     libxi6 libxrandr2 libxtst6 libasound2 libglu1-mesa && rm -rf /var/lib/apt/lists/*
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
@@ -15,7 +16,16 @@ RUN curl -fL https://dl.google.com/android/repository/commandlinetools-linux-158
     mkdir -p /opt/android-sdk/cmdline-tools && unzip -q sdk.zip -d /opt/android-sdk/cmdline-tools && \
     mv -f /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && rm -f sdk.zip
 RUN yes | sdkmanager --licenses >/dev/null
-RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64'
+RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
+    'ndk;29.0.14206865'
+ENV ANDROID_NDK_HOME=/opt/android-sdk/ndk/29.0.14206865
+# The app build compiles the Rust core (see android/app/build.gradle); the build user owns the
+# cargo home so it can fetch crates.
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust --chown=999:999 /usr/local/cargo /usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo RUSTUP_TOOLCHAIN=1.99.0 CARGO_BUILD_JOBS=4
+RUN rustup target add aarch64-linux-android x86_64-linux-android
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 
 FROM android-tools
@@ -23,6 +33,10 @@ WORKDIR /app
 RUN mkdir -p /opt/gradle-cache /reports /avd && chown 999:999 /app /opt/gradle-cache /reports /avd
 ENV HOME=/home/appuser
 USER 999:999
+RUN cargo install cargo-ndk --version 4.1.2 --locked
+COPY --chown=999:999 Cargo.toml Cargo.lock ./
+COPY --chown=999:999 proto proto
+COPY --chown=999:999 rust rust
 COPY --chown=999:999 android android
 RUN echo '238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 999 so the outputs need no recursive chown (a copy-up layer doubles the image size).

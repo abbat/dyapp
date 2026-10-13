@@ -11,15 +11,15 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
 ## Actual architecture (today)
 
 ```text
- Platform apps (skeletons; none links the Rust core yet)
+ Platform apps (skeletons; Android and desktop call the core for a peer ID)
  ┌──────────────┬───────────────┬──────────────┬──────────────────────────┐
  │ android/     │ ios/, macos/  │ desktop/     │ linux/, windows/          │
  │ Kotlin       │ Swift         │ Tauri shell  │ Tauri apps (excluded from │
  │ RustBridge.kt│               │              │ the Cargo workspace)      │
- │ (loadLibrary │               │              │                           │
- │  commented)  │               │              │                           │
+ │ (UniFFI,     │               │              │                           │
+ │  Kotlin)     │               │              │                           │
  └──────┬───────┴───────────────┴──────────────┴──────────────────────────┘
-        ┊  intended FFI (not linked)
+        │  UniFFI (Android only; iOS/macOS planned)
         ▼
  rust/ffi  (uniffi, dyapp.udl)
    ├──► rust/profile    (signed profile) ──► rust/identity (Ed25519)
@@ -45,7 +45,7 @@ node, and there is no WebRTC signaling channel.
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; no push or replication |
 | Node | `rust/bootstrap/src/bin/dyappd.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
-| Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
+| Android app | `android/` | skeleton | Shows the peer ID from `generate_peer_id` via UniFFI Kotlin bindings |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |

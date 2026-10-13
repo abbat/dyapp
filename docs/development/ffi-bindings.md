@@ -1,82 +1,75 @@
 # FFI Bindings (UniFFI)
 
-How Swift/Kotlin bindings are (meant to be) produced from the Rust core. The
-API itself — exports, errors, ownership, threading, security — is defined only
-in [FFI Contract](../architecture/ffi-design.md); this page does not repeat it.
+How Swift/Kotlin bindings are produced from the Rust core. The API itself —
+exports, errors, ownership, threading, security — is defined only in
+[FFI Contract](../architecture/ffi-design.md); this page does not repeat it.
 
-> ⚠️ **Status (2026-10-06): bindings cannot be generated.** The crate builds,
-> but `uniffi-bindgen` rejects the `Result<T, String>` error type used by every
-> fallible export. No generated Swift/Kotlin files exist in the repository or
-> in any build output.
+> **Status:** the Android app generates Kotlin bindings and builds the core for
+> each ABI during its Gradle build. Swift bindings and the Apple packaging are
+> planned. Generated files are build outputs and are never committed.
 
 ## Inputs
 
 | Item | Value |
 |------|-------|
 | Crate | `rust/ffi` (package `dyapp-ffi`, lib `dyapp_ffi`, `crate-type = ["cdylib", "rlib"]`) |
-| UniFFI | `0.24.3` (`Cargo.lock`), features `cli` (runtime) and `build` (build-dependency) |
+| UniFFI | `0.32.2` (`Cargo.lock`), features `cli` (runtime) and `build` (build-dependency) |
 | Interface | proc macros in `rust/ffi/src/lib.rs`; `rust/ffi/src/dyapp.udl` holds only `namespace dyapp {};` |
 | Scaffolding | `rust/ffi/build.rs` runs `uniffi::generate_scaffolding("src/dyapp.udl")` |
+| Generator | `rust/ffi/src/bin/uniffi-bindgen.rs`, a bin target calling `uniffi::uniffi_bindgen_main()`, so the generator always matches the crate's UniFFI |
 
-`cargo build` produces only the native library and Rust scaffolding; it never
-writes Swift or Kotlin.
+## Generating bindings
 
-## Generator
-
-The workspace has **no `uniffi-bindgen` binary target**, so
-`cargo run --bin uniffi-bindgen …` (used by `tools/build-scripts/build-uniffi.sh`)
-fails. The `cli` feature only provides
-`uniffi::uniffi_bindgen_main()`; a binary must call it. The version must match
-the crate's UniFFI (0.32; the check below was done with 0.24.3, before the upgrade).
-
-The 0.24.3 generator supported `--language kotlin | swift | python | ruby`.
-There is **no `c` language** and no `--check` flag.
-
-### Reproduction used to check this page
-
-Run in the `dyapp:network-test` image (offline, crates pre-fetched) with a
-throwaway crate outside the repository:
-
-```toml
-# Cargo.toml of a scratch crate
-[package]
-name = "ub"
-version = "0.1.0"
-edition = "2021"
-[workspace]
-[dependencies]
-uniffi = { version = "=0.24.3", features = ["cli"] }
-```
-
-```rust
-// src/main.rs
-fn main() { uniffi::uniffi_bindgen_main() }
-```
+The generator runs in library mode: it reads the interface from a host build of
+`libdyapp_ffi.so`. Build the whole package first: `cargo run` of the bin alone
+does not produce the cdylib.
 
 ```bash
-cargo build -p dyapp-ffi --offline          # from a copy of the repo
-# from the repository root, with the scratch binary:
-ub generate rust/ffi/src/dyapp.udl \
-   --lib-file target/debug/libdyapp_ffi.so \
-   --language swift --out-dir out/swift
+cargo build --locked -p dyapp-ffi
+target/debug/uniffi-bindgen generate \
+    --library target/debug/libdyapp_ffi.so --language kotlin --no-format --out-dir <dir>
 ```
 
-Result for both `swift` and `kotlin`:
+Kotlin output is one file, `uniffi/dyapp/dyapp.kt` (package `uniffi.dyapp`). It
+loads `libdyapp_ffi.so` through JNA (`net.java.dev.jna:jna`, the `@aar` artifact
+on Android) and throws `CoreException` for a failed call.
 
-```text
-unsupported error type Some(String)
-```
+## Android
 
-Library mode (`ub generate --library target/debug/libdyapp_ffi.so …`)
-fails before that with `cargo metadata returned 0 packages for crate name
-dyapp_ffi`.
+`android/app/build.gradle` wires both steps into the app build; outputs land in
+`android/app/build/rust`:
+
+| Task | Runs | Output |
+|------|------|--------|
+| `cargoHost`, `uniffiBindgen` | the two commands above | `build/rust/kotlin`, added as a Kotlin source directory |
+| `cargoNdkDebug` / `cargoNdkRelease` | `cargo ndk --platform 31 -t arm64-v8a -t x86_64 -o … build --locked -p dyapp-ffi --lib` (`--release` for release; debug builds drop debuginfo) | `build/rust/<buildType>/jniLibs/<abi>/libdyapp_ffi.so` |
+
+Both run before `preDebugBuild`/`preReleaseBuild`. They need Rust 1.99.0 with the
+`aarch64-linux-android` and `x86_64-linux-android` targets, `cargo-ndk` 4.1.2,
+the NDK (`ANDROID_NDK_HOME`, r29 `29.0.14206865`) and a host C toolchain;
+`docker/Dockerfile.android-test` installs all of them. The property
+`-Pdyapp.prebuiltRust` skips both tasks and reuses `build/rust` from an earlier
+build; the Docker unit-test run uses it because it has no Rust sources.
+
+## Apple (planned)
+
+Not implemented: `staticlib` in `crate-type`, per-platform static libraries,
+`xcodebuild -create-xcframework` (device, simulator and macOS slices; `lipo`
+only merges architectures of the same platform), Swift bindings
+(`dyapp.swift`, `dyappFFI.h`, `dyappFFI.modulemap`) and an Xcode build phase.
+
+## Linux, Windows
+
+The Tauri apps call the core crates directly and need no bindings. UniFFI does
+not produce a public C API; the native symbols are UniFFI-internal (see the
+contract).
 
 ## `tools/build-scripts/build-uniffi.sh`
 
 **Do not treat a successful run as proof of bindings.** The script:
 
-- calls `cargo run --bin uniffi-bindgen generate src/ffi.rs` (nonexistent
-  binary and input), catches the failure, prints a warning and continues;
+- calls `cargo run --bin uniffi-bindgen generate src/ffi.rs` (wrong input),
+  catches the failure, prints a warning and continues;
 - overwrites `tools/xcode-uniffi-build.sh`, `android/build-uniffi.gradle` and a
   root `UNIFFI_SETUP.md` with templates that build the nonexistent package
   `dyapp-core` and describe a nonexistent `src/ffi.rs` API with UniFFI 0.25;
@@ -84,34 +77,12 @@ dyapp_ffi`.
   checking for any output (read from the source; the script was not run, since
   it writes into the repository).
 
-It should exit nonzero when bindings are missing and never write sources.
-
-## Pipeline (target)
-
-None of these stages exist yet. Each produces build outputs, never committed
-sources:
-
-| Stage | Input | Output | Tool |
-|-------|-------|--------|------|
-| 1. Native library | `rust/ffi` | `.so` per Android ABI; `libdyapp_ffi.a` for iOS/macOS once `staticlib` is added to `crate-type` (today only `cdylib`/`rlib`) | `cargo build -p dyapp-ffi --release --target <triple>` (needs the target installed; Android also needs an NDK linker) |
-| 2. Language bindings | UDL + built library | Swift: `dyapp.swift`, `dyappFFI.h`, `dyappFFI.modulemap`; Kotlin: `uniffi/dyapp/dyapp.kt` (names are UniFFI 0.24 defaults for namespace `dyapp`, unverified here because stage 2 fails) | version-matched `uniffi-bindgen` |
-| 3a. Apple package | static libs per platform + header/modulemap | `.xcframework`, wrapped in a Swift package | `lipo` only to merge architectures of the **same** platform (e.g. simulator arm64+x86_64); `xcodebuild -create-xcframework` to combine device, simulator and macOS slices |
-| 3b. Android package | `.so` per ABI + Kotlin file | AAR with `jniLibs/<abi>/libdyapp_ffi.so`; Kotlin bindings need JNA at runtime | Gradle (Android library module) |
-| 3c. C / .NET | — | needs a hand-written `extern "C"` layer; UniFFI's C symbols are internal and the Swift `…FFI.h` shim is not a public C API | not designed |
-
-Drift validation (target): regenerate in CI and fail if the output differs from
-the expected checksum, or compile a consumer against freshly generated
-bindings. Nothing does this today.
+It should exit nonzero when bindings are missing and never write sources. The
+Android build does not use it.
 
 ## What is not implemented
 
-- A bindgen binary or pinned external generator.
-- Typed `uniffi::Error` errors (prerequisite for any generated output).
-- Committed or CI-checked generated bindings; there is no drift check.
-- Packaging: XCFramework/Swift package, Android AAR/`jniLibs`, and a C header
-  for Linux/Windows. UniFFI does not produce a public C API; the native symbols
-  are UniFFI-internal (see the contract).
-- Xcode build phase or Gradle task. `tools/xcode-uniffi-build.sh` and
-  `android/build-uniffi.gradle` do not exist.
-- FFI tests in Swift or Kotlin. Existing "bridge" classes are stubs that do not
-  call Rust.
+- Swift bindings and Apple packaging (above).
+- A drift check of the generated interface; the Android UI test only calls it.
+- FFI tests beyond the Android UI test, which checks the peer ID from
+  `generate_peer_id`.

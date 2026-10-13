@@ -5,7 +5,8 @@
 > crate, do not create an XCFramework or AAR, and do not produce a web module.
 > Cross-compiled crates are not an installable application. This page states
 > what each script actually does; the packaging that is missing is in
-> [FFI bindings → Pipeline (target)](ffi-bindings.md#pipeline-target).
+> [FFI bindings](ffi-bindings.md). The Android app does not use these scripts: its Gradle
+> build compiles the core itself ([FFI bindings → Android](ffi-bindings.md#android)).
 >
 > Everything below is read from the script sources. The scripts were **not
 > run** for this page: they need Xcode or the Android NDK, and they write files
@@ -64,8 +65,7 @@ is not built. The final "✅ iOS build complete!" is printed regardless.
 
 The four crates are rlib-only, so there are no `.so` files to copy, and
 `verify_build` is expected to fail. The generated CMake file imports
-`libdyapp_core.so`, which no crate produces. `android/app/.../RustBridge.kt`
-has `System.loadLibrary` commented out, and no JNI symbols such as
+`libdyapp_core.so`, which no crate produces, and no JNI symbols such as
 `nativeInitialize` exist on the Rust side.
 
 ### `build-uniffi.sh`
@@ -79,15 +79,14 @@ Not implemented. This is the order in which the gaps block each other:
 
 1. Build `dyapp-ffi` instead of the four internal crates. Add
    `staticlib` to its `crate-type` for iOS.
-2. Generate bindings ([blocked](ffi-bindings.md) by `Result<_, String>` errors).
+2. Generate Swift bindings (Kotlin is done, see [FFI bindings](ffi-bindings.md)).
 3. **iOS:** package per-platform static libraries with
    `xcodebuild -create-xcframework`. Device (`aarch64-apple-ios`) and simulator
    (`aarch64-apple-ios-sim` + `x86_64-apple-ios`, merged with `lipo` because they
    are the same platform) are separate slices. `lipo` alone cannot create an
    XCFramework.
-4. **Android:** `cargo ndk` for the FFI `cdylib`, put the `.so` files in
-   `jniLibs/<abi>`, and ship the generated Kotlin with a JNA dependency. UniFFI
-   does not use hand-written JNI functions.
+4. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
+   x86_64, Kotlin bindings, JNA); release signing and an AAB are not.
 5. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
    crates can target `wasm32` (sockets and `sled` storage cannot). There is no
    such crate today.

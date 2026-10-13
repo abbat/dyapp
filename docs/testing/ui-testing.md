@@ -13,10 +13,11 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 ## What is tested
 
 The UI suites test the **platform shells** (`android/`, `ios/`, `macos/`, `linux/`, `windows/`).
-Only the desktop shell links part of the Rust core (`rust/identity`, see
+The Android and desktop shells call the Rust core for one value, a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
-identity and close; the desktop smoke also checks the peer ID the core returns.
+identity and close; the Android UI test and the desktop smoke also check that the peer ID is 64
+lowercase hex characters.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|

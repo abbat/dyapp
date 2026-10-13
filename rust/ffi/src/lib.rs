@@ -33,7 +33,7 @@ impl MessageService {
         Arc::new(Self {})
     }
 
-    pub fn send_message(&self, peer_id: String, text: String) -> Result<String, String> {
+    pub fn send_message(&self, peer_id: String, text: String) -> Result<String, CoreError> {
         let _ = text;
         Ok(format!("Message queued to {}", peer_id))
     }
@@ -52,9 +52,9 @@ pub struct VideoSession {
 #[uniffi::export]
 impl VideoSession {
     #[uniffi::constructor]
-    pub fn new() -> Result<Arc<Self>, String> {
+    pub fn new() -> Result<Arc<Self>, CoreError> {
         let runtime = tokio::runtime::Runtime::new()
-            .map_err(|e| format!("Failed to create runtime: {}", e))?;
+            .map_err(|e| CoreError::Failed(format!("Failed to create runtime: {}", e)))?;
 
         Ok(Arc::new(Self {
             inner: Arc::new(RwLock::new(None)),
@@ -62,78 +62,98 @@ impl VideoSession {
         }))
     }
 
-    pub fn create_offer(&self) -> Result<String, String> {
+    pub fn create_offer(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
             let mut session_guard = self.inner.write().await;
             if session_guard.is_none() {
                 *session_guard = Some(
                     RustVideoSession::new()
                         .await
-                        .map_err(|error| error.to_string())?,
+                        .map_err(|error| CoreError::Failed(error.to_string()))?,
                 );
             }
 
             if let Some(session) = session_guard.as_ref() {
-                session.create_offer().await.map_err(|e| format!("{:?}", e))
+                session
+                    .create_offer()
+                    .await
+                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
             } else {
-                Err("Failed to create session".to_string())
+                Err(CoreError::Failed("Failed to create session".to_string()))
             }
         })
     }
 
-    pub fn receive_answer(&self, sdp: String) -> Result<(), String> {
+    pub fn receive_answer(&self, sdp: String) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
             if let Some(session) = session_guard.as_ref() {
                 session
                     .receive_answer(sdp)
                     .await
-                    .map_err(|e| format!("{:?}", e))
+                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
             } else {
-                Err("Session not initialized".to_string())
+                Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
     }
 
-    pub fn mark_offer_sent(&self) -> Result<(), String> {
+    pub fn mark_offer_sent(&self) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
             if let Some(session) = session_guard.as_ref() {
                 session
                     .mark_offer_sent()
                     .await
-                    .map_err(|e| format!("{:?}", e))
+                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
             } else {
-                Err("Session not initialized".to_string())
+                Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
     }
 
-    pub fn close(&self) -> Result<(), String> {
+    pub fn end_session(&self) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
             if let Some(session) = session_guard.as_ref() {
-                session.close().await.map_err(|e| format!("{:?}", e))
+                session
+                    .close()
+                    .await
+                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
             } else {
-                Err("Session not initialized".to_string())
+                Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
     }
 
-    pub fn get_session_id(&self) -> Result<String, String> {
+    pub fn get_session_id(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
             if let Some(session) = session_guard.as_ref() {
                 Ok(session.session_id().to_string())
             } else {
-                Err("Session not initialized".to_string())
+                Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
     }
 }
 
+/// Error returned by every fallible export; the message may echo internal state.
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[uniffi(flat_error)]
+pub enum CoreError {
+    #[error("{0}")]
+    Failed(String),
+}
+
+/// Peer ID of a freshly generated identity key; the key is dropped, nothing is stored.
 #[uniffi::export]
-pub fn generate_keypair() -> Result<KeyPair, String> {
+pub fn generate_peer_id() -> String {
+    dyapp_identity::Identity::generate().peer_id()
+}
+
+#[uniffi::export]
+pub fn generate_keypair() -> Result<KeyPair, CoreError> {
     Ok(KeyPair {
         public_key: "placeholder".to_string(),
         secret_key: "placeholder".to_string(),
@@ -156,7 +176,7 @@ impl ProfileService {
         Arc::new(Self {})
     }
 
-    pub fn get_profile(&self) -> Result<UserProfile, String> {
+    pub fn get_profile(&self) -> Result<UserProfile, CoreError> {
         Ok(UserProfile {
             user_id: "placeholder".to_string(),
             age: 0,
@@ -164,7 +184,7 @@ impl ProfileService {
         })
     }
 
-    pub fn update_field(&self, field: String, value: String) -> Result<(), String> {
+    pub fn update_field(&self, field: String, value: String) -> Result<(), CoreError> {
         let _ = (field, value);
         Ok(())
     }

@@ -9,20 +9,19 @@ All platforms use **UniFFI-generated FFI bindings** from the Rust core. Each pla
 ## FFI Boundary
 
 The exported surface, error model, ownership and threading are defined in
-[FFI Contract](ffi-design.md). Today no platform links the Rust library, and no
-Swift/Kotlin bindings can be generated (UniFFI 0.24.3 rejected the
-`Result<T, String>` errors). No wrapper code exists.
+[FFI Contract](ffi-design.md). Only the Android app links the Rust library,
+through generated Kotlin bindings; Swift bindings are planned.
 
 The code samples and directory trees below show the **target** wrapper API and
-layout. None of it exists yet.
+layout. Apart from Android's one-call `RustBridge.kt`, none of it exists yet.
 
 ## iOS (Swift)
 
 ### Setup
 
-Not available yet: bindings cannot be generated and no XCFramework is built.
-The target pipeline (native library → bindings → XCFramework) is in
-[FFI bindings](../development/ffi-bindings.md#pipeline-target).
+Not available yet: no Swift bindings or XCFramework are built. The planned
+pipeline (native library → bindings → XCFramework) is in
+[FFI bindings](../development/ffi-bindings.md#apple-planned).
 
 ### Integration (target sketch)
 
@@ -54,8 +53,9 @@ platform/ios-swift/
 
 ### Setup
 
-Not available yet: bindings cannot be generated and no AAR is built. See
-[FFI bindings](../development/ffi-bindings.md#pipeline-target).
+The app build compiles `rust/ffi` per ABI and generates the Kotlin bindings; the
+app calls `uniffi.dyapp.generatePeerId()` through `RustBridge.kt`. See
+[FFI bindings](../development/ffi-bindings.md#android). The sketch below is the target API.
 
 ### Integration (target sketch)
 
