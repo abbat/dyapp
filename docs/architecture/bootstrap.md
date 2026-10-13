@@ -140,6 +140,13 @@ The acceptor verifies and bills profile/mailbox writes five token-bucket units, 
 replica key, stores locally only when it holds a key, and sends a signed `replica_put` to each
 other distinct holder. Receivers verify records independently and never forward replica puts.
 
+Regular mailbox/profile fan-out and profile-gap repair share one sender token bucket per
+destination: average 50 write units/s, burst 50. A refused send is dropped without queuing or
+lowering the destination's trust; a local write bypasses the bucket. `replica_dropped` counts
+refused send operations since the preceding hourly status line, and taking the count does not
+refill the bucket. Mailbox repair batches and media writes will use the same budget; their
+integration is planned. A batch will be split into at most 50 envelopes, charged one unit each.
+
 The reply waits for two distinct holders to store. Several replica keys on one node count once.
 An isolated node with no routing peers may acknowledge one local copy; a node with peers must
 confirm two. At most 64 fan-outs are active, each for 10 seconds; excess or timed-out writes answer
@@ -811,7 +818,8 @@ peer ID meeting this node's `network.id_pow_bits`; a missing proof returns `DENI
 before record verification. Eligibility uses transport-ID proof of work; advertised roles do not
 change this check.
 Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
-bad signed records still return `DENIED` and strike. Sender fan-out caps are planned.
+bad signed records still return `DENIED` and strike. Sender caps cover regular mailbox/profile
+fan-out and profile-gap repair; mailbox repair batches and media integration are planned.
 
 **Local peer reputation.** Each non-replica refusal by the peer or IP-group bucket and each `DENIED` reply
 (a bad signature, a replayed or missing mailbox nonce) is a strike against the peer ID. At
@@ -1004,7 +1012,7 @@ There is no health endpoint: `/dyapp/node` `info` answering is the liveness chec
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
 profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
-(`pow_forged`); plus refusals per
+(`pow_forged`), and capped replica sends (`replica_dropped`); plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and

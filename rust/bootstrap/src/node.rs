@@ -4,6 +4,7 @@ use crate::config::{Limits, Role};
 use crate::deny::DenyStore;
 use crate::maintenance::RebuildBudget;
 use crate::media_repair::{Repair as MediaRepair, Schedule as MediaRepairSchedule};
+use crate::rate_limit::PeerRateLimiter;
 use crate::replication::MediaManifestExt;
 use crate::search::SEARCH_TOPICS;
 use crate::service::{
@@ -428,10 +429,44 @@ impl Trust {
 const PROFILE_REPAIR_INTERVAL: Duration = Duration::from_secs(3600);
 const MAX_PROFILE_REPAIRS: usize = 4096;
 
+const REPLICA_UNITS_PER_SECOND: u32 = 50;
+
+/// Shared token bucket per destination; local refusal is not remote misbehaviour.
+struct ReplicaCap {
+    limiter: PeerRateLimiter,
+    dropped: u64,
+}
+
+impl Default for ReplicaCap {
+    fn default() -> Self {
+        Self::new(REPLICA_UNITS_PER_SECOND)
+    }
+}
+
+impl ReplicaCap {
+    fn new(units_per_second: u32) -> Self {
+        Self {
+            limiter: PeerRateLimiter::new(units_per_second),
+            dropped: 0,
+        }
+    }
+
+    fn allow(&mut self, to: &PeerId, units: u32) -> bool {
+        let allowed = self.limiter.check_units(&to.to_string(), units);
+        self.dropped += u64::from(!allowed);
+        allowed
+    }
+
+    fn take_dropped(&mut self) -> u64 {
+        std::mem::take(&mut self.dropped)
+    }
+}
+
 /// Node-to-node replication, ack forwarding and repair.
 #[derive(Default)]
 struct Replicas {
     trust: Trust,
+    cap: ReplicaCap,
     next_put: u64,
     puts: HashMap<u64, PendingPut>,
     mailbox_puts: HashMap<OutboundRequestId, u64>,
@@ -730,6 +765,7 @@ impl Replicas {
             && service
                 .traffic
                 .try_add(request.encoded_len() as u64, SHED_MEDIA)
+            && self.cap.allow(&to, 1)
         {
             Some(swarm.behaviour_mut().profile.send_request(&to, request))
         } else {
@@ -855,6 +891,11 @@ impl Replicas {
                 }
             }
         } else if self.trust.trusted(&to) {
+            if matches!(put.record, PutRecord::Mailbox(_) | PutRecord::Profile(_))
+                && !self.cap.allow(&to, 1)
+            {
+                return;
+            }
             match &put.record {
                 PutRecord::Mailbox(record) => {
                     let request = MailboxRequest {
@@ -2383,7 +2424,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     tracing::warn!(refused, "connections refused by the connection or memory limits");
                     refused = 0;
                 }
-                status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1);
+                status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1, replicas.cap.take_dropped());
                 state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
                 (answered, failed) = (0, 0);
                 if service.search.is_some()
@@ -2438,6 +2479,7 @@ fn status(
     answered: u64,
     failed: u64,
     media_replica_holders: usize,
+    replica_dropped: u64,
 ) {
     let bytes = |usage: crate::Result<(u64, u64)>| usage.map_or(0, |(used, _)| used);
     let media = service
@@ -2454,6 +2496,7 @@ fn status(
         messages_bytes = bytes(service.store.messages_usage()),
         media_bytes = media,
         media_replica_holders,
+        replica_dropped,
         pow_checks,
         pow_forged,
         "node status"
@@ -2481,6 +2524,110 @@ fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replica_cap_has_atomic_burst_separate_destinations_and_refill() {
+        let mut cap = ReplicaCap::default();
+        let (a, b) = (PeerId::random(), PeerId::random());
+        assert!(!cap.allow(&a, 51), "a batch cannot exceed the burst");
+        assert!(cap.allow(&a, 50), "failed charge must spend nothing");
+        assert!(!cap.allow(&a, 50));
+        assert!(cap.allow(&b, 50));
+        assert_eq!(cap.take_dropped(), 2);
+        assert_eq!(cap.take_dropped(), 0);
+        assert!(
+            !cap.allow(&a, 50),
+            "taking counts must not refill the bucket"
+        );
+        std::thread::sleep(Duration::from_millis(1100));
+        assert!(cap.allow(&a, 50));
+        assert_eq!(cap.take_dropped(), 1);
+    }
+
+    #[tokio::test]
+    async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
+        let dir = format!("/tmp/ai/test-replica-cap-{}", uuid::Uuid::new_v4());
+        let mut config = crate::config::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+        let mut swarm = swarm(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &service.config.roles,
+        )
+        .unwrap();
+        let mut replicas = Replicas {
+            cap: ReplicaCap::new(2),
+            ..Default::default()
+        };
+        let watchers = Watchers::default();
+        let remote = PeerId::random();
+        replicas.trust.add(remote, 5);
+        let owner = dyapp_identity::Identity::generate();
+        let record = dyapp_profile::Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(&owner);
+        replicas.puts.insert(
+            0,
+            PendingPut::new(PutRecord::Mailbox(SignedRecord::default()), None, false),
+        );
+        replicas.puts.insert(
+            1,
+            PendingPut::new(PutRecord::Profile(record.clone()), None, false),
+        );
+        replicas.put_holder(&mut swarm, &service, &watchers, 0, remote);
+        assert_eq!(replicas.mailbox_puts.len(), 1);
+        let missing = proto::ProfileResponse {
+            status: Status::NotFound.into(),
+            ..Default::default()
+        };
+        assert!(replicas
+            .profile_gap(&mut swarm, &service, remote, &record, &missing)
+            .is_some());
+        replicas.put_holder(&mut swarm, &service, &watchers, 1, remote);
+        assert!(replicas.profile_puts.is_empty());
+        assert!(replicas.puts[&1].sent.contains(&remote));
+        assert!(replicas.puts[&1].stored.is_empty());
+        assert_eq!(replicas.puts[&1].result(Instant::now()), None);
+        assert_eq!(
+            replicas.puts[&1].result(replicas.puts[&1].deadline),
+            Some(Status::Full)
+        );
+        assert_eq!(replicas.cap.take_dropped(), 1);
+        replicas.put_holder(&mut swarm, &service, &watchers, 1, remote);
+        assert_eq!(
+            replicas.cap.take_dropped(),
+            0,
+            "duplicate holder is not retried"
+        );
+        assert_eq!(replicas.trust.score[&remote], 5);
+        assert!(replicas.media_queue.is_empty());
+        let other = PeerId::random();
+        replicas.put_holder(&mut swarm, &service, &watchers, 1, other);
+        assert_eq!(replicas.profile_puts.len(), 1);
+        // A negative trust score prevents sends before the cap is charged.
+        let untrusted = PeerId::random();
+        replicas.trust.add(untrusted, -1);
+        replicas.put_holder(&mut swarm, &service, &watchers, 1, untrusted);
+        assert!(replicas.cap.allow(&untrusted, 2));
+
+        let me = *swarm.local_peer_id();
+        assert!(replicas.cap.allow(&me, 2));
+        replicas.put_holder(&mut swarm, &service, &watchers, 1, me);
+        assert!(replicas.puts[&1].stored.contains(&me));
+        assert_eq!(
+            replicas.cap.take_dropped(),
+            0,
+            "local write bypasses exhausted cap"
+        );
+        assert!(service
+            .store
+            .get_profile(&owner.peer_id())
+            .unwrap()
+            .is_some());
+    }
 
     #[tokio::test]
     async fn media_inventory_requires_near_trusted_peers_and_budget() {
