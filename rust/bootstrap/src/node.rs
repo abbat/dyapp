@@ -457,6 +457,14 @@ impl ReplicaCap {
         allowed
     }
 
+    fn allow_media(&mut self, to: &PeerId, request: &proto::media_request::Request) -> bool {
+        !matches!(
+            request,
+            proto::media_request::Request::ReplicaPut(_)
+                | proto::media_request::Request::ShardPut(_)
+        ) || self.allow(to, 1)
+    }
+
     fn take_dropped(&mut self) -> u64 {
         std::mem::take(&mut self.dropped)
     }
@@ -1065,9 +1073,10 @@ impl Replicas {
                 };
                 let local = to == *swarm.local_peer_id();
                 let allowed = local
-                    || service
+                    || (service
                         .traffic
-                        .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA);
+                        .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA)
+                        && self.cap.allow_media(&to, request.request.as_ref().unwrap()));
                 if local || !allowed {
                     let response = if local {
                         match request.request.as_ref().unwrap() {
@@ -1134,6 +1143,9 @@ impl Replicas {
                     })
                 }
             };
+            if !self.cap.allow_media(&to, &request) {
+                continue;
+            }
             let prepaid = match &request {
                 proto::media_request::Request::ReplicaPut(r) => r.data.len(),
                 proto::media_request::Request::ShardPut(p) => p.data.len(),
@@ -2532,6 +2544,93 @@ fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
+        let dir = format!("/tmp/ai/test-media-cap-{}", uuid::Uuid::new_v4());
+        let mut config = crate::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+        service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
+        let mut swarm = swarm(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &service.config.roles,
+        )
+        .unwrap();
+        let owner = dyapp_identity::Identity::generate();
+        let data = vec![1];
+        let keep = proto::MediaKeep {
+            version: 1,
+            hashes: vec![dyapp_identity::sha256(&data).to_vec()],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        let record = proto::MediaReplicaPut {
+            data,
+            authorization: Some(proto::media_replica_put::Authorization::Keep(
+                owner.sign(dyapp_identity::Domain::MediaKeep, keep.encode_to_vec()),
+            )),
+            ..Default::default()
+        };
+        let mut replicas = Replicas {
+            cap: ReplicaCap::new(1),
+            ..Default::default()
+        };
+        let to = PeerId::random();
+        replicas.trust.add(to, 3);
+        assert!(replicas.cap.allow(&to, 1));
+        replicas.puts.insert(
+            1,
+            PendingPut::new(PutRecord::Media(record.clone()), None, false),
+        );
+        replicas.puts.insert(
+            2,
+            PendingPut::new(
+                PutRecord::Sharded(record, vec![vec![1]].into()),
+                None,
+                false,
+            ),
+        );
+        replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, to);
+        replicas.shard_holder(&mut swarm, &service, 2, 0, to);
+        assert_eq!(replicas.media_queue.len(), 2);
+        replicas.drain_media(&mut swarm, &service);
+        assert!(replicas.media_queue.is_empty());
+        assert!(replicas.media_outgoing.is_empty());
+        assert!(replicas.media_puts.is_empty());
+        assert!(replicas.shard_puts.is_empty());
+        assert!(replicas.puts[&1].stored.is_empty());
+        assert!(replicas.puts[&2].shard_stored.is_empty());
+        assert_eq!(replicas.puts[&1].result(Instant::now()), None);
+        assert_eq!(
+            replicas.puts[&1].result(replicas.puts[&1].deadline),
+            Some(Status::Full)
+        );
+        assert_eq!(replicas.cap.take_dropped(), 2);
+        assert_eq!(replicas.trust.score[&to], 3);
+        for read in [
+            proto::media_request::Request::Get(proto::GetMedia::default()),
+            proto::media_request::Request::ShardGet(proto::MediaShardGet::default()),
+            proto::media_request::Request::Have(proto::MediaHave::default()),
+        ] {
+            assert!(replicas.cap.allow_media(&to, &read));
+        }
+        assert_eq!(replicas.cap.take_dropped(), 0);
+        let me = *swarm.local_peer_id();
+        assert!(replicas.cap.allow(&me, 1));
+        replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, me);
+        assert!(replicas.puts[&1].stored.contains(&me));
+        assert_eq!(replicas.cap.take_dropped(), 0);
+        assert_eq!(
+            service
+                .media
+                .as_ref()
+                .unwrap()
+                .get(&keep.hashes[0])
+                .unwrap(),
+            Some(vec![1])
+        );
+    }
 
     async fn receive_repair_batch(
         sender: &mut Swarm<Behaviour>,

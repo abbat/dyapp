@@ -683,6 +683,48 @@ mod tests {
     }
 
     #[test]
+    fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() {
+        let (origin, target) = (service(), service());
+        let (me, remote) = (PeerId::random(), PeerId::random());
+        let data = b"capped repair".to_vec();
+        let hash = dyapp_identity::sha256(&data).to_vec();
+        let record = proof(hash.clone());
+        origin.store_media(&replica(&record, data, None)).unwrap();
+        let mut repair = Repair::new(&origin, record, vec![hash.clone()], Instant::now()).unwrap();
+        for index in repair.keys(0) {
+            repair.holder(0, index, Some(remote));
+        }
+        repair.advance(&origin, me);
+        for (to, job) in repair.queued() {
+            assert_eq!(to, remote);
+            let (request, _) = repair.request(job).unwrap();
+            let Some(proto::media_request::Request::Have(have)) = request.request else {
+                panic!("expected inventory");
+            };
+            repair.response(job, Some(target.media_inventory(&have.items).unwrap()));
+        }
+        repair.advance(&origin, me);
+        let writes = repair.queued();
+        assert_eq!(writes.len(), 1);
+        let (_, job) = writes[0];
+        assert!(matches!(
+            repair.request(job).unwrap().0.request,
+            Some(proto::media_request::Request::ReplicaPut(_))
+        ));
+        // The node uses None for a local cap refusal, without a network failure callback.
+        repair.response(job, None);
+        assert!(!repair.has_job(job));
+        repair.advance(&origin, me);
+        assert!(repair.done());
+        assert!(repair.queued().is_empty());
+        assert_eq!(
+            repair.results().collect::<Vec<_>>(),
+            vec![(hash.as_slice(), false)]
+        );
+        assert_eq!(target.media.as_ref().unwrap().get(&hash).unwrap(), None);
+    }
+
+    #[test]
     fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
         let (origin, target) = (service(), service());
         let (me, remote) = (PeerId::random(), PeerId::random());

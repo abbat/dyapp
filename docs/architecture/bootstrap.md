@@ -140,15 +140,17 @@ The acceptor verifies and bills profile/mailbox writes five token-bucket units, 
 replica key, stores locally only when it holds a key, and sends a signed `replica_put` to each
 other distinct holder. Receivers verify records independently and never forward replica puts.
 
-Regular mailbox/profile fan-out and profile-gap repair share one sender token bucket per
-destination: average 50 write units/s, burst 50. A refused send is dropped without queuing or
-lowering the destination's trust; a local write bypasses the bucket. `replica_dropped` counts
+Mailbox/profile fan-out, profile-gap repair and media replica/shard writes (including repair)
+share one sender token bucket per destination: average 50 write units/s, burst 50. A refused send
+is dropped without queuing or lowering the destination's trust; a local write bypasses the bucket. `replica_dropped` counts
 refused send operations since the preceding hourly status line, and taking the count does not
 refill the bucket. Mailbox repair uses the same budget, splitting at most 1 MiB of selected
 records into batches of at most 50 envelopes and charging one unit per envelope. Only admitted
 batches are sent; refused batches are dropped and counted once per batch. Subsequent inventories
-omit envelopes already received, so larger gaps can make progress after refill. Media integration
-is planned.
+omit envelopes already received, so larger gaps can make progress after refill. Media writes
+cost one unit each when a stream slot is available; refused ready jobs leave the media queue
+without an outbound request or remote-failure penalty. Media reads and inventories use no
+replica units; local media writes bypass the cap.
 
 The reply waits for two distinct holders to store. Several replica keys on one node count once.
 An isolated node with no routing peers may acknowledge one local copy; a node with peers must
@@ -822,7 +824,7 @@ before record verification. Eligibility uses transport-ID proof of work; adverti
 change this check.
 Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
 bad signed records still return `DENIED` and strike. Sender caps cover regular mailbox/profile
-fan-out, profile-gap repair and mailbox repair batches; media integration is planned.
+fan-out, profile-gap repair, mailbox repair batches and media replica/shard writes, including repair.
 
 **Local peer reputation.** Each non-replica refusal by the peer or IP-group bucket and each `DENIED` reply
 (a bad signature, a replayed or missing mailbox nonce) is a strike against the peer ID. At
