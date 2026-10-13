@@ -32,7 +32,8 @@ run them, and whoever controls them can control the network.
 - Withholding, eclipse and Sybil attacks remain possible; the measures that make them harder
   are in [ADR 0008](0008-sybil-and-eclipse-defences.md).
 - A node that withholds data is detected only by asking other replicas; a key handed out by a
-  node protects against that node only after out-of-band verification, which is not designed yet.
+  node protects against that node only after out-of-band verification
+  ([ADR 0004](0004-identity-keys.md)), which is not implemented yet.
   Threat classes and their status: [Threat Model](../security/threat-model.md#threat-classes).
 - Node operators see public profiles and routing metadata by design
   ([ADR 0003](0003-public-signed-profile-encrypted-private-data.md)).

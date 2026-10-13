@@ -61,6 +61,8 @@ These are goals. Nothing here is a current guarantee.
 - Attachments: a fresh random 256-bit key per attachment, AES-256-GCM per chunk with the chunk
   index as the nonce, key and blob hashes inside the MLS message; the release secret is 32 random
   bytes.
+- KeyPackages are used only for devices in the newest known profile and expire after 30 days;
+  the client keeps the highest profile version seen per contact and asks several replicas.
 - Only ciphersuite 0x0001 is accepted; a KeyPackage or Welcome with any other is rejected.
   Nothing is negotiated: a new algorithm comes with a new domain label or ciphersuite and a dated
   cut-over. 0x0001 is not post-quantum; a hybrid suite is planned once openmls ships an audited

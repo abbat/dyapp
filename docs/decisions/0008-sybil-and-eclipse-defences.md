@@ -52,8 +52,10 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
    valid signatures, observed uptime), trusts a peer with storage only after it has seen it for a
    set time (default 1 hour, configurable), and tests a peer before evicting it from a full
    bucket. There is no global reputation and no network-wide vote.
-6. **First nodes** come from configured seeds (multiaddrs or DNS seeds via `/dnsaddr`) and anchor
-   nodes: the last 2-3 outbound peers, saved and dialled first after a restart. The default seed
+6. **First nodes** come from configured seeds (`host:port`, the host may be a DNS name) and
+   anchor nodes: the last 2-3 outbound peers, saved and dialled first after a restart. A seed may
+   carry its peer ID, and a node with another key is refused, so a hijacked DNS name or seed host
+   cannot pass for the seed; the client's built-in list always carries peer IDs. The default seed
    list is empty until independent operators run public seeds. The client asks several seeds at
    once.
 7. **Store protection.** The bootstrap store keeps a separate pool per data type, so likes and view

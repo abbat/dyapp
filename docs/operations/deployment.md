@@ -166,7 +166,9 @@ reachable. Until then the node is a DHT client: it queries the DHT but serves no
 `seeds` are `host:port` too, and the host may also be a DNS name: `seed.example.org:7070`,
 `[2001:db8::7]:7070`. The node dials each seed over TCP and QUIC; a name with several A/AAAA
 records is tried address by address. No peer ID is needed: the node learns it on connect, so
-it does not check that a seed is the node the operator meant. That only decides the first
+it does not check that a seed is the node the operator meant: whoever controls the DNS name or
+the host controls those first peers. Pinning a seed to its peer ID (`host:port/<peer ID>`) is
+planned. That only decides the first
 peers: the routing table then fills from the network, with the
 [Sybil and eclipse defences](../decisions/0008-sybil-and-eclipse-defences.md). Libp2p
 multiaddrs (`/dnsaddr/...`, `/ip6/.../p2p/...`) are refused at startup.

@@ -62,7 +62,7 @@ defences already in place. Nodes are untrusted by design
 |---|-------|--------|------------|--------|
 | 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Certain: payload crypto is a stub | ❌ Planned |
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, CodeQL |
-| 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification is not designed |
+| 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial ([privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ❌ Planned |
@@ -106,6 +106,29 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 | Harvest now, decrypt later | X25519 in 0x0001, Ed25519 | High × medium | Accept for now: neither is post-quantum; a hybrid MLS ciphersuite is planned when openmls ships an audited one |
 | Algorithm migration opens a downgrade | Domain labels, ciphersuite | High × low | Accept: a new algorithm comes with a new label or suite and a dated cut-over, never by negotiation; negotiation in general is class 20 |
 | Timing leaks in crypto code | Signatures, AEAD | Medium × low | Out of scope here: class 21 |
+
+### MITM and key verification
+
+Class 3 in detail. A Peer ID is the hash of the identity key
+([ADR 0004](../decisions/0004-identity-keys.md)), so whoever holds a contact's Peer ID can check
+the identity key without trusting any node. The identity key never changes: a new key is a new
+Peer ID and a new contact. What a node can still substitute is everything below the identity key.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A node hands out another identity key for a known Peer ID | Profile fetch | Critical × low | Accept: the key must hash to the Peer ID and sign the profile |
+| A cloned profile (another key, the same name and photo) in search | Search results | High × high | Out of scope here: spoofing, class 5 |
+| A node serves an older signed profile that still lists a removed or stolen device | Profile fetch, any replica | Critical × medium | Fix: the client keeps the highest profile version seen per contact, asks several replicas and takes the highest |
+| A node serves a KeyPackage of a removed device, or a stale one | KeyPackage fetch | Critical × medium | Fix: a KeyPackage is used only for a device in the newest known profile, and expires after 30 days; devices republish on their heartbeat |
+| A node hands one single-use KeyPackage to several senders | KeyPackage fetch | Low × medium | Accept: the second Welcome fails, which is denial of service; the last-resort KeyPackage weakens forward secrecy of the first message ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) |
+| A stolen identity key adds an attacker's device to the profile | Profile publish | Critical × low | Fix: every chat with the contact shows "new device"; a verified contact loses its verified mark until checked again |
+| First contact through a node, not out of band | Search, forwarded contact | Critical × medium | Fix: the safety number or QR code is derived from both Peer IDs; until it is compared the contact is shown as unverified |
+| A node in the middle of linking a new device | Device linking | Critical × medium | Fix: keys and history travel only over a channel keyed by a secret in the QR code; nodes carry ciphertext only |
+| Swapped DTLS fingerprints in call signaling, a TURN relay in the middle | Video signaling, TURN | Critical × medium | Fix: offer and answer travel only as MLS messages; TURN sees SRTP only ([Video](../architecture/video.md)) |
+| Another node answers on a peer's address | libp2p dial | High × low | Accept: TLS and Noise bind the connection to the libp2p key; a dial with a peer ID refuses any other key |
+| A hijacked DNS name, domain or seed host: a new node or client sees only the attacker's nodes (eclipse) | Seeds, DNS | Critical × medium | Fix: a seed may carry a peer ID and a node with another key is refused; the client's built-in list always does; the client asks several seeds and cross-checks with disjoint lookups |
+| A fake node answers every protocol | Client to node | High × medium | Accept: it cannot forge signed or MLS data, only withhold it, which is class 8 |
+| Lookalike Peer IDs, names or domains | Contact list, links | High × medium | Out of scope here: classes 5 and 10 |
 
 ## Out of scope
 

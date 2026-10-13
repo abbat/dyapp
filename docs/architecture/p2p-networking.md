@@ -73,7 +73,9 @@ Not implemented yet:
 ## Planned
 
 - **First nodes:** a list built into the client and DNS seed names from several operators; the
-  client asks several seeds at once and keeps the peer cache described above.
+  client asks several seeds at once and keeps the peer cache described above. Each built-in seed
+  carries its peer ID, and a `dyappd` seed may (`host:port/<peer ID>`); a node with another key
+  is refused ([threat model](../security/threat-model.md#mitm-and-key-verification)).
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
   relay itself. Video uses its own WebRTC stack ([Video](video.md)).
 - **Addresses:** link-local addresses are not announced. A host whose IPv6 does not work is
