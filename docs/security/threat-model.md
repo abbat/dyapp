@@ -70,7 +70,7 @@ defences already in place. Nodes are untrusted by design
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps; write tokens, per-group connection limits and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
-| 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ❌ Planned |
+| 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ❌ Planned |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list |
@@ -279,6 +279,26 @@ class 5 ([above](#spoofing)).
 | A lookalike commit author | Git history | Medium × low | Fix: signed commits on a protected `main` ([above](#ai-agents-and-developer-tooling)) |
 | A lookalike repository, organisation, domain or store listing ships a fake app | GitHub, DNS, app stores | High × medium | Fix: one page lists the official names (repository, application ID, signing key fingerprints, domain); before the first public release the domain, its obvious lookalikes, the store IDs and the crate and pub names are reserved; releases are signed (class 2) |
 | Lookalike links in docs and issues | Markdown | Low × low | Accept: the format-character check and review |
+
+### Social engineering and operations
+
+Class 11 in detail. In place: a seed may be pinned to its peer ID and the client's built-in list
+always is, and that list stays empty until independent operators run public seeds
+([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)); an operator's deny list refuses
+users on that node only, and lists received from other nodes are stored, never applied. There is
+no security policy and no private channel for vulnerability reports.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Phishing or takeover of a maintainer account (GitHub, crates.io, pub, app stores, domain registrar) | Email, fake login pages, SIM swap, account recovery | High × medium | Fix: hardware-key 2FA on every account, recovery codes kept offline, tokens scoped and with an expiry; signed commits on a protected `main` ([above](#ai-agents-and-developer-tooling)) |
+| A fake release or a fake download page | GitHub, lookalike domains, stores | High × medium | Fix: signed builds for every platform (class 2) and the official names page with key fingerprints ([above](#homoglyphs-and-unicode-tricks)) |
+| A fake "official" seed or node list | Websites, chats | Medium × medium | Accept: seeds are pinned to peer IDs and the built-in list is empty; once public seeds exist, the official names page lists them |
+| Fake support channels ask users for keys or codes | Social networks, chats | Medium × medium | Fix: the official names page lists the support channels and says that the project never asks for keys, codes or backups |
+| Forged abuse reports push an operator to deny-list a user | Email to operators | Medium × medium | Accept: one node's refusal; the user goes to other nodes. Fix: the deployment guide tells operators to check a report before acting and never to apply received lists unread |
+| Someone posing as a maintainer asks an operator for node keys or logs | Email, chats | High × low | Fix: the security policy says that maintainers never ask for keys or logs; the deployment guide links it |
+| A vulnerability is published before a fix | Public issues | High × medium | Fix: a security policy with GitHub private vulnerability reporting |
+| A scammer in a chat asks for a code or sends a lookalike link | Messages | Medium × medium | Fix: messages from people who are not contacts are marked and land in a separate requests list; links show their full host, IDN hosts in punycode. Verification of contacts is class 5 ([above](#spoofing)) |
+| Signing keys, the domain and the accounts are held by one person | Maintainer loss | Medium × low | Accept: the code is open and can be forked; a fork gets new names and keys |
 
 ## Out of scope
 
