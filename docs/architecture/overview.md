@@ -47,7 +47,7 @@ node, and there is no WebRTC signaling channel.
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | `RustBridge.kt` has `System.loadLibrary` commented out |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
-| Desktop | `desktop/main.rs` | skeleton | Bare Tauri shell with a `ui_test_result` command |
+| Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
 | Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` is served for `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`, not `/dyapp/mailbox-push`; no gRPC/tonic |
 

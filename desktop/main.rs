@@ -1,4 +1,11 @@
+use dyapp_identity::Identity;
 use tauri::webview::PageLoadEvent;
+
+/// Peer ID of this run's identity; the key is not persisted yet.
+#[tauri::command]
+fn peer_id(identity: tauri::State<Identity>) -> String {
+    identity.peer_id()
+}
 
 #[tauri::command]
 fn ui_test_result(app: tauri::AppHandle, window: tauri::Window, passed: bool) {
@@ -14,7 +21,8 @@ fn main() {
     let test_mode = std::env::args().any(|arg| arg == "--ui-test");
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ui_test_result])
+        .manage(Identity::generate())
+        .invoke_handler(tauri::generate_handler![peer_id, ui_test_result])
         .on_page_load(move |webview, payload| {
             if test_mode && payload.event() == PageLoadEvent::Finished {
                 if break_ui {

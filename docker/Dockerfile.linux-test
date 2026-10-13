@@ -12,6 +12,9 @@ ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
     RAYON_NUM_THREADS=4
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 WORKDIR /app
+COPY Cargo.toml ./
+COPY rust rust
+COPY proto proto
 COPY linux linux
 COPY desktop desktop
 RUN cargo fetch --locked --manifest-path linux/Cargo.toml && \

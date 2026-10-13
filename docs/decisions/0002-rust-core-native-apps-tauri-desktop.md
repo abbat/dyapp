@@ -14,11 +14,12 @@ surface, native Swift and Kotlin projects, and Tauri projects for the desktop sh
 ## Decision
 
 All protocol and data logic lives in one Rust core, split into crates by feature. Platforms call it
-through FFI (UniFFI for Swift and Kotlin). UI: SwiftUI on iOS and macOS, Jetpack Compose on
+through FFI (UniFFI for Swift and Kotlin); the Tauri shell calls the core crates directly from
+`#[tauri::command]` functions. UI: SwiftUI on iOS and macOS, Jetpack Compose on
 Android, Tauri on Linux and Windows.
 
 ## Consequences
 
 - One protocol implementation to test; the FFI boundary becomes the main integration risk (no app
-  links the core yet).
+  only the desktop shell links a core crate so far).
 - Desktop UI is web technology inside Tauri; macOS stays native.

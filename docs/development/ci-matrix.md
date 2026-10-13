@@ -41,12 +41,13 @@ layer cache, each image exists twice, in the buildx builder and, after `--load`,
 
 ### What the platform jobs do **not** validate
 
-Every platform app is an empty shell. None of them links the Rust core:
+The mobile apps are empty shells, and the desktop apps link only `rust/identity`:
 
 - `android/.../RustBridge.kt`: `System.loadLibrary` is a commented-out TODO.
 - `ios/DYApp/RustBridge.swift`: init/shutdown are TODOs; the XcodeGen specs have no Rust
   framework dependency.
-- `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) with no dependency on workspace crates.
+- `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
+  `rust/identity` only, to show a peer ID.
 
 So a green matrix means "the shells build and their own tests pass". It does **not** mean an
 APK/AAB, `.app` or installer containing the Rust core was built, signed or tested. No job

@@ -12,11 +12,11 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 
 ## What is tested
 
-The UI suites test the **empty platform shells** (`android/`, `ios/`, `macos/`, `linux/`,
-`windows/`). None of them links the Rust core (see
+The UI suites test the **platform shells** (`android/`, `ios/`, `macos/`, `linux/`, `windows/`).
+Only the desktop shell links part of the Rust core (`rust/identity`, see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
-identity and close.
+identity and close; the desktop smoke also checks the peer ID the core returns.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
@@ -35,7 +35,8 @@ test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-bina
 `INSTRUMENTATION_CODE: -1`, because `am instrument` exits 0 on failures), `check-apple-results.py`
 (xcresult summary: ≥3 total, 0 failed, 0 skipped, result `Passed`). The desktop smoke runs the app
 twice: `--ui-test` must print `UI_SMOKE_PASS` and exit 0; `--ui-test --break-ui` must print
-`UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected).
+`UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected). A pass also
+needs the page to show the peer ID from the `peer_id` command as 64 lowercase hex characters.
 
 ## Local Docker suites (Android, Linux)
 
