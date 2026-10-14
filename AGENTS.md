@@ -8,6 +8,8 @@ All project documentation lives in [docs/](docs/README.md); keep new docs there.
   before starting work.
 - **Beads (`bd`):** if a local beads database is set up (`bd` is on `PATH` and `.beads/` exists),
   follow [docs/agents/beads.md](docs/agents/beads.md). Otherwise work is tracked in GitHub Issues.
+- **Quorum:** when asked to take part in a quorum (multi-model cross-review), follow
+  [docs/agents/quorum.md](docs/agents/quorum.md).
 
 ## Build & Test
 

@@ -35,11 +35,13 @@ Use only the labels below; add a new one only after the user agrees, and list it
 | `security` | Vulnerabilities, cryptography, privacy, access control. |
 | `perf` | Speed, memory, battery, network or storage use. |
 | `linux`, `windows`, `ios`, `macos`, `android` | The platform the work touches. |
+| `quorum` | Part of a multi-model cross-review; see [quorum.md](quorum.md). |
 
 Each bead gets one kind label (`feature`, `bug`, `infra`, `audit`, `design` or `docs`), plus
 `security` and/or `perf` when the work is about that, plus every platform label it touches. Work
 that is platform-independent (the shared Rust crates, CI as a whole) gets no platform label.
-There is no `test` label: tests are `infra`.
+There is no `test` label: tests are `infra`. `quorum` is added on top of the kind label and is
+inherited by every bead under the quorum epic.
 
 ## Everyday commands
 

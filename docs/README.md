@@ -51,6 +51,7 @@ it are entry points that tools discover by path (see
 - [Project guide for agents](agents/project.md): layout, commands, limits, rules
 - [lean-ctx](agents/lean-ctx.md): optional MCP context tools
 - [Beads (`bd`)](agents/beads.md): optional local issue tracker
+- [Quorum](agents/quorum.md): multi-model cross-review of design, decisions and code
 
 Not written yet: API reference, contributing guide, performance.
 
