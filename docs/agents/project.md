@@ -17,6 +17,7 @@ automatically. This page holds the details. **The user's own instructions (globa
 | `proto/`, `tools/` | Protobuf schemas; arch-lint, codegen and helper tooling. |
 | `docker/` | Test-image Dockerfiles and `compose.{dev,network,ui}.yml` (project name `dyapp`, build context is the repo root; `.dockerignore` stays at the root). |
 | `scripts/` | Check scripts behind every Makefile target and CI job (`rust-check.sh`, `linux-test.sh`, `ci-setup.sh` for CI runners). |
+| `.agents/skills/` | Project skills shared by every agent (Codex, OpenCode); `.claude/skills/` symlinks to them for Claude Code. Edit the copy here, not a global one. |
 
 Architecture: [overview](../architecture/overview.md), [FFI design](../architecture/ffi-design.md).
 

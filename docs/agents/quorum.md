@@ -11,9 +11,10 @@ page is the procedure.
 
 ## Required tools
 
-Every participant needs `bd`, lean-ctx ([lean-ctx.md](lean-ctx.md)) and the `analyse` skill.
-If any of them is missing, **stop and tell the human**; do not substitute your own method.
-Keeping the skill identical across harnesses is the human's job.
+Every participant needs `bd`, lean-ctx ([lean-ctx.md](lean-ctx.md)) and the `analyse` skill
+from this repository (`.agents/skills/analyse/`, also `.claude/skills/analyse/`), so every model
+uses the same version. If any of them is missing, **stop and tell the human**; do not substitute
+your own method or a different copy of the skill.
 
 The lean-ctx indexes (graph, BM25, code graph, semantic) must be fresh: the human rebuilds them
 for the charter's snapshot commit. Participants never rebuild them; see

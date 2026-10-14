@@ -12,8 +12,9 @@ the quorum epic's ID.
 
 - Pick the question, at least two participants and the synthesizer (the strongest model you
   have).
-- Make sure every participant's harness has `bd`, lean-ctx and the `analyse` skill, the same
-  version for all. A model without them stops and tells you.
+- Make sure every participant's harness has `bd` and lean-ctx and loads the `analyse` skill from
+  the repository (`.agents/skills/analyse/`, symlinked as `.claude/skills/analyse/`), not a
+  global copy. A model without them stops and tells you.
 - Check out the commit to review with a clean tree, then build fresh lean-ctx indexes for it and
   check that graph, BM25, code graph and semantic are all ready:
 
