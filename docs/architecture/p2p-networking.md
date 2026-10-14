@@ -10,6 +10,16 @@ mode, connection limits, stream cap, memory limit and search role; `dyappd` uses
 `build_swarm` and `build_limited_swarm` retain their existing interfaces and delegate to it.
 Default options use `Mode::Auto`, no connection or memory cap, 100 streams and no search role.
 
+`SwarmOptions.incoming_groups` optionally enables `IncomingGroupLimits::new(max, ipv4_prefix,
+ipv6_prefix)`: a positive connection budget shared by pending and established incoming
+connections. It groups the first remote IP by masks 0..32 and 0..128; IPv4-mapped IPv6 stays
+IPv6, matching the node's existing grouping. Non-IP endpoints share one bounded group.
+A slot survives handshake completion and is released on handshake failure, a refusal by any
+composed behaviour, or connection close. Outgoing connections are exempt.
+`IncomingGroupGuard::take_denied()` reads and resets refusals. Legacy constructors leave
+this optional guard disabled; **bootstrap configuration wiring and real TCP acceptance remain
+planned**. Deterministic callback tests verify the shared budget and cleanup.
+
 | Part | Setting |
 |------|---------|
 | Transports | QUIC (`/udp/<port>/quic-v1`) and TCP with Noise and Yamux |

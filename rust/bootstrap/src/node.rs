@@ -63,6 +63,7 @@ pub fn swarm(
             max_streams: limits.max_streams,
             max_memory_bytes: memory,
             search,
+            incoming_groups: None,
         },
     )
 }

@@ -23,6 +23,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 mod dial_filter;
 pub use dial_filter::{DenyDial, DialFilter};
 pub use ipnet::IpNet;
+mod incoming_groups;
+pub use incoming_groups::{IncomingGroupGuard, IncomingGroupLimits};
 mod protocols;
 pub use protocols::Protocols;
 mod wire;
@@ -101,6 +103,7 @@ pub type InventoryBehaviour =
 pub struct Behaviour {
     pub limits: connection_limits::Behaviour,
     pub memory: memory_connection_limits::Behaviour,
+    pub incoming_groups: Toggle<IncomingGroupGuard>,
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
     pub identify: identify::Behaviour,
     pub autonat: autonat::Behaviour,
@@ -259,6 +262,8 @@ pub struct SwarmOptions {
     pub max_memory_bytes: usize,
     /// Serve search protocols and gossip.
     pub search: bool,
+    /// Optional incoming-only connection budget per remote IP group.
+    pub incoming_groups: Option<IncomingGroupLimits>,
 }
 
 impl Default for SwarmOptions {
@@ -269,6 +274,7 @@ impl Default for SwarmOptions {
             max_streams: 100,
             max_memory_bytes: usize::MAX,
             search: false,
+            incoming_groups: None,
         }
     }
 }
@@ -302,6 +308,7 @@ pub fn build_limited_swarm(
             max_streams,
             max_memory_bytes,
             search,
+            incoming_groups: None,
         },
     )
 }
@@ -317,6 +324,7 @@ pub fn build_configured_swarm(
         max_streams,
         max_memory_bytes,
         search,
+        incoming_groups,
     } = options;
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -385,6 +393,7 @@ pub fn build_configured_swarm(
             Behaviour {
                 limits: connection_limits::Behaviour::new(limits),
                 memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),
+                incoming_groups: incoming_groups.map(IncomingGroupGuard::new).into(),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
                     IDENTIFY_PROTOCOL.into(),
