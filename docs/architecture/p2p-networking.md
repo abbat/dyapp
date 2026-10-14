@@ -139,8 +139,11 @@ and `dyappd` still select public protocols. Real TCP tests cover named/public in
 and two different names: node/profile/mailbox/media/search/inventory negotiation fails with
 `UnsupportedProtocols`, and gossip reports `GossipsubNotSupported`; no application payload is
 counted. Noise/TCP connections and common libp2p identify/AutoNAT protocols can still operate.
-**Binary network selection, storage guards and disconnecting foreign identify peers remain
-planned**; namespace IDs alone do not implement those policies.
+`network.name` is parsed from file/env/CLI and validated with the same rules, defaulting to
+empty. Binary activation and storage binding are still staged: `dyappd` explicitly refuses
+nonempty names for start and keygen, preventing a silent fallback to public. **Storage guards,
+actual binary selection and disconnecting foreign identify peers remain planned**; namespace
+IDs alone do not implement those policies.
 
 ## Planned
 

@@ -262,6 +262,8 @@ impl Turn {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Network {
+    /// Exact network name; empty selects public. Binary activation awaits storage binding.
+    pub name: String,
     /// Node-ID proof of work required of the own key and of every routed peer. Lower it on test
     /// networks only: nodes of the public network do not route a key made with fewer bits.
     pub id_pow_bits: u32,
@@ -281,6 +283,7 @@ pub struct Network {
 impl Default for Network {
     fn default() -> Self {
         Self {
+            name: String::new(),
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
             distinct_outbound_groups: true,
             storage_trust_minutes: 60,
@@ -632,6 +635,7 @@ impl NodeConfig {
                 "maintenance.interval_minutes, vacuum_pages and io_mb_per_s must be at least 1"
             );
         }
+        dyapp_p2p_net::Protocols::new(&self.network.name)?;
         check_writable(&self.storage.dir)
     }
 
@@ -906,6 +910,45 @@ mod tests {
         let defaults = toml::Value::try_from(NodeConfig::default()).unwrap();
         assert_eq!(toml::Value::Table(table), defaults);
         assert!(options_help().contains("--limits.max-connections"));
+    }
+
+    #[test]
+    fn network_names_validate_without_normalization_and_load_as_literal_strings() {
+        let mut config = NodeConfig::default();
+        config.storage.dir = temp_dir();
+        assert!(config.network.name.is_empty());
+        for name in ["", "City", "city", "a b", "00123", &"a".repeat(64)] {
+            config.network.name = name.into();
+            config.validate().unwrap();
+            assert_eq!(config.network.name, name);
+        }
+        for name in [" a", "a ", "a\nb", "сеть", &"a".repeat(65)] {
+            config.network.name = name.into();
+            let expected = dyapp_p2p_net::Protocols::new(name).unwrap_err().to_string();
+            assert_eq!(config.validate().unwrap_err().to_string(), expected);
+        }
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("network.toml");
+        fs::write(&path, "[network]\nname = \"file\"\n").unwrap();
+        let load = |env: Vec<(String, String)>, options: Vec<(String, String)>| {
+            let (config, ignored) = NodeConfig::load(Some(&path), env, &options).unwrap();
+            assert!(ignored.is_empty());
+            config.network.name
+        };
+        assert_eq!(load(vec![], vec![]), "file");
+        assert_eq!(
+            load(vec![("DYAPPD__NETWORK__NAME".into(), "env".into())], vec![]),
+            "env"
+        );
+        assert_eq!(
+            load(
+                vec![("DYAPPD__NETWORK__NAME".into(), "env".into())],
+                vec![("network.name".into(), "00123".into())]
+            ),
+            "00123"
+        );
+        assert!(options_help().contains("--network.name"));
     }
 
     #[test]

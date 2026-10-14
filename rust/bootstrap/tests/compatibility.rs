@@ -140,6 +140,35 @@ fn message_v1_json_remains_compatible() {
 }
 
 #[test]
+fn staged_named_binary_refuses_start_and_keygen_before_creating_an_identity() {
+    for keygen in [false, true] {
+        let dir = format!("/tmp/ai/test-network-staged-{}", uuid::Uuid::new_v4());
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"));
+        command
+            .env_clear()
+            .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+            .args([
+                "--storage.dir",
+                &dir,
+                "--network.name",
+                "city",
+                "--network.id-pow-bits",
+                "0",
+            ]);
+        if keygen {
+            command.arg("keygen");
+        }
+        let output = command.output().unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("named networks are not enabled in this build"));
+        assert!(!std::path::Path::new(&dir).join("node.key").exists());
+        assert!(!std::path::Path::new(&dir).join("node.id").exists());
+    }
+}
+
+#[test]
 fn documented_config_and_deny_diagnostics_remain_stable() {
     let config_error = NodeConfig::load(
         None,

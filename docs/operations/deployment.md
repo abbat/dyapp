@@ -236,6 +236,7 @@ vacuum_pages = 2048    # free 4 KiB pages released per store and run
 io_mb_per_s = 16       # shared background rebuild writes in MiB/s; must be > 0
 
 [network]
+name = ""             # public; nonempty binary names are refused until storage binding is enabled
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
 distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-bucket
 storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
