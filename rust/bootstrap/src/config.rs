@@ -7,11 +7,12 @@ use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use zeroize::Zeroizing;
 
 pub const ENV_PREFIX: &str = "DYAPPD__";
 
@@ -619,31 +620,57 @@ impl NodeConfig {
             );
         }
         let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
+        let encoded = Zeroizing::new(keypair.to_protobuf_encoding()?);
         OpenOptions::new()
             .write(true)
             .create_new(true)
             .mode(0o600)
             .open(&key_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
-            .write_all(&keypair.to_protobuf_encoding()?)?;
+            .write_all(&encoded)?;
         let peer_id = keypair.public().to_peer_id();
         fs::write(&id_path, peer_id.to_string())?;
         Ok(peer_id)
     }
 
     /// Loads the node key made by [`Self::keygen`]. A key that does not belong to the stored data
-    /// or lacks the proof of work is refused.
+    /// or lacks the proof of work is refused, as is a key with group/other permission bits.
     pub fn node_key(&self) -> anyhow::Result<Keypair> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
-        let keypair = match fs::read(&key_path) {
-            Ok(bytes) => Keypair::from_protobuf_encoding(&bytes)
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
-                "{} is missing: run `dyappd keygen` once and keep the key safe",
-                key_path.display()
-            ),
-            Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
+        let keypair = {
+            let mut file = match File::open(&key_path) {
+                Ok(file) => file,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
+                    "{} is missing: run `dyappd keygen` once and keep the key safe",
+                    key_path.display()
+                ),
+                Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
+            };
+            // Check the opened file, not a path that could be replaced before reading.
+            let metadata = file
+                .metadata()
+                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
+            if metadata.mode() & 0o077 != 0 {
+                anyhow::bail!(
+                    "{} has group/other permissions: use chmod 600 before starting",
+                    key_path.display()
+                );
+            }
+            // Read into one fixed allocation: growing a Vec could leave freed secret copies.
+            let mut bytes = Zeroizing::new(vec![0; usize::try_from(metadata.len())?]);
+            file.read_exact(&mut bytes)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
+            let mut extra = Zeroizing::new([0u8; 1]);
+            if file
+                .read(&mut extra[..])
+                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
+                != 0
+            {
+                anyhow::bail!("{} grew while reading; retry startup", key_path.display());
+            }
+            Keypair::from_protobuf_encoding(&bytes)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
         };
         let peer_id = keypair.public().to_peer_id();
         if !dyapp_p2p_net::id_has_pow(&peer_id, self.network.id_pow_bits) {
@@ -946,6 +973,28 @@ mod tests {
         assert!(NodeConfig::load(None, roles, &[]).is_err());
         let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
         assert!(NodeConfig::load(None, removed, &[]).is_err());
+    }
+
+    #[test]
+    fn node_key_refuses_group_other_bits_without_repairing_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let mut config = NodeConfig::default();
+        config.storage.dir = temp_dir();
+        config.network.id_pow_bits = 4;
+        config.validate().unwrap();
+        let peer = config.keygen().unwrap();
+        let path = config.storage.key_path();
+        for mode in [0o640, 0o604, 0o601] {
+            fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+            let error = config.node_key().unwrap_err().to_string();
+            assert!(error.contains("chmod 600"), "{error}");
+            assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, mode);
+        }
+        for mode in [0o600, 0o400] {
+            fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+            assert_eq!(config.node_key().unwrap().public().to_peer_id(), peer);
+            assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, mode);
+        }
     }
 
     #[test]

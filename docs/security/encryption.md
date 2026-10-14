@@ -95,8 +95,12 @@ Rules:
   of another.
 - A secret key crosses FFI only into the platform keystore's wrap and unwrap calls, never as a
   string, and copies are wiped after use (planned).
-- `dyappd` refuses a `node.key` readable by group or others (planned); back it up with
-  `umask 077` ([backups](../operations/deployment.md#backups)).
+- `dyappd` checks the opened `node.key` and refuses any group/other permission bits, with a
+  `chmod 600` hint; it leaves permissions unchanged. Mode 0600 is created by keygen, and 0400
+  also loads. Back it up with `umask 077` ([backups](../operations/deployment.md#backups)).
+- Owned node-key serialization and loading buffers use `Zeroizing` and are cleared on drop.
+  Loading uses one fixed allocation rather than a growing buffer. This covers those owned
+  buffers, not every compiler, upstream-library or OS copy.
 - MLS state at rest relies on platform data protection (iOS file protection, Android
   credential-encrypted storage) and desktop disk encryption; flash may keep deleted epoch
   secrets.

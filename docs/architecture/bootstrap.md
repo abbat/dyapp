@@ -452,7 +452,9 @@ mapped yet.
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
   fails at startup ([Configuration](#configuration)).
 - The node key is a libp2p key file (mode 0600) in the data directory, made once by
-  `dyappd keygen` with the node-ID proof of work; the node does not start without it.
+  `dyappd keygen` with the node-ID proof of work; the node does not start without it or with
+  group/other permission bits. It checks the opened file and suggests `chmod 600` without
+  changing permissions. Owned serialization/loading buffers are cleared on drop.
   A new key is a new node: the node refuses a key that does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
 - Settings live in the config file and the systemd unit and need a restart. The `dyappd` binary

@@ -261,8 +261,12 @@ the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCP
 data already exists. Turn `network.distinct_outbound_groups` off only on a network whose
 nodes share a /16, such as a LAN or a test network. The node does not start without the key,
 with a key that lacks the proof of work or with one that does not match `node.id`: a new key is
-a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe and readable only by its owner; a node that refuses a key
-readable by group or others is planned. Expired envelopes are deleted every hour. Logging uses `RUST_LOG`
+a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe and readable
+only by its owner. Startup checks the opened file and refuses any group/other permission bits
+with a `chmod 600` hint; it does not change the file's permissions. Keygen creates mode 0600;
+owner-read-only mode 0400 also loads. Owned serialization/loading buffers are cleared on drop.
+A key file that changes size during loading fails startup. Expired envelopes are deleted every
+hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
 
 ### Development quick start
