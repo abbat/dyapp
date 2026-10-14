@@ -29,6 +29,8 @@ pub use guard_dial::GuardDial;
 pub use ipnet::IpNet;
 mod incoming_groups;
 pub use incoming_groups::{IncomingGroupGuard, IncomingGroupLimits};
+mod pow_gate;
+pub use pow_gate::PowGate;
 mod protocols;
 pub use protocols::Protocols;
 mod wire;

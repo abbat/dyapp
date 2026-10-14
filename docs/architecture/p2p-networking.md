@@ -125,13 +125,16 @@ The IP policy refuses 0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.
 192.168/16, 198.18/15 and 224/3; IPv6 unspecified/loopback/multicast, fc00::/7, fe80::/10 and
 64:ff9b::/96. Mapped IPv4 follows its IPv4 policy. These are the specified ranges, not a complete
 IANA global-unicast classifier. Missing-IP addresses pass; disabled mode bypasses IP and group
-checks. The separate peer-proof gate is planned and is not disabled by this switch.
+checks. This switch does not disable the separate peer-proof gate.
 `GuardDial::new(inner, guard)` implements the attempt lifetime around one combined transport.
 A policy refusal returns `MultiaddrNotSupported` without calling the inner dial; immediate and
 future errors record one failure, while completion or dropping an unpolled/pending future frees
 its slot once. Listening, listener removal and inbound events are delegated unchanged.
-**Placement below DNS, peer-proof admission, node wiring and hourly `throttled_dials` reporting
-remain planned**; current builders do not yet enforce this guard.
+`PowGate::new(guard)` refuses pending outbound attempts whose known peer ID lacks the current
+node-ID proof of work and adds to the shared refusal count. Unknown peer IDs pass; inbound and
+established connections are unchanged. It contributes no extra dial addresses or swarm actions.
+**Placement below DNS, node wiring of both guards and hourly `throttled_dials` reporting
+remain planned**; current builders do not yet enforce these guards.
 
 ## Protocol namespaces
 
