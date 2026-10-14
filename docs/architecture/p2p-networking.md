@@ -28,8 +28,11 @@ The unit test starts a server on QUIC loopback and checks that a client adds it 
 table.
 
 **Joining.** The transports resolve DNS names, so a `/dns/` address dials like an IP one and
-tries the resolved addresses in turn. `dyappd` takes `host:port` seeds and dials each over
-`/tcp/<port>` and `/udp/<port>/quic-v1`, without a peer ID. `join` dials every seed and adds
+tries the resolved addresses in turn. `dyappd` takes `host:port` or `host:port/<peer ID>` seeds
+and dials each over `/tcp/<port>` and `/udp/<port>/quic-v1`. An optional peer ID appends
+`/p2p/<id>` to both addresses and rejects a different transport key; mismatches are logged at
+warn. Plain seeds still learn the ID on connect. Bad peer IDs and raw multiaddrs are refused at
+startup. `join` dials every seed and adds
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
 own. `known_peers` lists the routing table for the cache. `dyappd` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store

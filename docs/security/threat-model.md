@@ -62,7 +62,7 @@ defences already in place. Nodes are untrusted by design
 |---|-------|--------|------------|--------|
 | 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Certain: payload crypto is a stub | ❌ Planned |
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
-| 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated; key verification and seed pinning are planned ([below](#mitm-and-key-verification)) |
+| 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated and node seeds can pin peer IDs; client key verification and a pinned built-in seed list are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals; sealed sender, padding and relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; text rules, local names and checked search results are planned ([below](#spoofing)) |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
@@ -126,7 +126,7 @@ Peer ID and a new contact. What a node can still substitute is everything below 
 | A node in the middle of linking a new device | Device linking | Critical × medium | Fix: keys and history travel only over a channel keyed by a secret in the QR code; nodes carry ciphertext only |
 | Swapped DTLS fingerprints in call signaling, a TURN relay in the middle | Video signaling, TURN | Critical × medium | Fix: offer and answer travel only as MLS messages; TURN sees SRTP only ([Video](../architecture/video.md)) |
 | Another node answers on a peer's address | libp2p dial | High × low | Accept: TLS and Noise bind the connection to the libp2p key; a dial with a peer ID refuses any other key |
-| A hijacked DNS name, domain or seed host: a new node or client sees only the attacker's nodes (eclipse) | Seeds, DNS | Critical × medium | Fix: a seed may carry a peer ID and a node with another key is refused; the client's built-in list always does; the client asks several seeds and cross-checks with disjoint lookups |
+| A hijacked DNS name, domain or seed host: a new node or client sees only the attacker's nodes (eclipse) | Seeds, DNS | Critical × medium | ⚠️ Partial: node seeds accept `host:port/<peer ID>` and refuse another key; plain seeds remain unpinned. A pinned built-in client list, asking several seeds and cross-checking disjoint lookups are planned |
 | A fake node answers every protocol | Client to node | High × medium | Accept: it cannot forge signed or MLS data, only withhold it, which is class 8 |
 | Lookalike Peer IDs, names or domains | Contact list, links | High × medium | Out of scope here: classes 5 and 10 |
 

@@ -19,7 +19,7 @@
 
 # Running nodes to join the network through on the first start. A host may be a DNS name.
 # Later starts also dial the peers remembered in storage.dir, so seeds are only a way in.
-# seeds = []                     # e.g. ["seed.example.org:7070", "[2001:db8::7]:7070"]
+# seeds = []                     # host:port or host:port/<peer-id>; IP or DNS host
 
 # --- Roles -------------------------------------------------------------------------------------
 # What the node serves; list several to combine them. "media", "turn" and "search" do not

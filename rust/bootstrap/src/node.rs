@@ -23,7 +23,7 @@ use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{
     Event, Message, OutboundFailure, OutboundRequestId, ResponseChannel,
 };
-use libp2p::swarm::{ConnectionId, ListenError, SwarmEvent};
+use libp2p::swarm::{ConnectionId, DialError, ListenError, SwarmEvent};
 use libp2p::{gossipsub, identify, kad};
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
@@ -2271,6 +2271,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     if search_unannounced && search_query.is_none() {
                         let key = kad::RecordKey::new(&SEARCH_KEY);
                         search_query = swarm.behaviour_mut().kad.start_providing(key).ok();
+                    }
+                }
+                SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                    if matches!(error, DialError::WrongPeerId { .. }) {
+                        tracing::warn!(?peer_id, %error, "outbound peer ID mismatch; connection refused");
                     }
                 }
                 SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {

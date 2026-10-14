@@ -163,13 +163,14 @@ identify, and the address they see the node from becomes external once AutoNAT c
 reachable. Until then the node is a DHT client: it queries the DHT but serves no part of it. Set
 `external` on a host whose public address is known, or behind port forwarding.
 
-`seeds` are `host:port` too, and the host may also be a DNS name: `seed.example.org:7070`,
-`[2001:db8::7]:7070`. The node dials each seed over TCP and QUIC; a name with several A/AAAA
-records is tried address by address. No peer ID is needed: the node learns it on connect, so
-it does not check that a seed is the node the operator meant: whoever controls the DNS name or
-the host controls those first peers. Pinning a seed to its peer ID (`host:port/<peer ID>`) is
-planned. That only decides the first
-peers: the routing table then fills from the network, with the
+`seeds` take `host:port` or `host:port/<peer ID>`; the host may be an IPv4/IPv6 address or a
+DNS name, for example `seed.example.org:7070` or `[2001:db8::7]:7070`. Append the peer ID
+printed by that seed's `dyappd keygen` (also stored in its `node.id`) to pin its transport key.
+Both TCP and QUIC dials carry the pin; a different key is refused and logged at warn.
+A malformed peer ID is rejected at startup. A name with several A/AAAA records is tried
+address by address. Plain `host:port` remains supported and learns the ID on connect, so whoever
+controls that DNS name or host controls those first peers. Pinning only decides the first peers:
+the routing table then fills from the network, with the
 [Sybil and eclipse defences](../decisions/0008-sybil-and-eclipse-defences.md). Libp2p
 multiaddrs (`/dnsaddr/...`, `/ip6/.../p2p/...`) are refused at startup.
 
