@@ -138,7 +138,9 @@ nodes. Mailbox replies now report the exact checked signed-envelope payload boun
 puts, local stores and repair batches; a batch ending in `DENIED` keeps that priority and clears
 the size hint. Profile client publish, replica put and local stores also report their checked
 payload bound; send and accept constants are separate and both 1 MiB today.
-**Media/search size hints and search PoW hints remain planned**.
+Search publication reports its local encoded-record size bound and, for insufficient profile
+PoW only, the required difficulty. Gossip and catch-up use a separate fixed 64 KiB accept bound.
+**Media size hints remain planned**.
 Client retries and validation of reported values are also planned.
 
 ### Clock hints

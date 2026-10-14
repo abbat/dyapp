@@ -183,8 +183,13 @@ impl Default for Search {
 
 impl Search {
     pub fn validate(&self) -> anyhow::Result<()> {
-        if self.max_profile_bytes == 0 || self.max_profile_bytes > 1 << 20 {
-            anyhow::bail!("search.max_profile_bytes must be between 1 and 1048576 bytes");
+        if self.max_profile_bytes == 0
+            || self.max_profile_bytes > crate::service::SEARCH_ACCEPT_BYTES
+        {
+            anyhow::bail!(
+                "search.max_profile_bytes must be between 1 and {} bytes",
+                crate::service::SEARCH_ACCEPT_BYTES
+            );
         }
         if self.max_scan_rows == 0 || self.max_bytes == 0 {
             anyhow::bail!("search.max_scan_rows and max_bytes must be at least 1");
@@ -912,7 +917,8 @@ mod tests {
         };
         assert!(search(|_| {}).is_ok());
         assert!(search(|s| s.max_profile_bytes = 0).is_err());
-        assert!(search(|s| s.max_profile_bytes = (1 << 20) + 1).is_err());
+        assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES + 1).is_err());
+        assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES).is_ok());
         assert!(search(|s| s.max_scan_rows = 0).is_err());
         assert!(search(|s| s.topics = vec![16]).is_err());
         assert!(search(|s| s.max_bytes = 0).is_err());

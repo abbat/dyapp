@@ -287,8 +287,8 @@ resent from the sender's retry queue.
   The mesh holds search nodes only, not store nodes or phones. Gossipsub uses its default degree
   (D = 6), a message id of SHA-256 of the message bytes and manual validation before relaying;
   a forged or undecodable message is a strike against the peer that relayed it in the node's own
-  ban score, gossipsub scoring is not used. The largest message is `search.max_profile_bytes`
-  plus overhead.
+  ban score, gossipsub scoring is not used. Gossip accepts signed records up to 64 KiB,
+  plus request-wrapper overhead.
 - **Per-key limits.** At most 1 profile update per 10 min and 2 heartbeats per day per key. The
   entry node answers an excess publish `RATE_LIMITED` with `retry_after` in seconds and never
   drops it silently; gossip relays drop extras silently. The client remembers when it last
@@ -315,9 +315,9 @@ resent from the sender's retry queue.
   node without it serves no protocol. It holds typed columns for every
   `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
-  and (r). A profile larger than `search.max_profile_bytes` (default 64 KiB, at most 1 MiB,
-  reported in `info`) is not indexed; raising the limit later brings such profiles back through
-  heartbeat → `NOT_FOUND` → republish and through inventory. Storage is bounded by
+  and (r). Client publication checks the encoded signed record against `search.max_profile_bytes`
+  (1–65536 bytes, default 64 KiB, reported in `info`). Gossip and inventory catch-up instead
+  accept records up to the fixed 64 KiB network bound, even when the local send limit is lower. Storage is bounded by
   `search.max_bytes`, records and index together, checked on every put; a profile leaves the
   index on a tombstone, under `search.max_bytes` pressure, oldest heartbeat first, or when no
   heartbeat came within `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such
@@ -547,7 +547,9 @@ including repair batches. Client sends use the advertised 100 KiB limit; replica
 uses a separate accept constant, also 100 KiB today. A batch containing a forged envelope still
 answers `DENIED` with no size hint. Profile publish and replica/local stores also return the
 checked payload bound in `TOO_LARGE`: their send/accept constants are separate, both 1 MiB
-today, and node info advertises the send limit. Media/search size hints remain planned.
+today, and node info advertises the send limit. Search publication reports its checked encoded-record
+bound in `max_bytes`; insufficient profile PoW reports `required_pow_bits`, while other invalid
+content does not. Media size hints remain planned.
 The current protocol replies are:
 
 | Protocol | Request | Reply |

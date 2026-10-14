@@ -30,6 +30,8 @@ pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
 const ENVELOPE_ACCEPT_BYTES: usize = MAX_ENVELOPE_BYTES;
 const PROFILE_SEND_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
 const PROFILE_ACCEPT_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
+/// Fixed network record admission; raise before increasing the client-send default.
+pub(crate) const SEARCH_ACCEPT_BYTES: usize = 64 << 10;
 /// Stored bytes per device mailbox.
 pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 /// Envelope bytes per fetch reply, leaving 64 KiB for protobuf framing.
@@ -838,6 +840,8 @@ enum Applied {
     /// A bad signature: a strike for the sender.
     Bad,
     Status(Status),
+    TooLarge(usize),
+    RequiredPow(u32),
     Clock(u64),
     Limited(u64),
     /// The proof of work is not cached: it needs an Argon2 check first.
@@ -911,7 +915,7 @@ impl Service {
         }
         Ok(match request.request {
             Some(search_request::Request::Publish(record)) => {
-                match self.publish_search(&record, true)? {
+                match self.publish_search(&record, true, self.config.search.max_profile_bytes)? {
                     Applied::Pow(check) => Search::Pow(check, record),
                     applied => Search::Reply(self.applied(peer, applied)),
                 }
@@ -974,6 +978,14 @@ impl Service {
                 search_reply(Status::Denied)
             }
             Applied::Status(status) => search_reply(status),
+            Applied::TooLarge(max) => SearchResponse {
+                max_bytes: max as u64,
+                ..search_reply(Status::TooLarge)
+            },
+            Applied::RequiredPow(required_pow_bits) => SearchResponse {
+                required_pow_bits,
+                ..search_reply(Status::Invalid)
+            },
             Applied::Clock(server_time) => SearchResponse {
                 server_time,
                 ..search_reply(Status::Invalid)
@@ -1000,16 +1012,24 @@ impl Service {
         if !ok {
             return Ok(self.applied(peer, Applied::Bad));
         }
-        Ok(self.applied(peer, self.publish_search(record, true)?))
+        Ok(self.applied(
+            peer,
+            self.publish_search(record, true, self.config.search.max_profile_bytes)?,
+        ))
     }
 
     /// `limit = false` (catch-up) skips only the 10-minute update limit.
-    fn publish_search(&self, record: &SignedRecord, limit: bool) -> crate::Result<Applied> {
+    fn publish_search(
+        &self,
+        record: &SignedRecord,
+        limit: bool,
+        max: usize,
+    ) -> crate::Result<Applied> {
         let Some(index) = &self.search else {
             return Ok(Applied::Status(Status::Unsupported));
         };
-        if record.encoded_len() > self.config.search.max_profile_bytes {
-            return Ok(Applied::Status(Status::TooLarge));
+        if record.encoded_len() > max {
+            return Ok(Applied::TooLarge(max));
         }
         let verified = match dyapp_profile::verify(record) {
             Ok(verified) => verified,
@@ -1027,7 +1047,9 @@ impl Service {
         }
         let profile = &verified.profile;
         if profile.pow_bits < self.config.search.min_profile_pow_bits {
-            return Ok(Applied::Status(Status::Invalid));
+            return Ok(Applied::RequiredPow(
+                self.config.search.min_profile_pow_bits,
+            ));
         }
         if !self
             .pow
@@ -1082,7 +1104,9 @@ impl Service {
             return Verdict::Reject;
         };
         let applied = match &request.request {
-            Some(search_request::Request::Publish(record)) => self.publish_search(record, true),
+            Some(search_request::Request::Publish(record)) => {
+                self.publish_search(record, true, SEARCH_ACCEPT_BYTES)
+            }
             Some(search_request::Request::Heartbeat(record)) => self.beat_search(record),
             _ => return Verdict::Reject,
         };
@@ -1100,11 +1124,13 @@ impl Service {
 
     /// Stores a record fetched in catch-up, without the update limit.
     pub fn search_apply(&self, record: &SignedRecord) -> crate::Result<Caught> {
-        Ok(match self.publish_search(record, false)? {
-            Applied::Done => Caught::Stored,
-            Applied::Pow(check) => Caught::Pow(check),
-            _ => Caught::Dropped,
-        })
+        Ok(
+            match self.publish_search(record, false, SEARCH_ACCEPT_BYTES)? {
+                Applied::Done => Caught::Stored,
+                Applied::Pow(check) => Caught::Pow(check),
+                _ => Caught::Dropped,
+            },
+        )
     }
 
     /// `/dyapp/inventory`: the key hashes and versions of one topic, for catch-up.
@@ -2261,6 +2287,103 @@ mod tests {
         search_as(s, &peer("key"), search_request::Request::Query(q)).hits[0]
             .key
             .clone()
+    }
+
+    #[test]
+    fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network() {
+        let mut s = search_service();
+        s.config.search.max_profile_bytes = 4096;
+        s.config.search.min_profile_pow_bits = 0;
+        let owner = Identity::generate();
+        let profile = Profile {
+            version: 1,
+            age: 28,
+            ..Default::default()
+        };
+        let record = padded_profile(&owner, &profile, 8192);
+        let response = search(&s, search_request::Request::Publish(record.clone()));
+        assert_eq!(
+            (
+                response.status,
+                response.max_bytes,
+                response.required_pow_bits
+            ),
+            (i32::from(Status::TooLarge), 4096, 0)
+        );
+        let response = s.search_pow_done(&peer("key"), &record, true).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), 4096)
+        );
+        let wrap = |record| {
+            SearchRequest {
+                request: Some(search_request::Request::Publish(record)),
+            }
+            .encode_to_vec()
+        };
+        assert_eq!(gossip(&s, &wrap(record)), Verdict::Accept);
+        let newer = padded_profile(
+            &owner,
+            &Profile {
+                version: 2,
+                ..profile.clone()
+            },
+            8192,
+        );
+        assert_eq!(s.search_apply(&newer).unwrap(), Caught::Stored);
+        let profile = Profile {
+            version: 3,
+            ..profile
+        };
+        let over = padded_profile(&owner, &profile, SEARCH_ACCEPT_BYTES);
+        assert!(over.encoded_len() > SEARCH_ACCEPT_BYTES);
+        assert_eq!(gossip(&s, &wrap(over.clone())), Verdict::Ignore);
+        assert_eq!(s.search_apply(&over).unwrap(), Caught::Dropped);
+        let overhead = over.encoded_len() - over.payload.len();
+        let exact = padded_profile(&owner, &profile, SEARCH_ACCEPT_BYTES - overhead);
+        assert_eq!(exact.encoded_len(), SEARCH_ACCEPT_BYTES);
+        assert_eq!(s.search_apply(&exact).unwrap(), Caught::Stored);
+    }
+
+    #[test]
+    fn search_pow_hint_is_specific_to_insufficient_difficulty() {
+        let s = search_service();
+        let owner = Identity::generate();
+        let weak = Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(&owner);
+        let response = search(&s, search_request::Request::Publish(weak.clone()));
+        assert_eq!(
+            (
+                response.status,
+                response.required_pow_bits,
+                response.server_time
+            ),
+            (
+                i32::from(Status::Invalid),
+                s.config.search.min_profile_pow_bits,
+                0
+            )
+        );
+        let malformed = Profile::default().sign(&owner);
+        let response = search(&s, search_request::Request::Publish(malformed));
+        assert_eq!(
+            (
+                response.status,
+                response.required_pow_bits,
+                response.max_bytes
+            ),
+            (i32::from(Status::Invalid), 0, 0)
+        );
+        let mut forged = weak;
+        forged.payload.push(0);
+        let response = search(&s, search_request::Request::Publish(forged));
+        assert_eq!(
+            (response.status, response.required_pow_bits),
+            (i32::from(Status::Denied), 0)
+        );
     }
 
     #[test]
