@@ -18,7 +18,8 @@ oversized, interrupted reads and partial/failed writes contribute no completed f
 clones share the permit pool and counters, but never a held permit. Unknown protocols handled
 by this codec use `other`; Kademlia, transport overhead and gossip control traffic are excluded.
 `take()` resets the per-slot incoming/outgoing counters; simultaneous additions belong to this
-or the next interval. Gossip accounting and the hourly `wire_bytes` status field remain planned.
+or the next interval. Bootstrap counts delivered gossip payloads and successful application
+publishes separately under `gossip`, and reports interval counts in the hourly `wire_bytes` field.
 
 `SwarmOptions.incoming_groups` optionally enables `IncomingGroupLimits::new(max, ipv4_prefix,
 ipv6_prefix)`: a positive connection budget shared by pending and established incoming

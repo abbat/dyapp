@@ -6,7 +6,7 @@ use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, mailbox_request, node_request, profile_request, Status};
-use dyapp_p2p_net::{build_swarm, Behaviour, BehaviourEvent, Mode, MAX_CONTROL_MESSAGE_BYTES};
+use dyapp_p2p_net::{Behaviour, BehaviourEvent, Mode, MAX_CONTROL_MESSAGE_BYTES};
 use dyapp_profile::Profile;
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, StreamExt};
 use libp2p::identity::Keypair;
@@ -28,6 +28,12 @@ async fn start_with(change: impl FnOnce(&mut Limits)) -> Multiaddr {
 
 /// Starts a node with its configured media/search stores.
 async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
+    start_config_with_wire(change).await.0
+}
+
+async fn start_config_with_wire(
+    change: impl FnOnce(&mut NodeConfig),
+) -> (Multiaddr, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
@@ -60,8 +66,9 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
             break address;
         }
     };
+    let wire = service.wire.clone();
     tokio::spawn(node::run(swarm, service));
-    addr.with(libp2p::multiaddr::Protocol::P2p(peer))
+    (addr.with(libp2p::multiaddr::Protocol::P2p(peer)), wire)
 }
 
 enum ReplicaRequest {
@@ -212,6 +219,7 @@ async fn replica_peer_and_group_refusals_keep_the_connection_open() {
 struct Client {
     swarm: Swarm<Behaviour>,
     server: PeerId,
+    wire: std::sync::Arc<dyapp_p2p_net::WireBytes>,
 }
 
 impl Client {
@@ -220,7 +228,32 @@ impl Client {
     }
 
     async fn connect_with_key(addr: &Multiaddr, keypair: Keypair) -> Self {
-        let mut swarm = build_swarm(keypair, Mode::Client).unwrap();
+        Self::connect_with_search(addr, keypair, false).await
+    }
+
+    async fn connect_with_search(addr: &Multiaddr, keypair: Keypair, search: bool) -> Self {
+        let wire = std::sync::Arc::new(dyapp_p2p_net::WireBytes::default());
+        let mut swarm = dyapp_p2p_net::build_configured_swarm(
+            keypair,
+            dyapp_p2p_net::SwarmOptions {
+                mode: Mode::Client,
+                search,
+                wire: wire.clone(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        if search {
+            for topic in 0..dyapp_bootstrap::search::SEARCH_TOPICS {
+                swarm
+                    .behaviour_mut()
+                    .gossip
+                    .as_mut()
+                    .unwrap()
+                    .subscribe(&dyapp_p2p_net::search_topic(topic))
+                    .unwrap();
+            }
+        }
         swarm.dial(addr.clone()).unwrap();
         loop {
             if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
@@ -229,6 +262,7 @@ impl Client {
                 return Self {
                     swarm,
                     server: peer_id,
+                    wire,
                 };
             }
         }
@@ -355,6 +389,111 @@ async fn clock_node() -> Multiaddr {
         c.limits.min_free_mb = 0;
     })
     .await
+}
+
+#[tokio::test]
+async fn tcp_exchange_counts_exact_request_and_response_frames() {
+    let (address, wire) = start_config_with_wire(|c| c.limits.requests_per_second = 100).await;
+    let mut client = Client::connect(&address).await;
+    wire.take();
+    client.wire.take();
+    let request = proto::NodeRequest {
+        request: Some(node_request::Request::Info(proto::InfoRequest {})),
+    };
+    let response = client.info().await;
+    let (sent, received) = (request.encoded_len() as u64, response.encoded_len() as u64);
+    let slot = dyapp_p2p_net::WireBytes::protocol_slot(&dyapp_p2p_net::NODE_PROTOCOL);
+    let mut expected = [[0; 2]; 10];
+    expected[slot] = [sent, received];
+    assert_eq!(wire.take().0, expected);
+    expected[slot] = [received, sent];
+    assert_eq!(client.wire.take().0, expected);
+    assert_eq!(wire.take().0, [[0; 2]; 10]);
+    assert_eq!(client.wire.take().0, [[0; 2]; 10]);
+}
+
+#[tokio::test]
+async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
+    let (address, wire) = start_config_with_wire(|c| {
+        c.roles = vec![Role::Store, Role::Search];
+        c.search.min_profile_pow_bits = 0;
+        c.limits.requests_per_second = 1000;
+        c.limits.bytes_per_second = 0;
+        c.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut client = Client::connect_with_search(&address, Keypair::generate_ed25519(), true).await;
+    let owner = Identity::generate();
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let topic = dyapp_p2p_net::search_topic(dyapp_bootstrap::search::topic(&key)).hash();
+    client
+        .wait(|event| match event {
+            BehaviourEvent::Gossip(libp2p::gossipsub::Event::Subscribed {
+                topic: subscribed,
+                ..
+            }) if subscribed == topic => Some(()),
+            _ => None,
+        })
+        .await;
+    let published = client
+        .search(proto::search_request::Request::Publish(
+            Profile {
+                version: 1,
+                ..Default::default()
+            }
+            .sign(&owner),
+        ))
+        .await;
+    assert_eq!(status(published.status), Status::Ok);
+    wire.take();
+    let time = chrono::Utc::now().timestamp().unsigned_abs();
+    let heartbeat = |time| {
+        owner.sign(
+            Domain::Heartbeat,
+            proto::Heartbeat { time, version: 1 }.encode_to_vec(),
+        )
+    };
+    let incoming = proto::SearchRequest {
+        request: Some(proto::search_request::Request::Heartbeat(heartbeat(time))),
+    }
+    .encode_to_vec();
+    client
+        .swarm
+        .behaviour_mut()
+        .gossip
+        .as_mut()
+        .unwrap()
+        .publish(topic, incoming.clone())
+        .unwrap();
+    let counts = tokio::time::timeout(Duration::from_secs(10), async {
+        let mut tick = tokio::time::interval(Duration::from_millis(10));
+        loop {
+            tokio::select! {
+                _ = client.swarm.select_next_some() => {}
+                _ = tick.tick() => {
+                    let counts = wire.take();
+                    if counts.0[dyapp_p2p_net::WireBytes::GOSSIP][0] > 0 { break counts; }
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
+        [incoming.len() as u64, 0]
+    );
+    let request = proto::search_request::Request::Heartbeat(heartbeat(time + 1));
+    let sent = proto::SearchRequest {
+        request: Some(request.clone()),
+    }
+    .encoded_len() as u64;
+    let response = client.search(request).await;
+    assert_eq!(status(response.status), Status::Ok);
+    let counts = wire.take();
+    assert_eq!(counts.0[dyapp_p2p_net::WireBytes::GOSSIP], [0, sent]);
+    let slot = dyapp_p2p_net::WireBytes::protocol_slot(&dyapp_p2p_net::SEARCH_PROTOCOL);
+    assert_eq!(counts.0[slot], [sent, response.encoded_len() as u64]);
 }
 
 #[tokio::test]

@@ -1073,13 +1073,24 @@ There is no health endpoint: `/dyapp/node` `info` answering is the liveness chec
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
 profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
-(`pow_forged`), and capped replica sends (`replica_dropped`); plus refusals per
+(`pow_forged`), capped replica sends (`replica_dropped`), and per-protocol `wire_bytes`; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and
 peers with a trust score. An idle node drains to no pending request and no entry of a closed
 connection; a count that idling does not lower is a leak. `dyappd status` prints what
-the stores hold; there are no HTTP endpoints. See the
+the stores hold; there are no HTTP endpoints.
+
+`wire_bytes` reports protobuf frame bytes since the previous status line as
+`node=in/out profile=in/out mailbox=in/out push=in/out media=in/out search=in/out inventory=in/out digest=in/out gossip=in/out other=in/out`.
+A received frame counts only after successful decoding; a sent frame counts only after a full
+write. Malformed/oversized reads and partial/failed writes are excluded. `digest` is reserved
+but not currently served; unknown protocols count as `other` only when handled by this codec.
+Gossip counts each delivered application payload before validation and each successful local
+publish once, excluding transport fan-out, duplicates suppressed by libp2p, and control traffic.
+Kademlia, identify, AutoNAT, transport overhead and encryption framing are not measured here.
+The per-slot atomic counters reset each interval; the snapshot is not globally atomic and is
+not a cumulative metrics total. See the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 `dyapp-p2p-net` provides `WireBytes` / `WireCounts` for interval payload-byte accounting.

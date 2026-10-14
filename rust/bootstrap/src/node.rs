@@ -184,14 +184,17 @@ fn spread(
     swarm: &mut Swarm<Behaviour>,
     gossip: Option<([u8; 32], Vec<u8>)>,
     response: &SearchResponse,
+    wire: &dyapp_p2p_net::WireBytes,
 ) {
     let (Some((key, bytes)), true) = (gossip, response.status == i32::from(Status::Ok)) else {
         return;
     };
     let topic = search_topic(crate::search::topic(&key));
     if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
-        if let Err(error) = gossip.publish(topic, bytes) {
-            tracing::debug!(%error, "search gossip not sent");
+        let n = bytes.len();
+        match gossip.publish(topic, bytes) {
+            Ok(_) => wire.add(dyapp_p2p_net::WireBytes::GOSSIP, dyapp_p2p_net::Dir::Out, n),
+            Err(error) => tracing::debug!(%error, "search gossip not sent"),
         }
     }
 }
@@ -1838,7 +1841,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     match service.search(&from, request) {
                         Ok(Search::Reply(response)) => {
                             answered += 1;
-                            spread(&mut swarm, gossip, &response);
+                            spread(&mut swarm, gossip, &response, &service.wire);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
@@ -1916,6 +1919,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     message_id,
                     message,
                 })) => {
+                    service.wire.add(dyapp_p2p_net::WireBytes::GOSSIP, dyapp_p2p_net::Dir::In, message.data.len());
                     match service.search_gossip(&message.data) {
                         // Queue full: drop without a strike.
                         Verdict::Pow(_) if pow_gossip >= POW_GOSSIP_QUEUE => {
@@ -2374,7 +2378,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                                 request: Some(proto::search_request::Request::Publish(record)),
                             };
                             let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
-                            spread(&mut swarm, gossip, &response);
+                            spread(&mut swarm, gossip, &response, &service.wire);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
@@ -2535,6 +2539,7 @@ fn status(
         .as_ref()
         .map_or(0, |media| bytes(media.usage()));
     let (pow_checks, pow_forged) = service.pow.take_counts();
+    let wire_bytes = service.wire.take();
     tracing::info!(
         connected = swarm.connected_peers().count(),
         known,
@@ -2547,6 +2552,7 @@ fn status(
         replica_dropped,
         pow_checks,
         pow_forged,
+        wire_bytes = %wire_bytes,
         "node status"
     );
 }
@@ -2582,6 +2588,61 @@ fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none() {
+        let dir = format!("/tmp/ai/test-wire-status-{}", uuid::Uuid::new_v4());
+        let mut config = crate::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        let service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+        let mut swarm = swarm_with_wire(
+            Keypair::generate_ed25519(),
+            &service.config.limits,
+            &[Role::Store, Role::Search],
+            service.wire.clone(),
+        )
+        .unwrap();
+        for status in [Status::Invalid, Status::Ok] {
+            spread(
+                &mut swarm,
+                Some(([0; 32], vec![1; 7])),
+                &SearchResponse {
+                    status: status.into(),
+                    ..Default::default()
+                },
+                &service.wire,
+            );
+        }
+        assert_eq!(service.wire.take().0, [[0; 2]; 10]);
+        service.wire.add(0, dyapp_p2p_net::Dir::In, 7);
+        service.wire.add(0, dyapp_p2p_net::Dir::Out, 11);
+        let path = format!("{dir}/status.log");
+        let writer_path = path.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .without_time()
+            .with_ansi(false)
+            .with_target(false)
+            .with_writer(move || {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&writer_path)
+                    .unwrap()
+            })
+            .finish();
+        tracing::subscriber::with_default(subscriber, || {
+            status(&service, &swarm, 0, 3, 0, 0, 0);
+            status(&service, &swarm, 0, 0, 0, 0, 0);
+        });
+        let log = std::fs::read_to_string(path).unwrap();
+        let lines = log.lines().collect::<Vec<_>>();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("wire_bytes=node=7/11 profile=0/0"));
+        assert!(lines[1].contains("wire_bytes=node=0/0 profile=0/0"));
+        assert!(lines[0].contains("answered=3"));
+        assert!(lines[0].contains("pow_checks=0"));
+        assert_eq!(service.wire.take().0, [[0; 2]; 10]);
+    }
 
     async fn connection_event(
         swarm: &mut Swarm<Behaviour>,
