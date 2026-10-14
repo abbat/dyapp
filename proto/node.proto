@@ -102,7 +102,7 @@ message NodeInfo {
   repeated uint32 search_fields = 8;
   // Largest profile record a search node indexes, in bytes.
   uint64 max_search_profile_bytes = 9;
-  // Node clock in Unix seconds; 0 means not reported. Runtime population is planned.
+  // Node clock in Unix seconds; 0 means not reported.
   uint64 server_time = 10;
 }
 
@@ -148,7 +148,6 @@ message ProfileResponse {
   // TOO_LARGE: the checked payload limit; 0 means not reported.
   uint64 max_bytes = 4;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
-  // Runtime population is planned.
   uint64 server_time = 5;
 }
 
@@ -355,7 +354,6 @@ message MediaResponse {
   // TOO_LARGE: the checked blob, shard or authorization limit; 0 means not reported.
   uint64 max_bytes = 5;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
-  // Runtime population is planned.
   uint64 server_time = 6;
 }
 
@@ -424,7 +422,6 @@ message SearchResponse {
   // INVALID because profile PoW is below the node threshold; 0 means not reported.
   uint32 required_pow_bits = 9;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
-  // Runtime population is planned.
   uint64 server_time = 10;
 }
 

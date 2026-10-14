@@ -150,9 +150,12 @@ Additive `uint64 server_time` fields carry the node's Unix time in seconds:
 
 Zero means no hint, including messages from older nodes. Prior tags, including size and PoW
 hints, are unchanged; legacy decoders ignore the added fields. Fixed-wire tests in
-`rust/bootstrap/tests/compatibility.rs` cover both directions. **Runtime population remains
-planned**: replies currently leave the field zero. Client correction using a median from
-three distinct nodes and device-clock guidance are also planned.
+`rust/bootstrap/tests/compatibility.rs` cover both directions. The node fills `NodeInfo` on
+`info` and uses the validation clock snapshot for signed-time `INVALID` replies: profile/search
+heartbeats, direct media keep/attach, and replica/shard authorizations (future skew or existing
+retention expiry). Invalid signatures, versions, hashes and other failures leave the hint zero.
+Existing freshness rules are preserved; this field does not introduce a new validation window.
+Client correction using a median from three distinct nodes and device-clock guidance remain planned.
 
 ## FFI boundary
 

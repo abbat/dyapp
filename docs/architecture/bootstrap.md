@@ -537,9 +537,10 @@ per stream ([schema](protobuf-schema.md#node-protocol)). Each request and reply 
 the payload and storage limits below are checked separately.
 
 The reply schemas include additive `server_time` Unix-seconds fields in `NodeInfo` and
-profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). They currently
-remain zero: populating `info` and signed-time `INVALID` replies is planned, as is client
-clock correction from three distinct nodes. The current protocol replies are:
+profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). `info` reports
+the node clock; signed-time `INVALID` replies report the clock snapshot used in validation.
+Other failures leave the field zero. Client clock correction from three distinct nodes remains
+planned. The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
@@ -694,7 +695,7 @@ prints one JSON object:
 ```
 test-peer sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
 test-peer heartbeat <multiaddr> <secret hex> → {"status"}
-test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "roles", "max_profile_bytes"}
+test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
 test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
 test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
 test-peer device-key                        → {"secret", "mailbox"}

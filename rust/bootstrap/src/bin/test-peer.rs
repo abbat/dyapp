@@ -168,6 +168,7 @@ async fn info(addr: &str) -> anyhow::Result<Value> {
     Ok(json!({
         "status": status(response.status),
         "peer_id": peer.to_string(),
+        "server_time": info.server_time,
         "roles": roles,
         "max_profile_bytes": info.max_profile_bytes,
     }))

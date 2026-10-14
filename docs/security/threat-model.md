@@ -453,14 +453,14 @@ the proof of work are fixed in code.
 Class 22 in detail. In place: signed heartbeat and keep times must be within 10 minutes of the
 node's clock, an attachment's `created` at most 10 minutes ahead, and a replayed record never
 extends retention ([Replay](#replay)). Retention and expiry run on the node's clock.
-The response schemas now include `server_time`, but runtime hints and client offset-based
-signing remain planned ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
+Nodes now report `server_time` in `info` and signed-time `INVALID` replies. Client offset-based
+signing remains planned ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | Future-dated heartbeat, keep or attach to live longer | `profile.heartbeat`, `search.heartbeat`, `media.keep`, `media.attach` | Medium × low | Accept: the 10-minute window bounds the gain to 10 minutes |
 | Backdated record | Same | Low × low | Accept: a heartbeat or keep outside the window is `INVALID`; a backdated attach only expires sooner |
-| A user's device clock is more than 10 minutes off | Client | Medium × medium | Fix: `info` and an `INVALID` time reply carry the node's clock; the client signs with the median offset of at least 3 nodes, so one lying node cannot shift it. Today heartbeats and keeps fail and the profile and media silently expire |
+| A user's device clock is more than 10 minutes off | Client | Medium × medium | Partial: `info` and a signed-time `INVALID` reply carry the node's clock. Planned: the client signs with the median offset of at least 3 nodes, so one lying node cannot shift it. Until client correction exists, skewed heartbeats and keeps fail and the profile and media can expire |
 | Spoofed NTP pushes a node's clock forward or back | Node host | Medium × low | Accept: the node is a cache and other replicas keep the data; [deployment](../operations/deployment.md#clock) asks for authenticated time sync (chrony with NTS) |
 | Clock step against per-second rate limits | `limits.*_per_second` | Low × low | Accept: a step resets or extends one second's count |
 | Fake send time in a message | Client | Low × medium | Accept: the app shows it as the sender's claim |
