@@ -453,6 +453,8 @@ the proof of work are fixed in code.
 Class 22 in detail. In place: signed heartbeat and keep times must be within 10 minutes of the
 node's clock, an attachment's `created` at most 10 minutes ahead, and a replayed record never
 extends retention ([Replay](#replay)). Retention and expiry run on the node's clock.
+The response schemas now include `server_time`, but runtime hints and client offset-based
+signing remain planned ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|

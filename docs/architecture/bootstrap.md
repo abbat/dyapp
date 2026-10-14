@@ -534,7 +534,12 @@ loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `medi
 `dyappd` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
 per stream ([schema](protobuf-schema.md#node-protocol)). Each request and reply is capped at
 1 MiB + 64 KiB, except `/dyapp/media`, which allows 6 MiB + 64 KiB. These are wire limits;
-the payload and storage limits below are checked separately:
+the payload and storage limits below are checked separately.
+
+The reply schemas include additive `server_time` Unix-seconds fields in `NodeInfo` and
+profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). They currently
+remain zero: populating `info` and signed-time `INVALID` replies is planned, as is client
+clock correction from three distinct nodes. The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|

@@ -137,6 +137,23 @@ rejection caused by insufficient PoW. Zero means not reported, including replies
 nodes. The schemas and generated Rust types include these fields; **populating them in node
 replies is planned**. Client retries and validation of reported values are also planned.
 
+### Clock hints
+
+Additive `uint64 server_time` fields carry the node's Unix time in seconds:
+
+| Message | Tag | Intended use |
+|---------|-----|--------------|
+| `NodeInfo` | 10 | Node clock from `node.info` |
+| `ProfileResponse` | 5 | Signed-time `STATUS_INVALID` |
+| `MediaResponse` | 6 | Signed-time `STATUS_INVALID` |
+| `SearchResponse` | 10 | Signed-time `STATUS_INVALID` |
+
+Zero means no hint, including messages from older nodes. Prior tags, including size and PoW
+hints, are unchanged; legacy decoders ignore the added fields. Fixed-wire tests in
+`rust/bootstrap/tests/compatibility.rs` cover both directions. **Runtime population remains
+planned**: replies currently leave the field zero. Client correction using a median from
+three distinct nodes and device-clock guidance are also planned.
+
 ## FFI boundary
 
 Protobuf types do not cross the FFI. `rust/ffi` exports UniFFI types; see the

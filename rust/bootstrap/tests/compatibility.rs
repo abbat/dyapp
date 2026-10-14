@@ -2,8 +2,89 @@
 use dyapp_bootstrap::NodeConfig;
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_messaging::{Message, MessageStatus};
+use dyapp_p2p_net::proto;
 use dyapp_profile::Profile;
 use prost::Message as _;
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct LegacyStatus {
+    #[prost(enumeration = "proto::Status", tag = "1")]
+    status: i32,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct LegacyInfo {
+    #[prost(uint64, tag = "2")]
+    max_profile_bytes: u64,
+}
+
+#[test]
+fn server_clock_hints_keep_fixed_tags_and_legacy_decoding() {
+    let legacy = [0x08, 0x09]; // INVALID before clock hints.
+    let profile = proto::ProfileResponse::decode(legacy.as_slice()).unwrap();
+    let media = proto::MediaResponse::decode(legacy.as_slice()).unwrap();
+    let search = proto::SearchResponse::decode(legacy.as_slice()).unwrap();
+    assert_eq!(
+        (profile.server_time, media.server_time, search.server_time),
+        (0, 0, 0)
+    );
+    for encoded in [
+        profile.encode_to_vec(),
+        media.encode_to_vec(),
+        search.encode_to_vec(),
+    ] {
+        assert_eq!(encoded, legacy);
+    }
+    let legacy_info = [0x10, 0x07]; // max_profile_bytes = 7.
+    let mut info = proto::NodeInfo::decode(legacy_info.as_slice()).unwrap();
+    assert_eq!(info.server_time, 0);
+    assert_eq!(info.encode_to_vec(), legacy_info);
+    info.server_time = 123;
+    assert_eq!(info.encode_to_vec(), [0x10, 0x07, 0x50, 0x7b]);
+    assert_eq!(
+        LegacyInfo::decode(info.encode_to_vec().as_slice())
+            .unwrap()
+            .max_profile_bytes,
+        7
+    );
+
+    let profile = proto::ProfileResponse {
+        max_bytes: 100,
+        server_time: 123,
+        ..profile
+    };
+    let media = proto::MediaResponse {
+        max_bytes: 100,
+        server_time: 123,
+        ..media
+    };
+    let search = proto::SearchResponse {
+        max_bytes: 100,
+        required_pow_bits: 11,
+        server_time: 123,
+        ..search
+    };
+    for (encoded, expected) in [
+        (
+            profile.encode_to_vec(),
+            vec![0x08, 0x09, 0x20, 0x64, 0x28, 0x7b],
+        ),
+        (
+            media.encode_to_vec(),
+            vec![0x08, 0x09, 0x28, 0x64, 0x30, 0x7b],
+        ),
+        (
+            search.encode_to_vec(),
+            vec![0x08, 0x09, 0x40, 0x64, 0x48, 0x0b, 0x50, 0x7b],
+        ),
+    ] {
+        assert_eq!(encoded, expected);
+        assert_eq!(
+            LegacyStatus::decode(encoded.as_slice()).unwrap().status,
+            proto::Status::Invalid as i32
+        );
+    }
+}
 
 #[test]
 fn signed_profile_v1_bytes_remain_compatible() {

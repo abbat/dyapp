@@ -336,6 +336,7 @@ impl Service {
             } else {
                 0
             },
+            server_time: 0, // Runtime clock hints are planned.
         }
     }
 
