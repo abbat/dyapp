@@ -1053,6 +1053,10 @@ Unit test coverage:
   connections fail without a response; accepted streams still answer. Codec tests prove that
   rejection reads no body bytes and that completed, malformed and dropped streams release permits.
 
+- Sender replica cap (`node.rs`): shared cross-protocol quotas, local exemption, dropped-count
+  reset, media queue cleanup and no trust penalty. Mailbox repair over TCP delivers 75 envelopes
+  as an admitted 50-envelope batch and the remaining 25 after refill; complete inventory sends nothing.
+
 Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP with libp2p
 clients:
 - Every request type: `info`, publish and get, mailbox put, challenge, fetch and ack
@@ -1062,6 +1066,9 @@ clients:
   stream closed without a reply (a typed client reports a transport failure), an unknown or empty
   variant gets `UNSUPPORTED`, and the node then answers the next client
 - Rate limit over the wire: `RATE_LIMITED` past the burst, `info` still answered
+- Valid mailbox/profile/media replicas and media shards: weak transport-ID PoW gets `DENIED`,
+  qualifying node keys get `OK`. Exhausted peer and IP-group buckets keep the same connection
+  open even with a one-strike ban threshold; `info` still answers.
 - Search between two search nodes: a profile published to one is found by a query on the other
   (`search_profile_spreads_between_nodes`); eight queries at once each get `OK` or `RATE_LIMITED`
   with `retry_after` 1, and `info` is answered within a second (`search_queries_do_not_hold_up_the_node`, timing-based)
