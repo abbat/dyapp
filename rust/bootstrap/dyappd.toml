@@ -64,7 +64,7 @@
 # Connections and memory.
 # max_connections = 1000              # connections in total
 # max_connections_per_peer = 4        # connections from one peer
-# max_connections_per_ip_group = 32    # planned: incoming pending + established, outgoing exempt
+# max_connections_per_ip_group = 32    # incoming pending + established, outgoing exempt
 # max_streams = 16                    # concurrent streams per connection and protocol
 # max_memory_mb = 768                 # RSS: refuse requests from 80 %, drop at 100 %; 0 = no limit
 

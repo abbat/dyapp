@@ -325,7 +325,7 @@ pub struct Limits {
     pub bytes_per_second: u64,
     pub max_connections: u32,
     pub max_connections_per_peer: u32,
-    /// Planned: pending and established incoming connections per fine IP group.
+    /// Pending and established incoming connections per fine IP group; outgoing exempt.
     pub max_connections_per_ip_group: u32,
     /// Concurrent streams per connection and protocol.
     pub max_streams: usize,

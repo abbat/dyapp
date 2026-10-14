@@ -214,7 +214,7 @@ min_free_mb = 512             # free space kept on the file system of storage.di
 bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 %, mailbox 100 %
 max_connections = 1000
 max_connections_per_peer = 4
-max_connections_per_ip_group = 32  # validated; enforcement planned: incoming pending + established
+max_connections_per_ip_group = 32  # incoming pending + established; outgoing exempt
 max_streams = 16              # per connection and protocol
 max_memory_mb = 768           # RSS: requests refused from 80 %, dropped and new
                               # connections refused at 100 %; 0 = no limit
@@ -481,11 +481,14 @@ and watch for large steps in its log.
 
 ### Access Control
 
-`max_connections_per_ip_group` (positive, default 32) and the coarse prefixes (IPv4 0..32,
-IPv6 0..128; defaults /16 and /32) are accepted and validated. Their runtime enforcement is
-planned: incoming pending and established connections will share one fine-group budget;
-outgoing connections will be exempt. The planned second request bucket uses ten times
-`ip_group_requests_per_second`, which is now bounded to 1..429496729 to prevent overflow.
+`max_connections_per_ip_group` (positive, default 32) bounds pending and established incoming
+connections together, grouped by `ipv4_prefix` / `ipv6_prefix`. Outgoing connections are exempt.
+Failures and closes free their slots. The limit remains active on LAN networks and its refusals
+are reported as `group_refused` in the maintenance connection log.
+
+The coarse prefixes (IPv4 0..32, IPv6 0..128; defaults /16 and /32) are accepted and validated,
+but their second request bucket is still planned. Its rate will be ten times
+`ip_group_requests_per_second`, bounded to 1..429496729 to prevent overflow.
 Coarse and fine prefixes are independently configurable.
 
 **The node protocol is public** (no client authentication):

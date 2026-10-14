@@ -65,6 +65,16 @@ impl IncomingGroupGuard {
         }
     }
 
+    /// Pending and established incoming slots currently reserved.
+    pub fn active_connections(&self) -> usize {
+        self.connections.len()
+    }
+
+    /// IP groups with at least one reserved slot.
+    pub fn active_groups(&self) -> usize {
+        self.groups.len()
+    }
+
     /// Refused attempts since the previous call.
     pub fn take_denied(&mut self) -> u64 {
         std::mem::take(&mut self.denied)

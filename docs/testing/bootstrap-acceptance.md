@@ -10,13 +10,19 @@
 
 | Layer | What runs | Where | Command | In CI |
 |-------|-----------|-------|---------|-------|
-| **Unit** | One module, in process, no sockets | `#[cfg(test)]` in `rust/bootstrap/src/*.rs`, `rust/p2p-net/src/lib.rs` | `make test` | ci-base `core` |
+| **Unit** | Module tests in process; networking tests also use real loopback sockets | `#[cfg(test)]` in `rust/bootstrap/src/*.rs`, `rust/p2p-net/src/lib.rs` | `make test` | ci-base `core` |
 | **Contract** | Golden wire/config fixtures and properties | `rust/bootstrap/tests/compatibility.rs`, `tests/properties.rs` | `make test` | ci-base `core` |
 | **Functional** | One real `node::run` on loopback TCP, libp2p clients in the test | `rust/bootstrap/tests/protocol.rs` | `make test` | ci-base `core` |
 | **E2E local** | Three `dyappd` processes on loopback, driven by `test-peer` | `scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
 | **E2E Docker** | Three `dyappd` containers and a coturn relay on a Docker network | `docker/compose.network.yml`, `scripts/network-test.py` | `make test-integration` | no (local only) |
 | **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
 | **Package** | The `.deb` installed on Debian 12, node started as its user | `scripts/deb-test.sh` | `make deb` | no (local only) |
+
+The memory plateau explicitly allows 1000 incoming connections per IP group: its short-lived
+clients all share loopback and can reach the default cap before idle cleanup. The default 32
+budget is covered separately by real TCP tests in `node.rs`, including pending handshakes,
+established connections, close/failure slot reuse, outgoing exemption and composed refusals.
+A 100-connection QUIC churn test checks guard reservations and groups return to zero.
 
 ## Coverage map
 
@@ -81,6 +87,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Per-peer rate limit: burst passes, rest `RATE_LIMITED`, nothing dropped | Unit, Functional, E2E | `rate_limit.rs`, `protocol.rs::requests_over_the_limit_are_refused`, `network-test.py::network` (flood) | exists |
 | Strikes ban until quiet; group and sender quotas | Unit | `rate_limit.rs::strikes_ban_until_quiet`, `service.rs::group_and_sender_quotas_and_bans` | exists |
 | Connections over the count limit are refused | Functional | `protocol.rs::connections_over_the_limit_are_refused` | exists |
+| Fine IP group shares 32 pending/established incoming slots; outgoing exempt; failure/close/composed refusal frees slots; QUIC churn drains | Real TCP/QUIC, unit | `node.rs::incoming_group_caps_pending_tcp_and_releases_failed_handshakes`, `::incoming_group_caps_established_tcp_but_exempts_outgoing_and_releases_close`, `::composed_peer_limit_refusal_does_not_leak_incoming_group_reservation`, `::quic_churn_releases_incoming_groups`, `p2p-net/src/incoming_groups.rs` | exists |
 | Connections over the memory share are refused | Functional | `protocol.rs::connections_over_the_memory_limit_are_refused` | exists |
 | Idle nodes drain: nothing pending, no watch, no entry of a closed connection (`node state` on SIGHUP) | E2E | `network-test.py::drained` | exists |
 | Resident memory levels off under repeated load (second-half peak ≤ first-half peak + 10 %) | Memory plateau | `network-test.py::plateau` | exists, local only |

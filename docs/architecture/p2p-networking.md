@@ -16,9 +16,12 @@ connections. It groups the first remote IP by masks 0..32 and 0..128; IPv4-mappe
 IPv6, matching the node's existing grouping. Non-IP endpoints share one bounded group.
 A slot survives handshake completion and is released on handshake failure, a refusal by any
 composed behaviour, or connection close. Outgoing connections are exempt.
-`IncomingGroupGuard::take_denied()` reads and resets refusals. Legacy constructors leave
-this optional guard disabled; **bootstrap configuration wiring and real TCP acceptance remain
-planned**. Deterministic callback tests verify the shared budget and cleanup.
+`IncomingGroupGuard::take_denied()` reads and resets refusals; `active_connections()` and
+`active_groups()` expose the current reservations and groups for lifecycle diagnostics.
+Legacy constructors leave this optional guard disabled. Bootstrap enables it with `limits.max_connections_per_ip_group`
+(default 32) and the fine request-group masks. Deterministic callback and real TCP tests verify
+pending/established admission, cleanup on failure/close, composed refusals and outgoing exemption.
+`network.distinct_outbound_groups` does not disable this inbound guard.
 
 | Part | Setting |
 |------|---------|

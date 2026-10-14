@@ -878,12 +878,18 @@ starts refusing and a line when it clears, not one per request:
 - **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
   per guard how many requests it refused since the last run (the byte rate, which flips every
   second under load, only here).
-- **Planned group protections**: `max_connections_per_ip_group` (default 32, positive)
-  will combine pending and established incoming connections within a fine IP group; outgoing
-  connections are exempt. A second request bucket at ten times the fine-group rate will use
-  `coarse_ipv4_prefix` / `coarse_ipv6_prefix` (defaults /16 and /32). These fields are already
-  accepted and validated, with independent prefix bounds 0..32 and 0..128. The fine-group rate
-  is limited to 1..429496729 so its derived budget fits `u32`; enforcement is still planned.
+- **Incoming group connections**: `max_connections_per_ip_group` (default 32, positive)
+  combines pending and established incoming connections within a fine IP group using
+  `ipv4_prefix` / `ipv6_prefix`. Outgoing connections are exempt. Slots are freed on failed
+  handshakes, composed guard refusals and close; endpoints without an IP share one bounded
+  group. LAN routing settings do not disable the cap. The maintenance refusal log includes
+  `group_refused` alongside the total; the state line exposes `incoming_group_connections`
+  and `incoming_groups`. Real TCP tests verify the 33rd refusal and slot reuse; QUIC churn
+  checks both counts return to zero after each close.
+- **Planned coarse request budget**: a second request bucket at ten times the fine-group rate
+  will use `coarse_ipv4_prefix` / `coarse_ipv6_prefix` (defaults /16 and /32). These fields are
+  accepted and validated, with independent bounds 0..32 and 0..128. The fine-group rate is
+  limited to 1..429496729 so its derived budget fits `u32`; enforcement is still planned.
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16). Media additionally caps this

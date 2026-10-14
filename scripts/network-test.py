@@ -110,6 +110,9 @@ def start(bin_dir, storage, peers, processes, environments,
                # Repair and ack forwarding run seconds after
                # the nodes meet.
                "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
+        if not flood:
+            # Plateau clients share loopback and outpace idle cleanup.
+            env["DYAPPD__LIMITS__MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
         if not peers:
             env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
             env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
