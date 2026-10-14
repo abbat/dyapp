@@ -142,8 +142,8 @@ other distinct holder. Receivers verify records independently and never forward 
 
 Mailbox/profile fan-out, profile-gap repair and media replica/shard writes (including repair)
 share one sender token bucket per destination: average 50 write units/s, burst 50. A refused send
-is dropped without queuing or lowering the destination's trust; a local write bypasses the bucket. `replica_dropped` counts
-refused send operations since the preceding hourly status line, and taking the count does not
+is dropped without queuing or lowering the destination's trust; a local write bypasses the bucket.
+`replica_dropped` counts refused send operations since the preceding hourly status line, and taking the count does not
 refill the bucket. Mailbox repair uses the same budget, splitting at most 1 MiB of selected
 records into batches of at most 50 envelopes and charging one unit per envelope. Only admitted
 batches are sent; refused batches are dropped and counted once per batch. Subsequent inventories
@@ -818,9 +818,9 @@ Scope and limits:
 - Once a map holds 10 000 buckets, buckets idle for a second (refilled, so dropping them changes
   nothing) are removed before a new one is added.
 
-**Replica eligibility.** Mailbox, profile and media `replica_put` require a valid transport
-peer ID meeting this node's `network.id_pow_bits`; a missing proof returns `DENIED` and a strike
-before record verification. Eligibility uses transport-ID proof of work; advertised roles do not
+**Replica eligibility.** Mailbox, profile and media `replica_put`, and media `shard_put`,
+require a valid transport peer ID meeting this node's `network.id_pow_bits`; a missing proof
+returns `DENIED` and a strike before record verification. Eligibility uses transport-ID proof of work; advertised roles do not
 change this check.
 Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
 bad signed records still return `DENIED` and strike. Sender caps cover regular mailbox/profile

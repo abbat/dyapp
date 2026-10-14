@@ -1130,7 +1130,10 @@ impl Service {
         let Some(media) = &self.media else {
             return Ok(media_status(Status::Unsupported));
         };
-        let is_replica = matches!(request.request, Some(media_request::Request::ReplicaPut(_)));
+        let is_replica = matches!(
+            request.request,
+            Some(media_request::Request::ReplicaPut(_) | media_request::Request::ShardPut(_))
+        );
         if is_replica && !self.node_peer(peer) {
             self.strike(peer);
             return Ok(media_status(Status::Denied));
@@ -2245,6 +2248,20 @@ mod tests {
                     .unwrap()
                     .status
             }
+            3 => {
+                service
+                    .media(
+                        sender,
+                        MediaRequest {
+                            request: Some(media_request::Request::ShardPut(proto::MediaShardPut {
+                                data: vec![0],
+                                ..Default::default()
+                            })),
+                        },
+                    )
+                    .unwrap()
+                    .status
+            }
             _ => unreachable!(),
         };
         Status::try_from(status).unwrap()
@@ -2259,7 +2276,7 @@ mod tests {
                 break id;
             }
         };
-        for protocol in 0..3 {
+        for protocol in 0..4 {
             for sender in [
                 peer("not-a-peer"),
                 peer(&invalid.to_string()),
@@ -2274,11 +2291,71 @@ mod tests {
     }
 
     #[test]
+    fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
+        let mut service = media_service(|_| {});
+        service.config.network.id_pow_bits = 8;
+        let owner = Identity::generate();
+        let (manifest, shards) = crate::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
+        let hash = manifest.hash.clone();
+        let keep = proto::MediaKeep {
+            version: 1,
+            hashes: vec![hash.clone()],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+        };
+        let put = proto::MediaShardPut {
+            replica: Some(proto::MediaReplicaPut {
+                manifest: Some(manifest),
+                authorization: Some(proto::media_replica_put::Authorization::Keep(
+                    owner.sign(Domain::MediaKeep, keep.encode_to_vec()),
+                )),
+                ..Default::default()
+            }),
+            data: shards[0].clone(),
+            index: 0,
+        };
+        let request = || MediaRequest {
+            request: Some(media_request::Request::ShardPut(put.clone())),
+        };
+        let weak = loop {
+            let id = libp2p::PeerId::random();
+            if !dyapp_p2p_net::id_has_pow(&id, 8) {
+                break peer(&id.to_string());
+            }
+        };
+        assert_eq!(
+            service.media(&weak, request()).unwrap().status,
+            i32::from(Status::Denied)
+        );
+        assert!(service
+            .media
+            .as_ref()
+            .unwrap()
+            .manifest(&hash)
+            .unwrap()
+            .is_none());
+        let node = dyapp_p2p_net::generate_pow_keypair(8).public().to_peer_id();
+        assert_eq!(
+            service
+                .media(&peer(&node.to_string()), request())
+                .unwrap()
+                .status,
+            i32::from(Status::Ok)
+        );
+        assert!(service
+            .media
+            .as_ref()
+            .unwrap()
+            .manifest(&hash)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
     fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
         let sender = replica_peer("node");
-        for protocol in 0..3 {
+        for protocol in 0..4 {
             for bucket in 0..4 {
-                if bucket >= 2 && protocol != 2 {
+                if bucket >= 2 && protocol < 2 {
                     continue;
                 }
                 let mut service = media_service(|l| {
