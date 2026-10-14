@@ -878,6 +878,12 @@ starts refusing and a line when it clears, not one per request:
 - **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
   per guard how many requests it refused since the last run (the byte rate, which flips every
   second under load, only here).
+- **Planned group protections**: `max_connections_per_ip_group` (default 32, positive)
+  will combine pending and established incoming connections within a fine IP group; outgoing
+  connections are exempt. A second request bucket at ten times the fine-group rate will use
+  `coarse_ipv4_prefix` / `coarse_ipv6_prefix` (defaults /16 and /32). These fields are already
+  accepted and validated, with independent prefix bounds 0..32 and 0..128. The fine-group rate
+  is limited to 1..429496729 so its derived budget fits `u32`; enforcement is still planned.
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16). Media additionally caps this
@@ -960,9 +966,9 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
 `limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,bytes_per_second}`,
-`limits.{max_connections,max_connections_per_peer,max_streams,max_memory_mb}`
+`limits.{max_connections,max_connections_per_peer,max_connections_per_ip_group,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
-`limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
+`limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,coarse_ipv4_prefix,coarse_ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages,io_mb_per_s}`,
 `network.{id_pow_bits,distinct_outbound_groups}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),

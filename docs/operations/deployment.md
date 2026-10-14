@@ -214,12 +214,15 @@ min_free_mb = 512             # free space kept on the file system of storage.di
 bytes_per_second = 0          # 0 = no limit; media shed from 75 %, profiles 90 %, mailbox 100 %
 max_connections = 1000
 max_connections_per_peer = 4
+max_connections_per_ip_group = 32  # validated; enforcement planned: incoming pending + established
 max_streams = 16              # per connection and protocol
 max_memory_mb = 768           # RSS: requests refused from 80 %, dropped and new
                               # connections refused at 100 %; 0 = no limit
 ip_group_requests_per_second = 1000   # shared by all peers of one IP group
 ipv4_prefix = 24              # IP group: leading bits of the remote address
 ipv6_prefix = 48
+coarse_ipv4_prefix = 16       # validated; second request bucket at 10x rate planned
+coarse_ipv6_prefix = 32
 sender_puts_per_second = 10   # envelopes per sender key
 strikes_to_ban = 100          # refused floods and bad signatures that ban a peer
 ban_minutes = 10
@@ -477,6 +480,13 @@ the host with an authenticated source, such as `chrony` with NTS (`server <host>
 and watch for large steps in its log.
 
 ### Access Control
+
+`max_connections_per_ip_group` (positive, default 32) and the coarse prefixes (IPv4 0..32,
+IPv6 0..128; defaults /16 and /32) are accepted and validated. Their runtime enforcement is
+planned: incoming pending and established connections will share one fine-group budget;
+outgoing connections will be exempt. The planned second request bucket uses ten times
+`ip_group_requests_per_second`, which is now bounded to 1..429496729 to prevent overflow.
+Coarse and fine prefixes are independently configurable.
 
 **The node protocol is public** (no client authentication):
 - Anyone can read any profile; only the owner's signature can store, replace or delete one

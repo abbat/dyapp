@@ -64,14 +64,17 @@
 # Connections and memory.
 # max_connections = 1000              # connections in total
 # max_connections_per_peer = 4        # connections from one peer
+# max_connections_per_ip_group = 32    # planned: incoming pending + established, outgoing exempt
 # max_streams = 16                    # concurrent streams per connection and protocol
 # max_memory_mb = 768                 # RSS: refuse requests from 80 %, drop at 100 %; 0 = no limit
 
 # Abuse from one network or one user. Peers whose addresses share the first ipv4_prefix /
 # ipv6_prefix bits count as one group.
-# ip_group_requests_per_second = 1000  # requests per second from one address group
+# ip_group_requests_per_second = 1000  # requests/s per group; 1..429496729 (10x coarse budget)
 # ipv4_prefix = 24                    # IPv4 address group
 # ipv6_prefix = 48                    # IPv6 address group
+# coarse_ipv4_prefix = 16             # planned: second group at 10x rate; 0..32
+# coarse_ipv6_prefix = 32             # planned: second group at 10x rate; 0..128
 # sender_puts_per_second = 10         # messages per second from one sender
 
 # Bans: refused floods and bad signatures that ban a peer, and for how long.

@@ -325,6 +325,8 @@ pub struct Limits {
     pub bytes_per_second: u64,
     pub max_connections: u32,
     pub max_connections_per_peer: u32,
+    /// Planned: pending and established incoming connections per fine IP group.
+    pub max_connections_per_ip_group: u32,
     /// Concurrent streams per connection and protocol.
     pub max_streams: usize,
     /// Physical memory of the process: from 80 % of it requests that shed by the byte rate are
@@ -335,6 +337,9 @@ pub struct Limits {
     pub ip_group_requests_per_second: u32,
     pub ipv4_prefix: u8,
     pub ipv6_prefix: u8,
+    /// Planned: a second group budget at ten times `ip_group_requests_per_second`.
+    pub coarse_ipv4_prefix: u8,
+    pub coarse_ipv6_prefix: u8,
     /// Envelopes per second accepted from one sender key.
     pub sender_puts_per_second: u32,
     /// Refused floods and bad signatures that ban a peer for `ban_minutes`.
@@ -407,11 +412,14 @@ impl Default for Limits {
             bytes_per_second: 0,
             max_connections: 1000,
             max_connections_per_peer: 4,
+            max_connections_per_ip_group: 32,
             max_streams: 16,
             max_memory_mb: 768,
             ip_group_requests_per_second: 1000,
             ipv4_prefix: 24,
             ipv6_prefix: 48,
+            coarse_ipv4_prefix: 16,
+            coarse_ipv6_prefix: 32,
             sender_puts_per_second: 10,
             strikes_to_ban: 100,
             ban_minutes: 10,
@@ -583,8 +591,12 @@ impl NodeConfig {
             anyhow::bail!("media.shard_threshold must be between 1 and 1048576 bytes");
         }
         let l = &self.limits;
-        if l.max_connections < 1 || l.max_connections_per_peer < 1 || l.max_streams < 1 {
-            anyhow::bail!("limits.max_connections, max_connections_per_peer and max_streams must be at least 1");
+        if l.max_connections < 1
+            || l.max_connections_per_peer < 1
+            || l.max_connections_per_ip_group < 1
+            || l.max_streams < 1
+        {
+            anyhow::bail!("limits.max_connections, max_connections_per_peer, max_connections_per_ip_group and max_streams must be at least 1");
         }
         if l.ip_group_requests_per_second < 1
             || l.sender_puts_per_second < 1
@@ -595,6 +607,14 @@ impl NodeConfig {
         }
         if l.ipv4_prefix > 32 || l.ipv6_prefix > 128 {
             anyhow::bail!("limits.ipv4_prefix must be at most 32 and ipv6_prefix at most 128");
+        }
+        if l.coarse_ipv4_prefix > 32 || l.coarse_ipv6_prefix > 128 {
+            anyhow::bail!(
+                "limits.coarse_ipv4_prefix must be at most 32 and coarse_ipv6_prefix at most 128"
+            );
+        }
+        if l.ip_group_requests_per_second.checked_mul(10).is_none() {
+            anyhow::bail!("limits.ip_group_requests_per_second must be at most 429496729 for the 10x coarse budget");
         }
         if self.network.id_pow_bits > 32 {
             anyhow::bail!("network.id_pow_bits must be at most 32");
@@ -906,6 +926,58 @@ mod tests {
             ..Search::default()
         };
         assert!(one.keeps(3) && !one.keeps(4));
+    }
+
+    #[test]
+    fn incoming_group_and_coarse_settings_validate_boundaries() {
+        let mut config = NodeConfig::default();
+        config.storage.dir = temp_dir();
+        assert_eq!(config.limits.max_connections_per_ip_group, 32);
+        assert_eq!(config.limits.coarse_ipv4_prefix, 16);
+        assert_eq!(config.limits.coarse_ipv6_prefix, 32);
+        assert!(config.validate().is_ok());
+
+        config.limits.max_connections_per_ip_group = 0;
+        assert!(config
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("max_connections_per_ip_group"));
+        config.limits.max_connections_per_ip_group = 1;
+        for (v4, v6) in [(0, 0), (32, 128), (16, 32)] {
+            config.limits.coarse_ipv4_prefix = v4;
+            config.limits.coarse_ipv6_prefix = v6;
+            // Coarse masks are independent: original endpoint metadata is needed at runtime.
+            config.limits.ipv4_prefix = 0;
+            config.limits.ipv6_prefix = 0;
+            assert!(config.validate().is_ok());
+        }
+        config.limits.coarse_ipv4_prefix = 33;
+        assert!(config
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("coarse_ipv4_prefix"));
+        config.limits.coarse_ipv4_prefix = 16;
+        config.limits.coarse_ipv6_prefix = 129;
+        assert!(config
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("coarse_ipv6_prefix"));
+        config.limits.coarse_ipv6_prefix = 32;
+        for rate in [1, u32::MAX / 10] {
+            config.limits.ip_group_requests_per_second = rate;
+            assert!(config.validate().is_ok());
+        }
+        for rate in [0, u32::MAX / 10 + 1, u32::MAX] {
+            config.limits.ip_group_requests_per_second = rate;
+            assert!(config
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("ip_group_requests_per_second"));
+        }
     }
 
     #[test]
