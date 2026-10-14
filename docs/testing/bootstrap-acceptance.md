@@ -49,7 +49,11 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Profile expires after the owner was last seen; heartbeat keeps it | Unit | `storage.rs::profiles_expire_after_the_owner_was_last_seen`, `service.rs::heartbeat_keeps_the_profile_seen` | exists |
 | Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network-test.py::mailbox` | exists |
 | Challenge is bound to its connection | Functional | `protocol.rs::challenge_is_bound_to_its_connection` | exists |
+| Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service.rs` | exists |
 | Watching fetch gets a push | E2E | `network-test.py::mailbox` | exists |
+
+The clock checks cover node replies. Client signing-time correction using a median from
+three distinct nodes remains planned.
 
 ### Replication, placement and repair
 
