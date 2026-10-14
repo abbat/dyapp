@@ -15,6 +15,10 @@ Every participant needs `bd`, lean-ctx ([lean-ctx.md](lean-ctx.md)) and the `ana
 If any of them is missing, **stop and tell the human**; do not substitute your own method.
 Keeping the skill identical across harnesses is the human's job.
 
+The lean-ctx indexes (graph, BM25, code graph, semantic) must be fresh: the human rebuilds them
+for the charter's snapshot commit. Participants never rebuild them; see
+[Exploring with lean-ctx](#exploring-with-lean-ctx).
+
 ## Roles
 
 | Role | Who | Does |
@@ -69,6 +73,47 @@ bd query "label=quorum AND assignee=<model>"                  # everything by on
   files. Use `bd batch` for many writes.
 - Beads text is in English; bead IDs never go into commits, code or docs ([beads.md](beads.md)).
 
+## Exploring with lean-ctx
+
+Every participant researches the same snapshot through the same indexes, so findings are
+comparable and citations resolve for everyone. General routing is in [lean-ctx.md](lean-ctx.md);
+this is how to use it in a quorum.
+
+**Check before each phase** (both read-only):
+
+```bash
+git rev-parse HEAD        # must equal the charter's Snapshot
+lean-ctx index status     # all four indexes ready, built after the Snapshot commit
+```
+
+If either check fails, stop and tell the human. Do not rebuild the indexes yourself: it writes,
+and a rebuild mid-quorum would give participants different views.
+
+| Need | Tool | Arguments |
+|------|------|-----------|
+| Map the scope before planning spikes | `ctx_overview` | `{"task": "<charter question>"}` |
+| First context for a spike: ranked files with source | `ctx_compose` | `{"task": "<spike question>"}` |
+| "Where/how is X done" as `path:line` citations | `ctx_explore` | `{"query": "...", "citation": true}` |
+| A concept across code **and** docs (design vs code drift) | `ctx_search` | `{"action": "semantic", "mode": "hybrid", "query": "..."}` |
+| Exact names or terms, ranked | `ctx_search` | `{"action": "semantic", "mode": "bm25", "query": "..."}` |
+| Every occurrence, exhaustive | `ctx_search` | `{"pattern": "<regex>"}` |
+| Who calls it, what it calls | `ctx_callgraph` | `{"action": "callers", "symbol": "..."}` |
+| Blast radius of a proposed change | `ctx_graph` | `{"action": "impact", "path": "<file>"}` |
+| Code near a cited line | `ctx_search` | `{"action": "find_related", "file_path": "...", "line": N}` |
+
+Rules:
+
+- **A search hit is a lead, not evidence.** Read the span (`ctx_read` `lines:N-M`) before you
+  cite it; evidence is `path:line` you have read.
+- **Ranked search is top-k, not complete.** "Nowhere else", "every caller" and "never" need an
+  exhaustive regex search or the call graph, never semantic results alone.
+- **Avoid a shared blind spot.** Every participant gets the same top results for the same query,
+  which works against independence. Rephrase queries, search from several angles (symptom,
+  mechanism, data, failure), go past the first results, and check the charter's scope paths
+  directly; a file that no search surfaced is the most likely place nobody looked.
+- In Phase 2, verify a neighbour's claim by reading its cited lines and searching for
+  counter-examples, not by repeating its query.
+
 ## Phase 0: charter (human + opening model)
 
 Create `Q` (`bd create -t epic -l quorum,<audit|design>`) with this description:
@@ -79,6 +124,7 @@ Mode:         audit (design / decisions / code) | brainstorm (before a feature) 
 Scope:        paths, docs, ADRs in scope
 Out of scope: what participants must not dig into
 Inputs:       artifacts to start from
+Snapshot:     commit every participant reviews; lean-ctx indexes are built for it
 Participants: <model>, <model>, ...
 Synthesizer:  <model>
 Budget:       guidance, e.g. "≤ N top-level spikes" or "stop when spikes stop yielding proposals"
@@ -90,7 +136,7 @@ The charter states the question, not hypotheses: any opinion in it anchors every
 ## Phase 1: blind research (each participant)
 
 1. Read this page and the charter of `Q`. Read **nothing else under `Q`**: not other `M` epics,
-   their spikes, proposals or comments.
+   their spikes, proposals or comments. Run the [snapshot and index checks](#exploring-with-lean-ctx).
 2. Create your branch: `bd create "[quorum] <model>" -t epic --parent <Q> -a <model>`.
 3. Research through spikes (`-t spike --parent <M> -a <model>`), starting with large blocks and
    splitting as you learn; there is no need to plan all spikes up front. Run `analyse` on each

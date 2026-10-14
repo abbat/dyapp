@@ -14,6 +14,18 @@ the quorum epic's ID.
   have).
 - Make sure every participant's harness has `bd`, lean-ctx and the `analyse` skill, the same
   version for all. A model without them stops and tells you.
+- Check out the commit to review with a clean tree, then build fresh lean-ctx indexes for it and
+  check that graph, BM25, code graph and semantic are all ready:
+
+  ```bash
+  git status --short          # empty
+  lean-ctx index build-full
+  lean-ctx index status
+  ```
+
+  Participants search through these indexes and do not rebuild them; a missing or stale index
+  stops them. Until the quorum closes, do not move `HEAD` or edit files in this checkout. If you
+  must, rebuild and tell every participant, because earlier citations may no longer match.
 
 ## 1. Charter
 
@@ -23,8 +35,9 @@ In any session, in the repository root:
 Read docs/agents/quorum.md. Open a quorum on: <question>. Draft the charter with me.
 ```
 
-Agree on scope, participants, synthesizer and budget. Keep your own hypotheses out of the
-charter: they anchor every participant. The model creates the quorum epic and gives you `<Q>`.
+Agree on scope, participants, synthesizer and budget; the snapshot is the current commit. Keep
+your own hypotheses out of the charter: they anchor every participant. The model creates the
+quorum epic and gives you `<Q>`.
 
 ## 2. Phase 1: blind research
 
