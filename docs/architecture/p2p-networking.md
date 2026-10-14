@@ -135,8 +135,12 @@ verify advertised IDs, the identify version, and 2 MiB media frames in both dire
 `node::swarm_with_protocols` and `Service.protocols` share the configured IDs for node
 identify/Kademlia role checks and search subscription/publication topics. A named-node TCP test
 covers profile/search RPCs, named gossip delivery and fixed wire labels. Legacy node constructors
-and `dyappd` still select public protocols. **Network configuration, storage guards and full
-cross-network peer-isolation acceptance remain planned**.
+and `dyappd` still select public protocols. Real TCP tests cover named/public in both directions
+and two different names: node/profile/mailbox/media/search/inventory negotiation fails with
+`UnsupportedProtocols`, and gossip reports `GossipsubNotSupported`; no application payload is
+counted. Noise/TCP connections and common libp2p identify/AutoNAT protocols can still operate.
+**Binary network selection, storage guards and disconnecting foreign identify peers remain
+planned**; namespace IDs alone do not implement those policies.
 
 ## Planned
 
