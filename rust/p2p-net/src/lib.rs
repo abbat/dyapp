@@ -125,6 +125,7 @@ pub struct Behaviour {
 /// One protobuf message per stream; the writer closes the stream after it.
 pub struct ProtoCodec<Req, Resp> {
     marker: PhantomData<fn() -> (Req, Resp)>,
+    wire: Arc<WireBytes>,
     /// Shared by every connection of a media behaviour; other protocols have no permit pool.
     permits: Option<Arc<Semaphore>>,
     /// Held from before reading a request until its response is sent or the stream is dropped.
@@ -132,6 +133,12 @@ pub struct ProtoCodec<Req, Resp> {
 }
 
 impl<Req, Resp> ProtoCodec<Req, Resp> {
+    /// Shares successful protobuf frame counts across codecs and connections.
+    pub fn with_wire(mut self, wire: Arc<WireBytes>) -> Self {
+        self.wire = wire;
+        self
+    }
+
     fn media() -> Self {
         Self {
             permits: Some(Arc::new(Semaphore::new(16))),
@@ -144,6 +151,7 @@ impl<Req, Resp> Default for ProtoCodec<Req, Resp> {
     fn default() -> Self {
         Self {
             marker: PhantomData,
+            wire: Arc::default(),
             permits: None,
             permit: None,
         }
@@ -153,8 +161,10 @@ impl<Req, Resp> Default for ProtoCodec<Req, Resp> {
 impl<Req, Resp> Clone for ProtoCodec<Req, Resp> {
     fn clone(&self) -> Self {
         Self {
+            marker: PhantomData,
             permits: self.permits.clone(),
-            ..Self::default()
+            wire: self.wire.clone(),
+            permit: None,
         }
     }
 }
@@ -163,7 +173,7 @@ async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
     io: &mut T,
     limit: u64,
     response: bool,
-) -> io::Result<M> {
+) -> io::Result<(M, usize)> {
     let mut buf = Vec::new();
     // One byte over the limit tells an oversized message from one that is exactly at it.
     io.take(limit + 1).read_to_end(&mut buf).await?;
@@ -179,14 +189,18 @@ async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
             "stream closed without a response",
         ));
     }
-    M::decode(buf.as_slice()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    M::decode(buf.as_slice())
+        .map(|message| (message, buf.len()))
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 async fn write_message<M: prost::Message, T: AsyncWrite + Unpin + Send>(
     io: &mut T,
     message: M,
-) -> io::Result<()> {
-    io.write_all(&message.encode_to_vec()).await
+) -> io::Result<usize> {
+    let bytes = message.encode_to_vec();
+    io.write_all(&bytes).await?;
+    Ok(bytes.len())
 }
 
 impl<Req, Resp> request_response::Codec for ProtoCodec<Req, Resp>
@@ -208,7 +222,13 @@ where
                 io::Error::new(io::ErrorKind::WouldBlock, "media streams exhausted")
             })?);
         }
-        let result = read_message(io, message_limit(protocol), false).await;
+        let result = read_message(io, message_limit(protocol), false)
+            .await
+            .map(|(message, n)| {
+                self.wire
+                    .add(WireBytes::protocol_slot(protocol), Dir::In, n);
+                message
+            });
         if result.is_err() {
             self.permit.take();
         }
@@ -220,25 +240,34 @@ where
         protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Resp> {
-        read_message(io, message_limit(protocol), true).await
+        let (message, n) = read_message(io, message_limit(protocol), true).await?;
+        self.wire
+            .add(WireBytes::protocol_slot(protocol), Dir::In, n);
+        Ok(message)
     }
 
     async fn write_request<T: AsyncWrite + Unpin + Send>(
         &mut self,
-        _: &StreamProtocol,
+        protocol: &StreamProtocol,
         io: &mut T,
         request: Req,
     ) -> io::Result<()> {
-        write_message(io, request).await
+        let n = write_message(io, request).await?;
+        self.wire
+            .add(WireBytes::protocol_slot(protocol), Dir::Out, n);
+        Ok(())
     }
 
     async fn write_response<T: AsyncWrite + Unpin + Send>(
         &mut self,
-        _: &StreamProtocol,
+        protocol: &StreamProtocol,
         io: &mut T,
         response: Resp,
     ) -> io::Result<()> {
-        let result = write_message(io, response).await;
+        let result = write_message(io, response).await.map(|n| {
+            self.wire
+                .add(WireBytes::protocol_slot(protocol), Dir::Out, n);
+        });
         self.permit.take();
         result
     }
@@ -264,6 +293,8 @@ pub struct SwarmOptions {
     pub search: bool,
     /// Optional incoming-only connection budget per remote IP group.
     pub incoming_groups: Option<IncomingGroupLimits>,
+    /// Successful protobuf payload bytes, shared with the node service.
+    pub wire: Arc<WireBytes>,
 }
 
 impl Default for SwarmOptions {
@@ -275,6 +306,7 @@ impl Default for SwarmOptions {
             max_memory_bytes: usize::MAX,
             search: false,
             incoming_groups: None,
+            wire: Arc::default(),
         }
     }
 }
@@ -309,6 +341,7 @@ pub fn build_limited_swarm(
             max_memory_bytes,
             search,
             incoming_groups: None,
+            wire: Arc::default(),
         },
     )
 }
@@ -325,6 +358,7 @@ pub fn build_configured_swarm(
         max_memory_bytes,
         search,
         incoming_groups,
+        wire,
     } = options;
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -400,34 +434,40 @@ pub fn build_configured_swarm(
                     key.public(),
                 )),
                 autonat: autonat::Behaviour::new(peer_id, autonat::Config::default()),
-                node: request_response::Behaviour::new(
+                node: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(NODE_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                profile: request_response::Behaviour::new(
+                profile: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(PROFILE_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                mailbox: request_response::Behaviour::new(
+                mailbox: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(MAILBOX_PROTOCOL, support.clone())],
                     config.clone(),
                 ),
-                push: request_response::Behaviour::new(
+                push: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(MAILBOX_PUSH_PROTOCOL, push)],
                     config.clone(),
                 ),
                 search_kad,
                 gossip: gossip.into(),
-                search: request_response::Behaviour::new(
+                search: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(SEARCH_PROTOCOL, search_support.clone())],
                     config.clone(),
                 ),
-                inventory: request_response::Behaviour::new(
+                inventory: request_response::Behaviour::with_codec(
+                    ProtoCodec::default().with_wire(wire.clone()),
                     [(INVENTORY_PROTOCOL, search_support)],
                     config.clone(),
                 ),
                 media: request_response::Behaviour::with_codec(
-                    ProtoCodec::media(),
+                    ProtoCodec::media().with_wire(wire.clone()),
                     [(MEDIA_PROTOCOL, support)],
                     config.with_max_concurrent_streams(max_streams.min(2)),
                 ),
@@ -948,6 +988,125 @@ mod tests {
                 }
             }
         }).await.expect("accepted media streams stopped working");
+    }
+
+    #[tokio::test]
+    async fn codec_counts_exact_frames_in_all_directions_and_shares_clones() {
+        use libp2p::futures::io::Cursor;
+        use prost::Message;
+        use request_response::Codec;
+        let wire = Arc::new(WireBytes::default());
+        let mut codec = ProtoCodec::<Frame, Frame>::default().with_wire(wire.clone());
+        let mut cloned = codec.clone();
+        for protocol in [
+            NODE_PROTOCOL,
+            PROFILE_PROTOCOL,
+            MAILBOX_PROTOCOL,
+            MAILBOX_PUSH_PROTOCOL,
+            MEDIA_PROTOCOL,
+            SEARCH_PROTOCOL,
+            INVENTORY_PROTOCOL,
+            DIGEST_PROTOCOL,
+            StreamProtocol::new("/unknown"),
+        ] {
+            let mut incoming = frame_bytes(13);
+            incoming.extend([0x10, 1]); // Unknown field: count wire bytes, not a decoded re-encoding.
+            codec
+                .read_request(&protocol, &mut Cursor::new(&incoming))
+                .await
+                .unwrap();
+            cloned
+                .read_response(&protocol, &mut Cursor::new(&incoming))
+                .await
+                .unwrap();
+            let frame = Frame { data: vec![3; 7] };
+            let n = frame.encoded_len();
+            codec
+                .write_request(&protocol, &mut Cursor::new(Vec::new()), frame.clone())
+                .await
+                .unwrap();
+            cloned
+                .write_response(&protocol, &mut Cursor::new(Vec::new()), frame)
+                .await
+                .unwrap();
+            let mut expected = [[0; 2]; 10];
+            expected[WireBytes::protocol_slot(&protocol)] =
+                [2 * incoming.len() as u64, 2 * n as u64];
+            assert_eq!(wire.take().0, expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_codec_io_does_not_count_and_releases_media_permits() {
+        use libp2p::futures::io::Cursor;
+        use request_response::Codec;
+        struct BrokenRead(bool);
+        impl AsyncRead for BrokenRead {
+            fn poll_read(
+                mut self: std::pin::Pin<&mut Self>,
+                _: &mut std::task::Context<'_>,
+                buf: &mut [u8],
+            ) -> std::task::Poll<io::Result<usize>> {
+                if self.0 {
+                    std::task::Poll::Ready(Err(io::Error::other("read failed")))
+                } else {
+                    self.0 = true;
+                    buf[0] = 0;
+                    std::task::Poll::Ready(Ok(1))
+                }
+            }
+        }
+        let wire = Arc::new(WireBytes::default());
+        let mut codec = ProtoCodec::<Frame, Frame>::media().with_wire(wire.clone());
+        for bytes in [
+            vec![0xff],
+            frame_bytes(message_limit(&MEDIA_PROTOCOL) as usize + 1),
+        ] {
+            assert!(codec
+                .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
+                .await
+                .is_err());
+            assert!(codec
+                .read_response(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
+                .await
+                .is_err());
+        }
+        assert!(codec
+            .read_response(&MEDIA_PROTOCOL, &mut Cursor::new(Vec::new()))
+            .await
+            .is_err());
+        assert!(codec
+            .read_request(&MEDIA_PROTOCOL, &mut BrokenRead(false))
+            .await
+            .is_err());
+        assert!(codec
+            .read_response(&MEDIA_PROTOCOL, &mut BrokenRead(false))
+            .await
+            .is_err());
+        codec
+            .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(Vec::new()))
+            .await
+            .unwrap();
+        let cloned = codec.clone();
+        assert!(cloned.permit.is_none());
+        assert!(Arc::ptr_eq(&cloned.wire, &wire));
+        let frame = Frame { data: vec![1; 5] };
+        let mut prefix = [0; 1];
+        assert!(codec
+            .write_request(
+                &MEDIA_PROTOCOL,
+                &mut Cursor::new(&mut prefix[..]),
+                frame.clone()
+            )
+            .await
+            .is_err());
+        assert_ne!(prefix[0], 0); // A partial write happened but contributes no completed frame.
+        assert!(codec
+            .write_response(&MEDIA_PROTOCOL, &mut Cursor::new(&mut prefix[..]), frame)
+            .await
+            .is_err());
+        assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
+        assert_eq!(wire.take().0, [[0; 2]; 10]);
     }
 
     #[tokio::test]

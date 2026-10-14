@@ -10,6 +10,16 @@ mode, connection limits, stream cap, memory limit and search role; `dyappd` uses
 `build_swarm` and `build_limited_swarm` retain their existing interfaces and delegate to it.
 Default options use `Mode::Auto`, no connection or memory cap, 100 streams and no search role.
 
+`SwarmOptions.wire` shares one `Arc<WireBytes>` across all protobuf codecs; bootstrap uses
+`node::swarm_with_wire` with the same instance as `Service.wire`. Legacy swarm constructors
+create their own counters. Codecs count the received frame length after successful protobuf
+decoding (including unknown fields), and the encoded length after a complete write. Malformed,
+oversized, interrupted reads and partial/failed writes contribute no completed frame. Media
+clones share the permit pool and counters, but never a held permit. Unknown protocols handled
+by this codec use `other`; Kademlia, transport overhead and gossip control traffic are excluded.
+`take()` resets the per-slot incoming/outgoing counters; simultaneous additions belong to this
+or the next interval. Gossip accounting and the hourly `wire_bytes` status field remain planned.
+
 `SwarmOptions.incoming_groups` optionally enables `IncomingGroupLimits::new(max, ipv4_prefix,
 ipv6_prefix)`: a positive connection budget shared by pending and established incoming
 connections. It groups the first remote IP by masks 0..32 and 0..128; IPv4-mapped IPv6 stays

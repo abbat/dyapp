@@ -98,7 +98,8 @@ async fn main() -> anyhow::Result<()> {
         &config.storage.messages_path(),
     )?;
 
-    let mut swarm = node::swarm(keypair, &config.limits, &config.roles)?;
+    let wire = std::sync::Arc::new(dyapp_p2p_net::WireBytes::default());
+    let mut swarm = node::swarm_with_wire(keypair, &config.limits, &config.roles, wire.clone())?;
     // A host without IPv6 cannot open [::]; the node runs on whatever does open.
     let mut listening = 0;
     for address in &config.listen {
@@ -130,6 +131,7 @@ async fn main() -> anyhow::Result<()> {
         .then(|| MediaStore::open(&config.storage.dir))
         .transpose()?;
     let mut service = Service::new(store, config);
+    service.wire = wire;
     service.media = media;
     if service.config.roles.contains(&Role::Search) {
         let search = &service.config;

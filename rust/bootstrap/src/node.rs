@@ -42,6 +42,16 @@ pub fn swarm(
     limits: &Limits,
     roles: &[Role],
 ) -> anyhow::Result<Swarm<Behaviour>> {
+    swarm_with_wire(keypair, limits, roles, Arc::default())
+}
+
+/// Builds the node swarm with counters shared with its service.
+pub fn swarm_with_wire(
+    keypair: Keypair,
+    limits: &Limits,
+    roles: &[Role],
+    wire: Arc<dyapp_p2p_net::WireBytes>,
+) -> anyhow::Result<Swarm<Behaviour>> {
     let mode = if roles.contains(&Role::Store) {
         Mode::Auto
     } else {
@@ -64,6 +74,7 @@ pub fn swarm(
             max_streams: limits.max_streams,
             max_memory_bytes: memory,
             search,
+            wire,
             incoming_groups: Some(IncomingGroupLimits::new(
                 limits.max_connections_per_ip_group,
                 limits.ipv4_prefix,

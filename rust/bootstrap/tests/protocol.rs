@@ -35,8 +35,14 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
     change(&mut config);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
-    let mut swarm = node::swarm(keypair, &config.limits, &config.roles).unwrap();
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    let mut swarm = node::swarm_with_wire(
+        keypair,
+        &service.config.limits,
+        &service.config.roles,
+        service.wire.clone(),
+    )
+    .unwrap();
     if service.config.roles.contains(&Role::Media) {
         service.media =
             Some(dyapp_bootstrap::media::MediaStore::open(&service.config.storage.dir).unwrap());
@@ -818,10 +824,11 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         config.limits.min_free_mb = 0;
         let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
         service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
-        let mut swarm = node::swarm(
+        let mut swarm = node::swarm_with_wire(
             Keypair::generate_ed25519(),
             &service.config.limits,
             &service.config.roles,
+            service.wire.clone(),
         )
         .unwrap();
         swarm

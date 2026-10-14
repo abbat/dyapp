@@ -82,6 +82,8 @@ pub struct Service {
     pub senders: PeerRateLimiter,
     pub reputation: Reputation,
     pub traffic: Traffic,
+    /// Successful protobuf frame bytes, shared with swarm codecs.
+    pub wire: Arc<dyapp_p2p_net::WireBytes>,
     pub memory: Memory,
     pub rebuild_budget: RebuildBudget,
     pub config: NodeConfig,
@@ -127,6 +129,7 @@ impl Service {
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),
+            wire: Arc::default(),
             memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
             rebuild_budget: RebuildBudget::new(config.maintenance.io_mb_per_s),
             config,
