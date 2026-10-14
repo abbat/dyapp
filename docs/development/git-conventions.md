@@ -26,7 +26,11 @@
 
 Every `Cargo.lock` is committed (`Cargo.lock`, `linux/Cargo.lock`,
 `windows/Cargo.lock`) for reproducible builds. Update it only through Cargo,
-in the same commit as the `Cargo.toml` change.
+in the same commit as the `Cargo.toml` change. A shared crate dependency change also updates
+both platform lockfiles: the root workspace lock does not cover their separate dependency
+graphs. Verify each with `cargo metadata --manifest-path linux/Cargo.toml --locked`
+and the equivalent Windows manifest command in the appropriate build environment. Omit
+`--no-deps` for this check: it skips dependency resolution and can miss a stale lockfile.
 
 ## Rust version (MSRV)
 
