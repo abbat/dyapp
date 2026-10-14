@@ -56,6 +56,23 @@ impl WireBytes {
         .unwrap_or(Self::OTHER)
     }
 
+    /// Slot for this configured network, without interpreting arbitrary protocol suffixes.
+    pub fn protocol_slot_for(protocol: &StreamProtocol, protocols: &crate::Protocols) -> usize {
+        [
+            &protocols.node,
+            &protocols.profile,
+            &protocols.mailbox,
+            &protocols.mailbox_push,
+            &protocols.media,
+            &protocols.search,
+            &protocols.inventory,
+            &protocols.digest,
+        ]
+        .iter()
+        .position(|p| *p == protocol)
+        .unwrap_or(Self::OTHER)
+    }
+
     /// Adds payload bytes to a slot returned by `protocol_slot`, `GOSSIP` or `OTHER`.
     ///
     /// # Panics
@@ -88,6 +105,38 @@ impl fmt::Display for WireCounts {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn named_protocols_use_fixed_slots_and_foreign_ids_are_other() {
+        let configured = crate::Protocols::new("wire-test").unwrap();
+        for (slot, protocol) in [
+            &configured.node,
+            &configured.profile,
+            &configured.mailbox,
+            &configured.mailbox_push,
+            &configured.media,
+            &configured.search,
+            &configured.inventory,
+            &configured.digest,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert_eq!(WireBytes::protocol_slot_for(protocol, &configured), slot);
+            assert_eq!(WireBytes::protocol_slot(protocol), WireBytes::OTHER);
+        }
+        assert_eq!(
+            WireBytes::protocol_slot_for(&MEDIA_PROTOCOL, &configured),
+            WireBytes::OTHER
+        );
+        let other = crate::Protocols::new("different-test").unwrap();
+        assert_eq!(
+            WireBytes::protocol_slot_for(&other.media, &configured),
+            WireBytes::OTHER
+        );
+        let public = crate::Protocols::public();
+        assert_eq!(WireBytes::protocol_slot_for(&MEDIA_PROTOCOL, &public), 4);
+    }
 
     #[test]
     fn protocols_directions_display_and_reset() {

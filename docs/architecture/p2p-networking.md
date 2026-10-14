@@ -124,9 +124,12 @@ the gossip prefix is `/dyapp/net-<ns>/meshsub`, and search topics are
 `/dyapp/net-<ns>/profiles/<n>`. The reserved digest ID receives the same namespace
 but has no behaviour yet; `all()` lists the nine existing protocol IDs.
 
-The value type and name validation are implemented. **Passing it into swarm builders,
-bootstrap network configuration, storage guards and peer isolation remain planned**;
-current builders continue to use the public constants.
+The value type and name validation are implemented. `ProtoCodec::with_protocols(Arc<Protocols>)`
+uses exact configured IDs for the media frame limit and stable wire counter slots; clones share
+the namespace, counters and permit pool, without a held permit. The default remains public.
+Foreign IDs get the control frame cap and `other` counter slot, regardless of their suffix.
+**Passing the namespace into swarm builders, bootstrap network configuration, storage guards
+and peer isolation remain planned**; current builders continue to use the public constants.
 
 ## Planned
 

@@ -76,8 +76,8 @@ pub const MAX_CONTROL_MESSAGE_BYTES: u64 = 1024 * 1024 + 64 * 1024;
 /// Media frame limit, including protobuf and signature overhead.
 pub const MAX_MEDIA_MESSAGE_BYTES: u64 = 6 * 1024 * 1024 + 64 * 1024;
 
-fn message_limit(protocol: &StreamProtocol) -> u64 {
-    if protocol == &MEDIA_PROTOCOL {
+fn message_limit(protocol: &StreamProtocol, protocols: &Protocols) -> u64 {
+    if protocol == &protocols.media {
         MAX_MEDIA_MESSAGE_BYTES
     } else {
         MAX_CONTROL_MESSAGE_BYTES
@@ -126,6 +126,7 @@ pub struct Behaviour {
 pub struct ProtoCodec<Req, Resp> {
     marker: PhantomData<fn() -> (Req, Resp)>,
     wire: Arc<WireBytes>,
+    protocols: Arc<Protocols>,
     /// Shared by every connection of a media behaviour; other protocols have no permit pool.
     permits: Option<Arc<Semaphore>>,
     /// Held from before reading a request until its response is sent or the stream is dropped.
@@ -136,6 +137,12 @@ impl<Req, Resp> ProtoCodec<Req, Resp> {
     /// Shares successful protobuf frame counts across codecs and connections.
     pub fn with_wire(mut self, wire: Arc<WireBytes>) -> Self {
         self.wire = wire;
+        self
+    }
+
+    /// Configures exact protocol IDs for frame limits and stable wire counter labels.
+    pub fn with_protocols(mut self, protocols: Arc<Protocols>) -> Self {
+        self.protocols = protocols;
         self
     }
 
@@ -152,6 +159,7 @@ impl<Req, Resp> Default for ProtoCodec<Req, Resp> {
         Self {
             marker: PhantomData,
             wire: Arc::default(),
+            protocols: Arc::new(Protocols::public()),
             permits: None,
             permit: None,
         }
@@ -164,6 +172,7 @@ impl<Req, Resp> Clone for ProtoCodec<Req, Resp> {
             marker: PhantomData,
             permits: self.permits.clone(),
             wire: self.wire.clone(),
+            protocols: self.protocols.clone(),
             permit: None,
         }
     }
@@ -222,11 +231,14 @@ where
                 io::Error::new(io::ErrorKind::WouldBlock, "media streams exhausted")
             })?);
         }
-        let result = read_message(io, message_limit(protocol), false)
+        let result = read_message(io, message_limit(protocol, &self.protocols), false)
             .await
             .map(|(message, n)| {
-                self.wire
-                    .add(WireBytes::protocol_slot(protocol), Dir::In, n);
+                self.wire.add(
+                    WireBytes::protocol_slot_for(protocol, &self.protocols),
+                    Dir::In,
+                    n,
+                );
                 message
             });
         if result.is_err() {
@@ -240,9 +252,12 @@ where
         protocol: &StreamProtocol,
         io: &mut T,
     ) -> io::Result<Resp> {
-        let (message, n) = read_message(io, message_limit(protocol), true).await?;
-        self.wire
-            .add(WireBytes::protocol_slot(protocol), Dir::In, n);
+        let (message, n) = read_message(io, message_limit(protocol, &self.protocols), true).await?;
+        self.wire.add(
+            WireBytes::protocol_slot_for(protocol, &self.protocols),
+            Dir::In,
+            n,
+        );
         Ok(message)
     }
 
@@ -253,8 +268,11 @@ where
         request: Req,
     ) -> io::Result<()> {
         let n = write_message(io, request).await?;
-        self.wire
-            .add(WireBytes::protocol_slot(protocol), Dir::Out, n);
+        self.wire.add(
+            WireBytes::protocol_slot_for(protocol, &self.protocols),
+            Dir::Out,
+            n,
+        );
         Ok(())
     }
 
@@ -265,8 +283,11 @@ where
         response: Resp,
     ) -> io::Result<()> {
         let result = write_message(io, response).await.map(|n| {
-            self.wire
-                .add(WireBytes::protocol_slot(protocol), Dir::Out, n);
+            self.wire.add(
+                WireBytes::protocol_slot_for(protocol, &self.protocols),
+                Dir::Out,
+                n,
+            );
         });
         self.permit.take();
         result
@@ -991,6 +1012,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn configured_media_ids_keep_large_frames_and_stable_counter_slots() {
+        use libp2p::futures::io::Cursor;
+        use prost::Message;
+        use request_response::Codec;
+        for protocols in [Protocols::public(), Protocols::new("codec-test").unwrap()] {
+            let protocols = Arc::new(protocols);
+            let wire = Arc::new(WireBytes::default());
+            let mut codec = ProtoCodec::<Frame, Frame>::media()
+                .with_wire(wire.clone())
+                .with_protocols(protocols.clone());
+            let frame = Frame {
+                data: vec![0; 2 << 20],
+            };
+            let bytes = frame.encode_to_vec();
+            codec
+                .read_request(&protocols.media, &mut Cursor::new(&bytes))
+                .await
+                .unwrap();
+            let mut cloned = codec.clone();
+            assert!(Arc::ptr_eq(&cloned.protocols, &protocols));
+            assert!(cloned.permit.is_none());
+            cloned
+                .read_response(&protocols.media, &mut Cursor::new(&bytes))
+                .await
+                .unwrap();
+            cloned
+                .write_request(
+                    &protocols.media,
+                    &mut Cursor::new(Vec::new()),
+                    frame.clone(),
+                )
+                .await
+                .unwrap();
+            codec
+                .write_response(&protocols.media, &mut Cursor::new(Vec::new()), frame)
+                .await
+                .unwrap();
+            let mut expected = [[0; 2]; 10];
+            expected[4] = [2 * bytes.len() as u64; 2];
+            assert_eq!(wire.take().0, expected);
+            assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
+            for foreign in [&protocols.node, &StreamProtocol::new("/unknown/media")] {
+                assert!(codec
+                    .read_request(foreign, &mut Cursor::new(&bytes))
+                    .await
+                    .is_err());
+                assert!(codec
+                    .read_response(foreign, &mut Cursor::new(&bytes))
+                    .await
+                    .is_err());
+            }
+            if protocols.media != MEDIA_PROTOCOL {
+                assert!(codec
+                    .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
+                    .await
+                    .is_err());
+            }
+            assert_eq!(wire.take().0, [[0; 2]; 10]);
+            let unknown = frame_bytes(16);
+            codec
+                .read_request(
+                    &StreamProtocol::new("/unknown/media"),
+                    &mut Cursor::new(&unknown),
+                )
+                .await
+                .unwrap();
+            let counts = wire.take();
+            assert_eq!(counts.0[WireBytes::OTHER], [16, 0]);
+            assert_eq!(counts.0[4], [0, 0]);
+        }
+    }
+
+    #[tokio::test]
     async fn codec_counts_exact_frames_in_all_directions_and_shares_clones() {
         use libp2p::futures::io::Cursor;
         use prost::Message;
@@ -1060,7 +1154,7 @@ mod tests {
         let mut codec = ProtoCodec::<Frame, Frame>::media().with_wire(wire.clone());
         for bytes in [
             vec![0xff],
-            frame_bytes(message_limit(&MEDIA_PROTOCOL) as usize + 1),
+            frame_bytes(message_limit(&MEDIA_PROTOCOL, &Protocols::public()) as usize + 1),
         ] {
             assert!(codec
                 .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
@@ -1121,7 +1215,7 @@ mod tests {
             MAILBOX_PUSH_PROTOCOL,
             MEDIA_PROTOCOL,
         ] {
-            let limit = usize::try_from(message_limit(&protocol)).unwrap();
+            let limit = usize::try_from(message_limit(&protocol, &Protocols::public())).unwrap();
             for size in [limit, limit + 1] {
                 let bytes = frame_bytes(size);
                 let request = codec
