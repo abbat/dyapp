@@ -126,8 +126,12 @@ The IP policy refuses 0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.
 64:ff9b::/96. Mapped IPv4 follows its IPv4 policy. These are the specified ranges, not a complete
 IANA global-unicast classifier. Missing-IP addresses pass; disabled mode bypasses IP and group
 checks. The separate peer-proof gate is planned and is not disabled by this switch.
-**Guarded TCP/QUIC transport lifetimes below DNS, peer-proof admission, node wiring and hourly
-`throttled_dials` reporting remain planned**; current builders do not yet enforce this guard.
+`GuardDial::new(inner, guard)` implements the attempt lifetime around one combined transport.
+A policy refusal returns `MultiaddrNotSupported` without calling the inner dial; immediate and
+future errors record one failure, while completion or dropping an unpolled/pending future frees
+its slot once. Listening, listener removal and inbound events are delegated unchanged.
+**Placement below DNS, peer-proof admission, node wiring and hourly `throttled_dials` reporting
+remain planned**; current builders do not yet enforce this guard.
 
 ## Protocol namespaces
 
