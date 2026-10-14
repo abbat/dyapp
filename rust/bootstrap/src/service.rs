@@ -28,6 +28,8 @@ use std::time::Duration;
 pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
 /// Network acceptance is raised before the send limit during a rollout.
 const ENVELOPE_ACCEPT_BYTES: usize = MAX_ENVELOPE_BYTES;
+const PROFILE_SEND_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
+const PROFILE_ACCEPT_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
 /// Stored bytes per device mailbox.
 pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 /// Envelope bytes per fetch reply, leaving 64 KiB for protobuf framing.
@@ -315,11 +317,7 @@ impl Service {
                 .filter_map(|(on, role)| on.then_some(role.into()))
                 .collect(),
             max_media_bytes: if media { MAX_MEDIA_BYTES as u64 } else { 0 },
-            max_profile_bytes: if store {
-                dyapp_profile::MAX_PAYLOAD_LEN as u64
-            } else {
-                0
-            },
+            max_profile_bytes: if store { PROFILE_SEND_BYTES as u64 } else { 0 },
             max_message_bytes: if store { MAX_ENVELOPE_BYTES as u64 } else { 0 },
             max_mailbox_bytes: if store { MAX_MAILBOX_BYTES } else { 0 },
             retention_seconds: if store { self.retention() } else { 0 },
@@ -666,7 +664,12 @@ impl Service {
                 profile_request::Request::Publish(record)
                 | profile_request::Request::ReplicaPut(record),
             ) => {
-                let response = self.publish(&record, store)?;
+                let max = if is_replica {
+                    PROFILE_ACCEPT_BYTES
+                } else {
+                    PROFILE_SEND_BYTES
+                };
+                let response = self.publish(&record, store, max)?;
                 if response.status == i32::from(Status::Denied) {
                     self.strike(peer);
                 }
@@ -734,12 +737,17 @@ impl Service {
     }
 
     pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
-        self.publish(record, true)
+        self.publish(record, true, PROFILE_ACCEPT_BYTES)
     }
 
-    fn publish(&self, record: &SignedRecord, store: bool) -> crate::Result<ProfileResponse> {
-        if record.payload.len() > dyapp_profile::MAX_PAYLOAD_LEN {
-            return Ok(reply(Status::TooLarge, None));
+    fn publish(
+        &self,
+        record: &SignedRecord,
+        store: bool,
+        max: usize,
+    ) -> crate::Result<ProfileResponse> {
+        if record.payload.len() > max {
+            return Ok(profile_too_large(max));
         }
         if self.listed_key(&record.public_key) {
             return Ok(reply(Status::Refused, None));
@@ -1692,6 +1700,13 @@ fn status(status: Status) -> MailboxResponse {
     }
 }
 
+fn profile_too_large(max: usize) -> ProfileResponse {
+    ProfileResponse {
+        max_bytes: max as u64,
+        ..reply(Status::TooLarge, None)
+    }
+}
+
 fn reply(status: Status, record: Option<SignedRecord>) -> ProfileResponse {
     ProfileResponse {
         status: status.into(),
@@ -2471,6 +2486,92 @@ mod tests {
 
     fn status(response: &ProfileResponse) -> Status {
         Status::try_from(response.status).unwrap()
+    }
+
+    /// A signed future-compatible profile of an exact payload size.
+    fn padded_profile(owner: &Identity, profile: &Profile, size: usize) -> SignedRecord {
+        #[derive(Clone, PartialEq, prost::Message)]
+        struct Extension {
+            #[prost(bytes = "vec", tag = "100")]
+            data: Vec<u8>,
+        }
+        let mut payload = profile.encode_to_vec();
+        let mut extension = Extension {
+            data: vec![0; size],
+        };
+        let overhead = extension.encoded_len() - extension.data.len();
+        extension.data.resize(size - payload.len() - overhead, 0);
+        payload.extend(extension.encode_to_vec());
+        assert_eq!(payload.len(), size);
+        owner.sign(Domain::Profile, payload)
+    }
+
+    #[test]
+    fn profile_size_hints_cover_send_replica_and_local_boundaries() {
+        let s = service();
+        let owner = Identity::generate();
+        let profile = Profile {
+            version: 1,
+            age: 28,
+            ..Default::default()
+        };
+        let exact = padded_profile(&owner, &profile, PROFILE_SEND_BYTES);
+        assert!(dyapp_profile::verify(&exact).is_ok());
+        let response = s.publish(&exact, false, PROFILE_SEND_BYTES - 1).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), (PROFILE_SEND_BYTES - 1) as u64)
+        );
+        let response = s
+            .profile(&peer("profile-limit"), publish(exact.clone()))
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::Ok), 0)
+        );
+        let response = s.store_profile(&exact).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::Stale), 0)
+        );
+        let from = replica_peer("profile-limit-node");
+        let response = s
+            .profile(
+                &from,
+                ProfileRequest {
+                    request: Some(profile_request::Request::ReplicaPut(exact)),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::Stale), 0)
+        );
+        let large = padded_profile(&owner, &profile, PROFILE_SEND_BYTES + 1);
+        let response = s
+            .profile(&peer("profile-limit"), publish(large.clone()))
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), PROFILE_SEND_BYTES as u64)
+        );
+        let response = s.store_profile(&large).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), PROFILE_ACCEPT_BYTES as u64)
+        );
+        let response = s
+            .profile(
+                &from,
+                ProfileRequest {
+                    request: Some(profile_request::Request::ReplicaPut(large)),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), PROFILE_ACCEPT_BYTES as u64)
+        );
     }
 
     #[test]

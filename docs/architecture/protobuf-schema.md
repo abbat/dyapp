@@ -136,7 +136,9 @@ The response schemas reserve additive hints for limits checked by the receiving 
 rejection caused by insufficient PoW. Zero means not reported, including replies from older
 nodes. Mailbox replies now report the exact checked signed-envelope payload bound for client
 puts, local stores and repair batches; a batch ending in `DENIED` keeps that priority and clears
-the size hint. **Profile/media/search size hints and search PoW hints remain planned**.
+the size hint. Profile client publish, replica put and local stores also report their checked
+payload bound; send and accept constants are separate and both 1 MiB today.
+**Media/search size hints and search PoW hints remain planned**.
 Client retries and validation of reported values are also planned.
 
 ### Clock hints

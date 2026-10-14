@@ -545,7 +545,9 @@ planned.
 Mailbox `TOO_LARGE` replies include `max_bytes` for the checked signed-envelope payload,
 including repair batches. Client sends use the advertised 100 KiB limit; replica/local admission
 uses a separate accept constant, also 100 KiB today. A batch containing a forged envelope still
-answers `DENIED` with no size hint. Size hints in the other services remain planned.
+answers `DENIED` with no size hint. Profile publish and replica/local stores also return the
+checked payload bound in `TOO_LARGE`: their send/accept constants are separate, both 1 MiB
+today, and node info advertises the send limit. Media/search size hints remain planned.
 The current protocol replies are:
 
 | Protocol | Request | Reply |
@@ -553,7 +555,7 @@ The current protocol replies are:
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
-| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` payload over 1 MiB |
+| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
 | `/dyapp/profile` | `replica_put(SignedRecord)` (node to node) | stores and verifies like publish, never forwards; costs one request unit; same validation replies |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
