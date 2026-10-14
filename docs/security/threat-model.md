@@ -91,7 +91,7 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 |--------|-------------|---------------------|---------|
 | Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, placeholder keys, random unchecked frame tags | `rust/messaging/src/encryption.rs`, `rust/video/src/encryption.rs`, FFI `generate_keypair` | Critical × certain | Fix: MLS, frame encryption and identity storage replace and delete the stubs |
 | Forged, malleable or weak-key Ed25519 signature | Any `SignedRecord` | Critical × low | Accept: `verify_strict` rejects non-canonical and small-order input; every check goes through `dyapp-identity` |
-| A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: versioned labels ending in `\0` are prefix-free and differ from libp2p's own labels; fix: a test pins it |
+| A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: one complete registry and tests enforce distinct labels ending in `\0`, prefix freedom, separation from the locked libp2p signing contexts and rejection of cross-domain verification |
 | One key serving two purposes | Identity, device, MLS and libp2p keys | High × medium | Fix: one key per purpose, listed in [keys](encryption.md#keys) |
 | MLS ciphersuite downgrade or unknown suite | KeyPackages and Welcomes from untrusted nodes | Critical × medium | Fix: only 0x0001 is accepted, nothing is negotiated |
 | A group member whose credential does not chain to the Peer ID | MLS Add, Welcome | Critical × medium | Fix: checked on every Add and Welcome; verifying the Peer ID itself is class 3 |

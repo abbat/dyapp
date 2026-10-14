@@ -16,39 +16,44 @@ pub enum Error {
     InvalidSignature,
 }
 
-/// What a signature covers; each kind of signed data has its own label.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Domain {
-    Profile,
-    /// A mailbox envelope, signed by the sender's device key.
-    Envelope,
-    /// A mailbox fetch, signed by the mailbox's device key.
-    MailboxFetch,
-    /// A mailbox ack, signed by the mailbox's device key.
-    MailboxAck,
-    /// The list of an owner's media blobs, signed by the owner's identity key.
-    MediaKeep,
-    /// Chat attachment blobs, signed by the sender's identity key.
-    MediaAttach,
-    /// A liveness signal that keeps the owner's profile stored, signed by the identity key.
-    Heartbeat,
-    /// An operator's deny list, signed by the node's libp2p key.
-    DenyList,
+// One registry generates variants, labels and the complete test set together.
+macro_rules! signature_domains {
+    ($($(#[$doc:meta])* $variant:ident => $label:literal),+ $(,)?) => {
+        /// What a signature covers; each kind of signed data has its own label.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum Domain {
+            $($(#[$doc])* $variant),+
+        }
+
+        impl Domain {
+            fn label(self) -> &'static [u8] {
+                match self {
+                    $(Self::$variant => $label),+
+                }
+            }
+
+            #[cfg(test)]
+            const ALL: &'static [Self] = &[$(Self::$variant),+];
+        }
+    };
 }
 
-impl Domain {
-    fn label(self) -> &'static [u8] {
-        match self {
-            Domain::Profile => b"dyapp/profile/v1\0",
-            Domain::Envelope => b"dyapp/envelope/v1\0",
-            Domain::MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
-            Domain::MailboxAck => b"dyapp/mailbox-ack/v1\0",
-            Domain::MediaKeep => b"dyapp/media-keep/v1\0",
-            Domain::MediaAttach => b"dyapp/media-attach/v1\0",
-            Domain::Heartbeat => b"dyapp/heartbeat/v1\0",
-            Domain::DenyList => b"dyapp/deny-list/v1\0",
-        }
-    }
+signature_domains! {
+    Profile => b"dyapp/profile/v1\0",
+    /// A mailbox envelope, signed by the sender's device key.
+    Envelope => b"dyapp/envelope/v1\0",
+    /// A mailbox fetch, signed by the mailbox's device key.
+    MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
+    /// A mailbox ack, signed by the mailbox's device key.
+    MailboxAck => b"dyapp/mailbox-ack/v1\0",
+    /// The list of an owner's media blobs, signed by the owner's identity key.
+    MediaKeep => b"dyapp/media-keep/v1\0",
+    /// Chat attachment blobs, signed by the sender's identity key.
+    MediaAttach => b"dyapp/media-attach/v1\0",
+    /// A liveness signal that keeps the owner's profile stored, signed by the identity key.
+    Heartbeat => b"dyapp/heartbeat/v1\0",
+    /// An operator's deny list, signed by the node's libp2p key.
+    DenyList => b"dyapp/deny-list/v1\0",
 }
 
 mod generated {
@@ -143,6 +148,56 @@ impl Identity {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_domain_has_a_unique_prefix_free_label_separate_from_libp2p() {
+        // Verified against the locked primary crate sources:
+        // libp2p-core 0.44.0 peer_record.rs (legacy and standard domains);
+        // libp2p-noise 0.47.0 protocol.rs, libp2p-tls 0.7.0 certificate.rs,
+        // libp2p-gossipsub 0.50.0 protocol.rs. Recheck when these dependencies change.
+        let libp2p_labels: &[&[u8]] = &[
+            b"libp2p-routing-state",
+            b"libp2p-peer-record",
+            b"noise-libp2p-static-key:",
+            b"libp2p-tls-handshake:",
+            b"libp2p-pubsub:",
+        ];
+        for domain in Domain::ALL {
+            let label = domain.label();
+            assert!(label.starts_with(b"dyapp/"), "{domain:?}");
+            assert_eq!(label.last(), Some(&0), "{domain:?}");
+            assert!(!label[..label.len() - 1].contains(&0), "{domain:?}");
+            for other in Domain::ALL.iter().filter(|other| *other != domain) {
+                assert!(!label.starts_with(other.label()), "{domain:?} vs {other:?}");
+            }
+            for external in libp2p_labels {
+                assert!(
+                    !label.starts_with(external) && !external.starts_with(label),
+                    "{domain:?} overlaps libp2p label"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn signatures_verify_only_in_their_own_domain() {
+        let identity = Identity::generate();
+        for domain in Domain::ALL {
+            let record = identity.sign(*domain, b"same payload".to_vec());
+            for other in Domain::ALL {
+                let result = record.verify(*other);
+                if domain == other {
+                    assert_eq!(result, Ok(identity.peer_id()), "{domain:?}");
+                } else {
+                    assert_eq!(
+                        result,
+                        Err(Error::InvalidSignature),
+                        "{domain:?} vs {other:?}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn sign_verify_and_tamper() {

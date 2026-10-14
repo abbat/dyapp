@@ -91,8 +91,11 @@ Rules:
 - Randomness for keys, nonces and secrets comes only from the OS generator (`getrandom`). It
   blocks until the kernel pool is seeded and fails closed.
 - Every Ed25519 check goes through `dyapp_identity::SignedRecord::verify` (`verify_strict`). Each
-  record kind has its own label `dyapp/<kind>/v1\0`; a label ends in `\0`, so no label is a prefix
-  of another.
+  record kind has its own label `dyapp/<kind>/v1\0`. One registry generates every domain,
+  label and test case. Tests require distinct labels with exactly one trailing NUL, pairwise
+  prefix freedom, separation from the locked libp2p peer-record, Noise, TLS and pubsub signing
+  contexts, and rejection when a signature is verified under any other domain. The context
+  snapshots are rechecked when those dependencies change.
 - A secret key crosses FFI only into the platform keystore's wrap and unwrap calls, never as a
   string, and copies are wiped after use (planned).
 - `dyappd` checks the opened `node.key` and refuses any group/other permission bits, with a
