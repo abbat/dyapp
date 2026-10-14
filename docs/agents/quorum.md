@@ -164,7 +164,8 @@ Read docs/agents/quorum.md. You are participant <model> in quorum <Q>, phase 2.
 Read docs/agents/quorum.md. You are the synthesizer of quorum <Q>, phase 3.
 ```
 
-and sets `BEADS_ACTOR=<model>` for that session where the harness allows it.
+and sets `BEADS_ACTOR=<model>` for that session where the harness allows it. The human's
+step-by-step guide is [development/quorum.md](../development/quorum.md); keep the two in sync.
 
 ## Edge cases
 

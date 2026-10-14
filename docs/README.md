@@ -33,6 +33,7 @@ it are entry points that tools discover by path (see
 - [CI base workflow](development/ci-base.md)
 - [CI matrix](development/ci-matrix.md)
 - [Documentation tooling](development/documentation.md)
+- [Running a quorum](development/quorum.md): multi-model cross-review, the human's steps
 - [Architecture decisions (ADR)](decisions/README.md)
 
 ### Testing
