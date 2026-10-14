@@ -174,8 +174,10 @@ Protobuf types do not cross the FFI. `rust/ffi` exports UniFFI types; see the
 
 `dyapp-p2p-net::Protocols` can derive namespaced protocol IDs and search topics from a
 validated network name ([P2P networking](p2p-networking.md#protocol-namespaces)).
-Protobuf packages, schemas and field numbers are shared across networks. Runtime builder
-integration and network selection remain planned; current swarms use the public IDs.
+Protobuf packages, schemas and field numbers are shared across networks. Configured swarm
+builders and node services use the same `Protocols` for negotiation, codec limits, role checks
+and gossip topics. Binary network selection and storage guards remain planned; `dyappd` and
+legacy constructors still use the public IDs.
 
 ## Evolution rules (proto3)
 

@@ -34,6 +34,17 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
 async fn start_config_with_wire(
     change: impl FnOnce(&mut NodeConfig),
 ) -> (Multiaddr, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
+    start_config_in_protocols(
+        change,
+        std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
+    )
+    .await
+}
+
+async fn start_config_in_protocols(
+    change: impl FnOnce(&mut NodeConfig),
+    protocols: std::sync::Arc<dyapp_p2p_net::Protocols>,
+) -> (Multiaddr, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
@@ -42,11 +53,13 @@ async fn start_config_with_wire(
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
-    let mut swarm = node::swarm_with_wire(
+    service.protocols = protocols;
+    let mut swarm = node::swarm_with_protocols(
         keypair,
         &service.config.limits,
         &service.config.roles,
         service.wire.clone(),
+        service.protocols.clone(),
     )
     .unwrap();
     if service.config.roles.contains(&Role::Media) {
@@ -232,6 +245,21 @@ impl Client {
     }
 
     async fn connect_with_search(addr: &Multiaddr, keypair: Keypair, search: bool) -> Self {
+        Self::connect_in_network(
+            addr,
+            keypair,
+            search,
+            std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
+        )
+        .await
+    }
+
+    async fn connect_in_network(
+        addr: &Multiaddr,
+        keypair: Keypair,
+        search: bool,
+        protocols: std::sync::Arc<dyapp_p2p_net::Protocols>,
+    ) -> Self {
         let wire = std::sync::Arc::new(dyapp_p2p_net::WireBytes::default());
         let mut swarm = dyapp_p2p_net::build_configured_swarm(
             keypair,
@@ -239,6 +267,7 @@ impl Client {
                 mode: Mode::Client,
                 search,
                 wire: wire.clone(),
+                protocols: protocols.clone(),
                 ..Default::default()
             },
         )
@@ -250,7 +279,7 @@ impl Client {
                     .gossip
                     .as_mut()
                     .unwrap()
-                    .subscribe(&dyapp_p2p_net::search_topic(topic))
+                    .subscribe(&protocols.search_topic(topic))
                     .unwrap();
             }
         }
@@ -389,6 +418,102 @@ async fn clock_node() -> Multiaddr {
         c.limits.min_free_mb = 0;
     })
     .await
+}
+
+#[tokio::test]
+async fn named_node_serves_profile_search_and_configured_gossip_topics() {
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("node-test").unwrap());
+    let (address, wire) = start_config_in_protocols(
+        |c| {
+            c.roles = vec![Role::Store, Role::Search];
+            c.search.min_profile_pow_bits = 0;
+            c.limits.requests_per_second = 1000;
+            c.limits.bytes_per_second = 0;
+            c.limits.min_free_mb = 0;
+        },
+        protocols.clone(),
+    )
+    .await;
+    let mut client = Client::connect_in_network(
+        &address,
+        Keypair::generate_ed25519(),
+        true,
+        protocols.clone(),
+    )
+    .await;
+    let owner = Identity::generate();
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let topic = protocols
+        .search_topic(dyapp_bootstrap::search::topic(&key))
+        .hash();
+    client
+        .wait(|event| match event {
+            BehaviourEvent::Gossip(libp2p::gossipsub::Event::Subscribed {
+                topic: subscribed,
+                ..
+            }) if subscribed == topic => Some(()),
+            _ => None,
+        })
+        .await;
+    assert_eq!(status(client.info().await.status), Status::Ok);
+    let record = Profile {
+        version: 1,
+        age: 28,
+        ..Default::default()
+    }
+    .sign(&owner);
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::Publish(record.clone()))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+    let request = proto::SearchRequest {
+        request: Some(proto::search_request::Request::Publish(record)),
+    };
+    let bytes = request.encode_to_vec();
+    client
+        .swarm
+        .behaviour_mut()
+        .search
+        .send_request(&client.server, request);
+    let (mut replied, mut gossiped) = (false, false);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while !(replied && gossiped) {
+            if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
+                match event {
+                    BehaviourEvent::Search(event) => {
+                        if let Some(response) = response(event) {
+                            assert_eq!(status(response.status), Status::Ok);
+                            replied = true;
+                        }
+                    }
+                    BehaviourEvent::Gossip(libp2p::gossipsub::Event::Message {
+                        message, ..
+                    }) => {
+                        assert_eq!(message.topic, topic);
+                        assert_eq!(message.data, bytes);
+                        gossiped = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let counts = wire.take();
+    assert_eq!(counts.0[dyapp_p2p_net::WireBytes::OTHER], [0, 0]);
+    assert_eq!(
+        counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
+        [0, bytes.len() as u64]
+    );
+    assert!(
+        counts.0[dyapp_p2p_net::WireBytes::protocol_slot_for(&protocols.search, &protocols)][0] > 0
+    );
 }
 
 #[tokio::test]
@@ -963,11 +1088,12 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         config.limits.min_free_mb = 0;
         let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
         service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
-        let mut swarm = node::swarm_with_wire(
+        let mut swarm = node::swarm_with_protocols(
             Keypair::generate_ed25519(),
             &service.config.limits,
             &service.config.roles,
             service.wire.clone(),
+            service.protocols.clone(),
         )
         .unwrap();
         swarm

@@ -132,8 +132,11 @@ Foreign IDs get the control frame cap and `other` counter slot, regardless of th
 and all request-response IDs. A named network also sets the gossipsub negotiation prefix;
 public options leave its default unchanged. Legacy constructors remain public. Real TCP tests
 verify advertised IDs, the identify version, and 2 MiB media frames in both directions.
-**Bootstrap node protocol checks/topics, network configuration, storage guards and cross-network
-peer-isolation acceptance remain planned**; `dyappd` still selects public protocols.
+`node::swarm_with_protocols` and `Service.protocols` share the configured IDs for node
+identify/Kademlia role checks and search subscription/publication topics. A named-node TCP test
+covers profile/search RPCs, named gossip delivery and fixed wire labels. Legacy node constructors
+and `dyappd` still select public protocols. **Network configuration, storage guards and full
+cross-network peer-isolation acceptance remain planned**.
 
 ## Planned
 

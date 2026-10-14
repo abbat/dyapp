@@ -13,9 +13,8 @@ use crate::service::{
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, SearchResponse, Status};
 use dyapp_p2p_net::{
-    build_configured_swarm, replica_key, search_topic, Behaviour, BehaviourEvent,
-    IncomingGroupLimits, Mode, SwarmOptions, KAD_PROTOCOL, REPLICAS, SEARCH_KAD_PROTOCOL,
-    SEARCH_KEY,
+    build_configured_swarm, replica_key, Behaviour, BehaviourEvent, IncomingGroupLimits, Mode,
+    SwarmOptions, REPLICAS, SEARCH_KEY,
 };
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
@@ -34,8 +33,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-/// The node's swarm with the connection and stream limits from the config. `/dyapp/kad` is the
-/// key space of the store role: a node without it is a DHT client and serves no protocol, so it
+/// The public node swarm with the connection and stream limits from the config. Store Kademlia
+/// is the key space of the store role: a node without it is a DHT client and serves no protocol, so it
 /// is never picked as a replica. New connections are refused above `max_memory_mb`.
 pub fn swarm(
     keypair: Keypair,
@@ -51,6 +50,23 @@ pub fn swarm_with_wire(
     limits: &Limits,
     roles: &[Role],
     wire: Arc<dyapp_p2p_net::WireBytes>,
+) -> anyhow::Result<Swarm<Behaviour>> {
+    swarm_with_protocols(
+        keypair,
+        limits,
+        roles,
+        wire,
+        Arc::new(dyapp_p2p_net::Protocols::public()),
+    )
+}
+
+/// Builds a node with protocol IDs shared with its service; config selection is separate.
+pub fn swarm_with_protocols(
+    keypair: Keypair,
+    limits: &Limits,
+    roles: &[Role],
+    wire: Arc<dyapp_p2p_net::WireBytes>,
+    protocols: Arc<dyapp_p2p_net::Protocols>,
 ) -> anyhow::Result<Swarm<Behaviour>> {
     let mode = if roles.contains(&Role::Store) {
         Mode::Auto
@@ -75,7 +91,7 @@ pub fn swarm_with_wire(
             max_memory_bytes: memory,
             search,
             wire,
-            protocols: Arc::new(dyapp_p2p_net::Protocols::public()),
+            protocols,
             incoming_groups: Some(IncomingGroupLimits::new(
                 limits.max_connections_per_ip_group,
                 limits.ipv4_prefix,
@@ -185,16 +201,18 @@ fn spread(
     swarm: &mut Swarm<Behaviour>,
     gossip: Option<([u8; 32], Vec<u8>)>,
     response: &SearchResponse,
-    wire: &dyapp_p2p_net::WireBytes,
+    service: &Service,
 ) {
     let (Some((key, bytes)), true) = (gossip, response.status == i32::from(Status::Ok)) else {
         return;
     };
-    let topic = search_topic(crate::search::topic(&key));
+    let topic = service.protocols.search_topic(crate::search::topic(&key));
     if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
         let n = bytes.len();
         match gossip.publish(topic, bytes) {
-            Ok(_) => wire.add(dyapp_p2p_net::WireBytes::GOSSIP, dyapp_p2p_net::Dir::Out, n),
+            Ok(_) => service
+                .wire
+                .add(dyapp_p2p_net::WireBytes::GOSSIP, dyapp_p2p_net::Dir::Out, n),
             Err(error) => tracing::debug!(%error, "search gossip not sent"),
         }
     }
@@ -1520,7 +1538,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
     let mut search_query = None;
     if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
         for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
-            if let Err(error) = gossip.subscribe(&search_topic(topic)) {
+            if let Err(error) = gossip.subscribe(&service.protocols.search_topic(topic)) {
                 tracing::error!(%error, topic, "search topic not joined");
             }
         }
@@ -1842,7 +1860,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     match service.search(&from, request) {
                         Ok(Search::Reply(response)) => {
                             answered += 1;
-                            spread(&mut swarm, gossip, &response, &service.wire);
+                            spread(&mut swarm, gossip, &response, &service);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
@@ -2268,16 +2286,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     peer_id,
                     info,
-                })) if info.protocols.contains(&KAD_PROTOCOL) || info.protocols.contains(&SEARCH_KAD_PROTOCOL) => {
+                })) if info.protocols.contains(&service.protocols.kad) || info.protocols.contains(&service.protocols.search_kad) => {
                     let bits = dyapp_p2p_net::id_pow_bits();
                     // Only search nodes serve the search DHT, so its protocol marks one.
-                    if info.protocols.contains(&SEARCH_KAD_PROTOCOL) && dyapp_p2p_net::id_has_pow(&peer_id, bits) {
+                    if info.protocols.contains(&service.protocols.search_kad) && dyapp_p2p_net::id_has_pow(&peer_id, bits) {
                         for address in &info.listen_addrs {
                             swarm.behaviour_mut().search_kad.add_address(&peer_id, address.clone());
                         }
                         service.search_peer(&peer_id.to_string(), true);
                     }
-                    if !info.protocols.contains(&KAD_PROTOCOL) {
+                    if !info.protocols.contains(&service.protocols.kad) {
                         continue;
                     }
                     // A routable peer this node dialled answered: it becomes an anchor.
@@ -2379,7 +2397,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                                 request: Some(proto::search_request::Request::Publish(record)),
                             };
                             let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
-                            spread(&mut swarm, gossip, &response, &service.wire);
+                            spread(&mut swarm, gossip, &response, &service);
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
@@ -2611,7 +2629,7 @@ mod tests {
                     status: status.into(),
                     ..Default::default()
                 },
-                &service.wire,
+                &service,
             );
         }
         assert_eq!(service.wire.take().0, [[0; 2]; 10]);
