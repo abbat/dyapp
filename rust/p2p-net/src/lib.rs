@@ -24,6 +24,8 @@ mod dial_filter;
 pub use dial_filter::{DenyDial, DialFilter};
 mod dial_guard;
 pub use dial_guard::{DialGuard, DialSlot};
+#[cfg(test)]
+mod endpoint_tag;
 mod guard_dial;
 pub use guard_dial::GuardDial;
 pub use ipnet::IpNet;
