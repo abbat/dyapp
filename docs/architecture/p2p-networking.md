@@ -113,6 +113,22 @@ beneath DNS, configuring the bootstrap denylist and reporting its counters remai
 A DNS-only address has no IP for the predicate to check; resolver placement is required to
 refuse names resolving to denied IPs. Current swarm builders do not yet apply this wrapper.
 
+`DialGuard::new(enabled)` also provides shared outbound attempt state. `admit(address, now)`
+returns a non-cloneable `DialSlot`: at most four concurrent attempts per IPv4 /24 or IPv6 /48,
+and new attempts are refused after ten actual failures younger than 60 seconds. IPv4-mapped
+addresses share IPv4 groups. Dropping a slot releases it; `fail(now)` records an actual error
+and releases it once. Success and cancellation add no failure. `cleanup(now)` removes expired
+histories across all groups while retaining live slots; completions need not enter in time order.
+Refusals are shared by clones and reset with `take_denied()`.
+
+The IP policy refuses 0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.0/24,
+192.168/16, 198.18/15 and 224/3; IPv6 unspecified/loopback/multicast, fc00::/7, fe80::/10 and
+64:ff9b::/96. Mapped IPv4 follows its IPv4 policy. These are the specified ranges, not a complete
+IANA global-unicast classifier. Missing-IP addresses pass; disabled mode bypasses IP and group
+checks. The separate peer-proof gate is planned and is not disabled by this switch.
+**Guarded TCP/QUIC transport lifetimes below DNS, peer-proof admission, node wiring and hourly
+`throttled_dials` reporting remain planned**; current builders do not yet enforce this guard.
+
 ## Protocol namespaces
 
 `Protocols::public()` describes the existing public IDs and gossip defaults.

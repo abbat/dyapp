@@ -22,6 +22,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod dial_filter;
 pub use dial_filter::{DenyDial, DialFilter};
+mod dial_guard;
+pub use dial_guard::{DialGuard, DialSlot};
 pub use ipnet::IpNet;
 mod incoming_groups;
 pub use incoming_groups::{IncomingGroupGuard, IncomingGroupLimits};
