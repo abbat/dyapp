@@ -1180,7 +1180,7 @@ impl Service {
         if let Some(media_request::Request::Put(put)) = &request.request {
             return match self.prepare_media(peer, put)? {
                 Ok(replica) => self.store_media(&replica),
-                Err(status) => Ok(media_status(status)),
+                Err(status) => Ok(media_upload_status(status)),
             };
         }
         let Some(media) = &self.media else {
@@ -1212,7 +1212,7 @@ impl Service {
         Ok(match request.request {
             Some(media_request::Request::Keep(record)) => {
                 if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_status(Status::TooLarge));
+                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
                 }
                 let Ok((owner, keep)) =
                     owner_request::<proto::MediaKeep>(&record, Domain::MediaKeep, |_| true)
@@ -1266,7 +1266,7 @@ impl Service {
             }
             Some(media_request::Request::Attach(record)) => {
                 if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_status(Status::TooLarge));
+                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
                 }
                 let Ok((owner, attach)) =
                     owner_request::<proto::MediaAttach>(&record, Domain::MediaAttach, |_| true)
@@ -1560,7 +1560,7 @@ impl Service {
             return Ok(media_status(Status::Unsupported));
         };
         if replica.data.len() > crate::replication::MEDIA_OBJECT_BYTES {
-            return Ok(media_status(Status::TooLarge));
+            return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
         }
         let hash = if let Some(manifest) = &replica.manifest {
             if !replica.data.is_empty() || manifest.data_shards().is_none() {
@@ -1575,7 +1575,7 @@ impl Service {
         let owner = match &replica.authorization {
             Some(Authorization::Keep(record)) => {
                 if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_status(Status::TooLarge));
+                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
                 }
                 let Ok((owner, keep)) =
                     owner_request::<proto::MediaKeep>(record, Domain::MediaKeep, |_| true)
@@ -1607,7 +1607,7 @@ impl Service {
             }
             Some(Authorization::Attach(record)) => {
                 if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_status(Status::TooLarge));
+                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
                 }
                 let Ok((owner, attach)) =
                     owner_request::<proto::MediaAttach>(record, Domain::MediaAttach, |_| true)
@@ -1680,6 +1680,22 @@ fn media_clock_invalid(server_time: u64) -> MediaResponse {
     MediaResponse {
         server_time,
         ..media_status(Status::Invalid)
+    }
+}
+
+/// Converts prepare_media's upload rejection without changing its Status interface.
+pub(crate) fn media_upload_status(status: Status) -> MediaResponse {
+    if status == Status::TooLarge {
+        media_too_large(MAX_MEDIA_BYTES)
+    } else {
+        media_status(status)
+    }
+}
+
+fn media_too_large(max: usize) -> MediaResponse {
+    MediaResponse {
+        max_bytes: max as u64,
+        ..media_status(Status::TooLarge)
     }
 }
 
@@ -2613,12 +2629,20 @@ mod tests {
 
     /// A signed future-compatible profile of an exact payload size.
     fn padded_profile(owner: &Identity, profile: &Profile, size: usize) -> SignedRecord {
+        padded_record(owner, Domain::Profile, profile.encode_to_vec(), size)
+    }
+
+    fn padded_record(
+        owner: &Identity,
+        domain: Domain,
+        mut payload: Vec<u8>,
+        size: usize,
+    ) -> SignedRecord {
         #[derive(Clone, PartialEq, prost::Message)]
         struct Extension {
             #[prost(bytes = "vec", tag = "100")]
             data: Vec<u8>,
         }
-        let mut payload = profile.encode_to_vec();
         let mut extension = Extension {
             data: vec![0; size],
         };
@@ -2626,7 +2650,7 @@ mod tests {
         extension.data.resize(size - payload.len() - overhead, 0);
         payload.extend(extension.encode_to_vec());
         assert_eq!(payload.len(), size);
-        owner.sign(Domain::Profile, payload)
+        owner.sign(domain, payload)
     }
 
     #[test]
@@ -3647,6 +3671,103 @@ mod tests {
             authorization: Some(proto::media_replica_put::Authorization::Keep(
                 owner.sign(Domain::MediaKeep, keep.encode_to_vec()),
             )),
+        }
+    }
+
+    #[test]
+    fn media_size_hints_preserve_object_boundaries() {
+        use proto::media_replica_put::Authorization;
+        let s = media_service(|l| {
+            l.media_requests_per_second = 100;
+            l.bytes_per_second = 0;
+        });
+        let owner = Identity::generate();
+        let max = crate::replication::MEDIA_OBJECT_BYTES;
+        let call = |request| {
+            s.media(
+                &peer("media-size"),
+                MediaRequest {
+                    request: Some(request),
+                },
+            )
+            .unwrap()
+        };
+        let put = |size| {
+            media_request::Request::Put(proto::MediaPut {
+                owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
+                data: vec![0; size],
+            })
+        };
+        let exact = call(put(MAX_MEDIA_BYTES));
+        assert_eq!(
+            (exact.status, exact.max_bytes),
+            (i32::from(Status::NotFound), 0)
+        );
+        let over = call(put(MAX_MEDIA_BYTES + 1));
+        assert_eq!(
+            (over.status, over.max_bytes),
+            (i32::from(Status::TooLarge), MAX_MEDIA_BYTES as u64)
+        );
+        let exact = media_replica(&owner, vec![7; max], 1);
+        assert_eq!(s.store_media(&exact).unwrap().status, i32::from(Status::Ok));
+        let over = media_replica(&owner, vec![7; max + 1], 2);
+        let response = s.store_media(&over).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), max as u64)
+        );
+        let data = b"authorization-boundary".to_vec();
+        let hash = dyapp_identity::sha256(&data).to_vec();
+        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let keep = proto::MediaKeep {
+            version: 2,
+            hashes: vec![hash.clone()],
+            time: now,
+        };
+        let attach = proto::MediaAttach {
+            release: vec![9; 32],
+            hashes: vec![hash],
+            created: now,
+        };
+        for (domain, payload) in [
+            (Domain::MediaKeep, keep.encode_to_vec()),
+            (Domain::MediaAttach, attach.encode_to_vec()),
+        ] {
+            for size in [max, max + 1] {
+                // For these sizes both payload varints have the same length.
+                let probe = padded_record(&owner, domain, payload.clone(), max);
+                let overhead = probe.encoded_len() - probe.payload.len();
+                let record = padded_record(&owner, domain, payload.clone(), size - overhead);
+                assert_eq!(record.encoded_len(), size);
+                let (request, authorization) = if domain == Domain::MediaKeep {
+                    (
+                        media_request::Request::Keep(record.clone()),
+                        Authorization::Keep(record),
+                    )
+                } else {
+                    (
+                        media_request::Request::Attach(record.clone()),
+                        Authorization::Attach(record),
+                    )
+                };
+                let direct = call(request);
+                let replica = proto::MediaReplicaPut {
+                    data: data.clone(),
+                    authorization: Some(authorization),
+                    manifest: None,
+                };
+                let stored = s.store_media(&replica).unwrap();
+                for response in [direct, stored] {
+                    assert_eq!(
+                        (response.status, response.max_bytes),
+                        if size == max {
+                            (i32::from(Status::Ok), 0)
+                        } else {
+                            (i32::from(Status::TooLarge), max as u64)
+                        }
+                    );
+                }
+            }
         }
     }
 

@@ -140,7 +140,9 @@ the size hint. Profile client publish, replica put and local stores also report 
 payload bound; send and accept constants are separate and both 1 MiB today.
 Search publication reports its local encoded-record size bound and, for insufficient profile
 PoW only, the required difficulty. Gossip and catch-up use a separate fixed 64 KiB accept bound.
-**Media size hints remain planned**.
+Media service rejections report the checked blob or signed-record bound: 6 MiB for client
+uploads, 1 MiB for replica data and Keep/Attach authorizations. Node upload dispatch integration
+remains planned; shard manifest validation retains its existing `INVALID` result.
 Client retries and validation of reported values are also planned.
 
 ### Clock hints

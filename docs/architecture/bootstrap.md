@@ -549,7 +549,9 @@ answers `DENIED` with no size hint. Profile publish and replica/local stores als
 checked payload bound in `TOO_LARGE`: their send/accept constants are separate, both 1 MiB
 today, and node info advertises the send limit. Search publication reports its checked encoded-record
 bound in `max_bytes`; insufficient profile PoW reports `required_pow_bits`, while other invalid
-content does not. Media size hints remain planned.
+content does not. Media service rejections report 6 MiB for client-upload data and 1 MiB for
+replica data or encoded Keep/Attach authorizations. Oversized shards retain `INVALID` manifest
+validation. The node's separate upload dispatch still needs size-hint integration.
 The current protocol replies are:
 
 | Protocol | Request | Reply |
