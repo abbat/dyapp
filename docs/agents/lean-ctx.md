@@ -45,6 +45,11 @@ CLI flags.
 - If output was cut or archived, recover it with `ctx_expand` (shell/tool output) or
   `ctx_retrieve` (a file read earlier). Do not rerun the command just to see more.
 
+## Project config
+
+`.lean-ctx.toml` in the repository root lists build output and other temporary files
+(`extra_ignore_patterns`) that lean-ctx skips; add new output directories there.
+
 ## Limits
 
 - lean-ctx runs with your permissions: a path or command denied to you stays denied. Do not retry
