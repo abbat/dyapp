@@ -75,6 +75,7 @@ pub fn swarm_with_wire(
             max_memory_bytes: memory,
             search,
             wire,
+            protocols: Arc::new(dyapp_p2p_net::Protocols::public()),
             incoming_groups: Some(IncomingGroupLimits::new(
                 limits.max_connections_per_ip_group,
                 limits.ipv4_prefix,

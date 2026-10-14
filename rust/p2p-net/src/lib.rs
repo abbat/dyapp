@@ -316,6 +316,8 @@ pub struct SwarmOptions {
     pub incoming_groups: Option<IncomingGroupLimits>,
     /// Successful protobuf payload bytes, shared with the node service.
     pub wire: Arc<WireBytes>,
+    /// Network negotiation IDs; public unless explicitly supplied.
+    pub protocols: Arc<Protocols>,
 }
 
 impl Default for SwarmOptions {
@@ -328,6 +330,7 @@ impl Default for SwarmOptions {
             search: false,
             incoming_groups: None,
             wire: Arc::default(),
+            protocols: Arc::new(Protocols::public()),
         }
     }
 }
@@ -363,6 +366,7 @@ pub fn build_limited_swarm(
             search,
             incoming_groups: None,
             wire: Arc::default(),
+            protocols: Arc::new(Protocols::public()),
         },
     )
 }
@@ -380,6 +384,7 @@ pub fn build_configured_swarm(
         search,
         incoming_groups,
         wire,
+        protocols,
     } = options;
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -392,7 +397,7 @@ pub fn build_configured_swarm(
         .with_dns()?
         .with_behaviour(|key| {
             let peer_id = key.public().to_peer_id();
-            let mut kad_config = kad::Config::new(KAD_PROTOCOL);
+            let mut kad_config = kad::Config::new(protocols.kad.clone());
             // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
             kad_config
                 .disjoint_query_paths(true)
@@ -414,7 +419,7 @@ pub fn build_configured_swarm(
             let mut search_kad = kad::Behaviour::with_config(
                 peer_id,
                 kad::store::MemoryStore::new(peer_id),
-                kad::Config::new(SEARCH_KAD_PROTOCOL),
+                kad::Config::new(protocols.search_kad.clone()),
             );
             search_kad.set_mode(Some(if search {
                 kad::Mode::Server
@@ -422,7 +427,11 @@ pub fn build_configured_swarm(
                 kad::Mode::Client
             }));
             let gossip = search.then(|| {
-                let config = gossipsub::ConfigBuilder::default()
+                let mut config = gossipsub::ConfigBuilder::default();
+                if let Some(prefix) = &protocols.gossip_prefix {
+                    config.protocol_id_prefix(prefix.clone());
+                }
+                let config = config
                     .validation_mode(gossipsub::ValidationMode::Strict)
                     .validate_messages()
                     .max_transmit_size(MAX_GOSSIP_BYTES)
@@ -451,45 +460,59 @@ pub fn build_configured_swarm(
                 incoming_groups: incoming_groups.map(IncomingGroupGuard::new).into(),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
-                    IDENTIFY_PROTOCOL.into(),
+                    protocols.version.clone(),
                     key.public(),
                 )),
                 autonat: autonat::Behaviour::new(peer_id, autonat::Config::default()),
                 node: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(NODE_PROTOCOL, support.clone())],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.node.clone(), support.clone())],
                     config.clone(),
                 ),
                 profile: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(PROFILE_PROTOCOL, support.clone())],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.profile.clone(), support.clone())],
                     config.clone(),
                 ),
                 mailbox: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(MAILBOX_PROTOCOL, support.clone())],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.mailbox.clone(), support.clone())],
                     config.clone(),
                 ),
                 push: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(MAILBOX_PUSH_PROTOCOL, push)],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.mailbox_push.clone(), push)],
                     config.clone(),
                 ),
                 search_kad,
                 gossip: gossip.into(),
                 search: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(SEARCH_PROTOCOL, search_support.clone())],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.search.clone(), search_support.clone())],
                     config.clone(),
                 ),
                 inventory: request_response::Behaviour::with_codec(
-                    ProtoCodec::default().with_wire(wire.clone()),
-                    [(INVENTORY_PROTOCOL, search_support)],
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.inventory.clone(), search_support)],
                     config.clone(),
                 ),
                 media: request_response::Behaviour::with_codec(
-                    ProtoCodec::media().with_wire(wire.clone()),
-                    [(MEDIA_PROTOCOL, support)],
+                    ProtoCodec::media()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.media.clone(), support)],
                     config.with_max_concurrent_streams(max_streams.min(2)),
                 ),
             }
@@ -862,6 +885,124 @@ mod tests {
             independent.permits.as_ref().unwrap().available_permits(),
             16
         );
+    }
+
+    #[tokio::test]
+    async fn named_builder_announces_only_its_network_and_exchanges_large_media_over_tcp() {
+        use prost::Message;
+        let protocols = Arc::new(Protocols::new("builder-test").unwrap());
+        let a_wire = Arc::new(WireBytes::default());
+        let b_wire = Arc::new(WireBytes::default());
+        let make = |mode, wire| {
+            build_configured_swarm(
+                Keypair::generate_ed25519(),
+                SwarmOptions {
+                    mode,
+                    search: true,
+                    protocols: protocols.clone(),
+                    wire,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        };
+        let mut a = make(Mode::Auto, a_wire.clone());
+        let mut b = make(Mode::Client, b_wire.clone());
+        a.behaviour_mut().kad.set_mode(Some(kad::Mode::Server));
+        a.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let address = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = a.select_next_some().await {
+                break address;
+            }
+        };
+        let request = proto::MediaRequest {
+            request: Some(proto::media_request::Request::Put(proto::MediaPut {
+                owner: vec![1; 32],
+                data: vec![7; 2 << 20],
+            })),
+        };
+        let request_len = request.encoded_len() as u64;
+        let expected_response = proto::MediaResponse {
+            status: proto::Status::Ok.into(),
+            data: vec![7; 2 << 20],
+            ..Default::default()
+        };
+        let response_len = expected_response.encoded_len() as u64;
+        let check_identify = |info: &identify::Info, server: bool| {
+            assert_eq!(info.protocol_version, protocols.version);
+            let ids = info
+                .protocols
+                .iter()
+                .map(|id| id.as_ref())
+                .collect::<Vec<_>>();
+            for id in &ids {
+                if id.starts_with("/dyapp") || id.starts_with("/meshsub") {
+                    assert!(
+                        id.starts_with(&format!("{}/", protocols.version)),
+                        "public protocol leaked: {id}"
+                    );
+                }
+            }
+            if server {
+                for id in protocols
+                    .all()
+                    .into_iter()
+                    .filter(|id| *id != &protocols.mailbox_push)
+                {
+                    assert!(ids.contains(&id.as_ref()), "not advertised: {id}");
+                }
+            } else {
+                assert!(ids.contains(&protocols.mailbox_push.as_ref()));
+            }
+            assert!(ids
+                .iter()
+                .any(|id| id.starts_with(protocols.gossip_prefix.as_ref().unwrap())));
+        };
+        b.dial(address).unwrap();
+        let (mut a_identified, mut b_identified, mut received) = (false, false, false);
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !(a_identified && b_identified && received) {
+                tokio::select! {
+                    event = a.select_next_some() => match event {
+                        SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received { info, .. })) => {
+                            check_identify(&info, false);
+                            a_identified = true;
+                        }
+                        SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
+                            message: request_response::Message::Request { request, channel, .. }, ..
+                        })) => {
+                            let Some(proto::media_request::Request::Put(put)) = request.request else { panic!("not media put") };
+                            a.behaviour_mut().media.send_response(channel, proto::MediaResponse {
+                                status: proto::Status::Ok.into(), data: put.data, ..Default::default()
+                            }).unwrap();
+                        }
+                        _ => {}
+                    },
+                    event = b.select_next_some() => match event {
+                        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                            b.behaviour_mut().media.send_request(&peer_id, request.clone());
+                        }
+                        SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received { info, .. })) => {
+                            check_identify(&info, true);
+                            b_identified = true;
+                        }
+                        SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
+                            message: request_response::Message::Response { response, .. }, ..
+                        })) => {
+                            assert_eq!(response, expected_response);
+                            received = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }).await.unwrap();
+        let mut expected = [[0; 2]; 10];
+        expected[4] = [request_len, response_len];
+        assert_eq!(a_wire.take().0, expected);
+        expected[4] = [response_len, request_len];
+        assert_eq!(b_wire.take().0, expected);
     }
 
     #[tokio::test]

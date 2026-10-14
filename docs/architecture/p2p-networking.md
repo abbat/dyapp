@@ -6,7 +6,7 @@
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md),
 [ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)). `build_swarm(keypair, mode)` returns a
 `Swarm` with the settings below. `build_configured_swarm(keypair, SwarmOptions)` accepts the
-mode, connection limits, stream cap, memory limit and search role; `dyappd` uses it.
+mode, connection limits, stream cap, memory limit, search role and protocol namespace; `dyappd` uses it.
 `build_swarm` and `build_limited_swarm` retain their existing interfaces and delegate to it.
 Default options use `Mode::Auto`, no connection or memory cap, 100 streams and no search role.
 
@@ -128,8 +128,12 @@ The value type and name validation are implemented. `ProtoCodec::with_protocols(
 uses exact configured IDs for the media frame limit and stable wire counter slots; clones share
 the namespace, counters and permit pool, without a held permit. The default remains public.
 Foreign IDs get the control frame cap and `other` counter slot, regardless of their suffix.
-**Passing the namespace into swarm builders, bootstrap network configuration, storage guards
-and peer isolation remain planned**; current builders continue to use the public constants.
+`SwarmOptions.protocols` shares the namespace with codecs, identify, both Kademlia behaviours
+and all request-response IDs. A named network also sets the gossipsub negotiation prefix;
+public options leave its default unchanged. Legacy constructors remain public. Real TCP tests
+verify advertised IDs, the identify version, and 2 MiB media frames in both directions.
+**Bootstrap node protocol checks/topics, network configuration, storage guards and cross-network
+peer-isolation acceptance remain planned**; `dyappd` still selects public protocols.
 
 ## Planned
 

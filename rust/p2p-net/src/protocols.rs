@@ -1,4 +1,4 @@
-//! Validated protocol namespaces; current swarm builders still use the public constants.
+//! Validated protocol namespaces shared by swarm negotiation and protobuf codecs.
 
 use crate::{
     DIGEST_PROTOCOL, IDENTIFY_PROTOCOL, INVENTORY_PROTOCOL, KAD_PROTOCOL, MAILBOX_PROTOCOL,
