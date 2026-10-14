@@ -13,8 +13,8 @@ use crate::service::{
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, mailbox_request, MailboxRequest, SearchResponse, Status};
 use dyapp_p2p_net::{
-    build_limited_swarm, replica_key, search_topic, Behaviour, BehaviourEvent, Mode, KAD_PROTOCOL,
-    REPLICAS, SEARCH_KAD_PROTOCOL, SEARCH_KEY,
+    build_configured_swarm, replica_key, search_topic, Behaviour, BehaviourEvent, Mode,
+    SwarmOptions, KAD_PROTOCOL, REPLICAS, SEARCH_KAD_PROTOCOL, SEARCH_KEY,
 };
 use libp2p::connection_limits::ConnectionLimits;
 use libp2p::futures::StreamExt;
@@ -55,13 +55,15 @@ pub fn swarm(
         mb => usize::try_from(mb.saturating_mul(1 << 20)).unwrap_or(usize::MAX),
     };
     let search = roles.contains(&Role::Search);
-    build_limited_swarm(
+    build_configured_swarm(
         keypair,
-        mode,
-        connections,
-        limits.max_streams,
-        memory,
-        search,
+        SwarmOptions {
+            mode,
+            connection_limits: connections,
+            max_streams: limits.max_streams,
+            max_memory_bytes: memory,
+            search,
+        },
     )
 }
 

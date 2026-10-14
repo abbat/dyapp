@@ -5,7 +5,10 @@
 `rust/p2p-net` builds a [rust-libp2p](https://github.com/libp2p/rust-libp2p) 0.57 node
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md),
 [ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)). `build_swarm(keypair, mode)` returns a
-`Swarm` with (`build_limited_swarm` adds connection limits and a stream cap; `dyappd` uses it):
+`Swarm` with the settings below. `build_configured_swarm(keypair, SwarmOptions)` accepts the
+mode, connection limits, stream cap, memory limit and search role; `dyappd` uses it.
+`build_swarm` and `build_limited_swarm` retain their existing interfaces and delegate to it.
+Default options use `Mode::Auto`, no connection or memory cap, 100 streams and no search role.
 
 | Part | Setting |
 |------|---------|

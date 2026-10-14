@@ -249,14 +249,37 @@ pub enum Mode {
     Client,
 }
 
+/// Settings shared by client and node swarm constructors.
+pub struct SwarmOptions {
+    pub mode: Mode,
+    pub connection_limits: connection_limits::ConnectionLimits,
+    /// Concurrent streams per connection and protocol.
+    pub max_streams: usize,
+    /// Physical memory above which new connections are refused.
+    pub max_memory_bytes: usize,
+    /// Serve search protocols and gossip.
+    pub search: bool,
+}
+
+impl Default for SwarmOptions {
+    fn default() -> Self {
+        Self {
+            mode: Mode::Auto,
+            connection_limits: connection_limits::ConnectionLimits::default(),
+            max_streams: 100,
+            max_memory_bytes: usize::MAX,
+            search: false,
+        }
+    }
+}
+
 pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behaviour>> {
-    build_limited_swarm(
+    build_configured_swarm(
         keypair,
-        mode,
-        connection_limits::ConnectionLimits::default(),
-        100,
-        usize::MAX,
-        false,
+        SwarmOptions {
+            mode,
+            ..SwarmOptions::default()
+        },
     )
 }
 
@@ -271,6 +294,30 @@ pub fn build_limited_swarm(
     max_memory_bytes: usize,
     search: bool,
 ) -> anyhow::Result<Swarm<Behaviour>> {
+    build_configured_swarm(
+        keypair,
+        SwarmOptions {
+            mode,
+            connection_limits: limits,
+            max_streams,
+            max_memory_bytes,
+            search,
+        },
+    )
+}
+
+/// Builds a swarm with explicit settings; legacy constructors delegate here.
+pub fn build_configured_swarm(
+    keypair: Keypair,
+    options: SwarmOptions,
+) -> anyhow::Result<Swarm<Behaviour>> {
+    let SwarmOptions {
+        mode,
+        connection_limits: limits,
+        max_streams,
+        max_memory_bytes,
+        search,
+    } = options;
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_tcp(
