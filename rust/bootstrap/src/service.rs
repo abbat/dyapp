@@ -24,8 +24,10 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// Largest signed envelope payload a mailbox accepts.
+/// Envelope payload send limit advertised in node info.
 pub const MAX_ENVELOPE_BYTES: usize = 100 * 1024;
+/// Network acceptance is raised before the send limit during a rollout.
+const ENVELOPE_ACCEPT_BYTES: usize = MAX_ENVELOPE_BYTES;
 /// Stored bytes per device mailbox.
 pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 /// Envelope bytes per fetch reply, leaving 64 KiB for protobuf framing.
@@ -431,7 +433,9 @@ impl Service {
                     ..status(Status::Ok)
                 })
             }
-            Some(mailbox_request::Request::Put(record)) => self.put(&record, store, true),
+            Some(mailbox_request::Request::Put(record)) => {
+                self.put(&record, store, true, MAX_ENVELOPE_BYTES)
+            }
             Some(mailbox_request::Request::Fetch(record)) => {
                 let expected = nonce.take();
                 let Ok((mailbox, fetch)) =
@@ -518,12 +522,17 @@ impl Service {
         // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
         // watching device never acks until the mailbox cap; carry the expiry if that matters.
         for record in &batch.envelopes {
-            let put = Status::try_from(self.put(record, true, true)?.status).unwrap_or_default();
+            let put = Status::try_from(self.put(record, true, true, ENVELOPE_ACCEPT_BYTES)?.status)
+                .unwrap_or_default();
             if worst == Status::Ok || put == Status::Denied {
                 worst = put;
             }
         }
-        Ok(status(worst))
+        Ok(if worst == Status::TooLarge {
+            mailbox_too_large(ENVELOPE_ACCEPT_BYTES)
+        } else {
+            status(worst)
+        })
     }
 
     /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, for repair.
@@ -539,7 +548,7 @@ impl Service {
 
     /// Stores a locally held replica after admission, without billing the client twice.
     pub fn store_mailbox(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
-        self.put(record, true, false)
+        self.put(record, true, false, ENVELOPE_ACCEPT_BYTES)
     }
 
     fn put(
@@ -547,9 +556,10 @@ impl Service {
         record: &SignedRecord,
         store: bool,
         bill_sender: bool,
+        max: usize,
     ) -> crate::Result<MailboxResponse> {
-        if record.payload.len() > MAX_ENVELOPE_BYTES {
-            return Ok(status(Status::TooLarge));
+        if record.payload.len() > max {
+            return Ok(mailbox_too_large(max));
         }
         if record.verify(Domain::Envelope).is_err() {
             return Ok(status(Status::Denied));
@@ -1666,6 +1676,13 @@ fn owner_request<M: Message + Default>(
 /// Whether `got` is the nonce issued on this connection.
 fn fresh(expected: Option<[u8; 32]>, got: &[u8]) -> bool {
     expected.is_some_and(|expected| got == expected)
+}
+
+fn mailbox_too_large(max: usize) -> MailboxResponse {
+    MailboxResponse {
+        max_bytes: max as u64,
+        ..status(Status::TooLarge)
+    }
 }
 
 fn status(status: Status) -> MailboxResponse {
@@ -2963,6 +2980,101 @@ mod tests {
         forged.signature[0] ^= 1;
         assert_eq!(batch(vec![signed(4), forged]), Status::Denied);
         assert_eq!(service.held(&address).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority() {
+        let s = service();
+        let owner = Identity::generate();
+        let mut envelope = proto::Envelope {
+            id: vec![4; 16],
+            mailbox: vec![7; 32],
+            ciphertext: vec![0; MAX_ENVELOPE_BYTES],
+        };
+        let overhead = envelope.encoded_len() - envelope.ciphertext.len();
+        envelope.ciphertext.resize(MAX_ENVELOPE_BYTES - overhead, 0);
+        let payload = envelope.encode_to_vec();
+        assert_eq!(payload.len(), MAX_ENVELOPE_BYTES);
+        let exact = owner.sign(Domain::Envelope, payload);
+        let response = s.put(&exact, false, false, MAX_ENVELOPE_BYTES - 1).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), (MAX_ENVELOPE_BYTES - 1) as u64)
+        );
+        let response = s
+            .mailbox(
+                &peer("limits"),
+                &mut None,
+                MailboxRequest {
+                    request: Some(mailbox_request::Request::Put(exact.clone())),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::Ok), 0)
+        );
+        let response = s.store_mailbox(&exact).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::Ok), 0)
+        );
+        envelope.ciphertext.push(0);
+        let large = owner.sign(Domain::Envelope, envelope.encode_to_vec());
+        assert_eq!(large.payload.len(), MAX_ENVELOPE_BYTES + 1);
+        let response = s
+            .mailbox(
+                &peer("limits"),
+                &mut None,
+                MailboxRequest {
+                    request: Some(mailbox_request::Request::Put(large.clone())),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), MAX_ENVELOPE_BYTES as u64)
+        );
+        let response = s.store_mailbox(&large).unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), ENVELOPE_ACCEPT_BYTES as u64)
+        );
+        let from = replica_peer("limit-node");
+        let response = s
+            .mailbox(
+                &from,
+                &mut None,
+                MailboxRequest {
+                    request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                        envelopes: vec![large.clone(), exact.clone()],
+                    })),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            (response.status, response.max_bytes),
+            (i32::from(Status::TooLarge), ENVELOPE_ACCEPT_BYTES as u64)
+        );
+        let mut forged = exact;
+        forged.signature[0] ^= 1;
+        for envelopes in [vec![large.clone(), forged.clone()], vec![forged, large]] {
+            let response = s
+                .mailbox(
+                    &from,
+                    &mut None,
+                    MailboxRequest {
+                        request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+                            envelopes,
+                        })),
+                    },
+                )
+                .unwrap();
+            assert_eq!(
+                (response.status, response.max_bytes),
+                (i32::from(Status::Denied), 0)
+            );
+        }
     }
 
     #[test]

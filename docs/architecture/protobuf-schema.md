@@ -134,8 +134,10 @@ The response schemas reserve additive hints for limits checked by the receiving 
 `max_bytes` describes the size bound for a `STATUS_TOO_LARGE` rejection;
 `required_pow_bits` describes the node's profile PoW threshold for a `STATUS_INVALID`
 rejection caused by insufficient PoW. Zero means not reported, including replies from older
-nodes. The schemas and generated Rust types include these fields; **populating them in node
-replies is planned**. Client retries and validation of reported values are also planned.
+nodes. Mailbox replies now report the exact checked signed-envelope payload bound for client
+puts, local stores and repair batches; a batch ending in `DENIED` keeps that priority and clears
+the size hint. **Profile/media/search size hints and search PoW hints remain planned**.
+Client retries and validation of reported values are also planned.
 
 ### Clock hints
 

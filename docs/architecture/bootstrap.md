@@ -540,7 +540,13 @@ The reply schemas include additive `server_time` Unix-seconds fields in `NodeInf
 profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). `info` reports
 the node clock; signed-time `INVALID` replies report the clock snapshot used in validation.
 Other failures leave the field zero. Client clock correction from three distinct nodes remains
-planned. The current protocol replies are:
+planned.
+
+Mailbox `TOO_LARGE` replies include `max_bytes` for the checked signed-envelope payload,
+including repair batches. Client sends use the advertised 100 KiB limit; replica/local admission
+uses a separate accept constant, also 100 KiB today. A batch containing a forged envelope still
+answers `DENIED` with no size hint. Size hints in the other services remain planned.
+The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
@@ -552,7 +558,7 @@ planned. The current protocol replies are:
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
-| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
+| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` with checked `max_bytes` for payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
