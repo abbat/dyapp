@@ -1700,7 +1700,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                             }
                             Ok(Err(status)) => {
                                 answered += 1;
-                                PutReply::Media(channel).send(&mut swarm, &service, status, None);
+                                let response = crate::service::media_upload_status(status);
+                                service.traffic.add(response.encoded_len() as u64);
+                                let _ = swarm.behaviour_mut().media.send_response(channel, response);
                             }
                             Err(error) => { failed += 1; tracing::error!(%error, "media admission failed"); }
                         }

@@ -352,6 +352,122 @@ async fn clock_node() -> Multiaddr {
 }
 
 #[tokio::test]
+async fn rejection_limits_survive_node_dispatch_over_tcp() {
+    let address = start_config(|c| {
+        c.roles = vec![Role::Store, Role::Media, Role::Search];
+        c.limits.requests_per_second = 1000;
+        c.limits.media_requests_per_second = 100;
+        c.limits.bytes_per_second = 0;
+        c.limits.min_free_mb = 0;
+        c.search.max_profile_bytes = 4096;
+        c.search.min_profile_pow_bits = 2;
+    })
+    .await;
+    let mut client = Client::connect(&address).await;
+    let owner = Identity::generate();
+    let record = |size| SignedRecord {
+        payload: vec![0; size],
+        ..Default::default()
+    };
+    let profile = client
+        .profile(profile_request::Request::Publish(record((1 << 20) + 1)))
+        .await;
+    assert_eq!(
+        (status(profile.status), profile.max_bytes),
+        (Status::TooLarge, 1 << 20)
+    );
+    let profile = client
+        .profile(profile_request::Request::ReplicaPut(record((1 << 20) + 1)))
+        .await;
+    assert_eq!(
+        (status(profile.status), profile.max_bytes),
+        (Status::TooLarge, 1 << 20)
+    );
+    let mailbox = client
+        .mailbox(mailbox_request::Request::Put(record(100 * 1024 + 1)))
+        .await;
+    assert_eq!(
+        (status(mailbox.status), mailbox.max_bytes),
+        (Status::TooLarge, 100 * 1024)
+    );
+    let mailbox = client
+        .mailbox(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+            envelopes: vec![record(100 * 1024 + 1)],
+        }))
+        .await;
+    assert_eq!(
+        (status(mailbox.status), mailbox.max_bytes),
+        (Status::TooLarge, 100 * 1024)
+    );
+    let media = client
+        .media(proto::media_request::Request::Put(proto::MediaPut {
+            owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
+            data: vec![0; (6 << 20) + 1],
+        }))
+        .await;
+    assert_eq!(
+        (status(media.status), media.max_bytes),
+        (Status::TooLarge, 6 << 20)
+    );
+    let media = client
+        .media(proto::media_request::Request::ReplicaPut(
+            proto::MediaReplicaPut {
+                data: vec![0; (1 << 20) + 1],
+                ..Default::default()
+            },
+        ))
+        .await;
+    assert_eq!(
+        (status(media.status), media.max_bytes),
+        (Status::TooLarge, 1 << 20)
+    );
+    for request in [
+        proto::media_request::Request::Keep(record(1 << 20)),
+        proto::media_request::Request::Attach(record(1 << 20)),
+    ] {
+        let media = client.media(request).await;
+        assert_eq!(
+            (status(media.status), media.max_bytes),
+            (Status::TooLarge, 1 << 20)
+        );
+    }
+    let search = client
+        .search(proto::search_request::Request::Publish(record(4096)))
+        .await;
+    assert_eq!(
+        (status(search.status), search.max_bytes),
+        (Status::TooLarge, 4096)
+    );
+    let search = client
+        .search(proto::search_request::Request::Publish(
+            Profile {
+                version: 1,
+                ..Default::default()
+            }
+            .sign(&owner),
+        ))
+        .await;
+    assert_eq!(
+        (
+            status(search.status),
+            search.required_pow_bits,
+            search.server_time
+        ),
+        (Status::Invalid, 2, 0)
+    );
+    let search = client
+        .search(proto::search_request::Request::Publish(
+            Profile::default().sign(&owner),
+        ))
+        .await;
+    assert_eq!(
+        (status(search.status), search.required_pow_bits),
+        (Status::Invalid, 0)
+    );
+    assert_eq!(status(client.info().await.status), Status::Ok);
+}
+
+#[tokio::test]
 async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
     use proto::media_replica_put::Authorization;
     let address = clock_node().await;

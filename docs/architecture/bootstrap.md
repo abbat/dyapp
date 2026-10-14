@@ -242,7 +242,7 @@ resent from the sender's retry queue.
 
 ### Profiles
 
-- Payload at most 1 MiB, a protocol constant like every record size limit
+- Payload at most 1 MiB today, a node send/accept value reported in `info`
   ([Limits and abuse](#limits-and-abuse)). Media are separate blobs; the profile only links to
   them by content hash.
 - Each photo in `photos` is the full image (one or more blobs) plus a separate small thumbnail
@@ -414,12 +414,33 @@ resent from the sender's retry queue.
 
 ### Limits and abuse
 
-Record size limits are protocol constants, the same on every node: a profile up to 1 MiB, a
-message up to 100 KiB, a signal up to 1 KiB, a media blob up to 6 MiB.
-The client cannot pick the nodes that hold a replica, so a node with a lower limit would leave a
-hole and a higher one would hold records no other replica takes; a larger limit needs a new
-protocol version. `info` reports them for nodes of different versions. Capacities are space,
-not compatibility: a mailbox up to 10 MiB per device, signals up to `limits.signal_max_kb`,
+Record sizes have separate client-send and network-accept bounds. Today profile payloads use
+1 MiB for both and mailbox envelope payloads use 100 KiB for both. Search client publication
+uses `search.max_profile_bytes`, at most the fixed 64 KiB network accept bound; both count the
+encoded signed record. Media client uploads allow 6 MiB, while whole-copy replicas and signed
+Keep/Attach proofs allow 1 MiB; larger uploads use shards. Wire framing has separate caps
+([served protocol](#served-protocol)). `info` advertises client-send limits and `TOO_LARGE`
+reports the bound checked for the refused object in `max_bytes`.
+
+A size change does not require a new protocol ID, but needs an ordered node rollout:
+
+- **Raise:** release N raises network acceptance and any necessary wire/decoder bounds while
+  keeping send unchanged. Release N+1 raises send only after most holders run N. For search,
+  raise `SEARCH_ACCEPT_BYTES` first, then the config default. Older holders can still refuse
+  the larger replicas, leaving fewer copies until upgrades and repair fill the gap.
+- **Lower:** release N lowers send while keeping acceptance for stored records, replication
+  and repair. Release N+1 lowers accept no earlier than one applicable retention TTL after N
+  (profiles default to 30 days; mailbox retention is separate). Verify that oversized retained
+  records have expired or been republished; a live record refreshed through heartbeats may
+  outlast that window; an old cached record can also be offered again by catch-up. Lowering both at once is an emergency operator decision and can reduce
+  the copy count for larger records until they expire.
+- **Shard layout:** the 1 MiB unit participates in K = ceil(length / 1 MiB), so it cannot be
+  changed as an ordinary size limit. A future additive `shard_size` manifest field must default
+  to 1 MiB for old records, with readers deployed before writers change the layout.
+
+The client shrink/retry and validation of reported bounds are planned
+([evolution checklist](protobuf-schema.md#evolution-rules-proto3)); current node hints do not
+implement them. Capacities are space, not compatibility: a mailbox up to 10 MiB per device, signals up to `limits.signal_max_kb`,
 media up to `limits.media_per_owner_mb` per user, each counted by the node over the data it
 holds. Write quotas apply per sender key and per IP group; the prefix length (for example /24
 or /48) is the operator's choice.
@@ -551,7 +572,7 @@ today, and node info advertises the send limit. Search publication reports its c
 bound in `max_bytes`; insufficient profile PoW reports `required_pow_bits`, while other invalid
 content does not. Media service rejections report 6 MiB for client-upload data and 1 MiB for
 replica data or encoded Keep/Attach authorizations. Oversized shards retain `INVALID` manifest
-validation. The node's separate upload dispatch still needs size-hint integration.
+validation. The node's upload dispatch preserves the 6 MiB hint from admission.
 The current protocol replies are:
 
 | Protocol | Request | Reply |
@@ -569,18 +590,18 @@ The current protocol replies are:
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
-| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
-| `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off |
-| `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
-| `/dyapp/media` | `replica_put(MediaReplicaPut)`: whole data or manifest, and signed keep or attachment | independently verified and stored without forwarding; `DENIED` missing/invalid signature; `NOT_FOUND` hash absent from proof or latest keep; `INVALID` expired proof, malformed or conflicting manifest; `TOO_LARGE` whole data or signed proof over 1 MiB; other put storage statuses apply |
+| `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
+| `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` with `max_bytes` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
+| `/dyapp/media` | `replica_put(MediaReplicaPut)`: whole data or manifest, and signed keep or attachment | independently verified and stored without forwarding; `DENIED` missing/invalid signature; `NOT_FOUND` hash absent from proof or latest keep; `INVALID` expired proof, malformed or conflicting manifest; `TOO_LARGE` with `max_bytes` for whole data or signed proof over 1 MiB; other put storage statuses apply |
 | `/dyapp/media` | `shard_put(MediaShardPut)`: signed manifest replica, index, data | `OK` after proof, manifest hash and shard length/hash validation; never forwarded; invalid data gives `INVALID` |
 | `/dyapp/media` | `have(MediaHave)`: at most 256 hashes/2816 parts | `OK` with an inventory of allowed present/missing parts, manifests and whole-copy availability; untrusted/far entries omitted; `INVALID` malformed or oversized batch; `RATE_LIMITED` traffic budget |
 | `/dyapp/media` | `shard_get(MediaShardGet)`: hash, index | `OK` with at most 1 MiB; `NOT_FOUND`; `RATE_LIMITED` reply byte budget; `INVALID` malformed hash or index |
 | `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([ranged get](#ranged-media-get)) |
-| `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead |
+| `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
-| `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content or `pow_bits` below `search.min_profile_pow_bits`; `TOO_LARGE` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
+| `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` time more than 10 min off; `REFUSED`; `UNSUPPORTED` |
 | `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when both query slots are busy; `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |

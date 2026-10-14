@@ -141,8 +141,8 @@ payload bound; send and accept constants are separate and both 1 MiB today.
 Search publication reports its local encoded-record size bound and, for insufficient profile
 PoW only, the required difficulty. Gossip and catch-up use a separate fixed 64 KiB accept bound.
 Media service rejections report the checked blob or signed-record bound: 6 MiB for client
-uploads, 1 MiB for replica data and Keep/Attach authorizations. Node upload dispatch integration
-remains planned; shard manifest validation retains its existing `INVALID` result.
+uploads, 1 MiB for replica data and Keep/Attach authorizations. Node upload dispatch preserves
+the upload hint; shard manifest validation retains its existing `INVALID` result.
 Client retries and validation of reported values are also planned.
 
 ### Clock hints
@@ -192,3 +192,18 @@ integration and network selection remain planned; current swarms use the public 
 - **Type changes** are breaking: use a new field number and reserve the old one.
 - **Packages are part of the type name**: `dyapp.profile.Profile` and any other `Profile` are
   unrelated types on the wire.
+
+Use this checklist for each change class:
+
+| Class | Compatibility checks |
+|-------|----------------------|
+| 1. Profile composition | Add fields with permanent tags and safe defaults; preserve signed payload bytes, including unknown fields. A new attribute still needs client UI support. Editing/re-encoding while retaining unknown fields remains planned. |
+| 2. Size limits | Check the exact object unit (payload, encoded signed record or blob); keep client-send separate from network acceptance and wire framing; report the checked bound in `max_bytes`. Follow the [two-release raise/lower rule](bootstrap.md#limits-and-abuse). |
+| 3. PoW difficulty | Report `required_pow_bits` only for an insufficient advertised difficulty; malformed content, signature failures and clock failures have different meanings. Search publish reports it today; heartbeat threshold enforcement and background client recomputation remain planned. |
+| 4. Media replication | The node chooses replication and layout; clients upload once. Keep old manifests readable when changing R or parity. Current readers require exactly K+4 hashes, so flexible parity is planned. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB, then readers before writers. |
+
+Planned clients must treat hints as untrusted: zero means absent, including older nodes.
+The proposed contract limits PoW to 20 bits and rejects profile size hints below 64 KiB or media
+hints below 256 KiB by skipping that node. Shrink/retry once or background PoW recomputation
+applies only after validation; these client checks and retries are not implemented by the
+bootstrap hint fields.
