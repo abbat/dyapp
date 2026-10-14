@@ -12,6 +12,7 @@ getrandom = "0.4"
 sha2 = "0.11"
 prost.workspace = true
 thiserror = "2"
+zeroize = "1.9"
 
 # The prost-build output, include!d from OUT_DIR, is invisible to cargo-shear.
 [package.metadata.cargo-shear]

@@ -6,6 +6,7 @@
 
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
+use zeroize::Zeroizing;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
@@ -102,9 +103,9 @@ pub struct Identity {
 
 impl Identity {
     pub fn generate() -> Self {
-        let mut secret = [0u8; 32];
+        let mut secret = Zeroizing::new([0u8; 32]);
         // Like OsRng before it: no key without the OS random number generator.
-        getrandom::fill(&mut secret).expect("OS random number generator");
+        getrandom::fill(&mut secret[..]).expect("OS random number generator");
         Self::from_secret(&secret)
     }
 
@@ -114,8 +115,11 @@ impl Identity {
         }
     }
 
-    pub fn secret(&self) -> [u8; 32] {
-        self.key.to_bytes()
+    /// Owned secret bytes, cleared when this guard is dropped.
+    pub fn secret(&self) -> Zeroizing<[u8; 32]> {
+        let mut secret = Zeroizing::new([0u8; 32]);
+        secret.copy_from_slice(self.key.as_bytes());
+        secret
     }
 
     pub fn public_key(&self) -> [u8; 32] {
@@ -169,9 +173,7 @@ mod tests {
     #[test]
     fn secret_round_trip_keeps_peer_id() {
         let identity = Identity::generate();
-        assert_eq!(
-            Identity::from_secret(&identity.secret()).peer_id(),
-            identity.peer_id()
-        );
+        let secret: Zeroizing<[u8; 32]> = identity.secret();
+        assert_eq!(Identity::from_secret(&secret).peer_id(), identity.peer_id());
     }
 }

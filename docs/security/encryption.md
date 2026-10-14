@@ -98,6 +98,9 @@ Rules:
 - `dyappd` checks the opened `node.key` and refuses any group/other permission bits, with a
   `chmod 600` hint; it leaves permissions unchanged. Mode 0600 is created by keygen, and 0400
   also loads. Back it up with `umask 077` ([backups](../operations/deployment.md#backups)).
+- The Rust identity generator guards its random buffer with `Zeroizing`; `Identity::secret`
+  returns `Zeroizing<[u8; 32]>`, populated from borrowed signing-key bytes and cleared on drop.
+  Callers borrow it for use; copying into unguarded arrays or strings creates separate copies.
 - Owned node-key serialization and loading buffers use `Zeroizing` and are cleared on drop.
   Loading uses one fixed allocation rather than a growing buffer. This covers those owned
   buffers, not every compiler, upstream-library or OS copy.

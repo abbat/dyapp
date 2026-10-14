@@ -139,7 +139,7 @@ fn sign_profile(identity: &Identity, version: u64) -> Value {
         ..Profile::default()
     }
     .sign(identity);
-    json!({ "peer_id": identity.peer_id(), "record": hex(&record.encode_to_vec()), "secret": hex(&identity.secret()) })
+    json!({ "peer_id": identity.peer_id(), "record": hex(&record.encode_to_vec()), "secret": hex(&identity.secret()[..]) })
 }
 
 async fn timeout(request: impl Future<Output = anyhow::Result<Value>>) -> anyhow::Result<Value> {
@@ -215,7 +215,7 @@ async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
         time: chrono::Utc::now().timestamp().unsigned_abs(),
     };
     let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-    let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()), "secret": hex(&owner.secret()) });
+    let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()), "secret": hex(&owner.secret()[..]) });
     let steps = [
         media_request::Request::Keep(record),
         media_request::Request::Put(proto::MediaPut {
@@ -400,7 +400,7 @@ async fn lookup(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<Ve
 fn device_key() -> Value {
     let device = Identity::generate();
     let mailbox = dyapp_identity::key_hash(&device.public_key());
-    json!({ "secret": hex(&device.secret()), "mailbox": hex(&mailbox) })
+    json!({ "secret": hex(&device.secret()[..]), "mailbox": hex(&mailbox) })
 }
 
 /// An envelope with a random id, signed by a fresh sender key.
