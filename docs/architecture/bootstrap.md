@@ -298,7 +298,7 @@ resent from the sender's retry queue.
   without this limit.
 - **Proof of work.** A search node indexes and relays only profiles whose `pow_bits` reach
   `search.min_profile_pow_bits` (default 11, at most 20, reported in `info` as
-  `min_profile_pow`); a lower claim is `INVALID` with no strike. The claim is checked with
+  `min_profile_pow`); a lower claim is `INVALID` with `required_pow_bits` and no strike. The claim is checked with
   Argon2id (above, [Profiles](#profiles)) off the swarm loop on its own two permits, so checks
   cannot starve queries: a client publish that finds both busy gets `RATE_LIMITED` with
   `retry_after` 1, a gossip message waits in a queue of at most 64 and is ignored without a
@@ -306,8 +306,11 @@ resent from the sender's retry queue.
   `DENIED` on publish and rejected in gossip, both a strike against the sending peer. Only
   confirmed (key, nonce, bits) triples are cached, so Argon2id runs once per key and a forger
   cannot fill the cache. A tombstone keeps the proof fields, so it is checked like the profile.
-  Store nodes do not check the proof. Raising the minimum does not purge indexed profiles; they
-  leave through the usual expiry.
+  Store nodes do not check the proof. Heartbeats also check the difficulty of the stored profile:
+  below the current minimum they return `INVALID` with `required_pow_bits`, without changing
+  heartbeat time or daily counters; gossip ignores them without a strike. Raising the minimum
+  does not purge indexed profiles, so their last accepted heartbeat leaves the usual retention
+  window (default 30 days) to recompute and republish. Client background recomputation is planned.
 - **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
   `search.topics`, and then holds a uniform sample. The index is its own disposable file,
   `profiles-idx.db`, which also keeps the signed records in a `record` table apart from the
@@ -602,7 +605,7 @@ The current protocol replies are:
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
-| `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` time more than 10 min off; `REFUSED`; `UNSUPPORTED` |
+| `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal); `REFUSED`; `UNSUPPORTED` |
 | `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when both query slots are busy; `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |
 | `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |

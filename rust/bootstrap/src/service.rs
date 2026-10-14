@@ -1090,6 +1090,10 @@ impl Service {
         if !self.config.search.keeps(crate::search::topic(&key)) {
             return Ok(Applied::Skipped);
         }
+        let min = self.config.search.min_profile_pow_bits;
+        if min > 0 && index.pow_bits(&key)?.is_some_and(|bits| bits < min) {
+            return Ok(Applied::RequiredPow(min));
+        }
         Ok(match index.heartbeat(&key, beat.version, now)? {
             crate::search::Beat::Ok => Applied::Done,
             crate::search::Beat::NotFound => Applied::Status(Status::NotFound),
@@ -2359,6 +2363,110 @@ mod tests {
         let exact = padded_profile(&owner, &profile, SEARCH_ACCEPT_BYTES - overhead);
         assert_eq!(exact.encoded_len(), SEARCH_ACCEPT_BYTES);
         assert_eq!(s.search_apply(&exact).unwrap(), Caught::Stored);
+    }
+
+    #[test]
+    fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
+        let mut s = search_service();
+        s.config.search.min_profile_pow_bits = 0;
+        let owner = Identity::generate();
+        let record = Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(&owner);
+        assert_eq!(
+            search(&s, search_request::Request::Publish(record.clone())).status,
+            i32::from(Status::Ok)
+        );
+        let key = dyapp_identity::key_hash(&owner.public_key());
+        let index = s.search.clone().unwrap();
+        let counters = || {
+            index
+                .reader()
+                .unwrap()
+                .query_row(
+                    "SELECT `heartbeat`, `beat_day`, `beats` FROM `key` WHERE `key` = ?",
+                    [&key[..]],
+                    |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, i64>(2)?,
+                        ))
+                    },
+                )
+                .unwrap()
+        };
+        let before = counters();
+        s.config.search.min_profile_pow_bits = 2;
+        let heartbeat = beat(&owner, 1, chrono::Utc::now().timestamp().unsigned_abs());
+        let from = peer("weak-heartbeat");
+        let response = search_as(
+            &s,
+            &from,
+            search_request::Request::Heartbeat(heartbeat.clone()),
+        );
+        assert_eq!(
+            (
+                response.status,
+                response.required_pow_bits,
+                response.server_time
+            ),
+            (i32::from(Status::Invalid), 2, 0)
+        );
+        assert!(!s.reputation.banned(&from.id));
+        let data = SearchRequest {
+            request: Some(search_request::Request::Heartbeat(heartbeat.clone())),
+        }
+        .encode_to_vec();
+        assert_eq!(s.search_gossip(&data), Verdict::Ignore);
+        assert_eq!(counters(), before);
+        assert_eq!(index.records(&[key], usize::MAX).unwrap(), vec![record]);
+        let unknown = Identity::generate();
+        let response = search(
+            &s,
+            search_request::Request::Heartbeat(beat(
+                &unknown,
+                1,
+                chrono::Utc::now().timestamp().unsigned_abs(),
+            )),
+        );
+        assert_eq!(
+            (response.status, response.required_pow_bits),
+            (i32::from(Status::NotFound), 0)
+        );
+        let strong = Identity::generate();
+        let record = proven(
+            &strong,
+            Profile {
+                version: 1,
+                ..Default::default()
+            },
+            2,
+        );
+        assert_eq!(
+            search(&s, search_request::Request::Publish(record)).status,
+            i32::from(Status::Ok)
+        );
+        assert_eq!(
+            search(
+                &s,
+                search_request::Request::Heartbeat(beat(
+                    &strong,
+                    1,
+                    chrono::Utc::now().timestamp().unsigned_abs()
+                ))
+            )
+            .status,
+            i32::from(Status::Ok)
+        );
+        s.config.search.min_profile_pow_bits = 0;
+        assert_eq!(
+            search(&s, search_request::Request::Heartbeat(heartbeat)).status,
+            i32::from(Status::Ok)
+        );
+        assert_eq!(counters().2, before.2 + 1);
     }
 
     #[test]

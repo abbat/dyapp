@@ -473,6 +473,25 @@ impl SearchIndex {
         Ok(Beat::Ok)
     }
 
+    /// Difficulty advertised by the stored profile; missing or undecodable records have none.
+    pub fn pow_bits(&self, key: &[u8; 32]) -> Result<Option<u32>> {
+        let db = lock(&self.db)?;
+        let bytes: Option<Vec<u8>> = db
+            .query_row(
+                "SELECT `record` FROM `record` WHERE `key` = ?",
+                [&key[..]],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        Ok(bytes.and_then(|bytes| {
+            let record = SignedRecord::decode(bytes.as_slice()).ok()?;
+            Profile::decode(record.payload.as_slice())
+                .ok()
+                .map(|profile| profile.pow_bits)
+        }))
+    }
+
     /// The signed records of `keys` in the given order, missing ones skipped, cut before the
     /// total passes `max_bytes`.
     pub fn records(&self, keys: &[[u8; 32]], max_bytes: usize) -> Result<Vec<SignedRecord>> {
@@ -1022,6 +1041,35 @@ mod tests {
         assert!(index.records(&[key], 1 << 20).unwrap().is_empty());
         assert_eq!(index.versions(&[key]).unwrap(), vec![Some(3)]);
         assert_eq!(index.put(&key, &p2, &r2, 9_000, true).unwrap(), Put::Stale);
+    }
+
+    #[test]
+    fn stored_pow_difficulty_handles_missing_and_corrupt_records() {
+        let index = index();
+        let owner = Identity::generate();
+        let mut profile = profile(1);
+        profile.pow_bits = 7;
+        let (key, profile, record) = signed(&owner, profile);
+        assert_eq!(index.pow_bits(&key).unwrap(), None);
+        index.put(&key, &profile, &record, 1000, true).unwrap();
+        assert_eq!(index.pow_bits(&key).unwrap(), Some(7));
+        for bytes in [
+            vec![0xff],
+            SignedRecord {
+                payload: vec![0xff],
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        ] {
+            lock(&index.db)
+                .unwrap()
+                .execute(
+                    "UPDATE `record` SET `record` = ?1 WHERE `key` = ?2",
+                    params![bytes, &key[..]],
+                )
+                .unwrap();
+            assert_eq!(index.pow_bits(&key).unwrap(), None);
+        }
     }
 
     #[test]

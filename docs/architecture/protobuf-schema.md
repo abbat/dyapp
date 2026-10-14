@@ -199,7 +199,7 @@ Use this checklist for each change class:
 |-------|----------------------|
 | 1. Profile composition | Add fields with permanent tags and safe defaults; preserve signed payload bytes, including unknown fields. A new attribute still needs client UI support. Editing/re-encoding while retaining unknown fields remains planned. |
 | 2. Size limits | Check the exact object unit (payload, encoded signed record or blob); keep client-send separate from network acceptance and wire framing; report the checked bound in `max_bytes`. Follow the [two-release raise/lower rule](bootstrap.md#limits-and-abuse). |
-| 3. PoW difficulty | Report `required_pow_bits` only for an insufficient advertised difficulty; malformed content, signature failures and clock failures have different meanings. Search publish reports it today; heartbeat threshold enforcement and background client recomputation remain planned. |
+| 3. PoW difficulty | Report `required_pow_bits` only for an insufficient advertised difficulty; malformed content, signature failures and clock failures have different meanings. Search publish and heartbeat report it today; background client recomputation remains planned. |
 | 4. Media replication | The node chooses replication and layout; clients upload once. Keep old manifests readable when changing R or parity. Current readers require exactly K+4 hashes, so flexible parity is planned. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB, then readers before writers. |
 
 Planned clients must treat hints as untrusted: zero means absent, including older nodes.
