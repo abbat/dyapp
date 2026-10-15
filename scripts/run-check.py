@@ -22,8 +22,18 @@ def diagnostics(text, policy):
             errors = json.loads(text)["errors"]
             if not isinstance(errors, list):
                 return []
-            return [error for error in errors
-                    if isinstance(error, str) and error]
+            selected = []
+            for error in errors:
+                if not isinstance(error, str) or not error.strip():
+                    continue
+                error = ANSI.sub("", error)
+                parts = error.splitlines()
+                if "pattern" in policy and len(parts) > 1:
+                    selected.extend(line for line in parts
+                                    if re.search(policy["pattern"], line))
+                else:
+                    selected.append(error)
+            return selected
         except (ValueError, KeyError, TypeError):
             return []
     if kind == "python":
@@ -115,6 +125,8 @@ def main():
         policy = policies[args.check]
         if not policy["fix"].startswith("docs/") or "#" not in policy["fix"]:
             raise ValueError("FIX needs a repository documentation anchor")
+        if "pattern" in policy:
+            re.compile(policy["pattern"])
         diagnostics("", policy)
         return run(args.check, command, policy, args.log_dir)
     except (OSError, ValueError, KeyError, TypeError, re.error) as error:

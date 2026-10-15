@@ -110,7 +110,7 @@ def output_map_errors(entries, documents, exists):
         kind = entry.get("format")
         if kind not in {"python", "json", "unittest", "lines"}:
             errors.append(f"{name}: unknown diagnostic format")
-        if kind == "lines":
+        if kind == "lines" or "pattern" in entry:
             try:
                 re.compile(entry["pattern"])
             except (KeyError, TypeError, re.error):

@@ -13,33 +13,39 @@ instrument() {
     export CARGO_TARGET_DIR=target/llvm-cov-target
     eval "$(cargo llvm-cov show-env --sh)"
 }
+check() {
+    local name=$1
+    shift
+    python3 -B scripts/run-check.py --log-dir "${DYAPP_CHECK_LOG_DIR:-target/check-output}" \
+        "$name" -- "$@"
+}
 step() {
     case "$1" in
         quality)
-            python3 -B scripts/check-batches.py --report target/batches.json
-            python3 -B scripts/check-repository.py
-            python3 -B scripts/triggers.py
-            python3 -B scripts/docs-sync.py
-            actionlint
-            zizmor --offline --no-progress .github
+            check batches python3 -B scripts/check-batches.py --report target/batches.json
+            check repository python3 -B scripts/check-repository.py
+            check triggers python3 -B scripts/triggers.py
+            check docs-sync python3 -B scripts/docs-sync.py
+            check actionlint actionlint
+            check zizmor zizmor --offline --no-progress .github
             # Secrets in the whole git history (CI checks out with fetch-depth 0).
-            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD" \
-                gitleaks git --no-banner --redact .
-            typos
-            taplo fmt --check
-            shellcheck scripts/*.sh
-            python3 -B -m unittest discover -s tests -p 'test_*.py' -v
-            python3 -m flake8 scripts tools tests
-            swiftlint lint --strict --quiet --no-cache ios macos
-            java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android \
+            check gitleaks env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory \
+                GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact .
+            check typos typos
+            check taplo taplo fmt --check
+            check shellcheck shellcheck scripts/*.sh
+            check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
+            check flake8 python3 -m flake8 scripts tools tests
+            check swiftlint swiftlint lint --strict --quiet --no-cache ios macos
+            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android \
                 --excludes '**/build/**' --build-upon-default-config
-            cargo fmt --all -- --check
-            cargo shear
+            check rustfmt cargo fmt --all -- --check
+            check cargo-shear cargo shear
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
-            cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
-            python3 -B scripts/check-panics.py
-            python3 -B scripts/check-panics.py --public-docs
-            RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
+            check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+            check panics python3 -B scripts/check-panics.py
+            check public-docs python3 -B scripts/check-panics.py --public-docs
+            check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;
         test) cargo test --workspace --all-features --locked ;;
@@ -83,14 +89,14 @@ step() {
             if [[ -d /opt/advisory-dbs ]]; then
                 # The dev image ships the advisory DB; --frozen also skips fetching it. The workspace
                 # is read-only, and without --locked cargo metadata rewrites Cargo.lock.
-                mkdir -p /tmp/ai
-                cp -rf /opt/advisory-dbs /tmp/ai/advisory-dbs
+                check advisory-cache bash -c \
+                    'mkdir -p /tmp/ai && cp -rf /opt/advisory-dbs /tmp/ai/advisory-dbs'
                 for database in /tmp/ai/advisory-dbs/advisory-db-*; do
-                    git -C "$database" log -1 --format="advisory DB: %H %cI"
+                    check advisory-db git -C "$database" log -1 --format="advisory DB: %H %cI"
                 done
-                cargo deny --frozen check advisories bans licenses sources
+                check cargo-deny cargo deny --frozen check advisories bans licenses sources
             else
-                cargo deny --locked check advisories bans licenses sources
+                check cargo-deny cargo deny --locked check advisories bans licenses sources
             fi
             ;;
         *) echo "Unknown step: $1" >&2; exit 2 ;;

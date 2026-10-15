@@ -60,6 +60,47 @@ class CheckOutput(unittest.TestCase):
             self.assertIn("broken fixture", result.stdout)
             self.assertNotIn("passing", result.stdout)
 
+    def test_multiline_cargo_json_omits_passing_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload = ('{"errors":["Checking fixture\\n'
+                       'error[E0308]: mismatch\\n --> src/main.rs:1:1"]}')
+            result = self.run_check(directory, "panics", [
+                sys.executable, "-c", f"print({payload!r}); exit(1)"])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("E0308", result.stdout)
+            self.assertIn("src/main.rs:1:1", result.stdout)
+            self.assertNotIn("Checking fixture", result.stdout)
+
+    def test_actual_actionlint_shellcheck_and_rust_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflow = root / "fixture.yml"
+            workflow.write_text(
+                "on: push\njobs:\n  bad:\n    runs-on: ubuntu-latest\n"
+                "    steps:\n      - run: echo ${{ unknown.value }}\n")
+            shell = root / "fixture.sh"
+            shell.write_text("#!/bin/sh\necho $missing_var\n")
+            crate = root / "crate"
+            (crate / "src").mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname="output-fixture"\nversion="0.0.0"\n'
+                'edition="2021"\n')
+            (crate / "src/main.rs").write_text(
+                'fn main() { let _value: u8 = "wrong"; }\n')
+            cases = [
+                ("actionlint", ["actionlint", str(workflow)], "unknown"),
+                ("shellcheck", ["shellcheck", str(shell)], "SC2086"),
+                ("cargo", ["cargo", "clippy", "--offline", "--target-dir",
+                           str(root / "target"), "--manifest-path",
+                           str(crate / "Cargo.toml")], "E0308"),
+            ]
+            for name, command, diagnostic in cases:
+                with self.subTest(name=name):
+                    result = self.run_check(root, name, command)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(diagnostic, result.stdout)
+                    self.assertNotIn("Checking output-fixture", result.stdout)
+
     def test_large_unknown_failure_retains_raw_output(self):
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_check(directory, "flake8", [

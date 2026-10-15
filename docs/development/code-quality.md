@@ -30,7 +30,11 @@ full captured output under `target/check-output/` with a unique filename.
 Use `--log-dir <writable-path>` before the check ID to select another directory.
 Unrecognized failure output still yields the original nonzero exit status and
 a raw-log pointer. Logs are not automatically removed.
-Migration of existing check, test and platform entry points is staged.
+The quality/security commands in `rust-check.sh` use this wrapper. JSON report
+files remain available; multiline failed-Cargo JSON errors select diagnostics
+without passing compilation progress. Native CI archives raw logs as
+`quality-check-output` and `core-check-output`; local logs remain in the target
+volume. Standalone checker defaults and other test/platform stages migrate next.
 
 ### Commit messages
 

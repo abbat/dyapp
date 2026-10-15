@@ -148,6 +148,12 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Authored API documentation budgets | `scripts/check-panics.py --public-docs`: [staged B9](code-quality.md#public-api-documentation-staged), no growth of authored `missing_docs` warnings; JSON artifact `public-docs` |
 | Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 
+Quality/security commands use the [shared output contract](code-quality.md#check-output):
+one `OK` per command or `FAIL`/`FIX`/`DETAILS`, with full raw command logs uploaded
+as `quality-check-output` / `core-check-output` from `/tmp/ai/rust-check-output`.
+JSON budget/artifact files remain unchanged. Database revision output from the
+local offline security setup is kept in its raw log.
+
 `quality` does not run `cargo test`: the tests run once, in `core`. Locally `make test` runs them.
 
 ### `core` → **build**

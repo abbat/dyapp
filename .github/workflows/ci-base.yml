@@ -13,6 +13,7 @@ env:
   CARGO_PROFILE_DEV_DEBUG: "0"
   CXXFLAGS: "-g0"
   RUST_BACKTRACE: "1"
+  DYAPP_CHECK_LOG_DIR: /tmp/ai/rust-check-output
 
 jobs:
   quality:
@@ -29,6 +30,13 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: check
         run: bash scripts/rust-check.sh quality
+      - name: raw check logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: quality-check-output
+          path: /tmp/ai/rust-check-output/*.log
+          if-no-files-found: warn
       - name: batch report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -89,3 +97,10 @@ jobs:
         run: bash scripts/rust-check.sh security
       - name: network
         run: bash scripts/rust-check.sh network
+      - name: raw check logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-check-output
+          path: /tmp/ai/rust-check-output/*.log
+          if-no-files-found: warn
