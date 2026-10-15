@@ -75,6 +75,32 @@ The four crates are rlib-only, so there are no `.so` files to copy, and
 Fails to generate bindings and still reports success. See
 [FFI bindings](ffi-bindings.md#toolsbuild-scriptsbuild-uniffish).
 
+## Unsigned Android Release
+
+Inside the prepared Android image, run
+`bash scripts/build-android-release.sh /tmp/ai/release-reports` from a writable
+copy of this checkout. The copy needs `Cargo.toml`, `Cargo.lock`, `rust/`,
+`proto/`, `android/` and `scripts/`; use a writable copy of the image's prepared
+Gradle cache as `GRADLE_USER_HOME`. The existing SDK, NDK, Cargo dependencies and
+Gradle dependencies must already be available: the runner uses offline mode and
+installs nothing. It requests `assembleRelease` and `bundleRelease`, including
+release Rust JNI libraries; it does not set `dyapp.prebuiltRust`.
+
+The existing prepared image's offline probe on 2026-10-15 reached Release lint,
+but failed because `com.android.tools.lint:lint-gradle:32.4.1` was not cached.
+Rust JNI and Kotlin/Java compilation completed; end-to-end packaging is not yet
+verified. Manual cache/image preparation is required before retrying; the runner
+does not bypass `lintVitalAnalyzeRelease` or fetch the missing dependency.
+
+`build.log` retains Gradle output. On success `packages.json` records APK/AAB
+bytes, SHA-256 and the required arm64-v8a/x86_64 entries. The verifier requires
+nonempty manifest/dex/library members, rejects duplicate ZIP names and checks
+64-bit little-endian ELF machine identifiers for the native libraries. This is
+structural verification, not a signature, full executable or installation test.
+The runner expects `app-release-unsigned.apk` and `app-release.aab`; signing and
+store distribution remain planned. Scheduled production and matching Android
+size budgets are also planned; the global D5 practice is not yet adopted.
+
 ## What a working build would need (roadmap)
 
 Not implemented. This is the order in which the gaps block each other:
@@ -84,7 +110,9 @@ Not implemented. This is the order in which the gaps block each other:
    XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); release builds,
    signing and an App Store archive are not.
 3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
-   x86_64, Kotlin bindings, JNA); release signing and an AAB are not.
+   x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
+   requests unsigned APK/AAB; missing offline Release lint dependencies currently
+   block verified packaging. Release signing and store distribution remain planned.
 4. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
    crates can target `wasm32` (sockets and `sled` storage cannot). There is no
    such crate today.
