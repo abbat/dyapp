@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -32,15 +33,17 @@ def output(*args):
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 
-def build_pair(target, directory):
+def build_pair(target, directory, revision=None, epoch=None):
     manifest, binary, lock = TARGETS[target]
     directory.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix=f"{target}-", dir=directory))
-    epoch = output("git", "-c", f"safe.directory={ROOT}", "show",
-                   "-s", "--format=%ct", "HEAD")
+    if revision is None:
+        revision = output("git", "-c", f"safe.directory={ROOT}",
+                          "rev-parse", "HEAD")
+        epoch = output("git", "-c", f"safe.directory={ROOT}", "show",
+                       "-s", "--format=%ct", "HEAD")
     report = {
-        "target": target, "revision": output(
-            "git", "-c", f"safe.directory={ROOT}", "rev-parse", "HEAD"),
+        "target": target, "revision": revision,
         "rustc": output("rustc", "-Vv"), "lock_sha256": digest(ROOT / lock),
         "source_date_epoch": epoch, "builds": [], "errors": [],
     }
@@ -49,10 +52,10 @@ def build_pair(target, directory):
         for index in (1, 2):
             destination = run / str(index)
             environment = os.environ.copy()
-            for key in ("RUSTFLAGS", "RUSTC_WRAPPER",
-                        "RUSTC_WORKSPACE_WRAPPER"):
-                environment.pop(key, None)
+            environment.pop("RUSTFLAGS", None)
             environment.update({
+                "RUSTC_WRAPPER": "",
+                "RUSTC_WORKSPACE_WRAPPER": "",
                 "CARGO_INCREMENTAL": "0",
                 "CARGO_TARGET_DIR": str(destination),
                 "SOURCE_DATE_EPOCH": epoch,
@@ -89,8 +92,17 @@ def main():
     parser.add_argument("--target-root", type=Path,
                         default=ROOT / "target" / "reproducible")
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--revision", help="Git SHA supplied by the host")
+    parser.add_argument("--source-date-epoch", help="Host commit time")
     args = parser.parse_args()
-    report = build_pair(args.target, args.target_root.resolve())
+    if bool(args.revision) != bool(args.source_date_epoch):
+        parser.error("Use --revision and --source-date-epoch together")
+    if args.revision and not all((
+            re.fullmatch(r"[0-9a-f]{40}", args.revision),
+            args.source_date_epoch.isdigit())):
+        parser.error("Host metadata needs a full Git SHA and Unix seconds")
+    report = build_pair(args.target, args.target_root.resolve(),
+                        args.revision, args.source_date_epoch)
     destination = args.report or (
         ROOT / "target" / f"reproducible-{args.target}.json")
     destination.parent.mkdir(parents=True, exist_ok=True)

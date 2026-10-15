@@ -19,6 +19,11 @@ executable hashes are recorded in `target/reproducible-<target>.json`.
 
 Run inside the prepared development image for `dyappd`, or the prepared Linux
 image for `linux`, with this checkout mounted and a writable target directory.
+An image without Git accepts `--revision <full-SHA> --source-date-epoch <seconds>`
+together; obtain both values from the mounted checkout on the host. Linux release
+builds also need a writable source copy: Tauri generates schema files beside its
+manifest. Put that copy outside another Cargo workspace (for example `/build/`),
+and ensure the image's Cargo registry sources are readable by the build user.
 Each invocation retains both build trees and logs in `target/reproducible/`;
 allow room for two complete release builds. On failure inspect the reported log
 or compare the two executables; do not accept an absent output or reuse one
@@ -26,9 +31,14 @@ Cargo build directory for both runs. Compiler caches are intentionally bypassed.
 
 This checks repeatability in the same toolchain, system libraries and environment;
 it does not promise identical bytes across platforms or compiler versions.
-Nightly CI and measured equality for both real binaries are planned; C10 is not
-yet adopted. Tests cover changed bytes, empty/missing files and a successful
-Cargo exit that fails to produce the second executable.
+`reproducible.yml` runs daily at 03:17 UTC and on manual dispatch, separately
+from push/PR checks. It uses Rust 1.99.0 and ubuntu-24.04, skips Cargo build
+caches, and uploads the reports and logs even on comparison failure. On
+2026-10-15 two real release builds of each executable produced equal hashes
+locally in the existing prepared images; this establishes C10 for the stated
+same-environment scope. Nightly runner results remain independently observable.
+Tests cover changed bytes, empty/missing files, a successful Cargo exit without
+the second executable, and a failed build with host-supplied Git metadata.
 
 ## Jobs
 

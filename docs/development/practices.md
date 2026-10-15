@@ -117,7 +117,7 @@ and [encryption.md](../security/encryption.md) are the starting point.
 | C7 | **Log redaction.** Integration tests capture tracing output and assert no keys, tokens, message content or raw addresses | verify | MASVS-STORAGE-2, OWASP Logging | 0 matches | test subscriber + patterns | auto | 3/2/2 | W2 |
 | C8 | **Vulnerability disclosure.** `SECURITY.md`, GitHub private vulnerability reporting, fix SLO by alert age (critical ≤ 48 h, high ≤ 7 days); every fix has a regression test referencing its GHSA or CVE. The SLO is measured automatically; a breach triggers A8; the fix follows the normal flow | learn | ISO/IEC 29147, OpenSSF CVD Guide | SLO met | `gh api` + alert-age script | auto | 2/3/1 | W1 |
 | C9 | **Release provenance and signing.** Build attestations; `gh attestation verify` in the A10 checklist | release | SLSA Build L2, then L3 | 100% of artifacts attested | attest-build-provenance | auto | 3/3/1 | W2, with A10 |
-| C10 | **Reproducible builds.** Double build of `dyappd` and the Linux binary, hashes compared | verify | reproducible-builds.org | hashes equal | nightly CI script | auto | 2/2/2 | W2 |
+| C10 (adopted) | **Reproducible builds.** Double build of `dyappd` and the Linux binary, hashes compared | verify | reproducible-builds.org | hashes equal | nightly CI script | auto | 2/2/2 | W2 |
 | C11 | **Supply-chain audits** with imports from Mozilla and Google | verify | cargo-vet | — | cargo-vet | semi | 2/2/3 | W3 |
 | C12 | **Formal verification** of protocol parts built on top of MLS | design | — | — | Tamarin or ProVerif, Kani | semi | 2/1/3 | W3 |
 | C13 | **External audit or penetration test** before a public release | release | — | — | — | human | 3/1/3 | W3 |

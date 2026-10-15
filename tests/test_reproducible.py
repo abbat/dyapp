@@ -26,6 +26,19 @@ class Reproducibility(unittest.TestCase):
             second.write_bytes(first.read_bytes())
             self.assertEqual(len(set(CHECK.compare([first, second]))), 1)
 
+    def test_no_git_host_metadata_and_failed_build_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(CHECK, "output", return_value="rustc") as query:
+                with patch.object(CHECK.subprocess, "run", return_value=(
+                        SimpleNamespace(returncode=7))):
+                    report = CHECK.build_pair(
+                        "linux", Path(directory), "a" * 40, "123")
+            query.assert_called_once_with("rustc", "-Vv")
+            self.assertEqual(report["revision"], "a" * 40)
+            self.assertEqual(report["source_date_epoch"], "123")
+            self.assertEqual(report["builds"][0]["exit_code"], 7)
+            self.assertIn("Build 1 failed", report["errors"][0])
+
     def test_second_build_uses_a_fresh_directory_and_must_produce_output(self):
         for produce_second in (False, True):
             with self.subTest(produce_second=produce_second):
@@ -37,7 +50,8 @@ class Reproducibility(unittest.TestCase):
                         destination = Path(env["CARGO_TARGET_DIR"])
                         self.assertFalse(destination.exists())
                         self.assertEqual(env["CARGO_INCREMENTAL"], "0")
-                        self.assertNotIn("RUSTC_WRAPPER", env)
+                        self.assertEqual(env["RUSTC_WRAPPER"], "")
+                        self.assertEqual(env["RUSTC_WORKSPACE_WRAPPER"], "")
                         seen.append(destination)
                         if len(seen) == 1 or produce_second:
                             binary = destination / "release" / "dyappd"
