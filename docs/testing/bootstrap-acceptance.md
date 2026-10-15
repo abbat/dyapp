@@ -8,6 +8,9 @@
 
 ## Layers
 
+Configuration seed parsing and real pinned-key negotiation tests live in
+`src/config/seeds.rs`, preserving their original assertions and timeouts.
+
 Search filter/place/scan-budget and invalid-condition unit tests live in
 `src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
 Record lifecycle, heartbeats, expiry and eviction tests live in
