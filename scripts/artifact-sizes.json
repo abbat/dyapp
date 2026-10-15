@@ -20,5 +20,11 @@
     "environment": "ubuntu-24.04; rustc 1.99.0; x86_64; reproducible release runner",
     "revision": "f5df05b68ff0a63262f83d62d0632764cb75054a",
     "evidence": "https://github.com/abbat/dyapp/actions/runs/38741437870"
+  },
+  "windows-2022-x86_64-release": {
+    "bytes": 8611840,
+    "environment": "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE",
+    "revision": "051babd8c4368186b5d7882f27ac8e89a00e1302",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/38744833534"
   }
 }

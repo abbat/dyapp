@@ -31,10 +31,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/report-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report target/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: size budget
+        shell: pwsh
+        run: |
+          $base = git rev-parse HEAD^
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $head = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --base $base --head $head --report target/artifact-size-windows.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-size-windows
-          path: target/release-size-windows.json
+          path: |
+            target/release-size-windows.json
+            target/artifact-size-windows.json
           if-no-files-found: error
