@@ -101,6 +101,23 @@ The runner expects `app-release-unsigned.apk` and `app-release.aab`; signing and
 store distribution remain planned. Scheduled production and matching Android
 size budgets are also planned; the global D5 practice is not yet adopted.
 
+## Unsigned Apple Release packages
+
+`scripts/package-apple-release.py <ios|macos> <DYApp.app> <new-archive>`
+verifies bundle structure and packages an app in approved native Apple CI. Its CLI
+uses `xcrun lipo` and requires `GITHUB_ACTIONS=true`; pure packaging tests run in
+Docker with fixture architecture lists. iOS requires platform `iphoneos` and
+arm64; macOS requires `macosx` with both arm64 and x86_64. The executable must be
+a nonempty file with owner execute permission, named by a basename in the
+platform's generated `Info.plist`.
+
+IPA members live under `Payload/DYApp.app/`; macOS ZIP members under `DYApp.app/`.
+Member order and timestamps are normalized; executable modes and internal
+symlinks are preserved. Links outside the app, archive paths inside it and
+existing archive outputs are rejected. Package structure checks cover platform,
+architecture and filesystem layout. Native Release producers, actual package
+measurements, size gates, signing and notarization remain planned.
+
 ## What a working build would need (roadmap)
 
 Not implemented. This is the order in which the gaps block each other:
