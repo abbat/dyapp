@@ -18,10 +18,12 @@
 | **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
 | **Package** | The `.deb` installed on Debian 12, node started as its user | `scripts/deb-test.sh` | `make deb` | no (local only) |
 
-The functional suite keeps shared node/client fixtures in `protocol.rs` and
-namespace negotiation and configured profile/search/gossip service tests in `tests/protocol/namespaces.rs`; the test module
-split preserves the actual loopback workload and assertions. Signed-time error
-cases, valid future-clock boundaries and server clock hints live in `tests/protocol/clock.rs`.
+The functional suite keeps shared node/client fixtures in `protocol.rs`.
+Its child modules under `tests/protocol/` group namespace isolation and service
+negotiation (`namespaces.rs`), signed-time errors and boundaries (`clock.rs`),
+exact TCP/gossip wire accounting (`wire.rs`) and worker admission (`search_busy.rs`).
+The split preserves every existing test body and actual loopback assertion;
+all files now satisfy the 1000-line size limit without an exception.
 
 The memory plateau explicitly allows 1000 incoming connections per IP group: its short-lived
 clients all share loopback and can reach the default cap before idle cleanup. The default 32
