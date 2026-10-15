@@ -20,8 +20,8 @@ Both jobs run directly on the runner, without Docker. Every check is a step of
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `docker/Dockerfile.dev` uses;
-- downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1 and
-  detekt 1.23.8 release files and checks them against the sha256 sums `docker/Dockerfile.dev`
+- downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1,
+  detekt 1.23.8 and zizmor 1.30.1 release files and checks them against the sha256 sums `docker/Dockerfile.dev`
   uses (detekt runs on the runner's Java; the dev image installs OpenJDK 21);
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
@@ -49,9 +49,10 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 
 | Check | Command |
 |-------|---------|
-| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve, every file under `docs/` is reachable by links from `docs/README.md`, `AGENTS.md` at most 80 lines, no tracker IDs, [commit messages](code-quality.md#commit-messages) |
+| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, every workflow sets top-level `permissions:`, relative Markdown links and their anchors resolve, every file under `docs/` is reachable by links from `docs/README.md`, `AGENTS.md` at most 80 lines, no tracker IDs, [commit messages](code-quality.md#commit-messages) |
 | Trigger list | `scripts/triggers.py`: every glob of the [trigger list](code-quality.md#trigger-list) matches a tracked file |
 | Workflow lint | `actionlint` |
+| Workflow security | `zizmor --offline .github`: template injection, persisted checkout credentials, excessive permissions and the other offline audits; settings in `.github/zizmor.yml` |
 | Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
 | Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
 | TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |

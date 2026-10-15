@@ -1,0 +1,6 @@
+# zizmor (C4 in docs/development/practices.md) audit settings.
+rules:
+  # actionlint 1.7.12 rejects the `uses: $/...` self-repository syntax (rhysd/actionlint#711);
+  # enable once actionlint accepts it.
+  self-repository:
+    disable: true

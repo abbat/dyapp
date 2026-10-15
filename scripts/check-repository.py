@@ -193,7 +193,11 @@ def main():
         if path.suffix == ".json":
             json.loads(text)
         elif path.suffix in (".yaml", ".yml"):
-            list(yaml.safe_load_all(text))
+            loaded = list(yaml.safe_load_all(text))
+            # Practice C4: a default-permission token is never implicit.
+            workflow = name.startswith(".github/workflows/")
+            if workflow and "permissions" not in loaded[0]:
+                raise ValueError(f"No top-level permissions: {name}")
         elif path.suffix == ".md":
             documents[name] = text
         texts[name] = text
@@ -220,7 +224,8 @@ def main():
     if lines > AGENTS_LINES:
         raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
-          f"no tracker IDs; {len(documents)} Markdown files: relative links "
+          "workflows set top-level permissions, no tracker IDs; "
+          f"{len(documents)} Markdown files: relative links "
           f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
           f"{AGENTS_LINES} lines; commit messages after the baseline follow "
           "the rules")
