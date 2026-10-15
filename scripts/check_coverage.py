@@ -108,6 +108,8 @@ def check_diff(lcov):
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("coverage")
     baseline = tomllib.loads(BASELINES.read_text())["coverage"]["lines"]
     percentage = validate(json.loads(Path(sys.argv[1]).read_text()), baseline)
     print(f"Complete Rust workspace: {percentage:.2f}% line coverage "

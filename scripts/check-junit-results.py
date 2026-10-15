@@ -3,6 +3,10 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
+if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("junit")
+
 reports = list(Path(sys.argv[1]).rglob("TEST-*.xml"))
 if not reports:
     raise RuntimeError("Missing JUnit reports")

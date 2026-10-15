@@ -33,7 +33,8 @@ class CheckOutput(unittest.TestCase):
             bad.write_text("bad =\n")
             commands = {
                 "junit": [sys.executable, str(
-                    ROOT / "scripts/check-junit-results.py"), str(root)],
+                    ROOT / "scripts/check-junit-results.py"),
+                    "--raw", str(root)],
                 "flake8": [sys.executable, "-m", "flake8", str(bad)],
             }
             for name, command in commands.items():

@@ -2,6 +2,7 @@
 set -euo pipefail
 bash /app/scripts/check-container-isolation.sh
 mkdir -p /tmp/ai
+export DYAPP_CHECK_LOG_DIR="/reports/$HOSTNAME/check-output"
 case "${1:?suite required}" in
     unit)
         cp -rf /app/android /tmp/ai/android

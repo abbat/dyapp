@@ -39,7 +39,12 @@ also use concise defaults. Add `--raw` for their previous machine output; qualit
 passes this flag to its enclosing wrapper. Trigger diff arguments retain their
 existing data API, and help passes through. Imports remain quiet. Standalone
 frontends use `DYAPP_CHECK_LOG_DIR` or a writable temporary `ai/check-output`
-location, so read-only checkouts work. Result verifiers and other stages migrate next.
+location, so read-only checkouts work. JUnit, XCTest, Android instrumentation and
+coverage validators also use this default and accept `--raw` for their previous
+output. Coverage reporting explicitly selects raw metrics; validation thresholds
+and JSON/XML report files are unchanged. Android retains validator logs under
+`/reports/<container>/check-output`; Apple CI includes them in
+`apple-results/check-output`. Artifact auditing and other stages migrate next.
 
 ### Commit messages
 

@@ -20,5 +20,7 @@ def validate(summary):
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("apple-results")
     count = validate(json.loads(Path(sys.argv[1]).read_text()))
     print(f"{count} native tests passed")

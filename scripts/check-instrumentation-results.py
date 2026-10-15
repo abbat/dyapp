@@ -4,6 +4,10 @@ from pathlib import Path
 import re
 import sys
 
+if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("instrumentation")
+
 output = Path(sys.argv[1]).read_text()
 print(output)
 match = re.search(r"^OK \((\d+) tests?\)$", output, re.MULTILINE)

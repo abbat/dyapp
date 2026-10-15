@@ -1,6 +1,8 @@
 """Exercise strict report gates inside the dev Docker container."""
 import copy
 import importlib.util
+import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -44,6 +46,49 @@ class Reports(unittest.TestCase):
             return subprocess.run(
                 ["python3", str(ROOT / "scripts" / script), argument],
                 capture_output=True, text=True, check=False)
+
+    def test_cli_defaults_raw_and_retained_logs(self):
+        coverage = {"type": "llvm.coverage.json.export", "data": [{
+            "files": [{"filename": f"/rust/{crate}/src/lib.rs"} for crate in
+                      ("bootstrap", "ffi", "identity", "messaging",
+                       "p2p-net", "profile", "video")],
+            "totals": {"lines": {"count": 100, "covered": 100}}}]}
+        cases = [
+            ("check_coverage.py", "coverage", json.dumps(coverage), False,
+             "100.00% line coverage"),
+            ("check-junit-results.py", "junit",
+             '<testsuite tests="1"/>', True, "1 JUnit tests passed"),
+            ("check-apple-results.py", "apple-results",
+             json.dumps(self.apple_summary()), False, "3 native tests passed"),
+            ("check-instrumentation-results.py", "instrumentation",
+             "OK (3 tests)\nINSTRUMENTATION_CODE: -1\n", False,
+             "INSTRUMENTATION_CODE: -1"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logs = root / "logs"
+            env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(logs))
+            for script, name, contents, junit, raw_text in cases:
+                path = root / ("TEST-app.xml" if junit else "report.txt")
+                path.write_text(contents)
+                argument = str(root if junit else path)
+                command = ["python3", str(ROOT / "scripts" / script)]
+                result = subprocess.run(
+                    command + [argument], capture_output=True, text=True,
+                    env=env, check=False)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(result.stdout, f"OK {name}\n")
+                raw = subprocess.run(
+                    command + ["--raw", argument], capture_output=True,
+                    text=True, env=env, check=False)
+                self.assertEqual(raw.returncode, 0, raw.stderr)
+                self.assertIn(raw_text, raw.stdout)
+                saved = list(logs.glob(f"{name}-*.log"))
+                self.assertEqual(len(saved), 1)
+                self.assertIn(raw_text, saved[0].read_text())
+                if name == "instrumentation":
+                    self.assertEqual(json.loads(
+                        path.with_suffix(".json").read_text())["tests"], 3)
 
     def test_junit_requires_nonempty_complete_success(self):
         good = '<testsuite tests="1" failures="0" errors="0" skipped="0"/>'

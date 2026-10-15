@@ -23,6 +23,7 @@ def main():
         raise ValueError(f"Unsupported Apple platform: {platform}")
     reports = Path(os.environ["RUNNER_TEMP"]) / "apple-results"
     reports.mkdir(parents=True, exist_ok=True)
+    os.environ["DYAPP_CHECK_LOG_DIR"] = str(reports / "check-output")
     derived = reports / "DerivedData"
     common = ["xcodebuild", "-project", f"{platform}/DYApp.xcodeproj",
               "-scheme", "DYApp", "-derivedDataPath", str(derived),
