@@ -45,7 +45,9 @@ and summed job execution minutes clipped to the week. WIP above 3 or red time ab
 24 hours produces errors; empty rate/percentile samples are `null`. Older red periods
 retain their original start, and late results from old commits cannot clear newer failures.
 False positives require explicit boolean observations; four-week review due dates use
-adoption dates and explicit review records. Local collection and the command are planned.
+adoption dates and explicit review records. Run the local read-only
+[`flow-report.py` command](flow-metrics.md) weekly; its JSON report and saved input
+support offline reproduction without querying beads from CI.
 
 ### Small batches
 

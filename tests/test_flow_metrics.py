@@ -100,6 +100,14 @@ class Metrics(unittest.TestCase):
         with self.assertRaises(ValueError):
             FLOW.report(invalid)
 
+    def test_pending_or_cancelled_main_is_not_reported_green(self):
+        for conclusion, finished in [(None, None),
+                                     ("cancelled", "2026-10-14T11:00:00Z")]:
+            data = snapshot()
+            data["runs"].append(run("new", "2026-10-14T10:00:00Z",
+                                    finished, conclusion))
+            self.assertEqual(FLOW.report(data)["ci"]["main_state"], "unknown")
+
     def test_invalid_sources_fail(self):
         data = snapshot()
         data["runs"] = []

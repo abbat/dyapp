@@ -23,6 +23,10 @@ def ratio(count, total):
     return 100 * count / total if total else None
 
 
+def run_order(run):
+    return instant(run["created_at"]), run.get("id", 0), run["attempt"]
+
+
 def ci_metrics(runs, since, now):
     ci = [r for r in runs if r["workflow"] == ".github/workflows/ci.yml"]
     if not ci:
@@ -35,7 +39,7 @@ def ci_metrics(runs, since, now):
         end = instant(run["completed_at"])
         if end > now:
             continue
-        order = (instant(run["created_at"]), run.get("id", 0), run["attempt"])
+        order = run_order(run)
         conclusion = run["conclusion"]
         if since <= end < now and conclusion in BAD | {"success"}:
             outcomes.setdefault(run["head_sha"], set()).add(conclusion)
@@ -69,10 +73,22 @@ def ci_metrics(runs, since, now):
             elapsed = (clipped_end - clipped_start).total_seconds()
             minutes += max(0, elapsed) / 60
     failed = sum(bool(results & BAD) for results in outcomes.values())
+    latest = max(ci, key=run_order)
+    state = "unknown"
+    if red is not None:
+        state = "red"
+    elif latest["completed_at"]:
+        if instant(latest["completed_at"]) <= now:
+            if latest["conclusion"] == "success":
+                state = "green"
     return {
+        "main_state": state,
         "red_commit_percent": ratio(failed, len(outcomes)),
         "failed_commits": failed, "completed_commits": len(outcomes),
         "max_red_hours": max(red_hours, default=0),
+        "red_intervals": [{"started_at": start.isoformat(),
+                           "ended_at": end.isoformat()}
+                          for start, end in intervals if end >= since],
         "current_red_hours": (now - red).total_seconds() / 3600
         if red is not None else 0,
         "time_to_green_hours_p50": percentile(recovery, .5),
@@ -151,6 +167,7 @@ def report(snapshot):
                         "overdue": due <= now and not done})
     return {
         "schema": 1, "since": since.isoformat(), "until": now.isoformat(),
+        "sources": snapshot.get("sources"),
         "throughput": completed,
         "lead_hours_p50": percentile(leads, .5),
         "lead_hours_p85": percentile(leads, .85),
