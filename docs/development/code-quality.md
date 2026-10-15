@@ -16,6 +16,25 @@ All checks run in Docker; build the image once with `make prepare`.
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
+### Commit messages
+
+`scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice A3 of
+[practices.md](practices.md) on every non-merge commit after a baseline commit (`BASELINE` in the
+script; older history is grandfathered):
+
+- subject at most 72 characters, capitalised, imperative (no `-ed`, `-ing` or third-person `-s`
+  first word after an optional `scope: ` prefix), no trailing period;
+- a blank line between the subject and the body;
+- a `Co-Authored-By: Name <email>` trailer (not required from `[bot]` authors such as Dependabot);
+- no tracker IDs.
+
+Tracker IDs (`dyapp-` followed by 3–4 lowercase letters or digits, optionally `.N`) are also
+rejected in every tracked text file. Names declared as `name = "dyapp-…"` in a tracked
+`Cargo.toml` are allowed, as is the stale `dyapp-core` in `build-uniffi.sh` (`NOT_TRACKER`).
+The check reads committed history, so a bad message fails the next `make quality`; fix it with
+`git commit --amend` or a rebase before pushing. A clone without the baseline commit (shallow)
+fails the check.
+
 ### Git hooks
 
 `.pre-commit-config.yaml` defines two local hooks:

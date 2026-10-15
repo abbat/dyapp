@@ -13,6 +13,18 @@ HTML_ANCHOR = re.compile(r"""<a\s+(?:id|name)=["']([^"']+)["']""")
 INLINE_LINK = re.compile(r'\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\)')
 REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)")
 SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//")
+# Tracker IDs (a 3-4 character dyapp- suffix, optionally .N) stay out of the
+# repository; longer hyphenated names (dyapp-p2p-net) do not match.
+BEAD = re.compile(r"\bdyapp-[a-z0-9]{3,4}(?:\.\d+)*(?![\w-])")
+CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
+# Names that are not crates: the stale package name in build-uniffi.sh.
+NOT_TRACKER = {"dyapp-core"}
+# Commit-message ratchet: commits after this one follow the message rules.
+BASELINE = "39c3e3fd8642497fca3003efa97bafd75008268f"
+SCOPE = re.compile(r"^[\w./-]+: ")
+# Imperative words that look like past tense or a gerund.
+IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
+              "Shed", "Speed", "String", "Succeed"}
 
 
 def prose(text, code=False):
@@ -74,6 +86,55 @@ def broken_links(documents, exists):
     return errors
 
 
+def bead_ids(text, allowed):
+    """Tracker IDs in text that are not allowed crate names."""
+    return [m for m in BEAD.findall(text) if m not in allowed]
+
+
+def message_errors(message, allowed, bot=False):
+    """Chris Beams' rules that a script can check, plus agent attribution.
+
+    Bots (Dependabot) need no Co-Authored-By trailer.
+    """
+    subject, _, body = message.strip().partition("\n")
+    errors = []
+    if len(subject) > 72:
+        errors.append(f"subject longer than 72 characters ({len(subject)})")
+    if subject.endswith("."):
+        errors.append("subject ends with a period")
+    if body and not body.startswith("\n"):
+        errors.append("no blank line after the subject")
+    word = SCOPE.sub("", subject).split(" ", 1)[0]
+    if not word[:1].isupper():
+        errors.append("subject does not start with a capital letter")
+    elif word not in IMPERATIVE and re.search(r"(ed|ing|[^sui]s)$", word):
+        errors.append(f"subject is not imperative: {word}")
+    if not bot and not re.search(r"^Co-Authored-By: .+ <.+>$", message, re.M):
+        errors.append("no Co-Authored-By trailer")
+    leaks = bead_ids(message, allowed)
+    if leaks:
+        errors.append("tracker IDs: " + ", ".join(leaks))
+    return errors
+
+
+def commit_errors(allowed):
+    """Message rule violations in commits after BASELINE."""
+    git = ["git", "-c", "safe.directory=/workspace"]
+    # A shallow clone without the baseline cannot run the check: fail.
+    subprocess.check_call(git + ["cat-file", "-e", BASELINE + "^{commit}"])
+    output = subprocess.check_output(
+        git + ["log", "--no-merges", "--format=%H %ae%n%B%x00",
+               BASELINE + "..HEAD"]).decode()
+    errors = []
+    for entry in filter(str.strip, output.split("\0")):
+        head, _, message = entry.strip().partition("\n")
+        sha, _, author = head.partition(" ")
+        bot = author.endswith("[bot]@users.noreply.github.com")
+        errors += [f"{sha[:12]}: {error}"
+                   for error in message_errors(message, allowed, bot)]
+    return errors
+
+
 def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -82,6 +143,7 @@ def main():
     names = sorted(set(output.decode().strip("\0").split("\0")))
     folded = {}
     documents = {}
+    texts = {}
     checked = 0
     for name in names:
         path = Path(name)
@@ -114,14 +176,26 @@ def main():
             list(yaml.safe_load_all(text))
         elif path.suffix == ".md":
             documents[name] = text
+        texts[name] = text
         checked += 1
     if not checked:
         raise ValueError("Empty repository validation inventory")
+    allowed = NOT_TRACKER | {
+        crate for name, text in texts.items()
+        if name.endswith("Cargo.toml") for crate in CRATE.findall(text)}
+    leaks = [f"{name}: {', '.join(found)}" for name, text in texts.items()
+             if (found := bead_ids(text, allowed))]
+    if leaks:
+        raise ValueError("Tracker IDs in files:\n" + "\n".join(leaks))
+    errors = commit_errors(allowed)
+    if errors:
+        raise ValueError("Commit messages:\n" + "\n".join(errors))
     errors = broken_links(documents, lambda name: Path(name).exists())
     if errors:
         raise ValueError("Broken Markdown links:\n" + "\n".join(errors))
-    print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid; "
-          f"{len(documents)} Markdown files: relative links resolve")
+    print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
+          f"no tracker IDs; {len(documents)} Markdown files: relative links "
+          "resolve; commit messages after the baseline follow the rules")
 
 
 if __name__ == "__main__":

@@ -43,14 +43,15 @@ the schedule and the wait.
 
 ### `quality` → **quality**
 
-This job runs on ubuntu-24.04 with a 60-minute timeout. After setup it runs
+This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checkout
+(`fetch-depth: 0`). After setup it runs
 `rust-check.sh quality`, which runs these checks in order:
 
 | Check | Command |
 |-------|---------|
-| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve |
+| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve, no tracker IDs, [commit messages](code-quality.md#commit-messages) |
 | Workflow lint | `actionlint` |
-| Secret scan | `gitleaks git --redact`: the git history (the shallow CI checkout: its one commit); known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
+| Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
 | Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
 | TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |
 | Shell lint | `shellcheck scripts/*.sh` |
