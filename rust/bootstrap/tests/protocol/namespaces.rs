@@ -137,3 +137,99 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
         assert_eq!(client.wire.take().0, [[0; 2]; 10]);
     }
 }
+
+#[tokio::test]
+async fn named_node_serves_profile_search_and_configured_gossip_topics() {
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("node-test").unwrap());
+    let (address, wire) = start_config_in_protocols(
+        |c| {
+            c.roles = vec![Role::Store, Role::Search];
+            c.search.min_profile_pow_bits = 0;
+            c.limits.requests_per_second = 1000;
+            c.limits.bytes_per_second = 0;
+            c.limits.min_free_mb = 0;
+        },
+        protocols.clone(),
+    )
+    .await;
+    let mut client = Client::connect_in_network(
+        &address,
+        Keypair::generate_ed25519(),
+        true,
+        protocols.clone(),
+    )
+    .await;
+    let owner = Identity::generate();
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let topic = protocols
+        .search_topic(dyapp_bootstrap::search::topic(&key))
+        .hash();
+    client
+        .wait(|event| match event {
+            BehaviourEvent::Gossip(libp2p::gossipsub::Event::Subscribed {
+                topic: subscribed,
+                ..
+            }) if subscribed == topic => Some(()),
+            _ => None,
+        })
+        .await;
+    assert_eq!(status(client.info().await.status), Status::Ok);
+    let record = Profile {
+        version: 1,
+        age: 28,
+        ..Default::default()
+    }
+    .sign(&owner);
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::Publish(record.clone()))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+    let request = proto::SearchRequest {
+        request: Some(proto::search_request::Request::Publish(record)),
+    };
+    let bytes = request.encode_to_vec();
+    client
+        .swarm
+        .behaviour_mut()
+        .search
+        .send_request(&client.server, request);
+    let (mut replied, mut gossiped) = (false, false);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while !(replied && gossiped) {
+            if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
+                match event {
+                    BehaviourEvent::Search(event) => {
+                        if let Some(response) = response(event) {
+                            assert_eq!(status(response.status), Status::Ok);
+                            replied = true;
+                        }
+                    }
+                    BehaviourEvent::Gossip(libp2p::gossipsub::Event::Message {
+                        message, ..
+                    }) => {
+                        assert_eq!(message.topic, topic);
+                        assert_eq!(message.data, bytes);
+                        gossiped = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let counts = wire.take();
+    assert_eq!(counts.0[dyapp_p2p_net::WireBytes::OTHER], [0, 0]);
+    assert_eq!(
+        counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
+        [0, bytes.len() as u64]
+    );
+    assert!(
+        counts.0[dyapp_p2p_net::WireBytes::protocol_slot_for(&protocols.search, &protocols)][0] > 0
+    );
+}
