@@ -8,6 +8,28 @@
 `ci-base.yml` (name **rust**) is `workflow_call` only. Its single caller is `ci.yml` (job
 `core`), so its checks show as `ci / core / quality` and `ci / core / build`. It has two jobs.
 
+## Reproducible builds
+
+`scripts/check-reproducible.py dyappd` (or `linux`) builds the release executable
+twice with `--locked` in fresh independent Cargo target directories and compares
+nonempty output SHA-256 hashes. It disables incremental builds and compiler
+wrappers, remaps source and target paths, and fixes `SOURCE_DATE_EPOCH` to the
+source commit time. The toolchain, source revision, lockfile hash, build logs and
+executable hashes are recorded in `target/reproducible-<target>.json`.
+
+Run inside the prepared development image for `dyappd`, or the prepared Linux
+image for `linux`, with this checkout mounted and a writable target directory.
+Each invocation retains both build trees and logs in `target/reproducible/`;
+allow room for two complete release builds. On failure inspect the reported log
+or compare the two executables; do not accept an absent output or reuse one
+Cargo build directory for both runs. Compiler caches are intentionally bypassed.
+
+This checks repeatability in the same toolchain, system libraries and environment;
+it does not promise identical bytes across platforms or compiler versions.
+Nightly CI and measured equality for both real binaries are planned; C10 is not
+yet adopted. Tests cover changed bytes, empty/missing files and a successful
+Cargo exit that fails to produce the second executable.
+
 ## Jobs
 
 Both jobs run directly on the runner, without Docker. Every check is a step of
