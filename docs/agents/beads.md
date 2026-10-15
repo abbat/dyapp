@@ -63,6 +63,35 @@ python3 scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip,
 - Without run ids only the newest run of each workflow is read, so failures that a later run
   already fixed are not imported.
 
+## Priority proposals
+
+A11 uses the local read-only `scripts/priority-proposal.py`; run it at least every
+14 days. It ranks non-closed delivery epics by WSJF = cost of delay / job size,
+ties by bead ID, and never changes priorities or dependency readiness.
+
+```bash
+python3 -B scripts/priority-proposal.py --report /tmp/ai/priorities.json
+python3 -B scripts/priority-proposal.py --proposal /tmp/ai/priorities.json \
+  --approval /tmp/ai/priority-approval.json --check
+```
+
+Supply positive finite `metadata.wsjf.cost_of_delay` and `metadata.wsjf.job_size`
+and a nonempty `metadata.wsjf.rationale` for an estimated score. Without these,
+the proposal explicitly uses provisional proxies: `max(1, 5-priority)` divided by
+the number of non-closed descendant leaves (minimum 1). These are estimates,
+not measured cost or duration. Quorum participant epics are excluded; nested
+delivery epics remain visible and their scores are not independent of their parents.
+Review safety constraints, dependencies and estimates before approving an order.
+
+The human approval file contains `approved_by`, timezone-aware `approved_at`
+and the exact `proposal_sha256` printed in the proposal. Record it only after the
+maintainer explicitly approves. It is an operator attestation, not a signature.
+`--check` fails without approval, on an altered proposal/fingerprint, on an
+approval for another proposal, or when the proposal is over 14 days old.
+Generating a draft exits successfully with `approval: pending`; this never
+means the proposed priorities are approved. `--input` reads saved `bd list`
+JSON for offline reproduction. Keep these files outside tracked/public files.
+
 ## Everyday commands
 
 ```bash
