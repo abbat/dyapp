@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import traceback
 import uuid
 
 from capture import Capture
@@ -61,16 +62,37 @@ def run_logged(command, environment, label, cleanup=None, log_file=None):
     if verbose:
         print(f"ERROR {label} (exit {status})", file=sys.stderr, flush=True)
         return 128 - status if status < 0 else status
+    text = (captured.getvalue().decode(errors="replace")
+            if captured is not None else message)
+    return report_failure(label, status, text,
+                          log_file if captured is not None else None)
+
+
+def report_failure(label, status, text, log_file=None):
     runner = load_runner()
     policy = json.loads((Path(__file__).with_name(
         "check-output.json")).read_text())["docker"]
-    text = (captured.getvalue().decode(errors="replace")
-            if captured is not None else message)
     selected = runner.diagnostics(text, policy)
     if not selected:
         selected = runner.diagnostics(text, {"format": "python"})
-    return runner.failure(label, policy["fix"], status, selected,
-                          log_file if captured is not None else None)
+    return runner.failure(label, policy["fix"], status, selected, log_file)
+
+
+def config_failure(text, status, environment, log_file=None):
+    """Retain preflight failures whose stdout may be a consumed JSON value."""
+    log = None
+    try:
+        if log_file is None:
+            directory = Path(environment.get(
+                "DYAPP_CHECK_LOG_DIR", "/tmp/ai/check-output"))
+            directory.mkdir(parents=True, exist_ok=True)
+            log_file = directory / f"docker-config-{uuid.uuid4().hex}.log"
+        with Path(log_file).open("a") as output:
+            output.write(text)
+        log = log_file
+    except OSError as error:
+        text += f"\n{type(error).__name__}: {error}"
+    return report_failure("Docker configuration", status, text, log)
 
 
 # Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners).
@@ -84,29 +106,31 @@ def build_images(arguments, environment, log_file=None):
                  if i == 0 or arguments[i - 1] not in value_options)
     selected = arguments[index + 1:]
     if any(name.startswith("-") for name in selected):
-        print("Unsupported build options; CPU limits must be preserved.",
-              file=sys.stderr)
-        return 2
+        return config_failure(
+            "ValueError: Unsupported build options; "
+            "CPU limits must be preserved",
+            2, environment, log_file)
     result = subprocess.run(
         ["docker", "compose", *arguments[:index],
          "config", "--format", "json"],
         env=environment, capture_output=True, text=True, check=False,
     )
     if result.returncode:
-        print(result.stderr, file=sys.stderr)
-        return result.returncode
+        return config_failure(result.stdout + result.stderr,
+                              result.returncode, environment, log_file)
     services = json.loads(result.stdout)["services"]
     for name in selected or list(services):
         if name not in services:
-            print(f"Unknown build service: {name}", file=sys.stderr)
-            return 2
+            return config_failure(f"ValueError: Unknown build service: {name}",
+                                  2, environment, log_file)
         service = services[name]
         build = service.get("build")
         if not build:
             continue
         if set(build) - {"context", "dockerfile", "args", "target"}:
-            print(f"Unsupported build configuration: {name}", file=sys.stderr)
-            return 2
+            return config_failure(
+                f"ValueError: Unsupported build configuration: {name}",
+                2, environment, log_file)
         filename = build.get("dockerfile", "Dockerfile")
         dockerfile = Path(build["context"]) / filename
         # CI layer cache (DYAPP_BUILD_CACHE=gha) needs BuildKit, which has no
@@ -172,4 +196,11 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        status = main()
+    except KeyboardInterrupt:
+        status = config_failure("KeyboardInterrupt: interrupted", 130,
+                                os.environ)
+    except Exception:
+        status = config_failure(traceback.format_exc(), 1, os.environ)
+    sys.exit(status)

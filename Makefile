@@ -2,6 +2,7 @@
 
 DOCKER = python3 scripts/docker-local.py
 DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull never dev
+CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir target/check-output
 
 help:
 	@echo "prepare | test | test-integration | test-all | coverage | quality | build | deb | image | ui-test"
@@ -18,7 +19,7 @@ test:
 	bash scripts/docker-test.sh test
 
 test-integration:
-	$(DEV) cargo test -p dyapp-bootstrap --test integration_tests --all-features --locked --offline
+	$(CHECK) rust-test -- cargo test -p dyapp-bootstrap --test integration_tests --all-features --locked --offline
 	bash scripts/docker-test.sh network
 	$(DEV) bash scripts/rust-check.sh memory
 
@@ -32,7 +33,7 @@ quality lint check:
 	bash scripts/check-quality.sh
 
 fmt:
-	$(DEV) cargo fmt --all -- --check
+	$(CHECK) rustfmt -- cargo fmt --all -- --check
 
 build release:
 	bash scripts/docker-test.sh build
@@ -52,10 +53,10 @@ security audit deny:
 	bash scripts/docker-test.sh security
 
 msrv:
-	$(DEV) cargo check --workspace --all-features --all-targets --locked --offline
+	$(CHECK) rust-build -- cargo check --workspace --all-features --all-targets --locked --offline
 
 doc:
-	$(DEV) cargo doc --workspace --locked --offline --no-deps
+	$(CHECK) rustdoc -- cargo doc --workspace --locked --offline --no-deps
 
 pre-commit: quality
 

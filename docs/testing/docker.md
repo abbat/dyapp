@@ -207,6 +207,23 @@ docker run dyapp:dev cargo test
 
 ## Troubleshooting
 
+Quiet stage failures and build preflight failures use `FAIL`/`FIX`/`DETAILS`.
+The raw-log pointer retains unrecognized messages as well as full recognized
+errors. Check Docker daemon access and the named Compose file/service before
+retrying. Unsupported build options/configuration fail before image builds so
+CPU limits cannot be bypassed. Malformed Compose JSON, missing commands and
+startup errors also fail with this contract. Successful configuration JSON is
+an internal data value and is not printed as passing progress.
+
+Rust `build`, `test`, `cov-build`, `cov-test`, `cov-report`, `coverage`,
+`network` and `memory` stages use the shared runner. Quality/security retain
+one result per mapped tool. Make targets `fmt`, `msrv`, `doc` and the explicit
+integration-test Cargo command also use mapped runners inside Docker, so a
+failed assertion or compiler error keeps its diagnostic context. Config JSON
+and coverage JSON/LCOV/text remain data artifacts; interactive shells and
+explicit verbose output remain streaming modes. Platform/UI/package/release
+entry points are a separate staged rollout, not covered by this inventory.
+
 ### Issue: "No such file or directory"
 
 ```
