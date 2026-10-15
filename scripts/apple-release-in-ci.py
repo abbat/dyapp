@@ -52,7 +52,15 @@ def main():
              f"macos-15; {args.target}; Rust 1.99.0; Release; unsigned",
              "--report", str(reports / "measurement.json")],
             reports / "measurement.log")
-    except (OSError, ValueError, KeyError) as error:
+        base = subprocess.check_output(
+            ["git", "rev-parse", "HEAD^"], cwd=ROOT, text=True).strip()
+        head = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        run([sys.executable, str(ROOT / "scripts/check-artifact-size.py"),
+             name, str(archive), "--base", base, "--head", head,
+             "--report", str(reports / "size.json")], reports / "size.log")
+    except (OSError, ValueError, KeyError,
+            subprocess.CalledProcessError) as error:
         print("FAIL apple-release: native producer failed")
         print("FIX: docs/development/build.md#unsigned-apple-release-packages")
         print("DETAILS:")

@@ -26,5 +26,17 @@
     "environment": "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE",
     "revision": "051babd8c4368186b5d7882f27ac8e89a00e1302",
     "evidence": "https://github.com/abbat/dyapp/actions/runs/38744833534"
+  },
+  "ios-macos15-arm64-release-unsigned-ipa": {
+    "bytes": 2204288,
+    "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; iOS device arm64 Release; unsigned IPA",
+    "revision": "bfd546d31c417a67a506222df7b6b59c08899195",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/38747979532"
+  },
+  "macos-macos15-universal-release-unsigned-zip": {
+    "bytes": 4667298,
+    "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; universal arm64/x86_64 Release; unsigned ZIP",
+    "revision": "bfd546d31c417a67a506222df7b6b59c08899195",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/38747979532"
   }
 }

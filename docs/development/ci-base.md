@@ -77,12 +77,14 @@ The Windows gate uses the measured unsigned EXE baseline from the successful
 with the exact `HEAD^..HEAD` source range. Push/debug smoke CI is separate.
 Apple jobs in the same workflow request unsigned iOS device and universal macOS
 Release packages with optimized Rust core libraries. They archive measurement
-JSON, Xcode version and captured logs; actual package evidence and Apple budgets
-remain pending ([producer details](build.md#unsigned-apple-release-packages)).
+JSON, Xcode version, actual package size-gate reports and captured logs. Distinct
+unsigned device IPA and universal macOS ZIP baselines come from a successful
+native producer run ([producer details](build.md#unsigned-apple-release-packages)).
 
 All-platform producer integration is planned; D5 is not yet adopted. Android
-APK/AAB, iOS IPA and the remaining desktop builds need actual release measurements
-and matching CI gates before that claim can be made.
+APK/AAB still need successful Release packaging, actual matching measurements
+and CI gates; the existing offline image lacks a Release lint dependency
+([Android prerequisite](build.md#unsigned-android-release)).
 
 ## Jobs
 

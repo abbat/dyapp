@@ -123,8 +123,13 @@ and universal macOS arm64/x86_64. It calls `build-apple-core.sh` with `release`
 and runs `scripts/apple-release-in-ci.py <ios|macos>` with
 `CODE_SIGNING_ALLOWED=NO`. The producer builds configuration `Release`, packages
 the app and records bytes/hash/source/compiler in `measurement.json`, together
-with Xcode version and captured logs. Actual native measurements and matching
-Apple size gates remain pending; signing and notarization remain planned.
+with Xcode version and captured logs. The successful
+[native measurement run](https://github.com/abbat/dyapp/actions/runs/38747979532)
+calibrated the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
+The producer checks the real package bytes and writes `size.json`/`size.log`
+using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
+separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets-staged)).
+Signing and notarization remain planned.
 
 ## What a working build would need (roadmap)
 
@@ -133,7 +138,7 @@ Not implemented. This is the order in which the gaps block each other:
 1. Build `dyapp-ffi` instead of the four internal crates.
 2. **iOS and macOS:** done in `scripts/build-apple-core.sh` (Swift bindings and an
    XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); explicit Release
-   core/package production is configured for native CI and awaits measurement.
+   core/package production is measured and size-gated in native CI.
    Signing, notarization and App Store distribution remain planned.
 3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
