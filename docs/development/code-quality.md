@@ -9,7 +9,7 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, `triggers.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 75% workspace line gate |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
@@ -34,6 +34,23 @@ rejected in every tracked text file. Names declared as `name = "dyapp-…"` in a
 The check reads committed history, so a bad message fails the next `make quality`; fix it with
 `git commit --amend` or a rebase before pushing. A clone without the baseline commit (shallow)
 fails the check.
+
+### Docs change with the code
+
+`scripts/docs-sync.py` (in `make quality` and CI `quality`) enforces practice A2: every non-merge
+commit after its `BASELINE` that changes an interface line also changes a file under `docs/`.
+Interface lines (`RULES` in the script, a heuristic):
+
+- config keys: `pub` fields in `rust/bootstrap/src/config.rs`; `dyappd` derives its
+  `--section.key` flags from them;
+- CLI flags: `"-…"` strings in `rust/bootstrap/src/bin/*.rs`;
+- public API: `pub fn|struct|enum` and `uniffi::` lines in `rust/ffi/src/`, and
+  `message`/`enum`/`service`/`rpc` and field-number lines in `proto/*.proto`;
+- Make targets: `target:` lines in the `Makefile`.
+
+For a false positive (say, a renamed private config field), add a `Docs-Unchanged: <reason>`
+trailer to the commit message. Like the message check, the script reads committed history, so
+fix a failing commit with `git commit --amend` or a rebase.
 
 ### Trigger list
 

@@ -17,6 +17,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Secrets | gitleaks on the git history | `.gitleaksignore` | yes | — | enforced |
 | Commit messages, tracker IDs | `scripts/check-repository.py` ([rules](code-quality.md#commit-messages)) | `BASELINE` in the script | yes | — | enforced after the baseline commit |
 | Trigger list | `scripts/triggers.py` ([rules](code-quality.md#trigger-list)) | `scripts/triggers.toml` | yes | — | enforced: every glob matches a tracked file |
+| Docs with the code | `scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits after the baseline |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |

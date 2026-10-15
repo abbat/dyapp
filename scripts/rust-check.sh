@@ -18,6 +18,7 @@ step() {
         quality)
             python3 -B scripts/check-repository.py
             python3 -B scripts/triggers.py
+            python3 -B scripts/docs-sync.py
             actionlint
             zizmor --offline --no-progress .github
             # Secrets in the whole git history (CI checks out with fetch-depth 0).
