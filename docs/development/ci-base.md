@@ -10,6 +10,12 @@
 
 ## Reproducible builds
 
+Release check CLIs print one concise result and retain complete frontend logs.
+Both `reproducible.yml` and `release-sizes.yml` select
+`target/release-check-output` and include it in their evidence artifacts, along
+with the existing JSON measurements and build logs. Add `--raw` to a release
+checker for its direct diagnostic output; report-file consumers do not need it.
+
 `scripts/check-reproducible.py dyappd` (or `linux`) builds the release executable
 twice with `--locked` in fresh independent Cargo target directories and compares
 nonempty output SHA-256 hashes. It disables incremental builds and compiler

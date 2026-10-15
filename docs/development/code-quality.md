@@ -48,7 +48,13 @@ and JSON/XML report files are unchanged. Android retains validator logs under
 `OK auditable` or `FAIL`/`FIX`/`DETAILS`, accepts `--raw`, and retains failed
 diagnostics under `DYAPP_CHECK_LOG_DIR` (default `/tmp/ai/check-output`). Its
 frontend is self-contained because the release image copies only that script;
-a test binds its fix pointer to the shared map. Other stages migrate next.
+a test binds its fix pointer to the shared map. Release artifact-size,
+measurement, reproducibility, Android package and Apple package/producer CLIs
+also dispatch through the map, including argument and startup failures. Their
+`--raw` mode retains direct diagnostic output; JSON reports remain files consumed
+by the nightly size/reproducibility workflows. Recognized structured failures
+contribute only their `DETAILS` body, without repeated headers or progress.
+Platform test runners and the final entry-point inventory migrate next.
 
 ### Commit messages
 

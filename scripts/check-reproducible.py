@@ -111,9 +111,13 @@ def main():
     if report["errors"]:
         print("FAIL reproducible: " + "; ".join(report["errors"]))
         print("FIX: docs/development/ci-base.md#reproducible-builds")
+        print("DETAILS:")
+        print("\n".join(report["errors"]))
         raise SystemExit(1)
     print(f"OK reproducible {args.target}")
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("reproducible")
     main()

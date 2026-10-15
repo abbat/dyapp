@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DYAPP_CHECK_LOG_DIR: target/release-check-output
+
 jobs:
   windows:
     name: release - windows
@@ -46,6 +49,7 @@ jobs:
         with:
           name: release-size-windows
           path: |
+            target/release-check-output/
             target/release-size-windows.json
             target/artifact-size-windows.json
           if-no-files-found: error
@@ -91,6 +95,7 @@ jobs:
         with:
           name: release-size-${{ matrix.platform }}
           path: |
+            target/release-check-output/
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.json
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.txt
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.log

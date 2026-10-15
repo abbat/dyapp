@@ -60,6 +60,9 @@ def diagnostics(text, policy):
                 selected.append(line)
         return selected
     if kind == "lines":
+        if policy.get("details") and "DETAILS:" in lines:
+            return [line for line in lines[lines.index("DETAILS:") + 1:]
+                    if line]
         if policy.get("nested"):
             selected, active = [], False
             for line in lines:
