@@ -1,0 +1,6 @@
+# Ratchet baselines: a check fails when its metric gets worse than the value here.
+# Raise a value when the metric improves; lowering one weakens a check.
+
+[coverage]
+# Workspace line coverage, percent (scripts/check_coverage.py).
+lines = 87.8

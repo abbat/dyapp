@@ -11,7 +11,7 @@ All checks run in Docker; build the image once with `make prepare`.
 |---------|------|
 | `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
-| `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 75% workspace line gate |
+| `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
@@ -137,8 +137,9 @@ issue to remove it. That hides the advisory; it does not fix it.
 ## Coverage
 
 Threshold, metric, gate locations and the (non-enforced) per-crate targets are defined once in
-[Coverage policy](../testing/README.md#coverage-policy): **75% line coverage on the workspace
-total**, no per-crate gate. `make coverage` writes `coverage.json`, `coverage.lcov` and
+[Coverage policy](../testing/README.md#coverage-policy): the workspace line total never drops
+below the baseline in `scripts/baselines.toml`, lines changed since the base are ≥80% covered, and
+there is no per-crate gate. `make coverage` writes `coverage.json`, `coverage.lcov` and
 `coverage.txt` (per-file table); find uncovered files there and add tests for the missing
 branches.
 

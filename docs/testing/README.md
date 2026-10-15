@@ -6,7 +6,7 @@ Local Make checks retain complete Docker output and print one `OK` or `ERROR` li
 log path. Use `DYAPP_VERBOSE=1` for live output. See
 [local check output](../agents/project.md#local-check-output) for paths and retention.
 
-Multi-layer testing. Rust coverage is gated at **75% line coverage on the workspace total** — see [Coverage policy](#coverage-policy).
+Multi-layer testing. Rust line coverage is a ratchet: the workspace total never drops below a stored baseline and changed lines are ≥80% covered — see [Coverage policy](#coverage-policy).
 
 ## Test Layers
 
@@ -159,14 +159,15 @@ This is the single source of truth for coverage numbers; other docs link here.
 | Tool | cargo-llvm-cov 0.9.1 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run `cargo test --workspace --all-features --locked` on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
-| Threshold | **75%** (`MIN_COVERAGE` in `scripts/check_coverage.py`) |
+| Threshold | Ratchet (practice B1): the total must not drop below `[coverage] lines` in `scripts/baselines.toml` (87.8%). When the total exceeds it by 0.5 points or more, the check prints the value to raise it to; raise it in the same change. Lowering it weakens the gate. |
+| Changed lines | At least **80%** (`MIN_DIFF`) of the instrumented Rust lines changed since `COVERAGE_BASE` must be covered: the working tree is diffed (`git diff -U0`) against it and matched with `coverage.lcov`. CI sets the PR base or the pushed-over commit; locally and for a new branch it is `origin/main`. On failure the first 50 uncovered `path:line` are printed. |
 | Scope check | Fails with "Partial workspace coverage" unless files from all 7 crates appear: bootstrap, ffi, identity, messaging, p2p-net, profile, video |
 | Exclusions | `--ignore-filename-regex '/registry/\|/dyapp[.]uniffi[.]rs$'` — dependency sources and the generated UniFFI scaffolding. Hand-written `lib.rs` files are **not** excluded. |
 | Outputs | `coverage.json`, `coverage.lcov`, `coverage.txt` |
 
 ### Where the gate runs
 
-| Entry point | Fails on < 75%? | Notes |
+| Entry point | Gated? | Notes |
 |-------------|-----------------|-------|
 | GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `rust-check.sh cov-report` on the runner after `cov-build` and `cov-test`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
@@ -289,7 +290,7 @@ Before shipping:
 
 - [ ] All CI checks pass (test suite, fmt, clippy, coverage, audit)
 - [ ] Integration tests pass locally
-- [ ] Workspace line coverage ≥75% (`make coverage`)
+- [ ] Workspace line coverage at or above the baseline, changed lines ≥80% (`make coverage`)
 - [ ] No clippy warnings
 - [ ] Security audit clean
 - [ ] Platform builds compile

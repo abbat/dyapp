@@ -48,7 +48,7 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
 - **CI budget.** The push pipeline takes ≤ 20 minutes wall-clock; heavier runs (full B2, B4
   campaigns, full D2) are nightly. A7 tracks the budget.
 - **Escape hatches** are commit trailers or annotations with a reason: `Large-Change:`,
-  `Size-Increase:`, `Docs: not-needed`, `#[mutants::skip]`, a flaky-test quarantine.
+  `Size-Increase:`, `Docs-Unchanged:`, `#[mutants::skip]`, a flaky-test quarantine.
   - *Observed* hatches are applied by the agent and counted in A7; more than 10% of commits in a
     week triggers A8.
   - *Protected* hatches need a closed [quorum](quorum.md): lowering any baseline, `Quorum:
@@ -89,7 +89,7 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
 
 | id | Practice and rule | Stage | Standard | Metric, threshold | Tool | Auto | U/F/C | Wave |
 |---|---|---|---|---|---|---|---|---|
-| B1 | **Coverage ratchet.** Total line coverage never drops below the stored baseline; changed lines are ≥ 80% covered | verify | Google "Code Coverage Best Practices" | total ≥ baseline, diff ≥ 80% | cargo-llvm-cov (lcov) + diff-cover | auto | 3/3/1 | W1 |
+| B1 (adopted) | **Coverage ratchet.** Total line coverage never drops below the stored baseline; changed lines are ≥ 80% covered | verify | Google "Code Coverage Best Practices" | total ≥ baseline, diff ≥ 80% | cargo-llvm-cov (lcov) + `scripts/check_coverage.py` | auto | 3/3/1 | W1 |
 | B2 | **Mutation testing.** cargo-mutants `--in-diff` on every push: 0 missed mutants, exceptions only via `#[mutants::skip]` with a reason. Weekly full run with a mutation-score ratchet | verify | mutation testing (PIT, Stryker) | diff: 0 missed; full ≥ baseline | cargo-mutants | auto | 3/3/2 | W1 |
 | B3 | **Round-trip properties.** Every wire and storage type has a proptest `decode(encode(x)) == x`; a script finds types without one | implement | property-based testing | 100% of protocol and storage types | proptest + script | auto | 3/3/1 | W1 |
 | B4 | **Fuzzing untrusted input.** cargo-fuzz targets for bootstrap protocol frames, message decoding and profile parsing. CI smoke 60 s per target, nightly 1 h; corpus in the repository; a crash becomes a bead and a regression test | verify | OSS-Fuzz, ClusterFuzzLite | 100% of network parsers have a target; 0 open crashes | cargo-fuzz + ClusterFuzzLite | auto | 3/3/2 | W1 |

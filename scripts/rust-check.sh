@@ -60,7 +60,7 @@ step() {
                 --output-path "$report_dir/coverage.lcov"
             cargo llvm-cov report --ignore-filename-regex "$excluded" > "$report_dir/coverage.txt"
             test -s "$report_dir/coverage.txt"
-            python3 scripts/check_coverage.py "$report_dir/coverage.json"
+            python3 scripts/check_coverage.py "$report_dir/coverage.json" "$report_dir/coverage.lcov"
             echo "Coverage artifacts: $report_dir"
             ;;
         coverage) step cov-build; step cov-test; step cov-report ;;

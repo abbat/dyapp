@@ -71,7 +71,8 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 
 ### `core` → **build**
 
-This job runs on ubuntu-24.04 with a 60-minute timeout. Setup installs cargo-llvm-cov 0.9.1 and
+This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checkout
+(`fetch-depth: 0`, for the changed-line coverage diff). Setup installs cargo-llvm-cov 0.9.1 and
 cargo-deny 0.20.2. The instrumented target (without debuginfo) fits the runner's free disk, so
 there is no `free disk` step: deleting the preinstalled SDKs took about 5 minutes.
 
@@ -85,7 +86,7 @@ nothing.
 |------|----------------------|--------------|
 | build | `cov-build` | `cargo llvm-cov clean --workspace`; `cargo test --workspace --all-features --locked --no-run` |
 | tests | `cov-test` | `cargo test --workspace --all-features --locked` on that build |
-| coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
+| coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` with `COVERAGE_BASE` = the PR base or `github.event.before` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses sources`; it fetches the advisory DB at run time |
 | network | `network` | reuses `dyapp-bootstrap`'s `dyappd` and `test-peer` from the build step (`cargo test` builds them for the bootstrap integration tests). `network-test.py --local` then starts three `dyappd` processes on TCP and QUIC `127.0.0.1:7071`–`:7073`, each with its own storage and its listen addresses as external (`DYAPPD__LISTEN`, `DYAPPD__EXTERNAL`, `DYAPPD__STORAGE__DIR`); the second and third use the first as seed, the third allows 5 requests per second. Through `test-peer` it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, checks that the stores are independent, the mailbox round trip and that a watching fetch gets the next envelope pushed; then that a DHT lookup through the third node finds all three, that every replica holder serves the profile, that an ack on one mailbox replica node clears the envelope on all of them, that an envelope put to one replica node reaches another after a watching fetch there, that a flood of 15 gets on the third node gets the burst answered and the rest `RATE_LIMITED`, and, after stopping the second node, that new replicas skip it. It also checks the deny list (a listed mailbox and IP group refused after SIGHUP, the first node's shared list received by the third), that restarted nodes keep their peer ID and that SIGHUP's `node state` line shows nothing pending once the nodes idle |
