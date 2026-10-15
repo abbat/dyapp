@@ -31,9 +31,9 @@ def run(arguments, timeout=60):
         err.seek(0)
         stdout, stderr = out.read(), err.read()
     if timed_out:
-        print(stdout, end="")
-        print(stderr, end="", file=sys.stderr)
-        raise RuntimeError(f"UI suite timed out after {timeout}s: {arguments}")
+        raise RuntimeError(
+            f"UI suite timed out after {timeout}s: {arguments}\n"
+            f"{stdout}\n{stderr}")
     return subprocess.CompletedProcess(
         arguments, process.returncode, stdout, stderr)
 
@@ -45,12 +45,13 @@ def smoke(executable):
         if broken:
             arguments.append("--break-ui")
         process = run(arguments)
-        print(process.stdout, end="")
-        print(process.stderr, end="", file=sys.stderr)
         expected = "UI_SMOKE_FAIL" if broken else "UI_SMOKE_PASS"
         if process.returncode != int(broken) or expected not in process.stdout:
             raise RuntimeError(
-                f"UI suite failed: {arguments}, exit={process.returncode}")
+                f"UI suite failed: {arguments}, exit={process.returncode}\n"
+                f"{process.stdout}\n{process.stderr}")
+        print(process.stdout, end="")
+        print(process.stderr, end="", file=sys.stderr)
         case = "hidden-ready-rejected" if broken else "launch-render-close"
         results.append({"case": case, "exit": process.returncode,
                         "passed": True})
@@ -65,4 +66,6 @@ def smoke(executable):
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("desktop-smoke")
     smoke(sys.argv[1])

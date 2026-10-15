@@ -18,6 +18,8 @@
   "advisory-db": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:fatal|error):"},
   "cargo-deny": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
   "repository": {"fix":"docs/development/code-quality.md#local-checks","format":"python"},
+  "linux-test": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"rust-test"},
+  "desktop-smoke": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "artifact-size": {"fix":"docs/development/ci-base.md#artifact-size-budgets-staged","format":"lines","details":true,"pattern":"^.+: error:"},
   "artifact-measurement": {"fix":"docs/development/ci-base.md#artifact-size-budgets-staged","format":"lines","details":true,"pattern":"^.+: error:"},
   "reproducible": {"fix":"docs/development/ci-base.md#reproducible-builds","format":"lines","details":true,"pattern":"^.+: error:"},

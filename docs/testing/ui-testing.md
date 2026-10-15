@@ -144,6 +144,15 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 ## Troubleshooting
 
+Linux unit/smoke stages, the standalone desktop smoke CLI and Windows Cargo
+checks use mapped concise output. Native Linux/Windows CI archives full logs
+from `target/platform-check-output`; JSON unit manifests and desktop result
+files keep their existing roles. Desktop failures include only the failed app
+invocation output, so the expected `--break-ui` rejection is not mistaken for a
+regression. Prepared Rust unit binaries retain their actual failure exit code
+(including 101) and reject empty inventories. Add `--raw` to `linux-test.sh`,
+`desktop-smoke.py` or `run-cargo-unit-binaries.py` for direct diagnostic mode.
+
 - **Emulator never healthy:** software emulation boot can take many minutes; the health check
   allows ~30 min. Look at the `android-emulator` container logs.
 - **`OK (n tests)` with n < 3 rejected:** a test class was dropped or filtered; the checker requires

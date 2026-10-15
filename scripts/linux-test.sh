@@ -3,6 +3,12 @@
 # time; on a CI runner this script builds them first.
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+if [[ ${1:-} != --raw ]]; then
+    exec python3 "$root/scripts/run-check.py" \
+        --log-dir "${DYAPP_CHECK_LOG_DIR:-/tmp/ai/check-output}" \
+        linux-test -- bash "$0" --raw "$@"
+fi
+shift
 manifest="$root/linux/Cargo.toml"
 units="$root/linux/target/unit-build.json"
 if [[ ! -f $units ]]; then
