@@ -83,7 +83,7 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
 | A9 (adopted) | **Docs and instruction integrity.** No broken links, every file under `docs/` is reachable from the [index](../README.md), `AGENTS.md` ≤ 80 lines | verify | Diátaxis | 0 broken links and orphans | `check-repository.py` (relative links and anchors; external links are not checked) | auto | 2/3/1 | W1 |
 | A10 | **Release process.** SemVer, changelog from commits, checklist (all gates green, SBOM, provenance from C9); a human gives the final go | release | SemVer 2.0, Keep a Changelog | no release without the checklist | git-cliff + checklist script | human-gate | 2/3/1 | W2, before the first release |
 | A11 | **Priority proposal.** The agent ranks open epics by WSJF (cost of delay / size) and proposes the order; a human approves | intake | WSJF, RICE | refreshed every 2 weeks | script + `bd` | human-gate | 2/2/1 | W2 |
-| A12 | **CI report import.** A local script downloads failing CI reports (`gh run download`) and creates or updates beads without duplicates | learn | — | 100% of failing reports have a bead | script + `bd` | auto | 3/3/1 | W1 |
+| A12 (adopted) | **CI report import.** A local script reads failing CI jobs (`gh run view --log-failed`) and creates or updates beads without duplicates | learn | — | 100% of failing reports have a bead | [`ci-report-import.py`](../agents/beads.md#ci-failures) + `bd` | auto | 3/3/1 | W1 |
 
 ## B. Hidden quality debt
 

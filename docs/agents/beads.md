@@ -43,6 +43,26 @@ that is platform-independent (the shared Rust crates, CI as a whole) gets no pla
 There is no `test` label: tests are `infra`. `quorum` is added on top of the kind label and is
 inherited by every bead under the quorum epic.
 
+## CI failures
+
+`scripts/ci-report-import.py` (run on the host; it needs an authenticated `gh`) turns failing CI
+jobs into beads. CI itself never touches beads.
+
+```bash
+python3 scripts/ci-report-import.py             # latest completed run of each workflow on main
+python3 scripts/ci-report-import.py RUN-ID ...  # specific runs
+python3 scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip, change nothing
+```
+
+- One bead per failing job, keyed by the external ref `ci:<workflow>/<job>`, type `bug`,
+  priority 1, labels `bug,infra`. The aggregate `required` job is skipped when other jobs failed.
+- The description holds the run, commit, failed step and the error lines of
+  `gh run view --log-failed` (the workflows upload no JUnit reports to parse).
+- A later failure of the same job adds a note once per run and reopens a closed bead; importing
+  the same run again changes nothing.
+- Without run ids only the newest run of each workflow is read, so failures that a later run
+  already fixed are not imported.
+
 ## Everyday commands
 
 ```bash
