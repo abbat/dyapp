@@ -20,7 +20,8 @@
 
 The functional suite keeps shared node/client fixtures in `protocol.rs` and
 namespace negotiation and configured profile/search/gossip service tests in `tests/protocol/namespaces.rs`; the test module
-split preserves the actual loopback workload and assertions.
+split preserves the actual loopback workload and assertions. Signed-time error
+and server clock-hint cases live in `tests/protocol/clock.rs`.
 
 The memory plateau explicitly allows 1000 incoming connections per IP group: its short-lived
 clients all share loopback and can reach the default cap before idle cleanup. The default 32

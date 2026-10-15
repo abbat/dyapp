@@ -41,5 +41,5 @@ max_lines = 1000
 "rust/bootstrap/src/node.rs" = 3752
 "rust/bootstrap/src/search.rs" = 1280
 "rust/bootstrap/src/service.rs" = 4400
-"rust/bootstrap/tests/protocol.rs" = 1324
+"rust/bootstrap/tests/protocol.rs" = 1214
 "rust/p2p-net/src/lib.rs" = 1599
