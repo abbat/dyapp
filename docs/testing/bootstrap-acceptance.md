@@ -8,6 +8,10 @@
 
 ## Layers
 
+Search filter/place/scan-budget and invalid-condition unit tests live in
+`src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
+The extraction preserves query behavior, schema and all test assertions.
+
 | Layer | What runs | Where | Command | In CI |
 |-------|-----------|-------|---------|-------|
 | **Unit** | Module tests in process; networking tests also use real loopback sockets | `#[cfg(test)]` in `rust/bootstrap/src/*.rs`, `rust/p2p-net/src/lib.rs` | `make test` | ci-base `core` |

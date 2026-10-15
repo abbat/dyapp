@@ -38,6 +38,6 @@ max_lines = 1000
 # Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
 "rust/bootstrap/src/config.rs" = 1250
 "rust/bootstrap/src/node.rs" = 3752
-"rust/bootstrap/src/search.rs" = 1280
+"rust/bootstrap/src/search.rs" = 1183
 "rust/bootstrap/src/service.rs" = 4400
 "rust/p2p-net/src/lib.rs" = 1599

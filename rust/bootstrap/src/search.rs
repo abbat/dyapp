@@ -859,11 +859,15 @@ fn rand_bytes() -> [u8; 8] {
 }
 
 #[cfg(test)]
+#[path = "search/query.rs"]
+mod query_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use dyapp_identity::Identity;
 
-    fn index() -> SearchIndex {
+    pub(super) fn index() -> SearchIndex {
         sized(1 << 40)
     }
 
@@ -873,7 +877,10 @@ mod tests {
         SearchIndex::open(&Path::new(&dir).join("profiles-idx.db"), max_bytes).unwrap()
     }
 
-    fn signed(identity: &Identity, profile: Profile) -> ([u8; 32], Profile, SignedRecord) {
+    pub(super) fn signed(
+        identity: &Identity,
+        profile: Profile,
+    ) -> ([u8; 32], Profile, SignedRecord) {
         let record = profile.sign(identity);
         let key = dyapp_identity::key_hash(&identity.public_key());
         (key, profile, record)
@@ -1172,109 +1179,5 @@ mod tests {
         fill(&index, u64::try_from(cap).unwrap() + 10, 0);
         assert_eq!(index.expire(i64::MAX).unwrap(), cap);
         assert_eq!(index.expire(i64::MAX).unwrap(), 10);
-    }
-
-    fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
-        Condition {
-            field,
-            op: op.into(),
-            ints,
-            strings: strings.into_iter().map(String::from).collect(),
-        }
-    }
-
-    /// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd.
-    /// Returns the index and the keys in p0/p3.
-    fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
-        let index = index();
-        let mut p03 = std::collections::HashSet::new();
-        for i in 0..600i64 {
-            let id = Identity::generate();
-            let p = Profile {
-                version: 1,
-                age: u32::try_from(20 + i % 60).unwrap(),
-                country: "DE".into(),
-                place: format!("p{}", i % 6),
-                interests: if i % 3 == 0 {
-                    vec!["chess".into()]
-                } else {
-                    vec![]
-                },
-                ..Profile::default()
-            };
-            let (key, p, r) = signed(&id, p);
-            index.put(&key, &p, &r, 0, true).unwrap();
-            if i % 3 == 0 {
-                p03.insert(key);
-            }
-        }
-        (index, p03)
-    }
-
-    #[test]
-    fn query_filters_place_in_and_budget() {
-        let (index, p03) = population();
-        let q = [
-            cond(4, Op::Eq, vec![], vec!["DE"]),
-            cond(20, Op::In, vec![], vec!["p1", "p2"]),
-            cond(3, Op::Range, vec![30, 39], vec![]),
-            cond(19, Op::In, vec![], vec!["chess", "go"]),
-            cond(99, Op::Eq, vec![1], vec![]),
-        ];
-        let found = index.query(&q, 200, 10_000).unwrap().unwrap();
-        assert_eq!(found.applied, vec![4, 20, 3, 19]);
-        assert!(!found.partial);
-        // Places p1/p2 are i % 6 in {1, 2}, so i % 3 != 0: nobody there plays chess.
-        assert!(found.hits.is_empty());
-        let q = [
-            cond(4, Op::Eq, vec![], vec!["DE"]),
-            cond(20, Op::In, vec![], vec!["p0", "p3"]),
-            cond(19, Op::Eq, vec![], vec!["chess"]),
-        ];
-        let found = index.query(&q, 200, 10_000).unwrap().unwrap();
-        // p0/p3 are the 200 rows with i % 3 == 0, all with chess.
-        assert_eq!(found.hits.len(), 200);
-        let keys: std::collections::HashSet<_> = found.hits.iter().map(|h| h.0).collect();
-        assert_eq!(keys, p03);
-        let small = index.query(&q, 50, 30).unwrap().unwrap();
-        assert!(small.partial && small.hits.len() <= 30);
-        let a = index.query(&q, 10, 10_000).unwrap().unwrap().hits;
-        assert_eq!(a.len(), 10);
-        // A new random start each time.
-        assert!((0..5).any(|_| index.query(&q, 10, 10_000).unwrap().unwrap().hits != a));
-    }
-
-    #[test]
-    fn invalid_conditions() {
-        let (index, _) = population();
-        let bad = |q: Vec<Condition>| index.query(&q, 50, 10_000).unwrap().is_err();
-        assert!(bad(vec![cond(3, Op::Eq, vec![], vec!["thirty"])]));
-        assert!(bad(vec![cond(4, Op::Eq, vec![1], vec![])]));
-        assert!(bad(vec![cond(3, Op::Range, vec![40, 30], vec![])]));
-        assert!(bad(vec![
-            cond(3, Op::Eq, vec![1], vec![]),
-            cond(3, Op::Eq, vec![2], vec![])
-        ]));
-        assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 9])]));
-        assert!(bad((0..17)
-            .map(|f| cond(100 + f, Op::Eq, vec![1], vec![]))
-            .collect()));
-        let skipped = index
-            .query(&[cond(4, Op::Range, vec![], vec!["a", "b"])], 50, 10_000)
-            .unwrap()
-            .unwrap();
-        assert!(skipped.applied.is_empty());
-        let unknown_op = Condition {
-            field: 3,
-            op: 42,
-            ints: vec![1],
-            strings: vec![],
-        };
-        assert!(index
-            .query(&[unknown_op], 50, 10_000)
-            .unwrap()
-            .unwrap()
-            .applied
-            .is_empty());
     }
 }
