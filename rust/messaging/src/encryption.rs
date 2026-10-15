@@ -42,12 +42,11 @@ impl E2EEncryption {
     pub fn encrypt(&self, plaintext: &[u8], _key: &[u8]) -> Result<Vec<u8>, String> {
         match self.config.algorithm.as_str() {
             "ChaCha20-Poly1305" => {
-                // TODO: Use chacha20poly1305 crate
-                // For now, just return as-is (stub)
+                // Placeholder: returns plaintext unchanged; no encryption is performed.
                 Ok(plaintext.to_vec())
             }
             "AES-256-GCM" => {
-                // TODO: Use aes-gcm crate
+                // Placeholder: returns plaintext unchanged; no encryption is performed.
                 Ok(plaintext.to_vec())
             }
             _ => Err(format!("Unsupported algorithm: {}", self.config.algorithm)),
@@ -57,11 +56,11 @@ impl E2EEncryption {
     pub fn decrypt(&self, ciphertext: &[u8], _key: &[u8]) -> Result<Vec<u8>, String> {
         match self.config.algorithm.as_str() {
             "ChaCha20-Poly1305" => {
-                // TODO: Use chacha20poly1305 crate
+                // Placeholder: returns ciphertext unchanged; no decryption is performed.
                 Ok(ciphertext.to_vec())
             }
             "AES-256-GCM" => {
-                // TODO: Use aes-gcm crate
+                // Placeholder: returns ciphertext unchanged; no decryption is performed.
                 Ok(ciphertext.to_vec())
             }
             _ => Err(format!("Unsupported algorithm: {}", self.config.algorithm)),
@@ -69,8 +68,7 @@ impl E2EEncryption {
     }
 
     pub fn sign(&self, message: &[u8], _secret_key: &[u8]) -> Result<Vec<u8>, String> {
-        // TODO: Use ed25519-dalek for signature
-        // For now, return message as signature (stub)
+        // Placeholder: returns the message unchanged; no signature is generated.
         Ok(message.to_vec())
     }
 
@@ -80,14 +78,12 @@ impl E2EEncryption {
         signature: &[u8],
         _public_key: &[u8],
     ) -> Result<bool, String> {
-        // TODO: Use ed25519-dalek for verification
-        // For now, just check signature is not empty
+        // Placeholder: only checks nonempty input; no signature is verified.
         Ok(!signature.is_empty())
     }
 
     pub fn derive_session_key(&self, shared_secret: &[u8], salt: &[u8]) -> Result<Vec<u8>, String> {
-        // TODO: Use HKDF for key derivation
-        // For now, return simple XOR (stub)
+        // Placeholder: XOR is not a cryptographic key derivation function.
         let mut key = shared_secret.to_vec();
         for (i, byte) in salt.iter().enumerate() {
             if i < key.len() {

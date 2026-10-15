@@ -264,6 +264,23 @@ databases baked into the dev image. In the CI `core / build` step `deny` it fetc
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
 
+## Source debt markers
+
+B7 is enforced by `check-repository.py` in `make quality` and CI. Uppercase
+`TODO` and `FIXME` words are rejected in source comments and string literals,
+with file/line diagnostics and no allow-list. The inventory includes tracked
+and non-ignored new files in Rust, Python, shell, Kotlin, Swift, Java, JS/TS,
+protobuf, HTML/CSS, C/C++/Objective-C, Gradle and PowerShell. Markdown and data
+files are outside this source check; larger identifiers containing those words
+are not markers. Rust quality additionally denies `clippy::todo` for every
+workspace target, rejecting the executable `todo!()` macro.
+
+Track deferred implementation in local beads; retain factual limitations in
+source and owning docs. Moving a marker does not complete its implementation.
+The messaging encryption/signature/key-derivation APIs still contain explicit
+placeholders; their replacement remains tracked separately under the
+[MLS design](../decisions/0005-openmls-end-to-end-encryption.md).
+
 ## Coverage
 
 Threshold, metric, gate locations and the (non-enforced) per-crate targets are defined once in

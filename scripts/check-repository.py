@@ -33,6 +33,10 @@ UNSAFE = {"rust/bootstrap/Cargo.toml": DOCUMENTED,
 # Practice B6: source files whose line count is budgeted.
 SOURCE = {".rs", ".py", ".sh", ".kt", ".kts", ".swift", ".ts", ".tsx", ".js",
           ".mjs", ".proto"}
+DEBT_SOURCE = SOURCE | {".html", ".css", ".scss", ".java", ".gradle", ".c",
+                        ".h", ".cpp", ".hpp", ".m", ".mm", ".ps1"}
+# Split marker spellings so this source also passes its own check.
+DEBT = re.compile(r"\b(?:T[O]DO|F[I]XME)\b")
 SCOPE = re.compile(r"^[\w./-]+: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
@@ -214,6 +218,15 @@ def size_errors(texts, size):
     return errors
 
 
+def debt_errors(texts):
+    """Debt markers in source, including comments and string literals."""
+    return [f"{name}:{number}: {match.group()} debt marker"
+            for name, text in sorted(texts.items())
+            if PurePosixPath(name).suffix in DEBT_SOURCE
+            for number, line in enumerate(text.splitlines(), 1)
+            for match in DEBT.finditer(line)]
+
+
 def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -268,6 +281,9 @@ def main():
         checked += 1
     if not checked:
         raise ValueError("Empty repository validation inventory")
+    errors = debt_errors(texts)
+    if errors:
+        raise ValueError("Source debt markers:\n" + "\n".join(errors))
     allowed = NOT_TRACKER | {
         crate for name, text in texts.items()
         if name.endswith("Cargo.toml") for crate in CRATE.findall(text)}
