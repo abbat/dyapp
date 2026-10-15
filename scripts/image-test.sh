@@ -1,8 +1,24 @@
 #!/bin/bash
 # Runs dyappd:latest as an operator would: read-only root, no capabilities, one volume.
 set -euo pipefail
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+if [[ ${1:-} == --raw ]]; then
+    shift
+elif [[ ${DYAPP_VERBOSE:-0} != 1 ]]; then
+    exec python3 "$root/scripts/run-check.py" \
+        --log-dir "${DYAPP_CHECK_LOG_DIR:-/tmp/ai/check-output}" \
+        image-test -- bash "$root/scripts/image-test.sh" --raw "$@"
+fi
+if (( $# )); then echo "Unknown option: $1" >&2; exit 2; fi
 name=dyappd-image-test-$$
-trap 'docker rm -f "$name" >/dev/null 2>&1 || true; docker volume rm -f "$name" >/dev/null' EXIT
+cleanup() {
+    local image_status=$? cleanup_status=0
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    docker volume rm -f "$name" >/dev/null || cleanup_status=$?
+    if (( image_status != 0 )); then exit "$image_status"; fi
+    exit "$cleanup_status"
+}
+trap cleanup EXIT
 # A low proof of work keeps keygen fast.
 run() {
     docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true \

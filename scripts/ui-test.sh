@@ -1,6 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+quiet() {
+    exec python3 scripts/run-check.py \
+        --log-dir "${DYAPP_CHECK_LOG_DIR:-/tmp/ai/check-output}" \
+        ui-tests -- bash "$PWD/scripts/ui-test.sh" --raw "$@"
+}
+if [[ ${1:-} == --raw ]]; then
+    shift
+elif [[ ${DYAPP_VERBOSE:-0} != 1 ]]; then
+    case "${1:-help}" in
+        help|--help|-h) ;;
+        shell) case "${2:-android}" in android|linux) ;; *) quiet "$@" ;; esac ;;
+        *) quiet "$@" ;;
+    esac
+fi
+case "${1:-help}" in
+    help|--help|-h)
+        echo 'Usage: ui-test.sh android|android-emulator|linux|all|prepare|shell [platform]'
+        exit 0 ;;
+    android|android-emulator|linux|all|prepare) ;;
+    shell) case "${2:-android}" in
+        android|linux) ;;
+        *) echo "Unknown platform: $2" >&2; exit 2 ;;
+    esac ;;
+    *) echo "Unknown or unsupported command: $1" >&2; exit 2 ;;
+esac
 compose=(-f docker/compose.ui.yml)
 # DYAPP_KVM=1 runs the emulator with KVM; the default is software emulation.
 if [[ ${DYAPP_KVM:-0} == 1 ]]; then

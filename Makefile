@@ -1,5 +1,7 @@
 .PHONY: help install prepare test test-integration test-all coverage coverage-check quality lint check fmt build release deb image security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
 
+.SILENT:
+
 DOCKER = python3 scripts/docker-local.py
 DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull never dev
 CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir target/check-output

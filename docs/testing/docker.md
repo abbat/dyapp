@@ -207,7 +207,11 @@ docker run dyapp:dev cargo test
 
 ## Troubleshooting
 
-Quiet stage failures and build preflight failures use `FAIL`/`FIX`/`DETAILS`.
+Quiet stage failures, shell aggregates, the operator image test and build
+preflight failures use `FAIL`/`FIX`/`DETAILS`. Shell aggregates accept `--raw`
+to bypass their frontend; help and interactive/verbose modes remain direct.
+The image test preserves its original failure over a later temporary-volume
+cleanup failure, and a cleanup failure still fails an otherwise successful run.
 The raw-log pointer retains unrecognized messages as well as full recognized
 errors. Check Docker daemon access and the named Compose file/service before
 retrying. Unsupported build options/configuration fail before image builds so

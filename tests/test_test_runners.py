@@ -97,12 +97,12 @@ class Runners(unittest.TestCase):
     def test_failure_prints_captured_output(self):
         result, calls = self.run_script("docker-test.sh", "test")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "OK Docker Compose test\n")
+        self.assertEqual(result.stdout, "OK docker-tests\n")
         self.assertEqual(result.stderr, "")
         self.assertIn("run --no-TTY", calls)
         failed, _ = self.run_script("docker-test.sh", "test", "dev")
         self.assertEqual(failed.returncode, 23)
-        self.assertTrue(failed.stdout.startswith("FAIL Docker Compose test:"))
+        self.assertTrue(failed.stdout.startswith("FAIL docker-tests:"))
         self.assertIn("FIX: docs/testing/docker.md#troubleshooting",
                       failed.stdout)
         self.assertIn("DETAILS:\n", failed.stdout)
@@ -396,7 +396,8 @@ class Runners(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 15)
 
     def test_unknown_command_is_failure(self):
-        for script in ("ui-test.sh", "docker-test.sh", "check-quality.sh"):
+        for script in ("ui-test.sh", "docker-test.sh", "check-quality.sh",
+                       "image-test.sh"):
             result, calls = self.run_script(script, "invalid")
             self.assertEqual(result.returncode, 2)
             self.assertEqual(calls, "")

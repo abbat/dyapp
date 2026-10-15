@@ -55,6 +55,14 @@ and documentation anchors are validated; [contract and rollout](../development/c
 Core Python checks have concise defaults and explicit `--raw` compatibility;
 trigger diff mode keeps its data output. Other entry points migrate in stages.
 
+Make suppresses recipe echo; `make -n TARGET` still shows the command plan.
+Shell aggregates (`docker-test.sh`, `ui-test.sh`, `check-quality.sh`) and the
+operator image test use one mapped result by default, including CLI errors.
+Their first `--raw` argument bypasses the aggregate frontend; `DYAPP_VERBOSE=1`
+streams the existing underlying stages. Help and valid interactive shells keep
+their direct output. Image-test cleanup preserves an original failure; failed
+mandatory cleanup also fails an otherwise successful check.
+
 Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
 and the last 256 KiB, with a `[... N bytes truncated ...]` marker between them.
