@@ -37,7 +37,6 @@ max_lines = 1000
 [size.files]
 # Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
 "rust/bootstrap/src/config.rs" = 1250
-"rust/bootstrap/src/media_repair.rs" = 1008
 "rust/bootstrap/src/node.rs" = 3752
 "rust/bootstrap/src/search.rs" = 1280
 "rust/bootstrap/src/service.rs" = 4400
