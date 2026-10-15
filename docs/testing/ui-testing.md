@@ -106,6 +106,10 @@ python3 scripts/export-ui-results.py android <dir>   # android-unit-test + andro
 python3 scripts/export-ui-results.py linux   <dir>   # linux-test
 ```
 
+The exporter prints `OK ui-export` or mapped failure details. `--raw` keeps
+Docker diagnostics; exported reports and application files keep their formats.
+`--help` describes the command without accessing Docker.
+
 | Suite | Exported files |
 |-------|----------------|
 | `android-unit-test` | `gradle-version.txt`, `gradle-tasks.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |

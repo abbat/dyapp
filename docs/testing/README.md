@@ -215,6 +215,8 @@ JaCoCo/Kover or `test:coverage` script is wired into any gate. Any UI coverage p
 
 None is kept in the repository. Reports go to `target/coverage[.<run id>]/`. A local Docker run
 writes them into the `workspace-cache` volume, and `scripts/export-coverage.py` copies them out.
+The exporter prints `OK coverage-export` or mapped failure details; `--raw`
+keeps direct Docker diagnostics. Exported coverage files retain their formats.
 
 ## Local Testing
 

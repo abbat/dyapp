@@ -4,6 +4,13 @@ from pathlib import Path
 import subprocess
 import sys
 
+if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("coverage-export")
+    if sys.argv[1:] in (["--help"], ["-h"]):
+        print("Usage: export-coverage.py [--raw] DESTINATION")
+        raise SystemExit(0)
+
 output = subprocess.check_output([
     "docker", "ps", "--all", "--quiet",
     "--filter", "label=com.docker.compose.project=dyapp",

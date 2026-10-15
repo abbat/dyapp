@@ -5,6 +5,14 @@ import re
 import subprocess
 import sys
 
+if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("ui-export")
+    if sys.argv[1:] in (["--help"], ["-h"]):
+        print("Usage: export-ui-results.py [--raw]"
+              " {linux,android} DESTINATION")
+        raise SystemExit(0)
+
 suite, destination = sys.argv[1:]
 services = {"linux": ["linux-test"],
             "android": ["android-unit-test", "android-emulator-test"]}[suite]

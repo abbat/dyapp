@@ -6,6 +6,7 @@ Design: docs/architecture/search-capacity.md.
 import argparse
 import json
 import math
+import sys
 
 P = {
     "steps": [1e3, 1e4, 1e5, 1e6, 1e7, 5e7],
@@ -372,4 +373,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("search-model", data="--self-check" not in sys.argv[1:])
     main()

@@ -65,7 +65,9 @@ query rate many peers reach past the per-peer limits. Fixes found here go to a s
 
 `--self-check` asserts the model against hand-computed numbers (1M users, base: ≈ 5 GB of full
 records, ≈ 0.01 MB/s of edits), that disk and traffic do not shrink as the step grows, and that the
-Zipf place shares sum to 1; it runs before the report.
+Zipf place shares sum to 1; it runs before the report. Used alone, this check
+prints `OK search-model` or mapped failure details (`--raw --self-check` keeps
+legacy diagnostics). The default capacity tables remain a report data mode.
 
 ## SQLite measurement
 
