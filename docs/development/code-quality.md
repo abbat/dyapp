@@ -9,7 +9,7 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
@@ -34,6 +34,30 @@ rejected in every tracked text file. Names declared as `name = "dyapp-…"` in a
 The check reads committed history, so a bad message fails the next `make quality`; fix it with
 `git commit --amend` or a rebase before pushing. A clone without the baseline commit (shallow)
 fails the check.
+
+### Small batches
+
+`scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
+Every non-merge commit after `[batches].base` in `scripts/baselines.toml` must change at
+most `max_lines = 400` text lines, additions plus deletions, or carry a nonempty
+`Large-Change: <reason>` commit trailer. Exactly 400 passes. Renames count as deletion
+plus addition; binary files contribute no text lines. Commits on merged branches are checked,
+but merge commits themselves are excluded, as in the commit-message check.
+
+Excluded paths are lockfiles (`*.lock`, `*.lockfile`, `package-lock.json`,
+`npm-shrinkwrap.json`), snapshots (`*.snap` or a `snapshots/` or `__snapshots__/`
+path component), and generated code (`*.uniffi.rs` or a `generated/` path component).
+Other generated files must be added to the explicit exclusion policy before they are exempt.
+
+The script requires complete history and an ancestor baseline; missing history fails.
+It checks committed history, so run it after committing and before pushing.
+`python3 -B scripts/check-batches.py --base <commit> --head HEAD --report <path>`
+reproduces a range. Its JSON report lists each commit's count and exception reason and
+the percentage of large commits, including justified ones. The target is ≤10%; this is
+an observed metric, not an additional veto of a justified exception. Weekly escape-hatch
+follow-up follows [the shared practice rules](practices.md#rules-shared-by-all-practices).
+CI uploads `target/batches.json` as `commit-batches`, also on a failed check.
+The adoption baseline grandfathers older history; moving it forward weakens the check.
 
 ### Docs change with the code
 

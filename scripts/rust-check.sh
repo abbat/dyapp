@@ -16,6 +16,7 @@ instrument() {
 step() {
     case "$1" in
         quality)
+            python3 -B scripts/check-batches.py --report target/batches.json
             python3 -B scripts/check-repository.py
             python3 -B scripts/triggers.py
             python3 -B scripts/docs-sync.py

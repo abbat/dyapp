@@ -5,6 +5,11 @@
 # Workspace line coverage, percent (scripts/check_coverage.py).
 lines = 87.8
 
+[batches]
+# A4 adoption: only later commits are subject to the new rule.
+base = "ddb52cbe7ba4ed114eb1cc8f8c053f6639c851f1"
+max_lines = 400
+
 [size]
 # Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).
 max_lines = 1000
