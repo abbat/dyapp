@@ -15,7 +15,9 @@ twice with `--locked` in fresh independent Cargo target directories and compares
 nonempty output SHA-256 hashes. It disables incremental builds and compiler
 wrappers, remaps source and target paths, and fixes `SOURCE_DATE_EPOCH` to the
 source commit time. The toolchain, source revision, lockfile hash, build logs and
-executable hashes are recorded in `target/reproducible-<target>.json`.
+executable hashes and byte counts are recorded in
+`target/reproducible-<target>.json`. Native nightly reports provide measured
+size evidence for that producer; they do not reuse the prepared-image budgets.
 
 Run inside the prepared development image for `dyappd`, or the prepared Linux
 image for `linux`, with this checkout mounted and a writable target directory.

@@ -66,6 +66,10 @@ class Reproducibility(unittest.TestCase):
                     self.assertEqual(len(set(seen)), 2)
                     self.assertEqual(bool(report["errors"]),
                                      not produce_second)
+                    for entry in report["builds"]:
+                        if "sha256" in entry:
+                            self.assertEqual(entry["bytes"],
+                                             len(b"same executable"))
 
 
 if __name__ == "__main__":

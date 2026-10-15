@@ -79,6 +79,7 @@ def build_pair(target, directory, revision=None, epoch=None):
                 raise ValueError(f"Build {index} failed; see {log}")
             executable = destination / "release" / binary
             entry["sha256"] = digest(executable)
+            entry["bytes"] = executable.stat().st_size
             paths.append(executable)
         compare(paths)
     except (OSError, ValueError) as error:
