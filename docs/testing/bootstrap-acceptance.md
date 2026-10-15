@@ -32,7 +32,8 @@ Set `DYAPP_MEMORY_REPORT_DIR` to another writable directory if needed. The repor
 is saved before the RSS gate raises; too few rounds or an interrupted workload
 still fail and do not produce a completed observation. This evidence helps
 separate warmup from retained growth; a passing rerun alone proves neither a
-root cause nor a fix.
+root cause nor a fix. The [RSS investigation](memory-plateau-investigation.md)
+records an observed gate failure and the remaining attribution questions.
 On failure, open the retained raw log named by `DETAILS` to identify the failed
 protocol assertion or RSS sample, then use the corresponding coverage-map row
 to find its implementation. Reproduce with the command in the Layers table;

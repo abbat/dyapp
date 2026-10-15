@@ -43,6 +43,7 @@ it are entry points that tools discover by path (see
 - [UI testing](testing/ui-testing.md)
 - [Docker testing](testing/docker.md)
 - [Bootstrap acceptance tests](testing/bootstrap-acceptance.md)
+- [RSS plateau investigation](testing/memory-plateau-investigation.md): measurements and unresolved growth attribution
 
 ### Platforms
 - [Empty app contract](platforms/empty-app-contract.md)
