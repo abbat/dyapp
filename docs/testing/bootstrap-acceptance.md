@@ -10,7 +10,9 @@
 
 Search filter/place/scan-budget and invalid-condition unit tests live in
 `src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
-The extraction preserves query behavior, schema and all test assertions.
+Record lifecycle, heartbeats, expiry and eviction tests live in
+`src/search/lifecycle.rs`. Shared helpers are visible only to sibling test
+modules. These extractions preserve runtime behavior, schema and assertions.
 
 | Layer | What runs | Where | Command | In CI |
 |-------|-----------|-------|---------|-------|
