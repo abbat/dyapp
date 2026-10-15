@@ -9,7 +9,7 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, actionlint, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-repository.py`, `triggers.py`, actionlint, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the 75% workspace line gate |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
@@ -34,6 +34,36 @@ rejected in every tracked text file. Names declared as `name = "dyapp-…"` in a
 The check reads committed history, so a bad message fails the next `make quality`; fix it with
 `git commit --amend` or a rebase before pushing. A clone without the baseline commit (shallow)
 fails the check.
+
+### Trigger list
+
+`scripts/triggers.toml` is the machine-readable list of practice A6a of
+[practices.md](practices.md): changes that need extra review. Each trigger has fnmatch `paths`
+(`*` also matches `/`) and, optionally, a `lines` regex; then it fires only when an added or
+removed line of a matching file matches. The triggers are:
+
+- `crypto`: encryption modules, proof-of-work, endpoint tags;
+- `crypto-dependency`: a cryptographic crate line in a `Cargo.toml`;
+- `identity`: the `identity` and `profile` crates and their `.proto` files;
+- `protocol`: `proto/`, the wire format, protocol IDs, the UniFFI interface;
+- `storage-migration`: a `CREATE`/`ALTER`/`DROP` `TABLE`/`INDEX` or `user_version` line in Rust;
+- `unsafe`: an `unsafe` line in Rust;
+- `network-surface`: `p2p-net` and the bootstrap node, service, rate limits, deny list,
+  replication and configuration;
+- `checks`: workflows, scripts, tests, Docker images, lint and deny configurations, and this list.
+
+`python3 scripts/triggers.py` (in `make quality` and CI `quality`) fails when a glob matches no
+tracked file, so a moved or deleted path cannot silently drop out of the list. With `git diff`
+arguments it also prints the triggers a change fires, one `trigger: path` per line:
+
+```sh
+python3 scripts/triggers.py origin/main...HEAD   # a branch
+python3 scripts/triggers.py --cached             # staged changes
+```
+
+The detector only reports; the review a fired trigger requires (a quorum, a threat model update)
+is planned as practices A6 and C1. Removing or narrowing an entry weakens a check, and editing the
+list fires `checks` itself.
 
 ### Git hooks
 

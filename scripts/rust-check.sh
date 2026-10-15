@@ -17,6 +17,7 @@ step() {
     case "$1" in
         quality)
             python3 -B scripts/check-repository.py
+            python3 -B scripts/triggers.py
             actionlint
             # Secrets in the whole git history (CI checks out with fetch-depth 0).
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD" \

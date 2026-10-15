@@ -1,0 +1,82 @@
+# Practice A6a trigger list (docs/development/code-quality.md#trigger-list).
+# A diff fires a trigger when it touches a file matching `paths`, or, when
+# `lines` is set, when an added or removed line of such a file matches it.
+# `paths` are fnmatch globs over repository paths: `*` also matches `/`.
+# Every glob must match a tracked file: `scripts/triggers.py` fails otherwise.
+# Removing or narrowing an entry weakens a check and itself fires `checks`.
+
+[[trigger]]
+name = "crypto"
+paths = [
+    "rust/*/src/encryption.rs",
+    "rust/bootstrap/src/pow.rs",
+    "rust/p2p-net/src/pow_gate.rs",
+    "rust/p2p-net/src/endpoint_tag.rs",
+]
+
+[[trigger]]
+name = "crypto-dependency"
+paths = ["*Cargo.toml"]
+lines = '^\s*"?(argon2|blake\d*|chacha\w*|aes\w*|ed25519\w*|x25519\w*|getrandom|hkdf|hmac|rand\w*|ring|rustls\w*|sha\d\w*|zeroize)\b'
+
+[[trigger]]
+name = "identity"
+paths = [
+    "rust/identity/*",
+    "rust/profile/*",
+    "proto/identity.proto",
+    "proto/profile.proto",
+]
+
+[[trigger]]
+name = "protocol"
+paths = [
+    "proto/*",
+    "rust/p2p-net/src/wire.rs",
+    "rust/p2p-net/src/protocols.rs",
+    "rust/ffi/src/dyapp.udl",
+]
+
+[[trigger]]
+name = "storage-migration"
+paths = ["*.rs"]
+lines = '(?i)\b(create|alter|drop)\s+(table|index)|user_version'
+
+[[trigger]]
+name = "unsafe"
+paths = ["*.rs"]
+lines = '\bunsafe\b'
+
+[[trigger]]
+name = "network-surface"
+paths = [
+    "rust/p2p-net/*",
+    "rust/bootstrap/src/node.rs",
+    "rust/bootstrap/src/service.rs",
+    "rust/bootstrap/src/rate_limit.rs",
+    "rust/bootstrap/src/deny.rs",
+    "rust/bootstrap/src/replication.rs",
+    "rust/bootstrap/src/config.rs",
+    "rust/bootstrap/dyappd.toml",
+    "docker/Dockerfile.dyappd",
+]
+
+[[trigger]]
+name = "checks"
+paths = [
+    ".github/*",
+    "scripts/*",
+    "tests/*",
+    "tools/arch-lint/*",
+    "docker/*",
+    "Makefile",
+    "deny.toml",
+    "rust-toolchain.toml",
+    ".flake8",
+    ".gitleaksignore",
+    ".pre-commit-config.yaml",
+    ".swiftlint.yml",
+    ".taplo.toml",
+    "_typos.toml",
+    "detekt.yml",
+]
