@@ -152,6 +152,13 @@ documentation does not promise that a PR is blocked. See
 
 ## Coverage Policy
 
+The search protocol suite includes deterministic worker saturation: it holds a
+single-thread blocking pool, queues two admitted reads, and requires the next
+read to receive `RATE_LIMITED` with a one-second retry while node info stays
+responsive. Releasing the pool must complete the admitted reads. This complements
+the ordinary concurrent-query test and keeps overload-path coverage independent
+of how quickly an empty SQLite query finishes.
+
 This is the single source of truth for coverage numbers; other docs link here.
 
 | Item | Value |
