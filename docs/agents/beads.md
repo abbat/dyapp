@@ -68,9 +68,15 @@ python3 scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip,
 A11 uses the local read-only `scripts/priority-proposal.py`; run it at least every
 14 days. It ranks non-closed delivery epics by WSJF = cost of delay / job size,
 ties by bead ID, and never changes priorities or dependency readiness.
+Use `--practices-first` for the maintainer's current policy: epics labelled
+`practices` precede other epics, with WSJF ordering inside each group.
+The policy and group membership are bound into the approval fingerprint;
+changing policy requires a new approval. A saved proposal is never reordered
+in place; `--proposal ... --practices-first` rejects an incompatible policy.
 
 ```bash
-python3 -B scripts/priority-proposal.py --report /tmp/ai/priorities.json
+python3 -B scripts/priority-proposal.py --practices-first \
+  --report /tmp/ai/priorities.json
 python3 -B scripts/priority-proposal.py --proposal /tmp/ai/priorities.json \
   --approval /tmp/ai/priority-approval.json --check
 ```

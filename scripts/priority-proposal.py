@@ -16,7 +16,13 @@ def positive(value):
     return value
 
 
-def proposal(beads, now):
+def fingerprint(order, policy=None):
+    payload = order if policy is None else {"policy": policy, "order": order}
+    text = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def proposal(beads, now, practices_first=False):
     active = {b["id"]: b for b in beads if b["status"] != "closed"}
     children = {}
     for bead in beads:
@@ -48,11 +54,13 @@ def proposal(beads, now):
         ranked.append({"id": bead["id"], "title": bead["title"],
                        "cost_of_delay": delay, "job_size": size,
                        "wsjf": delay / size, "provisional": rating is None,
-                       "rationale": reason})
-    ranked.sort(key=lambda b: (-b["wsjf"], b["id"]))
-    digest = hashlib.sha256(json.dumps(
-        ranked, sort_keys=True).encode()).hexdigest()
-    return {"schema": 1, "generated_at": now, "proposal_sha256": digest,
+                       "rationale": reason,
+                       "practices": "practices" in bead.get("labels", [])})
+    ranked.sort(key=lambda b: (practices_first and not b["practices"],
+                               -b["wsjf"], b["id"]))
+    policy = "practices-first" if practices_first else "wsjf"
+    return {"schema": 1, "generated_at": now,
+            "proposal_sha256": fingerprint(ranked, policy), "policy": policy,
             "order": ranked, "approval": "pending"}
 
 
@@ -62,8 +70,10 @@ def check(document, approval, now):
     if generated.tzinfo is None or current.tzinfo is None:
         raise ValueError("Timestamps must include timezones")
     errors = []
-    digest = hashlib.sha256(json.dumps(
-        document["order"], sort_keys=True).encode()).hexdigest()
+    policy = document.get("policy")
+    if policy not in (None, "wsjf", "practices-first"):
+        raise ValueError("Unknown proposal policy")
+    digest = fingerprint(document["order"], policy)
     if digest != document["proposal_sha256"]:
         errors.append("Proposal contents do not match its fingerprint")
     if not timedelta(0) <= current - generated <= timedelta(days=14):
@@ -87,6 +97,7 @@ def main():
     parser.add_argument("--proposal", type=Path, help="saved proposal JSON")
     parser.add_argument("--approval", type=Path, help="human approval JSON")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--practices-first", action="store_true")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     now = datetime.now(timezone.utc).isoformat()
@@ -99,7 +110,10 @@ def main():
                     ["bd", "list", "--all", "--limit", "0",
                      "--brief", "--json"],
                     text=True)
-            document = proposal(json.loads(text), now)
+            document = proposal(json.loads(text), now, args.practices_first)
+        if args.practices_first:
+            if document.get("policy") != "practices-first":
+                raise ValueError("Saved proposal is not Practices-first")
         approval = json.loads(args.approval.read_text()) \
             if args.approval else None
         errors = check(document, approval, now) if args.check else []

@@ -32,6 +32,31 @@ class Priorities(unittest.TestCase):
         self.assertEqual(CHECK.proposal(data, NOW)["order"][0]["id"], "b")
         self.assertEqual(CHECK.proposal(data, NOW)["approval"], "pending")
 
+    def test_practices_first_overrides_cross_group_scores(self):
+        data = [bead("ordinary"), bead("practice-low"), bead("practice-high")]
+        for item, score in zip(data, [100, 1, 5]):
+            item["metadata"] = {"wsjf": {
+                "cost_of_delay": score, "job_size": 1,
+                "rationale": "Estimate"}}
+        data[1]["labels"] = data[2]["labels"] = ["practices"]
+        plain = CHECK.proposal(data, NOW)
+        grouped = CHECK.proposal(data, NOW, practices_first=True)
+        self.assertEqual([b["id"] for b in grouped["order"]],
+                         ["practice-high", "practice-low", "ordinary"])
+        self.assertEqual(plain["order"][0]["id"], "ordinary")
+        plain_hash = plain["proposal_sha256"]
+        self.assertNotEqual(plain_hash, grouped["proposal_sha256"])
+        changed = deepcopy(grouped)
+        changed["policy"] = "wsjf"
+        self.assertIn("fingerprint", CHECK.check(changed, None, NOW)[0])
+
+    def test_legacy_proposal_fingerprint_still_validates(self):
+        document = CHECK.proposal([bead("a")], NOW)
+        document.pop("policy")
+        document["proposal_sha256"] = CHECK.fingerprint(document["order"])
+        self.assertEqual(CHECK.check(document, None, NOW),
+                         ["Human approval is missing"])
+
     def test_invalid_rating_and_parent_cycle_fail(self):
         for value in [0, -1, True, float("nan"), float("inf"), "1"]:
             with self.assertRaises(ValueError):
