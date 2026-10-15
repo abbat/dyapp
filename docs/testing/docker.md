@@ -67,7 +67,8 @@ docker-compose -f docker/compose.dev.yml run --rm --profile security security
 ## Using the Helper Script
 
 Prefer `make test`, `make quality` and `make test-all` (or the equivalent helper commands
-below). Each Docker stage prints one `OK` line, or its captured output and an `ERROR` line.
+below). Each captured Docker stage prints one `OK` line, or `FAIL`/`FIX`/`DETAILS`
+with selected diagnostics and a retained raw-log pointer.
 Set `DYAPP_VERBOSE=1` for live output. Interactive shells stream automatically. See
 [local check output](../agents/project.md#local-check-output) for capture limits and
 `--log-file`.

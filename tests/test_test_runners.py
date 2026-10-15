@@ -102,9 +102,13 @@ class Runners(unittest.TestCase):
         self.assertIn("run --no-TTY", calls)
         failed, _ = self.run_script("docker-test.sh", "test", "dev")
         self.assertEqual(failed.returncode, 23)
-        self.assertEqual(failed.stdout, "fake stdout\nfake stderr\n" * 2)
-        self.assertEqual(failed.stderr,
-                         "ERROR Docker Compose test (exit 23)\n")
+        self.assertTrue(failed.stdout.startswith("FAIL Docker Compose test:"))
+        self.assertIn("FIX: docs/testing/docker.md#troubleshooting",
+                      failed.stdout)
+        self.assertIn("DETAILS:\n", failed.stdout)
+        self.assertIn(": raw captured output", failed.stdout)
+        self.assertNotIn("fake stdout", failed.stdout)
+        self.assertEqual(failed.stderr, "")
 
     def test_verbose_and_interactive_shells_stream_output(self):
         for script, command, verbose in (("docker-test.sh", "test", "1"),
@@ -142,9 +146,10 @@ class Runners(unittest.TestCase):
                         patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                     self.assertEqual(runner.run_logged(
                         ["run"], {}, "stage", ["stop"]), expected)
-                self.assertEqual(out.getvalue(), "run\nstop\n")
-                self.assertEqual(error.getvalue(),
-                                 f"ERROR stage (exit {expected})\n")
+                self.assertTrue(out.getvalue().startswith("FAIL stage:"))
+                self.assertIn(": raw captured output", out.getvalue())
+                self.assertNotIn("\nrun\n", out.getvalue())
+                self.assertEqual(error.getvalue(), "")
 
     def test_log_file_gets_a_full_copy(self):
         spec = importlib.util.spec_from_file_location(
@@ -158,8 +163,51 @@ class Runners(unittest.TestCase):
             with patch.object(runner.sys, "stdout", out):
                 self.assertEqual(runner.run_logged(
                     ["echo", "hello"], {}, "stage", log_file=log), 0)
-            self.assertEqual(out.getvalue(), f"OK stage; log: {log}\n")
+            self.assertEqual(out.getvalue(), "OK stage\n")
             self.assertEqual(log.read_text(), "hello\n")
+
+    def test_nested_failure_keeps_details_without_cleanup_progress(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        command = [sys.executable, "-c",
+                   "print('passing progress\\nFAIL inner: assertion\\n"
+                   "FIX: docs/testing/docker.md#troubleshooting\\nDETAILS:\\n"
+                   "expected 3, got 2\\ninner.log: raw captured output'); "
+                   "raise SystemExit(17)"]
+        out = io.StringIO()
+        with patch.object(runner.sys, "stdout", out):
+            status = runner.run_logged(
+                command, {}, "outer", ["echo", "cleanup progress"])
+        self.assertEqual(status, 17)
+        self.assertIn("expected 3, got 2", out.getvalue())
+        self.assertNotIn("passing progress", out.getvalue())
+        self.assertNotIn("cleanup progress", out.getvalue())
+
+    def test_unknown_large_failure_retains_full_log_and_signal_status(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "full.log"
+            command = [sys.executable, "-c",
+                       "import sys; print('passing progress' * 30000); "
+                       "sys.exit(27)"]
+            out = io.StringIO()
+            with patch.object(runner.sys, "stdout", out):
+                self.assertEqual(runner.run_logged(
+                    command, {}, "large", log_file=log), 27)
+            self.assertNotIn("passing progress", out.getvalue())
+            self.assertIn(str(log), out.getvalue())
+            self.assertGreater(log.stat().st_size, 400000)
+            out = io.StringIO()
+            with patch.object(runner.sys, "stdout", out):
+                self.assertEqual(runner.run_logged(
+                    ["sh", "-c", "kill -TERM $$"], {}, "signal",
+                    log_file=log), 143)
+            self.assertIn("terminated by signal 15", out.getvalue())
 
     def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
         spec = importlib.util.spec_from_file_location(
@@ -269,9 +317,13 @@ class Runners(unittest.TestCase):
                         {}), status)
                 output.flush()
                 printed = output.buffer.getvalue().decode()
-                # A failed build prints its output, then ERROR on stderr.
-                self.assertEqual(printed, "OK test:first\nOK test:second\n"
-                                 if status == 0 else log.decode())
+                if status == 0:
+                    self.assertEqual(printed,
+                                     "OK test:first\nOK test:second\n")
+                else:
+                    self.assertTrue(printed.startswith("FAIL test:first:"))
+                    self.assertNotIn(log.decode(), printed)
+                    self.assertIn(": raw captured output", printed)
                 builds = invoke.call_args_list[1:]
                 self.assertEqual(len(builds), 2 if status == 0 else 1)
                 for call in builds:

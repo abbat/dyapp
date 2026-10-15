@@ -53,6 +53,17 @@ def diagnostics(text, policy):
                 selected.append(line)
         return selected
     if kind == "lines":
+        if policy.get("nested"):
+            selected, active = [], False
+            for line in lines:
+                if line.startswith("FAIL "):
+                    active = True
+                if active:
+                    selected.append(line)
+                if line.endswith(": raw captured output"):
+                    active = False
+            if selected:
+                return selected
         pattern = re.compile(policy["pattern"])
         return [line for line in lines if pattern.search(line)]
     raise ValueError(f"Unknown diagnostic format: {kind!r}")

@@ -6,6 +6,15 @@ import sys
 import tempfile
 
 
+def load_runner():
+    """Load the shared runner without invoking its CLI."""
+    path = Path(__file__).with_name("run-check.py")
+    spec = importlib.util.spec_from_file_location("check_runner", path)
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    return runner
+
+
 def wrap(name, data=False):
     """Dispatch only from a CLI guard; preserve raw/help/data calls and CWD."""
     if "--raw" in sys.argv[1:]:
@@ -15,9 +24,7 @@ def wrap(name, data=False):
         return
     script = Path(sys.argv[0]).resolve()
     runner_path = Path(__file__).with_name("run-check.py")
-    spec = importlib.util.spec_from_file_location("check_runner", runner_path)
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = load_runner()
     base = (Path(tempfile.gettempdir()) / "ai" if os.name == "nt"
             else Path("/tmp/ai"))
     directory = os.environ.get("DYAPP_CHECK_LOG_DIR",

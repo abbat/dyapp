@@ -8,16 +8,22 @@ import sys
 import uuid
 
 from capture import Capture
+from check_dispatch import load_runner
 
 
 def run_logged(command, environment, label, cleanup=None, log_file=None):
-    """Hold stage output in memory; print one line, after a failure also the
-    output. Only an explicit `log_file` gets a complete copy."""
+    """Capture quiet stages with retained logs and concise diagnostics."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
     captured = output = drain = error_stream = None
     status = 0
+    message = ""
     try:
         if not verbose:
+            if log_file is None:
+                directory = Path(environment.get(
+                    "DYAPP_CHECK_LOG_DIR", "/tmp/ai/check-output"))
+                directory.mkdir(parents=True, exist_ok=True)
+                log_file = directory / f"docker-{uuid.uuid4().hex}.log"
             captured = Capture(log_file=log_file)
             output, drain = captured.pipe()
             error_stream = subprocess.STDOUT
@@ -32,11 +38,13 @@ def run_logged(command, environment, label, cleanup=None, log_file=None):
                                     stderr=error_stream, check=False)
             if status == 0:
                 status = result.returncode
+    except KeyboardInterrupt:
+        status = status or 130
     except OSError as error:
-        message = f"{error}\n"
-        if captured is None:
+        message = f"{type(error).__name__}: {error}\n"
+        if captured is None and verbose:
             print(message, file=sys.stderr, end="")
-        else:
+        elif captured is not None:
             captured.write(message.encode())
         status = status or 1
     finally:
@@ -47,15 +55,22 @@ def run_logged(command, environment, label, cleanup=None, log_file=None):
             drain.join(timeout=10)
         if captured is not None:
             captured.close()
-    if status and captured is not None:
-        sys.stdout.flush()
-        sys.stdout.write(captured.getvalue().decode(errors="replace"))
-        sys.stdout.flush()
-    summary = f"ERROR {label} (exit {status})" if status else f"OK {label}"
-    if log_file is not None and captured is not None:
-        summary += f"; log: {log_file}"
-    print(summary, file=sys.stderr if status else sys.stdout, flush=True)
-    return status
+    if not status:
+        print(f"OK {label}", flush=True)
+        return 0
+    if verbose:
+        print(f"ERROR {label} (exit {status})", file=sys.stderr, flush=True)
+        return 128 - status if status < 0 else status
+    runner = load_runner()
+    policy = json.loads((Path(__file__).with_name(
+        "check-output.json")).read_text())["docker"]
+    text = (captured.getvalue().decode(errors="replace")
+            if captured is not None else message)
+    selected = runner.diagnostics(text, policy)
+    if not selected:
+        selected = runner.diagnostics(text, {"format": "python"})
+    return runner.failure(label, policy["fix"], status, selected,
+                          log_file if captured is not None else None)
 
 
 # Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners).
