@@ -10,6 +10,8 @@
 
 Configuration seed parsing and real pinned-key negotiation tests live in
 `src/config/seeds.rs`, preserving their original assertions and timeouts.
+Search/incoming-group/general configuration boundaries are covered in
+`src/config/validation.rs`; shared temporary fixtures remain test-only.
 
 Search filter/place/scan-budget and invalid-condition unit tests live in
 `src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
