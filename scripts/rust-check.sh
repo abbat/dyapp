@@ -78,12 +78,12 @@ step() {
             # built both (cargo test builds a package's binaries when it has integration tests); a
             # separate `cargo build -p` would select different features and recompile crates.
             instrument
-            python3 scripts/network-test.py --local "$CARGO_TARGET_DIR/debug"
+            python3 scripts/network-test.py --raw --local "$CARGO_TARGET_DIR/debug"
             ;;
         memory)
             # Release binaries, as deployed: resident memory must level off under repeated load.
             cargo build --release -p dyapp-bootstrap --bins --locked
-            python3 scripts/network-test.py --plateau "${CARGO_TARGET_DIR:-target}/release"
+            python3 scripts/network-test.py --raw --plateau "${CARGO_TARGET_DIR:-target}/release"
             ;;
         security)
             if [[ -d /opt/advisory-dbs ]]; then

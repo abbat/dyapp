@@ -144,6 +144,12 @@ pipeline). In short:
 
 ### Required Status Checks
 
+The `required` summary checks out the same source and runs `check-ci-results.py`.
+It requires the core, Docker, Linux, Apple and Windows job results, rejects empty
+or missing inventories and treats skipped/cancelled results as failures. Its
+concise output names only failed/missing jobs; the raw frontend log is archived
+as `summary-check-output`.
+
 **Not established.** Branch protection is not stored in the repository, and nobody has
 confirmed which checks GitHub requires before merge. `required` is designed as the
 single aggregate gate for `ci.yml`. A failing check fails its workflow run, but this

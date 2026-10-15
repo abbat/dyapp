@@ -77,6 +77,10 @@ Fails to generate bindings and still reports success. See
 
 ## Unsigned Android Release
 
+`build-android-release.sh` also wraps argument/startup failures with mapped
+results; `--raw` bypasses this frontend and `--help` prints usage without an SDK
+build. The captured Gradle build log remains in the report directory.
+
 Inside the prepared Android image, run
 `bash scripts/build-android-release.sh /tmp/ai/release-reports` from a writable
 copy of this checkout. The copy needs `Cargo.toml`, `Cargo.lock`, `rust/`,

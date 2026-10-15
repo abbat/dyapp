@@ -102,13 +102,16 @@ class Runners(unittest.TestCase):
         self.assertIn("run --no-TTY", calls)
         failed, _ = self.run_script("docker-test.sh", "test", "dev")
         self.assertEqual(failed.returncode, 23)
-        self.assertTrue(failed.stdout.startswith("FAIL docker-tests:"))
+        self.assertTrue(failed.stdout.startswith("FAIL Docker Compose test:"))
         self.assertIn("FIX: docs/testing/docker.md#troubleshooting",
                       failed.stdout)
         self.assertIn("DETAILS:\n", failed.stdout)
         self.assertIn(": raw captured output", failed.stdout)
         self.assertNotIn("fake stdout", failed.stdout)
         self.assertEqual(failed.stderr, "")
+        self.assertEqual(failed.stdout.count("\nFIX:"), 1)
+        self.assertEqual(sum(line.startswith("FAIL ") for line in
+                             failed.stdout.splitlines()), 1)
 
     def test_verbose_and_interactive_shells_stream_output(self):
         for script, command, verbose in (("docker-test.sh", "test", "1"),

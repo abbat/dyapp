@@ -164,8 +164,17 @@ jobs:
     needs: [core, docker, linux, apple, windows]
     if: always()
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: check
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          python3 -c 'import json,os,sys; results=json.loads(os.environ["RESULTS"]); print(results); sys.exit(any(v["result"] != "success" for v in results.values()))'
+          python3 scripts/check-ci-results.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: summary-check-output
+          path: target/platform-check-output/
+          if-no-files-found: error

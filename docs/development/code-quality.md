@@ -54,7 +54,14 @@ also dispatch through the map, including argument and startup failures. Their
 `--raw` mode retains direct diagnostic output; JSON reports remain files consumed
 by the nightly size/reproducibility workflows. Recognized structured failures
 contribute only their `DETAILS` body, without repeated headers or progress.
-Platform test runners and the final entry-point inventory migrate next.
+Nested wrappers preserve one recognized child failure frame when its `FIX`
+resolves through the central map; they retain their own raw-log pointer and
+original process status. Unmapped child metadata does not become a top-level
+fix pointer, and termination signals still identify the owning process.
+Characters unsupported by the terminal encoding are escaped for display;
+retained raw bytes and the child exit status remain unchanged.
+Platform test frontends follow this contract. The final entry-point inventory
+and documented data exceptions remain under audit.
 
 ### Commit messages
 

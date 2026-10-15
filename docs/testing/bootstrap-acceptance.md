@@ -25,6 +25,10 @@ established connections, close/failure slot reuse, outgoing exemption and compos
 A 100-connection QUIC churn test checks guard reservations and groups return to zero.
 
 Network and memory stages print a concise result through `rust-check.sh`.
+The standalone `network-test.py` CLI also uses that contract, including health
+checks; `--raw` selects its direct diagnostics. Rust stages select raw mode
+internally to retain one owning wrapper. Invalid CLI arguments fail before DNS
+or workload setup; `--help` prints the command syntax without running a suite.
 Completed plateau observations retain timestamped per-round RSS for every node,
 all first/second-half peaks and failed nodes, the unchanged limits and duration,
 and the measured binary SHA-256 in `target/memory-plateau-<unique-id>.json`.

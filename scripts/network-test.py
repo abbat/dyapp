@@ -547,6 +547,11 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
 
 
 def main():
+    usage = ("Usage: network-test.py [--health MULTIADDR | --local BIN_DIR "
+             "| --plateau BIN_DIR]")
+    if sys.argv[1:] in (["--help"], ["-h"]):
+        print(usage)
+        return
     if len(sys.argv) == 3 and sys.argv[1] == "--health":
         if not healthy(CLIENT, sys.argv[2]):
             raise RuntimeError("Node is not healthy")
@@ -557,6 +562,8 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--plateau":
         plateau(sys.argv[2])
         return
+    if len(sys.argv) != 1:
+        raise ValueError(usage)
     # The client has no DNS transport: resolve the container names here.
     suite([addresses(socket.gethostbyname(host), 7070)
            for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT,
@@ -900,4 +907,6 @@ def acked_everywhere(client, entry, ids):
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+    wrap("rust-network")
     main()

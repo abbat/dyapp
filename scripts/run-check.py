@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import uuid
 
 from capture import Capture
@@ -12,6 +13,21 @@ from capture import Capture
 ROOT = Path(__file__).resolve().parents[1]
 FIX = "docs/development/code-quality.md#check-output"
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def gradle_errors(lines):
+    start = next((i for i, line in enumerate(lines)
+                  if line.startswith("FAILURE:")), None)
+    if start is None:
+        return []
+    selected = [line for line in lines[:start]
+                if re.search(r"^(?:e:|.+: error:)", line)]
+    for line in lines[start + 1:]:
+        if line.startswith("* Try:"):
+            break
+        if line and not line.startswith(("* ", "> Task ", "BUILD ")):
+            selected.append(line)
+    return selected
 
 
 def diagnostics(text, policy):
@@ -74,22 +90,52 @@ def diagnostics(text, policy):
                     active = False
             if selected:
                 return selected
+        if policy.get("gradle"):
+            selected = gradle_errors(lines)
+            if selected:
+                return selected
         pattern = re.compile(policy["pattern"])
         return [line for line in lines if pattern.search(line)]
     raise ValueError(f"Unknown diagnostic format: {kind!r}")
 
 
+def mapped_frame(selected):
+    if len(selected) < 3:
+        return False
+    shape = (
+        re.match(r"^FAIL .+: .+$", selected[0]),
+        selected[1].startswith("FIX: docs/"),
+        selected[2] == "DETAILS:",
+        sum(line.startswith("FAIL ") for line in selected) == 1,
+    )
+    if not all(shape):
+        return False
+    try:
+        policies = json.loads((ROOT / "scripts/check-output.json").read_text())
+        return any(
+            policy.get("fix") == selected[1][5:]
+            for policy in policies.values() if isinstance(policy, dict))
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def failure(name, fix, status, selected, log=None):
-    cause = (selected[0] if selected
-             else f"exit {status}; no recognized diagnostic")
-    if status < 0:
-        cause = f"terminated by signal {-status}"
-    cause = " ".join(cause.splitlines())[:200]
-    print(f"FAIL {name}: {cause}")
-    print(f"FIX: {fix}")
-    print("DETAILS:")
-    for line in selected:
-        print(line)
+    if status > 0 and mapped_frame(selected):
+        print("\n".join(selected))
+    else:
+        if selected and selected[0].startswith("FAIL "):
+            selected = [line for line in selected if not line.startswith(
+                ("FAIL ", "FIX:", "DETAILS:"))]
+        cause = (selected[0] if selected
+                 else f"exit {status}; no recognized diagnostic")
+        if status < 0:
+            cause = f"terminated by signal {-status}"
+        cause = " ".join(cause.splitlines())[:200]
+        print(f"FAIL {name}: {cause}")
+        print(f"FIX: {fix}")
+        print("DETAILS:")
+        for line in selected:
+            print(line)
     if log is not None:
         print(f"{log}: raw captured output")
     return 128 - status if status < 0 else status
@@ -126,6 +172,8 @@ def run(name, command, policy, directory):
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log-dir", type=Path,
                         default=ROOT / "target" / "check-output")

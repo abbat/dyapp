@@ -2,6 +2,17 @@
 # Build unsigned Release packages in a writable source copy with prepared caches.
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+if [[ ${1:-} == --raw ]]; then
+    shift
+elif [[ ${1:-} != --help && ${1:-} != -h ]]; then
+    exec python3 "$root/scripts/run-check.py" \
+        --log-dir "${DYAPP_CHECK_LOG_DIR:-/tmp/ai/check-output}" \
+        android-build -- bash "$root/scripts/build-android-release.sh" --raw "$@"
+fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then
+    echo "Usage: build-android-release.sh REPORT_DIRECTORY"
+    exit 0
+fi
 reports=${1:?usage: build-android-release.sh REPORT_DIRECTORY}
 mkdir -p "$reports"
 reports=$(cd "$reports" && pwd)

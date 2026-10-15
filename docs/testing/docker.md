@@ -205,6 +205,16 @@ docker run dyapp:dev cargo test
 # Remember to clean up: docker ps -a | grep dyapp
 ```
 
+## Container isolation
+
+`check-container-isolation.sh` requires a non-root runtime, writable `HOME`, zero
+effective capabilities, no-new-privileges and no host Docker/X11 sockets. It
+prints `OK container-isolation` or a self-contained `FAIL`/`FIX`/`DETAILS` block;
+its fix pointer is checked against the central map. `--raw` includes the previous
+UID/capability metadata after enforcing the same predicates. Keep the configured
+isolation when fixing a failure; do not grant capabilities or mount control
+sockets to make the check pass.
+
 ## Troubleshooting
 
 Quiet stage failures, shell aggregates, the operator image test and build
@@ -213,8 +223,9 @@ to bypass their frontend; help and interactive/verbose modes remain direct.
 The image test preserves its original failure over a later temporary-volume
 cleanup failure, and a cleanup failure still fails an otherwise successful run.
 The raw-log pointer retains unrecognized messages as well as full recognized
-errors. Check Docker daemon access and the named Compose file/service before
-retrying. Unsupported build options/configuration fail before image builds so
+errors. Gradle failures select the failed task/dependency block and compiler
+errors, omitting passing tasks and generic retry advice. Check Docker daemon
+access and the named Compose file/service before retrying. Unsupported build options/configuration fail before image builds so
 CPU limits cannot be bypassed. Malformed Compose JSON, missing commands and
 startup errors also fail with this contract. Successful configuration JSON is
 an internal data value and is not printed as passing progress.
