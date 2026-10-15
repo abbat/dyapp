@@ -169,6 +169,21 @@ reporting zero. Details are saved in `target/panics.json` (CI artifact
 not covered. These three lints do not prove runtime panic freedom: indexing,
 assertions, allocation failure and transitive dependency panics are outside this check.
 
+### Public API documentation (staged)
+
+`scripts/check-panics.py --public-docs` reuses the non-test diagnostic collector
+with rustc `--force-warn missing_docs`. `[public_docs]` budgets in
+`scripts/baselines.toml` prevent authored warning counts from growing and require
+budgets to fall with cleanup. The initial inventory contains 525 authored gaps.
+Generated/out-of-tree diagnostics are counted separately in
+`target/public-docs.json`, uploaded as `public-docs` when the checker ran;
+they are not included in authored budgets. Tests and non-workspace crates remain outside scope.
+
+This is the first stage of B9, not workspace-wide `deny(missing_docs)`.
+Source documentation cleanup and the generated-code policy are still planned.
+The default panic mode keeps its mandatory FFI-zero rule; documentation mode
+does not replace that check.
+
 ### Unsafe policy
 
 `unsafe_code = "forbid"` applies to every crate except two:

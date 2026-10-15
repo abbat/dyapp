@@ -67,6 +67,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |
 | Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, tests included, so there is no separate `cargo check`) |
 | Explicit panic budgets | `scripts/check-panics.py`: [B8](code-quality.md#explicit-panic-budgets), non-test workspace Clippy `unwrap_used`/`expect_used`/`panic` counts; JSON artifact `panic-budgets` when the checker ran |
+| Authored API documentation budgets | `scripts/check-panics.py --public-docs`: [staged B9](code-quality.md#public-api-documentation-staged), no growth of authored `missing_docs` warnings; JSON artifact `public-docs` |
 | Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 
 `quality` does not run `cargo test`: the tests run once, in `core`. Locally `make test` runs them.

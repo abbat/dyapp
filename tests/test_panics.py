@@ -26,9 +26,10 @@ class PanicBudgets(unittest.TestCase):
         rows = [message(), message(), message(package="dependency"),
                 message("target/debug/build/generated.rs"),
                 {"reason": "build-finished", "success": True}]
-        counts, locations = CHECK.count(metadata, rows)
+        counts, locations, excluded = CHECK.count(metadata, rows)
         self.assertEqual(counts, {"dyapp-ffi": 1})
         self.assertEqual(len(locations), 1)
+        self.assertEqual(excluded, {"dyapp-ffi": 1})
         self.assertIn("> 0", CHECK.errors(counts, {"dyapp-ffi": 0})[0])
 
     def test_incomplete_or_failed_clippy_is_not_zero(self):
@@ -38,6 +39,20 @@ class PanicBudgets(unittest.TestCase):
         for rows in [[], [{"reason": "build-finished", "success": False}]]:
             with self.assertRaisesRegex(ValueError, "successful Clippy"):
                 CHECK.count(metadata, rows)
+
+    def test_doc_mode_is_separate_from_the_panic_zero_rule(self):
+        metadata = {"packages": [{"id": "ffi", "name": "dyapp-ffi"}],
+                    "workspace_members": ["ffi"],
+                    "target_directory": str(ROOT / "target")}
+        row = message()
+        row["message"]["code"]["code"] = "missing_docs"
+        rows = [row, {"reason": "build-finished", "success": True}]
+        counts, _, _ = CHECK.count(metadata, rows, ("missing_docs",))
+        self.assertEqual(counts, {"dyapp-ffi": 1})
+        self.assertEqual(CHECK.errors(counts, counts, ffi_zero=False), [])
+        self.assertTrue(CHECK.errors(counts, counts))
+        errors = CHECK.errors(counts, {"dyapp-ffi": 0}, ffi_zero=False)
+        self.assertIn("> 0", errors[0])
 
     def test_ratchet_and_ffi_zero(self):
         counts = {"dyapp-ffi": 0, "other": 2}

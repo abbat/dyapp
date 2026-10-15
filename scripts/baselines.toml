@@ -20,6 +20,16 @@ max_lines = 400
 "dyapp-profile" = 2
 "dyapp-video" = 4
 
+[public_docs]
+# Staged B9: authored missing_docs sites; generated policy and global deny are planned.
+"dyapp-bootstrap" = 151
+"dyapp-ffi" = 30
+"dyapp-identity" = 11
+"dyapp-messaging" = 68
+"dyapp-p2p-net" = 55
+"dyapp-profile" = 12
+"dyapp-video" = 98
+
 [size]
 # Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).
 max_lines = 1000
