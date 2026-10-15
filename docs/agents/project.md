@@ -95,4 +95,6 @@ print. A failure prints every node's output under a `--- node PORT ---` header.
 - Update `docs/` in the same commit as the code: a new feature, a behaviour fix, or a changed
   command, config or interface must leave the affected pages describing what the code actually
   does (planned parts marked as planned, outdated statements deleted, `docs/README.md` index and
-  relative links/anchors updated). No automated link check exists yet.
+  relative links/anchors updated). `scripts/check-repository.py` (in `make quality`) fails on a
+  broken relative link or anchor, a file under `docs/` that no link chain from `docs/README.md`
+  reaches, and an `AGENTS.md` longer than 80 lines.

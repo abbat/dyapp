@@ -21,6 +21,9 @@ CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 NOT_TRACKER = {"dyapp-core"}
 # Commit-message ratchet: commits after this one follow the message rules.
 BASELINE = "39c3e3fd8642497fca3003efa97bafd75008268f"
+# Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
+INDEX = "docs/README.md"
+AGENTS_LINES = 80
 SCOPE = re.compile(r"^[\w./-]+: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
@@ -67,23 +70,40 @@ def broken_links(documents, exists):
     slugs = {name: anchors(text) for name, text in documents.items()}
     errors = []
     for name, text in documents.items():
-        for number, line in prose(text):
-            targets = INLINE_LINK.findall(line) + REFERENCE.findall(line)
-            for target in targets:
-                if SCHEME.match(target):
-                    continue
-                path, _, anchor = unquote(target).partition("#")
-                resolved = name
-                if path:
-                    base = PurePosixPath(name).parent
-                    resolved = posixpath.normpath(str(base / path))
-                    if resolved.startswith("../") or not exists(resolved):
-                        errors.append(f"{name}:{number}: missing {target}")
-                        continue
-                if anchor and resolved in slugs \
-                        and anchor not in slugs[resolved]:
-                    errors.append(f"{name}:{number}: missing anchor {target}")
+        for number, target, resolved, anchor in links(name, text):
+            if resolved.startswith("../") or not exists(resolved):
+                errors.append(f"{name}:{number}: missing {target}")
+            elif anchor and resolved in slugs \
+                    and anchor not in slugs[resolved]:
+                errors.append(f"{name}:{number}: missing anchor {target}")
     return errors
+
+
+def links(name, text):
+    """(line, target, repository path, anchor) of relative links."""
+    for number, line in prose(text):
+        for target in INLINE_LINK.findall(line) + REFERENCE.findall(line):
+            if SCHEME.match(target):
+                continue
+            path, _, anchor = unquote(target).partition("#")
+            resolved = name
+            if path:
+                base = PurePosixPath(name).parent
+                resolved = posixpath.normpath(str(base / path))
+            yield number, target, resolved, anchor
+
+
+def orphans(documents, files, index=INDEX):
+    """Files under docs/ that no link chain from the index reaches."""
+    seen, queue = {index}, [index]
+    while queue:
+        name = queue.pop()
+        for _, _, resolved, _ in links(name, documents.get(name, "")):
+            if resolved not in seen:
+                seen.add(resolved)
+                queue.append(resolved)
+    return [name for name in files
+            if name.startswith("docs/") and name not in seen]
 
 
 def bead_ids(text, allowed):
@@ -193,9 +213,17 @@ def main():
     errors = broken_links(documents, lambda name: Path(name).exists())
     if errors:
         raise ValueError("Broken Markdown links:\n" + "\n".join(errors))
+    errors = orphans(documents, folded.values())
+    if errors:
+        raise ValueError(f"Not linked from {INDEX}:\n" + "\n".join(errors))
+    lines = texts["AGENTS.md"].count("\n")
+    if lines > AGENTS_LINES:
+        raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           f"no tracker IDs; {len(documents)} Markdown files: relative links "
-          "resolve; commit messages after the baseline follow the rules")
+          f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
+          f"{AGENTS_LINES} lines; commit messages after the baseline follow "
+          "the rules")
 
 
 if __name__ == "__main__":

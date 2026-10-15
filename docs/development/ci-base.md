@@ -49,7 +49,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 
 | Check | Command |
 |-------|---------|
-| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve, no tracker IDs, [commit messages](code-quality.md#commit-messages) |
+| Repository rules | `scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, relative Markdown links and their anchors resolve, every file under `docs/` is reachable by links from `docs/README.md`, `AGENTS.md` at most 80 lines, no tracker IDs, [commit messages](code-quality.md#commit-messages) |
 | Trigger list | `scripts/triggers.py`: every glob of the [trigger list](code-quality.md#trigger-list) matches a tracked file |
 | Workflow lint | `actionlint` |
 | Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |

@@ -45,6 +45,14 @@ class Lint(unittest.TestCase):
         self.assertIn("no blank line",
                       self.errors("Add a check\nbody" + TRAILER))
 
+    def test_orphans(self):
+        documents = {"docs/README.md": "[a](a/README.md)\n[x](https://x)\n",
+                     "docs/a/README.md": "[b](../b.md#top)\n",
+                     "docs/b.md": "", "docs/c.md": "[b](b.md)\n"}
+        files = list(documents) + ["docs/img.png", "README.md"]
+        self.assertEqual(CHECK.orphans(documents, files),
+                         ["docs/c.md", "docs/img.png"])
+
 
 if __name__ == "__main__":
     unittest.main()
