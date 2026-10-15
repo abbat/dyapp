@@ -40,6 +40,28 @@ same-environment scope. Nightly runner results remain independently observable.
 Tests cover changed bytes, empty/missing files, a successful Cargo exit without
 the second executable, and a failed build with host-supplied Git metadata.
 
+## Artifact size budgets (staged)
+
+`scripts/check-artifact-size.py <name> <file> --base <ancestor> --report <json>`
+compares file bytes with `scripts/artifact-sizes.json`. Exactly 5% growth passes;
+one byte beyond the boundary needs a nonempty `Size-Increase: <reason>` commit
+trailer inside `base..HEAD`. Use the actual change range; an older trailer does
+not authorize later growth. Missing/empty files, unknown artifact names, invalid
+budgets, shallow history and unavailable/non-ancestor revisions fail closed.
+Reports include measured bytes, baseline environment, growth and exception reasons.
+
+The initial inventory contains only the release `dyappd` and Linux executables
+measured in the existing prepared x86_64 images. These are not native Ubuntu,
+mobile, macOS or Windows baselines. Use the same environment and profile for each
+named artifact, and collect a separate measured baseline when the producer differs.
+The checker never edits budgets. Lower them after size reductions; increasing a
+budget is a check weakening governed by [A6](code-quality.md#trigger-list).
+A size exception also needs the normal A6 review; its trailer alone is not review.
+
+All-platform producer integration is planned; D5 is not yet adopted. Android
+APK/AAB, iOS IPA and the remaining desktop builds need actual release measurements
+and matching CI gates before that claim can be made.
+
 ## Jobs
 
 Both jobs run directly on the runner, without Docker. Every check is a step of

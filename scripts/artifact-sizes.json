@@ -1,0 +1,12 @@
+{
+  "dyappd-prepared-x86_64-release": {
+    "bytes": 18868792,
+    "environment": "dyapp:dev-prepared; rustc 1.99.0; x86_64 Linux; release",
+    "revision": "364cb9aaa49407aaca4e43e869991409d7b986ad"
+  },
+  "linux-prepared-x86_64-release": {
+    "bytes": 11137480,
+    "environment": "dyapp:linux-test; rustc 1.99.0; x86_64 Linux; release",
+    "revision": "c241f69fd0a93028efead153b1d85701bd2ff2d6"
+  }
+}
