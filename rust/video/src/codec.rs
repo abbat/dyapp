@@ -1,14 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Video codec identifiers used by the preference helper.
 pub enum CodecFormat {
+    /// VP8 video.
     VP8,
+    /// VP9 video.
     VP9,
+    /// H.264 video.
     H264,
+    /// AV1 video.
     AV1,
 }
 
 impl CodecFormat {
+    /// Returns the codec's video MIME type.
     pub fn mime_type(&self) -> &str {
         match self {
             Self::VP8 => "video/VP8",
@@ -18,24 +24,32 @@ impl CodecFormat {
         }
     }
 
+    /// Returns the static H.264 classification; does not probe hardware.
     pub fn is_hardware_accelerated(&self) -> bool {
         matches!(self, Self::H264)
     }
 
+    /// Returns the static non-H.264 classification; does not assess licensing.
     pub fn is_open_source(&self) -> bool {
         !matches!(self, Self::H264)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Local codec description; fields are not validated.
 pub struct CodecInfo {
+    /// Codec identifier.
     pub format: CodecFormat,
+    /// RTP clock rate in hertz.
     pub clock_rate: u32,
+    /// RTP payload type.
     pub payload_type: u8,
+    /// Optional codec parameter string.
     pub parameters: Option<String>,
 }
 
 impl CodecInfo {
+    /// Returns VP8 at 90 kHz with payload type 96.
     pub fn vp8() -> Self {
         Self {
             format: CodecFormat::VP8,
@@ -45,6 +59,7 @@ impl CodecInfo {
         }
     }
 
+    /// Returns VP9 at 90 kHz with payload type 98.
     pub fn vp9() -> Self {
         Self {
             format: CodecFormat::VP9,
@@ -54,6 +69,7 @@ impl CodecInfo {
         }
     }
 
+    /// Returns H.264 at 90 kHz, payload 97, profile-level-id 42e01e.
     pub fn h264() -> Self {
         Self {
             format: CodecFormat::H264,
@@ -63,6 +79,7 @@ impl CodecInfo {
         }
     }
 
+    /// Returns AV1 at 90 kHz with payload type 99.
     pub fn av1() -> Self {
         Self {
             format: CodecFormat::AV1,
@@ -74,6 +91,8 @@ impl CodecInfo {
 }
 
 #[derive(Debug)]
+/// Matches formats in local preference order, ignoring other codec fields.
+/// This helper does not configure encoders or negotiate SDP.
 pub struct CodecNegotiation {
     local_codecs: Vec<CodecInfo>,
     remote_codecs: Vec<CodecInfo>,
@@ -81,6 +100,7 @@ pub struct CodecNegotiation {
 }
 
 impl CodecNegotiation {
+    /// Starts with local preferences and no remote codecs or agreement.
     pub fn new(local_codecs: Vec<CodecInfo>) -> Self {
         Self {
             local_codecs,
@@ -89,14 +109,17 @@ impl CodecNegotiation {
         }
     }
 
+    /// Returns VP8, H.264 and VP9 in preference order; excludes AV1.
     pub fn default_codecs() -> Vec<CodecInfo> {
         vec![CodecInfo::vp8(), CodecInfo::h264(), CodecInfo::vp9()]
     }
 
+    /// Starts with the default local preferences.
     pub fn with_defaults() -> Self {
         Self::new(Self::default_codecs())
     }
 
+    /// Replaces remote codecs and selects the first matching local format.
     pub fn set_remote_codecs(&mut self, remote_codecs: Vec<CodecInfo>) {
         self.remote_codecs = remote_codecs;
         self.negotiate();
@@ -114,18 +137,22 @@ impl CodecNegotiation {
             .cloned();
     }
 
+    /// Returns the selected local description, if formats overlap.
     pub fn agreed_codec(&self) -> Option<&CodecInfo> {
         self.agreed_codec.as_ref()
     }
 
+    /// Borrows local codec preferences.
     pub fn local_codecs(&self) -> &[CodecInfo] {
         &self.local_codecs
     }
 
+    /// Borrows the supplied remote descriptions.
     pub fn remote_codecs(&self) -> &[CodecInfo] {
         &self.remote_codecs
     }
 
+    /// Reports whether a format match exists.
     pub fn has_agreed(&self) -> bool {
         self.agreed_codec.is_some()
     }

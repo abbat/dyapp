@@ -18,6 +18,11 @@ exchange, SRTP/RTP for media). Messaging is
 meant to use libp2p. They are separate transports; video does not run over
 libp2p.
 
+The authored session, codec and ICE APIs have source documentation enforced by
+the staged public documentation budget. The remaining video documentation debt
+is in the frame encryption prototype. Codec matching compares formats only;
+hardware and open-source flags are static classifications, not capability probes.
+
 ## What exists today
 
 | Piece | Status |

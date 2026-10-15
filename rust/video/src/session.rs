@@ -10,13 +10,21 @@ use webrtc::peer_connection::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Session bookkeeping; connection events do not update this state.
 pub enum SessionState {
+    /// The session has no offer.
     Idle,
+    /// A local offer has been created.
     OfferCreated,
+    /// The caller marked the offer as delivered.
     OfferSent,
+    /// The remote answer has been applied.
     AnswerReceived,
+    /// The caller marked the session connected.
     Connected,
+    /// Reserved failure state; currently never assigned.
     Failed,
+    /// The peer connection was closed successfully.
     Closed,
 }
 
@@ -42,6 +50,8 @@ async fn new_peer_connection() -> webrtc::error::Result<impl PeerConnection> {
         .await
 }
 
+/// Caller-side WebRTC offer, answer and remote candidate handling.
+/// Local candidate events and media transmission are not exposed.
 pub struct VideoSession {
     id: String,
     state: Arc<RwLock<SessionState>>,
@@ -53,6 +63,10 @@ pub struct VideoSession {
 }
 
 impl VideoSession {
+    /// Creates an idle peer connection with one video transceiver and no track.
+    ///
+    /// # Panics
+    /// Panics if the system clock precedes the Unix epoch.
     pub async fn new() -> Result<Self> {
         let peer_connection = new_peer_connection().await.map_err(|e| {
             VideoError::InvalidState(format!("Failed to create peer connection: {}", e))
@@ -77,14 +91,17 @@ impl VideoSession {
         })
     }
 
+    /// Returns the generated session UUID string.
     pub fn session_id(&self) -> &str {
         &self.id
     }
 
+    /// Returns the current bookkeeping state.
     pub async fn state(&self) -> SessionState {
         *self.state.read().await
     }
 
+    /// Creates and applies a local SDP offer; requires the idle state.
     pub async fn create_offer(&self) -> Result<String> {
         if *self.state.read().await != SessionState::Idle {
             return Err(VideoError::InvalidState(
@@ -116,6 +133,8 @@ impl VideoSession {
         Ok(sdp)
     }
 
+    /// Applies a remote answer, then queued candidates; requires an offer marked sent.
+    /// Candidate application can fail after the answer and state have been stored.
     pub async fn receive_answer(&self, sdp: String) -> Result<()> {
         if *self.state.read().await != SessionState::OfferSent {
             return Err(VideoError::InvalidState("Offer not sent yet".to_string()));
@@ -164,10 +183,12 @@ impl VideoSession {
             .map_err(|e| VideoError::ICEError(e.to_string()))
     }
 
+    /// Clones the stored remote candidates, not locally gathered candidates.
     pub async fn get_ice_candidates(&self) -> Vec<ICECandidate> {
         self.ice_candidates.read().await.clone()
     }
 
+    /// Marks an existing local offer as delivered; performs no signaling.
     pub async fn mark_offer_sent(&self) -> Result<()> {
         if *self.state.read().await != SessionState::OfferCreated {
             return Err(VideoError::InvalidState("Offer not created".to_string()));
@@ -176,11 +197,13 @@ impl VideoSession {
         Ok(())
     }
 
+    /// Unconditionally marks connected; does not verify connectivity.
     pub async fn mark_connected(&self) -> Result<()> {
         *self.state.write().await = SessionState::Connected;
         Ok(())
     }
 
+    /// Closes the peer connection and marks closed only on success.
     pub async fn close(&self) -> Result<()> {
         self.peer_connection
             .close()
@@ -190,10 +213,15 @@ impl VideoSession {
         Ok(())
     }
 
+    /// Returns creation wall-clock milliseconds since the Unix epoch.
     pub fn created_at(&self) -> i64 {
         self.created_at
     }
 
+    /// Returns elapsed wall-clock milliseconds; clock adjustments can make it negative.
+    ///
+    /// # Panics
+    /// Panics if the system clock precedes the Unix epoch.
     pub async fn duration_ms(&self) -> i64 {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
