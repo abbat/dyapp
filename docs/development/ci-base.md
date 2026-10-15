@@ -92,6 +92,13 @@ APK/AAB still need successful Release packaging, actual matching measurements
 and CI gates; the existing offline image lacks a Release lint dependency
 ([Android prerequisite](build.md#unsigned-android-release)).
 
+Auxiliary Python lint, dependency audit, advisory Rust analysis and Windows
+release compilation also use the shared concise runner. Their full logs are
+uploaded as `python-check-output`, `audit-check-output`,
+`analysis-check-output` and in the existing release-size artifact. Advisory
+`continue-on-error` policies are unchanged. SBOM, Clippy JSON/SARIF and the
+unsafe-location listing remain data outputs for their report consumers.
+
 ## Jobs
 
 Both jobs run directly on the runner, without Docker. Every check is a step of

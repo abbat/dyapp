@@ -30,7 +30,7 @@ jobs:
       - name: build and measure
         shell: pwsh
         run: |
-          cargo build --manifest-path windows/Cargo.toml --release --locked
+          python scripts/run-check.py --log-dir target/release-check-output rust-build -- cargo build --manifest-path windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/report-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report target/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
