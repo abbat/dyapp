@@ -18,6 +18,10 @@
 | **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
 | **Package** | The `.deb` installed on Debian 12, node started as its user | `scripts/deb-test.sh` | `make deb` | no (local only) |
 
+The functional suite keeps shared node/client fixtures in `protocol.rs` and
+namespace negotiation tests in `tests/protocol/namespaces.rs`; the test module
+split preserves the actual loopback workload and assertions.
+
 The memory plateau explicitly allows 1000 incoming connections per IP group: its short-lived
 clients all share loopback and can reach the default cap before idle cleanup. The default 32
 budget is covered separately by real TCP tests in `node.rs`, including pending handshakes,
