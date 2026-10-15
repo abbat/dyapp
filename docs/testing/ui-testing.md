@@ -153,6 +153,20 @@ regression. Prepared Rust unit binaries retain their actual failure exit code
 (including 101) and reject empty inventories. Add `--raw` to `linux-test.sh`,
 `desktop-smoke.py` or `run-cargo-unit-binaries.py` for direct diagnostic mode.
 
+Apple hosted tests and core builds also use mapped results, with raw logs in the
+native artifacts. `apple-test-in-ci.sh` keeps its exit-2 rejection outside approved
+CI; the Python frontend likewise refuses local execution. `--raw` selects direct
+diagnostic output for these Apple entry points. Existing SDK-free command-plan
+tests use raw mode; actual native builds/tests run only in the approved CI.
+Android unit/UI work remains enclosed by Docker capture; the emulator itself is
+a streaming service, not a finite quiet check. CI captures Compose service logs
+and copies the shared reports volume through the retained unit-test container
+using `export-ui-reports.py` (`--directory PATH` selects a different destination).
+Unique directories under `target/platform-reports`
+retain XML/JSON, screenshots and validator logs without deleting earlier exports.
+Missing containers and empty copies fail. The `android-check-output` artifact
+contains those reports and `target/platform-check-output` raw logs.
+
 - **Emulator never healthy:** software emulation boot can take many minutes; the health check
   allows ~30 min. Look at the `android-emulator` container logs.
 - **`OK (n tests)` with n < 3 rejected:** a test class was dropped or filtered; the checker requires

@@ -4,6 +4,12 @@
 # ios includes simulators; ios-device omits them. Optional second argument: debug|release.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ ${1:-} != --raw ]]; then
+    exec python3 scripts/run-check.py \
+        --log-dir "${DYAPP_CHECK_LOG_DIR:-/tmp/ai/check-output}" \
+        apple-core -- bash "$PWD/scripts/build-apple-core.sh" --raw "$@"
+fi
+shift
 out=target/apple
 # An unoptimised core with debuginfo is hundreds of MB per target.
 export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=14.0 MACOSX_DEPLOYMENT_TARGET=11.0

@@ -103,6 +103,11 @@ size budgets are also planned; the global D5 practice is not yet adopted.
 
 ## Unsigned Apple Release packages
 
+`build-apple-core.sh` uses the shared concise check frontend; its `--raw` first
+argument preserves direct build diagnostics and the remaining scope/profile
+arguments. Native release CI archives its raw frontend log alongside package
+measurements and Xcode logs.
+
 `scripts/package-apple-release.py <ios|macos> <DYApp.app> <new-archive>`
 verifies bundle structure and packages an app in approved native Apple CI. Its CLI
 uses `xcrun lipo` and requires `GITHUB_ACTIONS=true`; pure packaging tests run in

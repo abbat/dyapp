@@ -64,7 +64,7 @@ class AppleCoreProfiles(unittest.TestCase):
                     log = root / "calls.jsonl"
                     env = dict(os.environ, DYAPP_APPLE_TEST_LOG=str(log))
                     env["PATH"] = str(tools) + os.pathsep + env["PATH"]
-                    arguments = ["bash", str(script), scope]
+                    arguments = ["bash", str(script), "--raw", scope]
                     if profile == "release":
                         arguments.append(profile)
                     subprocess.run(arguments, env=env, check=True,
