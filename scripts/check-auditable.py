@@ -31,7 +31,10 @@ def inventory(binary):
     return json.loads(zlib.decompress(data))['packages']
 
 
-def main():
+FIX = "docs/development/code-quality.md#dependency-checks-cargo-deny"
+
+
+def main(raw=False):
     binary, lock = sys.argv[1:]
     with open(lock, 'rb') as f:
         locked = {(p['name'], p['version'])
@@ -42,9 +45,42 @@ def main():
         sys.exit(f'{binary}: not in {lock}: {sorted(unknown)}')
     if not any(name == 'dyapp-bootstrap' for name, _ in packages):
         sys.exit(f'{binary}: dyapp-bootstrap missing from the dependency list')
-    print(f'{binary}: {len(packages)} packages in the embedded '
-          'dependency list')
+    if raw:
+        print(f'{binary}: {len(packages)} packages in the embedded '
+              'dependency list')
+    else:
+        print('OK auditable')
 
 
 if __name__ == '__main__':
-    main()
+    raw = '--raw' in sys.argv[1:]
+    if raw:
+        sys.argv.remove('--raw')
+        main(raw=True)
+    else:
+        try:
+            main()
+        except (Exception, SystemExit) as error:
+            # This script is copied alone into the release image. Keep its
+            # frontend self-contained; tests bind FIX to check-output.json.
+            message = str(error)
+            directory = os.environ.get('DYAPP_CHECK_LOG_DIR',
+                                       '/tmp/ai/check-output')
+            log = None
+            try:
+                os.makedirs(directory, exist_ok=True)
+                with tempfile.NamedTemporaryFile(
+                        mode='w', prefix='auditable-', suffix='.log',
+                        dir=directory, delete=False) as output:
+                    output.write(message + '\n')
+                    log = output.name
+            except OSError as log_error:
+                message += f'\nCannot retain diagnostic: {log_error}'
+            cause = message.splitlines()[0][:512] if message else 'exit 1'
+            print(f'FAIL auditable: {cause}\nFIX: {FIX}\nDETAILS:')
+            print(message[:65536])
+            if len(message) > 65536:
+                print('[diagnostic truncated; see raw log]')
+            if log:
+                print(f'{log}: raw captured output')
+            sys.exit(1)

@@ -44,7 +44,11 @@ coverage validators also use this default and accept `--raw` for their previous
 output. Coverage reporting explicitly selects raw metrics; validation thresholds
 and JSON/XML report files are unchanged. Android retains validator logs under
 `/reports/<container>/check-output`; Apple CI includes them in
-`apple-results/check-output`. Artifact auditing and other stages migrate next.
+`apple-results/check-output`. The ELF dependency auditor also defaults to
+`OK auditable` or `FAIL`/`FIX`/`DETAILS`, accepts `--raw`, and retains failed
+diagnostics under `DYAPP_CHECK_LOG_DIR` (default `/tmp/ai/check-output`). Its
+frontend is self-contained because the release image copies only that script;
+a test binds its fix pointer to the shared map. Other stages migrate next.
 
 ### Commit messages
 
