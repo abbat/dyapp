@@ -29,6 +29,7 @@ import tempfile
 import time
 
 from capture import Capture
+from memory_report import write_report
 
 CLIENT = "/workspace/target/debug/test-peer"
 FLOOD_LIMIT = 5
@@ -231,20 +232,27 @@ def plateau(bin_dir):
                     media(client, tcp, quic)
 
             load()
-            samples, end = [], time.monotonic() + PLATEAU_SECONDS
+            samples, started = [], time.monotonic()
+            end = started + PLATEAU_SECONDS
             while time.monotonic() < end:
                 load()
-                samples.append([rss(process) for process in processes])
-            half = len(samples) // 2
-            if half < 1:
-                raise RuntimeError("Too few rounds for a plateau")
-            for node in range(len(processes)):
-                first = max(sample[node] for sample in samples[:half])
-                second = max(sample[node] for sample in samples[half:])
-                print(f"Node {node + 1} RSS peak: {first} kB, then "
-                      f"{second} kB over {len(samples)} rounds")
-                if second > first * (1 + PLATEAU_GROWTH):
-                    raise RuntimeError(f"Node {node + 1} memory still grows")
+                samples.append({
+                    "elapsed_seconds": time.monotonic() - started,
+                    "rss_kib": [rss(process) for process in processes]})
+            path, report = write_report(
+                samples, time.monotonic() - started, PLATEAU_SECONDS,
+                PLATEAU_GROWTH, Path(bin_dir) / "dyappd",
+                os.environ.get("DYAPP_MEMORY_REPORT_DIR", "target"))
+            print(f"Memory plateau report: {path}")
+            for node in report["nodes"]:
+                print(f"Node {node['node']} RSS peak: "
+                      f"{node['first_peak_kib']} kB, then "
+                      f"{node['second_peak_kib']} kB "
+                      f"over {len(samples)} rounds")
+            if report["failed_nodes"]:
+                raise RuntimeError(
+                    f"Nodes {report['failed_nodes']} memory still grows; "
+                    f"RSS report: {path}")
             print("Memory plateau: every node levels off")
         except BaseException:
             failed = True
