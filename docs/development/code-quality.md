@@ -16,6 +16,22 @@ All checks run in Docker; build the image once with `make prepare`.
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
+### Check output
+
+`python3 -B scripts/run-check.py <check-id> -- <command> ...` provides the
+shared quiet contract. Success prints only `OK <check-id>`. Failure preserves
+the exit status (including signals) and prints `FAIL`, a `FIX` documentation
+anchor, then `DETAILS` with selected diagnostics and a raw-log pointer.
+`scripts/check-output.json` maps IDs to owning documentation and diagnostic
+formats; repository validation checks its schema, regular expressions and links.
+
+The parser keeps a bounded first/tail copy in memory; every run also retains
+full captured output under `target/check-output/` with a unique filename.
+Use `--log-dir <writable-path>` before the check ID to select another directory.
+Unrecognized failure output still yields the original nonzero exit status and
+a raw-log pointer. Logs are not automatically removed.
+Migration of existing check, test and platform entry points is staged.
+
 ### Commit messages
 
 `scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice A3 of

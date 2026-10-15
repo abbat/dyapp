@@ -43,6 +43,20 @@ class Links(unittest.TestCase):
             "docs/a.md:5: missing missing.md",
         ])
 
+    def test_check_output_map_links_and_schema(self):
+        documents = {"docs/b.md": TARGET}
+        good = {"fixture": {"fix": "docs/b.md#setup", "format": "lines",
+                            "pattern": ".+"}}
+        self.assertEqual(CHECK.output_map_errors(
+            good, documents, documents.__contains__), [])
+        for fix, pattern in (("docs/b.md#missing", ".+"),
+                             ("outside.md#setup", ".+"),
+                             ("docs/b.md#setup", "[")):
+            bad = {"fixture": {"fix": fix, "format": "lines",
+                               "pattern": pattern}}
+            self.assertTrue(CHECK.output_map_errors(
+                bad, documents, documents.__contains__))
+
     def test_code_is_not_checked(self):
         self.assertEqual(self.check(
             "```\n[x](c.md)\n```\n`[y](c.md)`\n~~~md\n[z](c.md)\n~~~\n"), [])

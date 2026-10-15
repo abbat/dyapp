@@ -49,6 +49,11 @@ There are no other targets (no `ui-test-all`, no npm). Details: [testing](../tes
 
 ## Local check output
 
+A staged shared wrapper, `scripts/run-check.py <check-id> -- <command> ...`,
+prints `OK` or `FAIL`/`FIX`/`DETAILS` and keeps raw logs separately. Its check map
+and documentation anchors are validated; [contract and rollout](../development/code-quality.md#check-output).
+Existing entry points migrate in stages.
+
 Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
 and the last 256 KiB, with a `[... N bytes truncated ...]` marker between them. Nothing is

@@ -63,5 +63,7 @@ class Capture:
         return write, thread
 
     def close(self):
-        if self.copy is not None:
-            self.copy.close()
+        with self.lock:
+            if self.copy is not None:
+                self.copy.close()
+                self.copy = None

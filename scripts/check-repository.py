@@ -88,6 +88,37 @@ def broken_links(documents, exists):
     return errors
 
 
+def output_map_errors(entries, documents, exists):
+    """Validate check formats and their repository documentation anchors."""
+    if not isinstance(entries, dict) or not entries:
+        return ["Check output map must be a nonempty object"]
+    errors, references = [], []
+    for name, entry in entries.items():
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+            errors.append(f"Invalid check name: {name!r}")
+        if not isinstance(entry, dict):
+            errors.append(f"{name}: expected a check record")
+            continue
+        fix = entry.get("fix", "")
+        path, separator, anchor = str(fix).partition("#")
+        valid = all((path.startswith("docs/"), path.endswith(".md"),
+                     ".." not in PurePosixPath(path).parts, separator, anchor))
+        if not valid:
+            errors.append(f"{name}: FIX needs a docs/*.md#anchor")
+        else:
+            references.append(f"[{name}]({fix})")
+        kind = entry.get("format")
+        if kind not in {"python", "json", "unittest", "lines"}:
+            errors.append(f"{name}: unknown diagnostic format")
+        if kind == "lines":
+            try:
+                re.compile(entry["pattern"])
+            except (KeyError, TypeError, re.error):
+                errors.append(f"{name}: invalid diagnostic pattern")
+    synthetic = {**documents, "_check-output.md": "\n".join(references)}
+    return errors + broken_links(synthetic, exists)
+
+
 def links(name, text):
     """(line, target, repository path, anchor) of relative links."""
     for number, line in prose(text):
@@ -250,6 +281,10 @@ def main():
     errors = broken_links(documents, lambda name: Path(name).exists())
     if errors:
         raise ValueError("Broken Markdown links:\n" + "\n".join(errors))
+    errors = output_map_errors(json.loads(texts["scripts/check-output.json"]),
+                               documents, lambda name: Path(name).exists())
+    if errors:
+        raise ValueError("Check output map:\n" + "\n".join(errors))
     errors = orphans(documents, folded.values())
     if errors:
         raise ValueError(f"Not linked from {INDEX}:\n" + "\n".join(errors))
