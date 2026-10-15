@@ -36,7 +36,8 @@ def count(metadata, messages, lints=LINTS):
         if not spans:
             excluded[name] += 1
             continue
-        key = name, code, tuple(sorted(spans))
+        kind = message.get("message", "") if code == "missing_docs" else ""
+        key = name, code, kind, tuple(sorted(spans))
         if key not in seen:
             seen.add(key)
             counts[name] += 1

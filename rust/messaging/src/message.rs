@@ -1,32 +1,53 @@
+//! Serializable plaintext messages with optional ciphertext and signature fields.
+
 use crate::hlc::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Caller-assigned local status; these variants do not verify remote receipts.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum MessageStatus {
+    /// Awaiting a sending attempt.
     Pending,
+    /// Marked sent by the caller.
     Sent,
+    /// Marked delivered by the caller.
     Delivered,
+    /// Marked read by the caller.
     Read,
+    /// Marked failed, potentially eligible for local retry bookkeeping.
     Failed,
 }
 
+/// Message record that retains plaintext even when encrypted fields are attached.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
+    /// Caller-supplied message identifier.
     pub id: String,
+    /// Caller-supplied sender label; not authenticated by this type.
     pub sender_id: String,
+    /// Caller-supplied recipient label.
     pub recipient_id: String,
+    /// Plaintext body, included by the derived serializer.
     pub text: String,
     /// Hybrid logical clock; the wire name predates the switch from a Lamport clock.
     #[serde(rename = "lamport_timestamp")]
     pub timestamp: Timestamp,
+    /// Creation time in wall-clock milliseconds since the Unix epoch.
     pub created_at: i64,
+    /// Local delivery status, independent of the optional encrypted fields.
     pub status: MessageStatus,
+    /// Attached ciphertext bytes; this type does not encrypt or verify them.
     pub encrypted_payload: Option<Vec<u8>>,
+    /// Attached signature bytes; this type does not verify them.
     pub signature: Option<Vec<u8>>,
 }
 
 impl Message {
+    /// Creates a pending plaintext record using the current wall clock.
+    ///
+    /// # Panics
+    /// Panics if the system clock is before the Unix epoch.
     pub fn new(
         id: String,
         sender_id: String,
@@ -52,31 +73,38 @@ impl Message {
         }
     }
 
+    /// Attaches bytes without verification or removing the plaintext body.
     pub fn set_encrypted(&mut self, payload: Vec<u8>, signature: Vec<u8>) {
         self.encrypted_payload = Some(payload);
         self.signature = Some(signature);
     }
 
+    /// Assigns the local sent status without validating a transition.
     pub fn mark_sent(&mut self) {
         self.status = MessageStatus::Sent;
     }
 
+    /// Assigns the local delivered status without validating a transition.
     pub fn mark_delivered(&mut self) {
         self.status = MessageStatus::Delivered;
     }
 
+    /// Assigns the local read status without validating a transition.
     pub fn mark_read(&mut self) {
         self.status = MessageStatus::Read;
     }
 
+    /// Assigns the local failed status without validating a transition.
     pub fn mark_failed(&mut self) {
         self.status = MessageStatus::Failed;
     }
 
+    /// Whether the local status is pending.
     pub fn is_pending(&self) -> bool {
         self.status == MessageStatus::Pending
     }
 
+    /// Whether the local status is delivered or read.
     pub fn is_delivered(&self) -> bool {
         matches!(self.status, MessageStatus::Delivered | MessageStatus::Read)
     }

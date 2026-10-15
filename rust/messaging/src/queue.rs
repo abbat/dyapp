@@ -1,10 +1,16 @@
+//! Unbounded in-memory FIFO with local retry bookkeeping.
+
 use crate::message::{Message, MessageStatus};
 use std::collections::VecDeque;
 
+/// A queued message and its local retry state.
 #[derive(Clone, Debug)]
 pub struct QueueEntry {
+    /// Message retained in memory.
     pub message: Message,
+    /// Number of failed-entry retries already scheduled.
     pub retry_count: u32,
+    /// Earliest next retry time in Unix milliseconds; initially zero.
     pub next_retry_at: i64,
 }
 
@@ -15,6 +21,7 @@ pub struct MessageQueue {
 }
 
 impl MessageQueue {
+    /// Creates an empty unbounded queue with at most five retries per entry.
     pub fn new() -> Self {
         Self {
             entries: VecDeque::new(),
@@ -22,6 +29,7 @@ impl MessageQueue {
         }
     }
 
+    /// Appends a fresh entry without deduplication; currently always returns success.
     pub fn enqueue(&mut self, message: Message) -> Result<(), String> {
         let entry = QueueEntry {
             message,
@@ -32,22 +40,27 @@ impl MessageQueue {
         Ok(())
     }
 
+    /// Removes the oldest entry regardless of status or retry time.
     pub fn dequeue(&mut self) -> Option<QueueEntry> {
         self.entries.pop_front()
     }
 
+    /// Borrows the oldest entry without removing it.
     pub fn peek(&self) -> Option<&QueueEntry> {
         self.entries.front()
     }
 
+    /// Counts all retained entries regardless of status.
     pub fn size(&self) -> usize {
         self.entries.len()
     }
 
+    /// Whether there are no retained entries.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
+    /// Clones messages marked pending, retaining FIFO order.
     pub fn get_pending(&self) -> Vec<Message> {
         self.entries
             .iter()
@@ -56,6 +69,7 @@ impl MessageQueue {
             .collect()
     }
 
+    /// Marks the first matching entry delivered, or returns a lookup error.
     pub fn mark_delivered(&mut self, message_id: &str) -> Result<(), String> {
         if let Some(entry) = self.entries.iter_mut().find(|e| e.message.id == message_id) {
             entry.message.mark_delivered();
@@ -65,6 +79,8 @@ impl MessageQueue {
         }
     }
 
+    /// Marks due failed entries pending and returns clones; performs no delivery.
+    /// Backoff after each retry grows from one to sixteen seconds.
     pub fn retry_failed(&mut self) -> Vec<QueueEntry> {
         let mut retryable = Vec::new();
 
@@ -88,6 +104,7 @@ impl MessageQueue {
         retryable
     }
 
+    /// Discards entries marked delivered or read.
     pub fn remove_delivered(&mut self) {
         self.entries.retain(|e| {
             !matches!(
@@ -97,6 +114,7 @@ impl MessageQueue {
         });
     }
 
+    /// Discards every entry and its retry history.
     pub fn clear(&mut self) {
         self.entries.clear();
     }

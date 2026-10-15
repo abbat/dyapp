@@ -1,6 +1,12 @@
+//! Message records, shared logical time and an in-memory plaintext queue.
+
+/// Prototype encryption helpers, not integrated into the queue service.
 pub mod encryption;
+/// Hybrid logical timestamps and deterministic ordering.
 pub mod hlc;
+/// Serializable message fields and caller-assigned status.
 pub mod message;
+/// In-memory FIFO and retry bookkeeping.
 pub mod queue;
 
 pub use encryption::{E2EEncryption, EncryptionConfig};
@@ -17,6 +23,7 @@ pub struct MessagingService {
 }
 
 impl MessagingService {
+    /// Creates an empty queue and shared clock; the encryption handle is retained unused.
     pub fn new(crypto: E2EEncryption) -> Self {
         Self {
             queue: MessageQueue::new(),
@@ -25,6 +32,7 @@ impl MessagingService {
         }
     }
 
+    /// Queues plaintext with a fresh UUID and sender `self_id`; does not encrypt or send.
     pub fn send_message(&mut self, peer_id: String, text: String) -> Result<String, String> {
         let timestamp = self.clock.now();
         let message_id = format!("msg-{}", uuid::Uuid::new_v4());
@@ -41,14 +49,17 @@ impl MessagingService {
         Ok(message_id)
     }
 
+    /// Counts all retained queue entries, including delivered ones not yet removed.
     pub fn get_queue_size(&self) -> usize {
         self.queue.size()
     }
 
+    /// Clones messages currently marked pending.
     pub fn get_pending_messages(&self) -> Vec<Message> {
         self.queue.get_pending()
     }
 
+    /// Marks the first matching queued message delivered, or returns a lookup error.
     pub fn mark_delivered(&mut self, message_id: &str) -> Result<(), String> {
         self.queue.mark_delivered(message_id)
     }

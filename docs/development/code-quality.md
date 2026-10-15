@@ -174,7 +174,8 @@ assertions, allocation failure and transitive dependency panics are outside this
 `scripts/check-panics.py --public-docs` reuses the non-test diagnostic collector
 with rustc `--force-warn missing_docs`. `[public_docs]` budgets in
 `scripts/baselines.toml` prevent authored warning counts from growing and require
-budgets to fall with cleanup. The initial inventory contains 525 authored gaps.
+budgets to fall with cleanup. The initial inventory exceeded 500 authored gaps.
+Distinct crate/module documentation warnings sharing a source position count separately.
 Generated/out-of-tree diagnostics are counted separately in
 `target/public-docs.json`, uploaded as `public-docs` when the checker ran;
 they are not included in authored budgets. Tests and non-workspace crates remain outside scope.

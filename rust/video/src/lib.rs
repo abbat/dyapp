@@ -1,3 +1,5 @@
+//! Prototype video sessions, codec descriptions and local ICE bookkeeping.
+
 pub mod codec;
 pub mod encryption;
 pub mod ice;

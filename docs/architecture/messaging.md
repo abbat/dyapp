@@ -1,5 +1,9 @@
 # Messaging Architecture (Offline-First)
 
+Authored Rust APIs document local status changes, plaintext retention and queue retry
+bookkeeping. Queueing and attaching encrypted bytes do not by themselves encrypt,
+verify receipts or send messages; the service's sender label is currently `self_id`.
+
 ## Overview
 
 Message model, in-memory queue and hybrid logical clock in `rust/messaging`. There is no network

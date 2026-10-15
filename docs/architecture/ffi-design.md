@@ -33,7 +33,7 @@ or returns constants.
 | `VideoSession` | Object | `new() -> Result<Self, CoreError>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer`. |
 | | method | `create_offer() -> Result<String, CoreError>` | Creates the inner session on first call, returns an SDP offer. |
 | | method | `mark_offer_sent() -> Result<(), CoreError>` | OfferCreated → OfferSent. |
-| | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Stores the answer; **not applied** to the peer connection (see [video](video.md)). |
+| | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Parses and applies the remote answer, then applies stored remote ICE candidates (see [video](video.md)). |
 | | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
 | | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |
 | `generate_peer_id()` | function | `-> String` | Peer ID (hex SHA-256 of the public key) of a freshly generated `rust/identity` key; the key is dropped. |

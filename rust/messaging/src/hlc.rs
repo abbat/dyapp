@@ -1,3 +1,5 @@
+//! Hybrid logical timestamps and deterministic message ordering.
+
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,14 +19,17 @@ pub const MAX_CLOCK_SKEW_MS: u64 = 60_000;
 pub struct Timestamp(u64);
 
 impl Timestamp {
+    /// Packs the low 48 bits of wall-clock milliseconds with a 16-bit counter.
     pub fn new(wall_ms: u64, counter: u16) -> Self {
         Self((wall_ms << COUNTER_BITS) | u64::from(counter))
     }
 
+    /// Returns the packed wall-clock milliseconds.
     pub fn wall_ms(self) -> u64 {
         self.0 >> COUNTER_BITS
     }
 
+    /// Returns the packed logical counter.
     pub fn counter(self) -> u16 {
         (self.0 & 0xffff) as u16
     }
@@ -55,7 +60,9 @@ impl From<Timestamp> for u64 {
 /// A remote timestamp too far ahead of the local wall clock.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ClockSkew {
+    /// Rejected remote wall-clock milliseconds since the Unix epoch.
     pub remote_ms: u64,
+    /// Local wall-clock milliseconds used for the comparison.
     pub local_ms: u64,
 }
 
@@ -78,6 +85,7 @@ pub struct HybridClock {
 }
 
 impl HybridClock {
+    /// Creates a zero-initialized clock; clones share subsequent advances.
     pub fn new() -> Self {
         Self::default()
     }
@@ -124,10 +132,12 @@ pub struct MessageOrdering {
 }
 
 impl MessageOrdering {
+    /// Creates an empty ordering buffer.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Inserts and sorts by timestamp, sender ID and finally message ID; keeps duplicates.
     pub fn add(&mut self, timestamp: Timestamp, sender_id: String, message_id: String) {
         self.messages.push((timestamp, sender_id, message_id));
         self.messages.sort();

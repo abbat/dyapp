@@ -96,7 +96,7 @@ impl VideoSession {
         })
     }
 
-    /// Stores an SDP answer in an initialized session; it is not applied to WebRTC.
+    /// Applies the remote SDP answer, then queued ICE candidates, to the connection.
     pub fn receive_answer(&self, sdp: String) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
