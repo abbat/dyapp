@@ -34,6 +34,7 @@ it are entry points that tools discover by path (see
 - [CI matrix](development/ci-matrix.md)
 - [Documentation tooling](development/documentation.md)
 - [Running a quorum](development/quorum.md): multi-model cross-review, the human's steps
+- [Engineering practices](development/practices.md): planned catalogue of measurable practices for agents
 - [Architecture decisions (ADR)](decisions/README.md)
 
 ### Testing
