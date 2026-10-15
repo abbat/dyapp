@@ -30,6 +30,7 @@ it are entry points that tools discover by path (see
 - [Linting](development/linting.md)
 - [Architecture lint](development/arch-lint.md)
 - [Code quality](development/code-quality.md)
+- [Check output inventory](development/check-output.md): quiet checks and named data consumers
 - [Weekly flow metrics](development/flow-metrics.md): local A7 report over beads, Git and GitHub
 - [CI base workflow](development/ci-base.md)
 - [CI matrix](development/ci-matrix.md)

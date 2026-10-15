@@ -60,8 +60,9 @@ original process status. Unmapped child metadata does not become a top-level
 fix pointer, and termination signals still identify the owning process.
 Characters unsupported by the terminal encoding are escaped for display;
 retained raw bytes and the child exit status remain unchanged.
-Platform test frontends follow this contract. The final entry-point inventory
-and documented data exceptions remain under audit.
+Platform test frontends follow this contract. The [entry-point inventory](check-output.md)
+covers Make targets, scripts and every workflow, including explicit report/data
+consumers and internal stage ownership.
 
 ### Commit messages
 

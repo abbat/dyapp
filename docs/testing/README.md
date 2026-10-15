@@ -2,8 +2,8 @@
 
 ## Overview
 
-Local Make checks retain complete Docker output and print one `OK` or `ERROR` line with the
-log path. Use `DYAPP_VERBOSE=1` for live output. See
+Local Make checks retain complete Docker output and print `OK` on success or
+`FAIL`/`FIX`/`DETAILS` with the raw-log path on failure. Use `DYAPP_VERBOSE=1` for live output. See
 [local check output](../agents/project.md#local-check-output) for paths and retention.
 
 Multi-layer testing. Rust line coverage is a ratchet: the workspace total never drops below a stored baseline and changed lines are ≥80% covered — see [Coverage policy](#coverage-policy).

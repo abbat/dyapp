@@ -49,11 +49,12 @@ There are no other targets (no `ui-test-all`, no npm). Details: [testing](../tes
 
 ## Local check output
 
-A staged shared wrapper, `scripts/run-check.py <check-id> -- <command> ...`,
+The shared wrapper, `scripts/run-check.py <check-id> -- <command> ...`,
 prints `OK` or `FAIL`/`FIX`/`DETAILS` and keeps raw logs separately. Its check map
 and documentation anchors are validated; [contract and rollout](../development/code-quality.md#check-output).
 Core Python checks have concise defaults and explicit `--raw` compatibility;
-trigger diff mode keeps its data output. Other entry points migrate in stages.
+trigger diff mode keeps its data output. The [complete inventory](../development/check-output.md)
+names quiet entry points, stage owners and explicit data consumers.
 
 Make suppresses recipe echo; `make -n TARGET` still shows the command plan.
 Shell aggregates (`docker-test.sh`, `ui-test.sh`, `check-quality.sh`) and the
@@ -87,10 +88,10 @@ remain in the JSON/LCOV/text reports. `bash scripts/rust-check.sh --raw STAGE`
 selects the previous direct-tool output for diagnosis or an existing data consumer.
 Other commands that invoke tools directly keep their existing output.
 
-`network-test.py --local BIN_DIR` captures each local node's stdout/stderr in memory with the
-same head and tail limits, one capture per port across restarts; suite result lines still
-print. A failure prints every node's output under a `--- node PORT ---` header.
-`DYAPP_VERBOSE=1` restores node streaming.
+`network-test.py --local BIN_DIR` also defaults to the mapped quiet result. Its raw
+mode captures each node's stdout/stderr with the same head and tail limits, one
+capture per port across restarts. Raw failure evidence includes node-port headers;
+`--raw` with `DYAPP_VERBOSE=1` restores direct node streaming.
 
 ## Limits to keep in mind
 
