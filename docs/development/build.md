@@ -115,8 +115,16 @@ IPA members live under `Payload/DYApp.app/`; macOS ZIP members under `DYApp.app/
 Member order and timestamps are normalized; executable modes and internal
 symlinks are preserved. Links outside the app, archive paths inside it and
 existing archive outputs are rejected. Package structure checks cover platform,
-architecture and filesystem layout. Native Release producers, actual package
-measurements, size gates, signing and notarization remain planned.
+architecture and filesystem layout.
+
+`release-sizes.yml` requests native macOS-15 Release builds for device iOS arm64
+and universal macOS arm64/x86_64. It calls `build-apple-core.sh` with `release`
+(`ios-device` omits simulator libraries), generates the existing Xcode projects,
+and runs `scripts/apple-release-in-ci.py <ios|macos>` with
+`CODE_SIGNING_ALLOWED=NO`. The producer builds configuration `Release`, packages
+the app and records bytes/hash/source/compiler in `measurement.json`, together
+with Xcode version and captured logs. Actual native measurements and matching
+Apple size gates remain pending; signing and notarization remain planned.
 
 ## What a working build would need (roadmap)
 
@@ -124,8 +132,9 @@ Not implemented. This is the order in which the gaps block each other:
 
 1. Build `dyapp-ffi` instead of the four internal crates.
 2. **iOS and macOS:** done in `scripts/build-apple-core.sh` (Swift bindings and an
-   XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); release builds,
-   signing and an App Store archive are not.
+   XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); explicit Release
+   core/package production is configured for native CI and awaits measurement.
+   Signing, notarization and App Store distribution remain planned.
 3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
    requests unsigned APK/AAB; missing offline Release lint dependencies currently

@@ -54,18 +54,20 @@ build; the Docker unit-test run uses it because it has no Rust sources.
 
 ## Apple
 
-`scripts/build-apple-core.sh [ios|macos]` runs on macOS with Xcode; without an
-argument it builds all three slices. Outputs land in `target/apple`:
+`scripts/build-apple-core.sh [ios|ios-device|macos|all] [debug|release]` runs
+on macOS with Xcode. The defaults remain `all debug`; `ios-device` builds only
+the device slice. `release` optimizes the target static libraries while the host
+binding generator stays in the dev profile. Outputs land in `target/apple`:
 
 | Step | Runs | Output |
 |------|------|--------|
 | Bindings | `cargo build --locked -p dyapp-ffi --target <host>`, then `uniffi-bindgen generate --library …/libdyapp_ffi.dylib --language swift` | `swift/dyapp.swift`; `headers/dyappFFI.h` and `headers/module.modulemap` (module `dyappFFI`) |
-| Static libraries | `cargo rustc --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `target/<t>/debug/libdyapp_ffi.a` |
+| Static libraries | `cargo rustc <profile flags> --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `target/<t>/<debug-or-release>/libdyapp_ffi.a` |
 | Slices | `lipo` merges the architectures of one platform: `ios` = `aarch64-apple-ios`; `ios-simulator` = `aarch64-apple-ios-sim` + `x86_64-apple-ios`; `macos` = `aarch64-apple-darwin` + `x86_64-apple-darwin` | `<slice>/libdyapp_ffi.a` |
 | XCFramework | `xcodebuild -create-xcframework` with one `-library`/`-headers` pair per slice | `DyappFFI.xcframework` |
 
-The libraries are unoptimised builds without debuginfo, built for iOS 14 and
-macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
+The default libraries are unoptimised dev builds without debuginfo; `release`
+uses the workspace release profile. Both target iOS 14 and macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
 deployment targets. `ios/project.yml` and `macos/project.yml` compile
 `target/apple/swift/dyapp.swift` into the app and link the XCFramework without
 embedding it, so run the script before XcodeGen. There is no Xcode build phase:
@@ -95,7 +97,7 @@ Android build does not use it.
 
 ## What is not implemented
 
-- Optimised (release) Apple libraries; the script builds the dev profile only.
+- Signed/notarized Apple release distribution; the release producer measures unsigned CI packages.
 - A drift check of the generated interface; the UI tests only call it.
 - FFI tests beyond the Android, iOS and macOS UI tests, which check the peer ID
   from `generate_peer_id`.

@@ -75,6 +75,10 @@ it archives `release-size-windows.json` and `artifact-size-windows.json`.
 The Windows gate uses the measured unsigned EXE baseline from the successful
 [native producer run](https://github.com/abbat/dyapp/actions/runs/38744833534),
 with the exact `HEAD^..HEAD` source range. Push/debug smoke CI is separate.
+Apple jobs in the same workflow request unsigned iOS device and universal macOS
+Release packages with optimized Rust core libraries. They archive measurement
+JSON, Xcode version and captured logs; actual package evidence and Apple budgets
+remain pending ([producer details](build.md#unsigned-apple-release-packages)).
 
 All-platform producer integration is planned; D5 is not yet adopted. Android
 APK/AAB, iOS IPA and the remaining desktop builds need actual release measurements

@@ -49,3 +49,50 @@ jobs:
             target/release-size-windows.json
             target/artifact-size-windows.json
           if-no-files-found: error
+
+  apple:
+    name: release - ${{ matrix.platform }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            core: ios-device
+            targets: aarch64-apple-ios
+          - platform: macos
+            core: macos
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
+        with:
+          toolchain: '1.99.0'
+          targets: ${{ matrix.targets }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: release-${{ matrix.platform }}
+      - name: release core
+        run: bash scripts/build-apple-core.sh "${{ matrix.core }}" release
+      - name: prepare xcode
+        run: |
+          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "${{ matrix.platform }}/project.yml" --project "${{ matrix.platform }}"
+      - name: build and measure
+        run: python3 -B scripts/apple-release-in-ci.py "${{ matrix.platform }}"
+      - name: evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-size-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.json
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.txt
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.log
+          if-no-files-found: error
+

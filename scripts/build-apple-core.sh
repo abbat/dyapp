@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds rust/ffi into target/apple/DyappFFI.xcframework and generates its Swift bindings into
 # target/apple/swift; both are build outputs. Needs macOS with Xcode and the Rust targets below.
-# `ios` builds the device and simulator slices, `macos` the macOS slice, no argument all three.
+# ios includes simulators; ios-device omits them. Optional second argument: debug|release.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out=target/apple
@@ -9,9 +9,16 @@ out=target/apple
 export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=14.0 MACOSX_DEPLOYMENT_TARGET=11.0
 case ${1:-all} in
     ios) slices=(ios ios-simulator) ;;
+    ios-device) slices=(ios) ;;
     macos) slices=(macos) ;;
     all) slices=(ios ios-simulator macos) ;;
-    *) echo "usage: $0 [ios|macos]" >&2; exit 2 ;;
+    *) echo "usage: $0 [ios|ios-device|macos|all] [debug|release]" >&2; exit 2 ;;
+esac
+profile=${2:-debug}
+case $profile in
+    debug) cargo_profile=(--profile dev) ;;
+    release) cargo_profile=(--release) ;;
+    *) echo "unknown Apple core profile: $profile" >&2; exit 2 ;;
 esac
 # One slice per platform; lipo merges the architectures of one platform. No associative arrays:
 # macOS ships bash 3.2.
@@ -37,8 +44,8 @@ args=()
 for slice in "${slices[@]}"; do
     libs=()
     for target in $(targets "$slice"); do
-        cargo rustc --locked -p dyapp-ffi --lib --crate-type staticlib --target "$target"
-        libs+=("target/$target/debug/libdyapp_ffi.a")
+        cargo rustc "${cargo_profile[@]}" --locked -p dyapp-ffi --lib --crate-type staticlib --target "$target"
+        libs+=("target/$target/$profile/libdyapp_ffi.a")
     done
     mkdir -p "$out/$slice"
     lipo -create "${libs[@]}" -output "$out/$slice/libdyapp_ffi.a"
