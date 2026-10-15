@@ -53,6 +53,20 @@ class Lint(unittest.TestCase):
         self.assertEqual(CHECK.orphans(documents, files),
                          ["docs/c.md", "docs/img.png"])
 
+    def test_size_budgets(self):
+        size = {"max_lines": 2, "files": {"big.rs": 3, "gone.rs": 5}}
+        texts = {"big.rs": "\n" * 3, "a.py": "\n" * 2, "doc.md": "\n" * 9}
+        self.assertEqual(CHECK.size_errors(texts, size),
+                         ["gone.rs: budgeted but not tracked"])
+        texts.update({"big.rs": "\n" * 4, "a.py": "\n" * 3})
+        self.assertEqual(CHECK.size_errors(texts, size), [
+            "a.py: 3 > 2 lines", "big.rs: 4 > 3 lines",
+            "gone.rs: budgeted but not tracked"])
+        texts = {"big.rs": "\n", "gone.rs": "\n" * 4}
+        self.assertEqual(CHECK.size_errors(texts, size), [
+            "big.rs: 1 lines, lower its budget (or drop it)",
+            "gone.rs: 4 lines, lower its budget"])
+
 
 if __name__ == "__main__":
     unittest.main()

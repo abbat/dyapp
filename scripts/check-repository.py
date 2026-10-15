@@ -4,6 +4,7 @@ from pathlib import Path, PurePosixPath
 import posixpath
 import re
 import subprocess
+import tomllib
 from urllib.parse import unquote
 
 import yaml
@@ -29,6 +30,9 @@ FORBID = re.compile(r'^\[lints\]\nworkspace = true$'
 DOCUMENTED = re.compile(r'^undocumented_unsafe_blocks = "deny"$', re.M)
 UNSAFE = {"rust/bootstrap/Cargo.toml": DOCUMENTED,
           "rust/ffi/Cargo.toml": DOCUMENTED}
+# Practice B6: source files whose line count is budgeted.
+SOURCE = {".rs", ".py", ".sh", ".kt", ".kts", ".swift", ".ts", ".tsx", ".js",
+          ".mjs", ".proto"}
 SCOPE = re.compile(r"^[\w./-]+: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
@@ -160,6 +164,25 @@ def commit_errors(allowed):
     return errors
 
 
+def size_errors(texts, size):
+    """Source files over size["max_lines"] must match size["files"]."""
+    limit, budgets = size["max_lines"], size.get("files", {})
+    errors = []
+    for name, text in sorted(texts.items()):
+        if PurePosixPath(name).suffix not in SOURCE:
+            continue
+        lines = text.count("\n")
+        budget = budgets.get(name, limit)
+        if lines > budget:
+            errors.append(f"{name}: {lines} > {budget} lines")
+        elif name in budgets and lines < budget:
+            drop = " (or drop it)" if lines <= limit else ""
+            errors.append(f"{name}: {lines} lines, lower its budget{drop}")
+    errors += [f"{name}: budgeted but not tracked"
+               for name in sorted(budgets.keys() - texts.keys())]
+    return errors
+
+
 def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -233,9 +256,14 @@ def main():
     lines = texts["AGENTS.md"].count("\n")
     if lines > AGENTS_LINES:
         raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
+    size = tomllib.loads(texts["scripts/baselines.toml"])["size"]
+    errors = "\n".join(size_errors(texts, size))
+    if errors:
+        raise ValueError(f"Size budgets ([size] in baselines.toml):\n{errors}")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, crates follow the unsafe "
-          "policy, no tracker IDs; "
+          f"policy, no tracker IDs, source files <= {size['max_lines']} "
+          "lines or their budget; "
           f"{len(documents)} Markdown files: relative links "
           f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
           f"{AGENTS_LINES} lines; commit messages after the baseline follow "

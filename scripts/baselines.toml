@@ -1,6 +1,20 @@
 # Ratchet baselines: a check fails when its metric gets worse than the value here.
-# Raise a value when the metric improves; lowering one weakens a check.
+# Tighten a value when the metric improves; loosening one weakens a check.
 
 [coverage]
 # Workspace line coverage, percent (scripts/check_coverage.py).
 lines = 87.8
+
+[size]
+# Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).
+max_lines = 1000
+
+[size.files]
+# Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
+"rust/bootstrap/src/config.rs" = 1250
+"rust/bootstrap/src/media_repair.rs" = 1008
+"rust/bootstrap/src/node.rs" = 3752
+"rust/bootstrap/src/search.rs" = 1280
+"rust/bootstrap/src/service.rs" = 4400
+"rust/bootstrap/tests/protocol.rs" = 1594
+"rust/p2p-net/src/lib.rs" = 1599

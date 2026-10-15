@@ -16,6 +16,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Shell | ShellCheck on `scripts/*.sh` | none (defaults) | yes | — | enforced |
 | Secrets | gitleaks on the git history | `.gitleaksignore` | yes | — | enforced |
 | Commit messages, tracker IDs | `scripts/check-repository.py` ([rules](code-quality.md#commit-messages)) | `BASELINE` in the script | yes | — | enforced after the baseline commit |
+| Source file size | `scripts/check-repository.py` ([rules](code-quality.md#size-budgets)) | `[size]` in `scripts/baselines.toml` | yes | — | 1000 lines; older files budgeted |
 | Trigger list | `scripts/triggers.py` ([rules](code-quality.md#trigger-list)) | `scripts/triggers.toml` | yes | — | enforced: every glob matches a tracked file |
 | Docs with the code | `scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits after the baseline |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
