@@ -12,7 +12,10 @@ Search filter/place/scan-budget and invalid-condition unit tests live in
 `src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
 Record lifecycle, heartbeats, expiry and eviction tests live in
 `src/search/lifecycle.rs`. Shared helpers are visible only to sibling test
-modules. These extractions preserve runtime behavior, schema and assertions.
+modules. Digest mutation and inventory boundary cases live in `src/search/digest.rs`;
+the existing digest-rebuild fixture remains in `search.rs`. Every search source
+file now meets the 1000-line limit without an exception. These extractions
+preserve runtime behavior, schema and assertions.
 
 | Layer | What runs | Where | Command | In CI |
 |-------|-----------|-------|---------|-------|
