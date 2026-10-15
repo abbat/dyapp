@@ -35,6 +35,18 @@ The check reads committed history, so a bad message fails the next `make quality
 `git commit --amend` or a rebase before pushing. A clone without the baseline commit (shallow)
 fails the check.
 
+### Flow metrics
+
+`scripts/flow_metrics.py` provides deterministic A7 calculations over local snapshots.
+It measures seven-day UTC cohorts: created-to-closed lead hours (nearest-rank p50/p85),
+closed leaf-work throughput, current WIP by assignee (the agent identity), canonical
+`ci.yml` main red intervals and recovery hours, revert and escape-hatch shares,
+and summed job execution minutes clipped to the week. WIP above 3 or red time above
+24 hours produces errors; empty rate/percentile samples are `null`. Older red periods
+retain their original start, and late results from old commits cannot clear newer failures.
+False positives require explicit boolean observations; four-week review due dates use
+adoption dates and explicit review records. Local collection and the command are planned.
+
 ### Small batches
 
 `scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
