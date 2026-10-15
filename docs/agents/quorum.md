@@ -125,7 +125,8 @@ Mode:         audit (design / decisions / code) | brainstorm (before a feature) 
 Scope:        paths, docs, ADRs in scope
 Out of scope: what participants must not dig into
 Inputs:       artifacts to start from
-Snapshot:     commit every participant reviews; lean-ctx indexes are built for it
+Snapshot:     full 40-character commit every participant reviews
+Diff base:    full 40-character ancestor commit for an A6 delivery review
 Participants: <model>, <model>, ...
 Synthesizer:  <model>
 Budget:       guidance, e.g. "≤ N top-level spikes" or "stop when spikes stop yielding proposals"
@@ -199,6 +200,39 @@ Start when every participant posted "phase 2 complete" and no spike under `Q` is
 6. Post a summary on `Q`: planned, merged, rejected, escalated. Present the plan and escalations
    to the human.
 7. After the human approves: close every `M` and `Q` with a reason.
+
+## A6 delivery gate
+
+Before pushing or merging, run the local read-only gate over the exact delivery
+range from the current upstream base to the reviewed head:
+
+```bash
+python3 -B scripts/quorum-check.py --base <base> --head HEAD --quorum <Q> \
+  --report /tmp/ai/quorum-delivery.json
+```
+
+The working tree must be clean. The checker uses the union of the base and head
+trigger lists, so narrowing the list in the change cannot hide an older trigger.
+A triggered range requires a closed quorum epic, exact raw SHA values in
+`Snapshot:` and `Diff base:`, and at least two distinct closed participant epics.
+Withdrawn participants do not count. A new head or base requires a new matching review.
+The operator also checks charter scope, phase logs, objections and human-approved
+closure against the procedure above; closed beads attest to the review, not its quality.
+
+For changes that **only add or tighten checks**, `--checks-tightening` records
+the operator's explicit classification and needs no quorum, following
+[the shared practice rules](../development/practices.md#rules-shared-by-all-practices).
+Never use it for weakening a check. It cannot bypass another trigger, protected
+escape-hatch use, or `Quorum: not-needed`. Protected trailers and common added
+skip/allow annotations are detected conservatively; future hatches need policy updates.
+If classification is uncertain, obtain a quorum. This classification is semantic
+and cannot be proved automatically by a path detector.
+
+The gate emits JSON and exits nonzero on missing/mismatched review or unreadable
+data. It never creates, closes or pushes beads. CI tests the checker but cannot
+validate the private local database; this is a local semi-automatic delivery rule,
+not an installed Git hook or verified GitHub branch protection. Keep reports private
+and never put quorum IDs into commit messages or tracked files.
 
 ## Starting a session
 

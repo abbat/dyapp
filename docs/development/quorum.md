@@ -36,7 +36,9 @@ In any session, in the repository root:
 Read docs/agents/quorum.md. Open a quorum on: <question>. Draft the charter with me.
 ```
 
-Agree on scope, participants, synthesizer and budget; the snapshot is the current commit. Keep
+Agree on scope, participants, synthesizer and budget; the snapshot is the current commit.
+For an A6 delivery review, also record the full upstream `Diff base:` SHA in the charter.
+Keep
 your own hypotheses out of the charter: they anchor every participant. The model creates the
 quorum epic and gives you `<Q>`.
 
