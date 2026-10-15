@@ -67,6 +67,13 @@ after reductions; increasing a budget weakens a check and is governed by
 [A6](code-quality.md#trigger-list). Every delivery still runs the local A6 gate;
 a hatch in a trigger path needs closed quorum proof, not only a reason.
 
+`scripts/report-artifact-size.py` collects bytes, SHA-256, source revision,
+Rust compiler and platform without claiming that a budget passed. Missing/empty
+files or unavailable provenance fail. `release-sizes.yml` schedules a native
+Windows 2022 unsigned Release EXE producer at 04:17 UTC and on manual dispatch;
+it archives `release-size-windows.json`. Its measured Windows baseline and gate
+are planned after a successful real producer run. Push/debug smoke CI is separate.
+
 All-platform producer integration is planned; D5 is not yet adopted. Android
 APK/AAB, iOS IPA and the remaining desktop builds need actual release measurements
 and matching CI gates before that claim can be made.
