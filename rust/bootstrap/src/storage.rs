@@ -156,6 +156,7 @@ pub(crate) fn free(path: &str) -> Result<u64> {
     if unsafe { libc::statvfs(path.as_ptr(), fs.as_mut_ptr()) } != 0 {
         return Err(storage_error(std::io::Error::last_os_error()));
     }
+    // SAFETY: statvfs returned 0, so it initialised `fs`.
     let fs = unsafe { fs.assume_init() };
     // The statvfs field types differ between targets.
     #[allow(clippy::useless_conversion)]

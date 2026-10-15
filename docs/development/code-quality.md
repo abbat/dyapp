@@ -81,13 +81,23 @@ install while `core.hooksPath` is set (check with `git config core.hooksPath`); 
 ## Rust lints
 
 Gate: `cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings`,
-i.e. clippy's default lint groups as errors. No `[lints]` table, `clippy.toml` or crate-level
-`#![deny]` adds more, so pedantic and restriction lints (`unwrap_used`, `panic`,
+i.e. clippy's default lint groups as errors. Apart from the unsafe policy below, no `[lints]`
+table, `clippy.toml` or crate-level `#![deny]` adds more, so pedantic and restriction lints (`unwrap_used`, `panic`,
 `arithmetic_side_effects`, `cast_possible_truncation`, …) are **not** enforced by `make quality`.
 `codeql.yml` additionally fails on `clippy::pedantic`; see [linting.md](linting.md#rust).
 
-There is no `unsafe` code in `rust/` or `src/`, and no lint forbids adding it. If you add any,
-put a `// SAFETY:` comment on each block stating the invariant the caller must uphold.
+### Unsafe policy
+
+`unsafe_code = "forbid"` applies to every crate except two:
+
+- workspace members via `[workspace.lints.rust]` in the root `Cargo.toml` and `[lints] workspace =
+  true`; `linux/`, `windows/` and `tools/arch-lint` set it in their own `[lints.rust]`;
+- `rust/bootstrap` (libc calls) and `rust/ffi` (uniffi generates `#[no_mangle]`) instead deny
+  `clippy::undocumented_unsafe_blocks`: each `unsafe` block needs a `// SAFETY:` comment stating
+  the invariant that makes it sound.
+
+`scripts/check-repository.py` fails when a crate's `Cargo.toml` lacks its policy, so a new crate
+cannot skip it. Adding `unsafe` code is a change trigger (see [Trigger list](#trigger-list)).
 
 Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
 

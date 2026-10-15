@@ -24,6 +24,11 @@ BASELINE = "39c3e3fd8642497fca3003efa97bafd75008268f"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80
+FORBID = re.compile(r'^\[lints\]\nworkspace = true$'
+                    r'|^unsafe_code = "forbid"$', re.M)
+DOCUMENTED = re.compile(r'^undocumented_unsafe_blocks = "deny"$', re.M)
+UNSAFE = {"rust/bootstrap/Cargo.toml": DOCUMENTED,
+          "rust/ffi/Cargo.toml": DOCUMENTED}
 SCOPE = re.compile(r"^[\w./-]+: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
@@ -200,6 +205,11 @@ def main():
                 raise ValueError(f"No top-level permissions: {name}")
         elif path.suffix == ".md":
             documents[name] = text
+        elif path.name == "Cargo.toml" and "[package]" in text:
+            # Practice C5: unsafe is forbidden outside the UNSAFE allow-list.
+            policy = UNSAFE.get(name, FORBID)
+            if not policy.search(text):
+                raise ValueError(f"No unsafe lint policy: {name}")
         texts[name] = text
         checked += 1
     if not checked:
@@ -224,7 +234,8 @@ def main():
     if lines > AGENTS_LINES:
         raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
-          "workflows set top-level permissions, no tracker IDs; "
+          "workflows set top-level permissions, crates follow the unsafe "
+          "policy, no tracker IDs; "
           f"{len(documents)} Markdown files: relative links "
           f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
           f"{AGENTS_LINES} lines; commit messages after the baseline follow "

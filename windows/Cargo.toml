@@ -14,3 +14,6 @@ tauri-build = { version = "=2.7.0", features = [] }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[lints.rust]
+unsafe_code = "forbid"

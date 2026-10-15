@@ -10,3 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 # No external dependencies needed for basic linting
+
+[lints.rust]
+unsafe_code = "forbid"

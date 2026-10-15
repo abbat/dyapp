@@ -50,3 +50,7 @@ path = "../../tests/integration_tests.rs"
 proptest = "1.4"
 dyapp-messaging = { path = "../messaging" }
 dyapp-video = { path = "../video" }
+
+[lints.clippy]
+# Practice C5: the only crate with unsafe; each block carries a `// SAFETY:` comment.
+undocumented_unsafe_blocks = "deny"

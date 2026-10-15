@@ -9,7 +9,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
 |----------|------|--------|-----------------------------------|----------|--------|
-| Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`, no `[lints]` table) | yes | `codeql.yml` (clippy, see below) | enforced |
+| Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`; `[lints]` only for the [unsafe policy](code-quality.md#unsafe-policy)) | yes | `codeql.yml` (clippy, see below) | enforced |
 | Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
 | GitHub Actions security | zizmor (offline audits) | `.github/zizmor.yml` | yes | — | enforced |
