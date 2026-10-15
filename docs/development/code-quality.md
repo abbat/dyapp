@@ -34,7 +34,12 @@ The quality/security commands in `rust-check.sh` use this wrapper. JSON report
 files remain available; multiline failed-Cargo JSON errors select diagnostics
 without passing compilation progress. Native CI archives raw logs as
 `quality-check-output` and `core-check-output`; local logs remain in the target
-volume. Standalone checker defaults and other test/platform stages migrate next.
+volume. Core repository, batch, docs-sync, trigger-validation and panic/doc-budget CLIs
+also use concise defaults. Add `--raw` for their previous machine output; quality
+passes this flag to its enclosing wrapper. Trigger diff arguments retain their
+existing data API, and help passes through. Imports remain quiet. Standalone
+frontends use `DYAPP_CHECK_LOG_DIR` or a writable temporary `ai/check-output`
+location, so read-only checkouts work. Result verifiers and other stages migrate next.
 
 ### Commit messages
 

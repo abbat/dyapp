@@ -4,6 +4,7 @@ from collections import Counter
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,4 +105,7 @@ def main():
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+
+    wrap("public-docs" if "--public-docs" in sys.argv else "panics")
     raise SystemExit(main())

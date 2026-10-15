@@ -73,4 +73,7 @@ def main(args):
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+
+    wrap("triggers", data=bool(sys.argv[1:]))
     main(sys.argv[1:])

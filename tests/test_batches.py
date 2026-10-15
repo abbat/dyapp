@@ -65,12 +65,14 @@ class Batches(unittest.TestCase):
 
         result, report = run(base)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "OK batches\n")
         self.assertEqual(report["commits"][0]["lines"], 400)
         self.assertEqual(report["large_percent"], 0)
         # Removing 400 lines and adding one is 401, not a net change of 399.
         bad = commit("replacement\n", "Replace code")
         result, report = run(base)
         self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue(result.stdout.startswith("FAIL batches:"))
         self.assertIn("401 > 400", report["errors"][0])
         self.assertEqual(report["large_percent"], 50)
         commit("new\n" * 400, "Replace code\n\nLarge-Change: \n")

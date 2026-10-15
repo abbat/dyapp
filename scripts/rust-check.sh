@@ -22,10 +22,10 @@ check() {
 step() {
     case "$1" in
         quality)
-            check batches python3 -B scripts/check-batches.py --report target/batches.json
-            check repository python3 -B scripts/check-repository.py
-            check triggers python3 -B scripts/triggers.py
-            check docs-sync python3 -B scripts/docs-sync.py
+            check batches python3 -B scripts/check-batches.py --raw --report target/batches.json
+            check repository python3 -B scripts/check-repository.py --raw
+            check triggers python3 -B scripts/triggers.py --raw
+            check docs-sync python3 -B scripts/docs-sync.py --raw
             check actionlint actionlint
             check zizmor zizmor --offline --no-progress .github
             # Secrets in the whole git history (CI checks out with fetch-depth 0).
@@ -43,8 +43,8 @@ step() {
             check cargo-shear cargo shear
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
-            check panics python3 -B scripts/check-panics.py
-            check public-docs python3 -B scripts/check-panics.py --public-docs
+            check panics python3 -B scripts/check-panics.py --raw
+            check public-docs python3 -B scripts/check-panics.py --raw --public-docs
             check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;

@@ -306,4 +306,7 @@ def main():
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+
+    wrap("repository")
     main()
