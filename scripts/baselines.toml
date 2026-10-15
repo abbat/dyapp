@@ -23,7 +23,7 @@ max_lines = 400
 [public_docs]
 # Staged B9: authored missing_docs sites; generated policy and global deny are planned.
 "dyapp-bootstrap" = 151
-"dyapp-ffi" = 30
+"dyapp-ffi" = 0
 "dyapp-identity" = 11
 "dyapp-messaging" = 68
 "dyapp-p2p-net" = 55
