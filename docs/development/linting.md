@@ -41,8 +41,9 @@ cargo clippy --workspace --all-features --all-targets --locked --offline -- -D w
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. `pedantic`, `nursery` and `restriction` lints (for example
-`unwrap_used`, `panic`, `arithmetic_side_effects`) are **not** enabled anywhere in the workspace,
-so they are not enforced.
+`arithmetic_side_effects`) are not generally enabled. A separate
+[B8 check](code-quality.md#explicit-panic-budgets) force-enables `unwrap_used`,
+`expect_used` and `panic` on non-test workspace targets and enforces their budgets.
 
 `codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings`, so
 pedantic findings fail that job, and a second clippy run converts its JSON output to SARIF for code

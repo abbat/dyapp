@@ -37,6 +37,7 @@ step() {
             cargo shear
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+            python3 -B scripts/check-panics.py
             RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;

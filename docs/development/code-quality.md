@@ -146,10 +146,28 @@ install while `core.hooksPath` is set (check with `git config core.hooksPath`); 
 ## Rust lints
 
 Gate: `cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings`,
-i.e. clippy's default lint groups as errors. Apart from the unsafe policy below, no `[lints]`
-table, `clippy.toml` or crate-level `#![deny]` adds more, so pedantic and restriction lints (`unwrap_used`, `panic`,
-`arithmetic_side_effects`, `cast_possible_truncation`, …) are **not** enforced by `make quality`.
+i.e. clippy's default lint groups as errors. The unsafe policy and explicit panic
+budgets below add targeted rules. Other pedantic/restriction lints (such as
+`arithmetic_side_effects` and `cast_possible_truncation`) are not generally enforced.
 `codeql.yml` additionally fails on `clippy::pedantic`; see [linting.md](linting.md#rust).
+
+### Explicit panic budgets
+
+Practice B8 runs `scripts/check-panics.py` in `make quality` and CI after the
+normal Clippy gate. It checks all-feature workspace libraries, binaries and their
+build scripts, excluding test targets, dependencies and generated files under
+Cargo's target directory. Clippy `unwrap_used`, `expect_used` and `panic` use
+`--force-warn`, so an `allow` attribute cannot hide a counted site.
+Repeated diagnostics for the same package/lint/source span count once.
+
+`[panics]` in `scripts/baselines.toml` records each crate's budget. FFI must
+stay at zero; other crates, including p2p-net, initially ratchet their existing
+sites. Growth fails; shrinking requires lowering the budget in the same commit.
+A missing package/budget or failed/incomplete Clippy run fails rather than
+reporting zero. Details are saved in `target/panics.json` (CI artifact
+`panic-budgets` when this check ran). Platform crates outside the workspace are
+not covered. These three lints do not prove runtime panic freedom: indexing,
+assertions, allocation failure and transitive dependency panics are outside this check.
 
 ### Unsafe policy
 

@@ -1,3 +1,4 @@
-fn main() {
-    uniffi::generate_scaffolding("src/dyapp.udl").expect("generate UniFFI namespace scaffold");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    uniffi::generate_scaffolding("src/dyapp.udl")?;
+    Ok(())
 }

@@ -36,6 +36,13 @@ jobs:
           name: commit-batches
           path: target/batches.json
           if-no-files-found: error
+      - name: panic budget report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: panic-budgets
+          path: target/panics.json
+          if-no-files-found: warn
 
   core:
     name: build

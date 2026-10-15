@@ -10,6 +10,16 @@ lines = 87.8
 base = "ddb52cbe7ba4ed114eb1cc8f8c053f6639c851f1"
 max_lines = 400
 
+[panics]
+# B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
+"dyapp-bootstrap" = 50
+"dyapp-ffi" = 0
+"dyapp-identity" = 1
+"dyapp-messaging" = 4
+"dyapp-p2p-net" = 4
+"dyapp-profile" = 2
+"dyapp-video" = 4
+
 [size]
 # Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).
 max_lines = 1000
