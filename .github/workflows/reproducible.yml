@@ -19,8 +19,12 @@ jobs:
         include:
           - target: dyappd
             setup: rust
+            binary: dyappd
+            budget: dyappd-ubuntu24-x86_64-release
           - target: linux
             setup: linux
+            binary: dyapp-linux
+            budget: linux-ubuntu24-x86_64-release
     env:
       CARGO_BUILD_JOBS: "4"
       CMAKE_BUILD_PARALLEL_LEVEL: "4"
@@ -31,11 +35,34 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # Size-Increase must belong to the actual change range
       - name: setup
         run: bash scripts/ci-setup.sh "${{ matrix.setup }}"
       # No Cargo build cache: both target directories must start empty.
       - name: compare
         run: python3 -B scripts/check-reproducible.py "${{ matrix.target }}"
+      - name: size budget
+        env:
+          TARGET: ${{ matrix.target }}
+          BINARY: ${{ matrix.binary }}
+          BUDGET: ${{ matrix.budget }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          target = os.environ["TARGET"]
+          data = json.loads(Path(f"target/reproducible-{target}.json").read_text())
+          binary = Path(data["builds"][0]["directory"]) / "release" / os.environ["BINARY"]
+          base = subprocess.check_output(["git", "rev-parse", "HEAD^"], text=True).strip()
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          subprocess.run([
+              "python3", "-B", "scripts/check-artifact-size.py",
+              os.environ["BUDGET"], str(binary), "--base", base, "--head", head,
+              "--report", f"target/artifact-size-{target}.json",
+          ], check=True)
+          PY
       - name: evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -43,5 +70,6 @@ jobs:
           name: reproducible-${{ matrix.target }}
           path: |
             target/reproducible-*.json
+            target/artifact-size-*.json
             target/reproducible/**/build-*.log
           if-no-files-found: error

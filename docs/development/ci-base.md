@@ -52,13 +52,20 @@ not authorize later growth. Missing/empty files, unknown artifact names, invalid
 budgets, shallow history and unavailable/non-ancestor revisions fail closed.
 Reports include measured bytes, baseline environment, growth and exception reasons.
 
-The initial inventory contains only the release `dyappd` and Linux executables
-measured in the existing prepared x86_64 images. These are not native Ubuntu,
-mobile, macOS or Windows baselines. Use the same environment and profile for each
-named artifact, and collect a separate measured baseline when the producer differs.
-The checker never edits budgets. Lower them after size reductions; increasing a
-budget is a check weakening governed by [A6](code-quality.md#trigger-list).
-A size exception also needs the normal A6 review; its trailer alone is not review.
+The inventory separates prepared-image and native Ubuntu release `dyappd`/Linux
+baselines. Native measurements come from the successful
+[release comparison run](https://github.com/abbat/dyapp/actions/runs/38741437870).
+`reproducible.yml` checks the real first output of each verified pair against its
+matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
+and manual runs use the single source commit range `HEAD^..HEAD`, recorded as
+full SHAs; an exception in an older commit cannot authorize new growth. Update
+the reviewed budget for a lasting increase rather than relying on an old trailer.
+
+Use the same environment and profile for each named artifact; a new producer
+needs a separate measured baseline. The checker never edits budgets. Lower them
+after reductions; increasing a budget weakens a check and is governed by
+[A6](code-quality.md#trigger-list). Every delivery still runs the local A6 gate;
+a hatch in a trigger path needs closed quorum proof, not only a reason.
 
 All-platform producer integration is planned; D5 is not yet adopted. Android
 APK/AAB, iOS IPA and the remaining desktop builds need actual release measurements
