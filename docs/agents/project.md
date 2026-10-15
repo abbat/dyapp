@@ -72,8 +72,12 @@ stage.
 this automatically to preserve interaction and TTY behavior. Quiet checks disable the
 Compose TTY. Raw logs preserve output beyond the bounded diagnostic buffer.
 Long stages have no live progress in quiet mode; use verbose mode.
-Image builds use the same capture behavior. Commands that run tools directly in CI keep
-those tools' existing output.
+Image builds use the same capture behavior. Rust build/test/coverage/network/memory
+stages use the shared runner in Docker and native CI. Failed Rust tests retain
+their failure blocks without earlier passing-test progress; coverage numbers
+remain in the JSON/LCOV/text reports. `bash scripts/rust-check.sh --raw STAGE`
+selects the previous direct-tool output for diagnosis or an existing data consumer.
+Other commands that invoke tools directly keep their existing output.
 
 `network-test.py --local BIN_DIR` captures each local node's stdout/stderr in memory with the
 same head and tail limits, one capture per port across restarts; suite result lines still

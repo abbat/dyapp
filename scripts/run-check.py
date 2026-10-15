@@ -40,6 +40,13 @@ def diagnostics(text, policy):
         starts = [i for i, line in enumerate(lines)
                   if re.match(r"^[\w.]*(?:Error|Exception):", line)]
         return [line for line in lines[starts[-1]:] if line] if starts else []
+    if kind == "rust-test":
+        start = next((i for i, line in enumerate(lines)
+                      if line == "failures:"), None)
+        if start is not None:
+            return [line for line in lines[start:] if line]
+        pattern = r"^(?:error(?:\[[^]]+\])?:|\s*-->\s)"
+        return diagnostics(text, {"format": "lines", "pattern": pattern})
     if kind == "unittest":
         starts = [i for i, line in enumerate(lines)
                   if line.startswith(("FAIL:", "ERROR:"))]

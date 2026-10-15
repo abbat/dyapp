@@ -102,4 +102,18 @@ step() {
         *) echo "Unknown step: $1" >&2; exit 2 ;;
     esac
 }
-step "${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|network|memory|security}"
+if [[ ${1:-} != --raw ]]; then
+    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|network|memory|security}
+    case "$stage" in
+        quality|security) exec bash "$0" --raw "$@" ;;
+        build) policy=rust-build ;;
+        test|cov-build|cov-test) policy=rust-test ;;
+        coverage|cov-report) policy=rust-coverage ;;
+        network|memory) policy=rust-network ;;
+        *) policy=rust-build ;;
+    esac
+    check "$policy" bash "$0" --raw "$@"
+    exit
+fi
+shift
+step "${1:?step required}"

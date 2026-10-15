@@ -24,6 +24,14 @@ budget is covered separately by real TCP tests in `node.rs`, including pending h
 established connections, close/failure slot reuse, outgoing exemption and composed refusals.
 A 100-connection QUIC churn test checks guard reservations and groups return to zero.
 
+Network and memory stages print a concise result through `rust-check.sh`.
+On failure, open the retained raw log named by `DETAILS` to identify the failed
+protocol assertion or RSS sample, then use the corresponding coverage-map row
+to find its implementation. Reproduce with the command in the Layers table;
+`bash scripts/rust-check.sh --raw network` (or `memory`) keeps direct diagnostic
+output. Fix the underlying assertion or growth before rerunning; do not relax
+connection limits or the plateau tolerance to make a regression pass.
+
 ## Coverage map
 
 Status: **exists** = a test proves it today; **partial** = proved at a lower layer only;

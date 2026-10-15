@@ -108,7 +108,7 @@ def output_map_errors(entries, documents, exists):
         else:
             references.append(f"[{name}]({fix})")
         kind = entry.get("format")
-        if kind not in {"python", "json", "unittest", "lines"}:
+        if kind not in {"python", "json", "unittest", "rust-test", "lines"}:
             errors.append(f"{name}: unknown diagnostic format")
         if kind == "lines" or "pattern" in entry:
             try:
