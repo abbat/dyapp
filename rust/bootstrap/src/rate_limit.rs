@@ -1,3 +1,5 @@
+//! Request, ban, byte-rate and memory limits of the node.
+
 use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -7,12 +9,15 @@ use std::time::{Duration, Instant};
 /// Buckets kept before idle ones are dropped: bounds the map against rotating peer IDs.
 const MAX_BUCKETS: usize = 10_000;
 
+/// A request-rate bucket per key (peer ID, IP group or sender key), dropping idle ones past
+/// `MAX_BUCKETS`.
 pub struct PeerRateLimiter {
     limiters: Arc<RwLock<HashMap<String, (DefaultDirectRateLimiter, Instant)>>>,
     messages_per_second: u32,
 }
 
 impl PeerRateLimiter {
+    /// Allows `messages_per_second` units per key; zero panics on first use.
     pub fn new(messages_per_second: u32) -> Self {
         Self {
             limiters: Arc::new(RwLock::new(HashMap::new())),
@@ -20,6 +25,7 @@ impl PeerRateLimiter {
         }
     }
 
+    /// Charges one request to `peer_id`; false when its bucket is empty.
     pub fn check_limit(&self, peer_id: &str) -> bool {
         self.check_units(peer_id, 1)
     }
@@ -44,6 +50,7 @@ impl PeerRateLimiter {
         matches!(limiter.check_n(units), Ok(Ok(())))
     }
 
+    /// Keys with a bucket.
     pub fn get_active_peers(&self) -> usize {
         self.limiters.read().unwrap().len()
     }
@@ -84,6 +91,7 @@ impl Reputation {
         *count == self.strikes
     }
 
+    /// Whether `peer` is banned now.
     pub fn banned(&self, peer: &str) -> bool {
         let peers = self.peers.lock().unwrap();
         peers
@@ -100,6 +108,7 @@ pub struct Traffic {
 }
 
 impl Traffic {
+    /// A counter allowing `rate` bytes per second; 0 = no limit.
     pub fn new(rate: u64) -> Self {
         Self {
             rate,
@@ -158,6 +167,7 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// A sampler against `max` bytes; 0 = no limit.
     pub fn new(max: u64) -> Self {
         Self {
             max,

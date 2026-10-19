@@ -44,7 +44,6 @@ step() {
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
             check panics python3 -B scripts/check-panics.py --raw
-            check public-docs python3 -B scripts/check-panics.py --raw --public-docs
             check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;

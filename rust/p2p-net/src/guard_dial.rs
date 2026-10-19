@@ -15,6 +15,7 @@ pub struct GuardDial<T> {
 }
 
 impl<T> GuardDial<T> {
+    /// Wraps `inner`, charging each resolved dial target to `guard`.
     pub fn new(inner: T, guard: DialGuard) -> Self {
         Self { inner, guard }
     }

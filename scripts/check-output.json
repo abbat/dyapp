@@ -12,7 +12,6 @@
   "cargo-shear": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"(?i)unused|^\\s{2,}[\\w-]+\\s*$"},
   "clippy": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
   "panics": {"fix":"docs/development/code-quality.md#explicit-panic-budgets","format":"json","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s|.*panicked)"},
-  "public-docs": {"fix":"docs/development/code-quality.md#public-api-documentation-staged","format":"json","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s|.*panicked)"},
   "rustdoc": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
   "advisory-cache": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:mkdir:|cp:|error:)"},
   "advisory-db": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:fatal|error):"},

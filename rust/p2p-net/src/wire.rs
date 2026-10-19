@@ -24,7 +24,9 @@ const SLOTS: [&str; 10] = [
 /// Direction of a payload relative to this node.
 #[derive(Clone, Copy)]
 pub enum Dir {
+    /// Received.
     In = 0,
+    /// Sent.
     Out = 1,
 }
 
@@ -36,7 +38,9 @@ pub struct WireBytes([[AtomicU64; 2]; SLOTS.len()]);
 pub struct WireCounts(pub [[u64; 2]; SLOTS.len()]);
 
 impl WireBytes {
+    /// Slot of application gossip payloads.
     pub const GOSSIP: usize = 8;
+    /// Slot of unknown protocols.
     pub const OTHER: usize = 9;
 
     /// Slot for a protobuf request-response protocol, or `OTHER` for an unknown one.

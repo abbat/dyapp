@@ -1,3 +1,5 @@
+//! Profile and mailbox stores, and the SQLite helpers shared by every store.
+
 use crate::error::{BootstrapError, Result};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::VerifiedProfile;
@@ -180,6 +182,7 @@ impl BootstrapStore {
         Self::open(&dir.join("profiles.db"), &dir.join("messages.db"))
     }
 
+    /// Opens or creates the profile and mailbox databases.
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
         let profiles = open(
             profiles,
@@ -335,6 +338,7 @@ impl BootstrapStore {
         .transpose()
     }
 
+    /// The stored profile record of `peer_id`.
     pub fn get_profile(&self, peer_id: &str) -> Result<Option<SignedRecord>> {
         Self::profile(&*lock(&self.profiles)?, peer_id)
     }
@@ -372,6 +376,7 @@ impl BootstrapStore {
             .map_err(storage_error)
     }
 
+    /// Deletes envelopes expired at `now` (Unix seconds); returns how many.
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
         lock(&self.messages)?
             .execute("DELETE FROM `envelopes` WHERE `expires_at` <= ?", [now])
@@ -397,10 +402,12 @@ impl BootstrapStore {
         Ok(left)
     }
 
+    /// Bytes used by `profiles.db`, and bytes free on its file system.
     pub fn profiles_usage(&self) -> Result<(u64, u64)> {
         usage(&self.profiles)
     }
 
+    /// Bytes used by `messages.db`, and bytes free on its file system.
     pub fn messages_usage(&self) -> Result<(u64, u64)> {
         usage(&self.messages)
     }

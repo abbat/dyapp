@@ -40,33 +40,6 @@ class PanicBudgets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "successful Clippy"):
                 CHECK.count(metadata, rows)
 
-    def test_doc_mode_is_separate_from_the_panic_zero_rule(self):
-        metadata = {"packages": [{"id": "ffi", "name": "dyapp-ffi"}],
-                    "workspace_members": ["ffi"],
-                    "target_directory": str(ROOT / "target")}
-        row = message()
-        row["message"]["code"]["code"] = "missing_docs"
-        rows = [row, {"reason": "build-finished", "success": True}]
-        counts, _, _ = CHECK.count(metadata, rows, ("missing_docs",))
-        self.assertEqual(counts, {"dyapp-ffi": 1})
-        self.assertEqual(CHECK.errors(counts, counts, ffi_zero=False), [])
-        self.assertTrue(CHECK.errors(counts, counts))
-        errors = CHECK.errors(counts, {"dyapp-ffi": 0}, ffi_zero=False)
-        self.assertIn("> 0", errors[0])
-
-    def test_distinct_doc_kinds_at_one_start_span_are_not_collapsed(self):
-        metadata = {"packages": [{"id": "ffi", "name": "dyapp-ffi"}],
-                    "workspace_members": ["ffi"],
-                    "target_directory": str(ROOT / "target")}
-        crate, module = message(), message()
-        for row, kind in [(crate, "crate"), (module, "module")]:
-            row["message"]["code"]["code"] = "missing_docs"
-            row["message"]["message"] = f"missing documentation for a {kind}"
-        rows = [crate, module, crate,
-                {"reason": "build-finished", "success": True}]
-        counts, _, _ = CHECK.count(metadata, rows, ("missing_docs",))
-        self.assertEqual(counts, {"dyapp-ffi": 2})
-
     def test_ratchet_and_ffi_zero(self):
         counts = {"dyapp-ffi": 0, "other": 2}
         self.assertEqual(CHECK.errors(counts, counts), [])

@@ -1,17 +1,16 @@
-"""Ratchet panic lints (B8) or authored public-doc gaps (staged B9)."""
+"""Ratchet panic lints (B8)."""
 import argparse
 from collections import Counter
 import json
 from pathlib import Path
 import subprocess
-import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 LINTS = ("clippy::unwrap_used", "clippy::expect_used", "clippy::panic")
 
 
-def count(metadata, messages, lints=LINTS):
+def count(metadata, messages):
     packages = {p["id"]: p["name"] for p in metadata["packages"]
                 if p["id"] in metadata["workspace_members"]}
     counts = Counter(dict.fromkeys(packages.values(), 0))
@@ -25,7 +24,7 @@ def count(metadata, messages, lints=LINTS):
         message = item.get("message", {})
         code = (message.get("code") or {}).get("code")
         name = packages.get(item.get("package_id"))
-        if not name or code not in lints:
+        if not name or code not in LINTS:
             continue
         spans = []
         for span in message["spans"]:
@@ -37,8 +36,7 @@ def count(metadata, messages, lints=LINTS):
         if not spans:
             excluded[name] += 1
             continue
-        kind = message.get("message", "") if code == "missing_docs" else ""
-        key = name, code, kind, tuple(sorted(spans))
+        key = name, code, tuple(sorted(spans))
         if key not in seen:
             seen.add(key)
             counts[name] += 1
@@ -48,9 +46,9 @@ def count(metadata, messages, lints=LINTS):
     return dict(counts), locations, dict(excluded)
 
 
-def errors(counts, budgets, ffi_zero=True):
+def errors(counts, budgets):
     result = []
-    if ffi_zero and budgets.get("dyapp-ffi") != 0:
+    if budgets.get("dyapp-ffi") != 0:
         result.append("FFI panic budget must stay zero")
     for name in sorted(counts.keys() | budgets.keys()):
         if name not in counts or name not in budgets:
@@ -66,19 +64,15 @@ def errors(counts, budgets, ffi_zero=True):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path)
-    parser.add_argument("--public-docs", action="store_true")
     args = parser.parse_args()
-    mode = "public_docs" if args.public_docs else "panics"
-    filename = mode.replace("_", "-")
-    args.report = args.report or Path("target") / f"{filename}.json"
-    lints = ("missing_docs",) if args.public_docs else LINTS
+    args.report = args.report or Path("target") / "panics.json"
     result = {"errors": []}
     try:
         metadata = json.loads(subprocess.check_output(
             ["cargo", "metadata", "--no-deps", "--locked",
              "--format-version=1"],
             cwd=ROOT, text=True))
-        flags = [flag for lint in lints for flag in ("--force-warn", lint)]
+        flags = [flag for lint in LINTS for flag in ("--force-warn", lint)]
         run = subprocess.run(
             ["cargo", "clippy", "--workspace", "--all-features",
              "--lib", "--bins",
@@ -87,10 +81,10 @@ def main():
         if run.returncode:
             raise ValueError("Clippy failed: " + run.stderr[-4096:])
         messages = map(json.loads, run.stdout.splitlines())
-        counts, locations, excluded = count(metadata, messages, lints)
+        counts, locations, excluded = count(metadata, messages)
         policy = tomllib.loads((ROOT / "scripts/baselines.toml").read_text())
-        budgets = policy[mode]
-        failures = errors(counts, budgets, not args.public_docs)
+        budgets = policy["panics"]
+        failures = errors(counts, budgets)
         result.update({"counts": counts, "budgets": budgets,
                        "diagnostics": locations,
                        "excluded_diagnostics": excluded, "errors": failures})
@@ -107,5 +101,5 @@ def main():
 if __name__ == "__main__":
     from check_dispatch import wrap
 
-    wrap("public-docs" if "--public-docs" in sys.argv else "panics")
+    wrap("panics")
     raise SystemExit(main())

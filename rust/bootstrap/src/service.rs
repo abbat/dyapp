@@ -59,11 +59,15 @@ const SHED_MEMORY: u64 = 80;
 
 /// The remote side of a request: its libp2p peer ID and IP group (see `node::ip_group`).
 pub struct Peer {
+    /// libp2p peer ID.
     pub id: String,
+    /// IP group of the remote address.
     pub group: String,
 }
 
+/// Request handling of every role, shared by the swarm loop and the blocking pool.
 pub struct Service {
+    /// Profile and mailbox stores.
     pub store: BootstrapStore,
     /// Set when the node serves the media role.
     pub media: Option<MediaStore>,
@@ -75,19 +79,28 @@ pub struct Service {
     pub pow: Arc<crate::pow::PowCache>,
     /// Reply bytes per second to search nodes catching up, `maintenance.io_mb_per_s`.
     pub search_sync: Traffic,
+    /// Requests per second of one peer.
     pub rate_limiter: PeerRateLimiter,
+    /// Media requests per second of one peer.
     pub media_peers: PeerRateLimiter,
     media_bytes: PeerRateLimiter,
+    /// Requests per second of one IP group.
     pub groups: PeerRateLimiter,
+    /// Envelope puts per second of one sender key.
     pub senders: PeerRateLimiter,
+    /// Strikes and bans.
     pub reputation: Reputation,
+    /// Node protocol bytes per second.
     pub traffic: Traffic,
     /// Successful protobuf frame bytes, shared with swarm codecs.
     pub wire: Arc<dyapp_p2p_net::WireBytes>,
     /// Network IDs shared with this node's swarm; configuration still selects public.
     pub protocols: Arc<dyapp_p2p_net::Protocols>,
+    /// Process memory against `limits.max_memory_mb`.
     pub memory: Memory,
+    /// Write budget of background rebuilds.
     pub rebuild_budget: RebuildBudget,
+    /// The node configuration.
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
     pub deny: HashSet<String>,
@@ -112,6 +125,7 @@ const GUARDS: [&str; 6] = [
 ];
 
 impl Service {
+    /// A service over `store` with every limit from `config`, no other role store and no deny list.
     pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
         let l = &config.limits;
         let ban = Duration::from_secs(u64::from(l.ban_minutes) * 60);
@@ -268,6 +282,7 @@ impl Service {
         }
     }
 
+    /// Handles a node control request from `peer`.
     pub fn node(&self, peer: &Peer, request: NodeRequest) -> NodeResponse {
         self.traffic.add(request.encoded_len() as u64);
         match request.request {
@@ -611,6 +626,7 @@ impl Service {
         self.profile_inner(peer, request, true)
     }
 
+    /// Admits and checks a profile publish from `peer` without storing it.
     pub fn prepare_profile(
         &self,
         peer: &Peer,
@@ -744,6 +760,7 @@ impl Service {
         }
     }
 
+    /// Verifies and stores a profile record, without per-peer limits.
     pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
         self.publish(record, true, PROFILE_ACCEPT_BYTES)
     }
@@ -797,8 +814,11 @@ impl Service {
 /// What the node does with a search gossip message.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Verdict {
+    /// Valid and applied: forward it.
     Accept,
+    /// Valid but not applied: do not forward it.
     Ignore,
+    /// Invalid: penalize the sender.
     Reject,
     /// A proof of work not cached yet: check it off the loop, then apply the message again.
     Pow(PowCheck),
@@ -807,7 +827,9 @@ pub enum Verdict {
 /// What catch-up did with one record.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Caught {
+    /// The record is indexed.
     Stored,
+    /// The record is not indexed.
     Dropped,
     /// A proof of work not cached yet: check it off the loop, then apply the record again.
     Pow(PowCheck),
@@ -857,14 +879,18 @@ enum Applied {
 /// A search request after admission: a ready reply, or read work the node runs in
 /// `spawn_blocking` so a slow query never holds the swarm loop.
 pub enum Search {
+    /// The reply, ready now.
     Reply(SearchResponse),
+    /// A query to run against the index.
     Query(proto::SearchQuery),
+    /// Records of these keys to read from the index.
     Get(Vec<[u8; 32]>),
     /// A publish whose proof of work is not cached: the node checks it off the loop, then
     /// calls [`Service::search_pow_done`].
     Pow(PowCheck, SignedRecord),
 }
 
+/// Runs `query`, scanning at most `max_scan_rows` rows.
 pub fn run_query(
     index: &SearchIndex,
     query: &proto::SearchQuery,
@@ -891,6 +917,7 @@ pub fn run_query(
     )
 }
 
+/// The indexed records of `keys`, bounded by the reply size.
 pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchResponse> {
     Ok(SearchResponse {
         records: index.records(keys, MAX_SEARCH_REPLY)?,
@@ -1382,6 +1409,7 @@ impl Service {
         })
     }
 
+    /// Sorts `items` into present and missing, with the whole blobs and manifests held.
     pub fn media_inventory(&self, items: &[proto::MediaPart]) -> crate::Result<MediaResponse> {
         let media = self.media.as_ref().unwrap();
         let mut inventory = proto::MediaInventory::default();
@@ -1437,6 +1465,7 @@ impl Service {
         })
     }
 
+    /// Stores a shard of a sharded media replica; the replica must be authorized.
     pub fn store_shard(&self, put: &proto::MediaShardPut) -> crate::Result<MediaResponse> {
         let Some(replica) = &put.replica else {
             return Ok(media_status(Status::Denied));
@@ -1466,6 +1495,8 @@ impl Service {
         ))
     }
 
+    /// A blob from its whole copy, or decoded from `shards`;
+    /// discards shards and manifest that do not decode.
     pub fn assemble_media(
         &self,
         manifest: &proto::MediaManifest,
@@ -1493,6 +1524,7 @@ impl Service {
         }
     }
 
+    /// Charges reading and assembling a sharded blob to `peer`; false when refused.
     pub fn prepare_media_read(&self, peer: &Peer, manifest: &proto::MediaManifest) -> bool {
         let Some(k) = manifest.data_shards() else {
             return false;
@@ -1797,291 +1829,14 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
+#[path = "service/clock.rs"]
+mod clock_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use dyapp_identity::Identity;
     use dyapp_profile::Profile;
-
-    fn assert_server_clock(server_time: u64, before: u64) {
-        let after = chrono::Utc::now().timestamp().unsigned_abs();
-        assert!(
-            (before..=after).contains(&server_time),
-            "{before} <= {server_time} <= {after}"
-        );
-    }
-
-    #[test]
-    fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
-        let s = service();
-        let search = search_service();
-        let owner = Identity::generate();
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
-        let info = s.node(
-            &peer("clock"),
-            NodeRequest {
-                request: Some(node_request::Request::Info(proto::InfoRequest {})),
-            },
-        );
-        assert_eq!(info.status, i32::from(Status::Ok));
-        assert_server_clock(info.info.unwrap().server_time, now);
-        for time in [0, now + 3600, u64::MAX] {
-            let record = owner.sign(
-                Domain::Heartbeat,
-                proto::Heartbeat { time, version: 1 }.encode_to_vec(),
-            );
-            let before = chrono::Utc::now().timestamp().unsigned_abs();
-            let response = s
-                .profile(
-                    &peer("clock"),
-                    ProfileRequest {
-                        request: Some(profile_request::Request::Heartbeat(record.clone())),
-                    },
-                )
-                .unwrap();
-            assert_eq!(response.status, i32::from(Status::Invalid));
-            assert_server_clock(response.server_time, before);
-            let response = search_as(
-                &search,
-                &peer("clock"),
-                search_request::Request::Heartbeat(record.clone()),
-            );
-            assert_eq!(response.status, i32::from(Status::Invalid));
-            assert_server_clock(response.server_time, before);
-            let gossip = SearchRequest {
-                request: Some(search_request::Request::Heartbeat(record)),
-            };
-            assert_eq!(
-                search.search_gossip(&gossip.encode_to_vec()),
-                Verdict::Ignore
-            );
-        }
-        let record = owner.sign(
-            Domain::Heartbeat,
-            proto::Heartbeat {
-                time: chrono::Utc::now().timestamp().unsigned_abs(),
-                version: 1,
-            }
-            .encode_to_vec(),
-        );
-        let response = s
-            .profile(
-                &peer("clock"),
-                ProfileRequest {
-                    request: Some(profile_request::Request::Heartbeat(record.clone())),
-                },
-            )
-            .unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::NotFound), 0)
-        );
-        let response = search_as(
-            &search,
-            &peer("clock"),
-            search_request::Request::Heartbeat(record.clone()),
-        );
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::NotFound), 0)
-        );
-        let mut forged = record;
-        forged.payload.push(0);
-        let response = s
-            .profile(
-                &peer("clock"),
-                ProfileRequest {
-                    request: Some(profile_request::Request::Heartbeat(forged.clone())),
-                },
-            )
-            .unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Denied), 0)
-        );
-        let response = search_as(
-            &search,
-            &peer("clock"),
-            search_request::Request::Heartbeat(forged),
-        );
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Denied), 0)
-        );
-        let response = s.profile(&peer("clock"), get(vec![])).unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Invalid), 0)
-        );
-    }
-
-    #[test]
-    fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
-        use proto::media_replica_put::Authorization;
-        let s = media_service(|l| l.media_requests_per_second = 100);
-        let from = replica_peer("clock");
-        let owner = Identity::generate();
-        let data = b"clock".to_vec();
-        let hash = dyapp_identity::sha256(&data).to_vec();
-        let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
-        for (keep, time) in [
-            (true, 0),
-            (true, now + 3600),
-            (true, u64::MAX),
-            (false, 0),
-            (false, now + 3600),
-            (false, u64::MAX),
-        ] {
-            let authorization = if keep {
-                Authorization::Keep(
-                    owner.sign(
-                        Domain::MediaKeep,
-                        proto::MediaKeep {
-                            version: 1,
-                            hashes: vec![hash.clone()],
-                            time,
-                        }
-                        .encode_to_vec(),
-                    ),
-                )
-            } else {
-                Authorization::Attach(
-                    owner.sign(
-                        Domain::MediaAttach,
-                        proto::MediaAttach {
-                            release: dyapp_identity::sha256(b"clock-release").to_vec(),
-                            hashes: vec![hash.clone()],
-                            created: time,
-                        }
-                        .encode_to_vec(),
-                    ),
-                )
-            };
-            let direct = match &authorization {
-                Authorization::Keep(record) => media_request::Request::Keep(record.clone()),
-                Authorization::Attach(record) => media_request::Request::Attach(record.clone()),
-            };
-            let replica = proto::MediaReplicaPut {
-                data: data.clone(),
-                authorization: Some(authorization.clone()),
-                manifest: None,
-            };
-            let shard = proto::MediaShardPut {
-                replica: Some(proto::MediaReplicaPut {
-                    manifest: Some(manifest.clone()),
-                    authorization: Some(authorization),
-                    data: vec![],
-                }),
-                index: 0,
-                data: shards[0].clone(),
-            };
-            for (path, request) in [
-                direct,
-                media_request::Request::ReplicaPut(replica),
-                media_request::Request::ShardPut(shard),
-            ]
-            .into_iter()
-            .enumerate()
-            {
-                let before = chrono::Utc::now().timestamp().unsigned_abs();
-                let response = s
-                    .media(
-                        &from,
-                        MediaRequest {
-                            request: Some(request),
-                        },
-                    )
-                    .unwrap();
-                if !keep && time == 0 && path == 0 {
-                    // Direct attach has no past-freshness gate; expiry is cleaned up later.
-                    assert_eq!(
-                        (response.status, response.server_time),
-                        (i32::from(Status::Ok), 0)
-                    );
-                } else {
-                    assert_eq!(response.status, i32::from(Status::Invalid));
-                    assert_server_clock(response.server_time, before);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules() {
-        let s = media_service(|l| l.media_requests_per_second = 100);
-        let from = replica_peer("clock-errors");
-        let owner = Identity::generate();
-        let data = b"old-keep".to_vec();
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
-        let mut keep = proto::MediaKeep {
-            version: 1,
-            hashes: vec![dyapp_identity::sha256(&data).to_vec()],
-            time: now - 3600,
-        };
-        let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-        let replica = proto::MediaReplicaPut {
-            data,
-            authorization: Some(proto::media_replica_put::Authorization::Keep(
-                record.clone(),
-            )),
-            manifest: None,
-        };
-        let response = s.store_media(&replica).unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Ok), 0)
-        );
-        let response = s
-            .media(
-                &from,
-                MediaRequest {
-                    request: Some(media_request::Request::Keep(record)),
-                },
-            )
-            .unwrap();
-        assert_eq!(response.status, i32::from(Status::Invalid));
-        assert_server_clock(response.server_time, now);
-        keep.version = 0;
-        keep.time = u64::MAX;
-        let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-        let response = s
-            .media(
-                &from,
-                MediaRequest {
-                    request: Some(media_request::Request::Keep(record.clone())),
-                },
-            )
-            .unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Invalid), 0)
-        );
-        let malformed = proto::MediaReplicaPut {
-            authorization: Some(proto::media_replica_put::Authorization::Keep(
-                record.clone(),
-            )),
-            ..replica
-        };
-        let response = s.store_media(&malformed).unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Invalid), 0)
-        );
-        let mut forged = record;
-        forged.payload.push(0);
-        let response = s
-            .media(
-                &from,
-                MediaRequest {
-                    request: Some(media_request::Request::Keep(forged)),
-                },
-            )
-            .unwrap();
-        assert_eq!(
-            (response.status, response.server_time),
-            (i32::from(Status::Denied), 0)
-        );
-    }
 
     #[test]
     fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
@@ -2160,7 +1915,7 @@ mod tests {
         );
     }
 
-    fn search_service() -> Service {
+    pub(super) fn search_service() -> Service {
         let mut s = service_with(|limits| limits.bytes_per_second = 1 << 20);
         s.config.roles.push(Role::Search);
         s.config.search.min_profile_pow_bits = 2;
@@ -2187,7 +1942,11 @@ mod tests {
     }
 
     /// Runs deferred work inline, as the node does in `spawn_blocking`.
-    fn search_as(s: &Service, peer: &Peer, request: search_request::Request) -> SearchResponse {
+    pub(super) fn search_as(
+        s: &Service,
+        peer: &Peer,
+        request: search_request::Request,
+    ) -> SearchResponse {
         let index = s.search.clone().unwrap();
         let request = SearchRequest {
             request: Some(request),
@@ -2692,18 +2451,18 @@ mod tests {
         Status::try_from(status).unwrap()
     }
 
-    fn service() -> Service {
+    pub(super) fn service() -> Service {
         service_with(|_| {})
     }
 
-    fn peer(id: &str) -> Peer {
+    pub(super) fn peer(id: &str) -> Peer {
         Peer {
             id: id.into(),
             group: "g".into(),
         }
     }
 
-    fn replica_peer(label: &str) -> Peer {
+    pub(super) fn replica_peer(label: &str) -> Peer {
         let key = dyapp_identity::sha256(label.as_bytes());
         let id = libp2p::identity::Keypair::ed25519_from_bytes(key)
             .unwrap()
@@ -2731,7 +2490,7 @@ mod tests {
         }
     }
 
-    fn get(peer_id: Vec<u8>) -> ProfileRequest {
+    pub(super) fn get(peer_id: Vec<u8>) -> ProfileRequest {
         ProfileRequest {
             request: Some(profile_request::Request::Get(proto::GetProfile { peer_id })),
         }
@@ -3767,7 +3526,7 @@ mod tests {
         assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc="); // gitleaks:allow (test vector)
     }
 
-    fn media_service(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
+    pub(super) fn media_service(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
         let mut s = service_with(change);
         s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
         s

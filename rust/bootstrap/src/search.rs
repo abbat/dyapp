@@ -13,9 +13,13 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
+/// Gossip topics of the search index (`/dyapp/profiles/<n>`).
 pub const SEARCH_TOPICS: u32 = 16;
+/// Index format version, reported in search replies.
 pub const INDEX_VERSION: u32 = 1;
+/// Least seconds between indexed versions of one key.
 pub const UPDATE_SECONDS: i64 = 600;
+/// Heartbeats of one key accepted per UTC day.
 pub const HEARTBEATS_PER_DAY: i64 = 2;
 
 /// Keys deleted per eviction or expiry batch, and batches per `expire` call.
@@ -118,20 +122,35 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
     Ok(())
 }
 
+/// What became of an indexed publish.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Put {
+    /// The version is indexed.
     Stored,
+    /// The version is not above the indexed one.
     Stale,
-    Limited { retry_after: u64 },
+    /// Too soon after the previous version; retry after `retry_after` seconds.
+    Limited {
+        /// Seconds until a retry can succeed.
+        retry_after: u64,
+    },
 }
 
+/// What became of a heartbeat.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Beat {
+    /// The heartbeat is recorded.
     Ok,
+    /// The key or version is not indexed.
     NotFound,
-    Limited { retry_after: u64 },
+    /// The day's heartbeats are used; retry after `retry_after` seconds.
+    Limited {
+        /// Seconds until a retry can succeed.
+        retry_after: u64,
+    },
 }
 
+/// The search index database.
 pub struct SearchIndex {
     db: Mutex<Connection>,
     /// Read-only connections for `records` and `query`; WAL lets them run beside the writer.
@@ -171,6 +190,7 @@ fn sql(v: u64) -> Option<i64> {
 }
 
 impl SearchIndex {
+    /// Opens or creates the index at `path`, keeping it below `max_bytes`.
     pub fn open(path: &Path, max_bytes: u64) -> Result<Self> {
         let index = Self {
             db: storage::open(path, SCHEMA, STEPS)?,
@@ -578,6 +598,7 @@ impl SearchIndex {
         Ok(removed)
     }
 
+    /// Bytes used by the index.
     pub fn usage(&self) -> Result<u64> {
         storage::used(&*lock(&self.db)?)
     }
@@ -633,12 +654,17 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (20, "place", false),
 ];
 const INTERESTS: u32 = 19;
+/// Profile field numbers a query may filter on.
 pub const SEARCH_FIELDS: &[u32] = &[3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
+/// Result of a query.
 #[derive(Debug)]
 pub struct Found {
+    /// Matching keys with their indexed versions.
     pub hits: Vec<([u8; 32], u64)>,
+    /// Fields of the conditions that were applied.
     pub applied: Vec<u32>,
+    /// Whether the scan stopped at its row limit before `limit` hits.
     pub partial: bool,
 }
 

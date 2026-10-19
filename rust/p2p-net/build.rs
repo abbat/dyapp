@@ -1,3 +1,5 @@
+//! Compiles `proto/node.proto` into the prost types of this crate.
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=../../proto");
     let files = protox::compile(["node.proto"], ["../../proto"])?;

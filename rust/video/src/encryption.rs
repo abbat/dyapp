@@ -1,28 +1,40 @@
 use dyapp_messaging::encryption::{E2EEncryption, EncryptionConfig};
 use serde::{Deserialize, Serialize};
 
+/// Metadata sent with an encrypted video frame.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrameHeader {
+    /// Per-encryptor sequence number, starting at 1.
     pub frame_id: u64,
+    /// Encryption time in microseconds since the Unix epoch.
     pub timestamp: u64,
+    /// Frame width in pixels.
     pub width: u16,
+    /// Frame height in pixels.
     pub height: u16,
+    /// 12 random bytes; placeholder, not used by any cipher.
     pub nonce: Vec<u8>,
+    /// 16 random bytes; placeholder, not an authentication tag.
     pub tag: Vec<u8>,
 }
 
+/// A video frame with its header.
 #[derive(Debug)]
 pub struct EncryptedFrame {
+    /// Frame metadata.
     pub header: FrameHeader,
+    /// Frame bytes; currently the plaintext, see [`E2EEncryption::encrypt`].
     pub ciphertext: Vec<u8>,
 }
 
+/// Numbers frames and passes them through the placeholder [`E2EEncryption`].
 pub struct FrameEncryption {
     encryption: E2EEncryption,
     frame_counter: u64,
 }
 
 impl FrameEncryption {
+    /// An encryptor with the default secure settings.
     pub fn new() -> Self {
         Self {
             encryption: E2EEncryption::default(),
@@ -30,6 +42,7 @@ impl FrameEncryption {
         }
     }
 
+    /// An encryptor with `config`.
     pub fn with_config(config: EncryptionConfig) -> Self {
         Self {
             encryption: E2EEncryption::new(config),
@@ -37,6 +50,7 @@ impl FrameEncryption {
         }
     }
 
+    /// Numbers the frame and wraps it with a header; the bytes are not encrypted yet.
     pub fn encrypt_frame(
         &mut self,
         frame_data: &[u8],
@@ -69,18 +83,22 @@ impl FrameEncryption {
         })
     }
 
+    /// Returns the frame bytes; nothing is decrypted yet.
     pub fn decrypt_frame(&self, encrypted: &EncryptedFrame, key: &[u8]) -> Result<Vec<u8>, String> {
         self.encryption.decrypt(&encrypted.ciphertext, key)
     }
 
+    /// Whether the settings ask for frame encryption.
     pub fn is_enabled(&self) -> bool {
         self.encryption.config().enable_frame_encryption
     }
 
+    /// Frames numbered since creation or the last reset.
     pub fn frame_count(&self) -> u64 {
         self.frame_counter
     }
 
+    /// Restarts frame numbering.
     pub fn reset_counter(&mut self) {
         self.frame_counter = 0;
     }

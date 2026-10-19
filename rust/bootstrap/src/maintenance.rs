@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tokio::time::Instant;
 
+/// Bytes per second shared by background rebuilds, and their progress.
 pub struct RebuildBudget {
     bytes_per_second: u64,
     state: Mutex<State>,

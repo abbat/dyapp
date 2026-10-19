@@ -7,8 +7,7 @@ use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
-use libp2p::swarm::behaviour::toggle::Toggle;
-use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p::swarm::SwarmEvent;
 use libp2p::{
     autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits, noise, tcp,
     yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
@@ -20,6 +19,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod behaviour;
+pub use behaviour::{Behaviour, BehaviourEvent};
 mod dial_filter;
 pub use dial_filter::{DenyDial, DialFilter};
 mod dial_guard;
@@ -41,19 +42,30 @@ pub use wire::{Dir, WireBytes, WireCounts};
 /// Node protocol messages, generated from proto/node.proto.
 pub mod proto {
     #![allow(clippy::pedantic)]
+    // prost emits no docs for messages without proto comments.
+    #![allow(missing_docs)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.node.rs"));
 }
 
+/// Kademlia key space of the store role.
 pub const KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/kad");
+/// Identify protocol version and ID prefix of the public network.
 pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
+/// Node control requests.
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
+/// Profile publication and lookup.
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
+/// Mailbox store, fetch and ack.
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
+/// Node-to-client mailbox notifications.
 pub const MAILBOX_PUSH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox-push");
+/// Media blob transfer.
 pub const MEDIA_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/media");
 /// Key space of the search role, separate from the store role's `/dyapp/kad`.
 pub const SEARCH_KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search-kad");
+/// Search queries to search nodes.
 pub const SEARCH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search");
+/// Search index inventory exchange between search nodes.
 pub const INVENTORY_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/inventory");
 /// Reserved for search bucket digests; no behaviour serves it yet.
 pub const DIGEST_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/digest");
@@ -92,43 +104,27 @@ fn message_limit(protocol: &StreamProtocol, protocols: &Protocols) -> u64 {
     }
 }
 
+/// Request-response behaviour of [`NODE_PROTOCOL`].
 pub type NodeBehaviour =
     request_response::Behaviour<ProtoCodec<proto::NodeRequest, proto::NodeResponse>>;
+/// Request-response behaviour of [`PROFILE_PROTOCOL`].
 pub type ProfileBehaviour =
     request_response::Behaviour<ProtoCodec<proto::ProfileRequest, proto::ProfileResponse>>;
+/// Request-response behaviour of [`MAILBOX_PROTOCOL`].
 pub type MailboxBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxRequest, proto::MailboxResponse>>;
+/// Request-response behaviour of [`MAILBOX_PUSH_PROTOCOL`].
 pub type PushBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxPush, proto::MailboxPushResponse>>;
+/// Request-response behaviour of [`MEDIA_PROTOCOL`].
 pub type MediaBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MediaRequest, proto::MediaResponse>>;
+/// Request-response behaviour of [`SEARCH_PROTOCOL`].
 pub type SearchBehaviour =
     request_response::Behaviour<ProtoCodec<proto::SearchRequest, proto::SearchResponse>>;
+/// Request-response behaviour of [`INVENTORY_PROTOCOL`].
 pub type InventoryBehaviour =
     request_response::Behaviour<ProtoCodec<proto::InventoryRequest, proto::InventoryResponse>>;
-
-#[derive(NetworkBehaviour)]
-pub struct Behaviour {
-    pub limits: connection_limits::Behaviour,
-    pub memory: memory_connection_limits::Behaviour,
-    pub incoming_groups: Toggle<IncomingGroupGuard>,
-    pub kad: kad::Behaviour<kad::store::MemoryStore>,
-    pub identify: identify::Behaviour,
-    pub autonat: autonat::Behaviour,
-    pub node: NodeBehaviour,
-    pub profile: ProfileBehaviour,
-    pub mailbox: MailboxBehaviour,
-    /// Node to client only: a node sends, a client receives.
-    pub push: PushBehaviour,
-    pub media: MediaBehaviour,
-    /// Server mode on search nodes only; others look search nodes up as clients.
-    pub search_kad: kad::Behaviour<kad::store::MemoryStore>,
-    /// Search nodes only.
-    pub gossip: Toggle<gossipsub::Behaviour>,
-    /// Inbound on search nodes only.
-    pub search: SearchBehaviour,
-    pub inventory: InventoryBehaviour,
-}
 
 /// One protobuf message per stream; the writer closes the stream after it.
 pub struct ProtoCodec<Req, Resp> {
@@ -312,7 +308,9 @@ pub enum Mode {
 
 /// Settings shared by client and node swarm constructors.
 pub struct SwarmOptions {
+    /// Kademlia role.
     pub mode: Mode,
+    /// Global and per-peer connection limits.
     pub connection_limits: connection_limits::ConnectionLimits,
     /// Concurrent streams per connection and protocol.
     pub max_streams: usize,
@@ -343,6 +341,7 @@ impl Default for SwarmOptions {
     }
 }
 
+/// A swarm with default options in `mode`.
 pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behaviour>> {
     build_configured_swarm(
         keypair,
@@ -546,6 +545,7 @@ pub fn set_id_pow_bits(bits: u32) {
     POW_BITS.store(bits, Ordering::Relaxed);
 }
 
+/// Required leading zero bits of a peer ID proof of work in this process.
 pub fn id_pow_bits() -> u32 {
     POW_BITS.load(Ordering::Relaxed)
 }
@@ -604,6 +604,7 @@ pub fn join(swarm: &mut Swarm<Behaviour>, seeds: &[Multiaddr], cached: &[Multiad
 /// Peers of one IP group (/24, IPv6 /48, or one DNS name) allowed per k-bucket and per routing
 /// table (ADR 0008).
 pub const MAX_GROUP_PER_BUCKET: usize = 2;
+/// Peers of one IP group allowed per routing table.
 pub const MAX_GROUP_PER_TABLE: usize = 10;
 
 static DISTINCT_GROUPS: AtomicBool = AtomicBool::new(true);
@@ -757,6 +758,10 @@ pub fn known_peers(swarm: &mut Swarm<Behaviour>) -> Vec<Multiaddr> {
     }
     peers
 }
+
+#[cfg(test)]
+#[path = "lib/media_streams.rs"]
+mod media_stream_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1060,104 +1065,6 @@ mod tests {
         assert_eq!(got, b"hello");
         let plain = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
         assert!(plain.behaviour().gossip.as_ref().is_none());
-    }
-
-    #[tokio::test]
-    async fn third_media_stream_on_a_connection_is_reset() {
-        media_stream_limit(1, 3, 2).await;
-    }
-
-    #[tokio::test]
-    async fn seventeenth_media_stream_across_connections_is_reset() {
-        media_stream_limit(9, 17, 16).await;
-    }
-
-    async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
-        let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
-        server
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        let addr = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-                break address;
-            }
-        };
-        let server_id = *server.local_peer_id();
-        let mut clients: Vec<_> = (0..peers)
-            .map(|_| {
-                let mut client = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
-                // Senders allow all requests; the receiver enforces its own limits.
-                client.behaviour_mut().media = request_response::Behaviour::new(
-                    [(MEDIA_PROTOCOL, ProtocolSupport::Outbound)],
-                    request_response::Config::default().with_max_concurrent_streams(100),
-                );
-                client.add_peer_address(server_id, addr.clone());
-                client
-            })
-            .collect();
-        for i in 0..requests {
-            clients[i % peers]
-                .behaviour_mut()
-                .media
-                .send_request(&server_id, proto::MediaRequest::default());
-        }
-        let mut held = Vec::new();
-        let mut rejected = false;
-        tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                tokio::select! {
-                    event = server.select_next_some() => {
-                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
-                            message: request_response::Message::Request { channel, .. }, ..
-                        })) = event {
-                            held.push(channel);
-                            assert!(held.len() <= accepted);
-                        }
-                    }
-                    event = async { libp2p::futures::stream::select_all(clients.iter_mut()).select_next_some().await } => {
-                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::OutboundFailure {
-                            error, ..
-                        })) = event {
-                            assert!(matches!(error, request_response::OutboundFailure::Io(_)), "{error:?}");
-                            rejected = true;
-                        }
-                    }
-                }
-                if rejected && held.len() == accepted {
-                    break;
-                }
-            }
-        }).await.expect("excess media stream was queued instead of reset");
-        assert_eq!(held.len(), accepted);
-        for channel in held {
-            server
-                .behaviour_mut()
-                .media
-                .send_response(
-                    channel,
-                    proto::MediaResponse {
-                        status: proto::Status::Ok.into(),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-        }
-        let mut replies = 0;
-        tokio::time::timeout(Duration::from_secs(10), async {
-            while replies < accepted {
-                tokio::select! {
-                    _ = server.select_next_some() => {}
-                    event = async { libp2p::futures::stream::select_all(clients.iter_mut()).select_next_some().await } => {
-                        if let SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
-                            message: request_response::Message::Response { response, .. }, ..
-                        })) = event {
-                            assert_eq!(response.status, proto::Status::Ok as i32);
-                            replies += 1;
-                        }
-                    }
-                }
-            }
-        }).await.expect("accepted media streams stopped working");
     }
 
     #[tokio::test]

@@ -217,21 +217,15 @@ reporting zero. Details are saved in `target/panics.json` (CI artifact
 not covered. These three lints do not prove runtime panic freedom: indexing,
 assertions, allocation failure and transitive dependency panics are outside this check.
 
-### Public API documentation (staged)
+### Public API documentation
 
-`scripts/check-panics.py --public-docs` reuses the non-test diagnostic collector
-with rustc `--force-warn missing_docs`. `[public_docs]` budgets in
-`scripts/baselines.toml` prevent authored warning counts from growing and require
-budgets to fall with cleanup. The initial inventory exceeded 500 authored gaps.
-Distinct crate/module documentation warnings sharing a source position count separately.
-Generated/out-of-tree diagnostics are counted separately in
-`target/public-docs.json`, uploaded as `public-docs` when the checker ran;
-they are not included in authored budgets. Tests and non-workspace crates remain outside scope.
-
-This is the first stage of B9, not workspace-wide `deny(missing_docs)`.
-Source documentation cleanup and the generated-code policy are still planned.
-The default panic mode keeps its mandatory FFI-zero rule; documentation mode
-does not replace that check.
+Practice B9: `missing_docs = "deny"` is set in `[workspace.lints.rust]` of the root
+`Cargo.toml` and in the own `[lints.rust]` of `bootstrap` and `ffi`, so an undocumented
+public item (crate, module, type, field, variant, function or constant) fails Clippy,
+build and test. Generated code is exempt only where its generator emits no docs, each with
+a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `identity`,
+`profile` and `p2p-net`, and the private `behaviour` module of `p2p-net`, whose
+`NetworkBehaviour` derive emits `BehaviourEvent`.
 
 ### Unsafe policy
 
@@ -292,8 +286,8 @@ branches.
 
 ## Conventions (not enforced by tooling)
 
-- Public items should have doc comments with `# Errors` / `# Panics` sections where they apply;
-  `missing_docs` is not enabled, and `make doc` only checks that docs build.
+- Public items should have `# Errors` / `# Panics` sections where they apply; only the doc
+  comment itself is enforced ([B9](#public-api-documentation)).
 - Library code returns `Result` instead of calling `unwrap`/`expect`/`panic!`; tests may unwrap.
 - Do not leave `todo!()` or `unimplemented!()` in committed code; open an issue and return an
   error instead.

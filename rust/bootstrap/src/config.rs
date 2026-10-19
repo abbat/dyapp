@@ -14,6 +14,7 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use zeroize::Zeroizing;
 
+/// Prefix of environment variables that override config keys: `DYAPPD__<SECTION>__<KEY>`.
 pub const ENV_PREFIX: &str = "DYAPPD__";
 
 /// The packaged `/etc/dyappd.toml`: every key commented out with its default and a description.
@@ -132,6 +133,7 @@ pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     ])
 }
 
+/// The whole node configuration, one field per `dyappd.toml` section.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct NodeConfig {
@@ -142,13 +144,21 @@ pub struct NodeConfig {
     pub external: Vec<String>,
     /// `host:port[/peer-ID]` nodes dialed over TCP and QUIC; see [`seed`].
     pub seeds: Vec<String>,
+    /// Roles this node serves: store, media, search, turn.
     pub roles: Vec<Role>,
+    /// The `[storage]` section.
     pub storage: StorageConfig,
+    /// The `[limits]` section.
     pub limits: Limits,
+    /// The `[maintenance]` section.
     pub maintenance: Maintenance,
+    /// The `[network]` section.
     pub network: Network,
+    /// The `[turn]` section.
     pub turn: Turn,
+    /// The `[media]` section.
     pub media: Media,
+    /// The `[search]` section.
     pub search: Search,
 }
 
@@ -182,6 +192,7 @@ impl Default for Search {
 }
 
 impl Search {
+    /// Fails on a value outside its documented range.
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.max_profile_bytes == 0
             || self.max_profile_bytes > crate::service::SEARCH_ACCEPT_BYTES
@@ -209,6 +220,7 @@ impl Search {
     }
 }
 
+/// The media role's storage layout.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Media {
@@ -259,6 +271,7 @@ impl Turn {
     }
 }
 
+/// Which network the node joins and how it treats peers.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Network {
@@ -293,15 +306,21 @@ impl Default for Network {
     }
 }
 
+/// A service a node can provide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
+    /// Profiles and mailboxes.
     Store,
+    /// Media blobs.
     Media,
+    /// The experimental profile search index.
     Search,
+    /// TURN credentials for a coturn relay.
     Turn,
 }
 
+/// Where the node keeps its key and databases.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct StorageConfig {
@@ -309,16 +328,21 @@ pub struct StorageConfig {
     pub dir: PathBuf,
 }
 
+/// Retention, disk, rate, connection and ban limits.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Limits {
+    /// How long an undelivered message is kept.
     pub message_ttl_hours: u32,
+    /// Requests per second from one peer.
     pub requests_per_second: u32,
     /// Live data per store; a full store answers `FULL` to writes.
     pub profiles_max_mb: u64,
+    /// Mailbox store size.
     pub messages_max_mb: u64,
     /// Distinct media blob bytes, and blob bytes per owner.
     pub media_max_mb: u64,
+    /// Media blob bytes of one owner.
     pub media_per_owner_mb: u64,
     /// How long a chat attachment the recipient never released is kept.
     pub attachment_retention_hours: u32,
@@ -331,7 +355,9 @@ pub struct Limits {
     /// Node protocol bytes in and out per second: media and repair are shed from 75%, profiles
     /// from 90%, the mailbox at 100%; 0 = no limit.
     pub bytes_per_second: u64,
+    /// Connections in total.
     pub max_connections: u32,
+    /// Connections from one peer.
     pub max_connections_per_peer: u32,
     /// Pending and established incoming connections per fine IP group; outgoing exempt.
     pub max_connections_per_ip_group: u32,
@@ -343,15 +369,19 @@ pub struct Limits {
     /// Requests per second shared by all peers of one IP group: IPv4 and IPv6 addresses with
     /// the same leading `ipv4_prefix` / `ipv6_prefix` bits.
     pub ip_group_requests_per_second: u32,
+    /// Leading bits of an IPv4 address that form its group.
     pub ipv4_prefix: u8,
+    /// Leading bits of an IPv6 address that form its group.
     pub ipv6_prefix: u8,
     /// Planned: a second group budget at ten times `ip_group_requests_per_second`.
     pub coarse_ipv4_prefix: u8,
+    /// Planned: IPv6 prefix of the coarse group.
     pub coarse_ipv6_prefix: u8,
     /// Envelopes per second accepted from one sender key.
     pub sender_puts_per_second: u32,
     /// Refused floods and bad signatures that ban a peer for `ban_minutes`.
     pub strikes_to_ban: u32,
+    /// How long a ban lasts.
     pub ban_minutes: u32,
 }
 
@@ -359,6 +389,7 @@ pub struct Limits {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Maintenance {
+    /// Minutes between runs: expired data cleanup, peer list save, seed redial.
     pub interval_minutes: u32,
     /// Free pages released per store and run (4 KiB each): bounds the I/O of one run.
     pub vacuum_pages: u32,
@@ -436,6 +467,7 @@ impl Default for Limits {
 }
 
 impl StorageConfig {
+    /// The profile store, `profiles.db`.
     pub fn profiles_path(&self) -> PathBuf {
         self.dir.join("profiles.db")
     }
@@ -445,6 +477,7 @@ impl StorageConfig {
         self.dir.join("profiles-idx.db")
     }
 
+    /// The mailbox store, `messages.db`.
     pub fn messages_path(&self) -> PathBuf {
         self.dir.join("messages.db")
     }
@@ -454,6 +487,7 @@ impl StorageConfig {
         self.dir.join("media.db")
     }
 
+    /// The node's libp2p key, `node.key`.
     pub fn key_path(&self) -> PathBuf {
         self.dir.join("node.key")
     }
@@ -918,45 +952,6 @@ mod tests {
         let defaults = toml::Value::try_from(NodeConfig::default()).unwrap();
         assert_eq!(toml::Value::Table(table), defaults);
         assert!(options_help().contains("--limits.max-connections"));
-    }
-
-    #[test]
-    fn network_names_validate_without_normalization_and_load_as_literal_strings() {
-        let mut config = NodeConfig::default();
-        config.storage.dir = temp_dir();
-        assert!(config.network.name.is_empty());
-        for name in ["", "City", "city", "a b", "00123", &"a".repeat(64)] {
-            config.network.name = name.into();
-            config.validate().unwrap();
-            assert_eq!(config.network.name, name);
-        }
-        for name in [" a", "a ", "a\nb", "сеть", &"a".repeat(65)] {
-            config.network.name = name.into();
-            let expected = dyapp_p2p_net::Protocols::new(name).unwrap_err().to_string();
-            assert_eq!(config.validate().unwrap_err().to_string(), expected);
-        }
-        let dir = temp_dir();
-        fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("network.toml");
-        fs::write(&path, "[network]\nname = \"file\"\n").unwrap();
-        let load = |env: Vec<(String, String)>, options: Vec<(String, String)>| {
-            let (config, ignored) = NodeConfig::load(Some(&path), env, &options).unwrap();
-            assert!(ignored.is_empty());
-            config.network.name
-        };
-        assert_eq!(load(vec![], vec![]), "file");
-        assert_eq!(
-            load(vec![("DYAPPD__NETWORK__NAME".into(), "env".into())], vec![]),
-            "env"
-        );
-        assert_eq!(
-            load(
-                vec![("DYAPPD__NETWORK__NAME".into(), "env".into())],
-                vec![("network.name".into(), "00123".into())]
-            ),
-            "00123"
-        );
-        assert!(options_help().contains("--network.name"));
     }
 
     #[test]

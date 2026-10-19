@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 
+/// The deny list database, shared by the node and the `dyappd deny` command.
 pub struct DenyStore {
     db: Mutex<Connection>,
 }
@@ -77,6 +78,7 @@ pub fn signer(keypair: &libp2p::identity::Keypair) -> Option<Identity> {
 }
 
 impl DenyStore {
+    /// Opens or creates the database at `path`.
     pub fn open(path: &Path) -> Result<Self> {
         Ok(Self {
             db: open(
@@ -177,6 +179,7 @@ impl DenyStore {
 
     // ponytail: the node holds every entry in memory; query the indexed table per request if
     // lists grow past a few hundred thousand entries.
+    /// Every entry, without notes.
     pub fn entries(&self) -> Result<HashSet<String>> {
         Ok(self.list()?.into_iter().map(|(entry, ..)| entry).collect())
     }

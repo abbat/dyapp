@@ -154,3 +154,42 @@ fn invalid_config_fails() {
     let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
     assert!(NodeConfig::load(None, removed, &[]).is_err());
 }
+
+#[test]
+fn network_names_validate_without_normalization_and_load_as_literal_strings() {
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    assert!(config.network.name.is_empty());
+    for name in ["", "City", "city", "a b", "00123", &"a".repeat(64)] {
+        config.network.name = name.into();
+        config.validate().unwrap();
+        assert_eq!(config.network.name, name);
+    }
+    for name in [" a", "a ", "a\nb", "сеть", &"a".repeat(65)] {
+        config.network.name = name.into();
+        let expected = dyapp_p2p_net::Protocols::new(name).unwrap_err().to_string();
+        assert_eq!(config.validate().unwrap_err().to_string(), expected);
+    }
+    let dir = temp_dir();
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("network.toml");
+    fs::write(&path, "[network]\nname = \"file\"\n").unwrap();
+    let load = |env: Vec<(String, String)>, options: Vec<(String, String)>| {
+        let (config, ignored) = NodeConfig::load(Some(&path), env, &options).unwrap();
+        assert!(ignored.is_empty());
+        config.network.name
+    };
+    assert_eq!(load(vec![], vec![]), "file");
+    assert_eq!(
+        load(vec![("DYAPPD__NETWORK__NAME".into(), "env".into())], vec![]),
+        "env"
+    );
+    assert_eq!(
+        load(
+            vec![("DYAPPD__NETWORK__NAME".into(), "env".into())],
+            vec![("network.name".into(), "00123".into())]
+        ),
+        "00123"
+    );
+    assert!(options_help().contains("--network.name"));
+}

@@ -11,7 +11,9 @@
 Configuration seed parsing and real pinned-key negotiation tests live in
 `src/config/seeds.rs`, preserving their original assertions and timeouts.
 Search/incoming-group/general configuration boundaries are covered in
-`src/config/validation.rs`; shared temporary fixtures remain test-only.
+`src/config/validation.rs`, including literal network-name validation; shared temporary
+fixtures remain test-only. Server clock-hint tests of node info, heartbeats and media live in
+`src/service/clock.rs`.
 
 Search filter/place/scan-budget and invalid-condition unit tests live in
 `src/search/query.rs`, using the existing SQLite fixtures in `search.rs`.
@@ -91,7 +93,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Profile expires after the owner was last seen; heartbeat keeps it | Unit | `storage.rs::profiles_expire_after_the_owner_was_last_seen`, `service.rs::heartbeat_keeps_the_profile_seen` | exists |
 | Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network-test.py::mailbox` | exists |
 | Challenge is bound to its connection | Functional | `protocol.rs::challenge_is_bound_to_its_connection` | exists |
-| Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service.rs` | exists |
+| Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service/clock.rs` | exists |
 | Watching fetch gets a push | E2E | `network-test.py::mailbox` | exists |
 
 The clock checks cover node replies. Client signing-time correction using a median from
@@ -121,7 +123,7 @@ assertion changes.
 | 3 MiB sharded blob readable after losing a node with ≤ 4 shards | E2E | `network-test.py::network` (churn) | exists |
 | Deleted copy or shard restored by repair | E2E | `network-test.py::media_repair` | exists |
 | Expiry, keep refresh and startup cleanup | Unit, E2E | `media.rs::*expire*`, `network-test.py::media_retention` | exists |
-| Third stream per connection / seventeenth overall rejected before reading | Unit | `p2p-net` `media_permits_*`, `third_media_stream_*` | exists |
+| Third stream per connection / seventeenth overall rejected before reading | Unit | `p2p-net` `media_permits_*`, `src/lib/media_streams.rs` | exists |
 
 ### TURN and relays
 

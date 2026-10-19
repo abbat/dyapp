@@ -21,14 +21,17 @@ use std::sync::Mutex;
 /// What became of a put.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Put {
+    /// The blob, manifest or shard is stored.
     Stored,
     /// No keep of the owner lists the hash.
     NotListed,
     /// The owner's blobs would exceed the quota.
     OverQuota,
+    /// The data does not match its hash, manifest or index.
     Invalid,
 }
 
+/// Media blob files and their ownership database.
 pub struct MediaStore {
     dir: PathBuf,
     // ponytail: one connection; puts hold it while the file is written (1 MiB at most).
@@ -267,6 +270,7 @@ impl MediaStore {
         self.attach_record(owner, release, hashes, (expires, created), max, None)
     }
 
+    /// Like [`Self::attach`], and persists the already-verified signed `record` with the slot.
     pub fn attach_signed(
         &self,
         owner: &str,
@@ -562,6 +566,7 @@ impl MediaStore {
         Ok(Put::Stored)
     }
 
+    /// The stored manifest of a sharded blob.
     pub fn manifest(&self, hash: &[u8]) -> Result<Option<proto::MediaManifest>> {
         let bytes: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
@@ -576,6 +581,7 @@ impl MediaStore {
             .transpose()
     }
 
+    /// Stores the manifest of a blob the owner lists, charging its billed bytes to `quota`.
     pub fn put_manifest(
         &self,
         owner: &str,
@@ -640,6 +646,7 @@ impl MediaStore {
         Ok(Put::Stored)
     }
 
+    /// Stores shard `index` of a blob whose manifest is stored.
     pub fn put_shard(
         &self,
         manifest: &proto::MediaManifest,
@@ -677,6 +684,7 @@ impl MediaStore {
         Ok(Put::Stored)
     }
 
+    /// Shard `index` of a blob: stored, or encoded from a verified whole copy.
     pub fn shard(&self, hash: &[u8], index: usize) -> Result<Option<Vec<u8>>> {
         let data: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
@@ -715,6 +723,7 @@ impl MediaStore {
         Ok(())
     }
 
+    /// The whole blob file, if stored.
     pub fn get(&self, hash: &[u8]) -> Result<Option<Vec<u8>>> {
         match fs::read(self.path(hash)) {
             Ok(data) => Ok(Some(data)),

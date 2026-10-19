@@ -20,23 +20,13 @@ max_lines = 400
 "dyapp-profile" = 2
 "dyapp-video" = 4
 
-[public_docs]
-# Staged B9: authored missing_docs sites; generated policy and global deny are planned.
-"dyapp-bootstrap" = 151
-"dyapp-ffi" = 0
-"dyapp-identity" = 11
-"dyapp-messaging" = 13
-"dyapp-p2p-net" = 55
-"dyapp-profile" = 12
-"dyapp-video" = 18
-
 [size]
 # Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).
 max_lines = 1000
 
 [size.files]
 # Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
-"rust/bootstrap/src/config.rs" = 1021
+"rust/bootstrap/src/config.rs" = 1016
 "rust/bootstrap/src/node.rs" = 3752
-"rust/bootstrap/src/service.rs" = 4400
-"rust/p2p-net/src/lib.rs" = 1599
+"rust/bootstrap/src/service.rs" = 4159
+"rust/p2p-net/src/lib.rs" = 1506

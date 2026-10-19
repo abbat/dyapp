@@ -18,8 +18,8 @@ The Android, iOS and macOS apps link the library.
 ## Exported surface
 
 Authored Rust exports now carry API documentation, including explicit stub behavior.
-The authored FFI `missing_docs` budget is zero; generated bindings are tracked separately
-by the [staged documentation gate](../development/code-quality.md#public-api-documentation-staged).
+`missing_docs` is denied in `ffi` too ([B9](../development/code-quality.md#public-api-documentation));
+the uniffi scaffolding passes it unchanged.
 
 All exports, with what they really do. "Stub" means the body ignores its inputs
 or returns constants.

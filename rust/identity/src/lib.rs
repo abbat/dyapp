@@ -8,10 +8,13 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+/// Why a signed record or key was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
+    /// The public key is not a valid 32-byte Ed25519 key.
     #[error("invalid public key")]
     InvalidKey,
+    /// The signature is malformed or does not match the key, domain and payload.
     #[error("invalid signature")]
     InvalidSignature,
 }
@@ -39,6 +42,7 @@ macro_rules! signature_domains {
 }
 
 signature_domains! {
+    /// A public profile, signed by the owner's identity key.
     Profile => b"dyapp/profile/v1\0",
     /// A mailbox envelope, signed by the sender's device key.
     Envelope => b"dyapp/envelope/v1\0",
@@ -58,6 +62,8 @@ signature_domains! {
 
 mod generated {
     #![allow(clippy::pedantic)]
+    // prost emits no docs for messages without proto comments.
+    #![allow(missing_docs)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.identity.rs"));
 }
 pub use generated::SignedRecord;
@@ -92,6 +98,7 @@ pub fn key_hash(public_key: &[u8; 32]) -> [u8; 32] {
     sha256(public_key)
 }
 
+/// SHA-256 of `data`.
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()
 }
@@ -107,6 +114,7 @@ pub struct Identity {
 }
 
 impl Identity {
+    /// A new key from the OS random number generator; panics if it is unavailable.
     pub fn generate() -> Self {
         let mut secret = Zeroizing::new([0u8; 32]);
         // Like OsRng before it: no key without the OS random number generator.
@@ -114,6 +122,7 @@ impl Identity {
         Self::from_secret(&secret)
     }
 
+    /// The key whose Ed25519 secret is `secret`.
     pub fn from_secret(secret: &[u8; 32]) -> Self {
         Self {
             key: SigningKey::from_bytes(secret),
@@ -127,14 +136,17 @@ impl Identity {
         secret
     }
 
+    /// The Ed25519 public key bytes.
     pub fn public_key(&self) -> [u8; 32] {
         self.key.verifying_key().to_bytes()
     }
 
+    /// Hex SHA-256 of the public key: see [`peer_id`].
     pub fn peer_id(&self) -> String {
         peer_id(&self.public_key())
     }
 
+    /// Signs `payload` in `domain` and returns it with the public key and signature.
     pub fn sign(&self, domain: Domain, payload: Vec<u8>) -> SignedRecord {
         let signature = self.key.sign(&signed_bytes(domain, &payload));
         SignedRecord {

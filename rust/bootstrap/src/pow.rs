@@ -13,11 +13,13 @@ const MAX_ENTRIES: usize = 65_536;
 pub struct PowCheck {
     /// The signer's public key.
     pub key: [u8; 32],
+    /// The proof-of-work nonce.
     pub nonce: u64,
     /// The claimed leading zero bits.
     pub bits: u32,
 }
 
+/// Checked proofs and counts of checks and forged claims.
 #[derive(Default)]
 pub struct PowCache {
     known: Mutex<HashMap<([u8; 32], u64), u32>>,

@@ -18,6 +18,7 @@ pub struct DialFilter {
 }
 
 impl DialFilter {
+    /// A filter that refuses dials to addresses in `nets`.
     pub fn new(nets: Vec<IpNet>) -> Self {
         Self {
             nets: nets.into(),
@@ -57,6 +58,7 @@ pub struct DenyDial<T> {
 }
 
 impl<T> DenyDial<T> {
+    /// Wraps `inner`, refusing dials that `filter` denies.
     pub fn new(inner: T, filter: DialFilter) -> Self {
         Self { inner, filter }
     }

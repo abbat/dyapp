@@ -20,6 +20,8 @@ pub struct IncomingGroupLimits {
 }
 
 impl IncomingGroupLimits {
+    /// `max` connections per remote group of IPv4 `/ipv4_prefix` or IPv6 `/ipv6_prefix`;
+    /// fails if `max` is zero or a prefix is out of range.
     pub fn new(max: u32, ipv4_prefix: u8, ipv6_prefix: u8) -> anyhow::Result<Self> {
         anyhow::ensure!(max > 0, "incoming group connection limit must be positive");
         anyhow::ensure!(
@@ -56,6 +58,7 @@ pub struct IncomingGroupGuard {
 }
 
 impl IncomingGroupGuard {
+    /// An empty guard enforcing `limits`.
     pub fn new(limits: IncomingGroupLimits) -> Self {
         Self {
             limits,

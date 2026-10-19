@@ -47,6 +47,7 @@ pub struct DialSlot {
 }
 
 impl DialGuard {
+    /// A guard with IP and group checks on, or bypassing them when `enabled` is false.
     pub fn new(enabled: bool) -> Self {
         Self {
             shared: Arc::new(Shared {

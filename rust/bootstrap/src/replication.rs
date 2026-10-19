@@ -1,21 +1,30 @@
+//! Reed-Solomon erasure coding, and the shard layout of media blobs.
+
 use crate::error::{BootstrapError, Result};
 use reed_solomon_erasure::galois_8::ReedSolomon;
 use serde::{Deserialize, Serialize};
 
+/// One shard of an encoded blob.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplicationFragment {
+    /// Index: data shards first, then parity.
     pub shard_id: usize,
+    /// Data shards of the encoding.
     pub total_shards: usize,
+    /// Parity shards of the encoding.
     pub total_parity: usize,
+    /// Shard bytes; the last data shard is zero-padded.
     pub data: Vec<u8>,
 }
 
+/// A Reed-Solomon codec of fixed data and parity shard counts.
 pub struct Replication {
     data_shards: usize,
     parity_shards: usize,
 }
 
 impl Replication {
+    /// A codec of `data_shards` and `parity_shards`; fails above 256 in total.
     pub fn new(data_shards: usize, parity_shards: usize) -> Result<Self> {
         if data_shards + parity_shards > 256 {
             return Err(BootstrapError::ReplicationError(
@@ -29,6 +38,7 @@ impl Replication {
         })
     }
 
+    /// A codec storing `replication_factor` (1 to 4) times the data at most, rounded up.
     pub fn new_with_replication_factor(replication_factor: usize) -> Result<Self> {
         match replication_factor {
             1 => Self::new(1, 0),
@@ -41,6 +51,7 @@ impl Replication {
         }
     }
 
+    /// Splits `data` into equal data shards and adds the parity shards.
     pub fn encode(&self, data: &[u8]) -> Result<Vec<ReplicationFragment>> {
         let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
             .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
@@ -68,6 +79,7 @@ impl Replication {
             .collect())
     }
 
+    /// Rebuilds the first `original_length` bytes from at least the data shard count of fragments.
     pub fn decode(
         &self,
         fragments: &[ReplicationFragment],
@@ -104,23 +116,33 @@ impl Replication {
         Ok(result)
     }
 
+    /// Stored bytes per data byte, rounded up.
     pub fn replication_factor(&self) -> usize {
         (self.data_shards + self.parity_shards).div_ceil(self.data_shards)
     }
 
+    /// Shards that can be lost: the parity count.
     pub fn fault_tolerance(&self) -> usize {
         self.parity_shards
     }
 }
 
+/// Largest media object stored whole, and the size of one data shard at most.
 pub const MEDIA_OBJECT_BYTES: usize = 1 << 20;
+/// Largest media blob.
 pub const MEDIA_MAX_BYTES: usize = 6 * MEDIA_OBJECT_BYTES;
+/// Parity shards of every sharded media blob.
 pub const MEDIA_PARITY: usize = 4;
 
+/// Shard layout of a media manifest, derived from protocol constants.
 pub trait MediaManifestExt {
+    /// Data shard count, or `None` for a manifest of invalid shape.
     fn data_shards(&self) -> Option<usize>;
+    /// Bytes of every shard.
     fn shard_size(&self) -> Option<usize>;
+    /// Whether `data` is shard `index`: right size and hash.
     fn accepts(&self, index: usize, data: &[u8]) -> bool;
+    /// Bytes charged to the owner's quota: the blob plus its parity.
     fn billed_bytes(&self) -> Option<u64>;
 }
 
@@ -177,6 +199,7 @@ pub fn media_encode(data: &[u8]) -> Result<(dyapp_p2p_net::proto::MediaManifest,
     ))
 }
 
+/// Rebuilds a blob from shards checked against `manifest`; fails on an invalid or duplicate shard.
 pub fn media_decode(
     manifest: &dyapp_p2p_net::proto::MediaManifest,
     shards: &[(usize, Vec<u8>)],

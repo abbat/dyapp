@@ -51,6 +51,9 @@ proptest = "1.4"
 dyapp-messaging = { path = "../messaging" }
 dyapp-video = { path = "../video" }
 
+[lints.rust]
+missing_docs = "deny"
+
 [lints.clippy]
 # Practice C5: the only crate with unsafe; each block carries a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "deny"

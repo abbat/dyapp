@@ -1,13 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+/// Placeholder encryption settings; no setting changes the bytes yet.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncryptionConfig {
+    /// Cipher name: `ChaCha20-Poly1305` or `AES-256-GCM`; anything else is rejected.
     pub algorithm: String,
+    /// Key exchange name; informational only.
     pub key_exchange: String,
+    /// Whether video frames are to be encrypted.
     pub enable_frame_encryption: bool,
 }
 
 impl EncryptionConfig {
+    /// ChaCha20-Poly1305 over X25519 with frame encryption on.
     pub fn default_secure() -> Self {
         Self {
             algorithm: "ChaCha20-Poly1305".to_string(),
@@ -16,6 +21,7 @@ impl EncryptionConfig {
         }
     }
 
+    /// ChaCha20-Poly1305 over X25519 with frame encryption off.
     pub fn default_standard() -> Self {
         Self {
             algorithm: "ChaCha20-Poly1305".to_string(),
@@ -31,14 +37,17 @@ pub struct E2EEncryption {
 }
 
 impl E2EEncryption {
+    /// A wrapper using `config`.
     pub fn new(config: EncryptionConfig) -> Self {
         Self { config }
     }
 
+    /// The settings in use.
     pub fn config(&self) -> &EncryptionConfig {
         &self.config
     }
 
+    /// Placeholder: returns `plaintext` unchanged; fails only for an unsupported algorithm.
     pub fn encrypt(&self, plaintext: &[u8], _key: &[u8]) -> Result<Vec<u8>, String> {
         match self.config.algorithm.as_str() {
             "ChaCha20-Poly1305" => {
@@ -53,6 +62,7 @@ impl E2EEncryption {
         }
     }
 
+    /// Placeholder: returns `ciphertext` unchanged; fails only for an unsupported algorithm.
     pub fn decrypt(&self, ciphertext: &[u8], _key: &[u8]) -> Result<Vec<u8>, String> {
         match self.config.algorithm.as_str() {
             "ChaCha20-Poly1305" => {
@@ -67,11 +77,13 @@ impl E2EEncryption {
         }
     }
 
+    /// Placeholder: returns `message` as the "signature".
     pub fn sign(&self, message: &[u8], _secret_key: &[u8]) -> Result<Vec<u8>, String> {
         // Placeholder: returns the message unchanged; no signature is generated.
         Ok(message.to_vec())
     }
 
+    /// Placeholder: true for any nonempty `signature`.
     pub fn verify(
         &self,
         _message: &[u8],
@@ -82,6 +94,7 @@ impl E2EEncryption {
         Ok(!signature.is_empty())
     }
 
+    /// Placeholder: XORs `salt` into `shared_secret`; not a key derivation function.
     pub fn derive_session_key(&self, shared_secret: &[u8], salt: &[u8]) -> Result<Vec<u8>, String> {
         // Placeholder: XOR is not a cryptographic key derivation function.
         let mut key = shared_secret.to_vec();

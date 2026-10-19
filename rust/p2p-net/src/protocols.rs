@@ -10,15 +10,25 @@ use libp2p::{gossipsub, StreamProtocol};
 /// IDs of one network. Named networks use a domain-separated hash rather than the raw name.
 #[derive(Clone, Debug)]
 pub struct Protocols {
+    /// Identify version and prefix of every other ID: `/dyapp` on the public network.
     pub version: String,
+    /// Store-role Kademlia.
     pub kad: StreamProtocol,
+    /// Search-role Kademlia.
     pub search_kad: StreamProtocol,
+    /// Node control requests.
     pub node: StreamProtocol,
+    /// Profile publication and lookup.
     pub profile: StreamProtocol,
+    /// Mailbox store, fetch and ack.
     pub mailbox: StreamProtocol,
+    /// Node-to-client mailbox notifications.
     pub mailbox_push: StreamProtocol,
+    /// Media blob transfer.
     pub media: StreamProtocol,
+    /// Search queries.
     pub search: StreamProtocol,
+    /// Search index inventory exchange.
     pub inventory: StreamProtocol,
     /// Reserved for the future digest behaviour; not included in `all()` yet.
     pub digest: StreamProtocol,

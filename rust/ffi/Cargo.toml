@@ -19,6 +19,9 @@ uniffi = { version = "0.32", features = ["build"] }
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[lints.rust]
+missing_docs = "deny"
+
 [lints.clippy]
 # Practice C5: uniffi generates `#[no_mangle]`, so unsafe_code cannot be forbidden;
 # hand-written unsafe blocks carry a `// SAFETY:` comment.

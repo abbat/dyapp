@@ -12,14 +12,19 @@ use prost::Message;
 /// Largest accepted profile payload. Media are not part of it: the profile only links to blobs.
 pub const MAX_PAYLOAD_LEN: usize = 1024 * 1024;
 
+/// Why a profile record was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
+    /// The record signature or key is invalid.
     #[error(transparent)]
     Signature(#[from] dyapp_identity::Error),
+    /// The payload is not a protobuf `Profile`.
     #[error("malformed profile")]
     Decode,
+    /// The profile breaks a content rule; the text names it.
     #[error("invalid profile: {0}")]
     Invalid(&'static str),
+    /// The version is not above the stored one.
     #[error("profile version is not newer than the stored one")]
     Stale,
 }
@@ -33,11 +38,14 @@ pub const MAX_PHOTO_BLOBS: usize = 64;
 
 mod generated {
     #![allow(clippy::pedantic)]
+    // prost emits no docs for messages without proto comments.
+    #![allow(missing_docs)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.profile.rs"));
 }
 pub use generated::{Photo, Profile};
 
 impl Profile {
+    /// A deletion marker: version and proof of work set, every other field empty.
     pub fn tombstone(version: u64, pow_nonce: u64, pow_bits: u32) -> Self {
         Self {
             version,
@@ -48,6 +56,7 @@ impl Profile {
         }
     }
 
+    /// Signs the encoded profile with the owner's identity key.
     pub fn sign(&self, identity: &Identity) -> SignedRecord {
         identity.sign(Domain::Profile, self.encode_to_vec())
     }
@@ -91,10 +100,13 @@ impl Profile {
 /// A profile whose signature and content have been checked.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedProfile {
+    /// Signer's Peer ID.
     pub peer_id: String,
+    /// The decoded, validated profile.
     pub profile: Profile,
 }
 
+/// Checks size, signature, encoding and content rules of a profile record.
 pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
     if record.payload.len() > MAX_PAYLOAD_LEN {
         return Err(Error::Invalid("profile too large"));
@@ -114,6 +126,7 @@ pub fn accept(record: &SignedRecord, current: Option<u64>) -> Result<VerifiedPro
 }
 
 impl VerifiedProfile {
+    /// Fails with [`Error::Stale`] unless this version is above `current`, the stored one.
     pub fn check_newer(&self, current: Option<u64>) -> Result<(), Error> {
         match current {
             Some(version) if self.profile.version <= version => Err(Error::Stale),
