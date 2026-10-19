@@ -68,7 +68,7 @@ async fn start_config_in_protocols(
     }
     if service.config.roles.contains(&Role::Search) {
         let path = service.config.storage.search_path();
-        let index = SearchIndex::open(&path, service.config.search.max_bytes).unwrap();
+        let index = SearchIndex::open(&path, &service.config.search).unwrap();
         service.search = Some(std::sync::Arc::new(index));
     }
     swarm

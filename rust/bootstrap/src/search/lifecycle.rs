@@ -1,4 +1,4 @@
-use super::tests::{assert_digest_consistent, fill, index, profile, signed, sized};
+use super::tests::{assert_digest_consistent, fill, index, profile, put_at, signed, sized};
 use super::*;
 use dyapp_identity::Identity;
 
@@ -101,17 +101,16 @@ fn reader_works_during_a_write_transaction() {
 }
 
 #[test]
-fn puts_past_max_bytes_evict_the_oldest() {
+fn puts_past_max_bytes_stay_near_it() {
     let probe = index();
-    fill(&probe, 2_000, 0);
+    put_at(&probe, "2950159", 2_000, probe.created(), false);
     let max = probe.usage().unwrap();
     let index = sized(max);
-    let old = fill(&index, 2_000, 0);
-    let new = fill(&index, 2_000, 10_000);
+    put_at(&index, "2950159", 4_000, index.created(), false);
     // One 1 % check window plus a batch.
     assert!(index.usage().unwrap() <= max + max / 50);
-    assert_eq!(index.versions(&old[..64]).unwrap(), vec![None; 64]);
-    assert!(index.versions(&new[1_999..]).unwrap()[0].is_some());
+    assert!(index.place_counts()[0].2 < 4_000);
+    assert_eq!(index.place_counts(), index.recount());
     assert_digest_consistent(&index);
 }
 

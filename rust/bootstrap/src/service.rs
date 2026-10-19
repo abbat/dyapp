@@ -1709,7 +1709,7 @@ mod tests {
         s.config.roles.push(Role::Search);
         s.config.search.min_profile_pow_bits = 2;
         s.config.search.min_heartbeat_pow_bits = 0;
-        let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+        let index = SearchIndex::open(&s.config.storage.search_path(), &s.config.search);
         s.search = Some(Arc::new(index.unwrap()));
         s
     }

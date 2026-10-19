@@ -343,10 +343,15 @@ resent from the sender's retry queue.
   file's `created` time. Client publication checks the encoded signed record against `search.max_profile_bytes`
   (1–65536 bytes, default 64 KiB, reported in `info`). Gossip and inventory catch-up instead
   accept records up to the fixed 64 KiB network bound, even when the local send limit is lower. Storage is bounded by
-  `search.max_bytes`, records and index together, checked on every put; a profile leaves the
-  index on a tombstone, under `search.max_bytes` pressure, oldest heartbeat first, or when no
-  heartbeat came within `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such
-  keys per run. Planned: a new indexed field bumps the index version; the node builds the new
+  `search.max_bytes`, records and index together, checked on every put. Past it the node evicts
+  established keys from the place with the most profiles (`place_count`, trying the 16 largest),
+  highest `r` first, else any established key by `r`; tombstones are never evicted by size. A key
+  is a newcomer for `search.newcomer_days` (1–365, default 30) after its `first_seen`; newcomers
+  hold at most `search.newcomer_share` (in (0, 1], default 0.1) of `search.max_bytes`, and a put
+  past that quota evicts other newcomers, oldest heartbeat first. Keys received by inventory
+  catch-up while the file is younger than `search.newcomer_days` are stored as established, so a
+  new node fills from its neighbours. Every profile also leaves when no heartbeat came within
+  `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such keys per run. Planned: a new indexed field bumps the index version; the node builds the new
   index next to the old one, keeps answering from the old one and switches when the new one is
   ready.
   A derived `digest` table stores, per (topic, bucket), the XOR of
@@ -1093,7 +1098,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
 `turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
-`search.{max_profile_bytes,max_bytes,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
+`search.{max_profile_bytes,max_bytes,newcomer_days,newcomer_share,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
 the role); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
@@ -1144,7 +1149,8 @@ There is no health endpoint: `/dyapp/node` `info` answering is the liveness chec
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
 known peers, requests answered and failed with a node error since the last run, stored bytes of
 profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
-(`pow_forged`), capped replica sends (`replica_dropped`), and per-protocol `wire_bytes`; plus refusals per
+(`pow_forged`), search newcomers evicted by the quota (`newcomer_evictions`), capped replica
+sends (`replica_dropped`), and per-protocol `wire_bytes`; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and

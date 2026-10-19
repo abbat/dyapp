@@ -2748,10 +2748,6 @@ fn status(
     replica_dropped: u64,
 ) {
     let bytes = |usage: crate::Result<(u64, u64)>| usage.map_or(0, |(used, _)| used);
-    let media = service
-        .media
-        .as_ref()
-        .map_or(0, |media| bytes(media.usage()));
     let (pow_checks, pow_forged) = service.pow.take_counts();
     let wire_bytes = service.wire.take();
     tracing::info!(
@@ -2761,11 +2757,12 @@ fn status(
         failed,
         profiles_bytes = bytes(service.store.profiles_usage()),
         messages_bytes = bytes(service.store.messages_usage()),
-        media_bytes = media,
+        media_bytes = service.media.as_ref().map_or(0, |m| bytes(m.usage())),
         media_replica_holders,
         replica_dropped,
         pow_checks,
         pow_forged,
+        newcomer_evictions = service.search.as_ref().map_or(0, |s| s.take_newcomer_evictions()),
         wire_bytes = %wire_bytes,
         "node status"
     );

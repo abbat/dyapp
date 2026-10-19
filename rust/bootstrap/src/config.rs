@@ -168,8 +168,14 @@ pub struct NodeConfig {
 pub struct Search {
     /// Largest profile record indexed, in bytes; at most 1 MiB, reported in `info`.
     pub max_profile_bytes: usize,
-    /// Bytes of `profiles-idx.db`: records plus index; above it the oldest heartbeats leave.
+    /// Bytes of `profiles-idx.db`: records plus index; above it established keys leave, from
+    /// the place with the most profiles first.
     pub max_bytes: u64,
+    /// Days a key counts as a newcomer after its first put, 1..=365.
+    pub newcomer_days: u32,
+    /// Share of `max_bytes` that newcomers' records may hold together, above 0 and at most 1;
+    /// past it the newcomer with the oldest heartbeat leaves.
+    pub newcomer_share: f64,
     /// Rows one query scans at most; past it the reply is `partial`.
     pub max_scan_rows: u32,
     /// Gossip topics (0..16) this node keeps; empty = all.
@@ -192,6 +198,8 @@ impl Default for Search {
         Self {
             max_profile_bytes: 64 << 10,
             max_bytes: 50 << 30,
+            newcomer_days: 30,
+            newcomer_share: 0.10,
             max_scan_rows: 10_000,
             topics: vec![],
             min_profile_pow_bits: 11,
@@ -215,6 +223,11 @@ impl Search {
         }
         if self.max_scan_rows == 0 || self.max_bytes == 0 {
             anyhow::bail!("search.max_scan_rows and max_bytes must be at least 1");
+        }
+        if !(1..=365).contains(&self.newcomer_days)
+            || !(self.newcomer_share > 0.0 && self.newcomer_share <= 1.0)
+        {
+            anyhow::bail!("search.newcomer_days must be 1..=365 and newcomer_share in (0, 1]");
         }
         if self.topics.iter().any(|t| *t >= 16) {
             anyhow::bail!("search.topics must be in 0..16");

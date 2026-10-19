@@ -26,6 +26,14 @@ pub fn canonical<'a>(country: &str, place: &'a str) -> &'a str {
     }
 }
 
+/// Every place of `country`, ascending.
+#[cfg(test)]
+pub(crate) fn of(country: &str) -> Vec<u32> {
+    blocks()
+        .find(|(c, _)| c.as_slice() == country.as_bytes())
+        .map_or(vec![], |(_, body)| ids(body).collect())
+}
+
 /// Reads one LEB128 number off the front of `b`.
 fn leb128(b: &mut &[u8]) -> Option<u32> {
     let mut n = 0u32;

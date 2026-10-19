@@ -7,9 +7,41 @@ pub(super) fn index() -> SearchIndex {
 }
 
 pub(super) fn sized(max_bytes: u64) -> SearchIndex {
+    quota(max_bytes, 0.10)
+}
+
+pub(super) fn quota(max_bytes: u64, newcomer_share: f64) -> SearchIndex {
     let dir = format!("/tmp/ai/test-search-{}", uuid::Uuid::new_v4());
     std::fs::create_dir_all(&dir).unwrap();
-    SearchIndex::open(&Path::new(&dir).join("profiles-idx.db"), max_bytes).unwrap()
+    let search = crate::config::Search {
+        max_bytes,
+        newcomer_share,
+        ..crate::config::Search::default()
+    };
+    SearchIndex::open(&Path::new(&dir).join("profiles-idx.db"), &search).unwrap()
+}
+
+/// Puts `n` new keys at `place` from `now` on; `limit = false` inside the first
+/// `newcomer_days` stores established keys.
+pub(super) fn put_at(
+    index: &SearchIndex,
+    place: &str,
+    n: usize,
+    now: i64,
+    limit: bool,
+) -> Vec<[u8; 32]> {
+    (0..n)
+        .map(|i| {
+            let profile = Profile {
+                place: place.into(),
+                ..profile(1)
+            };
+            let (key, p, r) = signed(&Identity::generate(), profile);
+            let at = now + i64::try_from(i).unwrap();
+            assert_eq!(index.put(&key, &p, &r, at, limit).unwrap(), Put::Stored);
+            key
+        })
+        .collect()
 }
 
 pub(super) fn signed(identity: &Identity, profile: Profile) -> ([u8; 32], Profile, SignedRecord) {
@@ -29,7 +61,7 @@ pub(super) fn profile(version: u64) -> Profile {
     }
 }
 
-type Counts = Vec<(String, String, i64)>;
+pub(super) type Counts = Vec<(String, String, i64)>;
 
 impl SearchIndex {
     fn rows(&self, sql: &str) -> Counts {
@@ -41,15 +73,15 @@ impl SearchIndex {
         rows.collect::<rusqlite::Result<_>>().unwrap()
     }
 
-    fn place_counts(&self) -> Counts {
+    pub(super) fn place_counts(&self) -> Counts {
         self.rows("SELECT * FROM `place_count` ORDER BY 1, 2")
     }
 
-    fn recount(&self) -> Counts {
+    pub(super) fn recount(&self) -> Counts {
         self.rows("SELECT `country`, `place`, COUNT(*) FROM `profile` GROUP BY 1, 2 ORDER BY 1, 2")
     }
 
-    fn column<T: rusqlite::types::FromSql>(&self, sql: &str, key: &[u8; 32]) -> T {
+    pub(super) fn column<T: rusqlite::types::FromSql>(&self, sql: &str, key: &[u8; 32]) -> T {
         lock(&self.db)
             .unwrap()
             .query_row(sql, [&key[..]], |row| row.get(0))
@@ -106,7 +138,7 @@ fn digest_rebuilt_on_open() {
         .execute("UPDATE `digest` SET `hash` = ?", [vec![1u8; 32]])
         .unwrap();
     drop(index);
-    let index = SearchIndex::open(&path, u64::MAX).unwrap();
+    let index = SearchIndex::open(&path, &crate::config::Search::default()).unwrap();
     assert_digest_consistent(&index);
     // Older binaries do not update the derived table.
     lock(&index.db)
@@ -114,7 +146,7 @@ fn digest_rebuilt_on_open() {
         .execute("DROP TABLE `digest`", [])
         .unwrap();
     drop(index);
-    assert_digest_consistent(&SearchIndex::open(&path, u64::MAX).unwrap());
+    assert_digest_consistent(&SearchIndex::open(&path, &crate::config::Search::default()).unwrap());
 }
 
 #[test]
@@ -200,7 +232,7 @@ fn migration_from_version_zero() {
         )
         .unwrap();
     }
-    let index = SearchIndex::open(&path, 1 << 40).unwrap();
+    let index = SearchIndex::open(&path, &crate::config::Search::default()).unwrap();
     let expected: Counts = vec![
         ("DE".into(), "".into(), 1),
         ("DE".into(), "2950159".into(), 1),

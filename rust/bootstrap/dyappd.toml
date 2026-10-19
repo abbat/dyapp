@@ -84,7 +84,9 @@
 [search]
 # Used by the search role (experimental).
 # max_profile_bytes = 65536           # client record send limit; 1..65536; network accepts 65536
-# max_bytes = 53687091200             # profiles-idx.db size; above it the oldest heartbeats leave
+# max_bytes = 53687091200             # profiles-idx.db size; above it the largest place sheds keys
+# newcomer_days = 30                  # days a key counts as a newcomer; 1..365
+# newcomer_share = 0.1                # share of max_bytes newcomers may hold; (0, 1]
 # max_scan_rows = 10000               # rows one query scans; past it the reply is partial
 # puzzle_wait_ms = 100                # median queue wait that turns the client puzzle on; > 0
 # max_puzzle_bits = 20                # puzzle difficulty ceiling; 12..32

@@ -22,6 +22,13 @@ fn search_limits_are_checked() {
     assert_eq!(Search::default().min_heartbeat_pow_bits, 8);
     assert!(search(|s| s.min_heartbeat_pow_bits = 16).is_ok());
     assert!(search(|s| s.min_heartbeat_pow_bits = 17).is_err());
+    let s = Search::default();
+    assert_eq!((s.newcomer_days, s.newcomer_share), (30, 0.10));
+    assert!(search(|s| s.newcomer_share = 0.0).is_err());
+    assert!(search(|s| s.newcomer_share = 1.0).is_ok());
+    assert!(search(|s| s.newcomer_share = f64::NAN).is_err());
+    assert!(search(|s| s.newcomer_days = 0).is_err());
+    assert!(search(|s| s.newcomer_days = 366).is_err());
     assert!(Search::default().keeps(15));
     let one = Search {
         topics: vec![3],

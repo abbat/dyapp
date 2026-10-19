@@ -147,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
     service.media = media;
     if service.config.roles.contains(&Role::Search) {
         let search = &service.config;
-        let index = SearchIndex::open(&search.storage.search_path(), search.search.max_bytes)?;
+        let index = SearchIndex::open(&search.storage.search_path(), &search.search)?;
         service.search = Some(std::sync::Arc::new(index));
     }
     service.deny_signer = deny_signer;

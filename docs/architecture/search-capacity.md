@@ -164,7 +164,7 @@ limit, so proof of work alone cannot stop this flood. Queries: 50 peers × 100 p
 5 000 per second, about 5 × the warm capacity, and the IP-group limit (1 000) does not stop peers
 spread over groups. Both need a defence other than proof of work bits.
 
-Planned defences (not implemented):
+Defences, implemented on the node:
 
 - **Canonical places.** `place` becomes a GeoNames ID from cities1000 (population ≥ 1 000, CC BY
   4.0), checked against a set embedded in the node; an unknown or missing place is indexed in the
@@ -212,6 +212,6 @@ the fair share protects. These are left to client checks and deny lists.
   node at peak needs at most ≈ 10 queries per second. Partitioning by place would only help the
   long tail at 50M, where a node holds too small a sample.
 
-Follow-up work, tracked separately: `place IN` as a per-place merge; the planned defences in
-[Adversary](#adversary), which also cover long-tail places at 50M users; rerunning this model with
-them.
+Follow-up work, tracked separately: `place IN` as a per-place merge; the client side of the
+defences in [Adversary](#adversary), which also cover long-tail places at 50M users; rerunning
+this model with them.

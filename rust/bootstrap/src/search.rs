@@ -10,7 +10,7 @@ use prost::Message;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 /// Gossip topics of the search index (`/dyapp/profiles/<n>`).
@@ -163,6 +163,16 @@ pub struct SearchIndex {
     over: AtomicBool,
     /// When the file was created (Unix seconds).
     created: i64,
+    /// A key is a newcomer this long after its first put.
+    newcomer_seconds: i64,
+    /// Record bytes newcomers may hold together.
+    newcomer_quota: u64,
+    /// Running estimate of the newcomers' record bytes, recounted at most hourly when over.
+    newcomer_bytes: AtomicU64,
+    /// When `newcomer_bytes` was last recounted.
+    newcomer_checked: AtomicI64,
+    /// Newcomers evicted by the quota since the last status line.
+    newcomer_evictions: AtomicU64,
 }
 
 /// A reader connection on loan; goes back to the pool on drop.
@@ -192,8 +202,8 @@ fn sql(v: u64) -> Option<i64> {
 }
 
 impl SearchIndex {
-    /// Opens or creates the index at `path`, keeping it below `max_bytes`.
-    pub fn open(path: &Path, max_bytes: u64) -> Result<Self> {
+    /// Opens or creates the index at `path`, keeping it below `search.max_bytes`.
+    pub fn open(path: &Path, search: &crate::config::Search) -> Result<Self> {
         let db = storage::open(path, SCHEMA, STEPS)?;
         let created = lock(&db)?
             .query_row(
@@ -206,10 +216,15 @@ impl SearchIndex {
             db,
             readers: Mutex::new(Vec::new()),
             path: path.to_owned(),
-            max_bytes,
+            max_bytes: search.max_bytes,
             written: AtomicU64::new(0),
             over: AtomicBool::new(false),
             created,
+            newcomer_seconds: i64::from(search.newcomer_days) * 86_400,
+            newcomer_quota: (search.max_bytes as f64 * search.newcomer_share).round() as u64,
+            newcomer_bytes: AtomicU64::new(0),
+            newcomer_checked: AtomicI64::new(i64::MIN),
+            newcomer_evictions: AtomicU64::new(0),
         };
         index.rebuild_digest()?;
         Ok(index)
@@ -352,16 +367,19 @@ impl SearchIndex {
         now: i64,
         limit: bool,
     ) -> Result<Put> {
-        let put = self.write(key, p, record, now, limit)?;
+        let (put, newcomer) = self.write(key, p, record, now, limit)?;
         if put == Put::Stored {
-            self.bound(record.encoded_len() as u64)?;
+            if let Some(delta) = newcomer {
+                self.bound_newcomers(key, delta, now)?;
+            }
+            self.bound(record.encoded_len() as u64, now)?;
         }
         Ok(put)
     }
 
     /// Keeps the file near `max_bytes` at a bounded cost per put: `usage()` once per 1 % of
-    /// `max_bytes` written, then one batch of oldest keys per put until under 95 %.
-    fn bound(&self, bytes: u64) -> Result<()> {
+    /// `max_bytes` written, then one batch of established keys per put until under 95 %.
+    fn bound(&self, bytes: u64, now: i64) -> Result<()> {
         let step = (self.max_bytes / 100).max(1);
         if self.written.fetch_add(bytes, Ordering::Relaxed) + bytes >= step {
             self.written.store(0, Ordering::Relaxed);
@@ -370,7 +388,7 @@ impl SearchIndex {
             }
         }
         if self.over.load(Ordering::Relaxed) {
-            self.remove_batch(i64::MAX)?;
+            self.evict_established(now)?;
             if self.usage()? < self.max_bytes / 100 * 95 {
                 self.over.store(false, Ordering::Relaxed);
             }
@@ -378,6 +396,7 @@ impl SearchIndex {
         Ok(())
     }
 
+    /// Stores the put; for a newcomer key also returns the change of its record bytes.
     fn write(
         &self,
         key: &[u8; 32],
@@ -385,31 +404,32 @@ impl SearchIndex {
         record: &SignedRecord,
         now: i64,
         limit: bool,
-    ) -> Result<Put> {
+    ) -> Result<(Put, Option<i64>)> {
         let Some(version) = sql(p.version) else {
-            return Ok(Put::Stale);
+            return Ok((Put::Stale, None));
         };
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
-        let known: Option<(i64, i64)> = tx
+        let known: Option<(i64, i64, i64, i64)> = tx
             .query_row(
-                "SELECT `version`, `updated` FROM `key` WHERE `key` = ?",
+                "SELECT `version`, `updated`, `first_seen`, `bytes` FROM `key` WHERE `key` = ?",
                 [&key[..]],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .optional()
             .map_err(storage_error)?;
         match known {
-            Some((stored, _)) if stored >= version => return Ok(Put::Stale),
-            Some((_, updated)) if limit && now - updated < UPDATE_SECONDS => {
+            Some((stored, ..)) if stored >= version => return Ok((Put::Stale, None)),
+            Some((_, updated, ..)) if limit && now - updated < UPDATE_SECONDS => {
                 let wait = UPDATE_SECONDS - (now - updated);
-                return Ok(Put::Limited {
+                let limited = Put::Limited {
                     retry_after: wait.unsigned_abs(),
-                });
+                };
+                return Ok((limited, None));
             }
             _ => {}
         }
-        if let Some((stored, _)) = known {
+        if let Some((stored, ..)) = known {
             flip(&tx, key, stored.unsigned_abs())?;
         }
         flip(&tx, key, version.unsigned_abs())?;
@@ -427,12 +447,16 @@ impl SearchIndex {
         } else {
             record.encoded_len() as i64
         };
+        // Replicas while the file is young are the existing network's keys, not newcomers.
+        let grace = !limit && now < self.created + self.newcomer_seconds;
+        let (first_seen, old_bytes) =
+            known.map_or((if grace { 0 } else { now }, 0), |k| (k.2, k.3));
         tx.execute(
             "INSERT INTO `key` (`key`, `topic`, `version`, `deleted`, `updated`, `heartbeat`,
-               `beat_day`, `beats`, `first_seen`, `bytes`) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 0, 0, ?5, ?6)
+               `beat_day`, `beats`, `first_seen`, `bytes`) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 0, 0, ?7, ?6)
              ON CONFLICT (`key`) DO UPDATE SET `version` = ?3, `deleted` = ?4, `updated` = ?5,
                `heartbeat` = ?5, `bytes` = ?6",
-            params![&key[..], topic, version, p.deleted, now, bytes],
+            params![&key[..], topic, version, p.deleted, now, bytes, first_seen],
         )
         .map_err(storage_error)?;
         if !p.deleted {
@@ -480,7 +504,8 @@ impl SearchIndex {
             .map_err(storage_error)?;
         }
         tx.commit().map_err(storage_error)?;
-        Ok(Put::Stored)
+        let newcomer = first_seen > now - self.newcomer_seconds;
+        Ok((Put::Stored, newcomer.then_some(bytes - old_bytes)))
     }
 
     /// Refreshes the heartbeat of the stored version, at most `HEARTBEATS_PER_DAY` per UTC day.
@@ -654,24 +679,11 @@ impl SearchIndex {
     fn remove_batch(&self, before: i64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
-        let rows: Vec<(Vec<u8>, i64)> = {
-            let mut statement = tx
-                .prepare_cached(
-                    "SELECT `key`, `version` FROM `key` WHERE `heartbeat` < ? ORDER BY `heartbeat` LIMIT ?",
-                )
-                .map_err(storage_error)?;
-            let rows = statement
-                .query_map(params![before, BATCH], |row| Ok((row.get(0)?, row.get(1)?)))
-                .map_err(storage_error)?;
-            rows.collect::<rusqlite::Result<_>>()
-                .map_err(storage_error)?
-        };
-        for (key, version) in &rows {
-            let key_array = <&[u8; 32]>::try_from(key.as_slice())
-                .map_err(|_| storage_error("invalid search key length"))?;
-            flip(&tx, key_array, version.unsigned_abs())?;
-        }
-        let keys: Vec<Vec<u8>> = rows.into_iter().map(|(key, _)| key).collect();
+        let keys = select_keys(
+            &tx,
+            "SELECT `key` FROM `key` WHERE `heartbeat` < ? ORDER BY `heartbeat` LIMIT ?",
+            params![before, BATCH],
+        )?;
         remove_keys(&tx, &keys)?;
         tx.commit().map_err(storage_error)?;
         Ok(keys.len())
@@ -930,7 +942,11 @@ fn rand_bytes() -> [u8; 8] {
 
 #[path = "search/counts.rs"]
 mod counts;
-use counts::{count_place, remove_keys, uncount};
+use counts::{count_place, remove_keys, select_keys, uncount};
+
+#[cfg(test)]
+#[path = "search/newcomers.rs"]
+mod newcomer_tests;
 
 #[cfg(test)]
 #[path = "search/digest.rs"]

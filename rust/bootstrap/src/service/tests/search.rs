@@ -480,7 +480,7 @@ fn search_profile_pow() {
     });
     s.config.roles.push(Role::Search);
     s.config.search.min_profile_pow_bits = 2;
-    let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+    let index = SearchIndex::open(&s.config.storage.search_path(), &s.config.search);
     s.search = Some(Arc::new(index.unwrap()));
     let id = Identity::generate();
     let v1 = || Profile {
@@ -612,7 +612,7 @@ fn beat_service(id: &Identity) -> Service {
     s.config.roles.push(Role::Search);
     s.config.search.min_profile_pow_bits = 2;
     s.config.search.min_heartbeat_pow_bits = 2;
-    let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+    let index = SearchIndex::open(&s.config.storage.search_path(), &s.config.search);
     s.search = Some(Arc::new(index.unwrap()));
     let v1 = Profile {
         version: 1,
