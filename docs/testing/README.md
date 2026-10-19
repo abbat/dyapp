@@ -223,7 +223,8 @@ attribute without a reason.
 mutants in 16 shards, two at a time each, and `scripts/check-mutants.py` adds up their
 `outcomes.json`. The score is caught and timed-out mutants over all viable ones; it must not drop
 below `[mutants] score` in `scripts/baselines.toml`, and the job asks to raise the value when the
-score is 0.5 points above it. The baseline is 0 until the first full run sets it.
+score is 0.5 points above it. The first full run (2026-10-19) scored 72.2%: 614 of 2205 viable
+mutants were missed, most of them in `node.rs`, `service.rs` and `bin/test-peer.rs`.
 
 ## Fuzzing
 

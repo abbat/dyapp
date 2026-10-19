@@ -90,7 +90,7 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
 | id | Practice and rule | Stage | Standard | Metric, threshold | Tool | Auto | U/F/C | Wave |
 |---|---|---|---|---|---|---|---|---|
 | B1 (adopted) | **Coverage ratchet.** Total line coverage never drops below the stored baseline; changed lines are ≥ 80% covered | verify | Google "Code Coverage Best Practices" | total ≥ baseline, diff ≥ 80% | cargo-llvm-cov (lcov) + `scripts/check_coverage.py` | auto | 3/3/1 | W1 |
-| B2 | **Mutation testing.** cargo-mutants `--in-diff` on every push: 0 missed mutants, exceptions only via `#[mutants::skip]` with a reason. Weekly full run with a mutation-score ratchet | verify | mutation testing (PIT, Stryker) | diff: 0 missed; full ≥ baseline | cargo-mutants | auto | 3/3/2 | W1 |
+| B2 (adopted) | **Mutation testing.** cargo-mutants `--in-diff` on every push: 0 missed mutants, exceptions only via `#[mutants::skip]` with a reason. Weekly full run with a mutation-score ratchet | verify | mutation testing (PIT, Stryker) | diff: 0 missed; full ≥ baseline | cargo-mutants ([mutation testing](../testing/README.md#mutation-testing)) | auto | 3/3/2 | W1 |
 | B3 (adopted) | **Round-trip properties.** Every wire and storage type has a proptest `decode(encode(x)) == x`; a script finds types without one | implement | property-based testing | 100% of protocol and storage types | proptest + [`check-repository.py`](../testing/README.md#round-trip-properties) | auto | 3/3/1 | W1 |
 | B4 (adopted) | **Fuzzing untrusted input.** cargo-fuzz targets for bootstrap protocol frames, message decoding and profile parsing. CI smoke 60 s per target, nightly 1 h; corpus in the repository; a crash becomes a bead and a regression test | verify | OSS-Fuzz, ClusterFuzzLite | 100% of network parsers have a target; 0 open crashes | cargo-fuzz ([fuzzing](../testing/README.md#fuzzing)) | auto | 3/3/2 | W1 |
 | B5 (adopted) | **Flaky tests.** nextest with `retries = 2`; a test that passes only on retry is flaky, gets a bead and ≤ 7 days of quarantine. Same for XCUITest and Android UI tests | verify | Google "Flaky Tests" | 0 flaky tests older than 7 days | cargo-nextest (JUnit) + [`check-flaky.py`](../testing/README.md#flaky-tests) | auto | 2/3/1 | W1 |
@@ -162,6 +162,9 @@ four groups, each after the previous one:
 2. ratchets: B1, B6, B7, B8, B9, D5, and A7 limited to hatch counters and CI minutes;
 3. tests: B3, B5, B2, B4, C6, D1, D2;
 4. process: A1, A5, A7 in full, A8, A4, C3, C8, D3.
+
+The first bootstrap release comes first: D2, D3 and the other open D practices wait until it is
+out.
 
 Other dependencies between practices:
 
