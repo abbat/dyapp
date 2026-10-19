@@ -20,6 +20,13 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    ignore:
+      # nix 0.31 does not build for iOS against libc 0.2.190.
+      - dependency-name: libc
+        versions: ["0.2.190"]
+      # argon2 0.6 needs blake2 0.11; snow (libp2p noise) still pins 0.10.
+      - dependency-name: argon2
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       # libp2p crates must move together, majors included.
       libp2p:

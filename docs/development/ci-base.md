@@ -129,7 +129,9 @@ the token to `contents: read`.
 Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub Actions, Cargo
 (the root workspace, `linux`, `windows`, `tools/arch-lint`), Gradle (`android`) and the
 Dockerfiles in `docker/`. It waits 7 days after a release, groups minor and patch updates into
-one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Vulnerability
+one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Cargo ignores
+libc 0.2.190 (`nix` fails to build for iOS against it) and argon2 0.6+ (it needs blake2 0.11,
+while snow in libp2p noise still pins 0.10, a duplicate `cargo deny` rejects). Vulnerability
 alerts and Dependabot security updates are enabled in the repository settings; security PRs skip
 the schedule and the wait.
 
