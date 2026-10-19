@@ -678,6 +678,26 @@ async fn one_ip_group_fills_few_routing_slots() {
 }
 
 #[tokio::test]
+async fn search_routing_has_its_own_ip_group_limits() {
+    let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+    let admitted = (1..=30)
+        .filter(|i| {
+            let address = format!("/ip4/10.9.9.{i}/tcp/1").parse().unwrap();
+            add_search_peer(&mut swarm, PeerId::random(), address)
+        })
+        .count();
+    assert!((1..=MAX_GROUP_PER_TABLE).contains(&admitted), "{admitted}");
+    let search: usize = swarm
+        .behaviour_mut()
+        .search_kad
+        .kbuckets()
+        .map(|b| b.num_entries())
+        .sum();
+    assert_eq!(search, admitted);
+    assert_eq!(swarm.behaviour_mut().kad.kbuckets().count(), 0);
+}
+
+#[tokio::test]
 async fn client_gets_node_info() {
     let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
     server

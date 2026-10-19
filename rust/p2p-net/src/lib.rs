@@ -424,10 +424,12 @@ pub fn build_configured_swarm(
                 ),
             };
             kad.set_mode(kad_mode);
+            let mut search_config = kad::Config::new(protocols.search_kad.clone());
+            search_config.set_kbucket_inserts(kad::BucketInserts::Manual);
             let mut search_kad = kad::Behaviour::with_config(
                 peer_id,
                 kad::store::MemoryStore::new(peer_id),
-                kad::Config::new(protocols.search_kad.clone()),
+                search_config,
             );
             search_kad.set_mode(Some(if search {
                 kad::Mode::Server
@@ -681,11 +683,24 @@ fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
 /// newcomer only replaces one that stopped answering. Returns whether the address was passed to
 /// Kademlia.
 pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) -> bool {
+    admit(&mut swarm.behaviour_mut().kad, peer, address)
+}
+
+/// [`add_peer`] for the search Kademlia, which links search nodes: the same proof of work and
+/// IP-group limits, counted in its own table.
+pub fn add_search_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) -> bool {
+    admit(&mut swarm.behaviour_mut().search_kad, peer, address)
+}
+
+fn admit(
+    kad: &mut kad::Behaviour<kad::store::MemoryStore>,
+    peer: PeerId,
+    address: Multiaddr,
+) -> bool {
     if !id_has_pow(&peer, id_pow_bits()) {
         tracing::debug!(%peer, "peer ID without proof of work not routed");
         return false;
     }
-    let kad = &mut swarm.behaviour_mut().kad;
     if let (Some(group), Some(wide)) = (ip_group(&address, false), ip_group(&address, true)) {
         let Some(range) = kad.kbucket(peer).map(|b| b.range()) else {
             return false;
@@ -724,13 +739,20 @@ pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) 
     true
 }
 
-/// Feeds a peer Kademlia found routable (a dialled peer, a lookup result) through [`add_peer`];
-/// call it on every swarm event.
+/// Feeds a peer either Kademlia found routable (a dialled peer, a lookup result) through
+/// [`add_peer`] or [`add_search_peer`]; call it on every swarm event.
 pub fn route(swarm: &mut Swarm<Behaviour>, event: &SwarmEvent<BehaviourEvent>) {
-    if let SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::RoutablePeer { peer, address })) =
-        event
-    {
-        add_peer(swarm, *peer, address.clone());
+    match event {
+        SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::RoutablePeer { peer, address })) => {
+            add_peer(swarm, *peer, address.clone());
+        }
+        SwarmEvent::Behaviour(BehaviourEvent::SearchKad(kad::Event::RoutablePeer {
+            peer,
+            address,
+        })) => {
+            add_search_peer(swarm, *peer, address.clone());
+        }
+        _ => {}
     }
 }
 

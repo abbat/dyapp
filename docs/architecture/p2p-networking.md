@@ -85,8 +85,9 @@ or one DNS name), so the peers Kademlia dials for one key range sit in distinct 
 event so that the peers Kademlia finds routable reach the filter. A full bucket keeps its
 connected peers: libp2p tests before it evicts, dialling the oldest disconnected peer and
 replacing it with the new one only if it is still disconnected after 60 s, so long-lived peers
-stay in it. A unit test
-checks the limits. Addresses claimed through identify are not verified by a dial.
+stay in it. The search Kademlia (`/dyapp/search-kad`) inserts the same way through
+`add_search_peer`: the same proof of work and limits, counted in its own table. Unit tests
+check the limits. Addresses claimed through identify are not verified by a dial.
 
 Not implemented yet:
 

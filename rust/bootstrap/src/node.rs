@@ -2334,7 +2334,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     // Only search nodes serve the search DHT, so its protocol marks one.
                     if info.protocols.contains(&service.protocols.search_kad) && dyapp_p2p_net::id_has_pow(&peer_id, bits) {
                         for address in &info.listen_addrs {
-                            swarm.behaviour_mut().search_kad.add_address(&peer_id, address.clone());
+                            dyapp_p2p_net::add_search_peer(&mut swarm, peer_id, address.clone());
                         }
                         service.search_peer(&peer_id.to_string(), true);
                     }

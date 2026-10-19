@@ -283,7 +283,9 @@ resent from the sender's retry queue.
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
   republishes the record every 12 hours. Clients and new search nodes find search nodes with
   `get_providers` on that key. A peer that lists `/dyapp/search-kad` in identify joins the
-  node's search Kademlia, which links the search nodes to each other.
+  node's search Kademlia, which links the search nodes to each other, under the same node-ID
+  proof of work and IP-group limits as the main routing table
+  ([routing defences](p2p-networking.md)).
 - **Dissemination.** Clients do not run gossipsub. On every change the owner's client sends its
   `SignedRecord` to 2 search nodes with `/dyapp/search` `publish`, and once a day a signed
   `heartbeat` (key, profile version, time). The entry node checks the signature, the size, the
