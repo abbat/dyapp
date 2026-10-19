@@ -721,7 +721,8 @@ The current protocol replies are:
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group:
   client puts cost five units and other requests one, with mailbox puts also limited per sender
   key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
-  `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
+  A node without the store role answers `UNSUPPORTED` on both. `/dyapp/node` `info` counts only
+  against the IP-group bucket and `deny_list` against both; a denied peer gets `REFUSED` for both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
 - **Store requests run off the swarm loop.** `/dyapp/profile`, `/dyapp/media`, `/dyapp/mailbox`
   and `/dyapp/inventory` requests queue per remote peer and run on 4
@@ -879,7 +880,8 @@ Scope and limits:
 - Every `/dyapp/profile` and `/dyapp/mailbox` request counts against two buckets: the remote
   libp2p peer ID (`requests_per_second`) and its IP group (`ip_group_requests_per_second`,
   default 1000), the connection's remote IP masked to `ipv4_prefix` / `ipv6_prefix` bits
-  (defaults /24 and /48). `/dyapp/node` `info` is not limited.
+  (defaults /24 and /48). `/dyapp/node` `deny_list` counts one unit against both; `info` counts
+  only against the IP-group bucket, with no strike, so discovery stays cheap.
 - `/dyapp/search` and `/dyapp/inventory` count in units against the same two buckets: a query
   1, a publish or heartbeat 5, a get 1 per started 64 KiB of its reply, an inventory 10. Requests
   from a connected search node (one listing `/dyapp/search-kad` in identify) skip the units for

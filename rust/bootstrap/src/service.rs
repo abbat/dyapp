@@ -296,11 +296,24 @@ impl Service {
         self.traffic.add(request.encoded_len() as u64);
         match request.request {
             Some(node_request::Request::Turn(_)) => self.turn(peer),
+            // Info stays cheap for discovery: only the IP-group bucket, no per-peer strikes.
+            Some(node_request::Request::Info(_)) if self.refused(peer) => {
+                node_status(Status::Refused)
+            }
+            Some(node_request::Request::Info(_)) if !self.groups.check_units(&peer.group, 1) => {
+                node_status(Status::RateLimited)
+            }
             Some(node_request::Request::Info(_)) => NodeResponse {
                 status: Status::Ok.into(),
                 info: Some(self.info()),
                 ..NodeResponse::default()
             },
+            Some(node_request::Request::DenyList(_)) if !self.admit(peer) => {
+                node_status(Status::RateLimited)
+            }
+            Some(node_request::Request::DenyList(_)) if self.refused(peer) => {
+                node_status(Status::Refused)
+            }
             Some(node_request::Request::DenyList(_)) => {
                 let shared = self.shared_deny.read().unwrap().clone();
                 NodeResponse {
@@ -3624,10 +3637,20 @@ mod tests {
         let deny_list = || NodeRequest {
             request: Some(node_request::Request::DenyList(proto::DenyListRequest {})),
         };
-        let not_shared = service.node(&peer("q"), deny_list());
+        let not_shared = service.node(&peer("r"), deny_list());
         assert_eq!(not_shared.status, i32::from(Status::NotFound));
         *service.shared_deny.get_mut().unwrap() = Some(SignedRecord::default());
-        assert!(service.node(&peer("q"), deny_list()).deny_list.is_some());
+        assert!(service.node(&peer("s"), deny_list()).deny_list.is_some());
+        *service.deny.get_mut().unwrap() = ["d".into()].into();
+        let info = NodeRequest {
+            request: Some(node_request::Request::Info(proto::InfoRequest {})),
+        };
+        for request in [info, deny_list()] {
+            let refused = service.node(&peer("d"), request);
+            assert_eq!(refused.status, i32::from(Status::Refused));
+            assert!(refused.info.is_none() && refused.deny_list.is_none());
+        }
+        service.deny.get_mut().unwrap().clear();
         let turn = NodeRequest {
             request: Some(node_request::Request::Turn(proto::TurnRequest {})),
         };
