@@ -971,7 +971,7 @@ impl Service {
                 };
                 Search::Get(keys.into_iter().filter(|k| !self.listed(k)).collect())
             }
-            None => Search::Reply(search_reply(Status::Invalid)),
+            None => Search::Reply(search_reply(Status::Unsupported)),
         })
     }
 
@@ -2281,6 +2281,8 @@ mod tests {
             matches!(unsupported, Search::Reply(r) if search_status(&r) == Status::Unsupported)
         );
         let s = search_service();
+        let unknown = s.search(&peer("p"), SearchRequest::default()).unwrap();
+        assert!(matches!(unknown, Search::Reply(r) if search_status(&r) == Status::Unsupported));
         let id = Identity::generate();
         let mut forged = Profile {
             version: 1,
