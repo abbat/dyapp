@@ -159,6 +159,18 @@ impl Traffic {
     }
 }
 
+/// Test helper: waits until at least half of the current second remains, so the counts a test
+/// reads from [`Traffic::second`] do not roll over to the next second halfway.
+#[cfg(test)]
+pub(crate) fn fresh_second() {
+    let into = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.subsec_millis());
+    if into > 500 {
+        std::thread::sleep(std::time::Duration::from_millis(u64::from(1000 - into)));
+    }
+}
+
 /// The process's physical memory as a share of `max` bytes (0 = no limit), measured like
 /// libp2p's memory connection limit and sampled at most every 100 ms.
 pub struct Memory {

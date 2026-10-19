@@ -3779,14 +3779,12 @@ mod tests {
     fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
         let mut s = media_service(|l| l.bytes_per_second = 10_000);
         let owner = Identity::generate();
-        let replica = media_replica(&owner, vec![1; 1000], 1);
-        assert_eq!(
-            s.store_media(&replica).unwrap().status,
-            i32::from(Status::Ok)
-        );
+        let one = media_replica(&owner, vec![1; 1000], 1);
+        crate::rate_limit::fresh_second(); // the counts below share one second
+        assert_eq!(s.store_media(&one).unwrap().status, i32::from(Status::Ok));
         let put = proto::MediaPut {
             owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
-            data: replica.data.clone(),
+            data: one.data.clone(),
         };
         assert!(s.prepare_media(&peer("client"), &put).unwrap().is_ok());
         assert_eq!(
