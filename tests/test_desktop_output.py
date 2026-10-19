@@ -32,6 +32,7 @@ class DesktopOutput(unittest.TestCase):
                      str(app)], capture_output=True, text=True, check=False,
                     env=dict(os.environ, RUNNER_TEMP=str(reports),
                              DYAPP_CHECK_LOG_DIR=str(root / "logs"),
+                             DYAPP_XVFB_DIAGNOSTICS="1",
                              DYAPP_FIXTURE_BROKEN=broken))
                 if broken == "0":
                     self.assertEqual(result.returncode, 0, result.stdout)
@@ -95,6 +96,63 @@ class DesktopOutput(unittest.TestCase):
                 env=dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs")))
             self.assertNotEqual(empty.returncode, 0)
             self.assertIn("No unit test binaries", empty.stdout)
+
+    def test_display_failure_keeps_diagnostics_without_secrets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "app"
+            app.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "if '--break-ui' in sys.argv:\n"
+                " print('cannot open display :99', file=sys.stderr)\n"
+                " raise SystemExit(1)\n"
+                "print('UI_SMOKE_PASS')\n")
+            app.chmod(0o755)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/desktop-smoke.py"),
+                 str(app)], capture_output=True, text=True, check=False,
+                env=dict(os.environ, RUNNER_TEMP=str(root),
+                         DYAPP_CHECK_LOG_DIR=str(root / "logs"),
+                         DYAPP_XVFB_DIAGNOSTICS="1", DISPLAY=":99",
+                         XAUTHORITY="secret-cookie-path",
+                         DBUS_SESSION_BUS_ADDRESS="secret-session-address",
+                         PRIVATE_TOKEN="secret-token"))
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("cannot open display :99", result.stdout)
+            logs = "\n".join(p.read_text()
+                             for p in (root / "logs").glob("*.log"))
+            self.assertIn("Xvfb/display diagnostics", logs)
+            self.assertIn("DISPLAY=:99", logs)
+            self.assertIn("X11 socket exists=", logs)
+            self.assertIn("XAUTHORITY configured=True", logs)
+            self.assertNotIn("secret-", logs)
+
+    def test_xvfb_startup_error_reaches_linux_runner_and_still_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "linux-test.sh").write_text(
+                (ROOT / "scripts/linux-test.sh").read_text())
+            (scripts / "run-cargo-unit-binaries.py").write_text("")
+            target = root / "linux/target"
+            target.mkdir(parents=True)
+            (target / "unit-build.json").write_text("")
+            xvfb = root / "xvfb-run"
+            xvfb.write_text(
+                "#!/bin/sh\n"
+                "case \" $* \" in\n"
+                " *' -e /dev/stderr '*) echo 'Xvfb server failed' >&2;;\n"
+                " *) exit 99;;\n"
+                "esac\nexit 37\n")
+            xvfb.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(scripts / "linux-test.sh"), "--raw"],
+                capture_output=True, text=True, check=False,
+                env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}"))
+            self.assertEqual(result.returncode, 37, result.stdout)
+            self.assertIn("Xvfb server failed", result.stderr)
 
 
 if __name__ == "__main__":

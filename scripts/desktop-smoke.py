@@ -2,10 +2,45 @@
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
 import tempfile
+
+
+def display_diagnostics():
+    """Bounded, allowlisted state while xvfb-run still owns the server."""
+    display = os.environ.get("DISPLAY", "")
+    local = re.fullmatch(r":([0-9]{1,6})(?:\.[0-9]{1,3})?", display)
+    number = local[1] if local else ""
+    lines = [
+        "Xvfb/display diagnostics (before xvfb-run cleanup):",
+        f"DISPLAY={display if local and len(display) < 32 else 'unavailable'}",
+        f"XAUTHORITY configured={bool(os.environ.get('XAUTHORITY'))}",
+        "DBUS_SESSION_BUS_ADDRESS configured="
+        f"{bool(os.environ.get('DBUS_SESSION_BUS_ADDRESS'))}",
+    ]
+    if local:
+        lines.append(f"X11 socket exists="
+                     f"{Path(f'/tmp/.X11-unix/X{number}').exists()}")
+    servers = 0
+    for process in Path("/proc").glob("[0-9]*"):
+        try:
+            if (process / "comm").read_text().strip() != "Xvfb":
+                continue
+            fields = (process / "status").read_text().splitlines()
+        except OSError:
+            continue
+        state = next((s for s in fields if s.startswith("State:")), "State: ?")
+        lines.append(f"Xvfb pid={process.name} {state}")
+        servers += 1
+        if servers == 8:
+            lines.append("Xvfb process listing capped at 8")
+            break
+    if not servers:
+        lines.append("No live Xvfb process found in /proc")
+    return "\n".join(lines)[:4096]
 
 
 def run(arguments, timeout=60):
@@ -69,4 +104,9 @@ def smoke(executable):
 if __name__ == "__main__":
     from check_dispatch import wrap
     wrap("desktop-smoke")
-    smoke(sys.argv[1])
+    try:
+        smoke(sys.argv[1])
+    except (RuntimeError, OSError) as error:
+        if os.environ.get("DYAPP_XVFB_DIAGNOSTICS") == "1":
+            raise RuntimeError(f"{error}\n{display_diagnostics()}") from None
+        raise

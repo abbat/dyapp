@@ -42,6 +42,19 @@ three times: `--ui-test` and `--ui-test --pseudo-locale` must print `UI_SMOKE_PA
 `UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected). A pass also
 needs the page to show the peer ID from the `peer_id` command as 64 lowercase hex characters.
 
+On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
+letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to
+4 KiB of display/session state before `xvfb-run` cleans up: the local display number,
+X11 socket presence, up to eight Xvfb PIDs with their process states, and whether Xauthority
+and D-Bus session settings exist. It does not dump the environment, cookie contents or
+session addresses. An absent process is evidence of absence at capture time, not a root
+cause diagnosis. Startup failures before the smoke starts retain Xvfb stderr and their
+nonzero exit status; a display failure without `UI_SMOKE_FAIL` still fails the negative
+case. There are no added retries. Successful runs keep the usual single `OK` line.
+The shared runner retains raw logs and bounds displayed diagnostics as described in
+[local check output](../agents/project.md#local-check-output); native CI uploads them as
+`linux-check-output`, while local Docker output identifies its retained log path.
+
 ### Localized strings
 
 Practice D1. Every visible string of the shells lives in a catalogue, and the UI tests also run

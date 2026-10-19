@@ -17,5 +17,6 @@ if [[ ! -f $units ]]; then
 fi
 mkdir -p /tmp/ai
 python3 "$root/scripts/run-cargo-unit-binaries.py" "$units"
-exec xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
+export DYAPP_XVFB_DIAGNOSTICS=1
+exec xvfb-run -a -e /dev/stderr -s '-screen 0 1024x768x24' dbus-run-session -- \
     python3 "$root/scripts/desktop-smoke.py" "$root/linux/target/debug/dyapp-linux"
