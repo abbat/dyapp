@@ -1,0 +1,2 @@
+# cargo-mutants (practice B2, docs/testing/README.md#mutation-testing).
+all_features = true

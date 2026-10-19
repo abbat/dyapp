@@ -78,6 +78,20 @@ step() {
             echo "Coverage artifacts: $report_dir"
             ;;
         coverage) step cov-build; step cov-test; step cov-report ;;
+        mutants)
+            # Practice B2: every mutant in Rust code changed since MUTANTS_BASE must be caught.
+            local base=${MUTANTS_BASE:-origin/main} src=target/mutants-src
+            [[ $base =~ ^0+$ ]] && base=origin/main # a push that creates a branch
+            rm -rf "$src" target/mutants-tmp
+            mkdir -p "$src" target/mutants-tmp
+            git -c safe.directory="$PWD" diff --no-ext-diff --no-color "$base" -- '*.rs' \
+                > target/mutants.diff
+            # Tracked files but .beads: ignored and beads files may be private to the host user.
+            git -c safe.directory="$PWD" ls-files -z -- ':!.beads' |
+                tar --null --ignore-failed-read -T - -cf - | tar -xf - -C "$src"
+            TMPDIR=$PWD/target/mutants-tmp cargo mutants --dir "$src" --output target \
+                --in-diff target/mutants.diff
+            ;;
         network)
             # Two real dyappd peers on the loopback, test-peer as the client. cov-build already
             # built both (cargo test builds a package's binaries when it has integration tests); a
@@ -108,12 +122,13 @@ step() {
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|network|memory|security}
+    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|network|memory|security}
     case "$stage" in
         quality|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;
+        mutants) policy=rust-mutants ;;
         network|memory) policy=rust-network ;;
         *) policy=rust-build ;;
     esac

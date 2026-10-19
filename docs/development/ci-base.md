@@ -6,7 +6,8 @@
 > [ci-matrix.md](ci-matrix.md).
 
 `ci-base.yml` (name **rust**) is `workflow_call` only. Its single caller is `ci.yml` (job
-`core`), so its checks show as `ci / core / quality` and `ci / core / build`. It has two jobs.
+`core`), so its checks show as `ci / core / quality`, `ci / core / build` and `ci / core / mutants`. It
+has three jobs.
 
 ## Reproducible builds
 
@@ -102,9 +103,9 @@ unsafe-location listing remain data outputs for their report consumers.
 
 ## Jobs
 
-Both jobs run directly on the runner, without Docker. Every check is a step of
+All jobs run directly on the runner, without Docker. Every check is a step of
 `scripts/rust-check.sh`, the same script the dev image runs locally
-([Running locally](#running-locally)). Both jobs set `CARGO_INCREMENTAL=0`,
+([Running locally](#running-locally)). All jobs set `CARGO_INCREMENTAL=0`,
 `CARGO_PROFILE_DEV_DEBUG=0`, `CXXFLAGS=-g0` and `RUST_BACKTRACE=1`. Each job begins with
 `scripts/ci-setup.sh rust`, which:
 
@@ -205,6 +206,15 @@ nothing.
 the snapshot taken when the image was built, offline with `--frozen`. `cargo audit` also
 runs in `security.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
+### `mutants` → **mutants**
+
+Practice B2 ([mutation testing](../testing/README.md#mutation-testing)). This job runs on
+ubuntu-24.04 with a 120-minute timeout and a full-history checkout. Setup installs
+cargo-mutants 27.1.0. Step `mutants` runs `rust-check.sh mutants` with `MUTANTS_BASE` = the PR
+base or `github.event.before`: every mutant in the changed Rust code must be caught. Artifact
+**`mutants-diff`** (`if: always()`) keeps the diff and the outcome lists. The weekly full run is
+`mutants.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
+
 ## What is not here
 
 - **MSRV job:** none. The pinned toolchain equals the declared `rust-version`
@@ -227,6 +237,7 @@ bash scripts/docker-test.sh quality     # rust-check.sh quality
 bash scripts/docker-test.sh build
 bash scripts/docker-test.sh test
 bash scripts/docker-test.sh coverage    # cov-build + cov-test + cov-report
+make mutants                            # rust-check.sh mutants, against origin/main
 bash scripts/docker-test.sh security
 bash scripts/docker-test.sh network-prepare && bash scripts/docker-test.sh network  # three node containers
 bash scripts/docker-test.sh all         # all of the above + scripts/ui-test.sh all

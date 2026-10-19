@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check quality lint check fmt build release deb image security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants quality lint check fmt build release deb image security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
 
 .SILENT:
 
@@ -7,7 +7,7 @@ DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull ne
 CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir target/check-output
 
 help:
-	@echo "prepare | test | test-integration | test-all | coverage | quality | build | deb | image | ui-test"
+	@echo "prepare | test | test-integration | test-all | coverage | mutants | quality | build | deb | image | ui-test"
 
 install: prepare
 
@@ -30,6 +30,10 @@ test-all:
 
 coverage coverage-check:
 	bash scripts/docker-test.sh coverage
+
+# Practice B2: every mutant in Rust code changed since origin/main is caught.
+mutants:
+	$(DEV) bash scripts/rust-check.sh mutants
 
 quality lint check:
 	bash scripts/check-quality.sh

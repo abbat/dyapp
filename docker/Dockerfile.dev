@@ -35,7 +35,8 @@ RUN curl -fsSL -o /tmp/typos.tgz https://github.com/crate-ci/typos/releases/down
 RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
 RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \
     cargo install --locked cargo-deny --version 0.20.2 && \
-    cargo install --locked cargo-nextest --version 0.9.148
+    cargo install --locked cargo-nextest --version 0.9.148 && \
+    cargo install --locked cargo-mutants --version 27.1.0
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 WORKDIR /workspace
 COPY . .

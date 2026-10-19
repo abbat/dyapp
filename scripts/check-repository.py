@@ -49,6 +49,7 @@ DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
 PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
 ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
+SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
 
 
 def prose(text, code=False):
@@ -252,6 +253,21 @@ def round_trip_errors(texts):
             for name, kind in types if kind not in tested]
 
 
+def skip_errors(texts):
+    """Practice B2: a mutants attribute needs a // reason on it or above."""
+    errors = []
+    for name, text in sorted(texts.items()):
+        if not name.endswith(".rs"):
+            continue
+        lines = [""] + text.splitlines()
+        errors += [f"{name}:{number}: mutants attribute without a reason"
+                   for number, line in enumerate(lines)
+                   if SKIP.match(line) and not any(
+                       "//" in reason for reason in (
+                           line, lines[number - 1].lstrip()[:2]))]
+    return errors
+
+
 def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -319,6 +335,9 @@ def main():
     errors = round_trip_errors(texts)
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
+    errors = skip_errors(texts)
+    if errors:
+        raise ValueError("Mutation skips:\n" + "\n".join(errors))
     errors = commit_errors(allowed)
     if errors:
         raise ValueError("Commit messages:\n" + "\n".join(errors))
@@ -342,7 +361,8 @@ def main():
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
-          f"properties, source files <= {size['max_lines']} "
+          "properties, mutants skips give a reason, "
+          f"source files <= {size['max_lines']} "
           "lines or their budget; "
           f"{len(documents)} Markdown files: relative links "
           f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "

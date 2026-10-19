@@ -193,6 +193,38 @@ as a TOML date:
 Within 7 days, fix the test and remove the entry; an expired entry fails `make test`, CI and the
 Python suite in `make quality`, even when the test no longer flakes.
 
+## Mutation testing
+
+Practice B2, with cargo-mutants 27.1.0 (pinned in `docker/Dockerfile.dev`, `ci-base.yml` and
+`mutants.yml`; settings in `.cargo/mutants.toml`). A mutant is a small change to the code, such as
+`<` turned into `<=` or a function body replaced by a default value; a test should then fail.
+
+**Changed code, every push.** `make mutants` (`rust-check.sh mutants`, CI job
+[`mutants`](../development/ci-base.md#mutants--mutants)) diffs the Rust files against
+`MUTANTS_BASE` (the push or PR base in CI, `origin/main` locally) and runs
+`cargo mutants --in-diff` on a copy of the tracked files. Every mutant in a changed region must be
+caught: a missed one fails the step with its location and mutation, for example
+
+```text
+MISSED   rust/messaging/src/encryption.rs:68:9: replace E2EEncryption::decrypt -> Result<Vec<u8>, String> with Ok(vec![])
+```
+
+Locally, run it after committing and before pushing, since it diffs against `origin/main`. Each
+mutant rebuilds the package and runs its tests (about a minute in `dyapp-bootstrap`). Changes to
+test code alone produce no mutants.
+
+**Exceptions.** Fix a missed mutant with a test. When a mutant cannot be caught, for example
+because it makes the code hang, mark the item `#[mutants::skip]` (or narrower,
+`#[mutants::exclude_re("...")]`) with a `//` reason on the same line or the line above; the crate
+then needs a regular dependency on the `mutants` crate. `check-repository.py` rejects a mutants
+attribute without a reason.
+
+**Full run, weekly.** `.github/workflows/mutants.yml` (Sundays 05:23 UTC, or manually) tests all
+mutants in 16 shards, two at a time each, and `scripts/check-mutants.py` adds up their
+`outcomes.json`. The score is caught and timed-out mutants over all viable ones; it must not drop
+below `[mutants] score` in `scripts/baselines.toml`, and the job asks to raise the value when the
+score is 0.5 points above it. The baseline is 0 until the first full run sets it.
+
 ## Coverage Policy
 
 The search protocol suite includes deterministic worker saturation: it holds a

@@ -42,6 +42,8 @@
   "rust-build": {"fix":"docs/development/code-quality.md#local-checks","format":"rust-test"},
   "rust-test": {"fix":"docs/testing/README.md#1-unit-tests-in-each-crate","format":"rust-test"},
   "rust-coverage": {"fix":"docs/testing/README.md#coverage-policy","format":"rust-test"},
+  "rust-mutants": {"fix":"docs/testing/README.md#mutation-testing","format":"lines","pattern":"^(?:MISSED|TIMEOUT|FAILED) |^Error:|^error(?:\\[[^]]+\\])?:"},
+  "mutants": {"fix":"docs/testing/README.md#mutation-testing","format":"python"},
   "rust-network": {"fix":"docs/testing/bootstrap-acceptance.md#layers","format":"rust-test"},
   "docker": {"fix":"docs/testing/docker.md#troubleshooting","format":"lines","nested":true,"gradle":true,"pattern":"^(?:FAIL |FIX:|DETAILS:|.+: raw captured output$|error(?:\\[[^]]+\\])?:|Error response from daemon:|Cannot connect to the Docker daemon)"},
   "auditable": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":".+"},
