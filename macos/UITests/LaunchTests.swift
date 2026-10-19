@@ -17,6 +17,19 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
     }
 
+    /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
+    func testDoubleLengthPseudoLanguage() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-NSDoubleLocalizedStrings", "YES"]
+        app.launch()
+        let ready = app.staticTexts["app-ready"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 10))
+        let text = ready.value as? String ?? ""
+        XCTAssertTrue(text.hasPrefix("Ready") && text.count >= 2 * "Ready".count, text)
+        XCTAssertTrue(ready.isHittable)
+        app.terminate()
+    }
+
     func testHiddenReadyDoesNotSatisfyLaunchContract() {
         let app = XCUIApplication()
         app.launchArguments = ["--break-ui"]

@@ -1,6 +1,7 @@
 name: DYApp
 options:
   minimumXcodeGenVersion: 2.44.1
+  developmentLanguage: en
   deploymentTarget:
     iOS: "14.0"
 settings:
@@ -14,7 +15,8 @@ targets:
   DYApp:
     type: application
     platform: iOS
-    sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/RustBridge.swift, ../target/apple/swift/dyapp.swift]
+    sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/RustBridge.swift, DYApp/Localizable.xcstrings,
+              ../target/apple/swift/dyapp.swift]
     dependencies:
       # Built by scripts/build-apple-core.sh before XcodeGen runs.
       - framework: ../target/apple/DyappFFI.xcframework

@@ -40,10 +40,12 @@ def run(arguments, timeout=60):
 
 def smoke(executable):
     results = []
-    for broken in (False, True):
-        arguments = [executable, "--ui-test"]
-        if broken:
-            arguments.append("--break-ui")
+    cases = (("launch-render-close", []),
+             ("pseudo-locale", ["--pseudo-locale"]),
+             ("hidden-ready-rejected", ["--break-ui"]))
+    for case, extra in cases:
+        broken = extra == ["--break-ui"]
+        arguments = [executable, "--ui-test", *extra]
         process = run(arguments)
         expected = "UI_SMOKE_FAIL" if broken else "UI_SMOKE_PASS"
         if process.returncode != int(broken) or expected not in process.stdout:
@@ -52,7 +54,6 @@ def smoke(executable):
                 f"{process.stdout}\n{process.stderr}")
         print(process.stdout, end="")
         print(process.stderr, end="", file=sys.stderr)
-        case = "hidden-ready-rejected" if broken else "launch-render-close"
         results.append({"case": case, "exit": process.returncode,
                         "passed": True})
     report_root = os.environ.get("RUNNER_TEMP")
@@ -62,7 +63,7 @@ def smoke(executable):
     reports.mkdir(parents=True, exist_ok=True)
     (reports / "desktop-ui-results.json").write_text(
         json.dumps(results, indent=2))
-    print("2 desktop UI cases passed")
+    print(f"{len(results)} desktop UI cases passed")
 
 
 if __name__ == "__main__":

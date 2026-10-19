@@ -1,4 +1,5 @@
 """Nonmutating equivalents of basic repository hooks, run inside Docker."""
+from html.parser import HTMLParser
 import json
 from pathlib import Path, PurePosixPath
 import posixpath
@@ -49,6 +50,13 @@ DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
 PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
 ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
+# Practice D1: visible UI strings live in the platform catalogues.
+CATALOGUES = {"android": "android/app/src/main/res/values/strings.xml",
+              "apple": "ios/DYApp/Localizable.xcstrings",
+              "desktop": "desktop/ui/i18n/en.json"}
+KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
+SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
+HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.
 HANDLERS = "rust/bootstrap/src/service.rs"
 HANDLER = re.compile(r"pub fn (\w+)\(\s*&self,[^)]*?"
@@ -257,6 +265,50 @@ def round_trip_errors(texts):
             for name, kind in types if kind not in tested]
 
 
+class _Visible(HTMLParser):
+    """Text nodes of an HTML page outside <script> and <style>."""
+
+    def __init__(self):
+        super().__init__()
+        self.skip, self.found = 0, []
+
+    def handle_starttag(self, tag, attrs):
+        self.skip += tag in ("script", "style")
+
+    def handle_endtag(self, tag):
+        self.skip -= tag in ("script", "style")
+
+    def handle_data(self, data):
+        if not self.skip and data.strip():
+            self.found.append(data.strip())
+
+
+def i18n_errors(texts):
+    """UI string literals and keys missing from their catalogue."""
+    errors = []
+    apple = json.loads(texts.get(CATALOGUES["apple"], "{}")).get("strings", {})
+    desktop = json.loads(texts.get(CATALOGUES["desktop"], "{}"))
+    for name, text in sorted(texts.items()):
+        path = PurePosixPath(name)
+        if name.startswith("android/app/src/main/") and path.suffix == ".kt":
+            errors += [f"{name}: Text with a literal; use stringResource"
+                       for _ in KOTLIN_LITERAL.finditer(text)]
+        elif name.startswith(("ios/DYApp/", "macos/src/")) \
+                and path.suffix == ".swift":
+            errors += [f"{name}: Text key {key!r} not in "
+                       f"{CATALOGUES['apple']}"
+                       for key in SWIFT_TEXT.findall(text) if key not in apple]
+        elif name.startswith("desktop/ui/") and path.suffix == ".html":
+            visible = _Visible()
+            visible.feed(text)
+            errors += [f"{name}: literal text {data!r}; use data-i18n"
+                       for data in visible.found]
+            errors += [f"{name}: data-i18n key {key!r} not in "
+                       f"{CATALOGUES['desktop']}"
+                       for key in HTML_KEY.findall(text) if key not in desktop]
+    return errors
+
+
 def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
     targets = "".join(text for name, text in texts.items()
@@ -349,6 +401,9 @@ def main():
     errors = round_trip_errors(texts)
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
+    errors = i18n_errors(texts)
+    if errors:
+        raise ValueError("UI strings (practice D1):\n" + "\n".join(errors))
     errors = fuzz_errors(texts)
     if errors:
         raise ValueError("Fuzz targets (fuzz/):\n" + "\n".join(errors))
@@ -378,7 +433,8 @@ def main():
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
-          "properties, network handlers have fuzz targets, "
+          "properties, network handlers have fuzz targets, UI strings "
+          "come from catalogues, "
           "mutants skips give a reason, "
           f"source files <= {size['max_lines']} "
           "lines or their budget; "

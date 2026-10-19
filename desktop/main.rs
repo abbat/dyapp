@@ -7,6 +7,12 @@ fn peer_id(identity: tauri::State<Identity>) -> String {
     identity.peer_id()
 }
 
+/// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
+#[tauri::command]
+fn pseudo_locale() -> bool {
+    std::env::args().any(|arg| arg == "--pseudo-locale")
+}
+
 #[tauri::command]
 fn ui_test_result(app: tauri::AppHandle, window: tauri::Window, passed: bool) {
     if !std::env::args().any(|arg| arg == "--ui-test") {
@@ -22,7 +28,7 @@ fn main() {
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     tauri::Builder::default()
         .manage(Identity::generate())
-        .invoke_handler(tauri::generate_handler![peer_id, ui_test_result])
+        .invoke_handler(tauri::generate_handler![peer_id, pseudo_locale, ui_test_result])
         .on_page_load(move |webview, payload| {
             if test_mode && payload.event() == PageLoadEvent::Finished {
                 if break_ui {

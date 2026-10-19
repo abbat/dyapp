@@ -38,7 +38,7 @@ class DesktopOutput(unittest.TestCase):
                     self.assertEqual(result.stdout, "OK desktop-smoke\n")
                     data = json.loads(
                         (reports / "desktop-ui-results.json").read_text())
-                    self.assertEqual(len(data), 2)
+                    self.assertEqual(len(data), 3)
                     self.assertTrue(all(case["passed"] for case in data))
                 else:
                     self.assertEqual(result.returncode, 1)

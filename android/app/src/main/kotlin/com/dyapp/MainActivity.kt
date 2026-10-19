@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import com.dyapp.ui.theme.DYAppTheme
 
 /** The single activity; hosts the Compose UI. */
@@ -32,8 +33,8 @@ fun MainScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("DYApp", style = MaterialTheme.typography.headlineLarge)
-        Text("Ready", modifier = Modifier.testTag("app-ready"))
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
+        Text(stringResource(R.string.status_ready), modifier = Modifier.testTag("app-ready"))
         Text(peerId, modifier = Modifier.testTag("peer-id"))
     }
 }

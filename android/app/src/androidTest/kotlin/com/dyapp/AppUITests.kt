@@ -19,10 +19,13 @@ class AppUITests {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
 
+    private fun string(id: Int) = compose.activity.getString(id)
+
     @Test
     fun launchesAndRendersReady() {
-        compose.onNodeWithText("DYApp").assertIsDisplayed()
-        compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals("Ready")
+        compose.onNodeWithText(string(R.string.app_name)).assertIsDisplayed()
+        compose.onNodeWithTag("app-ready").assertIsDisplayed()
+            .assertTextEquals(string(R.string.status_ready))
         // The peer ID comes from the Rust core through the UniFFI bindings.
         val peerId = compose.onNodeWithTag("peer-id").assertIsDisplayed()
             .fetchSemanticsNode()
@@ -48,6 +51,7 @@ class AppUITests {
     @Test
     fun recreationKeepsReadyScreen() {
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals("Ready")
+        compose.onNodeWithTag("app-ready").assertIsDisplayed()
+            .assertTextEquals(string(R.string.status_ready))
     }
 }

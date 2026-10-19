@@ -21,6 +21,10 @@ android {
     }
 
     buildTypes {
+        // Practice D1: en-XA and ar-XB pseudo-locales for the UI tests.
+        debug {
+            pseudoLocalesEnabled true
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

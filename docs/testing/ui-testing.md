@@ -21,11 +21,11 @@ the peer ID is 64 lowercase hex characters.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 3 instrumented (`AppUITests.kt` ×2, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 2 cargo tests (`desktop/main.rs`, `linux/tests/integration_tests.rs`) | 2 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | same 2 cargo tests (`windows/` includes `desktop/` and `linux/tests`) | same 2 smoke cases | same |
-| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 2 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
-| macOS | CI only (macos-15) | 1 XCTest | 2 XCUITest | `check-apple-results.py` (≥3) |
+| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 4 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×1, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Linux | Docker (local + CI) | 2 cargo tests (`desktop/main.rs`, `linux/tests/integration_tests.rs`) | 3 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | same 2 cargo tests (`windows/` includes `desktop/` and `linux/tests`) | same 3 smoke cases | same |
+| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 3 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
+| macOS | CI only (macos-15) | 1 XCTest | 3 XCUITest | `check-apple-results.py` (≥3) |
 
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty
@@ -37,9 +37,28 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
 (`android instrumentation` when a failed run lists none). The desktop smoke runs the app
-twice: `--ui-test` must print `UI_SMOKE_PASS` and exit 0; `--ui-test --break-ui` must print
+three times: `--ui-test` and `--ui-test --pseudo-locale` must print `UI_SMOKE_PASS` and exit 0;
+`--ui-test --break-ui` must print
 `UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected). A pass also
 needs the page to show the peer ID from the `peer_id` command as 64 lowercase hex characters.
+
+### Localized strings
+
+Practice D1. Every visible string of the shells lives in a catalogue, and the UI tests also run
+on a pseudo-locale:
+
+| Shell | Catalogue | Pseudo-locale test |
+|-------|-----------|--------------------|
+| Android | `res/values/strings.xml`, read with `stringResource`; plurals go in `<plurals>` | `pseudoLocalesEnabled` in the debug build; `PseudoLocaleTests` renders the start screen with an en-XA context and expects its accented strings |
+| iOS, macOS | `ios/DYApp/Localizable.xcstrings` (String Catalog, shared by both projects); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
+| Linux, Windows | `desktop/ui/i18n/en.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
+
+The tests themselves compare against the catalogue (Android, desktop) or the English text (Apple).
+`check-repository.py` fails on a Compose `Text("…")` literal under `android/app/src/main`, on a
+SwiftUI `Text("key")` whose key is not in the String Catalog, and on visible text in
+`desktop/ui/*.html` outside `<script>`/`<style>` or a `data-i18n` key missing from `en.json`.
+Strings that are data, such as the peer ID, are not catalogued. Only English exists; other
+languages are planned.
 
 ## Local Docker suites (Android, Linux)
 
