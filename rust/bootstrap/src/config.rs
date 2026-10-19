@@ -616,6 +616,10 @@ impl NodeConfig {
                 anyhow::bail!("role search needs role store");
             }
             self.search.validate()?;
+            // A public node answers for every topic; a subset would look complete to clients.
+            if self.network.name.is_empty() && !self.search.topics.is_empty() {
+                anyhow::bail!("search.topics: the public network keeps all topics; leave it empty");
+            }
         }
         let l = &self.limits;
         if l.message_ttl_hours < 1 || l.attachment_retention_hours < 1 || l.profile_ttl_days < 1 {

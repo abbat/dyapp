@@ -152,6 +152,15 @@ fn invalid_config_fails() {
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
     assert!(invalid(|c| c.roles = vec![Role::Search]));
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Search]));
+    fn subset(c: &mut NodeConfig) {
+        c.roles = vec![Role::Store, Role::Search];
+        c.search.topics = vec![3];
+    }
+    assert!(invalid(subset));
+    assert!(!invalid(|c| {
+        subset(c);
+        c.network.name = "test".into();
+    }));
     assert!(invalid(|c| c.limits.message_ttl_hours = 0));
     assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
     assert!(invalid(|c| c.limits.profile_ttl_days = 0));

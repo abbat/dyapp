@@ -181,7 +181,9 @@ for a coturn relay ([TURN relay](#turn-relay)), and the experimental `search` se
 search ([Search](../architecture/bootstrap.md#search)); none includes `store`, and each is refused
 at startup without it in the list. A search publish needs profile proof of work
 (`search.min_profile_pow_bits`); the defences against query and fake-profile floods are planned
-([threat model](../security/threat-model.md)). A node without a role answers its requests
+([threat model](../security/threat-model.md)). On the public network a search node keeps all 16
+topics: a `search.topics` subset is refused at startup. Its answers are a local, possibly partial
+sample ([Search](../architecture/bootstrap.md#search)). A node without a role answers its requests
 `UNSUPPORTED`.
 
 ```toml
@@ -250,7 +252,7 @@ accept_deny_lists = false        # fetch and store other nodes' lists; no action
 max_profile_bytes = 65536
 max_bytes = 53687091200     # profiles-idx.db; above it the oldest heartbeats leave
 max_scan_rows = 10000       # rows one query scans; past it the reply is partial
-topics = []                 # gossip topics 0..15 kept; empty = all 16
+topics = []                 # gossip topics 0..15 kept; empty = all 16, required on public
 min_profile_pow_bits = 11   # Argon2id proof of work a profile needs to be indexed; 0..20
 
 [turn]                 # turn role only

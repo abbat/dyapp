@@ -312,9 +312,10 @@ resent from the sender's retry queue.
   does not purge indexed profiles, so their last accepted heartbeat leaves the usual retention
   window (default 30 days) to recompute and republish. Client background recomputation is planned.
 - **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
-  `search.topics`, and then holds a uniform sample. The index is its own disposable file,
-  `profiles-idx.db`, which also keeps the signed records in a `record` table apart from the
-  store's profiles; catch-up refills a lost file. The search role needs the store role, since a
+  `search.topics`, and then holds a uniform sample. A subset is refused at startup on the public
+  network (empty `network.name`), so a public search node answers for every topic. The index
+  is its own disposable file, `profiles-idx.db`, which also keeps the signed records in a
+  `record` table apart from the store's profiles; catch-up refills a lost file. The search role needs the store role, since a
   node without it serves no protocol. It holds typed columns for every
   `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
@@ -336,8 +337,10 @@ resent from the sender's retry queue.
   table from `key` and logs rows and elapsed milliseconds; this full scan adds startup time
   proportional to the number of keys. The internal inventory supports an exclusive upper bound;
   the network still uses unbounded inventory pages. Digest-based network catch-up is planned.
-- **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks one
-  random search node of its gossip mesh and pulls each kept topic over `/dyapp/inventory`:
+- **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks two
+  random search nodes of its gossip mesh for each kept topic (one if the mesh has one), so a
+  single peer that keeps a subset or withholds records leaves no silent hole, and pulls the
+  topic from each over `/dyapp/inventory`:
   `(topic, after)` returns up to 10 000 (key, version) pairs sorted by key, and the node asks
   again from the last key while a page comes back full. The keys it lacks or holds older it
   fetches with `get`, 50 keys and at most 4 requests in flight per peer, paced by the shared
@@ -361,6 +364,12 @@ resent from the sender's retry queue.
   reply, limited per peer ID and IP group; scraping public profiles is accepted. Queries and gets
   run off the swarm loop, at most 2 at a time; without a free slot the node answers
   `RATE_LIMITED` with `retry_after` 1.
+- **Results are a sample.** A reply is the node's local sample: possibly partial (a warming or
+  evicted index, gossip it missed, `partial` set or not) and untrusted, since any operator can
+  run a search node and omit or reorder hits. An empty reply does not mean nothing matches. The
+  client queries several independently discovered search nodes, checks each record's signature
+  and proof of work and re-applies the conditions itself (planned on the client). Replies carry
+  no coverage hints.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
   by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and

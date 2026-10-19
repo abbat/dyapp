@@ -2427,7 +2427,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
                     .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
             }
-            // Hourly, each kept topic's inventory from one random search peer fills what gossip missed.
+            // Hourly, each kept topic's inventory from two random search peers fills what gossip missed.
             _ = catch_up.tick(), if service.search.is_some() => {
                 if service.busy(SHED_MEDIA) {
                     continue;
@@ -2437,12 +2437,13 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                 if peers.is_empty() {
                     continue;
                 }
-                let Ok(pick) = getrandom::u32() else { continue };
-                let peer = peers[pick as usize % peers.len()];
                 for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
-                    let request = proto::InventoryRequest { topic, after: Vec::new() };
-                    let id = swarm.behaviour_mut().inventory.send_request(&peer, request);
-                    inventory_asked.insert(id, topic);
+                    let Ok(pick) = getrandom::u32() else { continue };
+                    for peer in catch_up_peers(&peers, pick) {
+                        let request = proto::InventoryRequest { topic, after: Vec::new() };
+                        let id = swarm.behaviour_mut().inventory.send_request(&peer, request);
+                        inventory_asked.insert(id, topic);
+                    }
                 }
             }
             _ = maintain.tick() => {
@@ -2508,6 +2509,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
             }
         }
     }
+}
+
+/// Up to two distinct mesh peers from `pick` on that are asked for one topic's inventory, so one
+/// peer that keeps a subset or withholds records cannot leave a silent hole.
+// ponytail: keys missing from both inventories are fetched twice; dedupe if catch-up traffic shows.
+fn catch_up_peers(peers: &[PeerId], pick: u32) -> Vec<PeerId> {
+    let start = pick as usize % peers.len().max(1);
+    (0..peers.len().min(2))
+        .map(|i| peers[(start + i) % peers.len()])
+        .collect()
 }
 
 /// Sends catch-up gets, at most four in flight per peer, each of up to 50 keys, as the shared
@@ -2607,6 +2618,14 @@ fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn catch_up_asks_two_distinct_peers_per_topic() {
+        let peers: Vec<PeerId> = (0..3).map(|_| PeerId::random()).collect();
+        assert_eq!(catch_up_peers(&peers, u32::MAX), [peers[0], peers[1]]);
+        assert_eq!(catch_up_peers(&peers[..1], 7), [peers[0]]);
+        assert!(catch_up_peers(&[], 7).is_empty());
+    }
 
     #[tokio::test]
     async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none() {
