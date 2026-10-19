@@ -59,6 +59,13 @@ nodes honour best effort, without a guarantee ([ADR 0011](../decisions/0011-best
 
 ## Age and location
 
+Search canonicalizes a supplied place against its embedded GeoNames country/place set.
+A profile with no place, or an unknown country/place pair, is indexed in the country
+bucket and is findable by country rather than by that place. On a full search node,
+established profiles in this bucket are subsampled before named places; newcomers
+remain subject to their separate quota ([search](../architecture/bootstrap.md#search)).
+Omitting a place therefore reduces discoverability; it does not hide the public profile.
+
 The whole profile is public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 every published field, including age, location and optional sensitive fields

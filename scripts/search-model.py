@@ -30,6 +30,13 @@ P = {
     "ssd_read_ms": 0.1, "ram": 4e9, "attacker_cores": 16,
     "pow_bits": [11, 14, 17, 20],
     "peers": 50, "peer_rps": 100, "group_rps": 1000,
+    "newcomer_share": 0.1, "newcomer_days": 30, "heartbeat_bits": 8,
+    # Measured release heartbeat hashes on one Docker CPU; see docs.
+    "heartbeat_argon_ms": 2.674,
+    "growth_daily": [0.001, 0.005, 0.01],
+    # SHA-256 rates are hardware scenarios, not measurements.
+    "puzzle_hashes_s": {"cpu": 1e6, "gpu": 1e10},
+    "puzzle_bits": [12, 20], "active_groups": 50,
 }
 LIMITS = {"gossip": 0.30, "inventory": 0.10, "get": 0.30, "qps": 0.50,
           "sync_h": 24, "nodes_per_query": 3, "min_search_nodes": 2,
@@ -176,6 +183,55 @@ def adversary(p):
     return out
 
 
+def water_fill(counts, capacity):
+    """Ideal established-profile ceiling under largest-place eviction."""
+    lo, hi = 0.0, max(counts, default=0.0)
+    if sum(counts) <= capacity:
+        return hi
+    for _ in range(100):
+        mid = (lo + hi) / 2
+        if sum(min(n, mid) for n in counts) > capacity:
+            hi = mid
+        else:
+            lo = mid
+    return lo
+
+
+def defences(p, users, places):
+    per_key = p["profile"] + p["bytes_per_row"]
+    quota = p["max_bytes"] * p["newcomer_share"]
+    # Equal-size profiles; newcomer quota charges record bytes, not index rows.
+    fakes = quota / p["profile"]
+    honest_bytes = users * per_key
+    fake_share = fakes / (users + fakes)
+    beat_s = p["heartbeat_argon_ms"] * 2 ** p["heartbeat_bits"] / 1000
+    # Model a full newcomer reserve and the 95 % size-eviction low-water mark.
+    established = max(0, 0.95 * p["max_bytes"] - fakes * per_key) / per_key
+    country = [users * p["top_country"] * share for share in places]
+    ceiling = water_fill(country, established * p["top_country"])
+    rare = country[-1]
+    sample = min(1.0, ceiling / rare)
+    return {
+        "new_fakes": fakes, "fake_share": fake_share,
+        "full_fake_share": fakes / (fakes + established),
+        "heartbeat_s": beat_s,
+        "sustainable_fakes": p["attacker_cores"] * 86400 / beat_s,
+        "quota_growth": quota / (p["newcomer_days"] * p["profile"]),
+        "growth": {g: users * g * p["newcomer_days"] * p["profile"] / quota
+                   for g in p["growth_daily"]},
+        "place_ceiling": ceiling, "rare_profiles": rare, "rare_sample": sample,
+        "rare_nodes": nodes_needed(p, rare, sample),
+        "full": honest_bytes >= p["max_bytes"],
+    }
+
+
+def puzzle_rates(p):
+    fair = p["qps"] / p["active_groups"]
+    return [(name, bits, rate / 2 ** bits, fair)
+            for name, rate in p["puzzle_hashes_s"].items()
+            for bits in p["puzzle_bits"]]
+
+
 def self_check(p):
     places = zipf(p["places"], p["top_place"])
 
@@ -224,6 +280,24 @@ def self_check(p):
     assert ok and a[4] and near(a[5], 135000), a
     partial = partial_model(p)
     assert partial["country_rare"][1] and not partial["rare"][1]
+    assert water_fill([], 0) == 0
+    assert water_fill([1, 2], 3) == 2
+    assert near(water_fill([1, 10, 100], 11), 5)
+    assert abs(water_fill([1, 10], 0)) < 1e-9
+    d = defences(p, 50e6, places)
+    assert d["new_fakes"] == 1e6
+    assert near(d["heartbeat_s"], 0.684544)
+    assert near(d["sustainable_fakes"], 2019446.8)
+    assert near(d["quota_growth"], 33333.333)
+    assert d["rare_sample"] == 1 and d["rare_nodes"] == 1
+    assert d["growth"][0.001] == 1.5
+    assert d["full_fake_share"] > p["newcomer_share"]
+    constrained = defences(dict(p, max_bytes=1000), 50e6, places)
+    assert constrained["rare_sample"] < 1 and constrained["rare_nodes"] > 3
+    rates = puzzle_rates(p)
+    assert near(rates[0][2], 244.140625) and rates[0][3] == 10
+    assert near(rates[1][2], 0.953674316)
+    assert near(rates[3][2], 9536.74316)
 
 
 def report(p, source, measured_partial):
@@ -347,6 +421,33 @@ def report(p, source, measured_partial):
           f"= {p['peers'] * p['peer_rps']:,}/s per node, "
           f"against a warm cap of {p['qps']}/s "
           f"(IP-group cap {p['group_rps']}/s per group).")
+    print("\n### Implemented defences (equal 5 KB profiles)\n")
+    print(f"Newcomer quota: {p['newcomer_share']:.0%} of max bytes; "
+          f"{p['newcomer_days']} days; heartbeat {p['heartbeat_bits']} bits.")
+    print("| Users | New fakes / honest + fakes (unbounded) | "
+          "Rank-10000 profiles | Established ceiling/place | "
+          "Rare place kept | Nodes for whole rare place | "
+          "Quota used by 0.1/0.5/1 % daily growth |")
+    print("|" + "---|" * 7)
+    for users in p["steps"]:
+        d = defences(p, users, places)
+        growth = "/".join(f"{v:.1%}" for v in d["growth"].values())
+        print(f"| {users:,.0f} | {d['fake_share']:.1%} | "
+              f"{d['rare_profiles']:.1f} | {d['place_ceiling']:.1f} | "
+              f"{d['rare_sample']:.0%} | {d['rare_nodes']} | {growth} |")
+    print(f"\nFull-node newcomer fake share at 95 % low-water: "
+          f"{d['full_fake_share']:.2%}; "
+          f"quota binds above {d['quota_growth']:,.0f} honest new keys/day.")
+    print(f"Heartbeat: {p['heartbeat_argon_ms']:.3f} ms/Argon2id hash; "
+          f"{d['heartbeat_s']:.3f} core-s/fake/day; "
+          f"1M fakes cost {d['heartbeat_s'] * 1e6 / 3600:,.1f} core-h/day; "
+          f"{p['attacker_cores']} cores sustain "
+          f"{d['sustainable_fakes']:,.0f} fakes (heartbeat only).")
+    print("\n| SHA-256 scenario | Puzzle bits | Attacker requests/s | "
+          "One fair share requests/s (warm) |")
+    print("|---|---|---|---|")
+    for name, bits, rate, fair in puzzle_rates(p):
+        print(f"| {name} | {bits} | {rate:,.3f} | {fair:.1f} |")
 
 
 def main():
@@ -373,6 +474,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # -I omits the script directory; load the adjacent output wrapper.
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     from check_dispatch import wrap
     wrap("search-model", data="--self-check" not in sys.argv[1:])
     main()

@@ -56,12 +56,10 @@ holding, and how `search.max_bytes`, D, heartbeat rate and `max_scan_rows` move 
 A `country + rare` query that is always `partial` is reported as expected (the client pages or asks
 more nodes), not as a failure.
 
-An **adversary** section adds what honest load hides: how many fake profiles one machine can
-sign and publish a day at the current proof of work (keys are free, limits are per key), how fast
-they push real inactive users out of a 50 GB node under oldest-heartbeat eviction, which
-`min_profile_pow_bits` (≤ 20) makes that costly while a phone still finishes within 30 s (iOS
-suspends the app after that), and the
-query rate many peers reach past the per-peer limits. Fixes found here go to a separate task.
+The [adversary section](#adversary) contrasts the old unprotected scenario with the
+implemented newcomer quota, largest-place eviction, heartbeat work and query puzzle.
+It reports fake shares, honest growth pressure, rare-place coverage and attacker costs;
+hardware assumptions and accepted residual risks are stated explicitly.
 
 `--self-check` asserts the model against hand-computed numbers (1M users, base: ≈ 5 GB of full
 records, ≈ 0.01 MB/s of edits), that disk and traffic do not shrink as the step grows, and that the
@@ -157,12 +155,12 @@ Halving or doubling `search.max_bytes`, D = 3 or 12, 2 heartbeats a day and `max
 
 ### Adversary
 
-Keys are free and limits are per key. At 11 bits one 16-core PC signs ≈ 135 000 fake profiles a
-day and fills an empty 50 GB node in ≈ 68 days (10 PCs: a week); once full, each fake pushes out
-one real inactive profile. 14 bits cut that eightfold but take a phone 240 s, past the 30 s
-limit, so proof of work alone cannot stop this flood. Queries: 50 peers × 100 per second give
-5 000 per second, about 5 × the warm capacity, and the IP-group limit (1 000) does not stop peers
-spread over groups. Both need a defence other than proof of work bits.
+Without the defences below, at the historical 5 ms/hash assumption one 16-core PC
+creates ≈ 135,000 fake keys/day at 11 bits, filling 50 GB in ≈ 70 days with the
+model defaults. Oldest-heartbeat eviction would then lose one real profile per fake.
+At 14 bits a phone takes 240 s, beyond the 30 s target; PoW alone is insufficient.
+Likewise 50 peers × 100 requests/s offer 5,000/s, 10 times the default warm 500/s
+capacity. The 1,000/s IP-group cap does not bound an attacker spread across groups.
 
 Defences, implemented on the node:
 
@@ -190,11 +188,74 @@ Defences, implemented on the node:
   drops. The status `PUZZLE` carries the challenge (implemented on the node, client solving
   planned; [bootstrap.md](bootstrap.md#search)).
 
-Accepted residual risks: a fake that pays heartbeat proof of work for 30 days becomes established
-(one 16-core PC keeps ≈ 1M alive); fakes piled into a real rare place dilute it; fakes paying the
-proof share the newcomer quota with real newcomers; a hostile search node can push fakes during a
-new node's grace window; a GPU solves 20-bit puzzles at ≈ 10 000 per second, against which only
-the fair share protects. These are left to client checks and deny lists.
+Accepted residuals: established fakes, false claims about real rare places, competition with
+honest newcomers, the catch-up grace window, and fast or distributed puzzle solvers
+([threat model](../security/threat-model.md#denial-of-service)).
+
+#### Defence model and self-check
+
+Run `python3 -I scripts/search-model.py` (assertions always run first), or add
+`--self-check` for assertions only. The old adversary table is a counterfactual without
+the implemented defences, retaining its original 5 ms/hash assumption.
+
+Defaults: 50 GB, equal-size 5 KB records plus 300 B index overhead, 30 days, 10 % newcomer
+record-byte quota, 8-bit heartbeat. The quota admits 1,000,000 fresh fakes if they alone
+occupy it; honest newcomers reduce this room. It is **not** a 10 % count limit:
+with 1M honest profiles an otherwise unbounded index is 50 % fake. On a full node,
+including index overhead and the 95 % low-water mark, newcomer fakes are about **11.16 %**
+by count. Smaller fake records increase that count; established fakes and grace imports
+are outside the bound.
+
+Water-filling solves `sum(min(place_size, ceiling)) = established_capacity`, reserving
+the entire newcomer quota and the 95 % low-water mark. This scenario assumes countries
+have the same within-country Zipf shape and capacity proportional to population (largest
+country 30 %). It is an ideal steady state, not an eviction simulation; variable record
+sizes, churn, country-only profiles and fallback after 16 newcomer-only places can change
+it. Without established fakes concentrated in the rare place, rank 10000 is held whole
+on **one node** at all model steps (target ≤ 3).
+
+| Users | Rank-10000 profiles | Established ceiling/place | Rare place kept | Nodes for whole place | Quota used by 0.1 / 0.5 / 1 % daily growth |
+|-------|--------------------|---------------------------|-----------------|-----------------------|------------------------------------------|
+| 1M | 3.5 | 27,000.0 | 100 % | 1 | 3 / 15 / 30 % |
+| 10M | 35.1 | 21,041.9 | 100 % | 1 | 30 / 150 / 300 % |
+| 50M | 175.6 | 252.2 | 100 % | 1 | 150 / 750 / 1500 % |
+
+Growth is a constant arrival rate relative to the listed population, with no departures
+during 30 days. The quota binds above **33,333 new keys/day**, even without an attacker:
+0.1 %/day fits at 10M but not 50M; 0.5 %/day already fails at 10M. These are sensitivity
+assumptions, not observed adoption. Size eviction removes established keys only, so
+overflow does not repeatedly halve the newcomer pool (R5); quota pressure and TTL can
+still evict newcomers before they mature.
+
+Heartbeat measured on 2026-10-19: release `dyapp_profile::heartbeat_pow_bits`, Argon2id
+8 MiB, one pass, one lane, 32-byte output; x86_64 Docker with one CPU; 20 warm-up calls
+then 1000 sequential hashes: **2.674 ms/hash**. To reproduce, build `dyapp-profile`
+offline in release mode, then time 1000 calls with key `[5; 32]`, day 20000 and nonces
+0–999 through `std::hint::black_box`, using `std::time::Instant`; divide elapsed
+milliseconds by 1000. Hardware and memory contention affect this value; extrapolation
+to 16 cores assumes optimistic linear scaling.
+
+At 8 bits, 256 expected hashes cost **0.684544 core-s/fake/day** for one proof daily.
+N fakes cost `N × 0.684544 / 3600` core-hours/day: **190.2 core-hours/day for 1M**;
+16 dedicated cores sustain about **2.02M**, excluding initial profile proofs and other
+work. Daily attendance is a scenario, not enforced: a retained key can heartbeat less
+often within the TTL, reducing average cost. Becoming established does not prove humanity.
+
+Puzzle rates below assume 1M SHA-256 trials/s for CPU and 10B/s for GPU: hardware
+scenarios, not measurements. Requests/s = trials/s / 2^bits, before queue and rate limits.
+
+| Solver | 12 bits requests/s | 20 bits requests/s | One warm fair share, 50 active groups |
+|--------|--------------------|--------------------|--------------------------------------|
+| CPU | 244.141 | 0.954 | 10 requests/s |
+| GPU | 2,441,406.250 | 9,536.743 | 10 requests/s |
+
+Warm capacity 500/s divided by 50 backlogged IP groups gives 10/s per group; cold 44/s
+gives 0.88/s. This illustrates equal-cost reads, not a latency guarantee. At 20 bits
+the CPU scenario drops below one fair share; fast hardware still needs the queue.
+Multiple attacker groups acquire multiple shares.
+
+Assertions cover quota, heartbeat and puzzle hand calculations, water-filling with empty,
+fitting and overflowing inputs, and a reduced-capacity case losing rare-place coverage.
 
 ### Answers
 
@@ -202,16 +263,17 @@ the fair share protects. These are left to client checks and deny lists.
   profiles and rank 100 ≈ 2 800; the typical filter (≈ 11 %) leaves ≈ 27 000 and ≈ 310 matches.
   A page then costs ≈ 460 rows scanned; a rare filter (≈ 1 %) ≈ 5 000; country + rare
   (≈ 0.25 %) exhausts 10 000 rows and is `partial`, as designed.
-- **Are 1–3 nodes enough?** Yes up to 10M users (at most 2). At 50M a node keeps a 18 % sample:
-  places down to rank ≈ 100 still need 1–2 nodes, the long tail (rank ≈ 10 000) needs ≈ 15.
+- **Are 1–3 nodes enough?** The historical uniform-sample model needed ≈ 15 nodes for
+  rank 10000 at 50M. With largest-place eviction, the ideal established-profile model
+  above keeps that place whole on one node; this assumes it is not itself flooded.
 - **Small places and rare filters.** A small place is read whole through (country, place, r) in
   well under 1 ms and never `partial`; a page is short because the place is. A rare filter in a
   large place stays under `max_scan_rows` (p99 ≈ 250 ms). Country-wide rare filters are
   `partial`, and the client asks again.
-- **A sharded index for hot places?** No: the largest place costs 1.3 ms per typical query and a
-  node at peak needs at most ≈ 10 queries per second. Partitioning by place would only help the
-  long tail at 50M, where a node holds too small a sample.
+- **A sharded index for hot places?** No: the measured largest place costs 1.3 ms per
+  typical query and peak load is ≈ 10 queries/s per node. The model above addresses
+  long-tail coverage by largest-place eviction rather than partitioning.
 
-Follow-up work, tracked separately: `place IN` as a per-place merge; the client side of the
-defences in [Adversary](#adversary), which also cover long-tail places at 50M users; rerunning
-this model with them.
+Follow-up work, tracked separately: `place IN` as a per-place merge and the client side
+of the defences in [Adversary](#adversary). The defence model above now includes
+water-filling coverage of long-tail places at 50M users.
