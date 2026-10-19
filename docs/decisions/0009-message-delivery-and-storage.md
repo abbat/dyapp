@@ -24,6 +24,11 @@ media is different: full copies are expensive, and a node should hold no object 
   TTL (default 30 days) after which old data, tombstones included, is deleted, and may delete any
   data at any time. Under a full quota the data of the profiles inactive longest is evicted first.
   A user who comes online again restores their data on the nodes.
+- **Write tokens:** the recipient gives each contact, inside MLS, a daily write token signed by
+  its device key; envelopes with a token use the mailbox quota, envelopes without one (a first
+  message) a small pool per mailbox evicted by the peer that handed them in and the sender's IP
+  group. A blocked contact's token keys are revoked by a signed `revoke` that replicas forward
+  and repair. Details: [Bootstrap: Mailbox envelope](../architecture/bootstrap.md#mailbox-envelope).
 - **History lives on devices.** A new device gets it from a linked device
   ([ADR 0004](0004-identity-keys.md)), not from bootstrap.
 - **Messages, MLS commits and profiles are replicated whole** to R = 5 points, replica *i* at the
@@ -63,5 +68,7 @@ media is different: full copies are expensive, and a node should hold no object 
   rolling hour per key and within the 75 % repair budget. Acceptors store media up to the node's
   threshold as whole copies and larger blobs up to 6 MiB as Reed-Solomon shards under a
   manifest; a signed `keep` repairs missing copies, manifests and shards on the current holders.
+  Nodes check write tokens and revokes and keep the tokenless pool; the pool binds only under
+  `limits.require_write_tokens` (off by default), and clients do not issue tokens yet.
   Planned: ranged media reads with an assembled-blob cache, and a holder that is no longer
   closest to a replica key pushing the object on.
