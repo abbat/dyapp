@@ -2,3 +2,7 @@
 [default.extend-words]
 # Apple device identifier (simctl).
 udid = "udid"
+
+[files]
+# Raw fuzz inputs.
+extend-exclude = ["fuzz/corpus/"]

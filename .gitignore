@@ -21,3 +21,8 @@ __pycache__/
 *.pb.rs
 *.pb.swift
 *.pb.kt
+
+# cargo-fuzz
+fuzz/target/
+fuzz/artifacts/
+fuzz/coverage/

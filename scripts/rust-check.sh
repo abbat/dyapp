@@ -92,6 +92,26 @@ step() {
             TMPDIR=$PWD/target/mutants-tmp cargo mutants --dir "$src" --output target \
                 --in-diff target/mutants.diff
             ;;
+        fuzz)
+            # Practice B4: each target (FUZZ_TARGETS, default all) for FUZZ_SECONDS on fuzz/corpus.
+            # libFuzzer runs the corpus first, so a saved crash is a regression test. New inputs go
+            # to target/fuzz-corpus, crashes to target/fuzz-artifacts.
+            local seconds=${FUZZ_SECONDS:-60} target
+            cd fuzz
+            # The targets' node stores live here, off the small /tmp of the dev container.
+            rm -rf ../target/fuzz-tmp
+            mkdir -p ../target/fuzz-tmp
+            export TMPDIR=$PWD/../target/fuzz-tmp
+            cargo fuzz build -s none --target-dir ../target/fuzz
+            for target in ${FUZZ_TARGETS:-$(cargo fuzz list)}; do
+                mkdir -p "../target/fuzz-corpus/$target" "../target/fuzz-artifacts/$target"
+                # The binary itself: `cargo fuzz run` writes into the read-only fuzz/artifacts.
+                "../target/fuzz/x86_64-unknown-linux-gnu/release/$target" \
+                    "../target/fuzz-corpus/$target" "corpus/$target" \
+                    -max_total_time="$seconds" -rss_limit_mb=4096 \
+                    -artifact_prefix="../target/fuzz-artifacts/$target/"
+            done
+            ;;
         network)
             # Two real dyappd peers on the loopback, test-peer as the client. cov-build already
             # built both (cargo test builds a package's binaries when it has integration tests); a
@@ -122,13 +142,14 @@ step() {
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|network|memory|security}
+    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|security}
     case "$stage" in
         quality|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;
         mutants) policy=rust-mutants ;;
+        fuzz) policy=rust-fuzz ;;
         network|memory) policy=rust-network ;;
         *) policy=rust-build ;;
     esac

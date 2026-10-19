@@ -49,6 +49,10 @@ DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
 PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
 ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
+# Practice B4: every Service handler of a network request has a fuzz target.
+HANDLERS = "rust/bootstrap/src/service.rs"
+HANDLER = re.compile(r"pub fn (\w+)\(\s*&self,[^)]*?"
+                     r"(?:request: \w+Request|data: &\[u8\])")
 SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
 
 
@@ -253,6 +257,15 @@ def round_trip_errors(texts):
             for name, kind in types if kind not in tested]
 
 
+def fuzz_errors(texts):
+    """Network request handlers that no fuzz target calls."""
+    targets = "".join(text for name, text in texts.items()
+                      if name.startswith("fuzz/fuzz_targets/"))
+    return [f"{HANDLERS}: Service::{handler} has no fuzz target"
+            for handler in HANDLER.findall(texts.get(HANDLERS, ""))
+            if f"SERVICE.{handler}(" not in targets]
+
+
 def skip_errors(texts):
     """Practice B2: a mutants attribute needs a // reason on it or above."""
     errors = []
@@ -272,7 +285,8 @@ def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
          "--others", "--exclude-standard", "-z", "--", ".",
-         ":(exclude).beads/**", ":(exclude).beads.gate.lock"])
+         ":(exclude).beads/**", ":(exclude).beads.gate.lock",
+         ":(exclude)fuzz/corpus/**"])
     names = sorted(set(output.decode().strip("\0").split("\0")))
     folded = {}
     documents = {}
@@ -335,6 +349,9 @@ def main():
     errors = round_trip_errors(texts)
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
+    errors = fuzz_errors(texts)
+    if errors:
+        raise ValueError("Fuzz targets (fuzz/):\n" + "\n".join(errors))
     errors = skip_errors(texts)
     if errors:
         raise ValueError("Mutation skips:\n" + "\n".join(errors))
@@ -361,7 +378,8 @@ def main():
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
-          "properties, mutants skips give a reason, "
+          "properties, network handlers have fuzz targets, "
+          "mutants skips give a reason, "
           f"source files <= {size['max_lines']} "
           "lines or their budget; "
           f"{len(documents)} Markdown files: relative links "

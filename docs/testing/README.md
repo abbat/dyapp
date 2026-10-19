@@ -225,6 +225,54 @@ mutants in 16 shards, two at a time each, and `scripts/check-mutants.py` adds up
 below `[mutants] score` in `scripts/baselines.toml`, and the job asks to raise the value when the
 score is 0.5 points above it. The baseline is 0 until the first full run sets it.
 
+## Fuzzing
+
+Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `docker/Dockerfile.dev`,
+`ci-base.yml` and `fuzz.yml`). `fuzz/` is its own Cargo workspace with its own `Cargo.lock`; it
+builds on the pinned stable toolchain because the targets run without a sanitizer (`-s none`):
+safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions are on), hangs and
+memory blow-ups still fail.
+
+Each target feeds one request handler of a bootstrap node, the code that parses what any peer
+sends. `fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
+with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter.
+
+| Target | Handler | Input |
+|--------|---------|-------|
+| `node` | `Service::node` | `NodeRequest` (`/dyapp/node`) |
+| `profile` | `Service::profile`, `dyapp_profile::verify` | `ProfileRequest` (`/dyapp/profile`) |
+| `mailbox` | `Service::mailbox` | `MailboxRequest` (`/dyapp/mailbox`), envelopes included |
+| `media` | `Service::media` | `MediaRequest` (`/dyapp/media`) |
+| `search` | `Service::search` | `SearchRequest` (`/dyapp/search`) |
+| `inventory` | `Service::search_inventory` | `InventoryRequest` (`/dyapp/inventory`), from a search peer |
+| `gossip` | `Service::search_gossip` | gossip bytes |
+
+The first input byte decides whether the signed records in the request are signed again by a fixed
+key; its low bits pick the signature domain. A random signature never verifies, so without this the
+payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
+stop at the nonce, which each input cannot know. Responses that a node reads as a client, mailbox
+pushes and digests have no target yet (planned).
+
+`check-repository.py` requires a target for every `pub fn` of `Service` in
+`rust/bootstrap/src/service.rs` that takes a `request: …Request` or `data: &[u8]`: it looks for
+`SERVICE.<name>(` in `fuzz/fuzz_targets/`.
+
+**Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
+`FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
+and `.github/workflows/fuzz.yml` for an hour per target every night. libFuzzer first runs every
+input in `fuzz/corpus/<target>/`, then mutates them; new inputs go to `target/fuzz-corpus/` and a
+crash to `target/fuzz-artifacts/<target>/`, with the panic in the log.
+
+**Corpus.** `fuzz/corpus/` holds the inputs, minimized with libFuzzer's `-merge=1`; it is marked
+binary in `.gitattributes`, so it has no diffs and no line count. To take in the inputs of a
+nightly run (artifact `fuzz-<target>`), merge them into the target's directory with
+`cargo fuzz run -s none <target> corpus/<target> <new inputs> -- -merge=1` and commit.
+
+**Crashes.** A crash fails the step; the CI failure becomes a bead through the
+[CI report import](../agents/beads.md#ci-failures). Fix it, then copy the crash input
+(`crash-<sha1>`) into `fuzz/corpus/<target>/`: from then on every run replays it first, which makes
+it the regression test.
+
 ## Coverage Policy
 
 The search protocol suite includes deterministic worker saturation: it holds a

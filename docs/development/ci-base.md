@@ -6,8 +6,8 @@
 > [ci-matrix.md](ci-matrix.md).
 
 `ci-base.yml` (name **rust**) is `workflow_call` only. Its single caller is `ci.yml` (job
-`core`), so its checks show as `ci / core / quality`, `ci / core / build` and `ci / core / mutants`. It
-has three jobs.
+`core`), so its checks show as `ci / core / quality`, `ci / core / build`, `ci / core / mutants` and
+`ci / core / fuzz`. It has four jobs.
 
 ## Reproducible builds
 
@@ -215,6 +215,14 @@ base or `github.event.before`: every mutant in the changed Rust code must be cau
 **`mutants-diff`** (`if: always()`) keeps the diff and the outcome lists. The weekly full run is
 `mutants.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
+### `fuzz` → **fuzz**
+
+Practice B4 ([fuzzing](../testing/README.md#fuzzing)). This job runs on ubuntu-24.04 with a
+30-minute timeout. Setup installs cargo-fuzz 0.13.2; rust-cache keeps `target/fuzz`. Step `fuzz`
+runs `rust-check.sh fuzz`: every target for 60 seconds, its saved corpus first. On failure the
+artifact **`fuzz-crashes`** keeps the crash inputs. The nightly hour per target is `fuzz.yml`
+([ci-matrix.md](ci-matrix.md#other-workflows)).
+
 ## What is not here
 
 - **MSRV job:** none. The pinned toolchain equals the declared `rust-version`
@@ -238,6 +246,7 @@ bash scripts/docker-test.sh build
 bash scripts/docker-test.sh test
 bash scripts/docker-test.sh coverage    # cov-build + cov-test + cov-report
 make mutants                            # rust-check.sh mutants, against origin/main
+make fuzz                               # rust-check.sh fuzz, 60 s per target
 bash scripts/docker-test.sh security
 bash scripts/docker-test.sh network-prepare && bash scripts/docker-test.sh network  # three node containers
 bash scripts/docker-test.sh all         # all of the above + scripts/ui-test.sh all

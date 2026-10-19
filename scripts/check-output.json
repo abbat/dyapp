@@ -43,6 +43,7 @@
   "rust-test": {"fix":"docs/testing/README.md#1-unit-tests-in-each-crate","format":"rust-test"},
   "rust-coverage": {"fix":"docs/testing/README.md#coverage-policy","format":"rust-test"},
   "rust-mutants": {"fix":"docs/testing/README.md#mutation-testing","format":"lines","pattern":"^(?:MISSED|TIMEOUT|FAILED) |^Error:|^error(?:\\[[^]]+\\])?:"},
+  "rust-fuzz": {"fix":"docs/testing/README.md#fuzzing","format":"lines","pattern":"^==\\d+== ERROR|^SUMMARY:|panicked at|^Error:|^error(?:\\[[^]]+\\])?:|Test unit written to|^Base64:"},
   "mutants": {"fix":"docs/testing/README.md#mutation-testing","format":"python"},
   "rust-network": {"fix":"docs/testing/bootstrap-acceptance.md#layers","format":"rust-test"},
   "docker": {"fix":"docs/testing/docker.md#troubleshooting","format":"lines","nested":true,"gradle":true,"pattern":"^(?:FAIL |FIX:|DETAILS:|.+: raw captured output$|error(?:\\[[^]]+\\])?:|Error response from daemon:|Cannot connect to the Docker daemon)"},
