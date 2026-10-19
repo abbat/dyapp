@@ -278,6 +278,43 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     assert!(cap.allow(&remote, 25));
 }
 
+#[tokio::test]
+async fn repair_sends_no_signals_but_lists_them() {
+    let dir = format!("/tmp/ai/test-repair-signals-{}", uuid::Uuid::new_v4());
+    let mut config = crate::config::NodeConfig::default();
+    config.storage.dir = dir.clone().into();
+    config.network.id_pow_bits = 0;
+    config.limits.sender_puts_per_second = 1000;
+    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+    let owner = dyapp_identity::Identity::generate();
+    let mailbox = vec![2; 32];
+    for i in 0..4u8 {
+        let class = if i == 0 {
+            proto::EnvelopeClass::Message
+        } else {
+            proto::EnvelopeClass::Signal
+        };
+        let envelope = proto::Envelope {
+            id: vec![i; 16],
+            mailbox: mailbox.clone(),
+            ciphertext: vec![3],
+            class: class.into(),
+        };
+        let record = owner.sign(dyapp_identity::Domain::Envelope, envelope.encode_to_vec());
+        let response = service.store_mailbox(&record).unwrap();
+        assert_eq!(response.status, i32::from(Status::Ok));
+    }
+    let held = service.held(&mailbox).unwrap();
+    assert_eq!(held.len(), 4, "the inventory lists signals");
+    let (limits, roles) = (&service.config.limits, &service.config.roles);
+    let mut sender = swarm(Keypair::generate_ed25519(), limits, roles).unwrap();
+    // A one-unit burst admits the single message; a batch carrying the signals would be refused.
+    let mut cap = ReplicaCap::new(1);
+    let to = PeerId::random();
+    send_envelopes(&mut sender, &service, &mut cap, to, &mailbox, |_| true);
+    assert_eq!(cap.take_dropped(), 0);
+}
+
 #[test]
 fn replica_cap_has_atomic_burst_separate_destinations_and_refill() {
     let mut cap = ReplicaCap::default();

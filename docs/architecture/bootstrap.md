@@ -703,7 +703,10 @@ The current protocol replies are:
   routing table holds for a replica key is the requester and it trusts the requester, sends back
   the envelopes the inventory lacks the same way. A batch is cut at 1 MiB, the rest waits for the
   next visit; repair bytes count towards the traffic cap. A repaired envelope gets a fresh TTL on
-  its new node. Old nodes answer both requests `UNSUPPORTED`, and repair skips them.
+  its new node. Old nodes answer both requests `UNSUPPORTED`, and repair skips them. The
+  inventory lists messages and signals, but repair sends messages only: a signal evicted at its
+  quota would come back from another replica and evict the next one. In a mixed network an older
+  peer still sends signals back, bounded by the 1 MiB per visit and the TTL, until it upgrades.
 - **Media.** The owner's signed `keep` is the whole list of blobs the node should hold for that
   identity, replaced by a higher `version`; a blob dropped from every owner's list is deleted at
   once. A put needs no signature: the list authorises it, and a replay stores nothing new. A blob

@@ -563,7 +563,9 @@ struct Replicas {
 /// Envelope bytes selected by one repair; a larger gap fills over the next repairs.
 const REPAIR_BYTES: usize = 1024 * 1024;
 
-/// Sends wanted held envelopes in immediately admitted batches of at most 50 units.
+/// Sends wanted held messages in immediately admitted batches of at most 50 units. Signals are
+/// never repaired: a signal evicted at its quota would come back from another replica and evict
+/// the next one.
 fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -579,7 +581,11 @@ fn send_envelopes(
     let mut bytes = 0;
     let envelopes: Vec<SignedRecord> = held
         .into_iter()
-        .filter(|(id, _)| wanted(id))
+        .filter(|(id, record)| {
+            wanted(id)
+                && proto::Envelope::decode(record.payload.as_slice())
+                    .is_ok_and(|e| !crate::service::is_signal(&e))
+        })
         .map(|(_, record)| record)
         .take_while(|record| {
             bytes += record.encoded_len();
