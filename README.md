@@ -1,6 +1,6 @@
 # dyapp
 
-> **Дисклеймер.** Весь код этого репозитория от начала и до конца написан ai. На issues тоже
-> отвечает ai. Человек не смотрит ни на код, ни на принимаемые решения. Используйте на свой риск.
+> **Disclaimer.** All code in this repository, from start to finish, is written by AI. Issues are
+> answered by AI too. No human reviews the code or the decisions made. Use at your own risk.
 
-Проект в активной фазе разработки, здесь пока пусто.
+The project is in active development; there is nothing here yet.
