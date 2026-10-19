@@ -167,6 +167,8 @@ assertion changes.
 | Received signed lists are verified and only newer ones kept | Unit | `deny.rs::received_lists_are_checked_and_only_newer_ones_kept` | exists |
 | A running node refuses a listed mailbox after SIGHUP, and a listed IP group until it is removed | E2E | `network-test.py::deny_mailbox`, `::deny_group` | exists |
 | A shared signed list reaches an accepting node (`dyappd deny received`) | E2E | `network-test.py::shared_deny` | exists |
+| Operator CLI reports empty/populated stores without creating missing databases, adds local deny entries idempotently, and displays received lists without applying them | CLI integration | `tests/cli.rs::status_reports_absent_and_populated_stores_without_creating_missing_databases`, `::deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied` | exists |
+| CLI help and incomplete options leave storage untouched | CLI integration | `tests/cli.rs::help_and_incomplete_options_do_not_create_stores` | exists |
 | The packaged node reloads a deny entry within 10 seconds; root may not touch the stores | Package | `deb-test.sh` | exists, local only |
 
 ### Storage and configuration
