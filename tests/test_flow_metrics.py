@@ -126,8 +126,8 @@ class Metrics(unittest.TestCase):
                           "advisory:GHSA-new"])
         self.assertEqual(result["errors"], [
             "Main red 48.00 hours > 24",
-            "Postmortem for ci-red:2026-10-10T11:00:00+00:00 missing or "
-            "later than 2026-10-13T11:00:00+00:00"])
+            ("Postmortem for ci-red:2026-10-10T11:00:00+00:00 missing or "
+             "later than 2026-10-13T11:00:00+00:00")])
         data["beads"] = [{
             "id": "x-1", "status": "closed", "issue_type": "task",
             "external_ref": "postmortem:ci-red:2026-10-10T11:00:00+00:00",

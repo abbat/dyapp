@@ -27,13 +27,13 @@ class I18n(unittest.TestCase):
                 '<p data-i18n="gone"></p><b>Hi</b><script>x()</script>',
         }
         self.assertEqual(CHECK.i18n_errors(texts), [
-            "android/app/src/main/kotlin/A.kt: Text with a literal; "
-            "use stringResource",
+            ("android/app/src/main/kotlin/A.kt: Text with a literal; "
+             "use stringResource"),
             "desktop/ui/index.html: literal text 'Hi'; use data-i18n",
-            "desktop/ui/index.html: data-i18n key 'gone' not in "
-            "desktop/ui/i18n/en.json",
-            "ios/DYApp/ContentView.swift: Text key 'Ready' not in "
-            "ios/DYApp/Localizable.xcstrings",
+            ("desktop/ui/index.html: data-i18n key 'gone' not in "
+             "desktop/ui/i18n/en.json"),
+            ("ios/DYApp/ContentView.swift: Text key 'Ready' not in "
+             "ios/DYApp/Localizable.xcstrings"),
         ])
 
     def test_repository_ui_strings_come_from_catalogues(self):

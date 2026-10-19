@@ -23,6 +23,13 @@ an approving review), CII-Best-Practices (no badge yet), Branch-Protection (not 
 `main`), Security-Policy (since added) and Contributors. Code review, branch protection and the
 badge are maintainer decisions; until they change, the target of 7.0 is not met.
 
+**Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
+`osv-scanner.toml` lists the advisories that do not apply, each with its reason (no fixed version
+reachable, a code path the project never takes). cargo-deny keeps its own list in `deny.toml`.
+Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same
+Dockerfile; those findings are dismissed in code scanning as false positives, and so is the
+Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
+
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
 is registered by the maintainer (a human gate) and kept current at every release. The badge
 level is passing; until the entry exists, the badge is planned.

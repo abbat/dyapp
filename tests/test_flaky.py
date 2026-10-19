@@ -53,10 +53,10 @@ class Flaky(unittest.TestCase):
         quarantine = {"core erred": date(2026, 10, 12),
                       "core old": date(2026, 10, 11)}
         self.assertEqual(CHECK.flaky_errors(flaky, quarantine, TODAY), [
-            "core retried: flaky, open a bead and add it to [flaky] in "
-            "baselines.toml with 2026-10-19",
-            "core old: quarantined since 2026-10-11, more than 7 days; "
-            "fix it and remove the entry",
+            ("core retried: flaky, open a bead and add it to [flaky] in "
+             "baselines.toml with 2026-10-19"),
+            ("core old: quarantined since 2026-10-11, more than 7 days; "
+             "fix it and remove the entry"),
         ])
         quarantine["core retried"] = TODAY
         del quarantine["core old"]

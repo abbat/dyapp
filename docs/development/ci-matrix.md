@@ -68,7 +68,7 @@ These are separate workflows, not part of `ci.yml`.
 | `mutants.yml` (mutants) | weekly Sunday 05:23 UTC; manual `workflow_dispatch` | **mutants - shard 0..15**, **mutants - score** | Full cargo-mutants run in 16 shards; `check-mutants.py` holds the score at `[mutants] score` in `baselines.toml`. [Mutation testing](../testing/README.md#mutation-testing). |
 | `fuzz.yml` (fuzz) | daily 01:41 UTC; manual `workflow_dispatch` | **fuzz - node / profile / mailbox / media / search / inventory / gossip** | One hour of cargo-fuzz per target; artifacts `fuzz-<target>` keep new inputs and crashes. [Fuzzing](../testing/README.md#fuzzing). |
 | `scorecard.yml` (scorecard) | weekly Monday 04:37 UTC; push to `main`; manual `workflow_dispatch` | **scorecard - publish**, **scorecard - score** | OpenSSF Scorecard to code scanning and the Scorecard API; `check-scorecard.py` holds the score at `[scorecard] score`. [Scorecard](../security/assurance.md#openssf-scorecard). |
-| `python-lint.yml` (python) | push/PR on any branch touching `**.py` or `.flake8` | **flake8** (`flake8 .`) | Path-filtered: absent on PRs without Python changes. |
+| `python-lint.yml` (python) | push/PR on any branch touching `**.py`, `.flake8` or `.github/requirements-lint.txt` | **flake8** (`flake8 .`) | flake8 7.4.1 and its dependencies installed with `pip --require-hashes` from `.github/requirements-lint.txt`. Path-filtered: absent on PRs without Python changes. |
 
 ## Required checks
 
