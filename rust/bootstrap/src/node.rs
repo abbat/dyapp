@@ -1464,8 +1464,8 @@ fn after_lookup(
             if me.distance(&target) < kad::KBucketKey::from(node.peer_id).distance(&target) {
                 return;
             }
-            let ids = match service.held(&mailbox) {
-                Ok(held) => held.into_keys().collect(),
+            let ids = match service.held_ids(&mailbox) {
+                Ok(ids) => ids,
                 Err(error) => return tracing::error!(%error, "mailbox repair failed"),
             };
             let inventory = proto::Inventory {

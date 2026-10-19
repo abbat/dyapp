@@ -592,7 +592,7 @@ The current protocol replies are:
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
-| `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
+| `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold, read from stored ids without the envelopes; `DENIED` and a strike from a peer without node proof of work; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
 | `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
@@ -862,10 +862,10 @@ Scope and limits:
 - Once a map holds 10 000 buckets, buckets idle for a second (refilled, so dropping them changes
   nothing) are removed before a new one is added.
 
-**Replica eligibility.** Mailbox, profile and media `replica_put`, and media `shard_put`,
-require a valid transport peer ID meeting this node's `network.id_pow_bits`; a missing proof
-returns `DENIED` and a strike before record verification. Eligibility uses transport-ID proof of work; advertised roles do not
-change this check.
+**Replica eligibility.** Mailbox, profile and media `replica_put`, media `shard_put` and mailbox
+`inventory` require a valid transport peer ID meeting this node's `network.id_pow_bits`; a
+missing proof returns `DENIED` and a strike before record verification or a mailbox read.
+Eligibility uses transport-ID proof of work; advertised roles do not change this check.
 Replicas exceeding the peer, IP-group or media rate buckets return `RATE_LIMITED` without a strike;
 bad signed records still return `DENIED` and strike. Sender caps cover regular mailbox/profile
 fan-out, profile-gap repair, mailbox repair batches and media replica/shard writes, including repair.

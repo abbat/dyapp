@@ -409,7 +409,13 @@ impl Service {
             request.request,
             Some(mailbox_request::Request::ReplicaPut(_))
         );
-        if is_replica && !self.node_peer(peer) {
+        // Inventory is node-to-node repair: refused before it reads a mailbox.
+        let node_only = is_replica
+            || matches!(
+                request.request,
+                Some(mailbox_request::Request::Inventory(_))
+            );
+        if node_only && !self.node_peer(peer) {
             self.strike(peer);
             return Ok(status(Status::Denied));
         }
@@ -523,7 +529,7 @@ impl Service {
         if self.busy(SHED_MEDIA) {
             return Ok(status(Status::RateLimited));
         }
-        let held: HashSet<Vec<u8>> = self.held(&inventory.mailbox)?.into_keys().collect();
+        let held: HashSet<Vec<u8>> = self.held_ids(&inventory.mailbox)?.into_iter().collect();
         Ok(MailboxResponse {
             missing: inventory
                 .ids
@@ -554,6 +560,11 @@ impl Service {
         } else {
             status(worst)
         })
+    }
+
+    /// The ids of the oldest [`MAX_INVENTORY`] envelopes of a mailbox, read without the records.
+    pub fn held_ids(&self, mailbox: &[u8]) -> crate::Result<Vec<Vec<u8>>> {
+        Ok(self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)?)
     }
 
     /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, for repair.
@@ -2998,7 +3009,10 @@ mod tests {
         nonce: &mut Option<[u8; 32]>,
         request: mailbox_request::Request,
     ) -> MailboxResponse {
-        let sender = if matches!(request, mailbox_request::Request::ReplicaPut(_)) {
+        let sender = if matches!(
+            request,
+            mailbox_request::Request::ReplicaPut(_) | mailbox_request::Request::Inventory(_)
+        ) {
             replica_peer("replica")
         } else {
             peer("p")
@@ -3100,6 +3114,23 @@ mod tests {
         forged.signature[0] ^= 1;
         assert_eq!(batch(vec![signed(4), forged]), Status::Denied);
         assert_eq!(service.held(&address).unwrap().len(), 3);
+        assert_eq!(service.held_ids(&address).unwrap().len(), 3);
+        // A client asking for an inventory is refused before any read, with a strike.
+        let client = service
+            .mailbox(
+                &peer("p"),
+                &mut None,
+                MailboxRequest {
+                    request: Some(mailbox_request::Request::Inventory(proto::Inventory {
+                        mailbox: address.clone(),
+                        ids: vec![vec![9; 16]],
+                    })),
+                },
+            )
+            .unwrap();
+        assert_eq!(mailbox_status(&client), Status::Denied);
+        assert!(client.missing.is_empty());
+        assert!(service.reputation.banned("p"));
     }
 
     #[test]

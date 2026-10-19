@@ -288,6 +288,18 @@ impl BootstrapStore {
         Ok((records, more))
     }
 
+    /// The ids of the oldest `limit` envelopes of a mailbox, without reading the records.
+    pub fn envelope_ids(&self, mailbox: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
+        let db = lock(&self.messages)?;
+        let mut query = db
+            .prepare("SELECT `id` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `seq` LIMIT ?")
+            .map_err(storage_error)?;
+        query
+            .query_map(params![mailbox, limit], |row| row.get(0))
+            .and_then(Iterator::collect)
+            .map_err(storage_error)
+    }
+
     /// Deletes envelopes from a mailbox; unknown ids are ignored.
     pub fn ack_envelopes(&self, mailbox: &[u8], ids: &[Vec<u8>]) -> Result<()> {
         let mut db = lock(&self.messages)?;
