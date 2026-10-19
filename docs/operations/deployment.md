@@ -512,6 +512,21 @@ profiles and attachments early; one pushed back refuses fresh heartbeats and kee
 the host with an authenticated source, such as `chrony` with NTS (`server <host> iburst nts`),
 and watch for large steps in its log.
 
+### Cloud hosting
+
+On a rented VM, assume that the provider, or anyone holding your cloud account, can read the disk,
+its snapshots and backups, write to the disk and read the VM's memory. They can then copy
+`node.key` and the TURN secret, see what you see as an operator, and replace `dyappd` with a
+backdoored build; they cannot forge users' signed records or read end-to-end content
+([threat model](../security/threat-model.md#cloud-host-access)). Until encryption at rest and a
+start-time integrity check exist:
+
+- Protect the cloud account with hardware-key 2FA and limit who may snapshot or attach volumes.
+- Keep backups that hold `node.key` off the provider, or encrypted with a key the provider does
+  not have.
+- If you suspect access, reinstall from a package you build or verify yourself, follow
+  [Node key compromise](#node-key-compromise) and rotate the [TURN](#turn-relay) secret.
+
 ### Access Control
 
 `max_connections_per_ip_group` (positive, default 32) bounds pending and established incoming

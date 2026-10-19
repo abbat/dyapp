@@ -22,6 +22,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Attacker | Can |
 |----------|-----|
 | **Node operator** | Read everything stored on or sent to their node; drop, delay or withhold data; serve an older signed profile; log IPs and timing |
+| **Cloud host** (provider staff, a stolen cloud account, compelled access) | Behind an honest operator's back: dump the node VM's memory, read its disk, snapshots and backups, write to its disk or restore an old snapshot ([below](#cloud-host-access)) |
 | **Network observer** (ISP, Wi-Fi) | See connection endpoints, sizes and timing; tamper with packets |
 | **Malicious client or peer** | Send any request to any node: floods, oversized or malformed messages, forged signatures, replayed requests, writes into strangers' mailboxes |
 | **Sybil** | Create unlimited libp2p peer IDs and identity keys for free, run many nodes, surround a key in the DHT (eclipse) |
@@ -82,6 +83,7 @@ defences already in place. Nodes are untrusted by design
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ✅ Implemented: nothing is negotiated; announced limits are hints within compiled floors ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |
+| 23 | Cloud host access to a node VM: memory dump, disk read, disk write | High | Medium | ⚠️ Partial: no client IPs on disk, a key-compromise runbook; encryption at rest, binary integrity and memory hardening are being designed ([below](#cloud-host-access)) |
 
 ### Cryptography
 
@@ -483,6 +485,32 @@ signing remains planned ([clock hints](../architecture/protobuf-schema.md#clock-
 | Clock step against per-second rate limits | `limits.*_per_second` | Low × low | Accept: a step resets or extends one second's count |
 | Fake send time in a message | Client | Low × medium | Accept: the app shows it as the sender's claim |
 | TURN credential expiry on a skewed relay | `node.turn` | Low × low | Accept: the node and its relay belong to one operator |
+
+### Cloud host access
+
+Class 23 in detail. Most nodes run on a rented VM, and whoever controls the hypervisor, the
+volumes or the cloud account can reach it without the operator: provider staff, an attacker with
+the operator's cloud credentials, or a compelled provider. The node ID is not its operator's
+identity, so a stolen node key does not expose the operator's own account; the damage is to the
+network and to the users the node serves. In place: `node.key` has mode 0600 and a
+[compromise runbook](../operations/deployment.md#node-key-compromise); nodes write no request
+logs and no client IP to disk (the only addresses on disk are the peer cache, anchors and IP
+groups the operator denied); the TURN secret lives in a separate `EnvironmentFile=`; every record
+a node holds is signed by its owner. Nothing is encrypted at rest, the binary is not checked at
+start, and a hypervisor can read any VM's memory unless it is a confidential VM. Mitigations are
+being designed; until then the verdicts below are the current state.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Copy `node.key` from the volume, a snapshot or a backup and run a node under its peer ID: its proof-of-work DHT position, its local reputation with peers, a seed others pin as `host:port/<peer ID>` | Disk read | High × medium | Accept for now: the [runbook](../operations/deployment.md#node-key-compromise) moves the node to a new key; impersonating a pinned seed also needs its address, which a cloud-account attacker may hold. Fix (being designed): the key encrypted at rest |
+| Read the stores: mailbox addresses, sender keys, sizes and times of envelopes, profiles, the search index, media manifests, the deny list | Disk read | Medium × medium | Accept: the same view as the node operator ([privacy](privacy.md)); profiles are public and envelopes are to be end-to-end encrypted. While payload crypto is a stub (class 1) envelope content is readable too |
+| Read the TURN secret and mint relay credentials | Disk read (`EnvironmentFile=`), memory | Medium × medium | Accept: coturn's `total-quota` and `max-bps` bound the relay; the operator rotates the secret in the node and coturn together ([TURN relay](../operations/deployment.md#turn-relay)) |
+| Dump memory: the node key, the TURN secret, live TLS and Noise session keys, peer IPs of open connections, nonces and rate-limit state | Hypervisor | High × low | Accept: with the session keys and captured traffic the attacker sees the live requests a node operator sees, including client IPs; only a confidential VM (AMD SEV-SNP, Intel TDX) closes this. Fix (being designed): no swap or core dumps of `dyappd`, keys kept out of dumps where the platform allows |
+| Replace the `dyappd` binary, the systemd unit or the config: a backdoored node that logs client IPs against keys, withholds or delays data, serves old profiles, points seeds at the attacker's nodes | Disk write | High × low | Accept: such a node is a hostile node (class 8) under an honest operator's name; it cannot forge signed records or read end-to-end content. Fix (being designed): signed releases checked before start and an integrity check of the binary, unit and config |
+| Plant illegal media or records to expose the operator | Disk write | High × low | Accept: the same legal exposure as class 14; encryption at rest (being designed) makes an offline write impossible without the key |
+| Restore an old snapshot: an old deny list, a store without recent data, a key the operator already replaced | Snapshot restore | Medium × low | Accept: replication repairs missing data and other nodes refuse older profile versions; a revived replaced key is the key-theft row above. Fix (being designed): the node detects that its state went back in time |
+| Poison the peer cache or anchors so the node restarts into the attacker's nodes | Disk write | Medium × low | Accept: the configured seeds, pinned to peer IDs, and the routing defences of [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) still apply |
+| Forge a profile, a message, a media blob or a deny list of another node; read end-to-end content | Any | — | Not possible: these are signed by keys that never reach the node, or encrypted end to end once MLS lands |
 
 ## Out of scope
 
