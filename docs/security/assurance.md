@@ -21,7 +21,9 @@ The first run (2026-10-19, before `SECURITY.md`) scored 5.9, the baseline. The c
 were Maintained (the repository is younger than 90 days), Code-Review (changes merge without
 an approving review), CII-Best-Practices (no badge yet), Branch-Protection (not enabled on
 `main`), Security-Policy (since added) and Contributors. Code review, branch protection and the
-badge are maintainer decisions; until they change, the target of 7.0 is not met.
+badge are maintainer decisions; until they change, the target of 7.0 is not met. With
+`SECURITY.md`, digest-pinned images, hash-pinned flake8 and the OSV exceptions the score is 6.8,
+the current baseline.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
 An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `linux/`, `windows/`) lists the
