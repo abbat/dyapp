@@ -68,18 +68,18 @@ defences already in place. Nodes are untrusted by design
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
-| 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps; write tokens, per-group connection limits and fuzzing are planned ([below](#denial-of-service)) |
+| 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps, per-group connection limits, a search fair queue and puzzle; write tokens, a TURN quota per IP group and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ⚠️ Partial: no metrics endpoint, no software version in `NodeInfo`, logs without peer identifiers; global-only addresses and a plain agent version in identify are planned ([below](#node-internals-disclosure)) |
-| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list; a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
+| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, technical abuse response only (accepted residual risk); a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
-| 20 | Downgrade and weak-parameter negotiation | High | Low | ⚠️ Partial: nothing is negotiated; client bounds on announced limits planned ([below](#downgrade)) |
+| 20 | Downgrade and weak-parameter negotiation | High | Low | ✅ Implemented: nothing is negotiated; announced limits are hints within compiled floors ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |
 
@@ -144,7 +144,8 @@ checked by SHA-256, and an SPDX SBOM per CI run.
 | An unpinned tool pulled in CI: `cargo install cargo-deny` in CodeQL, `pip install flake8`, xcodegen without a checksum, `dtolnay/rust-toolchain` at a branch, `debian:bookworm-slim` by tag | CI workflows, test Dockerfiles | High × medium | Fix: pinned versions with `--locked`, checksums and digests |
 | A pull request poisons the GitHub Actions build cache read by `main` | Docker builds with the GHA cache | High × medium | Fix: only pushes to `main` write the cache, pull requests read it; every workflow sets `permissions` at the top |
 | A tampered Debian package from the mirror | apt in build images | Medium × low | Accept: Debian repositories are signed; versions are not pinned |
-| A forged or tampered release: deb, APK, app bundle, container image | Downloads, image registry | Critical × medium | Fix (no release pipeline yet): release artifacts get Sigstore keyless signatures, SLSA build provenance and the SBOM; [Deployment](../operations/deployment.md#updates) documents how to verify them |
+| A forged or tampered release: deb, APK, app bundle, container image | Downloads, image registry | Critical × medium | Fix (no release pipeline yet): release artifacts get Sigstore keyless signatures, SLSA build provenance and the SBOM; [Deployment](../operations/deployment.md#updates) documents how to verify them. Until then an operator builds from a tagged commit |
+| A node's `node.key` is copied from a host or a backup | Node host, backups | High × low | Accept: a key cannot be revoked; the operator starts the node over with a new key and peer ID ([node key compromise](../operations/deployment.md#node-key-compromise)) |
 | An operator rolls back to a vulnerable release | Node updates | Medium × low | Accept: the operator's choice; signatures prove origin, not freshness |
 | A hostile pull request | Repository | Critical × medium | Out of scope here: class 7 |
 | A hijacked AI agent or maintainer account | Developer tooling, GitHub account | Critical × medium | Out of scope here: classes 6 and 11 |
@@ -235,7 +236,7 @@ check nodes yet.
 | A search node poisons, reorders or hides results | Search | Medium × high | Fix: the client checks results and asks 2 nodes ([above](#spoofing)) and ranks results itself. Accept: a node still picks which matches it returns |
 | A node lies in inventory during repair | Node to node | Medium × medium | Accept: every copy is verified on its own, and only holders of a replica key can pull its envelopes |
 | A forged node-ID or profile proof of work | DHT, search | High × medium | Accept: both are checked; such a node is not routed to, such a profile is not indexed |
-| False roles or false limits in `info` and status | DHT, `/dyapp/node` | Medium × medium | Accept: the client treats `info` as a hint; a role that is not served costs the node reputation |
+| False roles or false limits in `info` and status | DHT, `/dyapp/node` | Medium × medium | Accept: the client treats `info` as a hint within compiled floors ([Downgrade](#downgrade)); a role that is not served costs the node reputation |
 | Harvesting peer and profile data | DHT, search | Medium × high | Accept: profiles are public by design and Kademlia routing tables are open; metadata is class 4 ([above](#traffic-analysis)) |
 | Colluding or Sybil nodes take every replica of a key | DHT | High × medium | Accept: [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) makes a targeted eclipse costly, not impossible. Fix: per-type pools in the node store |
 | A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish (planned) |
@@ -258,7 +259,9 @@ Volumetric floods below libp2p stay out of scope ([below](#out-of-scope)).
 | An attacker rotates /48 prefixes inside its /32, or IPv4 addresses inside a /16 | All requests | Medium × medium | Fix: a second, coarse bucket per /16 and /32 with ten times the budget. Accept: users behind one CGNAT share a bucket |
 | Crafted protobuf, SDP or MLS input panics a decoder or allocates without bound | Every codec | High × medium | Fix: cargo-fuzz targets for every network codec, run in CI |
 | Relay traffic through TURN | `node.turn`, coturn | Medium × medium | Fix: the coturn example sets `user-quota`, `total-quota` and `max-bps` |
-| Expensive search queries, fake profile floods, signal spam, catch-up traffic, messages to non-matches | Search, mailbox | Medium × high | Fix: planned. Search: a fair queue per IP group and a load-driven puzzle against query floods; canonical places, a newcomer quota, eviction by place and heartbeat proof of work against fake profiles; accepted residual risks in [search capacity](../architecture/search-capacity.md#adversary). The signal quota, catch-up traffic and the non-match limit are planned separately |
+| Bypass the TURN `user-quota` with fresh peer IDs: the credential username carries a free peer ID | `node.turn`, coturn | Medium × high | Fix (planned): the username carries a keyed pseudonym of the client's IP group instead, so one group shares one quota ([TURN credentials](../architecture/bootstrap.md#turn-credentials)); `total-quota` and `max-bps` bound the relay meanwhile |
+| Slow SQLite calls stall the swarm loop, so cheap requests starve every peer | Store requests | Medium × medium | Implemented: store requests run on blocking workers off the swarm loop, after the rate limits ([served protocol](../architecture/bootstrap.md#served-protocol)) |
+| Expensive search queries, fake profile floods, signal spam, catch-up traffic, messages to non-matches | Search, mailbox | Medium × high | Implemented for search queries: a fair queue per IP group and a load-driven hash puzzle ([search](../architecture/bootstrap.md#search)). Fix: planned for the rest: canonical places, a newcomer quota, eviction by place and heartbeat proof of work against fake profiles; accepted residual risks in [search capacity](../architecture/search-capacity.md#adversary). The signal quota, catch-up traffic and the non-match limit are planned separately |
 | Signature and Argon2id checks used to burn CPU | Writes, search | Low × medium | Accept: Ed25519 is cheap and runs after the buckets; Argon2id has its own permits and a cache |
 | Slow or idle streams hold connections | libp2p | Low × medium | Accept: requests time out after 20 s, idle connections after 60 s |
 
@@ -295,6 +298,8 @@ no security policy and no private channel for vulnerability reports.
 | A fake "official" seed or node list | Websites, chats | Medium × medium | Accept: seeds are pinned to peer IDs and the built-in list is empty; once public seeds exist, the official names page lists them |
 | Fake support channels ask users for keys or codes | Social networks, chats | Medium × medium | Fix: the official names page lists the support channels and says that the project never asks for keys, codes or backups |
 | Forged abuse reports push an operator to deny-list a user | Email to operators | Medium × medium | Accept: one node's refusal; the user goes to other nodes. Fix: the deployment guide tells operators to check a report before acting and never to apply received lists unread |
+| One operator's deny list censors users on other nodes | Deny-list exchange | Medium × medium | Accept: each operator denies on their own node only ([access control](../operations/deployment.md#access-control)); exchange is off in the first release and received lists are never applied automatically ([exchange](../architecture/bootstrap.md#deny-list-exchange)) |
+| A user wrongly denied has no one to appeal to | Operators | Medium × medium | Accept: abuse response is technical only, see [below](#illegal-content-and-legal-pressure) |
 | Someone posing as a maintainer asks an operator for node keys or logs | Email, chats | High × low | Fix: the security policy says that maintainers never ask for keys or logs; the deployment guide links it |
 | A vulnerability is published before a fix | Public issues | High × medium | Fix: a security policy with GitHub private vulnerability reporting |
 | A scammer in a chat asks for a code or sends a lookalike link | Messages | Medium × medium | Fix: messages from people who are not contacts are marked and land in a separate requests list; links show their full host, IDN hosts in punycode. Verification of contacts is class 5 ([above](#spoofing)) |
@@ -337,6 +342,7 @@ addresses, and receivers add them to their routing tables unfiltered.
 | Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |
 | Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers |
 | Scrape a future metrics endpoint | Metrics (planned) | Medium × medium | Fix: when metrics land, they bind to loopback by default and carry no peer or key identifiers |
+| An attack or a failing node goes unnoticed: there are no metrics or alerts, only `dyappd status`, the health check and logs | Operator | Medium × high | Accept for the first release: the operator reads status and logs ([monitoring](../operations/deployment.md#monitoring)). Fix (planned): Prometheus metrics on loopback ([metrics](../architecture/bootstrap.md#monitoring--metrics)) |
 | Fingerprint a node by response timing | Any request | Low × low | See [Side channels and timing](#side-channels-and-timing) |
 
 ### Side channels and timing
@@ -364,6 +370,13 @@ Class 14 in detail. In place: a per-node deny list of peer IDs, IP groups, key h
 hashes; received lists are only stored and applied by hand; envelopes are to be end-to-end
 encrypted, so an operator can act on a named hash or key, never on content it cannot read.
 Nothing scans content.
+
+Abuse response is technical only: the deny list, the purge of listed blobs (planned), rate limits
+and the operator runbooks ([access control](../operations/deployment.md#access-control)). The
+project has no legal procedure, no abuse desk and no appeal, for its own nodes or for third-party
+operators; each operator answers for their own node. The maintainer accepted this residual risk
+for the first release: a wrongly denied user moves to other nodes, and a complaint the operator
+cannot verify technically has no channel in the project ([out of scope](#out-of-scope)).
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
@@ -444,7 +457,7 @@ the proof of work are fixed in code.
 | Strip the security upgrade or offer a weaker one | multistream-select on TCP | High × low | Accept: Noise is the only upgrade offered and accepted; a plaintext or second security upgrade is never added |
 | Force an old protocol version | Protocol IDs | High × low | Accept: there are no versions; a node enforces every rule whatever the client sends ([ADR 0014](../decisions/0014-libp2p-only-node-protocol.md)) |
 | Weak MLS ciphersuite | KeyPackages, Welcomes | Critical × low | Accept: only 0x0001 ([Cryptography](#cryptography)) |
-| A node announces a tiny size limit or a huge proof-of-work minimum | `node.info`, replies | Medium × medium | Fix (planned with API evolution): the client clamps announced values to protocol bounds, proof of work at most 20 bits and size limits not below the protocol floors |
+| A hostile node lies in `NodeInfo` to downgrade clients: a tiny size limit, a huge proof-of-work minimum, a weaker requirement | `node.info`, replies | Medium × medium | Implemented: `NodeInfo` values are hints only; a client keeps compiled floors, only tightens its requests and skips a node whose values fall outside the accepted range (`dyapp_p2p_net::hints`, [ADR 0016](../decisions/0016-protocol-evolution.md)) |
 | A node announces weak Argon2id parameters | Proof of work | High × low | Accept: the parameters are constants, not announced |
 | An operator lowers `search.min_profile_pow_bits` or other limits | `dyappd` config | Low × medium | Accept: it weakens only that node; every other node checks gossip against its own minimum, and config validation bounds each value |
 
@@ -472,3 +485,5 @@ signing remains planned ([clock hints](../architecture/protobuf-schema.md#clock-
 - Denial of service at the network layer (volumetric floods below libp2p); operators use their
   hosting's protection.
 - A compromised operating system on a user's device.
+- Legal procedures, abuse desks and appeals: abuse response is technical only, an accepted
+  residual risk ([illegal content](#illegal-content-and-legal-pressure)).
