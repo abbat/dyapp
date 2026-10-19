@@ -30,6 +30,8 @@ COVERED = {
         "docs/decisions/0014-libp2p-only-node-protocol.md",
     "47d3207e88219a2eb6619f108aa43fd307a70804":
         "docs/decisions/0016-protocol-evolution.md",
+    "491a1d7a03ab0dd8e4ef3bb763ee21a580525e88":
+        "docs/decisions/0016-protocol-evolution.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

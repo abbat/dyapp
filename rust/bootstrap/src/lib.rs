@@ -8,6 +8,7 @@ pub mod maintenance;
 pub mod media;
 mod media_repair;
 pub mod node;
+pub mod places;
 pub mod pow;
 pub mod puzzle;
 /// Per-peer, per-group and byte rate limits.

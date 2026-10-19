@@ -1,0 +1,7 @@
+dyapp
+Copyright Anton Batenev
+
+rust/bootstrap/data/places.bin is derived from GeoNames cities1000
+(https://www.geonames.org/), licensed under CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Changes: only the country code and
+GeoNames ID of each entry are kept.

@@ -4,5 +4,5 @@
 udid = "udid"
 
 [files]
-# Raw fuzz inputs.
-extend-exclude = ["fuzz/corpus/"]
+# Raw fuzz inputs and the embedded GeoNames places.
+extend-exclude = ["fuzz/corpus/", "rust/bootstrap/data/"]

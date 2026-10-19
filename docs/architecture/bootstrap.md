@@ -248,8 +248,14 @@ resent from the sender's retry queue.
 - Each photo in `photos` is the full image (one or more blobs) plus a separate small thumbnail
   blob, stored whole. Lists and search results load only thumbnails; the full image loads when a
   profile is opened (implemented in the schema and checks; no client yet).
-- Location is `place`, a city or district name, never coordinates
+- Location is `place`, the decimal GeoNames ID of a city or district, never coordinates
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
+- **Canonical places.** The node embeds the GeoNames cities1000 set (about 171k places, CC BY
+  4.0, see `NOTICE`) in `rust/bootstrap/data/places.bin`, about 190 KB: one block per country
+  with its sorted IDs as LEB128 deltas. A lookup skips to the country's block and decodes it,
+  at most a few tens of thousands of IDs. A release refreshes the file with
+  `scripts/geonames-places.py`. Planned: the search index stores a place outside the set under
+  its country only.
 - Planned: an optional public `name`, and one rule for every profile string: NFC, no control,
   format (bidi, zero-width) or private-use characters, a character limit per string and a count
   limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,

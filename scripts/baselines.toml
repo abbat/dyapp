@@ -15,6 +15,7 @@ max_lines = 400
 c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
 b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"
 57e927c8cd6ea510aa00ea4e082bca5c9d88b466 = "Atomic move of store requests off the swarm loop; node.rs reindented"
+491a1d7a03ab0dd8e4ef3bb763ee21a580525e88 = "Heartbeat proof of work with the search module splits its size budgets required"
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.

@@ -15,8 +15,9 @@ that store and relay them.
   including bootstrap and index nodes. There is no per-field private flag: a user who does not want
   a field public does not fill it in. This applies to sensitive optional fields (for example
   mental-health indicators) as well.
-- **Location is a place name, never coordinates:** a city or district the user picks within their
-  country, or none. Search matches the place exactly and must work without it.
+- **Location is a place, never coordinates:** the GeoNames ID of a city or district the user
+  picks within their country from GeoNames cities1000 (CC BY 4.0), or none. Place names are the
+  client's. Search matches the place exactly and must work without it.
 - **The profile is tamper-proof:** every profile version is signed with the owner's Ed25519
   identity key ([ADR 0004](0004-identity-keys.md)). Readers and index nodes reject unsigned or
   badly signed profiles.

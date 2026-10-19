@@ -29,7 +29,8 @@ message Profile {
   string employment_status = 17;
   string fitness_level = 18;
   repeated string interests = 19;
-  // City or district within `country`, no coordinates; matched exactly.
+  // GeoNames ID (decimal) of a cities1000 place in `country`, no coordinates; matched exactly.
+  // A search node indexes any other value under the country only (planned).
   string place = 20;
   repeated Photo photos = 21;
   // Argon2id proof of work over the signer's key, see docs/architecture/bootstrap.md
