@@ -1,5 +1,7 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
+mod jobs;
+
 use crate::config::{Limits, Role};
 use crate::deny::DenyStore;
 use crate::maintenance::RebuildBudget;
@@ -168,7 +170,7 @@ fn keep_deny_list(deny: &DenyStore, peer: &PeerId, record: &SignedRecord) {
 
 /// Re-reads the deny list when `dyappd deny` changed it since `version`; on an error the old
 /// list stays.
-fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64>) {
+fn reload_deny(service: &Service, deny: &DenyStore, version: &mut Option<i64>) {
     let current = match deny.version() {
         Ok(current) if Some(current) == *version => return,
         Ok(current) => current,
@@ -176,12 +178,13 @@ fn reload_deny(service: &mut Service, deny: &DenyStore, version: &mut Option<i64
     };
     match deny.entries() {
         Ok(entries) => {
-            let added = entries.difference(&service.deny).count();
-            let removed = service.deny.difference(&entries).count();
+            let mut old = service.deny.write().unwrap();
+            let added = entries.difference(&old).count();
+            let removed = old.difference(&entries).count();
             tracing::info!(entries = entries.len(), added, removed, "deny list loaded");
             let key = service.deny_signer.as_ref();
-            service.shared_deny = key.map(|key| crate::deny::sign(key, &entries));
-            service.deny = entries;
+            *service.shared_deny.write().unwrap() = key.map(|key| crate::deny::sign(key, &entries));
+            *old = entries;
             *version = Some(current);
         }
         Err(error) => tracing::error!(%error, "deny list not loaded, the old one stays"),
@@ -1494,10 +1497,93 @@ fn after_lookup(
     }
 }
 
+/// A store request run off the swarm loop: it gets the connection's mailbox challenge.
+type Job = Box<dyn FnOnce(&Service, &mut Option<[u8; 32]>) -> StoreDone + Send>;
+
+/// What a store job hands back to the swarm loop to reply and replicate.
+enum StoreDone {
+    ProfilePublish(
+        ResponseChannel<proto::ProfileResponse>,
+        SignedRecord,
+        crate::Result<proto::ProfileResponse>,
+    ),
+    /// The stored profile comes with an accepted heartbeat, to repair its replicas.
+    Profile(
+        ResponseChannel<proto::ProfileResponse>,
+        crate::Result<proto::ProfileResponse>,
+        Option<SignedRecord>,
+    ),
+    MediaPut(
+        ResponseChannel<proto::MediaResponse>,
+        crate::Result<std::result::Result<proto::MediaReplicaPut, Status>>,
+    ),
+    Media {
+        channel: ResponseChannel<proto::MediaResponse>,
+        result: crate::Result<proto::MediaResponse>,
+        keep: Option<SignedRecord>,
+        have: Option<Vec<proto::MediaPart>>,
+        /// The manifest of a blob the get did not find whole here.
+        manifest: Option<proto::MediaManifest>,
+    },
+    MailboxPut(
+        ResponseChannel<proto::MailboxResponse>,
+        SignedRecord,
+        crate::Result<proto::MailboxResponse>,
+    ),
+    Mailbox(
+        ResponseChannel<proto::MailboxResponse>,
+        Option<mailbox_request::Request>,
+        crate::Result<proto::MailboxResponse>,
+    ),
+    Inventory(
+        ResponseChannel<proto::InventoryResponse>,
+        crate::Result<proto::InventoryResponse>,
+    ),
+}
+
+/// A finished store job; `done` is `None` when it panicked, which drops the reply.
+struct Finished {
+    peer: PeerId,
+    connection: ConnectionId,
+    nonce: Option<[u8; 32]>,
+    done: Option<StoreDone>,
+}
+
+/// Queues a store job; a full queue drops it, which fails the request on the client.
+fn enqueue(
+    queue: &mut jobs::FairQueue<(ConnectionId, Job)>,
+    peer: PeerId,
+    connection: ConnectionId,
+    job: Job,
+) {
+    if queue.push(peer, (connection, job)).is_err() {
+        tracing::debug!(%peer, "store queue full, request dropped");
+    }
+}
+
+/// Starts the queued store jobs that may run now.
+fn dispatch(
+    queue: &mut jobs::FairQueue<(ConnectionId, Job)>,
+    nonces: &mut HashMap<ConnectionId, [u8; 32]>,
+    service: &Arc<Service>,
+    finished: &tokio::sync::mpsc::UnboundedSender<Finished>,
+) {
+    while let Some((peer, (connection, job))) = queue.next() {
+        let (service, finished) = (service.clone(), finished.clone());
+        let mut nonce = nonces.remove(&connection);
+        tokio::task::spawn_blocking(move || {
+            let run = std::panic::AssertUnwindSafe(|| job(&service, &mut nonce));
+            let done = std::panic::catch_unwind(run).ok();
+            let _ = finished.send(Finished { peer, connection, nonce, done });
+        });
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and on SIGHUP; an old `<storage.dir>/deny` file is imported once at start.
-pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
+pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     use tokio::signal::unix::{signal, SignalKind};
+    let service = Arc::new(service);
     let mut hangup = match signal(SignalKind::hangup()) {
         Ok(hangup) => hangup,
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),
@@ -1514,7 +1600,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
         Err(error) => tracing::error!(%error, "deny file not imported"),
     }
     let mut deny_version = None;
-    reload_deny(&mut service, &deny, &mut deny_version);
+    reload_deny(&service, &deny, &mut deny_version);
     let mut deny_check = tokio::time::interval(Duration::from_secs(10));
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
@@ -1609,7 +1695,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
         .collect();
     let every = Duration::from_secs(300);
     let mut rejoin = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
+    // Store requests (node, profile, media, mailbox, inventory) run off the loop on
+    // STORE_WORKERS threads, one per peer at a time, round robin between peers; past
+    // PEER_QUEUE waiting the request is dropped. A peer's replies keep its request order.
+    // ponytail: replication replies, gossip, repair, media inventory and maintenance still call
+    // the store on the loop; move them here if their latency shows.
+    let mut store_queue = jobs::FairQueue::<(ConnectionId, Job)>::default();
+    let (store_tx, mut store_done) = tokio::sync::mpsc::unbounded_channel::<Finished>();
     loop {
+        dispatch(&mut store_queue, &mut nonces, &service, &store_tx);
         tokio::select! {
             event = swarm.select_next_some() => {
             dyapp_p2p_net::route(&mut swarm, &event);
@@ -1643,17 +1737,17 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         ..
                     }),
                 ) if service.overloaded() => {}
-                // ponytail: SQLite calls block the swarm loop; move them to spawn_blocking when
-                // load makes request latency visible.
                 SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
+                    // Node requests touch no store, so they stay on the loop.
                     let response = service.node(&peer(id, &groups, connection_id), request);
                     answered += 1;
                     service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
+                    drop_banned(&mut swarm, &service, id);
                 }
                 // The node asks other nodes only for deny lists.
                 SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
@@ -1670,185 +1764,83 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
-                        answered += 1;
-                        match service.prepare_profile(&peer(id, &groups, connection_id), record.clone()) {
-                            Ok(response) if response.status == i32::from(Status::Ok) => {
-                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Profile(record.clone()), PutReply::Profile(channel));
-                            }
-                            Ok(response) => {
-                                service.traffic.add(response.encoded_len() as u64);
-                                let _ = swarm.behaviour_mut().profile.send_response(channel, response);
-                            }
-                            Err(error) => {
-                                answered -= 1;
-                                failed += 1;
-                                tracing::error!(%error, "profile admission failed");
-                            }
+                    let from = peer(id, &groups, connection_id);
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
+                            let result = service.prepare_profile(&from, record.clone());
+                            return StoreDone::ProfilePublish(channel, record.clone(), result);
                         }
-                        drop_banned(&mut swarm, &service, id);
-                        continue;
-                    }
-                    let heartbeat = match &request.request {
-                        Some(proto::profile_request::Request::Heartbeat(record)) => Some(record.public_key.clone()),
-                        _ => None,
-                    };
-                    match service.profile(&peer(id, &groups, connection_id), request) {
-                        Ok(response) => {
-                            if response.status == i32::from(Status::Ok) {
-                                if let Some(key) = heartbeat {
-                                    let owner = dyapp_identity::key_hash(&key.as_slice().try_into().unwrap());
-                                    match service.store.get_profile(&owner.iter().map(|byte| format!("{byte:02x}")).collect::<String>()) {
-                                        Ok(Some(record)) => replicas.repair_profile(&mut swarm, &service, record, Instant::now()),
-                                        Ok(None) => {},
-                                        Err(error) => tracing::error!(%error, "heartbeat repair failed"),
-                                    }
-                                }
-                            }
-                            answered += 1;
-                            service.traffic.add(response.encoded_len() as u64);
-                            let _ = swarm.behaviour_mut().profile.send_response(channel, response);
-                        }
-                        // Dropping the channel fails the request; the client tries another node.
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "profile request failed")
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, id);
+                        let heartbeat = match &request.request {
+                            Some(proto::profile_request::Request::Heartbeat(record)) => Some(record.public_key.clone()),
+                            _ => None,
+                        };
+                        let result = service.profile(&from, request);
+                        let ok = matches!(&result, Ok(response) if response.status == i32::from(Status::Ok));
+                        // An accepted heartbeat repairs the stored profile's replicas.
+                        let stored = heartbeat.filter(|_| ok).and_then(|key| {
+                            let owner = dyapp_identity::key_hash(&key.as_slice().try_into().unwrap());
+                            let owner = owner.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+                            service.store.get_profile(&owner).unwrap_or_else(|error| {
+                                tracing::error!(%error, "heartbeat repair failed");
+                                None
+                            })
+                        });
+                        StoreDone::Profile(channel, result, stored)
+                    }));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
-                    if let Some(proto::media_request::Request::Put(put)) = &request.request {
-                        let result = if replicas.at_capacity() { Ok(Err(Status::Full)) }
-                            else { service.prepare_media(&from, put) };
-                        match result {
-                            Ok(Ok(replica)) => {
-                                answered += 1;
-                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Media(replica), PutReply::Media(channel));
-                            }
-                            Ok(Err(status)) => {
-                                answered += 1;
-                                let response = crate::service::media_upload_status(status);
-                                service.traffic.add(response.encoded_len() as u64);
-                                let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                            }
-                            Err(error) => { failed += 1; tracing::error!(%error, "media admission failed"); }
-                        }
-                        drop_banned(&mut swarm, &service, id);
+                    let put = matches!(request.request, Some(proto::media_request::Request::Put(_)));
+                    if put && replicas.at_capacity() {
+                        answered += 1;
+                        let response = crate::service::media_upload_status(Status::Full);
+                        service.traffic.add(response.encoded_len() as u64);
+                        let _ = swarm.behaviour_mut().media.send_response(channel, response);
                         continue;
                     }
-                    let keep = match &request.request {
-                        Some(proto::media_request::Request::Keep(record)) => Some(record.clone()),
-                        _ => None,
-                    };
-                    let have = match &request.request {
-                        Some(proto::media_request::Request::Have(have)) => Some(have.items.clone()),
-                        _ => None,
-                    };
-                    let get = match &request.request {
-                        Some(proto::media_request::Request::Get(get)) => Some(get.hash.clone()),
-                        _ => None,
-                    };
-                    match service.media(&from, request) {
-                        Ok(mut response) => {
-                            answered += 1;
-                            if response.status == i32::from(Status::Ok) {
-                                if let Some(items) = have {
-                                    response = replicas.media_inventory(&mut swarm, &service, id, &items).unwrap_or_else(|error| {
-                                        tracing::error!(%error, "media inventory failed");
-                                        proto::MediaResponse { status: Status::NotFound.into(), ..Default::default() }
-                                    });
-                                    let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                                    continue;
-                                }
-                                if let Some(record) = keep {
-                                    replicas.repair_media(&mut swarm, &service, record, channel, response, Instant::now());
-                                    continue;
-                                }
-                            }
-                            if response.status == i32::from(Status::NotFound) {
-                                if let (Some(hash), Some(media)) = (&get, &service.media) {
-                                    if let Ok(Some(manifest)) = media.manifest(hash) {
-                                        if replicas.media_reads.len() >= 4 || !service.prepare_media_read(&from, &manifest) {
-                                            PutReply::Media(channel).send(&mut swarm, &service, Status::RateLimited, None);
-                                        } else { replicas.start_read(&mut swarm, &service, manifest, channel); }
-                                        continue;
-                                    }
-                                }
-                            }
-                            // A get's payload was reserved by the service before returning it.
-                            service.traffic.add((response.encoded_len() - response.data.len()) as u64);
-                            let _ = swarm.behaviour_mut().media.send_response(channel, response);
+                    let from = peer(id, &groups, connection_id);
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        if let Some(proto::media_request::Request::Put(put)) = &request.request {
+                            return StoreDone::MediaPut(channel, service.prepare_media(&from, put));
                         }
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "media request failed")
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, id);
+                        let keep = match &request.request {
+                            Some(proto::media_request::Request::Keep(record)) => Some(record.clone()),
+                            _ => None,
+                        };
+                        let have = match &request.request {
+                            Some(proto::media_request::Request::Have(have)) => Some(have.items.clone()),
+                            _ => None,
+                        };
+                        let get = match &request.request {
+                            Some(proto::media_request::Request::Get(get)) => Some(get.hash.clone()),
+                            _ => None,
+                        };
+                        let result = service.media(&from, request);
+                        let missing = matches!(&result, Ok(response) if response.status == i32::from(Status::NotFound));
+                        let manifest = match (get, &service.media) {
+                            (Some(hash), Some(media)) if missing => media.manifest(&hash).ok().flatten(),
+                            _ => None,
+                        };
+                        StoreDone::Media { channel, result, keep, have, manifest }
+                    }));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    if let Some(mailbox_request::Request::Put(record)) = &request.request {
-                        answered += 1;
-                        match service.prepare_mailbox(&peer(id, &groups, connection_id), record.clone()) {
-                            Ok(response) if response.status == i32::from(Status::Ok) => {
-                                replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Mailbox(record.clone()), PutReply::Mailbox(channel));
-                            }
-                            Ok(response) => {
-                                service.traffic.add(response.encoded_len() as u64);
-                                let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
-                            }
-                            Err(error) => {
-                                answered -= 1;
-                                failed += 1;
-                                tracing::error!(%error, "mailbox admission failed");
-                            }
-                        }
-                        drop_banned(&mut swarm, &service, id);
-                        continue;
-                    }
-                    let mut nonce = nonces.remove(&connection_id);
                     let from = peer(id, &groups, connection_id);
-                    let kind = request.request.clone();
-                    let signed = matches!(
-                        kind,
-                        Some(mailbox_request::Request::ReplicaPut(_))
-                            | Some(mailbox_request::Request::ReplicaAck(_))
-                    );
-                    let result = service.mailbox(&from, &mut nonce, request);
-                    if let Some(nonce) = nonce {
-                        nonces.insert(connection_id, nonce);
-                    }
-                    match result {
-                        Ok(response) => {
-                            let ok = response.status == i32::from(Status::Ok);
-                            answered += 1;
-                    service.traffic.add(response.encoded_len() as u64);
-                            let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
-                            if ok && signed {
-                                replicas.trust.add(id, 1);
-                            }
-                            if ok {
-                                let at = (id, connection_id);
-                                let (w, r) = (&mut watchers, &mut replicas);
-                                after_mailbox(&mut swarm, &service, w, r, at, kind);
-                            }
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, nonce| {
+                        if let Some(mailbox_request::Request::Put(record)) = &request.request {
+                            let result = service.prepare_mailbox(&from, record.clone());
+                            return StoreDone::MailboxPut(channel, record.clone(), result);
                         }
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "mailbox request failed")
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, id);
+                        let kind = request.request.clone();
+                        StoreDone::Mailbox(channel, kind, service.mailbox(&from, nonce, request))
+                    }));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
                     peer: id,
@@ -1920,18 +1912,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    match service.search_inventory(&peer(id, &groups, connection_id), request) {
-                        Ok(response) => {
-                            answered += 1;
-                            service.traffic.add(response.encoded_len() as u64);
-                            let _ = swarm.behaviour_mut().inventory.send_response(channel, response);
-                        }
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "inventory request failed");
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, id);
+                    let from = peer(id, &groups, connection_id);
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        StoreDone::Inventory(channel, service.search_inventory(&from, request))
+                    }));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Gossip(gossipsub::Event::Message {
                     propagation_source,
@@ -2329,10 +2313,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
             }
             },
             _ = put_check.tick() => replicas.finish_puts(&mut swarm, &service, Instant::now()),
-            _ = deny_check.tick() => reload_deny(&mut service, &deny, &mut deny_version),
+            _ = deny_check.tick() => reload_deny(&service, &deny, &mut deny_version),
             _ = hangup.recv() => {
                 deny_version = None;
-                reload_deny(&mut service, &deny, &mut deny_version);
+                reload_deny(&service, &deny, &mut deny_version);
                 state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
             }
             _ = rejoin.tick() => {
@@ -2369,6 +2353,146 @@ pub async fn run(mut swarm: Swarm<Behaviour>, mut service: Service) {
                         Err(error) => tracing::error!(%error, "search cleanup failed"),
                     }
                 }
+            }
+            Some(Finished { peer: id, connection, nonce, done }) = store_done.recv() => {
+                store_queue.done(id);
+                if let Some(nonce) = nonce.filter(|_| groups.contains_key(&connection)) {
+                    nonces.insert(connection, nonce);
+                }
+                let Some(done) = done else {
+                    failed += 1;
+                    tracing::error!(peer = %id, "store request panicked");
+                    continue;
+                };
+                match done {
+                    StoreDone::ProfilePublish(channel, record, result) => match result {
+                        Ok(response) if response.status == i32::from(Status::Ok) => {
+                            answered += 1;
+                            replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Profile(record), PutReply::Profile(channel));
+                        }
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().profile.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "profile admission failed");
+                        }
+                    },
+                    StoreDone::Profile(channel, result, stored) => match result {
+                        Ok(response) => {
+                            if let Some(record) = stored {
+                                replicas.repair_profile(&mut swarm, &service, record, Instant::now());
+                            }
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().profile.send_response(channel, response);
+                        }
+                        // Dropping the channel fails the request; the client tries another node.
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "profile request failed")
+                        }
+                    },
+                    StoreDone::MediaPut(channel, result) => match result {
+                        Ok(Ok(replica)) => {
+                            answered += 1;
+                            replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Media(replica), PutReply::Media(channel));
+                        }
+                        Ok(Err(status)) => {
+                            answered += 1;
+                            let response = crate::service::media_upload_status(status);
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().media.send_response(channel, response);
+                        }
+                        Err(error) => { failed += 1; tracing::error!(%error, "media admission failed"); }
+                    },
+                    StoreDone::Media { channel, result, keep, have, manifest } => match result {
+                        Ok(mut response) => {
+                            answered += 1;
+                            if response.status == i32::from(Status::Ok) {
+                                if let Some(items) = have {
+                                    response = replicas.media_inventory(&mut swarm, &service, id, &items).unwrap_or_else(|error| {
+                                        tracing::error!(%error, "media inventory failed");
+                                        proto::MediaResponse { status: Status::NotFound.into(), ..Default::default() }
+                                    });
+                                    let _ = swarm.behaviour_mut().media.send_response(channel, response);
+                                    continue;
+                                }
+                                if let Some(record) = keep {
+                                    replicas.repair_media(&mut swarm, &service, record, channel, response, Instant::now());
+                                    continue;
+                                }
+                            }
+                            if let Some(manifest) = manifest {
+                                let from = peer(id, &groups, connection);
+                                if replicas.media_reads.len() >= 4 || !service.prepare_media_read(&from, &manifest) {
+                                    PutReply::Media(channel).send(&mut swarm, &service, Status::RateLimited, None);
+                                } else { replicas.start_read(&mut swarm, &service, manifest, channel); }
+                                continue;
+                            }
+                            // A get's payload was reserved by the service before returning it.
+                            service.traffic.add((response.encoded_len() - response.data.len()) as u64);
+                            let _ = swarm.behaviour_mut().media.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "media request failed")
+                        }
+                    },
+                    StoreDone::MailboxPut(channel, record, result) => match result {
+                        Ok(response) if response.status == i32::from(Status::Ok) => {
+                            answered += 1;
+                            replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Mailbox(record), PutReply::Mailbox(channel));
+                        }
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "mailbox admission failed");
+                        }
+                    },
+                    StoreDone::Mailbox(channel, kind, result) => match result {
+                        Ok(response) => {
+                            let ok = response.status == i32::from(Status::Ok);
+                            let signed = matches!(
+                                kind,
+                                Some(mailbox_request::Request::ReplicaPut(_))
+                                    | Some(mailbox_request::Request::ReplicaAck(_))
+                            );
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().mailbox.send_response(channel, response);
+                            if ok && signed {
+                                replicas.trust.add(id, 1);
+                            }
+                            if ok {
+                                let (w, r) = (&mut watchers, &mut replicas);
+                                after_mailbox(&mut swarm, &service, w, r, (id, connection), kind);
+                            }
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "mailbox request failed")
+                        }
+                    },
+                    StoreDone::Inventory(channel, result) => match result {
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().inventory.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "inventory request failed");
+                        }
+                    },
+                }
+                drop_banned(&mut swarm, &service, id);
             }
             Some(done) = search_done.recv() => {
                 let response = match done.reply {

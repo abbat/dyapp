@@ -21,7 +21,7 @@ use dyapp_p2p_net::proto::{
 use prost::Message;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 /// Envelope payload send limit advertised in node info.
@@ -103,11 +103,12 @@ pub struct Service {
     /// The node configuration.
     pub config: NodeConfig,
     /// The operator's deny list: libp2p peer IDs, IP groups and hex key hashes.
-    pub deny: HashSet<String>,
+    /// Locked because the node reloads it while store workers read it.
+    pub deny: RwLock<HashSet<String>>,
     /// Signs the shared deny list, with `network.share_deny_list` on.
     pub deny_signer: Option<dyapp_identity::Identity>,
     /// The deny list as it is shared, signed when it was last loaded.
-    pub shared_deny: Option<SignedRecord>,
+    pub shared_deny: RwLock<Option<SignedRecord>>,
     /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
     /// logged once, not per request.
     tripped: [AtomicBool; 5],
@@ -150,9 +151,9 @@ impl Service {
             memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
             rebuild_budget: RebuildBudget::new(config.maintenance.io_mb_per_s),
             config,
-            deny: HashSet::new(),
+            deny: RwLock::default(),
             deny_signer: None,
-            shared_deny: None,
+            shared_deny: RwLock::default(),
             tripped: Default::default(),
             refused: Default::default(),
         }
@@ -261,13 +262,14 @@ impl Service {
     /// Whether the deny list names `peer` or its IP group. A refusal is no strike: a listed
     /// user is the operator's choice, not misbehaviour.
     fn refused(&self, peer: &Peer) -> bool {
-        self.deny.contains(&peer.id) || self.deny.contains(&peer.group)
+        let deny = self.deny.read().unwrap();
+        deny.contains(&peer.id) || deny.contains(&peer.group)
     }
 
     /// Whether the deny list names `address` (an identity's peer ID, a mailbox address or a
     /// media blob hash).
     fn listed(&self, address: &[u8]) -> bool {
-        self.deny.contains(&hex(address))
+        self.deny.read().unwrap().contains(&hex(address))
     }
 
     /// Whether the deny list names the hash of `key`.
@@ -292,15 +294,18 @@ impl Service {
                 info: Some(self.info()),
                 ..NodeResponse::default()
             },
-            Some(node_request::Request::DenyList(_)) => NodeResponse {
-                status: match self.shared_deny {
-                    Some(_) => Status::Ok,
-                    None => Status::NotFound,
+            Some(node_request::Request::DenyList(_)) => {
+                let shared = self.shared_deny.read().unwrap().clone();
+                NodeResponse {
+                    status: match shared {
+                        Some(_) => Status::Ok,
+                        None => Status::NotFound,
+                    }
+                    .into(),
+                    deny_list: shared,
+                    ..NodeResponse::default()
                 }
-                .into(),
-                deny_list: self.shared_deny.clone(),
-                ..NodeResponse::default()
-            },
+            }
             None => node_status(Status::Unsupported),
         }
     }
@@ -3046,7 +3051,8 @@ mod tests {
         let (listed, device) = (Identity::generate(), Identity::generate());
         let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
         let listed_id = dyapp_identity::key_hash(&listed.public_key()).to_vec();
-        service.deny = [hex(&listed_id), hex(&address), "bad".into(), "g6".into()].into();
+        *service.deny.get_mut().unwrap() =
+            [hex(&listed_id), hex(&address), "bad".into(), "g6".into()].into();
         let profile = |p: &str, request| status(&service.profile(&peer(p), request).unwrap());
         let record = Profile::default().sign(&listed);
         assert_eq!(profile("p", publish(record)), Status::Refused);
@@ -3539,7 +3545,7 @@ mod tests {
         };
         let not_shared = service.node(&peer("q"), deny_list());
         assert_eq!(not_shared.status, i32::from(Status::NotFound));
-        service.shared_deny = Some(SignedRecord::default());
+        *service.shared_deny.get_mut().unwrap() = Some(SignedRecord::default());
         assert!(service.node(&peer("q"), deny_list()).deny_list.is_some());
         let turn = NodeRequest {
             request: Some(node_request::Request::Turn(proto::TurnRequest {})),
@@ -4167,7 +4173,7 @@ mod tests {
             Status::Ok,
             "kept blob stays"
         );
-        service.deny = [hex(&hash)].into();
+        *service.deny.get_mut().unwrap() = [hex(&hash)].into();
         assert_eq!(
             call_as(&service, "r", get(&hash)).0,
             Status::Refused,

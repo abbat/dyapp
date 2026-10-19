@@ -711,9 +711,15 @@ The current protocol replies are:
   key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).
   `info` is not limited. A node without the store role answers `UNSUPPORTED` on both.
 - **Storage errors drop the request:** the client sees the stream close and tries another node.
-- **Requests run on the swarm loop.** SQLite calls block it; moving them to a blocking pool is
-  planned once request latency shows. Search `query` and `get` already run on the blocking pool,
-  at most two at a time.
+- **Store requests run off the swarm loop.** `/dyapp/profile`, `/dyapp/media`, `/dyapp/mailbox`
+  and `/dyapp/inventory` requests queue per remote peer and run on 4
+  blocking workers (`node/jobs.rs`): one request per peer at a time, round robin between peers,
+  so a peer flooding requests holds at most one worker and its replies keep its request order.
+  A peer with 16 requests waiting gets the next one dropped (the stream closes; the client
+  retries). A put at the in-flight replication cap gets `FULL` at once. Search `query` and
+  `get` run on their own blocking pool, at most two at a time. Replication replies, gossip,
+  repair, media inventory and maintenance still call SQLite on the loop. `/dyapp/node` touches no
+  store and is answered on the loop, so it stays prompt while every worker is busy.
 - An unknown `oneof` variant (decoded as empty) gets `UNSUPPORTED`.
 
 ### Trusted vs untrusted fields
