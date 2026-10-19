@@ -36,6 +36,22 @@ def pages(endpoint, key):
     return records
 
 
+def alerts(repo):
+    """A8 triggers: Dependabot alerts and repository security advisories."""
+    found = []
+    for endpoint, ghsa in (
+            (f"repos/{repo}/dependabot/alerts?per_page=100&state="
+             "auto_dismissed,dismissed,fixed,open",
+             lambda row: row["security_advisory"]["ghsa_id"]),
+            (f"repos/{repo}/security-advisories?per_page=100",
+             lambda row: row["ghsa_id"])):
+        pages = json.loads(command("gh", "api", "--paginate", "--slurp",
+                                   endpoint))
+        found += [{"ghsa_id": ghsa(row), "created_at": row["created_at"]}
+                  for page in pages for row in page]
+    return found
+
+
 def adoption_dates():
     history = git("log", "--reverse", "--format=%x00%cI", "-p", "main", "--",
                   "docs/development/practices.md")
@@ -124,6 +140,7 @@ def collect(now, ledger):
     return {
         "schema": 1, "now": now, "beads": beads, "runs": attempts,
         "commits": commits(since), "practices": adoption_dates(),
+        "alerts": alerts(repo),
         "observations": ledger.get("observations", []),
         "reviews": ledger.get("reviews", []),
         "sources": {"repository": repo,

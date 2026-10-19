@@ -99,6 +99,40 @@ def ci_metrics(runs, since, now):
     }
 
 
+def postmortems(snapshot, ci, now):
+    """A8: each trigger after adoption needs a `postmortem:<key>` bead
+    created within 48 hours of the trigger."""
+    adopted = [instant(p["adopted_at"]) for p in snapshot["practices"]
+               if p["id"] == "A8"]
+    if not adopted:
+        return [], []
+    day = timedelta(hours=24)
+    triggers = [(f"ci-red:{red['started_at']}",
+                 instant(red["started_at"]) + day)
+                for red in ci["red_intervals"]
+                if instant(red["started_at"]) + day < instant(red["ended_at"])]
+    triggers += [(f"advisory:{alert['ghsa_id']}", instant(alert["created_at"]))
+                 for alert in snapshot.get("alerts", [])]
+    beads = {b.get("external_ref"): b for b in snapshot["beads"]}
+    rows, errors = [], []
+    first = {}
+    for key, at in triggers:  # one advisory may raise several alerts
+        first[key] = min(at, first.get(key, at))
+    for key, at in sorted(first.items(), key=lambda trigger: trigger[1]):
+        if at < adopted[0]:
+            continue
+        due = at + timedelta(hours=48)
+        bead = beads.get(f"postmortem:{key}")
+        late = instant(bead["created_at"]) > due if bead else due <= now
+        rows.append({"trigger": key, "at": at.isoformat(),
+                     "due_at": due.isoformat(),
+                     "bead": bead and bead["id"], "late": late})
+        if late:
+            errors.append(f"Postmortem for {key} missing or later than "
+                          f"{due.isoformat()}")
+    return rows, errors
+
+
 def report(snapshot):
     if snapshot["schema"] != 1:
         raise ValueError("Unsupported snapshot schema")
@@ -130,6 +164,8 @@ def report(snapshot):
     ci = ci_metrics(snapshot["runs"], since, now)
     if ci["max_red_hours"] > 24:
         errors.append(f"Main red {ci['max_red_hours']:.2f} hours > 24")
+    reviewed, late = postmortems(snapshot, ci, now)
+    errors += late
     commits = [c for c in snapshot["commits"] if within(c["at"])]
     hatches, hatch_commits, reverts = Counter(), 0, 0
     for commit in commits:
@@ -178,6 +214,7 @@ def report(snapshot):
         "hatch_commit_percent": ratio(hatch_commits, len(commits)),
         "false_positive_share": false_positives or None,
         "practice_reviews": reviews,
+        "postmortems": reviewed,
         "errors": errors,
         "warnings": (["Escape hatches exceed 10%; A8 follow-up is due"]
                      if hatch_commits > len(commits) / 10 else []),

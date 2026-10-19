@@ -108,6 +108,36 @@ class Metrics(unittest.TestCase):
                                     finished, conclusion))
             self.assertEqual(FLOW.report(data)["ci"]["main_state"], "unknown")
 
+    def test_postmortems_are_due_within_48_hours_of_a_trigger(self):
+        data = snapshot()
+        data["practices"] = [{"id": "A8",
+                              "adopted_at": "2026-10-09T00:00:00Z"}]
+        data["runs"] += [run("bad", "2026-10-10T10:00:00Z",
+                             "2026-10-10T11:00:00Z", "failure"),
+                         run("fix", "2026-10-12T10:00:00Z",
+                             "2026-10-12T11:00:00Z", "success")]
+        data["alerts"] = [{"ghsa_id": "GHSA-old",
+                           "created_at": "2026-10-01T00:00:00Z"},
+                          {"ghsa_id": "GHSA-new",
+                           "created_at": "2026-10-14T00:00:00Z"}]
+        result = FLOW.report(data)
+        self.assertEqual([row["trigger"] for row in result["postmortems"]],
+                         ["ci-red:2026-10-10T11:00:00+00:00",
+                          "advisory:GHSA-new"])
+        self.assertEqual(result["errors"], [
+            "Main red 48.00 hours > 24",
+            "Postmortem for ci-red:2026-10-10T11:00:00+00:00 missing or "
+            "later than 2026-10-13T11:00:00+00:00"])
+        data["beads"] = [{
+            "id": "x-1", "status": "closed", "issue_type": "task",
+            "external_ref": "postmortem:ci-red:2026-10-10T11:00:00+00:00",
+            "created_at": "2026-10-12T12:00:00Z",
+            "closed_at": "2026-10-12T13:00:00Z"}]
+        result = FLOW.report(data)
+        self.assertEqual(result["errors"], ["Main red 48.00 hours > 24"])
+        self.assertEqual(result["postmortems"][0]["bead"], "x-1")
+        self.assertFalse(result["postmortems"][1]["late"])
+
     def test_invalid_sources_fail(self):
         data = snapshot()
         data["runs"] = []

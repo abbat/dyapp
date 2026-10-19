@@ -86,3 +86,30 @@ First adoption dates come from committed additions of `(adopted)` rows in
 the practice catalogue. Reviews become due after 28 days; an explicit review
 on or after that date marks it reviewed. The report lists overdue reviews,
 but does not invent outcomes or automatically perform the review.
+
+## Postmortems (A8)
+
+Practice A8. A trigger needs a blameless postmortem within 48 hours: an `analyse`
+review of what happened, with each action item filed as its own bead. The review
+stays in the bead's notes, with evidence paths and confidence levels; it names
+causes and gaps, never people. Triggers, counted from the A8 adoption date:
+
+- `ci-red:<started_at>`: canonical main red for more than 24 hours; the trigger
+  time is 24 hours after the red interval started;
+- `advisory:<GHSA id>`: a Dependabot alert or a repository security advisory,
+  at its creation;
+- a regression in a release: planned with the first release (A10).
+
+Record the postmortem as a bead whose external ref is `postmortem:<trigger>`:
+
+```bash
+bd create "Postmortem: main red since 2026-10-10" -t task -p 1 -l audit \
+  --external-ref "postmortem:ci-red:2026-10-10T17:16:07+00:00"
+```
+
+The report lists every trigger in `postmortems` with its due time and bead.
+A trigger whose bead is missing after the due time, or was created after it,
+is an error. Main red is seen only in the report's seven-day window, so run
+the report at least daily while a CI failure is open. Dependabot and advisory
+reads need a `gh` token with security-events access.
+
