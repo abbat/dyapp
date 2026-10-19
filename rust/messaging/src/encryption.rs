@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Placeholder encryption settings; no setting changes the bytes yet.
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncryptionConfig {
     /// Cipher name: `ChaCha20-Poly1305` or `AES-256-GCM`; anything else is rejected.

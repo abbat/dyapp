@@ -11,10 +11,16 @@ argon2 = { version = "0.5.3", default-features = false, features = ["alloc"] }
 dyapp-identity = { path = "../identity" }
 prost.workspace = true
 thiserror = "2"
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
 
 [build-dependencies]
 prost-build.workspace = true
 protox.workspace = true
+
+# Practice B3: `Arbitrary` for the round-trip properties; only bootstrap tests enable it.
+[features]
+proptest = ["dep:proptest", "dep:proptest-derive"]
 
 [lints]
 workspace = true

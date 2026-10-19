@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Manually maintained gathering state; independent of WebRTC events.
 pub enum ICEGatheringState {
@@ -11,6 +12,7 @@ pub enum ICEGatheringState {
     Complete,
 }
 
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// An unvalidated candidate string with optional SDP routing fields.
 pub struct ICECandidate {

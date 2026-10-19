@@ -14,7 +14,9 @@ Each `build.rs` calls `protox::compile` and `prost_build::Config::compile_fds`; 
 `OUT_DIR` and is pulled in with `include!`. `node.proto` imports `identity.proto`; p2p-net maps
 `.dyapp.identity` to `::dyapp_identity` with `extern_path`, so both crates share one
 `SignedRecord` type. Methods on generated types live next to the `include!` as ordinary `impl`
-blocks.
+blocks. With the crate's `proptest` feature, `build.rs` also derives `proptest_derive::Arbitrary`
+on every generated type for the
+[round-trip properties](../testing/README.md#round-trip-properties).
 
 Notes on the generated code:
 

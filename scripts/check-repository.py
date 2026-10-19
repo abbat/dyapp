@@ -41,6 +41,14 @@ SCOPE = re.compile(r"^[\w./-]+: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
               "Shed", "Speed", "String", "Succeed"}
+# Practice B3: protobuf and serde types each have a round-trip property.
+PROPERTIES = "rust/bootstrap/tests/properties.rs"
+PROTO_TYPE = re.compile(r"^\s*(?:message|enum)\s+(\w+)", re.M)
+DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
+                    re.S)
+PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
+# Operator-written TOML, covered by the config tests instead.
+ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
 
 
 def prose(text, code=False):
@@ -227,6 +235,23 @@ def debt_errors(texts):
             for match in DEBT.finditer(line)]
 
 
+def round_trip_errors(texts):
+    """Wire and storage types without a property in PROPERTIES."""
+    tested = set(PROPERTY.findall(texts.get(PROPERTIES, "")))
+    types = []
+    for name, text in sorted(texts.items()):
+        path = PurePosixPath(name)
+        if path.match("proto/*.proto"):
+            types += [(name, kind) for kind in PROTO_TYPE.findall(text)]
+        elif path.suffix == ".rs" and path.parts[0] == "rust" \
+                and "src" in path.parts and name not in ROUND_TRIP_EXEMPT:
+            types += [(name, kind) for derive, kind in DERIVE.findall(text)
+                      if {"Serialize", "Deserialize"} <= set(
+                          re.findall(r"\w+", derive))]
+    return [f"{name}: {kind} has no round-trip property"
+            for name, kind in types if kind not in tested]
+
+
 def main():
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -291,6 +316,9 @@ def main():
              if (found := bead_ids(text, allowed))]
     if leaks:
         raise ValueError("Tracker IDs in files:\n" + "\n".join(leaks))
+    errors = round_trip_errors(texts)
+    if errors:
+        raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
     errors = commit_errors(allowed)
     if errors:
         raise ValueError("Commit messages:\n" + "\n".join(errors))
@@ -313,7 +341,8 @@ def main():
         raise ValueError(f"Size budgets ([size] in baselines.toml):\n{errors}")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, crates follow the unsafe "
-          f"policy, no tracker IDs, source files <= {size['max_lines']} "
+          "policy, no tracker IDs, protobuf and serde types have round-trip "
+          f"properties, source files <= {size['max_lines']} "
           "lines or their budget; "
           f"{len(documents)} Markdown files: relative links "
           f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "

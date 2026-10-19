@@ -1,19 +1,153 @@
 //! Generated invariants complement fixed boundaries and historical wire fixtures.
+//!
+//! Practice B3: every wire and storage type has a `decode(encode(x)) == x` property below;
+//! `scripts/check-repository.py` fails when a protobuf or serde type is missing.
+use dyapp_bootstrap::replication::ReplicationFragment;
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_messaging::{Message, MessageStatus};
+use dyapp_messaging::{EncryptionConfig, Message, MessageStatus, Timestamp};
+use dyapp_p2p_net::proto::*;
+use dyapp_profile::{Photo, Profile};
+use dyapp_video::encryption::FrameHeader;
+use dyapp_video::{CodecFormat, CodecInfo, ICECandidate, ICEGatheringState};
 use proptest::prelude::*;
 use prost::Message as _;
 
-proptest! {
-    #![proptest_config(ProptestConfig {
+fn config(name: &str) -> ProptestConfig {
+    ProptestConfig {
         cases: 64,
         failure_persistence: Some(Box::new(
-            proptest::test_runner::FileFailurePersistence::Direct(
-                "/tmp/ai/dyapp-wire-proptest-regressions.txt"
-            )
+            proptest::test_runner::FileFailurePersistence::Direct(Box::leak(
+                format!("/tmp/ai/dyapp-{name}-proptest-regressions.txt").into_boxed_str(),
+            )),
         )),
         ..ProptestConfig::default()
-    })]
+    }
+}
+
+/// Protobuf messages: decoding the encoding gives the same value.
+macro_rules! protobuf_round_trip {
+    ($($name:ident: $type:ty),* $(,)?) => {
+        proptest! {
+            #![proptest_config(config("wire"))]
+            $(
+                #[test]
+                fn $name(value in any::<$type>()) {
+                    prop_assert_eq!(<$type>::decode(value.encode_to_vec().as_slice())?, value);
+                }
+            )*
+        }
+    };
+}
+
+/// Protobuf enums: the wire number and the schema name both map back.
+macro_rules! enum_round_trip {
+    ($($name:ident: $type:ty),* $(,)?) => {
+        proptest! {
+            #![proptest_config(config("wire"))]
+            $(
+                #[test]
+                fn $name(value in any::<$type>()) {
+                    prop_assert_eq!(<$type>::try_from(value as i32)?, value);
+                    prop_assert_eq!(<$type>::from_str_name(value.as_str_name()), Some(value));
+                }
+            )*
+        }
+    };
+}
+
+/// Serde types: JSON decoding of the encoding gives the same value. `Debug` stands in for
+/// `PartialEq`, which most of these types do not implement.
+macro_rules! json_round_trip {
+    ($($name:ident: $type:ty = $strategy:expr),* $(,)?) => {
+        proptest! {
+            #![proptest_config(config("json"))]
+            $(
+                #[test]
+                fn $name(value in $strategy) {
+                    let decoded: $type = serde_json::from_slice(&serde_json::to_vec(&value)?)?;
+                    prop_assert_eq!(format!("{decoded:?}"), format!("{value:?}"));
+                }
+            )*
+        }
+    };
+}
+
+protobuf_round_trip! {
+    signed_record: SignedRecord,
+    profile: Profile,
+    photo: Photo,
+    node_request: NodeRequest,
+    info_request: InfoRequest,
+    deny_list_request: DenyListRequest,
+    turn_request: TurnRequest,
+    node_response: NodeResponse,
+    turn_credentials: TurnCredentials,
+    deny_list: DenyList,
+    node_info: NodeInfo,
+    profile_request: ProfileRequest,
+    get_profile: GetProfile,
+    heartbeat: Heartbeat,
+    profile_response: ProfileResponse,
+    mailbox_request: MailboxRequest,
+    inventory: Inventory,
+    envelopes: Envelopes,
+    challenge_request: ChallengeRequest,
+    envelope: Envelope,
+    fetch: Fetch,
+    ack: Ack,
+    mailbox_response: MailboxResponse,
+    mailbox_push: MailboxPush,
+    mailbox_push_response: MailboxPushResponse,
+    media_request: MediaRequest,
+    media_keep: MediaKeep,
+    media_put: MediaPut,
+    media_replica_put: MediaReplicaPut,
+    media_manifest: MediaManifest,
+    media_shard_put: MediaShardPut,
+    media_shard_get: MediaShardGet,
+    media_part: MediaPart,
+    media_have: MediaHave,
+    media_inventory: MediaInventory,
+    get_media: GetMedia,
+    media_attach: MediaAttach,
+    media_release: MediaRelease,
+    media_response: MediaResponse,
+    condition: Condition,
+    search_query: SearchQuery,
+    search_get: SearchGet,
+    search_request: SearchRequest,
+    search_hit: SearchHit,
+    search_response: SearchResponse,
+    inventory_request: InventoryRequest,
+    inventory_response: InventoryResponse,
+}
+
+enum_round_trip! {
+    status: Status,
+    role: Role,
+    op: Op,
+}
+
+json_round_trip! {
+    message: Message = any::<Message>(),
+    message_status: MessageStatus = any::<MessageStatus>(),
+    timestamp: Timestamp = any::<Timestamp>(),
+    encryption_config: EncryptionConfig = any::<EncryptionConfig>(),
+    frame_header: FrameHeader = any::<FrameHeader>(),
+    codec_format: CodecFormat = any::<CodecFormat>(),
+    codec_info: CodecInfo = any::<CodecInfo>(),
+    ice_gathering_state: ICEGatheringState = any::<ICEGatheringState>(),
+    ice_candidate: ICECandidate = any::<ICECandidate>(),
+    replication_fragment: ReplicationFragment =
+        (any::<usize>(), any::<usize>(), any::<usize>(), any::<Vec<u8>>()).prop_map(
+            |(shard_id, total_shards, total_parity, data)| ReplicationFragment {
+                shard_id, total_shards, total_parity, data,
+            },
+        ),
+}
+
+proptest! {
+    #![proptest_config(config("wire"))]
 
     #[test]
     fn prop_signed_record_wire_preserves_signature_and_domain(
@@ -36,42 +170,5 @@ proptest! {
         let mut tampered = decoded;
         tampered.payload.push(0);
         prop_assert!(tampered.verify(domain).is_err());
-    }
-
-    #[test]
-    fn prop_message_json_preserves_all_fields(
-        ids in proptest::collection::vec(".{0,32}", 3),
-        text in ".{0,128}",
-        timestamp in any::<u64>(),
-        created_at in any::<i64>(),
-        status_index in 0usize..5,
-        payload in proptest::option::of(proptest::collection::vec(any::<u8>(), 0..128)),
-        signature in proptest::option::of(proptest::collection::vec(any::<u8>(), 0..64)),
-    ) {
-        let statuses = [
-            MessageStatus::Pending, MessageStatus::Sent, MessageStatus::Delivered,
-            MessageStatus::Read, MessageStatus::Failed,
-        ];
-        let message = Message {
-            id: ids[0].clone(),
-            sender_id: ids[1].clone(),
-            recipient_id: ids[2].clone(),
-            text,
-            timestamp: timestamp.into(),
-            created_at,
-            status: statuses[status_index].clone(),
-            encrypted_payload: payload,
-            signature,
-        };
-        let decoded: Message = serde_json::from_slice(&serde_json::to_vec(&message)?)?;
-        prop_assert_eq!(decoded.id, message.id);
-        prop_assert_eq!(decoded.sender_id, message.sender_id);
-        prop_assert_eq!(decoded.recipient_id, message.recipient_id);
-        prop_assert_eq!(decoded.text, message.text);
-        prop_assert_eq!(decoded.timestamp, message.timestamp);
-        prop_assert_eq!(decoded.created_at, message.created_at);
-        prop_assert_eq!(decoded.status, message.status);
-        prop_assert_eq!(decoded.encrypted_payload, message.encrypted_payload);
-        prop_assert_eq!(decoded.signature, message.signature);
     }
 }

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Video codec identifiers used by the preference helper.
 pub enum CodecFormat {
@@ -35,6 +36,7 @@ impl CodecFormat {
     }
 }
 
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Local codec description; fields are not validated.
 pub struct CodecInfo {

@@ -15,6 +15,7 @@ pub const MAX_CLOCK_SKEW_MS: u64 = 60_000;
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[serde(transparent)]
 pub struct Timestamp(u64);
 

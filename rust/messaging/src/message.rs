@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Caller-assigned local status; these variants do not verify remote receipts.
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum MessageStatus {
     /// Awaiting a sending attempt.
@@ -20,6 +21,7 @@ pub enum MessageStatus {
 }
 
 /// Message record that retains plaintext even when encrypted fields are attached.
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
     /// Caller-supplied message identifier.

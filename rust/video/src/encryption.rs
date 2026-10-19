@@ -2,6 +2,7 @@ use dyapp_messaging::encryption::{E2EEncryption, EncryptionConfig};
 use serde::{Deserialize, Serialize};
 
 /// Metadata sent with an encrypted video frame.
+#[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrameHeader {
     /// Per-encryptor sequence number, starting at 1.

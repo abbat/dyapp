@@ -14,12 +14,18 @@ rtc = { version = "0.21", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1.0", features = ["v4"] }
 rand = "0.10"
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
 
 # Reuse from messaging crate
 dyapp-messaging = { path = "../messaging" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros"] }
+
+# Practice B3: `Arbitrary` for the round-trip properties; only bootstrap tests enable it.
+[features]
+proptest = ["dep:proptest", "dep:proptest-derive"]
 
 [lints]
 workspace = true

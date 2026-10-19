@@ -9,6 +9,12 @@ license.workspace = true
 [dependencies]
 uuid = { version = "1.0", features = ["v4"] }
 serde = { version = "1.0", features = ["derive"] }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+
+# Practice B3: `Arbitrary` for the round-trip properties; only bootstrap tests enable it.
+[features]
+proptest = ["dep:proptest", "dep:proptest-derive"]
 
 [lints]
 workspace = true

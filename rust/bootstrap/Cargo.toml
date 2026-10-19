@@ -47,9 +47,12 @@ name = "integration_tests"
 path = "../../tests/integration_tests.rs"
 
 [dev-dependencies]
-proptest = "1.4"
-dyapp-messaging = { path = "../messaging" }
-dyapp-video = { path = "../video" }
+proptest.workspace = true
+dyapp-identity = { path = "../identity", features = ["proptest"] }
+dyapp-messaging = { path = "../messaging", features = ["proptest"] }
+dyapp-p2p-net = { path = "../p2p-net", features = ["proptest"] }
+dyapp-profile = { path = "../profile", features = ["proptest"] }
+dyapp-video = { path = "../video", features = ["proptest"] }
 
 [lints.rust]
 missing_docs = "deny"

@@ -76,9 +76,9 @@ property:
 - `config.rs`: nested assignment preserves the value and unrelated fields; file <
   environment < CLI precedence; string CLI values remain literal; section collisions and
   unknown options fail; media shard thresholds follow the documented range.
-- `rust/bootstrap/tests/properties.rs`: every Message JSON field survives serialization;
-  SignedRecord protobuf round-trips preserve payload and signature bytes, signatures stay
-  bound to their domain, and an altered payload fails verification.
+- `rust/bootstrap/tests/properties.rs`: SignedRecord protobuf round-trips preserve payload and
+  signature bytes, signatures stay bound to their domain, and an altered payload fails
+  verification; every wire and storage type round-trips (below).
 
 Boundary cases (including zero, the threshold endpoints and integer extremes) are selected
 explicitly rather than relying on random generation to discover them. Fixed-case unit tests
@@ -87,11 +87,24 @@ proofs for the entire input space. Round-trips do not establish compatibility wi
 encoder; historical wire fixtures serve that separate purpose. Fuzzing remains planned.
 
 **Run:** `make test` includes all properties. For a focused run, use
-`cargo test -p dyapp-bootstrap --locked prop_` inside the prepared dev container.
+`cargo test -p dyapp-bootstrap --locked prop_` (configuration) or `--test properties` (wire
+and storage types) inside the prepared dev container.
 Raise the configured case count for a larger experiment. Failures print the minimal input and seed;
-regression seeds are saved under `/tmp/ai/dyapp-{config,wire}-proptest-regressions.txt`.
+regression seeds are saved under `/tmp/ai/dyapp-{config,wire,json}-proptest-regressions.txt`.
 Preserve a failing seed or turn its minimized input into a fixed regression before discarding
 a container; these temporary files are not committed automatically.
+
+#### Round-trip properties
+
+Every `message` and `enum` in `proto/*.proto` and every Rust type deriving both `Serialize` and
+`Deserialize` has a property in `rust/bootstrap/tests/properties.rs`: protobuf messages satisfy
+`decode(encode(x)) == x`, protobuf enums map back from their number and schema name, serde types
+survive a JSON round trip (compared by `Debug`). Values come from `proptest_derive::Arbitrary`,
+which the `proptest` feature of identity, profile, p2p-net, messaging and video derives; only the
+bootstrap dev-dependencies enable it, so release builds do not contain it.
+`scripts/check-repository.py` (`make quality`) fails when a type has no property line
+(`name: Type` inside a round-trip macro). The operator-written `rust/bootstrap/src/config.rs`
+types are exempt; the configuration tests above cover them.
 
 ### 4. Compatibility Fixtures
 
