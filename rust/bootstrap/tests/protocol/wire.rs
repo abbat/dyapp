@@ -26,6 +26,7 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
     let (address, wire) = start_config_with_wire(|c| {
         c.roles = vec![Role::Store, Role::Search];
         c.search.min_profile_pow_bits = 0;
+        c.search.min_heartbeat_pow_bits = 0;
         c.limits.requests_per_second = 1000;
         c.limits.bytes_per_second = 0;
         c.limits.min_free_mb = 0;
@@ -59,7 +60,12 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
     let heartbeat = |time| {
         owner.sign(
             Domain::Heartbeat,
-            proto::Heartbeat { time, version: 1 }.encode_to_vec(),
+            proto::Heartbeat {
+                time,
+                version: 1,
+                ..Default::default()
+            }
+            .encode_to_vec(),
         )
     };
     let incoming = proto::SearchRequest {

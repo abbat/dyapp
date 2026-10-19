@@ -1695,15 +1695,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     let mut search_queue = jobs::GroupQueue::<SearchJob>::default();
     let mut searching = 0;
     let (search_done_tx, mut search_done) = tokio::sync::mpsc::unbounded_channel::<SearchDone>();
-    // Profile proof-of-work checks run off the loop on their own two permits, so a flood of
-    // them cannot starve queries. A client publish without a permit gets RATE_LIMITED; gossip
+    // Profile and heartbeat proof-of-work checks run off the loop on their own permits (half
+    // the cores, at least two), so a flood of them cannot starve queries. A client publish without a permit gets RATE_LIMITED; gossip
     // and catch-up wait, gossip at most POW_GOSSIP_QUEUE messages.
     enum PowDone {
         Publish {
             peer: PeerId,
             from: Peer,
             channel: ResponseChannel<SearchResponse>,
-            record: SignedRecord,
+            request: proto::SearchRequest,
             ok: bool,
         },
         Gossip {
@@ -1717,7 +1717,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
         },
     }
     const POW_GOSSIP_QUEUE: usize = 64;
-    let pow_permits = Arc::new(tokio::sync::Semaphore::new(2));
+    let pow_permits = Arc::new(tokio::sync::Semaphore::new(
+        std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).max(2)),
+    ));
     let (pow_tx, mut pow_done) = tokio::sync::mpsc::unbounded_channel::<PowDone>();
     let mut pow_gossip = 0usize;
     // Search catch-up: the topic of each inventory request, the keys still to fetch per peer,
@@ -1916,13 +1918,13 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
-                        Ok(Search::Pow(check, record)) => match pow_permits.clone().try_acquire_owned() {
+                        Ok(Search::Pow(check, request)) => match pow_permits.clone().try_acquire_owned() {
                             Ok(permit) => {
                                 let (cache, done) = (service.pow.clone(), pow_tx.clone());
                                 tokio::task::spawn_blocking(move || {
                                     let _permit = permit;
                                     let ok = cache.check(&check);
-                                    let _ = done.send(PowDone::Publish { peer: id, from, channel, record, ok });
+                                    let _ = done.send(PowDone::Publish { peer: id, from, channel, request, ok });
                                 });
                             }
                             Err(_) => {
@@ -2573,13 +2575,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 let _ = swarm.behaviour_mut().search.send_response(done.channel, response);
             }
             Some(done) = pow_done.recv() => match done {
-                PowDone::Publish { peer, from, channel, record, ok } => {
+                PowDone::Publish { peer, from, channel, request, ok } => {
                     answered += 1;
-                    match service.search_pow_done(&from, &record, ok) {
+                    match service.search_pow_done(&from, &request, ok) {
                         Ok(response) => {
-                            let request = proto::SearchRequest {
-                                request: Some(proto::search_request::Request::Publish(record)),
-                            };
                             let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
                             spread(&mut swarm, gossip, &response, &service);
                             service.traffic.add(response.encoded_len() as u64);

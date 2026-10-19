@@ -256,6 +256,7 @@ puzzle_wait_ms = 100        # median queue wait that turns the client puzzle on
 max_puzzle_bits = 20        # puzzle difficulty ceiling, 12 to 32
 topics = []                 # gossip topics 0..15 kept; empty = all 16, required on public
 min_profile_pow_bits = 11   # Argon2id proof of work a profile needs to be indexed; 0..20
+min_heartbeat_pow_bits = 8  # daily Argon2id proof a heartbeat needs; 0 = none, 0..16
 
 [turn]                 # turn role only
 urls = []              # e.g. "turn:turn.example.org:3478", "turns:turn.example.org:5349"

@@ -17,7 +17,12 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
     for time in [server_time + 3600, u64::MAX] {
         let heartbeat = owner.sign(
             Domain::Heartbeat,
-            proto::Heartbeat { time, version: 1 }.encode_to_vec(),
+            proto::Heartbeat {
+                time,
+                version: 1,
+                ..Default::default()
+            }
+            .encode_to_vec(),
         );
         let before = chrono::Utc::now().timestamp().unsigned_abs();
         let response = client
@@ -83,6 +88,7 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
         proto::Heartbeat {
             time: u64::MAX,
             version: 1,
+            ..Default::default()
         }
         .encode_to_vec(),
     );
@@ -133,7 +139,12 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
     let time = chrono::Utc::now().timestamp().unsigned_abs() + 600;
     let heartbeat = owner.sign(
         Domain::Heartbeat,
-        proto::Heartbeat { time, version: 1 }.encode_to_vec(),
+        proto::Heartbeat {
+            time,
+            version: 1,
+            ..Default::default()
+        }
+        .encode_to_vec(),
     );
     let response = client
         .profile(profile_request::Request::Heartbeat(heartbeat.clone()))

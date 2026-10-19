@@ -180,7 +180,8 @@ Planned defences (not implemented):
   places in a row hold only newcomers, eviction falls back to all established keys by `r`.
 - **Heartbeat proof of work.** A search heartbeat carries an Argon2id proof for its UTC day
   (`search.min_heartbeat_pow_bits`, 8 by default, ≈ 4 s on a phone once a day), so keeping a
-  fake alive costs work every day.
+  fake alive costs work every day (implemented on the node, client solving planned;
+  [bootstrap.md](bootstrap.md#search)).
 - **Fair queue.** `query` and `get` wait in one queue per IP group (/24, /48): at most 4 per
   group, 256 in total, served round-robin; a full queue answers `RATE_LIMITED`.
 - **Load puzzle.** When the median queue wait passes `search.puzzle_wait_ms` (100), a query or

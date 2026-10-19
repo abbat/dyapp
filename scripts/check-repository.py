@@ -60,7 +60,8 @@ KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
 SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.
-HANDLERS = "rust/bootstrap/src/service.rs"
+HANDLERS = ("rust/bootstrap/src/service.rs",
+            "rust/bootstrap/src/service/search.rs")
 HANDLER = re.compile(r"pub fn (\w+)\(\s*&self,[^)]*?"
                      r"(?:request: \w+Request|data: &\[u8\])")
 SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
@@ -315,8 +316,9 @@ def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
     targets = "".join(text for name, text in texts.items()
                       if name.startswith("fuzz/fuzz_targets/"))
-    return [f"{HANDLERS}: Service::{handler} has no fuzz target"
-            for handler in HANDLER.findall(texts.get(HANDLERS, ""))
+    return [f"{name}: Service::{handler} has no fuzz target"
+            for name in HANDLERS
+            for handler in HANDLER.findall(texts.get(name, ""))
             if f"SERVICE.{handler}(" not in targets]
 
 

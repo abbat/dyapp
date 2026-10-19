@@ -136,17 +136,46 @@ impl VerifiedProfile {
 }
 
 const POW_SALT: &[u8] = b"dyapp-profile-pow";
+const HEARTBEAT_POW_SALT: &[u8] = b"dyapp-heartbeat-pow";
 
 /// Leading zero bits of Argon2id(key ‖ nonce): the profile proof of work. 8 MiB, one pass.
 pub fn pow_leading_bits(key: &[u8; 32], nonce: u64) -> u32 {
-    let params = Params::new(8192, 1, 1, Some(32)).expect("valid Argon2 parameters");
-    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut password = [0u8; 40];
     password[..32].copy_from_slice(key);
     password[32..].copy_from_slice(&nonce.to_le_bytes());
+    argon_bits(POW_SALT, &password)
+}
+
+/// Leading zero bits of the heartbeat proof for UTC `day` (days since the epoch).
+pub fn heartbeat_pow_bits(key: &[u8; 32], day: u32, nonce: u64) -> u32 {
+    let mut password = [0u8; 44];
+    password[..32].copy_from_slice(key);
+    password[32..36].copy_from_slice(&day.to_be_bytes());
+    password[36..].copy_from_slice(&nonce.to_be_bytes());
+    argon_bits(HEARTBEAT_POW_SALT, &password)
+}
+
+/// [`solve`] for the heartbeat proof of `day`.
+pub fn solve_heartbeat(
+    key: &[u8; 32],
+    day: u32,
+    bits: u32,
+    start: u64,
+    tries: u64,
+) -> Result<u64, u64> {
+    let end = start.saturating_add(tries);
+    (start..end)
+        .find(|n| heartbeat_pow_bits(key, day, *n) >= bits)
+        .ok_or(end)
+}
+
+/// Leading zero bits of Argon2id(password) with `salt`: 8 MiB, one pass, one lane.
+fn argon_bits(salt: &[u8], password: &[u8]) -> u32 {
+    let params = Params::new(8192, 1, 1, Some(32)).expect("valid Argon2 parameters");
+    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut out = [0u8; 32];
     argon
-        .hash_password_into(&password, POW_SALT, &mut out)
+        .hash_password_into(password, salt, &mut out)
         .expect("fixed-size Argon2 input");
     let mut bits = 0;
     for byte in out {
@@ -219,6 +248,16 @@ mod tests {
             verify(&leaky.sign(&owner)),
             Err(Error::Invalid("tombstone carries data"))
         );
+    }
+
+    #[test]
+    fn heartbeat_pow_depends_on_the_day() {
+        let key = [7; 32];
+        let nonce = solve_heartbeat(&key, 20_000, 4, 0, 10_000).unwrap();
+        assert!(heartbeat_pow_bits(&key, 20_000, nonce) >= 4);
+        // Other days hash differently: at 4 bits one in 16 matches, so 4 days all matching is
+        // a 1 in 65536 accident.
+        assert!((1..=4).any(|d| heartbeat_pow_bits(&key, 20_000 + d, nonce) < 4));
     }
 
     #[test]

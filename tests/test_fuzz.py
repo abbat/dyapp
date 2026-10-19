@@ -13,7 +13,7 @@ SPEC.loader.exec_module(CHECK)
 class Fuzz(unittest.TestCase):
     def test_handlers_without_a_target_fail(self):
         texts = {
-            CHECK.HANDLERS: (
+            CHECK.HANDLERS[0]: (
                 "pub fn node(&self, peer: &Peer, request: NodeRequest)\n"
                 "pub fn gossip(&self, data: &[u8]) -> Verdict\n"
                 "pub fn media(\n    &self,\n    peer: &Peer,\n"
@@ -22,17 +22,18 @@ class Fuzz(unittest.TestCase):
             "fuzz/fuzz_targets/node.rs": "SERVICE.node(&PEER, request);\n",
         }
         self.assertEqual(CHECK.fuzz_errors(texts), [
-            f"{CHECK.HANDLERS}: Service::gossip has no fuzz target",
-            f"{CHECK.HANDLERS}: Service::media has no fuzz target",
+            f"{CHECK.HANDLERS[0]}: Service::gossip has no fuzz target",
+            f"{CHECK.HANDLERS[0]}: Service::media has no fuzz target",
         ])
 
     def test_repository_handlers_all_have_targets(self):
         targets = (ROOT / "fuzz/fuzz_targets").glob("*.rs")
-        names = [CHECK.HANDLERS,
+        names = [*CHECK.HANDLERS,
                  *(str(path.relative_to(ROOT)) for path in targets)]
         texts = {name: (ROOT / name).read_text() for name in names}
         self.assertEqual(CHECK.fuzz_errors(texts), [])
-        self.assertEqual(len(CHECK.HANDLER.findall(texts[CHECK.HANDLERS])), 7)
+        self.assertEqual(sum(len(CHECK.HANDLER.findall(texts[name]))
+                             for name in CHECK.HANDLERS), 7)
 
 
 if __name__ == "__main__":

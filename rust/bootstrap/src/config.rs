@@ -177,6 +177,9 @@ pub struct Search {
     /// Leading zero bits of the Argon2id proof of work a profile needs to be indexed; at most
     /// 20, reported in `info`.
     pub min_profile_pow_bits: u32,
+    /// Leading zero bits of the daily Argon2id proof a heartbeat needs; 0 = none, at most 16,
+    /// reported in `info`.
+    pub min_heartbeat_pow_bits: u32,
     /// Median search queue wait, in milliseconds, above which clients' queries and gets need a
     /// hash puzzle; at least 1.
     pub puzzle_wait_ms: u64,
@@ -192,6 +195,7 @@ impl Default for Search {
             max_scan_rows: 10_000,
             topics: vec![],
             min_profile_pow_bits: 11,
+            min_heartbeat_pow_bits: 8,
             puzzle_wait_ms: 100,
             max_puzzle_bits: 20,
         }
@@ -215,8 +219,10 @@ impl Search {
         if self.topics.iter().any(|t| *t >= 16) {
             anyhow::bail!("search.topics must be in 0..16");
         }
-        if self.min_profile_pow_bits > 20 {
-            anyhow::bail!("search.min_profile_pow_bits must be at most 20");
+        if self.min_profile_pow_bits > 20 || self.min_heartbeat_pow_bits > 16 {
+            anyhow::bail!(
+                "search.min_profile_pow_bits must be at most 20, min_heartbeat_pow_bits 16"
+            );
         }
         if self.puzzle_wait_ms == 0 || !(12..=32).contains(&self.max_puzzle_bits) {
             anyhow::bail!("search.puzzle_wait_ms must be at least 1 and max_puzzle_bits 12..=32");

@@ -138,6 +138,7 @@ assertion changes.
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
 | Publish, query and get; a claim below `search.min_profile_pow_bits` is `INVALID` with the required bits, a forged one `DENIED` | Unit | `service.rs::search_publish_query_get`, `::search_profile_pow`, `::search_pow_hint_is_specific_to_insufficient_difficulty` | exists |
+| A search heartbeat needs a daily proof: missing, weak or another day `INVALID`, forged `DENIED`, cached once confirmed, limits checked before Argon2id | Unit | `service/tests/search.rs::search_heartbeat_pow`, `::heartbeat_just_before_midnight_passes`, `pow.rs::caches_confirmed_proofs_only` | exists |
 | A published profile reaches another search node over its gossip topic; a named network serves search on its own topics | Functional | `protocol.rs::search_profile_spreads_between_nodes`, `protocol/namespaces.rs::named_node_serves_profile_search_and_configured_gossip_topics` | exists |
 | A `search.topics` subset is refused on the public network | Unit | `config/validation.rs` | exists |
 | Catch-up asks two distinct mesh peers per topic and skips the update limit | Unit | `node.rs::catch_up_asks_two_distinct_peers_per_topic`, `search/lifecycle.rs::catch_up_skips_the_update_limit`, `service.rs::search_peers_sync_on_their_own_budget` | exists |

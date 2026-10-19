@@ -27,7 +27,12 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     for time in [0, now + 3600, u64::MAX] {
         let record = owner.sign(
             Domain::Heartbeat,
-            proto::Heartbeat { time, version: 1 }.encode_to_vec(),
+            proto::Heartbeat {
+                time,
+                version: 1,
+                ..Default::default()
+            }
+            .encode_to_vec(),
         );
         let before = chrono::Utc::now().timestamp().unsigned_abs();
         let response = s
@@ -60,6 +65,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
         proto::Heartbeat {
             time: chrono::Utc::now().timestamp().unsigned_abs(),
             version: 1,
+            ..Default::default()
         }
         .encode_to_vec(),
     );

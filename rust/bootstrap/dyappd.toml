@@ -90,6 +90,7 @@
 # max_puzzle_bits = 20                # puzzle difficulty ceiling; 12..32
 # topics = []                         # gossip topics (0..15) kept; empty = all 16; public: empty
 # min_profile_pow_bits = 11           # Argon2id proof of work a profile needs to be indexed; 0..20
+# min_heartbeat_pow_bits = 8         # daily Argon2id proof a heartbeat needs; 0 = none, 0..16
 
 [media]
 # shard_threshold = 1048576           # whole-copy threshold in bytes; 1..1048576

@@ -299,8 +299,9 @@ resent from the sender's retry queue.
 - **Proof of work.** A search node indexes and relays only profiles whose `pow_bits` reach
   `search.min_profile_pow_bits` (default 11, at most 20, reported in `info` as
   `min_profile_pow`); a lower claim is `INVALID` with `required_pow_bits` and no strike. The claim is checked with
-  Argon2id (above, [Profiles](#profiles)) off the swarm loop on its own two permits, so checks
-  cannot starve queries: a client publish that finds both busy gets `RATE_LIMITED` with
+  Argon2id (above, [Profiles](#profiles)) off the swarm loop on its own permits (half the cores,
+  at least two), so checks cannot starve queries: a client publish or heartbeat that finds them
+  all busy gets `RATE_LIMITED` with
   `retry_after` 1, a gossip message waits in a queue of at most 64 and is ignored without a
   strike when it is full, and a catch-up reply waits for a permit as one job. A forged claim is
   `DENIED` on publish and rejected in gossip, both a strike against the sending peer. Only
@@ -311,6 +312,17 @@ resent from the sender's retry queue.
   heartbeat time or daily counters; gossip ignores them without a strike. Raising the minimum
   does not purge indexed profiles, so their last accepted heartbeat leaves the usual retention
   window (default 30 days) to recompute and republish. Client background recomputation is planned.
+- **Heartbeat proof of work.** While `search.min_heartbeat_pow_bits` (default 8, at most 16,
+  0 = off, reported in `info` as `min_heartbeat_pow`) is above 0, a search heartbeat carries a
+  daily Argon2id proof (`pow_nonce`, `pow_bits`, `pow_day`; same parameters as the profile
+  proof, salt `dyapp-heartbeat-pow`, password key ‖ day ‖ nonce), so keeping a fake profile alive
+  costs a fresh proof every UTC day. Checks run cheapest first: signature, clock, topic, stored
+  profile difficulty, then the stored version and the daily limit without counting the beat
+  (`NOT_FOUND`, `RATE_LIMITED`), so a replayed or surplus heartbeat never costs Argon2id. A proof
+  below the minimum or for a day other than the node's current UTC day is `INVALID` without a
+  strike; a forged one is `DENIED` (gossip: rejected), a strike. Confirmed (key, nonce, day)
+  proofs are cached like profile proofs, so the second heartbeat of the day costs nothing.
+  Client-side solving is planned.
 - **Index.** A search node subscribes to all 16 topics by default, or to the part listed in
   `search.topics`, and then holds a uniform sample. A subset is refused at startup on the public
   network (empty `network.name`), so a public search node answers for every topic. The index
@@ -615,7 +627,7 @@ The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
@@ -640,7 +652,7 @@ The current protocol replies are:
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
-| `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal); `REFUSED`; `UNSUPPORTED` |
+| `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version, pow_nonce, pow_bits, pow_day }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal), or for a heartbeat proof that is missing, below `min_heartbeat_pow` or not for the current UTC day; `DENIED` also for a forged heartbeat proof; `REFUSED`; `UNSUPPORTED` |
 | `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `PUZZLE` with `puzzle_challenge` and `puzzle_bits` while the node is loaded and `puzzle` is missing, wrong or used ([Search](#search)); `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `PUZZLE` as for `query`; `UNSUPPORTED` |
 | `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |

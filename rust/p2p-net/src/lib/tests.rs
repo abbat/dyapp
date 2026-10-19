@@ -48,6 +48,7 @@ fn old_heartbeat_decodes_with_version_zero() {
     let old = proto::Heartbeat {
         time: 7,
         version: 0,
+        ..Default::default()
     }
     .encode_to_vec();
     assert_eq!(proto::Heartbeat::decode(old.as_slice()).unwrap().version, 0);

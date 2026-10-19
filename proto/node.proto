@@ -113,6 +113,8 @@ message NodeInfo {
   bytes puzzle_challenge = 12;
   // Optional features this node serves beyond its roles; older nodes send none.
   repeated Capability capabilities = 13;
+  // Minimum heartbeat proof-of-work difficulty on a search node, in leading zero bits.
+  uint32 min_heartbeat_pow = 14;
 }
 
 // Every NodeInfo value is a hint from an untrusted node: a client never goes below its compiled
@@ -158,6 +160,13 @@ message Heartbeat {
   // The owner's current profile version; a search node answers NOT_FOUND when it holds an older
   // one. Store nodes ignore it.
   uint64 version = 2;
+  // Search nodes: an Argon2id proof for `pow_day` (8 MiB, 1 pass, 1 lane, salt
+  // "dyapp-heartbeat-pow", password = key ‖ pow_day u32 BE ‖ pow_nonce u64 BE) with at least
+  // NodeInfo.min_heartbeat_pow leading zero bits; `pow_day` = time / 86400. Store nodes ignore
+  // them.
+  uint64 pow_nonce = 3;
+  uint32 pow_bits = 4;
+  uint32 pow_day = 5;
 }
 
 message ProfileResponse {

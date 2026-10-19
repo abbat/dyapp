@@ -40,9 +40,9 @@ pub(in crate::service) fn search_as(
                 search_reply(Status::RateLimited)
             }
         }
-        Search::Pow(check, record) => {
+        Search::Pow(check, request) => {
             let ok = s.pow.check(&check);
-            s.search_pow_done(peer, &record, ok).unwrap()
+            s.search_pow_done(peer, &request, ok).unwrap()
         }
     }
 }
@@ -56,7 +56,11 @@ fn search_status(response: &SearchResponse) -> Status {
 }
 
 fn beat(identity: &Identity, version: u64, time: u64) -> SignedRecord {
-    let beat = proto::Heartbeat { time, version };
+    let beat = proto::Heartbeat {
+        time,
+        version,
+        ..Default::default()
+    };
     identity.sign(Domain::Heartbeat, beat.encode_to_vec())
 }
 
@@ -233,7 +237,10 @@ fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network(
         ),
         (i32::from(Status::TooLarge), 4096, 0)
     );
-    let response = s.search_pow_done(&peer("key"), &record, true).unwrap();
+    let request = SearchRequest {
+        request: Some(search_request::Request::Publish(record.clone())),
+    };
+    let response = s.search_pow_done(&peer("key"), &request, true).unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), 4096)
@@ -583,4 +590,110 @@ fn search_peers_sync_on_their_own_budget() {
     assert_eq!(status_of(inventory(&sync, 0).status), Status::RateLimited);
     s.search_peer(&sync.id, false);
     assert!(!s.search_peers.lock().unwrap().contains(&sync.id));
+}
+
+fn beat_with(id: &Identity, time: u64, day: u32, nonce: u64, bits: u32) -> SignedRecord {
+    let beat = proto::Heartbeat {
+        time,
+        version: 1,
+        pow_nonce: nonce,
+        pow_bits: bits,
+        pow_day: day,
+    };
+    id.sign(Domain::Heartbeat, beat.encode_to_vec())
+}
+
+/// A search service with one indexed profile of `id` and 2-bit profile and heartbeat proofs.
+fn beat_service(id: &Identity) -> Service {
+    let mut s = service_with(|l| {
+        l.bytes_per_second = 1 << 20;
+        l.strikes_to_ban = 1;
+    });
+    s.config.roles.push(Role::Search);
+    s.config.search.min_profile_pow_bits = 2;
+    s.config.search.min_heartbeat_pow_bits = 2;
+    let index = SearchIndex::open(&s.config.storage.search_path(), s.config.search.max_bytes);
+    s.search = Some(Arc::new(index.unwrap()));
+    let v1 = Profile {
+        version: 1,
+        ..Profile::default()
+    };
+    let r = search(&s, search_request::Request::Publish(proven(id, v1, 2)));
+    assert_eq!(search_status(&r), Status::Ok);
+    s
+}
+
+#[test]
+fn search_heartbeat_pow() {
+    let id = Identity::generate();
+    let s = beat_service(&id);
+    let send = |who: &str, r: SignedRecord| {
+        search_status(&search_as(
+            &s,
+            &peer(who),
+            search_request::Request::Heartbeat(r),
+        ))
+    };
+    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let day = u32::try_from(now / 86_400).unwrap();
+    let nonce = dyapp_profile::solve_heartbeat(&id.public_key(), day, 2, 0, 100_000).unwrap();
+    let other = dyapp_profile::solve_heartbeat(&id.public_key(), day - 1, 2, 0, 100_000).unwrap();
+    s.pow.take_counts();
+    // Missing, too weak or for another day: INVALID, no strike, no Argon2.
+    assert_eq!(send("none", beat(&id, 1, now)), Status::Invalid);
+    assert_eq!(
+        send("weak", beat_with(&id, now, day, nonce, 1)),
+        Status::Invalid
+    );
+    assert_eq!(
+        send("old", beat_with(&id, now, day - 1, other, 2)),
+        Status::Invalid
+    );
+    assert!(!s.reputation.banned("none") && !s.reputation.banned("old"));
+    assert_eq!(s.pow.take_counts(), (0, 0));
+    // A 20-bit claim at nonce 0 holds with probability 2^-20: DENIED and a strike.
+    assert_eq!(
+        send("liar", beat_with(&id, now, day, 0, 20)),
+        Status::Denied
+    );
+    assert!(s.reputation.banned("liar"));
+    // Valid: OK; the same proof again is cached.
+    assert_eq!(send("good", beat_with(&id, now, day, nonce, 2)), Status::Ok);
+    s.pow.take_counts();
+    assert_eq!(
+        send("good", beat_with(&id, now + 1, day, nonce, 2)),
+        Status::Ok
+    );
+    assert_eq!(s.pow.take_counts(), (0, 0));
+    // Past the day limit: RATE_LIMITED before any proof check, even a forged one.
+    assert_eq!(
+        send("good", beat_with(&id, now, day, 0, 20)),
+        Status::RateLimited
+    );
+    assert_eq!(s.pow.take_counts(), (0, 0));
+}
+
+#[test]
+fn heartbeat_just_before_midnight_passes() {
+    let id = Identity::generate();
+    let s = beat_service(&id);
+    let day = u32::try_from(chrono::Utc::now().timestamp() / 86_400).unwrap() + 1;
+    let now = i64::from(day) * 86_400 + 86_370;
+    let nonce = dyapp_profile::solve_heartbeat(&id.public_key(), day, 2, 0, 100_000).unwrap();
+    let record = beat_with(&id, now.unsigned_abs(), day, nonce, 2);
+    assert!(matches!(
+        s.beat_search_at(&record, now).unwrap(),
+        Applied::Pow(c) if c.day == Some(day)
+    ));
+    let check = PowCheck {
+        key: id.public_key(),
+        nonce,
+        bits: 2,
+        day: Some(day),
+    };
+    assert!(s.pow.check(&check));
+    assert!(matches!(
+        s.beat_search_at(&record, now).unwrap(),
+        Applied::Done
+    ));
 }

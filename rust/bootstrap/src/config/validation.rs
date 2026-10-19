@@ -19,6 +19,9 @@ fn search_limits_are_checked() {
     assert_eq!(Search::default().min_profile_pow_bits, 11);
     assert!(search(|s| s.min_profile_pow_bits = 20).is_ok());
     assert!(search(|s| s.min_profile_pow_bits = 21).is_err());
+    assert_eq!(Search::default().min_heartbeat_pow_bits, 8);
+    assert!(search(|s| s.min_heartbeat_pow_bits = 16).is_ok());
+    assert!(search(|s| s.min_heartbeat_pow_bits = 17).is_err());
     assert!(Search::default().keeps(15));
     let one = Search {
         topics: vec![3],
