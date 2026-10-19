@@ -462,9 +462,9 @@ A size change does not require a new protocol ID, but needs an ordered node roll
   changed as an ordinary size limit. A future additive `shard_size` manifest field must default
   to 1 MiB for old records, with readers deployed before writers change the layout.
 
-The client shrink/retry and validation of reported bounds are planned
-([evolution checklist](protobuf-schema.md#evolution-rules-proto3)); current node hints do not
-implement them. Capacities are space, not compatibility: a mailbox up to 10 MiB per device, signals up to `limits.signal_max_kb`,
+Validation of reported bounds exists in `dyapp_p2p_net::hints` but no client calls it yet;
+client shrink/retry is planned
+([evolution checklist](protobuf-schema.md#evolution-rules-proto3)). Capacities are space, not compatibility: a mailbox up to 10 MiB per device, signals up to `limits.signal_max_kb`,
 media up to `limits.media_per_owner_mb` per user, each counted by the node over the data it
 holds. Write quotas apply per sender key and per IP group; the prefix length (for example /24
 or /48) is the operator's choice.
@@ -589,6 +589,16 @@ profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). 
 the node clock; signed-time `INVALID` replies report the clock snapshot used in validation.
 Other failures leave the field zero. Client clock correction from three distinct nodes remains
 planned.
+
+`NodeInfo.capabilities` names optional features beyond the roles: `PROFILE_HEARTBEAT` with the
+store role, `SEARCH_PUZZLE` with the search role, `SHARED_DENY_LIST` with
+`network.share_deny_list`. Protocol evolution follows
+[ADR 0016](../decisions/0016-protocol-evolution.md): a change that tightens security ships as a
+new `oneof` variant that older nodes answer `UNSUPPORTED`; every `NodeInfo` value is a hint from
+an untrusted node that may raise a client's PoW (up to 20 bits) or lower its sizes, never the
+reverse, and a hint out of range skips the node (`dyapp_p2p_net::hints`, not yet called by a
+client); `server_time` is never used for a security decision; replica count and shard layout are
+frozen per record and never taken from `NodeInfo`.
 
 Mailbox `TOO_LARGE` replies include `max_bytes` for the checked signed-envelope payload,
 including repair batches. Client sends use the advertised 100 KiB limit; replica/local admission

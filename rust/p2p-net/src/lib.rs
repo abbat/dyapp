@@ -29,6 +29,7 @@ pub use dial_guard::{DialGuard, DialSlot};
 mod endpoint_tag;
 mod guard_dial;
 pub use guard_dial::GuardDial;
+pub mod hints;
 pub use ipnet::IpNet;
 mod incoming_groups;
 pub use incoming_groups::{IncomingGroupGuard, IncomingGroupLimits};

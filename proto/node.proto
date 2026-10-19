@@ -111,6 +111,21 @@ message NodeInfo {
   uint32 puzzle_bits = 11;
   // The current search puzzle challenge, with the search role.
   bytes puzzle_challenge = 12;
+  // Optional features this node serves beyond its roles; older nodes send none.
+  repeated Capability capabilities = 13;
+}
+
+// Every NodeInfo value is a hint from an untrusted node: a client never goes below its compiled
+// floors because of it (docs/decisions/0016-protocol-evolution.md). A change that tightens
+// security ships as a new oneof variant, which older nodes answer UNSUPPORTED.
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  // `/dyapp/profile` heartbeat.
+  CAPABILITY_PROFILE_HEARTBEAT = 1;
+  // `/dyapp/search` load puzzle.
+  CAPABILITY_SEARCH_PUZZLE = 2;
+  // `/dyapp/node` deny_list answers with a signed list.
+  CAPABILITY_SHARED_DENY_LIST = 3;
 }
 
 // ---- /dyapp/profile: store role ----

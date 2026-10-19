@@ -51,5 +51,6 @@ its commit.
 | [0013](0013-video-calls-one-to-one.md) | One-to-one video calls over libwebrtc, always end-to-end |
 | [0014](0014-libp2p-only-node-protocol.md) | Clients and nodes talk over libp2p only |
 | [0015](0015-sqlite-node-storage.md) | SQLite for bootstrap node storage |
+| [0016](0016-protocol-evolution.md) | Protocol evolution without versions: capabilities, tightening as new variants, NodeInfo as hints |
 
 All listed ADRs are accepted.

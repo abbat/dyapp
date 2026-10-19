@@ -388,6 +388,17 @@ impl Service {
             puzzle_bits: puzzle.1,
             puzzle_challenge: if search { puzzle.0.to_vec() } else { vec![] },
             server_time: chrono::Utc::now().timestamp().unsigned_abs(),
+            capabilities: [
+                (store, proto::Capability::ProfileHeartbeat),
+                (search, proto::Capability::SearchPuzzle),
+                (
+                    self.config.network.share_deny_list,
+                    proto::Capability::SharedDenyList,
+                ),
+            ]
+            .into_iter()
+            .filter_map(|(on, capability)| on.then_some(capability.into()))
+            .collect(),
         }
     }
 
@@ -2116,6 +2127,11 @@ mod tests {
         assert_eq!(info.search_fields, SEARCH_FIELDS);
         assert_eq!(info.max_search_profile_bytes, 64 << 10);
         assert_eq!(info.min_profile_pow, 2);
+        assert!(info.capabilities.contains(&proto::Capability::SearchPuzzle.into()));
+        assert_eq!(
+            service().info().capabilities,
+            [i32::from(proto::Capability::ProfileHeartbeat)]
+        );
         assert_eq!(service().info().min_profile_pow, 0);
         assert!(service().info().search_fields.is_empty());
     }

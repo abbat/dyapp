@@ -206,8 +206,10 @@ Use this checklist for each change class:
 | 3. PoW difficulty | Report `required_pow_bits` only for an insufficient advertised difficulty; malformed content, signature failures and clock failures have different meanings. Search publish and heartbeat report it today; background client recomputation remains planned. |
 | 4. Media replication | The node chooses replication and layout; clients upload once. Keep old manifests readable when changing R or parity. Current readers require exactly K+4 hashes, so flexible parity is planned. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB, then readers before writers. |
 
-Planned clients must treat hints as untrusted: zero means absent, including older nodes.
-The proposed contract limits PoW to 20 bits and rejects profile size hints below 64 KiB or media
-hints below 256 KiB by skipping that node. Shrink/retry once or background PoW recomputation
-applies only after validation; these client checks and retries are not implemented by the
-bootstrap hint fields.
+Clients treat hints as untrusted ([ADR 0016](../decisions/0016-protocol-evolution.md)): zero
+means absent, including older nodes. `dyapp_p2p_net::hints::Limits::with_hints` keeps the
+client's compiled floors, lets a hint raise PoW up to 20 bits and lower sizes, and skips a node
+whose profile size hint is below 64 KiB, media hint below 256 KiB or PoW above 20 bits. No client
+calls it yet; shrink/retry once and background PoW recomputation remain planned. A change that
+tightens security is a new `oneof` variant, not a new field; `NodeInfo.capabilities` lists
+optional features, and unknown values are ignored.
