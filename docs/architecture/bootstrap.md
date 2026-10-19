@@ -362,8 +362,9 @@ resent from the sender's retry queue.
   with `get(keys)`, up to 50 keys, from the same node; the reply is cut at 1 MiB and the client
   asks again for the rest. A `query` costs 1 unit and a `get` one unit per started 64 KiB of its
   reply, limited per peer ID and IP group; scraping public profiles is accepted. Queries and gets
-  run off the swarm loop, at most 2 at a time; without a free slot the node answers
-  `RATE_LIMITED` with `retry_after` 1.
+  run off the swarm loop, at most 2 at a time, from a queue fair between IP groups
+  ([Rate Limiting](#rate-limiting)); a read the queue refuses gets `RATE_LIMITED` with
+  `retry_after` 1.
 - **Results are a sample.** A reply is the node's local sample: possibly partial (a warming or
   evicted index, gossip it missed, `partial` set or not) and untrusted, since any operator can
   run a search node and omit or reorder hits. An empty reply does not mean nothing matches. The
@@ -618,7 +619,7 @@ The current protocol replies are:
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal); `REFUSED`; `UNSUPPORTED` |
-| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when both query slots are busy; `UNSUPPORTED` |
+| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |
 | `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
 
@@ -717,7 +718,7 @@ The current protocol replies are:
   so a peer flooding requests holds at most one worker and its replies keep its request order.
   A peer with 16 requests waiting gets the next one dropped (the stream closes; the client
   retries). A put at the in-flight replication cap gets `FULL` at once. Search `query` and
-  `get` run on their own blocking pool, at most two at a time. Replication replies, gossip,
+  `get` run on their own fair queue and two workers. Replication replies, gossip,
   repair, media inventory and maintenance still call SQLite on the loop. `/dyapp/node` touches no
   store and is answered on the loop, so it stays prompt while every worker is busy.
 - An unknown `oneof` variant (decoded as empty) gets `UNSUPPORTED`.
@@ -872,6 +873,11 @@ Scope and limits:
   1, a publish or heartbeat 5, a get 1 per started 64 KiB of its reply, an inventory 10. Requests
   from a connected search node (one listing `/dyapp/search-kad` in identify) skip the units for
   get and inventory and are paid from the node's `maintenance.io_mb_per_s` byte budget instead.
+- **Fair search queue.** Admitted `query` and `get` requests wait for the two index workers in
+  a queue (`node/jobs.rs`): gets from connected search nodes first, then one request per IP
+  group in turn. A group may have 4 waiting and the queue 256; past either the request gets
+  `RATE_LIMITED` with `retry_after` 1 and no strike. Subscribers behind one carrier CGNAT (or
+  one relay) share a group; `ipv4_prefix` tunes how wide it is.
 - A mailbox `put` also counts against the envelope's sender key (`sender_puts_per_second`,
   default 10), after the signature is checked.
 - libp2p keys and sender keys are free to generate; the IP-group bucket bounds what a client

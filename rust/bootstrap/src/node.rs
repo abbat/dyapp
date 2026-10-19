@@ -1631,15 +1631,45 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     }
     // The IP group of each connected peer, to strike the source of a bad gossip message.
     let mut peer_groups: HashMap<PeerId, String> = HashMap::new();
-    // Index reads run off the swarm loop; two at a time, the rest get RATE_LIMITED. At most
-    // two items are ever in the channel: one per permit.
+    // Index reads run off the swarm loop on two workers, fed from a queue fair between IP
+    // groups; a read the queue refuses gets RATE_LIMITED. At most two items are ever in the
+    // channel: one per worker.
+    struct SearchJob {
+        from: Peer,
+        channel: ResponseChannel<SearchResponse>,
+        work: Search,
+    }
     struct SearchDone {
         from: Peer,
         channel: ResponseChannel<SearchResponse>,
         get: bool,
         reply: crate::Result<SearchResponse>,
     }
-    let search_permits = Arc::new(tokio::sync::Semaphore::new(2));
+    const SEARCH_WORKERS: usize = 2;
+    fn start_search(
+        queue: &mut jobs::GroupQueue<SearchJob>,
+        running: &mut usize,
+        service: &Service,
+        done: &tokio::sync::mpsc::UnboundedSender<SearchDone>,
+    ) {
+        let Some(index) = &service.search else { return };
+        while *running < SEARCH_WORKERS {
+            let Some(SearchJob { from, channel, work }) = queue.pop() else { return };
+            *running += 1;
+            let (index, done) = (index.clone(), done.clone());
+            let rows = service.config.search.max_scan_rows;
+            tokio::task::spawn_blocking(move || {
+                let (get, reply) = match work {
+                    Search::Get(keys) => (true, run_get(&index, &keys)),
+                    Search::Query(query) => (false, run_query(&index, &query, rows)),
+                    Search::Reply(_) | Search::Pow(..) => unreachable!("answered on the loop"),
+                };
+                let _ = done.send(SearchDone { from, channel, get, reply });
+            });
+        }
+    }
+    let mut search_queue = jobs::GroupQueue::<SearchJob>::default();
+    let mut searching = 0;
     let (search_done_tx, mut search_done) = tokio::sync::mpsc::unbounded_channel::<SearchDone>();
     // Profile proof-of-work checks run off the loop on their own two permits, so a flood of
     // them cannot starve queries. A client publish without a permit gets RATE_LIMITED; gossip
@@ -1875,22 +1905,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                                 let _ = swarm.behaviour_mut().search.send_response(channel, response);
                             }
                         },
-                        Ok(work) => match (search_permits.clone().try_acquire_owned(), &service.search) {
-                            (Ok(permit), Some(index)) => {
-                                let index = index.clone();
-                                let rows = service.config.search.max_scan_rows;
-                                let done = search_done_tx.clone();
-                                tokio::task::spawn_blocking(move || {
-                                    let _permit = permit;
-                                    let (get, reply) = match work {
-                                        Search::Get(keys) => (true, run_get(&index, &keys)),
-                                        Search::Query(query) => (false, run_query(&index, &query, rows)),
-                                        Search::Reply(_) | Search::Pow(..) => unreachable!("answered above"),
-                                    };
-                                    let _ = done.send(SearchDone { from, channel, get, reply });
-                                });
-                            }
-                            _ => {
+                        Ok(work) => {
+                            let group = (!service.is_search_peer(&from)).then(|| from.group.clone());
+                            if let Err(SearchJob { channel, .. }) = search_queue.push(group.as_deref(), SearchJob { from, channel, work }) {
                                 answered += 1;
                                 let response = SearchResponse {
                                     status: Status::RateLimited.into(),
@@ -1899,7 +1916,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                                 };
                                 let _ = swarm.behaviour_mut().search.send_response(channel, response);
                             }
-                        },
+                            start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
+                        }
                         Err(error) => {
                             failed += 1;
                             tracing::error!(%error, "search request failed");
@@ -2495,6 +2513,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 drop_banned(&mut swarm, &service, id);
             }
             Some(done) = search_done.recv() => {
+                searching -= 1;
+                start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
                 let response = match done.reply {
                     Ok(reply) if done.get && !service.charge_get(&done.from, reply.encoded_len()) => SearchResponse {
                         status: Status::RateLimited.into(),

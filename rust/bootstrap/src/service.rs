@@ -1013,7 +1013,8 @@ impl Service {
         }
     }
 
-    fn is_search_peer(&self, peer: &Peer) -> bool {
+    /// Whether `peer` is a connected search node.
+    pub fn is_search_peer(&self, peer: &Peer) -> bool {
         self.search_peers
             .lock()
             .is_ok_and(|peers| peers.contains(&peer.id))

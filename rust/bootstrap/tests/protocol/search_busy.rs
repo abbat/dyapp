@@ -60,7 +60,8 @@ fn search_worker_saturation_retries_without_stalling_info() {
             let _ = held.recv();
         });
         started.await.unwrap();
-        for age in 0..3 {
+        // Two queries take the workers, four wait in the group's queue and the last is refused.
+        for age in 0..7 {
             client.swarm.behaviour_mut().search.send_request(
                 &client.server,
                 proto::SearchRequest {
@@ -99,7 +100,8 @@ fn search_worker_saturation_retries_without_stalling_info() {
         assert!(sent.elapsed() < Duration::from_secs(1));
         drop(release);
         blocker.await.unwrap();
-        for _ in 0..2 {
+        // Each finished query starts the next queued one.
+        for _ in 0..6 {
             let reply = client
                 .wait(|event| match event {
                     BehaviourEvent::Search(event) => response(event),
