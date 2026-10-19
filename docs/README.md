@@ -10,6 +10,7 @@ it are entry points that tools discover by path (see
 - [Encryption & Security Status](security/encryption.md): what is and is not protected today, by layer, target design
 - [Privacy & Metadata Visibility](security/privacy.md): which observer sees which field, retention, residual risk
 - [Threat Model](security/threat-model.md): attackers, assets, and which defence covers each threat today
+- [Security Assurance](security/assurance.md): OpenSSF Scorecard ratchet, Best Practices badge, vulnerability disclosure
 
 ### Architecture
 - [Overview](architecture/overview.md)
