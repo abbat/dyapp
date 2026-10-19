@@ -10,6 +10,7 @@ license.workspace = true
 anyhow = "1.0"
 ipnet = "2.12"
 dyapp-identity = { path = "../identity" }
+dyapp-profile = { path = "../profile" }
 prost.workspace = true
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }

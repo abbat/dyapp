@@ -784,6 +784,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "dyapp-identity",
+ "dyapp-profile",
  "ipnet",
  "libp2p",
  "prost",

@@ -37,6 +37,7 @@ mod pow_gate;
 pub use pow_gate::PowGate;
 mod protocols;
 pub use protocols::Protocols;
+pub mod search_results;
 mod wire;
 pub use wire::{Dir, WireBytes, WireCounts};
 

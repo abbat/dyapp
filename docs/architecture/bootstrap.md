@@ -407,9 +407,14 @@ resent from the sender's retry queue.
 - **Results are a sample.** A reply is the node's local sample: possibly partial (a warming or
   evicted index, gossip it missed, `partial` set or not) and untrusted, since any operator can
   run a search node and omit or reorder hits. An empty reply does not mean nothing matches. The
-  client queries several independently discovered search nodes, checks each record's signature
-  and proof of work and re-applies the conditions itself (planned on the client). Replies carry
-  no coverage hints.
+  client queries several independently discovered search nodes (at least two) and passes the
+  `get` records of all replies to `dyapp_p2p_net::search_results::check`. It keeps one profile
+  per owner, the highest validly signed version, so a node cannot bring back an older version;
+  drops it when it is a tombstone, misses a condition, or its profile proof of work is below the
+  client's minimum or not confirmed by the Argon2 hash; and skips the conditions a node skips
+  (unknown field or op, `range` on a string field). `place` is compared as the profile states
+  it. The check is implemented; the client runtime that queries the nodes and calls it is
+  planned. Replies carry no coverage hints.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
   by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and
