@@ -29,6 +29,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.profile.Profile` | `dyapp/profile/v1\0` | identity key |
 | `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
+| `dyapp.node.WriteToken` | `dyapp/write-token/v1\0` | device key |
 | `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
 | `dyapp.node.MediaAttach` | `dyapp/media-attach/v1\0` | identity key |
 | `dyapp.node.Heartbeat` | `dyapp/heartbeat/v1\0` | identity key |

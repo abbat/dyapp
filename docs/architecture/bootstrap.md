@@ -115,7 +115,7 @@ on an identity's data carries a signature by a key of that identity:
 |---------|-----------|-----------------|
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
-| `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas only; the recipient checks the sender inside the MLS ciphertext |
+| `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
@@ -552,8 +552,21 @@ A message for one device is a `SignedRecord` signed by a sender key over
 ([schema](protobuf-schema.md#node-protocol)):
 
 ```
-Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), ciphertext }
+Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), ciphertext,
+           class, write_token: optional SignedRecord }
+WriteToken { mailbox, token_key, epoch: UTC day number }  // signed by the recipient device key
 ```
+
+**Write tokens.** A recipient hands each contact a daily token, signed by its device key over
+`"dyapp/write-token/v1\0" || payload`. A node checks a present token on every put: the token
+signature, `SHA-256(token signer) == token.mailbox == envelope.mailbox`, and that the envelope is
+signed by `token_key`. A client put also needs the current time within the token's day ± 1 h;
+replica paths (`replica_put`, repair, a local store) accept a token until the day's end +
+`limits.message_ttl_hours` + 1 h. On a client put a forged token answers `DENIED` with a strike,
+an expired one `STALE` without a strike; on replica paths any token error drops the envelope
+silently, without a strike and without changing the batch status. The token counts towards the
+same 100 KiB signed-payload bound; the client reserves 256 bytes for it. Tokenless envelopes are
+stored as before; a separate pool for them, source groups and revocation are planned.
 
 The node stores the signed record as received, once per (mailbox, id), and never learns the
 sender's identity: the sender key only proves someone signed it; puts are limited per sender key
@@ -659,12 +672,12 @@ The current protocol replies are:
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
-| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` with checked `max_bytes` for payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
+| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature or forged write token (strike); `STALE` write token outside its day ± 1 h; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` with checked `max_bytes` for payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold, read from stored ids without the envelopes; `DENIED` and a strike from a peer without node proof of work; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
-| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; an envelope with a forged or expired write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` with `max_bytes` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
@@ -797,6 +810,7 @@ then trusts it as the owner's own claim, not as fact:
 | profile fields | owner | signature, version order, format checks above |
 | `age` | owner | nothing beyond `u32`; no minimum, so an age below 30 or 18 is stored |
 | envelope `mailbox`, `id` | sender | lengths only; any key may put into any mailbox |
+| envelope `write_token` | recipient device key | signature, mailbox, envelope signer and day; optional |
 | envelope `ciphertext` | sender | size only; the recipient checks the sender inside it |
 
 - **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete

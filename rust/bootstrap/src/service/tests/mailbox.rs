@@ -148,7 +148,9 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
     let payload = envelope.encode_to_vec();
     assert_eq!(payload.len(), MAX_ENVELOPE_BYTES);
     let exact = owner.sign(Domain::Envelope, payload);
-    let response = s.put(&exact, false, false, MAX_ENVELOPE_BYTES - 1).unwrap();
+    let response = s
+        .put(&exact, false, mailbox_role::Source::Local, MAX_ENVELOPE_BYTES - 1)
+        .unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), (MAX_ENVELOPE_BYTES - 1) as u64)
@@ -584,6 +586,7 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
             mailbox: address.clone(),
             ciphertext: vec![id; len],
             class: class.into(),
+            ..Default::default()
         };
         sender.sign(Domain::Envelope, envelope.encode_to_vec())
     };

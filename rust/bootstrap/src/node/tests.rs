@@ -299,6 +299,7 @@ async fn repair_sends_no_signals_but_lists_them() {
             mailbox: mailbox.clone(),
             ciphertext: vec![3],
             class: class.into(),
+            ..Default::default()
         };
         let record = owner.sign(dyapp_identity::Domain::Envelope, envelope.encode_to_vec());
         let response = service.store_mailbox(&record).unwrap();

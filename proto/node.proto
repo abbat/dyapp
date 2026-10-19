@@ -230,6 +230,19 @@ message Envelope {
   // MLS ciphertext; the recipient checks the sender inside it.
   bytes ciphertext = 3;
   EnvelopeClass class = 4;
+  // Payload `WriteToken` for this mailbox; the envelope is then signed by its `token_key`.
+  // Unset for a first message to a stranger.
+  dyapp.identity.SignedRecord write_token = 5;
+}
+
+// Lets one contact write to a mailbox for one UTC day, signed by the mailbox's device key. The
+// owner hands it over inside MLS; a node sees only the per-day `token_key`.
+message WriteToken {
+  bytes mailbox = 1;
+  // Ed25519 key that signs the contact's envelopes on that day.
+  bytes token_key = 2;
+  // UTC day: Unix seconds / 86400.
+  uint32 epoch = 3;
 }
 
 // What a node may tell apart; anything else is end-to-end encrypted.

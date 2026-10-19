@@ -50,6 +50,8 @@ signature_domains! {
     MailboxFetch => b"dyapp/mailbox-fetch/v1\0",
     /// A mailbox ack, signed by the mailbox's device key.
     MailboxAck => b"dyapp/mailbox-ack/v1\0",
+    /// A contact's permission to write to a mailbox for one day, signed by its device key.
+    WriteToken => b"dyapp/write-token/v1\0",
     /// The list of an owner's media blobs, signed by the owner's identity key.
     MediaKeep => b"dyapp/media-keep/v1\0",
     /// Chat attachment blobs, signed by the sender's identity key.

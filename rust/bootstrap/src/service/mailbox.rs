@@ -97,7 +97,7 @@ impl Service {
                 })
             }
             Some(mailbox_request::Request::Put(record)) => {
-                self.put(&record, store, true, MAX_ENVELOPE_BYTES)
+                self.put(&record, store, Source::Client, MAX_ENVELOPE_BYTES)
             }
             Some(mailbox_request::Request::Fetch(record)) => {
                 let expected = nonce.take();
@@ -185,7 +185,7 @@ impl Service {
         // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
         // watching device never acks until the mailbox cap; carry the expiry if that matters.
         for record in &batch.envelopes {
-            let put = self.put(record, true, true, ENVELOPE_ACCEPT_BYTES)?;
+            let put = self.put(record, true, Source::Replica, ENVELOPE_ACCEPT_BYTES)?;
             if worst.status == i32::from(Status::Ok) || put.status == i32::from(Status::Denied) {
                 worst = put;
             }
@@ -212,14 +212,14 @@ impl Service {
 
     /// Stores a locally held replica after admission, without billing the client twice.
     pub fn store_mailbox(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
-        self.put(record, true, false, ENVELOPE_ACCEPT_BYTES)
+        self.put(record, true, Source::Local, ENVELOPE_ACCEPT_BYTES)
     }
 
     pub(super) fn put(
         &self,
         record: &SignedRecord,
         store: bool,
-        bill_sender: bool,
+        source: Source,
         max: usize,
     ) -> crate::Result<MailboxResponse> {
         if record.payload.len() > max {
@@ -234,6 +234,9 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
+        if let Err(answer) = self.admit_token(record, &envelope, source) {
+            return Ok(status(answer));
+        }
         let signal = is_signal(&envelope);
         if signal && record.payload.len() > MAX_SIGNAL_BYTES {
             return Ok(mailbox_too_large(MAX_SIGNAL_BYTES));
@@ -241,7 +244,7 @@ impl Service {
         if self.listed_key(&record.public_key) || self.listed(&envelope.mailbox) {
             return Ok(status(Status::Refused));
         }
-        if bill_sender && !self.senders.check_limit(&hex(&record.public_key)) {
+        if source != Source::Local && !self.senders.check_limit(&hex(&record.public_key)) {
             return Ok(status(Status::RateLimited));
         }
         if !store {
@@ -271,6 +274,74 @@ impl Service {
         )?;
         Ok(status(if stored { Status::Ok } else { Status::Full }))
     }
+
+    /// The envelope's write token key, `None` without a token, or the answer that refuses it.
+    fn admit_token(
+        &self,
+        record: &SignedRecord,
+        envelope: &proto::Envelope,
+        source: Source,
+    ) -> Result<Option<Vec<u8>>, Status> {
+        let late = match source {
+            Source::Client => 3600,
+            Source::Replica | Source::Local => self.retention() as i64 + 3600,
+        };
+        let now = chrono::Utc::now().timestamp();
+        match (check_token(record, envelope, now, late), source) {
+            (Ok(key), _) => Ok(key),
+            // Replica paths never strike: an old node relays tokens unverified.
+            (Err(_), Source::Replica | Source::Local) => Err(Status::Ok),
+            (Err(TokenError::Forged), Source::Client) => Err(Status::Denied),
+            (Err(TokenError::Expired), Source::Client) => Err(Status::Stale),
+        }
+    }
+}
+
+/// Who hands an envelope to [`Service::put`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Source {
+    /// A client put: billed to the sender; a write token must be current.
+    Client,
+    /// A replica put or repair: billed; a token may be one TTL late, and a bad one drops the
+    /// envelope with `OK`.
+    Replica,
+    /// A local replica of an admitted client put: not billed again.
+    Local,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum TokenError {
+    /// Bad token signature, a token for another mailbox, or an envelope not signed by its key.
+    Forged,
+    /// Outside the token's day, with one hour of skew, plus `late` seconds after it.
+    Expired,
+}
+
+/// Checks the envelope's write token at `now`; returns its key, `None` without a token.
+pub(super) fn check_token(
+    record: &SignedRecord,
+    envelope: &proto::Envelope,
+    now: i64,
+    late: i64,
+) -> Result<Option<Vec<u8>>, TokenError> {
+    let Some(token) = &envelope.write_token else {
+        return Ok(None);
+    };
+    let Ok((mailbox, payload)) = owner_request::<proto::WriteToken>(token, Domain::WriteToken, |_| true)
+    else {
+        return Err(TokenError::Forged);
+    };
+    if mailbox[..] != envelope.mailbox
+        || payload.mailbox != envelope.mailbox
+        || payload.token_key != record.public_key
+    {
+        return Err(TokenError::Forged);
+    }
+    let start = i64::from(payload.epoch) * 86_400;
+    if now < start - 3600 || now >= start + 86_400 + late {
+        return Err(TokenError::Expired);
+    }
+    Ok(Some(payload.token_key))
 }
 
 /// Whether `got` is the nonce issued on this connection, compared in constant time.
