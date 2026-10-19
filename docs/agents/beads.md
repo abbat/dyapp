@@ -20,6 +20,29 @@ Code through the symlink `.claude/skills/beads` (`/beads`).
 - Label every bead you create (`-l` on `bd create`, `--add-label` on `bd update`); see
   [Labels](#labels).
 
+## Definition of Ready
+
+Practice A1. Before claiming a task, feature or bug bead, check that it is ready, and claim it
+through the same script:
+
+```bash
+python3 -B scripts/bead-ready.py --claim <id>   # check, then bd update <id> --claim
+python3 -B scripts/bead-ready.py <id>...        # check only
+python3 -B scripts/bead-ready.py --in-progress  # every claimed bead
+```
+
+A bead is ready when it has:
+
+- a goal: a non-empty description;
+- at least one verifiable acceptance criterion (`--acceptance`);
+- a `Docs:` line naming the pages the work changes, or `Docs: none`;
+- a `Verify:` line saying how the result is checked, such as a command or a test.
+
+The two lines may stand in the description, acceptance criteria, design or notes. A bead that is
+not ready is completed first (`bd update <id> --append-notes "Docs: ...\nVerify: ..."`), not
+claimed. Epics and chores are not checked. The script runs locally only: CI has no beads
+database.
+
 ## Labels
 
 Use only the labels below; add a new one only after the user agrees, and list it here.
@@ -103,7 +126,7 @@ JSON for offline reproduction. Keep these files outside tracked/public files.
 ```bash
 bd ready -n 10                       # open, unblocked work
 bd show <id>                         # details
-bd update <id> --claim               # assign to you, status in_progress
+python3 -B scripts/bead-ready.py --claim <id>  # check readiness, then claim
 bd create "Title" -t task -p 2 --parent <epic-id>
 bd dep add <blocked-id> <blocker-id> # <blocked-id> depends on <blocker-id>
 bd close <id> --reason "what was done"
