@@ -48,6 +48,7 @@
   "coverage": {"fix":"docs/testing/README.md#coverage-policy","format":"python"},
   "apple-results": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "instrumentation": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
+  "flaky": {"fix":"docs/testing/README.md#flaky-tests","format":"python"},
   "junit": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "python-tests": {"fix":"docs/testing/README.md#1-unit-tests-in-each-crate","format":"unittest"},
   "json-check": {"fix":"docs/development/code-quality.md#check-output","format":"json"},

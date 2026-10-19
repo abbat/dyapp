@@ -13,6 +13,12 @@ instrument() {
     export CARGO_TARGET_DIR=target/llvm-cov-target
     eval "$(cargo llvm-cov show-env --sh)"
 }
+# Practice B5: nextest retries failures (.config/nextest.toml); nextest skips doctests.
+tests() {
+    cargo nextest run --workspace --all-features --locked --no-tests fail
+    cargo test --workspace --all-features --locked --doc
+    python3 -B scripts/check-flaky.py --raw "${CARGO_TARGET_DIR:-target}/nextest/default/junit.xml"
+}
 check() {
     local name=$1
     shift
@@ -47,7 +53,7 @@ step() {
             check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         build) cargo build --release --workspace --locked ;;
-        test) cargo test --workspace --all-features --locked ;;
+        test) tests ;;
         cov-build)
             instrument
             cargo llvm-cov clean --workspace
@@ -56,7 +62,7 @@ step() {
             ;;
         cov-test)
             instrument
-            cargo test --workspace --all-features --locked
+            tests
             ;;
         cov-report)
             instrument

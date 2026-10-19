@@ -174,9 +174,10 @@ local offline security setup is kept in its raw log.
 ### `core` → **build**
 
 This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checkout
-(`fetch-depth: 0`, for the changed-line coverage diff). Setup installs cargo-llvm-cov 0.9.1 and
-cargo-deny 0.20.2. The instrumented target (without debuginfo) fits the runner's free disk, so
-there is no `free disk` step: deleting the preinstalled SDKs took about 5 minutes.
+(`fetch-depth: 0`, for the changed-line coverage diff). Setup installs cargo-llvm-cov 0.9.1,
+cargo-deny 0.20.2 and cargo-nextest 0.9.148. The instrumented target (without debuginfo) fits the
+runner's free disk, so there is no `free disk` step: deleting the preinstalled SDKs took about 5
+minutes.
 
 The workspace is compiled **once**, with coverage instrumentation. The `cov-*` steps and
 `network` re-derive the same environment from `cargo llvm-cov show-env`, with target dir
@@ -187,7 +188,7 @@ nothing.
 | Step | `rust-check.sh` step | What it runs |
 |------|----------------------|--------------|
 | build | `cov-build` | `cargo llvm-cov clean --workspace`; `cargo test --workspace --all-features --locked --no-run` |
-| tests | `cov-test` | `cargo test --workspace --all-features --locked` on that build |
+| tests | `cov-test` | `cargo nextest run` and `cargo test --doc` on that build; [flaky tests](../testing/README.md#flaky-tests) |
 | coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` with `COVERAGE_BASE` = the PR base or `github.event.before` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses sources`; it fetches the advisory DB at run time |

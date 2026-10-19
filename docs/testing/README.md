@@ -169,6 +169,28 @@ single aggregate gate for `ci.yml`. A failing check fails its workflow run, but 
 documentation does not promise that a PR is blocked. See
 [ci-matrix.md](../development/ci-matrix.md#required-checks).
 
+## Flaky tests
+
+Practice B5. `scripts/rust-check.sh` steps `test` and `cov-test` run the workspace tests with
+cargo-nextest 0.9.148 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`), then the doctests
+with `cargo test --doc`, which nextest does not run. `.config/nextest.toml` retries a failed test
+twice and writes a JUnit report to `<target>/nextest/default/junit.xml`. A test that fails all
+three attempts fails the step.
+
+A test that passes only on a retry is flaky. `scripts/check-flaky.py` reads the report and fails
+the step when a flaky test is not in `[flaky]` of `scripts/baselines.toml`, or when an entry
+there is older than 7 days. The CI failure becomes a bead through the
+[CI report import](../agents/beads.md#ci-failures). Quarantine the test with its JUnit
+`classname name` and the day it was found, as a TOML date:
+
+```toml
+[flaky]
+"dyapp-bootstrap::properties signed_record" = 2026-10-19
+```
+
+Within 7 days, fix the test and remove the entry; an expired entry fails `make test`, CI and the
+Python suite in `make quality`, even when the test no longer flakes.
+
 ## Coverage Policy
 
 The search protocol suite includes deterministic worker saturation: it holds a
@@ -182,7 +204,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Item | Value |
 |------|-------|
-| Tool | cargo-llvm-cov 0.9.1 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run `cargo test --workspace --all-features --locked` on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
+| Tool | cargo-llvm-cov 0.9.1 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run the [tests](#flaky-tests) on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
 | Threshold | Ratchet (practice B1): the total must not drop below `[coverage] lines` in `scripts/baselines.toml` (87.8%). When the total exceeds it by 0.5 points or more, the check prints the value to raise it to; raise it in the same change. Lowering it weakens the gate. |

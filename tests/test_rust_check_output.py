@@ -63,6 +63,21 @@ class RustOutput(unittest.TestCase):
             self.assertEqual(raw.returncode, 101)
             self.assertIn("passing progress", raw.stdout)
 
+    def test_nextest_failure_details(self):
+        output = ("    Starting 2 tests\\n        PASS [   0.001s] core ok\\n"
+                  "        FAIL [   0.002s] core bad\\n"
+                  "thread bad panicked at src/lib.rs:2:5\\n")
+        with tempfile.TemporaryDirectory() as directory:
+            failed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/run-check.py"),
+                 "--log-dir", directory, "rust-test", "--",
+                 "sh", "-c", f"printf '{output}'; exit 100"],
+                capture_output=True, text=True, check=False)
+        self.assertEqual(failed.returncode, 100, failed.stdout)
+        self.assertIn("FAIL [   0.002s] core bad\nthread bad panicked",
+                      failed.stdout)
+        self.assertNotIn("PASS", failed.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

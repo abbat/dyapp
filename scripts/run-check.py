@@ -59,6 +59,10 @@ def diagnostics(text, policy):
     if kind == "rust-test":
         start = next((i for i, line in enumerate(lines)
                       if line == "failures:"), None)
+        if start is None:
+            # cargo-nextest reports each failure as `FAIL [ time] test`.
+            start = next((i for i, line in enumerate(lines) if re.match(
+                r"^\s+(?:FAIL|TIMEOUT|SIG\w+) \[", line)), None)
         if start is not None:
             return [line for line in lines[start:] if line]
         pattern = r"^(?:error(?:\[[^]]+\])?:|\s*-->\s)"
