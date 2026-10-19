@@ -1,0 +1,11 @@
+# OSV-Scanner exceptions for the Cargo.lock next to this file, read by the OpenSSF Scorecard
+# Vulnerabilities check (docs/security/assurance.md#openssf-scorecard). Each one says why it does
+# not apply.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"

@@ -1,6 +1,7 @@
-# OSV-Scanner exceptions, read by the OpenSSF Scorecard Vulnerabilities check
-# (docs/security/assurance.md#openssf-scorecard). Each one says why it does not apply; cargo-deny
-# (deny.toml) keeps its own list for the root workspace.
+# OSV-Scanner exceptions for the Cargo.lock next to this file, read by the OpenSSF Scorecard
+# Vulnerabilities check (docs/security/assurance.md#openssf-scorecard). Each one says why it does
+# not apply.
+# cargo-deny keeps its own list in deny.toml.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0253"
@@ -9,11 +10,3 @@ reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2024-0429"
-reason = "glib 0.18 VariantStrIter in the Tauri apps: gtk 0.18 pins it and no fixed version is reachable; the apps never use VariantStrIter (Dependabot alert dismissed as tolerable risk)"
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2024-0370"
-reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of the gtk-rs crates under Tauri"

@@ -24,8 +24,9 @@ an approving review), CII-Best-Practices (no badge yet), Branch-Protection (not 
 badge are maintainer decisions; until they change, the target of 7.0 is not met.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
-`osv-scanner.toml` lists the advisories that do not apply, each with its reason (no fixed version
-reachable, a code path the project never takes). cargo-deny keeps its own list in `deny.toml`.
+An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `linux/`, `windows/`) lists the
+advisories that do not apply there, each with its reason (no fixed version reachable, a code path
+the project never takes). cargo-deny keeps its own list in `deny.toml`.
 Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same
 Dockerfile; those findings are dismissed in code scanning as false positives, and so is the
 Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
