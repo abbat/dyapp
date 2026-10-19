@@ -83,7 +83,7 @@ def main():
         args.report.write_text(json.dumps(report, indent=2) + "\n")
     if report["errors"]:
         print("FAIL artifact-size: size budget could not be satisfied")
-        print("FIX: docs/development/ci-base.md#artifact-size-budgets-staged")
+        print("FIX: docs/development/ci-base.md#artifact-size-budgets")
         print("DETAILS:")
         print("\n".join(report["errors"]))
         return 1

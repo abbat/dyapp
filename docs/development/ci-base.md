@@ -48,7 +48,7 @@ same-environment scope. Nightly runner results remain independently observable.
 Tests cover changed bytes, empty/missing files, a successful Cargo exit without
 the second executable, and a failed build with host-supplied Git metadata.
 
-## Artifact size budgets (staged)
+## Artifact size budgets
 
 `scripts/check-artifact-size.py <name> <file> --base <ancestor> --report <json>`
 compares file bytes with `scripts/artifact-sizes.json`. Exactly 5% growth passes;

@@ -105,7 +105,7 @@ structural verification, not a signature, full executable or installation test.
 The runner expects `app-release-unsigned.apk` and `app-release.aab` and copies
 both verified packages into the report directory; signing and store distribution
 remain planned. `release-sizes.yml` runs it on schedule and gates both packages
-([size policy](ci-base.md#artifact-size-budgets-staged)).
+([size policy](ci-base.md#artifact-size-budgets)).
 
 ## Unsigned Apple Release packages
 
@@ -139,7 +139,7 @@ with Xcode version and captured logs. The successful
 calibrated the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
 The producer checks the real package bytes and writes `size.json`/`size.log`
 using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
-separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets-staged)).
+separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets)).
 Signing and notarization remain planned.
 
 ## What a working build would need (roadmap)
@@ -153,8 +153,8 @@ Not implemented. This is the order in which the gaps block each other:
    Signing, notarization and App Store distribution remain planned.
 3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
-   requests unsigned APK/AAB; missing offline Release lint dependencies currently
-   block verified packaging. Release signing and store distribution remain planned.
+   packages unsigned APK/AAB, measured and size-gated in scheduled CI. Release signing
+   and store distribution remain planned.
 4. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
    crates can target `wasm32` (sockets and `sled` storage cannot). There is no
    such crate today.

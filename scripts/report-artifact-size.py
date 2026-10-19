@@ -45,7 +45,7 @@ def main():
     args.report.write_text(json.dumps(result, indent=2) + "\n")
     if result["errors"]:
         print("FAIL artifact-measurement: could not collect release evidence")
-        print("FIX: docs/development/ci-base.md#artifact-size-budgets-staged")
+        print("FIX: docs/development/ci-base.md#artifact-size-budgets")
         print("DETAILS:")
         print("\n".join(result["errors"]))
         return 1
