@@ -254,8 +254,8 @@ resent from the sender's retry queue.
   4.0, see `NOTICE`) in `rust/bootstrap/data/places.bin`, about 190 KB: one block per country
   with its sorted IDs as LEB128 deltas. A lookup skips to the country's block and decodes it,
   at most a few tens of thousands of IDs. A release refreshes the file with
-  `scripts/geonames-places.py`. Planned: the search index stores a place outside the set under
-  its country only.
+  `scripts/geonames-places.py`. The search index stores a place outside the set, or an empty
+  one, as `""`: such a profile is found by its country only.
 - Planned: an optional public `name`, and one rule for every profile string: NFC, no control,
   format (bidi, zero-width) or private-use characters, a character limit per string and a count
   limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,
@@ -337,7 +337,10 @@ resent from the sender's retry queue.
   node without it serves no protocol. It holds typed columns for every
   `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
-  and (r). Client publication checks the encoded signed record against `search.max_profile_bytes`
+  and (r). A `place_count` table keeps the number of indexed profiles per (country, place),
+  updated on every put and removal; `key` also keeps `first_seen` (the first put, never
+  changed) and `bytes` (the signed record's size, 0 for a tombstone), and `meta` keeps the
+  file's `created` time. Client publication checks the encoded signed record against `search.max_profile_bytes`
   (1–65536 bytes, default 64 KiB, reported in `info`). Gossip and inventory catch-up instead
   accept records up to the fixed 64 KiB network bound, even when the local send limit is lower. Storage is bounded by
   `search.max_bytes`, records and index together, checked on every put; a profile leaves the
@@ -1039,7 +1042,8 @@ media.db     owners(owner PK, version, last_seen, record BLOB)
 data/aa/bb/<hex hash>  the blob
 profiles-idx.db  profile(key PK, topic, version, search fields, place, r), interest(key, interest)
                  record(key PK, record BLOB), key(key PK, topic, version, deleted, updated,
-                      heartbeat, beat_day, beats)
+                      heartbeat, beat_day, beats, first_seen, bytes)
+                 place_count(country, place, n), meta(name PK, value): `created`
                  search role only; key = SHA-256 of the identity key; disposable
 ```
 

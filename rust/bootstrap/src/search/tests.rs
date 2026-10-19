@@ -23,9 +23,37 @@ pub(super) fn profile(version: u64) -> Profile {
         version,
         age: 30,
         country: "DE".into(),
-        place: "berlin".into(),
+        place: "2950159".into(),
         interests: vec!["chess".into()],
         ..Profile::default()
+    }
+}
+
+type Counts = Vec<(String, String, i64)>;
+
+impl SearchIndex {
+    fn rows(&self, sql: &str) -> Counts {
+        let db = lock(&self.db).unwrap();
+        let mut statement = db.prepare(sql).unwrap();
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap();
+        rows.collect::<rusqlite::Result<_>>().unwrap()
+    }
+
+    fn place_counts(&self) -> Counts {
+        self.rows("SELECT * FROM `place_count` ORDER BY 1, 2")
+    }
+
+    fn recount(&self) -> Counts {
+        self.rows("SELECT `country`, `place`, COUNT(*) FROM `profile` GROUP BY 1, 2 ORDER BY 1, 2")
+    }
+
+    fn column<T: rusqlite::types::FromSql>(&self, sql: &str, key: &[u8; 32]) -> T {
+        lock(&self.db)
+            .unwrap()
+            .query_row(sql, [&key[..]], |row| row.get(0))
+            .unwrap()
     }
 }
 
@@ -87,4 +115,96 @@ fn digest_rebuilt_on_open() {
         .unwrap();
     drop(index);
     assert_digest_consistent(&SearchIndex::open(&path, u64::MAX).unwrap());
+}
+
+#[test]
+fn unknown_places_go_to_the_country_bucket() {
+    let index = index();
+    let mut keys = vec![];
+    for place in ["2950159", "999999999", "berlin", ""] {
+        let profile = Profile {
+            place: place.into(),
+            ..profile(1)
+        };
+        let (key, p, r) = signed(&Identity::generate(), profile);
+        index.put(&key, &p, &r, 1_000, true).unwrap();
+        keys.push(key);
+    }
+    let stored: Vec<String> = keys
+        .iter()
+        .map(|k| index.column("SELECT `place` FROM `profile` WHERE `key` = ?", k))
+        .collect();
+    assert_eq!(stored, ["2950159", "", "", ""]);
+    let expected: Counts = vec![
+        ("DE".into(), "".into(), 3),
+        ("DE".into(), "2950159".into(), 1),
+    ];
+    assert_eq!(index.place_counts(), expected);
+}
+
+#[test]
+fn place_counts_follow_put_remove_and_expiry() {
+    let index = index();
+    let id = Identity::generate();
+    let (key, p, r) = signed(&id, profile(1));
+    index.put(&key, &p, &r, 1_000, true).unwrap();
+    let moved = Profile {
+        place: "2911298".into(),
+        ..profile(2)
+    };
+    let (_, p, r) = signed(&id, moved);
+    index.put(&key, &p, &r, 2_000, true).unwrap();
+    assert_eq!(index.place_counts(), index.recount());
+    assert_eq!(index.place_counts().len(), 1);
+    let (_, p, r) = signed(&id, Profile::tombstone(3, 0, 0));
+    index.put(&key, &p, &r, 3_000, true).unwrap();
+    assert_eq!(index.place_counts(), vec![]);
+    fill(&index, 10, 4_000);
+    assert_eq!(index.place_counts(), index.recount());
+    index.expire(i64::MAX).unwrap();
+    assert_eq!(index.place_counts(), vec![]);
+}
+
+#[test]
+fn first_seen_and_bytes_are_kept() {
+    let index = index();
+    let id = Identity::generate();
+    let (key, p, r) = signed(&id, profile(1));
+    index.put(&key, &p, &r, 1_000, true).unwrap();
+    let (_, p, r) = signed(&id, profile(2));
+    index.put(&key, &p, &r, 5_000, true).unwrap();
+    let first_seen: i64 = index.column("SELECT `first_seen` FROM `key` WHERE `key` = ?", &key);
+    let bytes: i64 = index.column("SELECT `bytes` FROM `key` WHERE `key` = ?", &key);
+    assert_eq!(first_seen, 1_000);
+    assert_eq!(bytes, r.encoded_len() as i64);
+}
+
+#[test]
+fn migration_from_version_zero() {
+    let dir = format!("/tmp/ai/test-search-{}", uuid::Uuid::new_v4());
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = Path::new(&dir).join("profiles-idx.db");
+    {
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(SCHEMA).unwrap();
+        db.execute(
+            "INSERT INTO `profile` (`key`, `topic`, `version`, `country`, `place`, `r`)
+               VALUES (?1, 0, 1, 'DE', 'berlin', 5), (?2, 0, 1, 'DE', '2950159', 6)",
+            [[1u8; 32], [2; 32]],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO `key` (`key`, `topic`, `version`, `deleted`, `updated`, `heartbeat`,
+               `beat_day`, `beats`) VALUES (?, 0, 1, 0, 0, 0, 0, 0)",
+            [[1u8; 32]],
+        )
+        .unwrap();
+    }
+    let index = SearchIndex::open(&path, 1 << 40).unwrap();
+    let expected: Counts = vec![
+        ("DE".into(), "".into(), 1),
+        ("DE".into(), "2950159".into(), 1),
+    ];
+    assert_eq!(index.place_counts(), expected);
+    assert!(index.created() > 0);
 }

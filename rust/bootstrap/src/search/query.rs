@@ -12,8 +12,16 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
 }
 
 /// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd.
-/// Returns the index and the keys in p0/p3.
+/// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
+const SIX: [&str; 6] = [
+    "2950159", "2911298", "2867714", "2886242", "2925533", "2825297",
+];
+
+/// Returns the index and the keys in SIX[0]/SIX[3].
 fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
+    for place in SIX {
+        assert_eq!(crate::places::canonical("DE", place), place);
+    }
     let index = index();
     let mut p03 = std::collections::HashSet::new();
     for i in 0..600i64 {
@@ -22,7 +30,7 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             version: 1,
             age: u32::try_from(20 + i % 60).unwrap(),
             country: "DE".into(),
-            place: format!("p{}", i % 6),
+            place: SIX[(i % 6) as usize].into(),
             interests: if i % 3 == 0 {
                 vec!["chess".into()]
             } else {
@@ -44,7 +52,7 @@ fn query_filters_place_in_and_budget() {
     let (index, p03) = population();
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
-        cond(20, Op::In, vec![], vec!["p1", "p2"]),
+        cond(20, Op::In, vec![], vec![SIX[1], SIX[2]]),
         cond(3, Op::Range, vec![30, 39], vec![]),
         cond(19, Op::In, vec![], vec!["chess", "go"]),
         cond(99, Op::Eq, vec![1], vec![]),
@@ -56,7 +64,7 @@ fn query_filters_place_in_and_budget() {
     assert!(found.hits.is_empty());
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
-        cond(20, Op::In, vec![], vec!["p0", "p3"]),
+        cond(20, Op::In, vec![], vec![SIX[0], SIX[3]]),
         cond(19, Op::Eq, vec![], vec!["chess"]),
     ];
     let found = index.query(&q, 200, 10_000).unwrap().unwrap();

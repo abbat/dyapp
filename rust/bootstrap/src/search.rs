@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS `key_topic` ON `key` (`topic`, `key`);
 CREATE TABLE IF NOT EXISTS `digest` (`topic` INTEGER, `bucket` INTEGER, `hash` BLOB,
   PRIMARY KEY (`topic`, `bucket`)) WITHOUT ROWID;
 ";
-const STEPS: &[Step] = &[];
+const STEPS: &[Step] = &[counts::newcomers_and_places];
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
 pub fn topic(key: &[u8; 32]) -> u32 {
@@ -161,6 +161,8 @@ pub struct SearchIndex {
     written: AtomicU64,
     /// Set when usage passed `max_bytes`; each put evicts one batch until under 95 %.
     over: AtomicBool,
+    /// When the file was created (Unix seconds).
+    created: i64,
 }
 
 /// A reader connection on loan; goes back to the pool on drop.
@@ -192,16 +194,30 @@ fn sql(v: u64) -> Option<i64> {
 impl SearchIndex {
     /// Opens or creates the index at `path`, keeping it below `max_bytes`.
     pub fn open(path: &Path, max_bytes: u64) -> Result<Self> {
+        let db = storage::open(path, SCHEMA, STEPS)?;
+        let created = lock(&db)?
+            .query_row(
+                "SELECT `value` FROM `meta` WHERE `name` = 'created'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
         let index = Self {
-            db: storage::open(path, SCHEMA, STEPS)?,
+            db,
             readers: Mutex::new(Vec::new()),
             path: path.to_owned(),
             max_bytes,
             written: AtomicU64::new(0),
             over: AtomicBool::new(false),
+            created,
         };
         index.rebuild_digest()?;
         Ok(index)
+    }
+
+    /// When the file was created (Unix seconds).
+    pub fn created(&self) -> i64 {
+        self.created
     }
 
     /// Heal derived state on open, including files last written by an older binary.
@@ -397,6 +413,7 @@ impl SearchIndex {
             flip(&tx, key, stored.unsigned_abs())?;
         }
         flip(&tx, key, version.unsigned_abs())?;
+        uncount(&tx, &key[..])?;
         for table in ["profile", "interest", "record"] {
             tx.execute(
                 &format!("DELETE FROM `{table}` WHERE `key` = ?"),
@@ -405,16 +422,23 @@ impl SearchIndex {
             .map_err(storage_error)?;
         }
         let topic = topic(key);
+        let bytes = if p.deleted {
+            0
+        } else {
+            record.encoded_len() as i64
+        };
         tx.execute(
             "INSERT INTO `key` (`key`, `topic`, `version`, `deleted`, `updated`, `heartbeat`,
-               `beat_day`, `beats`) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 0, 0)
+               `beat_day`, `beats`, `first_seen`, `bytes`) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 0, 0, ?5, ?6)
              ON CONFLICT (`key`) DO UPDATE SET `version` = ?3, `deleted` = ?4, `updated` = ?5,
-               `heartbeat` = ?5",
-            params![&key[..], topic, version, p.deleted, now],
+               `heartbeat` = ?5, `bytes` = ?6",
+            params![&key[..], topic, version, p.deleted, now, bytes],
         )
         .map_err(storage_error)?;
         if !p.deleted {
             let r = i64::from_ne_bytes(rand_bytes());
+            let place = crate::places::canonical(&p.country, &p.place);
+            count_place(&tx, &p.country, place, 1)?;
             tx.execute(
                 "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
                    ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
@@ -437,7 +461,7 @@ impl SearchIndex {
                     p.financial_philosophy,
                     p.employment_status,
                     p.fitness_level,
-                    p.place,
+                    place,
                     r
                 ],
             )
@@ -646,13 +670,11 @@ impl SearchIndex {
             let key_array = <&[u8; 32]>::try_from(key.as_slice())
                 .map_err(|_| storage_error("invalid search key length"))?;
             flip(&tx, key_array, version.unsigned_abs())?;
-            for table in ["profile", "interest", "record", "key"] {
-                tx.execute(&format!("DELETE FROM `{table}` WHERE `key` = ?"), [key])
-                    .map_err(storage_error)?;
-            }
         }
+        let keys: Vec<Vec<u8>> = rows.into_iter().map(|(key, _)| key).collect();
+        remove_keys(&tx, &keys)?;
         tx.commit().map_err(storage_error)?;
-        Ok(rows.len())
+        Ok(keys.len())
     }
 }
 
@@ -905,6 +927,10 @@ fn rand_bytes() -> [u8; 8] {
     getrandom::fill(&mut bytes).expect("OS random source");
     bytes
 }
+
+#[path = "search/counts.rs"]
+mod counts;
+use counts::{count_place, remove_keys, uncount};
 
 #[cfg(test)]
 #[path = "search/digest.rs"]
