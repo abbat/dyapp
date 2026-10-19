@@ -142,6 +142,23 @@ fn replica_put_drops_bad_tokens_without_a_strike() {
     );
     assert_eq!(service.held_ids(&mailbox).unwrap(), vec![vec![4; 16]]);
     assert!(!service.reputation.banned(&replica.id));
+
+    // A token of two days ago, its day ended a TTL and part of an hour ago: still in the last
+    // hour of grace on replica paths.
+    let since = chrono::Utc::now().timestamp() - i64::from(today() - 1) * 86_400;
+    let hours = u32::try_from(since / 3600).unwrap();
+    let service = service_with(|l| l.message_ttl_hours = hours);
+    let late = token(&owner, &mailbox, &contact, today() - 2);
+    let batch = proto::Envelopes {
+        envelopes: vec![contact.sign(
+            Domain::Envelope,
+            envelope(5, &mailbox, late).encode_to_vec(),
+        )],
+        ..Default::default()
+    };
+    let request = mailbox_request::Request::ReplicaPut(batch);
+    assert_eq!(put(&service, &replica, request), Status::Ok);
+    assert_eq!(service.held_ids(&mailbox).unwrap(), vec![vec![5; 16]]);
 }
 
 #[test]

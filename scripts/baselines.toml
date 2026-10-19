@@ -16,6 +16,11 @@ c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the te
 b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"
 57e927c8cd6ea510aa00ea4e082bca5c9d88b466 = "Atomic move of store requests off the swarm loop; node.rs reindented"
 491a1d7a03ab0dd8e4ef3bb763ee21a580525e88 = "Heartbeat proof of work with the search module splits its size budgets required"
+6e466b2515c0aa19945504d62ca3ccd76c8baea4 = "Atomic split of oversized bootstrap sources into modules; moved code"
+b61bb3ce6fb2bdee12aab9fab312f57e8cb06bce = "Atomic move of mailbox requests out of service.rs"
+bc6cee52f9930c5637f34117847045ea18762cc0 = "Token key storage, pool eviction rules and their schema migration with tests and docs"
+9f41870bd54c9c7d78fec0455766395b70a8c735 = "Envelope labels across put, replica_put and repair with the pool enforcement and docs"
+94776c519116605dd2dd43c63d28eec1489803b0 = "Signed revoke across storage, service, forwarding and repair with tests and docs"
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
