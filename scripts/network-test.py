@@ -437,7 +437,9 @@ def media_repair(client, bin_dir, storage, peers):
         else:
             raise RuntimeError("No media repair keys spanning all nodes")
         upload = call(client, "media-sized", entry, str(size), seed.hex())
-        if any(upload[k] != "STATUS_OK" for k in ("keep", "put", "get")):
+        # A get right after a sharded put can miss shards still fanning out;
+        # the holder loop below waits for every copy.
+        if any(upload[k] != "STATUS_OK" for k in ("keep", "put")):
             raise RuntimeError(f"Media repair upload failed: {upload}")
         details = upload["details"]
         # Every selected holder must have finished the background fan-out.
@@ -842,7 +844,9 @@ def media_spread(client, entry, peers, ids, size=512 * 1024):
     else:
         raise RuntimeError("No media keys spanning all three nodes")
     reply = call(client, "media-sized", entry, str(size), seed.hex())
-    if any(reply[key] != "STATUS_OK" for key in ("keep", "put", "get")):
+    # A get right after a sharded put can miss shards still fanning out;
+    # the loop below waits.
+    if any(reply[key] != "STATUS_OK" for key in ("keep", "put")):
         raise RuntimeError(f"{size} byte media upload failed: {reply}")
     for index, (tcp, quic) in enumerate(peers):
         for _ in range(20):
