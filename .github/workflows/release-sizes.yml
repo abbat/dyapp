@@ -54,6 +54,59 @@ jobs:
             target/artifact-size-windows.json
           if-no-files-found: error
 
+  android:
+    name: release - android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      DYAPP_BUILD_CACHE: gha
+      ANDROID_ENVIRONMENT: "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # buildx keeps its own copy of each image before --load.
+      - name: free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: build and measure
+        run: |
+          python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build android-unit-test
+          mkdir -p target/android-release && chmod 777 target/android-release
+          docker run --rm --network none --user 999:999 \
+            -e DYAPP_CHECK_LOG_DIR=/reports/check-output \
+            -v "$PWD/target/android-release:/reports" \
+            dyapp:android-test bash /app/scripts/build-android-release.sh /reports
+          for package in apk:app-release-unsigned.apk aab:app-release.aab; do
+            kind=${package%%:*}
+            python3 scripts/report-artifact-size.py "android-$kind-release-unsigned" \
+              "target/android-release/${package#*:}" \
+              --environment "$ANDROID_ENVIRONMENT; unsigned ${kind^^}" \
+              --report "target/release-size-android-$kind.json"
+          done
+      - name: size budget
+        run: |
+          for package in apk:app-release-unsigned.apk aab:app-release.aab; do
+            kind=${package%%:*}
+            python3 scripts/check-artifact-size.py "android-$kind-release-unsigned" \
+              "target/android-release/${package#*:}" --base "$(git rev-parse HEAD^)" \
+              --head "$(git rev-parse HEAD)" --report "target/artifact-size-android-$kind.json"
+          done
+      - name: evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-size-android
+          path: |
+            target/android-release/check-output/
+            target/android-release/*.json
+            target/android-release/build.log
+            target/release-size-android-*.json
+            target/artifact-size-android-*.json
+          if-no-files-found: error
+
   apple:
     name: release - ${{ matrix.platform }}
     runs-on: macos-15

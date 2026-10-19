@@ -81,29 +81,31 @@ Fails to generate bindings and still reports success. See
 results; `--raw` bypasses this frontend and `--help` prints usage without an SDK
 build. The captured Gradle build log remains in the report directory.
 
-Inside the prepared Android image, run
-`bash scripts/build-android-release.sh /tmp/ai/release-reports` from a writable
-copy of this checkout. The copy needs `Cargo.toml`, `Cargo.lock`, `rust/`,
-`proto/`, `android/` and `scripts/`; use a writable copy of the image's prepared
-Gradle cache as `GRADLE_USER_HOME`. The existing SDK, NDK, Cargo dependencies and
-Gradle dependencies must already be available: the runner uses offline mode and
-installs nothing. It requests `assembleRelease` and `bundleRelease`, including
-release Rust JNI libraries; it does not set `dyapp.prebuiltRust`.
+The `dyapp:android-test` image carries the source and a writable Gradle cache, so
+the runner works in a throwaway container without network:
 
-The existing prepared image's offline probe on 2026-10-15 reached Release lint,
-but failed because `com.android.tools.lint:lint-gradle:32.4.1` was not cached.
-Rust JNI and Kotlin/Java compilation completed; end-to-end packaging is not yet
-verified. Manual cache/image preparation is required before retrying; the runner
-does not bypass `lintVitalAnalyzeRelease` or fetch the missing dependency.
+```bash
+mkdir -p target/android-release && chmod 777 target/android-release
+docker run --rm --network none --user 999:999 \
+  -v "$PWD/target/android-release:/reports" \
+  dyapp:android-test bash /app/scripts/build-android-release.sh /reports
+```
+
+The image build caches the Release Gradle dependencies, Release lint included, by
+running the Release tasks without the release Rust core and discarding their
+packages. The runner uses offline mode and installs nothing. It requests
+`assembleRelease` and `bundleRelease`, including release Rust JNI libraries; it
+does not set `dyapp.prebuiltRust` and does not skip `lintVitalAnalyzeRelease`.
 
 `build.log` retains Gradle output. On success `packages.json` records APK/AAB
 bytes, SHA-256 and the required arm64-v8a/x86_64 entries. The verifier requires
 nonempty manifest/dex/library members, rejects duplicate ZIP names and checks
 64-bit little-endian ELF machine identifiers for the native libraries. This is
 structural verification, not a signature, full executable or installation test.
-The runner expects `app-release-unsigned.apk` and `app-release.aab`; signing and
-store distribution remain planned. Scheduled production and matching Android
-size budgets are also planned; the global D5 practice is not yet adopted.
+The runner expects `app-release-unsigned.apk` and `app-release.aab` and copies
+both verified packages into the report directory; signing and store distribution
+remain planned. `release-sizes.yml` runs it on schedule and gates both packages
+([size policy](ci-base.md#artifact-size-budgets-staged)).
 
 ## Unsigned Apple Release packages
 

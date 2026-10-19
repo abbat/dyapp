@@ -87,10 +87,11 @@ JSON, Xcode version, actual package size-gate reports and captured logs. Distinc
 unsigned device IPA and universal macOS ZIP baselines come from a successful
 native producer run ([producer details](build.md#unsigned-apple-release-packages)).
 
-All-platform producer integration is planned; D5 is not yet adopted. Android
-APK/AAB still need successful Release packaging, actual matching measurements
-and CI gates; the existing offline image lacks a Release lint dependency
-([Android prerequisite](build.md#unsigned-android-release)).
+The Android job builds the `dyapp:android-test` image, runs the
+[offline Release runner](build.md#unsigned-android-release) in it without network,
+and gates the verified unsigned APK and AAB against baselines measured in the same
+image. It archives the build log, `packages.json`, `release-size-android-<kind>.json`
+and `artifact-size-android-<kind>.json`.
 
 Auxiliary Python lint, dependency audit, advisory Rust analysis and Windows
 release compilation also use the shared concise runner. Their full logs are

@@ -33,6 +33,16 @@
     "revision": "bfd546d31c417a67a506222df7b6b59c08899195",
     "evidence": "https://github.com/abbat/dyapp/actions/runs/38747979532"
   },
+  "android-apk-release-unsigned": {
+    "bytes": 37100930,
+    "environment": "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned APK",
+    "revision": "13e3cbfa45221b0a0ccad9d88b5a13347da74861"
+  },
+  "android-aab-release-unsigned": {
+    "bytes": 13314471,
+    "environment": "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned AAB",
+    "revision": "13e3cbfa45221b0a0ccad9d88b5a13347da74861"
+  },
   "macos-macos15-universal-release-unsigned-zip": {
     "bytes": 4667298,
     "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; universal arm64/x86_64 Release; unsigned ZIP",

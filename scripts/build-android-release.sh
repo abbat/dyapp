@@ -20,10 +20,12 @@ export CARGO_NET_OFFLINE=true CARGO_INCREMENTAL=0 CARGO_TARGET_DIR="$root/target
 cd "$root/android"
 if sh ./gradlew --offline --no-daemon :app:assembleRelease :app:bundleRelease \
     > "$reports/build.log" 2>&1; then
-    python3 "$root/scripts/check-android-release.py" \
-        --apk app/build/outputs/apk/release/app-release-unsigned.apk \
-        --aab app/build/outputs/bundle/release/app-release.aab \
+    apk=app/build/outputs/apk/release/app-release-unsigned.apk
+    aab=app/build/outputs/bundle/release/app-release.aab
+    python3 "$root/scripts/check-android-release.py" --apk "$apk" --aab "$aab" \
         --report "$reports/packages.json"
+    # Verified packages leave the container with the reports for the size gate.
+    cp -f "$apk" "$aab" "$reports/"
 else
     code=$?
     printf 'FAIL android-release: Gradle exited with %s\n' "$code"
