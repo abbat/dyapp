@@ -5,10 +5,10 @@
 
 ## Context
 
-The bootstrap node serves axum REST routes over plain HTTP, while the network itself is a
+The bootstrap node served axum REST routes over plain HTTP, while the network itself is a
 libp2p DHT ([ADR 0008](0008-sybil-and-eclipse-defences.md)). Two stacks mean two transports,
-two authentication schemes and two sets of tests. The project has no gRPC: `proto/` holds unused
-schemas and `identity` and `profile` define their `prost` types by hand. gRPC needs HTTP/2 and
+two authentication schemes and two sets of tests. The project had no gRPC: `proto/` held unused
+schemas and `identity` and `profile` defined their `prost` types by hand. gRPC needs HTTP/2 and
 does not run over libp2p streams.
 
 ## Decision
@@ -30,5 +30,6 @@ does not run over libp2p streams.
 - Mobile apps run rust-libp2p in the core; reaching a sleeping phone (push wake-up) is not solved
   by libp2p and is deferred.
 - libp2p has no traffic obfuscation; resistance to DPI blocking is deferred.
-- Not implemented: `rust/bootstrap` still serves REST (`api.rs`); `rust/p2p-net` has the libp2p
-  node but no application protocols.
+- Implemented for the node: `dyappd` serves only libp2p protocols generated from `proto/node.proto`
+  ([served protocol](../architecture/bootstrap.md#served-protocol)); the REST server is gone.
+  The apps do not speak these protocols yet.

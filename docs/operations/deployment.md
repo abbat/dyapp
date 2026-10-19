@@ -2,9 +2,9 @@
 
 ## Overview
 
-> ⚠️ **Not production-ready.** Encryption, signatures and bootstrap
-> authentication are stubs; a bootstrap operator and the network see
-> plaintext. See [Encryption & Security Status](../security/encryption.md).
+> ⚠️ **Not production-ready.** Message encryption is a stub: a bootstrap operator and the
+> network see plaintext. The node checks Ed25519 signatures: the owner's on profiles, the
+> sender's on envelopes and the device's on mailbox reads. See [Encryption & Security Status](../security/encryption.md).
 
 dyapp is **fully distributed** — each participant runs their own client. No central servers required (bootstrap servers are optional for peer discovery & message relay).
 
@@ -56,7 +56,7 @@ Dedicated Bootstrap Nodes (1-3 instances)
                     ↓ (plaintext today; encryption planned)
 
 Users (iOS/Android/macOS/Linux)
-  └─ Mailbox per recipient device on its nodes (single node today; push planned)
+  └─ Mailbox per recipient device on its five replica nodes; a watching fetch gets new envelopes pushed
 ```
 
 **Pros:**
@@ -88,8 +88,9 @@ Example: User opens app
 
 ## Bootstrapping a Node
 
-> **Status:** `dyappd` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox` and
-> `/dyapp/media` over libp2p ([served protocol](../architecture/bootstrap.md#served-protocol)).
+> **Status:** `dyappd` serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+> `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory` over libp2p
+> ([served protocol](../architecture/bootstrap.md#served-protocol)).
 > A Debian 12 package with a hardened systemd unit ([below](#debian-12-package)) and a minimal
 > container image ([below](#container-image)) exist; neither is published yet.
 
@@ -178,8 +179,10 @@ Roles are a list, so `roles = ["store", "media", "turn"]` combines them. `store`
 profiles, mailboxes and the DHT; `media` serves media blobs and `turn` hands out credentials
 for a coturn relay ([TURN relay](#turn-relay)), and the experimental `search` serves profile
 search ([Search](../architecture/bootstrap.md#search)); none includes `store`, and each is refused
-at startup without it in the list. Keep `search` off public nodes: publish has no proof of
-work yet. A node without a role answers its requests `UNSUPPORTED`.
+at startup without it in the list. A search publish needs profile proof of work
+(`search.min_profile_pow_bits`); the defences against query and fake-profile floods are planned
+([threat model](../security/threat-model.md)). A node without a role answers its requests
+`UNSUPPORTED`.
 
 ```toml
 listen = ["[::1]:7070", "127.0.0.1:7070"]  # default: loopback; ["[::]:7070", "0.0.0.0:7070"] serves
@@ -313,8 +316,8 @@ bundled SQLite, or Docker for the containerised path.
 
 ### Multi-node cluster
 
-Nodes join through `seeds` and find each other over Kademlia. Clients write profiles and
-envelopes whole to 5 replica points; nodes repair mailbox replicas between themselves
+Nodes join through `seeds` and find each other over Kademlia. A client writes a profile or an
+envelope to one node, which replicates it whole to 5 DHT points; nodes repair mailbox replicas between themselves
 ([replication and repair](../architecture/bootstrap.md#replication-and-repair)). Profile repair
 and Reed-Solomon media up to 6 MiB are implemented. Owner-signed keeps trigger batched media
 repair of missing items; no repair runs while the owner remains offline.
@@ -516,9 +519,16 @@ There is no admin HTTP API.
 
 Not measured. There is no load test of the bootstrap server. Disk, the byte rate, memory and
 connections are capped by `limits`
-([resource guards](../architecture/bootstrap.md#resource-guards)). Several nodes survive the loss of one for
-messages and profiles, not for media
+([resource guards](../architecture/bootstrap.md#resource-guards)). Several nodes survive the loss of
+one for messages, profiles and media
 ([replication](../architecture/bootstrap.md#replication-and-repair)).
+
+Sizing assumptions, unmeasured: with the default quotas a node needs about 16 GiB of disk
+(`profiles_max_mb` 1 GiB + `messages_max_mb` 4 GiB + `media_max_mb` 10 GiB + `min_free_mb`
+512 MiB; a node without the media role about 6 GiB; a search node adds `search.max_bytes`) and
+1 GiB of memory (`MemoryMax=1G`,
+`limits.max_memory_mb` 768). A full store answers `FULL` instead of growing; how many users
+these numbers carry is not known until a load test exists.
 
 ## Troubleshooting
 
@@ -561,8 +571,8 @@ restarted together.
 
 ## Next Steps
 
-Planned for the node: public seed nodes and erasure-coded media; see
-[Bootstrap](../architecture/bootstrap.md).
+Planned work for the node is listed in
+[Bootstrap: Limitations & Future](../architecture/bootstrap.md#limitations--future).
 
 ## References
 

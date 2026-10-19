@@ -506,7 +506,10 @@ sender's identity: the sender key only proves someone signed it; puts are limite
 power of two from 1 KiB before encryption ([Threat Model](../security/threat-model.md#traffic-analysis)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
-(`dyappd` deletes expired envelopes every hour) → fetched oldest first.
+(`dyappd` deletes expired envelopes every hour) → fetched oldest first. Exception: a node that
+receives an envelope through mailbox repair (`replica_put`) starts a new TTL for it, so while a
+device keeps watching without acking, replicas can re-seed each other and keep an envelope past
+the TTL; carrying the original expiry through repair is planned.
 
 Planned: `Envelope.class`, `message` (default) or `signal`, the only field that tells a node a
 signal from a message; signals count against `limits.signal_max_kb`, not the mailbox's 10 MiB
@@ -1098,9 +1101,8 @@ The fixed slots are node, profile, mailbox, push, media, search, inventory, dige
 other; counts display as `name=in/out`. Digest is reserved and has no served protocol yet.
 Each `take()` atomically resets individual counters; concurrent increments fall into this or
 the next interval, so the snapshot across counters is not globally atomic. These are interval
-counts, not monotonic monitoring totals. Codec and gossip instrumentation and the
-`wire_bytes` status field are **planned**. The intended measurement excludes transport
-overhead and gossip control traffic, duplicate delivery and forwarding fan-out.
+counts, not monotonic monitoring totals; they exclude transport overhead and gossip control
+traffic, duplicate delivery and forwarding fan-out.
 
 ## Testing
 

@@ -105,8 +105,10 @@ priorities and are not used by the WebRTC stack.
 No STUN or TURN server is configured, so only host candidates could be
 gathered. TURN is not "always succeeds": a relay requires a deployed TURN
 server with credentials, and the call fails if the relay is unreachable or
-both peers are behind networks that block it. Bootstrap does not provide
-TURN. Which TURN service to use is undecided.
+both peers are behind networks that block it. A `dyappd` node with the `turn`
+role hands out short-lived credentials for a coturn relay its operator runs
+([TURN relay](../operations/deployment.md#turn-relay)); the video code does
+not request them yet.
 
 ## Codecs
 

@@ -42,19 +42,20 @@ node, and there is no WebRTC signaling channel.
 | P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; request-response `/dyapp/node`, `/dyapp/profile` with `ProtoCodec` ([P2P networking](p2p-networking.md)) |
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
-| Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox` requests, SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon helpers (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; no push or replication |
+| Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers every served protocol ([bootstrap](bootstrap.md#served-protocol)), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon media (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; mailbox push, replication to five DHT points and repair |
 | Node | `rust/bootstrap/src/bin/dyappd.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | Shows the peer ID from `generate_peer_id` via UniFFI Kotlin bindings |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
-| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` is served for `/dyapp/node`, `/dyapp/profile` and `/dyapp/mailbox`, not `/dyapp/mailbox-push`; no gRPC/tonic |
+| Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` defines every served node protocol; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:
 
-- **Node vs network.** `dyappd` runs a Kademlia node, but nodes do not discover each other
-  or replicate yet: each is an independent server over SQLite.
+- **Node vs network.** `dyappd` nodes find each other over Kademlia from the operator's
+  `seeds`, replicate profiles, envelopes and media to their DHT holders and repair them; each
+  keeps its own SQLite stores. No app speaks the node protocols yet.
 - **WebRTC media vs QUIC messaging.** Video uses the `webrtc` crate (its own
   ICE/DTLS/SRTP stack); messaging is meant to run over libp2p. They are
   separate transports and share no connection.
