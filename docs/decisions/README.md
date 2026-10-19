@@ -30,7 +30,8 @@ The ADR must exist in that commit. An existing ADR that already covers the chang
 example [0015](0015-sqlite-node-storage.md) for a new SQLite table; otherwise the commit adds or
 updates one, which a person confirms first. `scripts/check-adr.py` checks every commit after its
 adoption commit in the quality step (`make quality`, CI job quality) and lists each trigger with
-its commit.
+its commit. History is not rewritten: a pushed commit that lacks the trailer is listed in
+`COVERED` in the script with the ADR that covers it.
 
 ## Index
 

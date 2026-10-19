@@ -120,12 +120,14 @@ protobuf_round_trip! {
     search_response: SearchResponse,
     inventory_request: InventoryRequest,
     inventory_response: InventoryResponse,
+    puzzle: Puzzle,
 }
 
 enum_round_trip! {
     status: Status,
     role: Role,
     op: Op,
+    capability: Capability,
 }
 
 json_round_trip! {

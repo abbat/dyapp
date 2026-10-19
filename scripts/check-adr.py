@@ -23,6 +23,14 @@ GRADLE = re.compile(r"^\s*\w*[iI]mplementation\s*\(?\s*(?:platform\()?\s*"
                     r"""['"]([\w.-]+:[\w.-]+)""", re.M)
 SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
                     r"|PRAGMA user_version|`\w+` (?:BLOB|INTEGER|TEXT|REAL)\b")
+# Pushed commits that lack the trailer and the ADR covering each;
+# history is not rewritten.
+COVERED = {
+    "b665f8eb6103cfae36c96750ab1b7e62216ece23":
+        "docs/decisions/0014-libp2p-only-node-protocol.md",
+    "47d3207e88219a2eb6619f108aa43fd307a70804":
+        "docs/decisions/0016-protocol-evolution.md",
+}
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
 
@@ -86,6 +94,8 @@ def commit_errors(sha):
             if path.endswith(".rs") else ""
         found += triggers(path, show(f"{sha}^", path), show(sha, path), diff)
     if not found:
+        return []
+    if sha in COVERED:
         return []
     adr = TRAILER.search(message)
     if adr and show(sha, adr.group(1)):

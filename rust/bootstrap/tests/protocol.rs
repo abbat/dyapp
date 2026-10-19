@@ -224,7 +224,11 @@ async fn replica_peer_and_group_refusals_keep_the_connection_open() {
             );
             // One strike would ban this connection; info must still answer on the same one,
             // from the IP-group bucket it shares.
-            let info = if group_bucket { Status::RateLimited } else { Status::Ok };
+            let info = if group_bucket {
+                Status::RateLimited
+            } else {
+                Status::Ok
+            };
             assert_eq!(status(client.info().await.status), info);
         }
     }

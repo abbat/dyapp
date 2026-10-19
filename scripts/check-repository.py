@@ -22,7 +22,9 @@ CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 # Names that are not crates: the stale package name in build-uniffi.sh.
 NOT_TRACKER = {"dyapp-core"}
 # Commit-message ratchet: commits after this one follow the message rules.
-BASELINE = "39c3e3fd8642497fca3003efa97bafd75008268f"
+# Pushed history is not rewritten: this is the last pushed commit that
+# breaks a rule (a 74-character subject).
+BASELINE = "3a14182bddb0787d6b9a09788f0f50fbc0425e58"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80

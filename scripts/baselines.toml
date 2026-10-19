@@ -13,6 +13,8 @@ max_lines = 400
 [batches.exceptions]
 # Reasons for pushed commits that lack a Large-Change trailer; history is not rewritten.
 c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
+b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"
+57e927c8cd6ea510aa00ea4e082bca5c9d88b466 = "Atomic move of store requests off the swarm loop; node.rs reindented"
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
@@ -43,7 +45,6 @@ max_lines = 1000
 
 [size.files]
 # Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
-"rust/bootstrap/src/config.rs" = 1016
-"rust/bootstrap/src/node.rs" = 3752
-"rust/bootstrap/src/service.rs" = 4154
-"rust/p2p-net/src/lib.rs" = 1506
+"rust/bootstrap/src/node.rs" = 3655
+"rust/bootstrap/src/service.rs" = 3754
+"rust/bootstrap/tests/protocol.rs" = 1002

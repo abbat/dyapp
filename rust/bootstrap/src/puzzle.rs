@@ -44,7 +44,7 @@ fn solved(challenge: &[u8], peer: &str, nonce: u64, bits: u32) -> bool {
     data.extend_from_slice(peer.as_bytes());
     data.extend_from_slice(&nonce.to_be_bytes());
     let hash = dyapp_identity::sha256(&data);
-    let zeros = u128::from_be_bytes(hash[..16].try_into().unwrap()).leading_zeros();
+    let zeros = u128::from_be_bytes(hash[..16].try_into().unwrap_or_default()).leading_zeros();
     zeros >= bits
 }
 
@@ -55,9 +55,11 @@ pub fn solve(challenge: &[u8; 16], peer: &str, bits: u32) -> u64 {
 
 /// The first nonce from `start` solving `challenge` for `peer` at `bits`.
 pub fn solve_from(challenge: &[u8; 16], peer: &str, bits: u32, start: u64) -> u64 {
-    (start..)
-        .find(|nonce| solved(challenge, peer, *nonce, bits))
-        .unwrap()
+    let mut nonce = start;
+    while !solved(challenge, peer, nonce, bits) {
+        nonce += 1;
+    }
+    nonce
 }
 
 impl Puzzle {
@@ -79,7 +81,9 @@ impl Puzzle {
     }
 
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
-        self.inner.lock().unwrap_or_else(|poison| poison.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
     }
 
     /// Current (challenge, bits); bits 0 = off.
