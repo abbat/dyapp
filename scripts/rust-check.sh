@@ -97,17 +97,19 @@ step() {
             # Practice B4: each target (FUZZ_TARGETS, default all) for FUZZ_SECONDS on fuzz/corpus.
             # libFuzzer runs the corpus first, so a saved crash is a regression test. New inputs go
             # to target/fuzz-corpus, crashes to target/fuzz-artifacts.
-            local seconds=${FUZZ_SECONDS:-60} target
+            local seconds=${FUZZ_SECONDS:-60} target host
+            # cargo-fuzz defaults to the triple it was built for: musl for install-action's binary.
+            host=$(rustc -vV | sed -n 's/^host: //p')
             cd fuzz
             # The targets' node stores live here, off the small /tmp of the dev container.
             rm -rf ../target/fuzz-tmp
             mkdir -p ../target/fuzz-tmp
             export TMPDIR=$PWD/../target/fuzz-tmp
-            cargo fuzz build -s none --target-dir ../target/fuzz
+            cargo fuzz build -s none --target "$host" --target-dir ../target/fuzz
             for target in ${FUZZ_TARGETS:-$(cargo fuzz list)}; do
                 mkdir -p "../target/fuzz-corpus/$target" "../target/fuzz-artifacts/$target"
                 # The binary itself: `cargo fuzz run` writes into the read-only fuzz/artifacts.
-                "../target/fuzz/x86_64-unknown-linux-gnu/release/$target" \
+                "../target/fuzz/$host/release/$target" \
                     "../target/fuzz-corpus/$target" "corpus/$target" \
                     -max_total_time="$seconds" -rss_limit_mb=4096 \
                     -artifact_prefix="../target/fuzz-artifacts/$target/"
