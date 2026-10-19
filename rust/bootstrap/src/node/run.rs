@@ -825,6 +825,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                                 kind,
                                 Some(mailbox_request::Request::ReplicaPut(_))
                                     | Some(mailbox_request::Request::ReplicaAck(_))
+                                    | Some(mailbox_request::Request::ReplicaRevoke(_))
                             );
                             answered += 1;
                             service.traffic.add(response.encoded_len() as u64);

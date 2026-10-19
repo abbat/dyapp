@@ -73,19 +73,22 @@ impl Service {
         if self.refused(peer) {
             return Ok(status(Status::Refused));
         }
-        let response = self.mailbox_request(peer, nonce, request, store)?;
-        if response.status == i32::from(Status::Denied) {
+        let mut strike = true;
+        let response = self.mailbox_request(peer, nonce, request, store, &mut strike)?;
+        if strike && response.status == i32::from(Status::Denied) {
             self.strike(peer);
         }
         Ok(response)
     }
 
+    /// `strike` is cleared when a DENIED answer is no sign of abuse.
     fn mailbox_request(
         &self,
         peer: &Peer,
         nonce: &mut Option<[u8; 32]>,
         request: MailboxRequest,
         store: bool,
+        strike: &mut bool,
     ) -> crate::Result<MailboxResponse> {
         match request.request {
             Some(mailbox_request::Request::Challenge(_)) => {
@@ -100,14 +103,16 @@ impl Service {
             }
             Some(mailbox_request::Request::Put(record)) => {
                 let group = Group::Ip(&peer.group);
-                self.put(
+                let (response, strikes) = self.put_inner(
                     &record,
                     store,
                     Source::Client,
                     MAX_ENVELOPE_BYTES,
                     &peer.id,
                     group,
-                )
+                )?;
+                *strike = strikes;
+                Ok(response)
             }
             Some(mailbox_request::Request::Fetch(record)) => {
                 let expected = nonce.take();
@@ -142,6 +147,15 @@ impl Service {
             Some(mailbox_request::Request::ReplicaAck(record)) => self.ack(&record, |_| true),
             Some(mailbox_request::Request::Inventory(inventory)) => self.inventory(&inventory),
             Some(mailbox_request::Request::ReplicaPut(batch)) => self.replica_put(peer, &batch),
+            // A replayed revoke only revokes the same keys again.
+            Some(
+                mailbox_request::Request::Revoke(record)
+                | mailbox_request::Request::ReplicaRevoke(record),
+            ) => {
+                let (response, strikes) = self.revoke(&record)?;
+                *strike = strikes;
+                Ok(response)
+            }
             None => Ok(status(Status::Unsupported)),
         }
     }
@@ -273,23 +287,52 @@ impl Service {
         via: &str,
         group: Group,
     ) -> crate::Result<MailboxResponse> {
+        Ok(self.put_inner(record, store, source, max, via, group)?.0)
+    }
+
+    /// [`Service::put`], and whether a DENIED answer strikes the sender.
+    fn put_inner(
+        &self,
+        record: &SignedRecord,
+        store: bool,
+        source: Source,
+        max: usize,
+        via: &str,
+        group: Group,
+    ) -> crate::Result<(MailboxResponse, bool)> {
         if record.payload.len() > max {
-            return Ok(mailbox_too_large(max));
+            return Ok((mailbox_too_large(max), true));
         }
         if record.verify(Domain::Envelope).is_err() {
-            return Ok(status(Status::Denied));
+            return Ok((status(Status::Denied), true));
         }
         let Ok(envelope) = proto::Envelope::decode(record.payload.as_slice()) else {
-            return Ok(status(Status::Invalid));
+            return Ok((status(Status::Invalid), true));
         };
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
-            return Ok(status(Status::Invalid));
+            return Ok((status(Status::Invalid), true));
         }
-        let token_key = match self.admit_token(record, &envelope, source) {
+        let token_key = match self.admit_token(record, &envelope, source)? {
             Ok(key) => key,
-            Err(answer) => return Ok(status(answer)),
+            Err((answer, strike)) => return Ok((status(answer), strike)),
         };
-        let signal = is_signal(&envelope);
+        self.store_put(record, &envelope, token_key, store, source, via, group)
+            .map(|response| (response, true))
+    }
+
+    /// The rest of [`Service::put`] once the token is admitted.
+    #[allow(clippy::too_many_arguments)]
+    fn store_put(
+        &self,
+        record: &SignedRecord,
+        envelope: &proto::Envelope,
+        token_key: Option<Vec<u8>>,
+        store: bool,
+        source: Source,
+        via: &str,
+        group: Group,
+    ) -> crate::Result<MailboxResponse> {
+        let signal = is_signal(envelope);
         if signal && record.payload.len() > MAX_SIGNAL_BYTES {
             return Ok(mailbox_too_large(MAX_SIGNAL_BYTES));
         }
@@ -349,25 +392,32 @@ impl Service {
         }))
     }
 
-    /// The envelope's write token key, `None` without a token, or the answer that refuses it.
+    /// The envelope's write token key, `None` without a token, or the answer that refuses it and
+    /// whether a DENIED one strikes.
+    #[allow(clippy::type_complexity)]
     fn admit_token(
         &self,
         record: &SignedRecord,
         envelope: &proto::Envelope,
         source: Source,
-    ) -> Result<Option<Vec<u8>>, Status> {
+    ) -> crate::Result<Result<Option<Vec<u8>>, (Status, bool)>> {
         let late = match source {
             Source::Client => 3600,
             Source::Replica | Source::Local => self.retention() as i64 + 3600,
         };
         let now = chrono::Utc::now().timestamp();
-        match (check_token(record, envelope, now, late), source) {
+        let checked = match check_token(record, envelope, now, late) {
+            Ok(Some(key)) if self.revoked(&envelope.mailbox, &key)? => Err(TokenError::Revoked),
+            checked => checked,
+        };
+        Ok(match (checked, source) {
             (Ok(key), _) => Ok(key),
             // Replica paths never strike: an old node relays tokens unverified.
-            (Err(_), Source::Replica | Source::Local) => Err(Status::Ok),
-            (Err(TokenError::Forged), Source::Client) => Err(Status::Denied),
-            (Err(TokenError::Expired), Source::Client) => Err(Status::Stale),
-        }
+            (Err(_), Source::Replica | Source::Local) => Err((Status::Ok, false)),
+            (Err(TokenError::Forged), Source::Client) => Err((Status::Denied, true)),
+            (Err(TokenError::Revoked), Source::Client) => Err((Status::Denied, false)),
+            (Err(TokenError::Expired), Source::Client) => Err((Status::Stale, false)),
+        })
     }
 }
 
@@ -408,6 +458,8 @@ pub(super) enum TokenError {
     Forged,
     /// Outside the token's day, with one hour of skew, plus `late` seconds after it.
     Expired,
+    /// The mailbox revoked the token key.
+    Revoked,
 }
 
 /// Checks the envelope's write token at `now`; returns its key, `None` without a token.

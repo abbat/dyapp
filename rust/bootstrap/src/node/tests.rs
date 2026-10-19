@@ -362,7 +362,11 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     .sign(&owner);
     replicas.puts.insert(
         0,
-        PendingPut::new(PutRecord::Mailbox(SignedRecord::default(), vec![]), None, false),
+        PendingPut::new(
+            PutRecord::Mailbox(SignedRecord::default(), vec![]),
+            None,
+            false,
+        ),
     );
     replicas.puts.insert(
         1,

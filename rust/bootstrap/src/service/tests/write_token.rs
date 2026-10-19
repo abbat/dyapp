@@ -4,12 +4,17 @@ use mailbox_role::{check_token, TokenError};
 
 const DAY: i64 = 86_400;
 
-fn today() -> u32 {
+pub(super) fn today() -> u32 {
     (chrono::Utc::now().timestamp() / DAY) as u32
 }
 
 /// A token for `owner`'s mailbox handed to `token_key` on `epoch`.
-fn token(owner: &Identity, mailbox: &[u8], token_key: &Identity, epoch: u32) -> SignedRecord {
+pub(super) fn token(
+    owner: &Identity,
+    mailbox: &[u8],
+    token_key: &Identity,
+    epoch: u32,
+) -> SignedRecord {
     let payload = proto::WriteToken {
         mailbox: mailbox.to_vec(),
         token_key: token_key.public_key().to_vec(),
@@ -18,7 +23,7 @@ fn token(owner: &Identity, mailbox: &[u8], token_key: &Identity, epoch: u32) -> 
     owner.sign(Domain::WriteToken, payload.encode_to_vec())
 }
 
-fn envelope(id: u8, mailbox: &[u8], token: SignedRecord) -> proto::Envelope {
+pub(super) fn envelope(id: u8, mailbox: &[u8], token: SignedRecord) -> proto::Envelope {
     proto::Envelope {
         id: vec![id; 16],
         mailbox: mailbox.to_vec(),
@@ -28,14 +33,14 @@ fn envelope(id: u8, mailbox: &[u8], token: SignedRecord) -> proto::Envelope {
     }
 }
 
-fn put(service: &Service, from: &Peer, request: mailbox_request::Request) -> Status {
+pub(super) fn put(service: &Service, from: &Peer, request: mailbox_request::Request) -> Status {
     let request = MailboxRequest {
         request: Some(request),
     };
     mailbox_status(&service.mailbox(from, &mut None, request).unwrap())
 }
 
-fn mailbox_of(owner: &Identity) -> Vec<u8> {
+pub(super) fn mailbox_of(owner: &Identity) -> Vec<u8> {
     dyapp_identity::key_hash(&owner.public_key()).to_vec()
 }
 

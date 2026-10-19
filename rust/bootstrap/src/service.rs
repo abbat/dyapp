@@ -669,6 +669,9 @@ pub use search_role::{run_get, run_query, search_key, Search};
 mod mailbox_role;
 pub(crate) use mailbox_role::is_signal;
 
+#[path = "service/revoke.rs"]
+mod revoke_role;
+
 #[path = "service/media.rs"]
 mod media_role;
 pub(crate) use media_role::media_upload_status;

@@ -30,6 +30,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
 | `dyapp.node.WriteToken` | `dyapp/write-token/v1\0` | device key |
+| `dyapp.node.Revoke` | `dyapp/mailbox-revoke/v1\0` | device key |
 | `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
 | `dyapp.node.MediaAttach` | `dyapp/media-attach/v1\0` | identity key |
 | `dyapp.node.Heartbeat` | `dyapp/heartbeat/v1\0` | identity key |
@@ -69,7 +70,9 @@ SHA-256 of the device public key (32 bytes each).
   random 16-byte id, so it needs no nonce; the acceptor confirms two distinct replica holders.
   Client profile/mailbox puts cost five request units; pending writes are capped at 64 and
   expire after 10 seconds with `STATUS_FULL`. A node forwards a signed ack to the other replicas
-  verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce. For
+  verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce. A
+  `revoke`, signed by the device key without a nonce, is forwarded the same way as
+  `replica_revoke`, and repair carries the unexpired ones. For
   repair a node sends `inventory` (the ids it holds) and gets `missing` back; envelopes move
   between nodes as `replica_put`, signed by their senders and checked like a `put`.
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the

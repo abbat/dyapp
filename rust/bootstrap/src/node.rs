@@ -437,8 +437,8 @@ enum Lookup {
     Put(u64),
     ShardPut(u64, usize),
     ShardGet(u64, usize),
-    /// A device's ack, forwarded to the closest node.
-    Ack(SignedRecord),
+    /// A device's ack or revoke, forwarded verbatim to the closest node.
+    Forward(mailbox_request::Request),
     /// A mailbox whose inventory goes to the closest node.
     Repair(Vec<u8>),
     ProfileRepair(Arc<SignedRecord>),
@@ -446,9 +446,9 @@ enum Lookup {
 
 /// Local trust in peers as replica targets (ADR 0008), never shared. A peer is trusted once this
 /// node first connected to it at least `delay` ago and while its score is not negative: +1 per
-/// answer to this node's mailbox requests and per signed `replica_put` or `replica_ack` accepted
-/// from it, -1 per mailbox request of this node it failed. Bad signatures and floods are strikes
-/// of the separate ban score in `Service`.
+/// answer to this node's mailbox requests and per signed `replica_put`, `replica_ack` or
+/// `replica_revoke` accepted from it, -1 per mailbox request of this node it failed. Bad
+/// signatures and floods are strikes of the separate ban score in `Service`.
 /// ponytail: in memory only, so after a restart no peer gets replicas for `delay`.
 #[derive(Default)]
 struct Trust {
@@ -564,9 +564,9 @@ struct Replicas {
 /// Envelope bytes selected by one repair; a larger gap fills over the next repairs.
 const REPAIR_BYTES: usize = 1024 * 1024;
 
-/// Sends wanted held messages in immediately admitted batches of at most 50 units. Signals are
-/// never repaired: a signal evicted at its quota would come back from another replica and evict
-/// the next one.
+/// Sends the mailbox's unexpired revokes, one unit each, then wanted held messages in immediately
+/// admitted batches of at most 50 units. Signals are never repaired: a signal evicted at its quota
+/// would come back from another replica and evict the next one.
 fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -575,6 +575,20 @@ fn send_envelopes(
     mailbox: &[u8],
     wanted: impl Fn(&Vec<u8>) -> bool,
 ) {
+    let revokes = match service.revokes(mailbox) {
+        Ok(revokes) => revokes,
+        Err(error) => return tracing::error!(%error, "mailbox repair failed"),
+    };
+    for record in revokes {
+        if !cap.allow(&to, 1) {
+            continue;
+        }
+        let request = MailboxRequest {
+            request: Some(mailbox_request::Request::ReplicaRevoke(record)),
+        };
+        service.traffic.add(request.encoded_len() as u64);
+        swarm.behaviour_mut().mailbox.send_request(&to, request);
+    }
     let held = match service.held(mailbox) {
         Ok(held) => held,
         Err(error) => return tracing::error!(%error, "mailbox repair failed"),
@@ -609,8 +623,8 @@ fn send_envelopes(
 }
 
 /// What follows a successful mailbox request: a put is pushed to the mailbox's watchers; a
-/// watching fetch is remembered and starts a repair; a device's ack is forwarded to the nodes
-/// closest to the replica keys (its replies are ignored: the envelopes expire anyway); an
+/// watching fetch is remembered and starts a repair; a device's ack or revoke is forwarded to the
+/// nodes closest to the replica keys (their replies are ignored: the envelopes expire anyway); an
 /// inventory's sender gets the envelopes it lacks if it is near a replica key.
 /// ponytail: acks and inventories go to the closest node of each replica key only, where clients
 /// write; a replica written elsewhere because that node was full is not repaired and keeps an
@@ -654,7 +668,13 @@ fn after_mailbox(
         }
         Some(mailbox_request::Request::Ack(record)) => {
             let Ok(mailbox) = owner(&record) else { return };
-            lookup(swarm, &mailbox, &|| Lookup::Ack(record.clone()));
+            let request = || mailbox_request::Request::ReplicaAck(record.clone());
+            lookup(swarm, &mailbox, &|| Lookup::Forward(request()));
+        }
+        Some(mailbox_request::Request::Revoke(record)) => {
+            let Ok(mailbox) = owner(&record) else { return };
+            let request = || mailbox_request::Request::ReplicaRevoke(record.clone());
+            lookup(swarm, &mailbox, &|| Lookup::Forward(request()));
         }
         Some(mailbox_request::Request::Inventory(inventory)) => {
             // An arbitrary peer may send an inventory; only one this node's routing table
@@ -712,7 +732,7 @@ fn after_lookup(
         | Lookup::ShardPut(_, _)
         | Lookup::ShardGet(_, _)
         | Lookup::ProfileRepair(_) => unreachable!("lookups use all returned peers"),
-        Lookup::Ack(ack) => (mailbox_request::Request::ReplicaAck(ack), None),
+        Lookup::Forward(request) => (request, None),
         Lookup::Repair(mailbox) => {
             let target = kad::KBucketKey::new(key);
             let me = kad::KBucketKey::from(*swarm.local_peer_id());

@@ -209,6 +209,11 @@ message MailboxRequest {
     Inventory inventory = 6;
     // Node to node, for repair: envelopes as their senders signed them, each checked like `put`.
     Envelopes replica_put = 7;
+    // Payload `Revoke`, signed by the mailbox's device key.
+    dyapp.identity.SignedRecord revoke = 8;
+    // A `revoke` another replica node forwards verbatim or repair carries: checked like `revoke`
+    // and not forwarded again.
+    dyapp.identity.SignedRecord replica_revoke = 9;
   }
 }
 
@@ -276,6 +281,17 @@ message Fetch {
 message Ack {
   bytes nonce = 1;
   repeated bytes ids = 2;
+}
+
+// Write token keys the mailbox no longer accepts: the node deletes their stored envelopes and
+// refuses their puts until `created_at` + 31 days + its message TTL + 1 hour. Needs no nonce: a
+// replay only revokes the same keys again.
+message Revoke {
+  bytes mailbox = 1;
+  // 1 to 64 keys, 32 bytes each.
+  repeated bytes token_keys = 2;
+  // Unix seconds; more than 1 hour ahead of the node's clock is DENIED.
+  int64 created_at = 3;
 }
 
 message MailboxResponse {

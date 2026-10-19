@@ -95,7 +95,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
-| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`; node to node `replica_ack`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
+| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
@@ -115,6 +115,7 @@ on an identity's data carries a signature by a key of that identity:
 |---------|-----------|-----------------|
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
+| `mailbox.revoke` | the mailbox's device key, over the request (no nonce: a replay revokes the same keys) | mailbox address = H(device key) |
 | `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
@@ -558,6 +559,7 @@ A message for one device is a `SignedRecord` signed by a sender key over
 Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), ciphertext,
            class, write_token: optional SignedRecord }
 WriteToken { mailbox, token_key, epoch: UTC day number }  // signed by the recipient device key
+Revoke { mailbox, token_keys: 1 to 64, created_at }       // signed by the recipient device key
 ```
 
 **Write tokens.** A recipient hands each contact a daily token, signed by its device key over
@@ -568,8 +570,18 @@ replica paths (`replica_put`, repair, a local store) accept a token until the da
 `limits.message_ttl_hours` + 1 h. On a client put a forged token answers `DENIED` with a strike,
 an expired one `STALE` without a strike; on replica paths any token error drops the envelope
 silently, without a strike and without changing the batch status. The token counts towards the
-same 100 KiB signed-payload bound; the client reserves 256 bytes for it. Token revocation is
-planned.
+same 100 KiB signed-payload bound; the client reserves 256 bytes for it.
+
+**Revocation.** A recipient that blocks a contact sends `revoke`, signed by its device key over
+`"dyapp/mailbox-revoke/v1\0" || payload`, naming up to 64 token keys. It needs no nonce: a
+replay only revokes the same keys again. The node deletes the stored envelopes of those keys and
+refuses their tokens until `created_at` + 31 days + `limits.message_ttl_hours` + 1 h, which covers
+tokens issued up to 30 days ahead and their replica circulation; a key named again keeps the
+later expiry. A client put with a revoked token gets `DENIED` without a strike; replica paths
+drop it silently. The node forwards a valid `revoke` verbatim as `replica_revoke` like an ack,
+and repair sends a mailbox's unexpired revokes, one request unit each, before its envelopes. A
+mailbox holds at most 4096 revoked keys and 4096 signed revokes (`FULL` beyond); expired ones
+free room. The node sees which token pseudonyms a mailbox blocked, not who they are.
 
 **Tokenless pool.** Each stored envelope carries two 8-byte eviction labels: `via =
 SHA-256(peer id)[..8]` of the peer that handed it in (the node's own id for a local store), and
@@ -693,12 +705,14 @@ The current protocol replies are:
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |
 | `/dyapp/mailbox` | `challenge` | `OK` with a fresh 32-byte nonce for this connection; it replaces the previous one |
-| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature or forged write token (strike); `STALE` write token outside its day ± 1 h; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` with checked `max_bytes` for payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
+| `/dyapp/mailbox` | `put(SignedRecord)`, payload `Envelope` | `OK` after two distinct stores, also for a repeated (mailbox, id); one local store only with no peers; `FULL` pending cap or 10-second timeout; `DENIED` bad signature or forged write token (strike), revoked write token (no strike); `STALE` write token outside its day ± 1 h; `INVALID` undecodable, id not 16 or mailbox not 32 bytes; `TOO_LARGE` with checked `max_bytes` for payload over 100 KiB; `FULL` the mailbox would exceed 10 MiB |
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
+| `/dyapp/mailbox` | `revoke(SignedRecord)`, payload `Revoke` | `OK`, the keys are revoked and their envelopes deleted, and the revoke is forwarded as `replica_revoke`; `DENIED` bad signature, a signer that does not own `mailbox` or over 64 keys (strike), `created_at` over 1 h ahead (no strike); `INVALID` no keys or a key not 32 bytes; `STALE` already expired; `REFUSED` a denied mailbox; `FULL` over 4096 keys or revokes ([Revocation](#mailbox-envelope)) |
+| `/dyapp/mailbox` | `replica_revoke(SignedRecord)` | a `revoke` another node forwards verbatim or repair carries: checked like `revoke`, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold, read from stored ids without the envelopes; `DENIED` and a strike from a peer without node proof of work; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
-| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded, with its unsigned source group from `source_groups`; an envelope with a forged or expired write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded, with its unsigned source group from `source_groups`; an envelope with a forged, expired or revoked write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` with `max_bytes` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
@@ -732,8 +746,9 @@ The current protocol replies are:
 - **Mailbox repair.** A valid `fetch` with `watch` starts a repair of that mailbox, at most once
   an hour per node and only below 75 % of the traffic cap. The node looks up the closest node of
   each `replica_key(mailbox, i)`, skipping keys it is closer to itself, and sends it an
-  `inventory` of the ids it holds; the envelopes the answer lists as `missing` follow in one
-  `replica_put`, again only to a trusted node. The peer, if one of the first five nodes its own
+  `inventory` of the ids it holds; the mailbox's unexpired revokes follow as `replica_revoke`
+  and the envelopes the answer lists as `missing` in one `replica_put`, again only to a trusted
+  node. The peer, if one of the first five nodes its own
   routing table holds for a replica key is the requester and it trusts the requester, sends back
   the envelopes the inventory lacks the same way. A batch is cut at 1 MiB, the rest waits for the
   next visit; repair bytes count towards the traffic cap. A repaired envelope gets a fresh TTL on
@@ -1004,7 +1019,7 @@ in memory, go with a restart and are never shared with other nodes
 **Storage trust.** Replicas (forwarded acks, repair) go only to trusted peers. A peer is trusted
 once the node first connected to it at least `network.storage_trust_minutes` ago (default 60; 0
 trusts at once) and while its score is not negative. The score gains 1 per answer to the node's
-mailbox requests and per signed `replica_put` or `replica_ack` accepted from the peer, and loses 1
+mailbox requests and per signed `replica_put`, `replica_ack` or `replica_revoke` accepted from the peer, and loses 1
 per mailbox request of the node that failed (an old node lacking the protocol does not count). A
 peer is forgotten when its last connection closes while it is outside the routing table, and at
 the next maintenance run once it has left both, so clients that rotate peer IDs do not pile up in
@@ -1090,6 +1105,9 @@ messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires
                (mailbox, token_key, class, seq, size) WHERE token_key IS NOT NULL
              tokenless_mailbox(mailbox, class, bytes, PK (mailbox, class)), index (class, bytes)
              tokenless_total(class PK, bytes): tokenless bytes, kept by insert/delete triggers
+             revoked(mailbox, token_key, expires_at, PK (mailbox, token_key)), index expires_at
+             revokes(seq PK, mailbox, record BLOB, expires_at, UNIQUE (mailbox, record)),
+               index expires_at; record: the signed revoke, sent by repair
 media.db     owners(owner PK, version, last_seen, record BLOB)
              attachments(slot PK, release, owner, expires, created, record BLOB)
              blobs(owner, hash, size, cost, PK (owner, hash))
@@ -1127,7 +1145,8 @@ Each file has one connection behind a mutex. `storage::open` keeps the format ve
 `created`, the signed `record` columns, `cost` and the replica tables; `messages.db` 1 adds the
 envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`,
 `messages.db` 2 the `token_key`, `via` and `source_group` columns, their partial indexes, the
-tokenless counter tables and triggers, counting existing rows as tokenless;
+tokenless counter tables and triggers, counting existing rows as tokenless, `messages.db` 3 the
+`revoked` and `revokes` tables;
 `deny.db` is at 0. The first start after each `messages.db` step builds the indexes, O(n) once
 (seconds on a large file). An older `dyappd` refuses the newer `messages.db`; to roll back, move
 it aside, losing at most one TTL of undelivered mail, part of which mailbox repair returns. A file from before versions counts as 0 and its steps skip changes already there. A

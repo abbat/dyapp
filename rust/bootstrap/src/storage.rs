@@ -11,6 +11,9 @@ use std::sync::{Mutex, MutexGuard};
 #[path = "storage/envelopes.rs"]
 mod envelopes;
 pub use envelopes::{NewEnvelope, Put};
+#[path = "storage/revocations.rs"]
+mod revocations;
+pub use revocations::MAX_REVOKED;
 
 /// One SQLite file per data type in the storage directory.
 // ponytail: one connection per store behind a mutex; a reader pool if reads contend.
@@ -98,7 +101,11 @@ fn profiles_last_seen(db: &Connection) -> rusqlite::Result<()> {
 }
 
 /// `messages.db` format steps.
-const MESSAGE_STEPS: &[Step] = &[messages_class, envelopes::messages_tokens];
+const MESSAGE_STEPS: &[Step] = &[
+    messages_class,
+    envelopes::messages_tokens,
+    revocations::messages_revocations,
+];
 
 /// `class`: 1 for a signal, 0 for a message; rows stored before the column are messages. The
 /// covering index serves the per-class sums, the signal victim choice and the mailbox lookups of
@@ -365,10 +372,18 @@ impl BootstrapStore {
             .map_err(storage_error)
     }
 
-    /// Deletes envelopes expired at `now` (Unix seconds); returns how many.
+    /// Deletes envelopes, revoked keys and revokes expired at `now` (Unix seconds); returns how
+    /// many envelopes.
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
-        lock(&self.messages)?
-            .execute("DELETE FROM `envelopes` WHERE `expires_at` <= ?", [now])
+        let db = lock(&self.messages)?;
+        for table in ["revoked", "revokes"] {
+            db.execute(
+                &format!("DELETE FROM `{table}` WHERE `expires_at` <= ?"),
+                [now],
+            )
+            .map_err(storage_error)?;
+        }
+        db.execute("DELETE FROM `envelopes` WHERE `expires_at` <= ?", [now])
             .map_err(storage_error)
     }
 
