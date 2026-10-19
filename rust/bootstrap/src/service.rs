@@ -680,6 +680,7 @@ impl Service {
             &envelope.mailbox,
             &envelope.id,
             record,
+            false,
             expires_at,
             MAX_MAILBOX_BYTES,
         )?;

@@ -59,7 +59,7 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
         .unwrap();
     let record = owner.sign(Domain::Envelope, vec![1; 7]);
     store
-        .put_envelope(&[2; 32], &[3; 16], &record, i64::MAX, 1 << 20)
+        .put_envelope(&[2; 32], &[3; 16], &record, false, i64::MAX, 1 << 20)
         .unwrap();
     let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
     let output = success(&dir, &["status"]);

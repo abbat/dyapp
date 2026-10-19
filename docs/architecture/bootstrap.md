@@ -561,7 +561,8 @@ sender's identity: the sender key only proves someone signed it; puts are limite
 power of two from 1 KiB before encryption ([Threat Model](../security/threat-model.md#traffic-analysis)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
-(`dyappd` deletes expired envelopes every hour) → fetched oldest first. Exception: a node that
+(`dyappd` deletes expired envelopes every hour) → fetched messages first, then signals,
+oldest first in each. Exception: a node that
 receives an envelope through mailbox repair (`replica_put`) starts a new TTL for it, so while a
 device keeps watching without acking, replicas can re-seed each other and keep an envelope past
 the TTL; carrying the original expiry through repair is planned.
@@ -1039,9 +1040,10 @@ One SQLite file per data type in the storage directory, WAL journal,
 ```
 profiles.db  profiles(peer_id PK, record BLOB, live, last_seen)
              record: SignedRecord (protobuf), latest version or tombstone (live = 0)
-messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at,
+messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at, class,
                        UNIQUE (mailbox, id))
-             record: the signed envelope as received; indexes on (mailbox, seq), expires_at
+             record: the signed envelope as received; class: 1 signal, 0 message
+             indexes on (mailbox, class, seq, size), expires_at
 media.db     owners(owner PK, version, last_seen, record BLOB)
              attachments(slot PK, release, owner, expires, created, record BLOB)
              blobs(owner, hash, size, cost, PK (owner, hash))
@@ -1060,13 +1062,18 @@ profiles-idx.db  profile(key PK, topic, version, search fields, place, r), inter
 ```
 
 A `messages` table left by an older version is not read; it can be dropped by hand.
-`put_envelope` sums the mailbox's `size` on each put under the store lock.
+`put_envelope` sums the `size` of the mailbox's envelopes of the same class on each put, from
+the covering index, in one immediate transaction. A message over the quota stores nothing; a
+signal over it first deletes the mailbox's oldest signals until it fits.
 
 Each file has one connection behind a mutex. `storage::open` keeps the format version in
 `PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
 `profiles.db` 1 adds `last_seen`, `media.db` 1 adds the owner `last_seen`, the attachment
-`created`, the signed `record` columns, `cost` and the replica tables; `messages.db` and `deny.db`
-are at 0. A file from before versions counts as 0 and its steps skip changes already there. A
+`created`, the signed `record` columns, `cost` and the replica tables; `messages.db` 1 adds the
+envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`;
+`deny.db` is at 0. The first start after the `messages.db` step builds the index, O(n) once
+(seconds on a large file). An older `dyappd` refuses the newer `messages.db`; to roll back, move
+it aside, losing at most one TTL of undelivered mail, part of which mailbox repair returns. A file from before versions counts as 0 and its steps skip changes already there. A
 file newer than the binary fails the start with `<file> has store format N, this dyappd knows up
 to M; run a newer dyappd`. Rebuilding a file next to the old one is planned
 ([Principles](#principles)).

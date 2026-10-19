@@ -4,7 +4,7 @@ use crate::error::{BootstrapError, Result};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::VerifiedProfile;
 use prost::Message;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
@@ -91,6 +91,21 @@ fn profiles_last_seen(db: &Connection) -> rusqlite::Result<()> {
         &format!("INTEGER NOT NULL DEFAULT {now}"),
     )?;
     db.execute_batch("CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);")
+}
+
+/// `messages.db` format steps.
+const MESSAGE_STEPS: &[Step] = &[messages_class];
+
+/// `class`: 1 for a signal, 0 for a message; rows stored before the column are messages. The
+/// covering index serves the per-class sums, the signal victim choice and the mailbox lookups of
+/// the dropped `envelopes_mailbox`.
+fn messages_class(db: &Connection) -> rusqlite::Result<()> {
+    add_column(db, "envelopes", "class", "INTEGER NOT NULL DEFAULT 0")?;
+    db.execute_batch(
+        "CREATE INDEX IF NOT EXISTS `envelopes_class` \
+             ON `envelopes` (`mailbox`, `class`, `seq`, `size`);
+         DROP INDEX IF EXISTS `envelopes_mailbox`;",
+    )
 }
 
 /// Bytes a WAL file is truncated to after a checkpoint.
@@ -207,28 +222,31 @@ impl BootstrapStore {
                      `expires_at` INTEGER NOT NULL,
                      UNIQUE (`mailbox`, `id`)
                  );
-                 CREATE INDEX IF NOT EXISTS `envelopes_mailbox` ON `envelopes` (`mailbox`, `seq`);
                  CREATE INDEX IF NOT EXISTS `envelopes_expiry` ON `envelopes` (`expires_at`);",
-                &[],
+                MESSAGE_STEPS,
             )?,
         })
     }
 
     /// Stores a signed envelope once per (mailbox, id): a repeated put is a no-op and returns
-    /// true. Returns false, storing nothing, when the record would take the mailbox over
-    /// `max_mailbox_bytes`.
+    /// true, whatever its class. A message is refused (false, nothing stored) when it would take
+    /// the mailbox's messages over `max_bytes`. A signal always fits: the mailbox's oldest signals
+    /// are deleted until its signals stay within `max_bytes`; messages are never touched.
     pub fn put_envelope(
         &self,
         mailbox: &[u8],
         id: &[u8],
         record: &SignedRecord,
+        signal: bool,
         expires_at: i64,
-        max_mailbox_bytes: u64,
+        max_bytes: u64,
     ) -> Result<bool> {
         let record = record.encode_to_vec();
-        // The connection lock serialises the size check and the insert.
-        let db = lock(&self.messages)?;
-        let stored: bool = db
+        let mut db = lock(&self.messages)?;
+        let tx = db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let stored: bool = tx
             .query_row(
                 "SELECT EXISTS (SELECT 1 FROM `envelopes` WHERE `mailbox` = ? AND `id` = ?)",
                 params![mailbox, id],
@@ -238,28 +256,59 @@ impl BootstrapStore {
         if stored {
             return Ok(true);
         }
-        // ponytail: sums the mailbox on every put; keep a per-mailbox total if puts get slow.
-        let used: i64 = db
+        let class = i64::from(signal);
+        // ponytail: sums the mailbox's class on every put from the covering index; keep a
+        // per-mailbox total if puts get slow.
+        let used: i64 = tx
             .query_row(
-                "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` WHERE `mailbox` = ?",
-                [mailbox],
+                "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` \
+                 WHERE `mailbox` = ? AND `class` = ?",
+                params![mailbox, class],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
         let size = i64::try_from(record.len()).map_err(storage_error)?;
-        if u64::try_from(used + size).map_err(storage_error)? > max_mailbox_bytes {
+        let mut over = used + size - i64::try_from(max_bytes).unwrap_or(i64::MAX);
+        if over > 0 && !signal {
             return Ok(false);
         }
-        db.execute(
-            "INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`) VALUES (?, ?, ?, ?, ?)",
-            params![mailbox, id, record, size, expires_at],
+        if over > 0 {
+            // ponytail: oldest-first victims let one sender evict others' signals; the
+            // write-token eviction routine replaces the victim choice.
+            let mut victims = Vec::new();
+            {
+                let mut oldest = tx
+                    .prepare(
+                        "SELECT `seq`, `size` FROM `envelopes` \
+                         WHERE `mailbox` = ? AND `class` = 1 ORDER BY `seq`",
+                    )
+                    .map_err(storage_error)?;
+                let mut rows = oldest.query([mailbox]).map_err(storage_error)?;
+                while over > 0 {
+                    let Some(row) = rows.next().map_err(storage_error)? else {
+                        break;
+                    };
+                    victims.push(row.get::<_, i64>(0).map_err(storage_error)?);
+                    over -= row.get::<_, i64>(1).map_err(storage_error)?;
+                }
+            }
+            for seq in victims {
+                tx.execute("DELETE FROM `envelopes` WHERE `seq` = ?", [seq])
+                    .map_err(storage_error)?;
+            }
+        }
+        tx.execute(
+            "INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`, `class`) \
+             VALUES (?, ?, ?, ?, ?, ?)",
+            params![mailbox, id, record, size, expires_at, class],
         )
         .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
         Ok(true)
     }
 
-    /// The oldest envelopes of a mailbox: at most `limit`, and no more than `max_bytes` of
-    /// records unless the first alone is larger. The flag says more are waiting.
+    /// The envelopes of a mailbox, messages first, then signals, oldest first in each: at most
+    /// `limit`, and no more than `max_bytes` of records unless the first alone is larger. The flag says more are waiting.
     pub fn fetch_envelopes(
         &self,
         mailbox: &[u8],
@@ -268,7 +317,7 @@ impl BootstrapStore {
     ) -> Result<(Vec<SignedRecord>, bool)> {
         let db = lock(&self.messages)?;
         let mut query = db
-            .prepare("SELECT `record` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `seq` LIMIT ?")
+            .prepare("SELECT `record` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `class`, `seq` LIMIT ?")
             .map_err(storage_error)?;
         let rows: Vec<Vec<u8>> = query
             .query_map(params![mailbox, limit + 1], |row| row.get(0))
@@ -288,11 +337,14 @@ impl BootstrapStore {
         Ok((records, more))
     }
 
-    /// The ids of the oldest `limit` envelopes of a mailbox, without reading the records.
+    /// The ids of the first `limit` envelopes of a mailbox in fetch order, without reading the
+    /// records.
     pub fn envelope_ids(&self, mailbox: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
         let db = lock(&self.messages)?;
         let mut query = db
-            .prepare("SELECT `id` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `seq` LIMIT ?")
+            .prepare(
+                "SELECT `id` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `class`, `seq` LIMIT ?",
+            )
             .map_err(storage_error)?;
         query
             .query_map(params![mailbox, limit], |row| row.get(0))
@@ -537,7 +589,7 @@ mod tests {
         };
         for id in 0..500u32 {
             store
-                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, 0, u64::MAX)
+                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
                 .unwrap();
         }
         assert_eq!(store.cleanup_expired(1).unwrap(), 500);
@@ -573,7 +625,7 @@ mod tests {
         };
         for id in 0..200u32 {
             store
-                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, 0, u64::MAX)
+                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
                 .unwrap();
         }
         let target = store.messages_usage().unwrap().0 / 2;
@@ -584,7 +636,7 @@ mod tests {
         assert_eq!(left.len(), 200 - evicted);
         // The newest is kept; asking again below the target deletes nothing.
         assert!(store
-            .put_envelope(&[1; 32], &199u32.to_be_bytes(), &record, 0, 0)
+            .put_envelope(&[1; 32], &199u32.to_be_bytes(), &record, false, 0, 0)
             .unwrap());
         assert_eq!(store.evict_envelopes(u64::MAX).unwrap(), 0);
 
@@ -625,23 +677,23 @@ mod tests {
         let (a, b) = ([1u8; 32], [2u8; 32]);
 
         assert!(store
-            .put_envelope(&a, &[1], &record(1), 2000, 2 * size)
+            .put_envelope(&a, &[1], &record(1), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[1], &record(9), 2000, 2 * size)
+            .put_envelope(&a, &[1], &record(9), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[2], &record(2), 3000, 2 * size)
+            .put_envelope(&a, &[2], &record(2), false, 3000, 2 * size)
             .unwrap());
         // Full, but a repeated put still succeeds.
         assert!(!store
-            .put_envelope(&a, &[3], &record(3), 2000, 2 * size)
+            .put_envelope(&a, &[3], &record(3), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[2], &record(2), 2000, 2 * size)
+            .put_envelope(&a, &[2], &record(2), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&b, &[1], &record(4), 2000, size)
+            .put_envelope(&b, &[1], &record(4), false, 2000, size)
             .unwrap());
 
         let (all, more) = store.fetch_envelopes(&a, 10, u64::MAX).unwrap();
@@ -670,6 +722,157 @@ mod tests {
             .unwrap()
             .0
             .is_empty());
+    }
+
+    /// Ids of a mailbox's envelopes in arrival order.
+    fn ids(store: &BootstrapStore, mailbox: &[u8]) -> Vec<Vec<u8>> {
+        lock(&store.messages)
+            .unwrap()
+            .prepare("SELECT `id` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `seq`")
+            .unwrap()
+            .query_map([mailbox], |row| row.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn signals_have_their_own_quota_and_evict_the_oldest() {
+        let store = temp_store();
+        let record = SignedRecord {
+            payload: vec![7; 100],
+            ..SignedRecord::default()
+        };
+        let quota = 3 * record.encode_to_vec().len() as u64;
+        let (a, b) = ([1u8; 32], [2u8; 32]);
+        for i in 0..3 {
+            assert!(store
+                .put_envelope(&a, &[i], &record, true, 0, quota)
+                .unwrap());
+        }
+        assert!(store
+            .put_envelope(&b, &[0], &record, true, 0, quota)
+            .unwrap());
+        assert!(store
+            .put_envelope(&a, &[9], &record, false, 0, quota)
+            .unwrap());
+        // The fourth signal evicts the oldest signal of mailbox a only.
+        assert!(store
+            .put_envelope(&a, &[3], &record, true, 0, quota)
+            .unwrap());
+        assert_eq!(ids(&store, &a), [[1], [2], [9], [3]]);
+        assert_eq!(ids(&store, &b).len(), 1);
+        // A repeated id is a no-op whatever its class.
+        assert!(store
+            .put_envelope(&a, &[9], &record, true, 0, quota)
+            .unwrap());
+        assert_eq!(ids(&store, &a).len(), 4);
+    }
+
+    #[test]
+    fn signals_never_block_messages_and_come_after_them() {
+        let store = temp_store();
+        let record = |n: u8| SignedRecord {
+            payload: vec![n; 100],
+            ..SignedRecord::default()
+        };
+        let cap = 2 * record(0).encode_to_vec().len() as u64;
+        let m = [1u8; 32];
+        for i in 0..1000u16 {
+            assert!(store
+                .put_envelope(&m, &i.to_be_bytes(), &record(0), true, 0, u64::MAX)
+                .unwrap());
+        }
+        // Signals do not count against the message cap.
+        assert!(store
+            .put_envelope(&m, &[7], &record(7), false, 0, cap)
+            .unwrap());
+        assert!(store
+            .put_envelope(&m, &[8], &record(8), false, 0, cap)
+            .unwrap());
+        assert!(!store
+            .put_envelope(&m, &[6], &record(6), false, 0, cap)
+            .unwrap());
+        assert_eq!(
+            store.fetch_envelopes(&m, 2, u64::MAX).unwrap(),
+            (vec![record(7), record(8)], true)
+        );
+        assert_eq!(
+            store.fetch_envelopes(&m, 2000, u64::MAX).unwrap().0.len(),
+            1002
+        );
+    }
+
+    #[test]
+    fn messages_class_step_migrates_an_old_file() {
+        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = format!("{dir}/messages.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE `envelopes` (`seq` INTEGER PRIMARY KEY, `mailbox` BLOB NOT NULL,
+                     `id` BLOB NOT NULL, `record` BLOB NOT NULL, `size` INTEGER NOT NULL,
+                     `expires_at` INTEGER NOT NULL, UNIQUE (`mailbox`, `id`));
+                 CREATE INDEX `envelopes_mailbox` ON `envelopes` (`mailbox`, `seq`);
+                 INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`)
+                     VALUES (x'01', x'02', x'', 0, 0);",
+            )
+            .unwrap();
+        let store = BootstrapStore::new(&dir).unwrap();
+        let db = lock(&store.messages).unwrap();
+        let class: i64 = db
+            .query_row("SELECT `class` FROM `envelopes`", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(class, 0);
+        let index = |name: &str| -> bool {
+            db.query_row(
+                "SELECT EXISTS (SELECT 1 FROM `sqlite_master` WHERE `type` = 'index' AND `name` = ?)",
+                [name],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        assert!(!index("envelopes_mailbox"));
+        assert!(index("envelopes_class"));
+        let version: i64 = db
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, MESSAGE_STEPS.len() as i64);
+        let plan = |sql: &str| -> String {
+            db.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .unwrap()
+                .query_map([], |row| row.get::<_, String>(3))
+                .unwrap()
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .unwrap()
+                .join("\n")
+        };
+        for sql in [
+            "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` WHERE `mailbox` = x'01' AND `class` = 0",
+            "SELECT `seq`, `size` FROM `envelopes` WHERE `mailbox` = x'01' AND `class` = 1 ORDER BY `seq`",
+        ] {
+            let plan = plan(sql);
+            assert!(plan.contains("USING COVERING INDEX envelopes_class"), "{sql}: {plan}");
+        }
+        for sql in [
+            "SELECT `record` FROM `envelopes` WHERE `mailbox` = x'01' ORDER BY `class`, `seq` LIMIT 5",
+            "SELECT `id` FROM `envelopes` WHERE `mailbox` = x'01' ORDER BY `class`, `seq` LIMIT 5",
+            "DELETE FROM `envelopes` WHERE `mailbox` = x'01' AND `id` = x'02'",
+        ] {
+            let plan = plan(sql);
+            assert!(
+                !plan.contains("SCAN") && !plan.contains("TEMP B-TREE"),
+                "{sql}: {plan}"
+            );
+        }
+        drop(db);
+        drop(store);
+        Connection::open(&path)
+            .unwrap()
+            .pragma_update(None, "user_version", 99)
+            .unwrap();
+        assert!(BootstrapStore::new(&dir).is_err());
     }
 
     #[test]
