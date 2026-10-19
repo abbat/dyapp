@@ -14,24 +14,14 @@ pub use hlc::{HybridClock, Timestamp};
 pub use message::{Message, MessageStatus};
 pub use queue::{MessageQueue, QueueEntry};
 
-/// Main messaging service
+/// Main messaging service: an empty queue and clock by default.
+#[derive(Default)]
 pub struct MessagingService {
     queue: MessageQueue,
-    #[allow(dead_code)]
-    crypto: E2EEncryption,
     clock: HybridClock,
 }
 
 impl MessagingService {
-    /// Creates an empty queue and shared clock; the encryption handle is retained unused.
-    pub fn new(crypto: E2EEncryption) -> Self {
-        Self {
-            queue: MessageQueue::new(),
-            crypto,
-            clock: HybridClock::new(),
-        }
-    }
-
     /// Queues plaintext with a fresh UUID and sender `self_id`; does not encrypt or send.
     pub fn send_message(&mut self, peer_id: String, text: String) -> Result<String, String> {
         let timestamp = self.clock.now();

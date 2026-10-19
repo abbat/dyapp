@@ -611,8 +611,8 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Served protocol
 
-Source: `rust/bootstrap/src/service.rs` (request handling), `node.rs` (the libp2p
-loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
+Source: `rust/bootstrap/src/service.rs` and `service/` (request handling), `node.rs` and
+`node/` (the libp2p loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
 `dyappd` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
 per stream ([schema](protobuf-schema.md#node-protocol)). Each request and reply is capped at
 1 MiB + 64 KiB, except `/dyapp/media`, which allows 6 MiB + 64 KiB. These are wire limits;
@@ -1193,7 +1193,7 @@ Unit test coverage:
 - Rate limiting (single key, separate keys)
 - Replication codec encode/decode with a missing shard (in-process; no nodes involved)
 - Store health check (`storage.rs`)
-- Profile and node requests through `Service` (`service.rs`): publish, get, stale with the
+- Profile and node requests through `Service` (`service/tests.rs` and `service/tests/`): publish, get, stale with the
   stored record, forged, wrong-length ID, rate limit, `info`
 - Mailbox through `Service`: put, forged and wrong-domain put, bad id, too large; fetch without
   a challenge, with another connection's nonce, signed as an ack, replayed; another key reads
@@ -1203,7 +1203,7 @@ Unit test coverage:
   connections fail without a response; accepted streams still answer. Codec tests prove that
   rejection reads no body bytes and that completed, malformed and dropped streams release permits.
 
-- Sender replica cap (`node.rs`): shared cross-protocol quotas, local exemption, dropped-count
+- Sender replica cap (`node/tests.rs`): shared cross-protocol quotas, local exemption, dropped-count
   reset, media queue cleanup and no trust penalty. Mailbox repair over TCP delivers 75 envelopes
   as an admitted 50-envelope batch and the remaining 25 after refill; complete inventory sends nothing.
 

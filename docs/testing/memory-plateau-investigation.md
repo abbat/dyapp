@@ -40,7 +40,7 @@ distinguish live allocations from retained allocator pages.
   `PeerRateLimiter::check_units`). This is a bounded-growth candidate.
 - Counter-evidence to a simple closed-connection leak: the node removes
   connection maps and watches on close and forgets unrouted trust after the
-  last connection (`node.rs`, `ConnectionClosed`). This does not prove every
+  last connection (`node/run.rs`, `ConnectionClosed`). This does not prove every
   lifetime or allocation is bounded.
 - Unknown: which allocations explain RSS growth. Anonymous memory, retained
   allocator pages, SQLite caches and application maps are competing candidates.

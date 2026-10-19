@@ -14,7 +14,7 @@ env:
 jobs:
   core:
     uses: ./.github/workflows/ci-base.yml
-  # Android keeps Docker for now: the image carries the SDK, system image and Gradle cache.
+  # Android runs in Docker: the image carries the SDK, system image and Gradle cache.
   docker:
     name: docker - android
     runs-on: ubuntu-24.04

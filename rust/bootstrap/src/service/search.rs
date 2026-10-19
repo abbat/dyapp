@@ -2,6 +2,105 @@
 
 use super::*;
 
+/// Search get replies are cut here, like the profile record limit.
+const MAX_SEARCH_REPLY: usize = 1 << 20;
+/// Keys in one search get.
+const MAX_SEARCH_GET: usize = 50;
+/// Keys in one inventory reply.
+const MAX_SEARCH_INVENTORY: u32 = 10_000;
+
+pub(super) fn search_reply(status: Status) -> SearchResponse {
+    SearchResponse {
+        status: status.into(),
+        ..SearchResponse::default()
+    }
+}
+
+/// The key hash of a publish or heartbeat, which picks its gossip topic.
+pub fn search_key(request: &SearchRequest) -> Option<[u8; 32]> {
+    match &request.request {
+        Some(search_request::Request::Publish(r) | search_request::Request::Heartbeat(r)) => {
+            let key: [u8; 32] = r.public_key.as_slice().try_into().ok()?;
+            Some(dyapp_identity::key_hash(&key))
+        }
+        _ => None,
+    }
+}
+
+/// What applying a publish or heartbeat did, before it becomes a reply or a gossip verdict.
+pub(super) enum Applied {
+    Done,
+    /// Valid, but of a topic this node does not keep.
+    Skipped,
+    /// A bad signature: a strike for the sender.
+    Bad,
+    Status(Status),
+    TooLarge(usize),
+    RequiredPow(u32),
+    Clock(u64),
+    Limited(u64),
+    /// The proof of work is not cached: it needs an Argon2 check first.
+    Pow(PowCheck),
+}
+
+/// A search request after admission: a ready reply, or read work the node runs in
+/// `spawn_blocking` so a slow query never holds the swarm loop.
+pub enum Search {
+    /// The reply, ready now.
+    Reply(SearchResponse),
+    /// A query to run against the index.
+    Query(proto::SearchQuery),
+    /// Records of these keys to read from the index.
+    Get(Vec<[u8; 32]>),
+    /// A publish or heartbeat whose proof of work is not cached: the node checks it off the
+    /// loop, then calls [`Service::search_pow_done`].
+    Pow(PowCheck, SearchRequest),
+}
+
+/// The refusal of a heartbeat, or `None` when it may be counted.
+fn beaten(beat: crate::search::Beat) -> Option<Applied> {
+    match beat {
+        crate::search::Beat::Ok => None,
+        crate::search::Beat::NotFound => Some(Applied::Status(Status::NotFound)),
+        crate::search::Beat::Limited { retry_after } => Some(Applied::Limited(retry_after)),
+    }
+}
+
+/// Runs `query`, scanning at most `max_scan_rows` rows.
+pub fn run_query(
+    index: &SearchIndex,
+    query: &proto::SearchQuery,
+    max_scan_rows: u32,
+) -> crate::Result<SearchResponse> {
+    Ok(
+        match index.query(&query.conditions, query.limit, max_scan_rows)? {
+            Err(()) => search_reply(Status::Invalid),
+            Ok(found) => SearchResponse {
+                hits: found
+                    .hits
+                    .into_iter()
+                    .map(|(key, version)| proto::SearchHit {
+                        key: key.to_vec(),
+                        version,
+                    })
+                    .collect(),
+                applied: found.applied,
+                partial: found.partial,
+                index_version: crate::search::INDEX_VERSION,
+                ..search_reply(Status::Ok)
+            },
+        },
+    )
+}
+
+/// The indexed records of `keys`, bounded by the reply size.
+pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchResponse> {
+    Ok(SearchResponse {
+        records: index.records(keys, MAX_SEARCH_REPLY)?,
+        ..search_reply(Status::Ok)
+    })
+}
+
 impl Service {
     /// Errors as in [`Service::profile`].
     pub fn search(&self, peer: &Peer, request: SearchRequest) -> crate::Result<Search> {

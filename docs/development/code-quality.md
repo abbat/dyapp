@@ -144,11 +144,11 @@ fix a failing commit with `git commit --amend` or a rebase.
 
 `scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice B6: a tracked
 source file (`SOURCE` suffixes in the script: Rust, Python, shell, Kotlin, Swift, TypeScript,
-JavaScript, protobuf) has at most `[size] max_lines` (1000) lines. Older files over the limit are
-listed in `[size.files]` of `scripts/baselines.toml` with their line count; each has a tracker
-task to split it. A listed file fails when it grows and also when it shrinks, so the budget is
-lowered in the same change (or the entry dropped once the file is within the limit) and it cannot
-regrow later. Raising a budget or `max_lines` weakens the check.
+JavaScript, protobuf) has at most `[size] max_lines` (1000) lines. `[size.files]` of
+`scripts/baselines.toml` is empty: every file is within the limit. A file listed there would keep
+its line count as a budget that fails when it grows and also when it shrinks, so the budget is
+lowered in the same change (or the entry dropped once the file is within the limit). Adding an
+entry, raising a budget or raising `max_lines` weakens the check.
 
 ### Trigger list
 

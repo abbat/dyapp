@@ -45,7 +45,4 @@ score = 72.2
 max_lines = 1000
 
 [size.files]
-# Older files over the limit: each may shrink, never grow; lower its budget when it shrinks.
-"rust/bootstrap/src/node.rs" = 3651
-"rust/bootstrap/src/service.rs" = 3462
-"rust/bootstrap/tests/protocol.rs" = 1002
+# Files over the limit: each may shrink, never grow; lower its budget when it shrinks. None now.
