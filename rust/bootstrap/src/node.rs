@@ -1638,6 +1638,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
         from: Peer,
         channel: ResponseChannel<SearchResponse>,
         work: Search,
+        queued: std::time::Instant,
     }
     struct SearchDone {
         from: Peer,
@@ -1654,7 +1655,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     ) {
         let Some(index) = &service.search else { return };
         while *running < SEARCH_WORKERS {
-            let Some(SearchJob { from, channel, work }) = queue.pop() else { return };
+            let Some(SearchJob { from, channel, work, queued }) = queue.pop() else { return };
+            service.puzzle.record_wait(queued.elapsed());
             *running += 1;
             let (index, done) = (index.clone(), done.clone());
             let rows = service.config.search.max_scan_rows;
@@ -1708,6 +1710,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     );
     // Requests answered and failed with a node error since the last maintenance run.
     let (mut answered, mut failed) = (0u64, 0u64);
+    let mut puzzle_tick = tokio::time::interval(crate::puzzle::TICK);
     let mut put_check = tokio::time::interval(Duration::from_millis(100));
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
     let maintenance = service.config.maintenance.clone();
@@ -1878,6 +1881,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     message: Message::Request { request, channel, .. },
                 })) => {
                     let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
+                    let solution = match &request.request {
+                        Some(proto::search_request::Request::Query(query)) => query.puzzle.clone(),
+                        Some(proto::search_request::Request::Get(get)) => get.puzzle.clone(),
+                        _ => None,
+                    };
                     let from = peer(id, &groups, connection_id);
                     match service.search(&from, request) {
                         Ok(Search::Reply(response)) => {
@@ -1907,14 +1915,23 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                         },
                         Ok(work) => {
                             let group = (!service.is_search_peer(&from)).then(|| from.group.clone());
-                            if let Err(SearchJob { channel, .. }) = search_queue.push(group.as_deref(), SearchJob { from, channel, work }) {
-                                answered += 1;
-                                let response = SearchResponse {
-                                    status: Status::RateLimited.into(),
-                                    retry_after: 1,
-                                    ..SearchResponse::default()
-                                };
-                                let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                            let peer_id = from.id.clone();
+                            let job = SearchJob { from, channel, work, queued: std::time::Instant::now() };
+                            match search_queue.push(group.as_deref(), job) {
+                                Ok(()) => {
+                                    if let Some(solution) = &solution {
+                                        service.puzzle.consume(&peer_id, solution);
+                                    }
+                                }
+                                Err(SearchJob { channel, .. }) => {
+                                    answered += 1;
+                                    let response = SearchResponse {
+                                        status: Status::RateLimited.into(),
+                                        retry_after: 1,
+                                        ..SearchResponse::default()
+                                    };
+                                    let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                                }
                             }
                             start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
                         }
@@ -2512,6 +2529,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 }
                 drop_banned(&mut swarm, &service, id);
             }
+            _ = puzzle_tick.tick() => service.puzzle.tick(std::time::Instant::now()),
             Some(done) = search_done.recv() => {
                 searching -= 1;
                 start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
@@ -2681,6 +2699,7 @@ fn send_catch_up(
             let request = proto::SearchRequest {
                 request: Some(proto::search_request::Request::Get(proto::SearchGet {
                     keys: chunk.iter().map(|k| k.to_vec()).collect(),
+                    puzzle: None,
                 })),
             };
             let id = swarm.behaviour_mut().search.send_request(peer, request);

@@ -31,6 +31,9 @@ enum Status {
   // The operator's deny list names the peer, its IP group or a key in the request; try another
   // replica.
   STATUS_REFUSED = 10;
+  // A search query or get without a valid puzzle solution while the node is loaded; retry with
+  // `puzzle` solved for `puzzle_challenge` and `puzzle_bits`.
+  STATUS_PUZZLE = 11;
 }
 
 enum Role {
@@ -104,6 +107,10 @@ message NodeInfo {
   uint64 max_search_profile_bytes = 9;
   // Node clock in Unix seconds; 0 means not reported.
   uint64 server_time = 10;
+  // Search puzzle difficulty in leading zero bits; 0 means queries and gets need no puzzle.
+  uint32 puzzle_bits = 11;
+  // The current search puzzle challenge, with the search role.
+  bytes puzzle_challenge = 12;
 }
 
 // ---- /dyapp/profile: store role ----
@@ -381,11 +388,23 @@ message SearchQuery {
   repeated Condition conditions = 1;
   // 0 = 50, at most 200.
   uint32 limit = 2;
+  // Required while the node asks for a puzzle (STATUS_PUZZLE).
+  Puzzle puzzle = 3;
 }
 
 message SearchGet {
   // Key hashes, at most 50.
   repeated bytes keys = 1;
+  // As in SearchQuery.
+  Puzzle puzzle = 2;
+}
+
+// SHA-256("dyapp-search-puzzle" || challenge || peer ID as base58 text || nonce u64 BE) has at
+// least the node's current puzzle bits leading zero bits. A challenge is current for a minute
+// and accepted for one more; a solution is used once.
+message Puzzle {
+  bytes challenge = 1;
+  uint64 nonce = 2;
 }
 
 message SearchRequest {
@@ -423,6 +442,9 @@ message SearchResponse {
   uint32 required_pow_bits = 9;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
   uint64 server_time = 10;
+  // PUZZLE: the challenge and difficulty to solve.
+  bytes puzzle_challenge = 11;
+  uint32 puzzle_bits = 12;
 }
 
 // ---- /dyapp/inventory: search nodes catch up ----

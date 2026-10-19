@@ -365,6 +365,17 @@ resent from the sender's retry queue.
   run off the swarm loop, at most 2 at a time, from a queue fair between IP groups
   ([Rate Limiting](#rate-limiting)); a read the queue refuses gets `RATE_LIMITED` with
   `retry_after` 1.
+- **Load puzzle.** Every 10 s the node takes the median wait of the reads it started from the
+  queue: above `search.puzzle_wait_ms` (default 100) the puzzle turns on at 12 bits and then
+  climbs one bit per tick up to `search.max_puzzle_bits` (default 20, 12 to 32); below half of it
+  it falls one bit per tick, and off from 12. While on, a client's `query` or `get` needs
+  `puzzle { challenge, nonce }` where the first 128 bits of
+  `sha256("dyapp-search-puzzle" ‖ challenge ‖ peer ID ‖ nonce as u64 big-endian)` have at least
+  `puzzle_bits` leading zeros; without a valid one the reply is `PUZZLE` with
+  `puzzle_challenge` and `puzzle_bits`, and no strike. `info` reports both too. The 16-byte
+  challenge rotates every 60 s and the previous one is still accepted; a solution is used up
+  when the request enters the queue, so one refused there still counts on retry. Connected
+  search nodes are never asked. Solving it on the client is planned.
 - **Results are a sample.** A reply is the node's local sample: possibly partial (a warming or
   evicted index, gossip it missed, `partial` set or not) and untrusted, since any operator can
   run a search node and omit or reorder hits. An empty reply does not mean nothing matches. The
@@ -593,7 +604,7 @@ The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
@@ -619,8 +630,8 @@ The current protocol replies are:
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal); `REFUSED`; `UNSUPPORTED` |
-| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `UNSUPPORTED` |
-| `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `UNSUPPORTED` |
+| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `PUZZLE` with `puzzle_challenge` and `puzzle_bits` while the node is loaded and `puzzle` is missing, wrong or used ([Search](#search)); `UNSUPPORTED` |
+| `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `PUZZLE` as for `query`; `UNSUPPORTED` |
 | `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
 
 - **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
@@ -1046,7 +1057,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
 `turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
-`search.{max_profile_bytes,max_bytes,max_scan_rows,topics}` ([Search](#search), checked only with
+`search.{max_profile_bytes,max_bytes,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
 the role); the
 example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open

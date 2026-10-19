@@ -186,7 +186,8 @@ Planned defences (not implemented):
 - **Load puzzle.** When the median queue wait passes `search.puzzle_wait_ms` (100), a query or
   get must carry a SHA-256 solution bound to the peer ID and a challenge rotated every minute;
   difficulty climbs from 12 to `search.max_puzzle_bits` (20) and falls back to off when load
-  drops. A new status `PUZZLE` carries the challenge.
+  drops. The status `PUZZLE` carries the challenge (implemented on the node, client solving
+  planned; [bootstrap.md](bootstrap.md#search)).
 
 Accepted residual risks: a fake that pays heartbeat proof of work for 30 days becomes established
 (one 16-core PC keeps ≈ 1M alive); fakes piled into a real rare place dilute it; fakes paying the

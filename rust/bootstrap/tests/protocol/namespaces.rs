@@ -82,6 +82,7 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
             proto::SearchRequest {
                 request: Some(proto::search_request::Request::Get(proto::SearchGet {
                     keys: vec![],
+                    puzzle: None,
                 })),
             },
         );

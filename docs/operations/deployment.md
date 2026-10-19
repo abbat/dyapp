@@ -252,6 +252,8 @@ accept_deny_lists = false        # fetch and store other nodes' lists; no action
 max_profile_bytes = 65536
 max_bytes = 53687091200     # profiles-idx.db; above it the oldest heartbeats leave
 max_scan_rows = 10000       # rows one query scans; past it the reply is partial
+puzzle_wait_ms = 100        # median queue wait that turns the client puzzle on
+max_puzzle_bits = 20        # puzzle difficulty ceiling, 12 to 32
 topics = []                 # gossip topics 0..15 kept; empty = all 16, required on public
 min_profile_pow_bits = 11   # Argon2id proof of work a profile needs to be indexed; 0..20
 

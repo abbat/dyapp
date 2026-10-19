@@ -86,6 +86,8 @@
 # max_profile_bytes = 65536           # client record send limit; 1..65536; network accepts 65536
 # max_bytes = 53687091200             # profiles-idx.db size; above it the oldest heartbeats leave
 # max_scan_rows = 10000               # rows one query scans; past it the reply is partial
+# puzzle_wait_ms = 100                # median queue wait that turns the client puzzle on; > 0
+# max_puzzle_bits = 20                # puzzle difficulty ceiling; 12..32
 # topics = []                         # gossip topics (0..15) kept; empty = all 16; public: empty
 # min_profile_pow_bits = 11           # Argon2id proof of work a profile needs to be indexed; 0..20
 

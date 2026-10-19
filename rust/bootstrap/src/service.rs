@@ -79,6 +79,8 @@ pub struct Service {
     pub pow: Arc<crate::pow::PowCache>,
     /// Reply bytes per second to search nodes catching up, `maintenance.io_mb_per_s`.
     pub search_sync: Traffic,
+    /// The hash puzzle clients' queries and gets need while the search queue is slow.
+    pub puzzle: crate::puzzle::Puzzle,
     /// Requests per second of one peer.
     pub rate_limiter: PeerRateLimiter,
     /// Media requests per second of one peer.
@@ -137,6 +139,11 @@ impl Service {
             search_peers: Mutex::default(),
             pow: Arc::default(),
             search_sync: Traffic::new(u64::from(config.maintenance.io_mb_per_s) << 20),
+            puzzle: crate::puzzle::Puzzle::new(
+                config.search.puzzle_wait_ms,
+                config.search.max_puzzle_bits,
+                std::time::Instant::now(),
+            ),
             rate_limiter: PeerRateLimiter::new(l.requests_per_second),
             media_peers: PeerRateLimiter::new(l.media_requests_per_second),
             media_bytes: PeerRateLimiter::new(
@@ -333,6 +340,7 @@ impl Service {
         let media = self.media.is_some();
         let turn = self.config.roles.contains(&Role::Turn);
         let search = self.search.is_some();
+        let puzzle = if search { self.puzzle.current() } else { ([0; 16], 0) };
         let roles = [
             (store, proto::Role::Store),
             (media, proto::Role::Media),
@@ -364,6 +372,8 @@ impl Service {
             } else {
                 0
             },
+            puzzle_bits: puzzle.1,
+            puzzle_challenge: if search { puzzle.0.to_vec() } else { vec![] },
             server_time: chrono::Utc::now().timestamp().unsigned_abs(),
         }
     }
@@ -972,8 +982,14 @@ impl Service {
             Some(search_request::Request::Heartbeat(record)) => {
                 Search::Reply(self.applied(peer, self.beat_search(&record)?))
             }
-            Some(search_request::Request::Query(query)) => Search::Query(query),
+            Some(search_request::Request::Query(query)) => match self.puzzled(peer, &query.puzzle) {
+                Some(reply) => reply,
+                None => Search::Query(query),
+            },
             Some(search_request::Request::Get(get)) => {
+                if let Some(reply) = self.puzzled(peer, &get.puzzle) {
+                    return Ok(reply);
+                }
                 let keys: Option<Vec<[u8; 32]>> = (get.keys.len() <= MAX_SEARCH_GET)
                     .then(|| {
                         get.keys
@@ -1011,6 +1027,23 @@ impl Service {
         } else {
             peers.remove(peer_id);
         }
+    }
+
+    /// The `PUZZLE` reply to a client's query or get without a valid solution while the node
+    /// asks for one; search nodes skip it. The node consumes the solution on admission.
+    fn puzzled(&self, peer: &Peer, puzzle: &Option<proto::Puzzle>) -> Option<Search> {
+        let (challenge, bits) = self.puzzle.current();
+        if bits == 0
+            || self.is_search_peer(peer)
+            || puzzle.as_ref().is_some_and(|p| self.puzzle.check(&peer.id, p))
+        {
+            return None;
+        }
+        Some(Search::Reply(SearchResponse {
+            puzzle_challenge: challenge.to_vec(),
+            puzzle_bits: bits,
+            ..search_reply(Status::Puzzle)
+        }))
     }
 
     /// Whether `peer` is a connected search node.
@@ -2032,6 +2065,7 @@ mod tests {
                 strings: vec![],
             }],
             limit: 0,
+            puzzle: None,
         };
         let r = search(&s, search_request::Request::Query(q));
         assert_eq!(r.hits.len(), 1);
@@ -2040,10 +2074,11 @@ mod tests {
         let bad = proto::SearchQuery {
             conditions: vec![proto::Condition::default(); 17],
             limit: 0,
+            puzzle: None,
         };
         let r = search(&s, search_request::Request::Query(bad));
         assert_eq!(search_status(&r), Status::Invalid);
-        let get = |keys| search_request::Request::Get(proto::SearchGet { keys });
+        let get = |keys| search_request::Request::Get(proto::SearchGet { keys, puzzle: None });
         let key = r_key(&s, 33);
         let r = search(&s, get(vec![key.clone()]));
         assert_eq!(r.records, vec![record]);
@@ -2082,10 +2117,55 @@ mod tests {
                 strings: vec![],
             }],
             limit: 0,
+            puzzle: None,
         };
         search_as(s, &peer("key"), search_request::Request::Query(q)).hits[0]
             .key
             .clone()
+    }
+
+    #[test]
+    fn search_puzzle_under_load() {
+        let s = search_service();
+        s.puzzle.set_bits(12);
+        let me = peer("me");
+        let query = |puzzle| {
+            let request = SearchRequest {
+                request: Some(search_request::Request::Query(proto::SearchQuery {
+                    puzzle,
+                    ..proto::SearchQuery::default()
+                })),
+            };
+            s.search(&me, request).unwrap()
+        };
+        let Search::Reply(r) = query(None) else { panic!("no puzzle asked") };
+        assert_eq!(search_status(&r), Status::Puzzle);
+        assert_eq!(r.puzzle_bits, 12);
+        let challenge: [u8; 16] = r.puzzle_challenge.try_into().unwrap();
+        assert_eq!(s.info().puzzle_challenge, challenge.to_vec());
+        let solution = proto::Puzzle {
+            challenge: challenge.to_vec(),
+            nonce: crate::puzzle::solve(&challenge, &me.id, 12),
+        };
+        assert!(matches!(query(Some(solution.clone())), Search::Query(_)));
+        // The node consumes it on admission; a replay and another peer are asked again.
+        s.puzzle.consume(&me.id, &solution);
+        assert!(matches!(query(Some(solution.clone())), Search::Reply(_)));
+        let get = SearchRequest {
+            request: Some(search_request::Request::Get(proto::SearchGet {
+                keys: vec![],
+                puzzle: Some(solution),
+            })),
+        };
+        let Search::Reply(r) = s.search(&peer("other"), get).unwrap() else { panic!() };
+        assert_eq!(search_status(&r), Status::Puzzle);
+        // Search nodes are never asked.
+        let sync = peer("sync");
+        s.search_peer(&sync.id, true);
+        let request = SearchRequest {
+            request: Some(search_request::Request::Query(proto::SearchQuery::default())),
+        };
+        assert!(matches!(s.search(&sync, request).unwrap(), Search::Query(_)));
     }
 
     #[test]
@@ -2436,7 +2516,7 @@ mod tests {
             search_as(
                 &s,
                 peer,
-                search_request::Request::Get(proto::SearchGet { keys }),
+                search_request::Request::Get(proto::SearchGet { keys, puzzle: None }),
             )
         };
         // Far past the client budget of `requests_per_second`.

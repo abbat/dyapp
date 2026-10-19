@@ -9,6 +9,7 @@ pub mod media;
 mod media_repair;
 pub mod node;
 pub mod pow;
+pub mod puzzle;
 /// Per-peer, per-group and byte rate limits.
 pub mod rate_limit;
 /// Erasure coding of media blobs.

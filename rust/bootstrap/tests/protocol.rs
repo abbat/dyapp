@@ -934,6 +934,7 @@ fn age_query(age: i64) -> proto::search_request::Request {
             strings: vec![],
         }],
         limit: 0,
+        puzzle: None,
     })
 }
 
@@ -975,6 +976,7 @@ async fn search_profile_spreads_between_nodes() {
     };
     let get = Request::Get(proto::SearchGet {
         keys: vec![hit.key],
+        puzzle: None,
     });
     let r = to_b.search(get).await;
     assert_eq!(r.records.len(), 1);
