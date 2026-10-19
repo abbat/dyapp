@@ -13,12 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def command(*args):
-    for attempt in range(3 if args[0] == "gh" else 1):
+    for _ in range(3 if args[0] == "gh" else 1):
         result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
         if result.returncode == 0:
             return result.stdout
-        if args[0] != "gh" or attempt == 2:
-            raise RuntimeError(f"{args[0]} failed: {result.stderr.strip()}")
+    raise RuntimeError(f"{args[0]} failed: {result.stderr.strip()}")
 
 
 def git(*args):

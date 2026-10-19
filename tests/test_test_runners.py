@@ -175,10 +175,10 @@ class Runners(unittest.TestCase):
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         command = [sys.executable, "-c",
-                   "print('passing progress\\nFAIL inner: assertion\\n"
-                   "FIX: docs/testing/docker.md#troubleshooting\\nDETAILS:\\n"
-                   "expected 3, got 2\\ninner.log: raw captured output'); "
-                   "raise SystemExit(17)"]
+                   ("print('passing progress\\nFAIL inner: assertion\\n"
+                    "FIX: docs/testing/docker.md#troubleshooting\\nDETAILS:\\n"
+                    "expected 3, got 2\\ninner.log: raw captured output'); "
+                    "raise SystemExit(17)")]
         out = io.StringIO()
         with patch.object(runner.sys, "stdout", out):
             status = runner.run_logged(
@@ -196,8 +196,8 @@ class Runners(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "full.log"
             command = [sys.executable, "-c",
-                       "import sys; print('passing progress' * 30000); "
-                       "sys.exit(27)"]
+                       ("import sys; print('passing progress' * 30000); "
+                        "sys.exit(27)")]
             out = io.StringIO()
             with patch.object(runner.sys, "stdout", out):
                 self.assertEqual(runner.run_logged(
