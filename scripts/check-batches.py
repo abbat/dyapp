@@ -33,7 +33,7 @@ def changed_lines(stats):
     return total
 
 
-def inspect(base, head, limit):
+def inspect(base, head, limit, exceptions=None):
     # Missing/divergent baselines and incomplete history must fail, not skip.
     if git("rev-parse", "--is-shallow-repository").strip() != b"false":
         raise ValueError("Small batches require a full-history checkout")
@@ -48,7 +48,7 @@ def inspect(base, head, limit):
             "-z", "--no-renames", "--no-ext-diff", "--no-textconv", sha))
         reason = git(
             "show", "-s", "--format=%(trailers:key=Large-Change,valueonly)",
-            sha).decode().strip()
+            sha).decode().strip() or (exceptions or {}).get(sha, "")
         large = lines > limit
         commits.append({"commit": sha, "lines": lines, "large": large,
                         "reason": reason})
@@ -71,7 +71,8 @@ def main():
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    report = inspect(args.base, args.head, policy["max_lines"])
+    report = inspect(args.base, args.head, policy["max_lines"],
+                     policy.get("exceptions"))
     text = json.dumps(report, indent=2) + "\n"
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

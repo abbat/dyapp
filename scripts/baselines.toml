@@ -10,6 +10,10 @@ lines = 87.8
 base = "ddb52cbe7ba4ed114eb1cc8f8c053f6639c851f1"
 max_lines = 400
 
+[batches.exceptions]
+# Reasons for pushed commits that lack a Large-Change trailer; history is not rewritten.
+c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
+
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
 "dyapp-bootstrap" = 50
