@@ -5,11 +5,11 @@ edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
-tauri = { version = "=2.12.0", features = [] }
+tauri = { version = "=2.12.2", features = [] }
 dyapp-identity = { path = "../rust/identity" }
 
 [build-dependencies]
-tauri-build = { version = "=2.7.1", features = [] }
+tauri-build = { version = "=2.7.2", features = [] }
 
 [features]
 default = ["custom-protocol"]
