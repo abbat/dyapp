@@ -168,12 +168,16 @@ nonempty names for start and keygen, preventing a silent fallback to public. **S
 actual binary selection and disconnecting foreign identify peers remain planned**; namespace
 IDs alone do not implement those policies.
 
+## Out of scope for the first release
+
+- **Node list distribution:** each operator writes the seeds their node starts from
+  (`seeds` in the config, optionally pinned as `host:port/<peer ID>`; a node with another key is
+  refused, see [threat model](../security/threat-model.md#mitm-and-key-verification)). How node
+  lists reach operators or clients (a list built into the client, DNS seed names) is not
+  designed for the first release.
+
 ## Planned
 
-- **First nodes:** a list built into the client and DNS seed names from several operators; the
-  client asks several seeds at once and keeps the peer cache described above. Each built-in seed
-  carries its peer ID, and a `dyappd` seed may (`host:port/<peer ID>`); a node with another key
-  is refused ([threat model](../security/threat-model.md#mitm-and-key-verification)).
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
   relay itself. Video uses its own WebRTC stack ([Video](video.md)).
 - **Addresses:** link-local addresses are not announced. A host whose IPv6 does not work is

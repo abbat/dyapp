@@ -472,6 +472,30 @@ planned ([bootstrap design](../architecture/bootstrap.md#principles)).
 carries a Sigstore keyless signature, SLSA build provenance and the SBOM, checked with
 `gh attestation verify` before install ([supply chain](../security/threat-model.md#supply-chain)).
 
+### Node key compromise
+
+A copied `node.key` cannot be revoked, so the node starts over as a new node:
+
+```bash
+sudo systemctl stop dyappd
+sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id and every store
+sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # prints the new peer ID
+sudo systemctl start dyappd
+```
+
+Keygen refuses while any data is left, so the wipe comes first. Consequences:
+
+- The node has a new peer ID. The stolen key can still run a node under the old one, so tell the
+  operators who list the old ID (a seed `host:port/<peer ID>`, a deny entry) to replace it or
+  deny it with `dyappd deny add <old peer ID>`.
+- What the old node held is lost to it; replication repairs profiles, mailboxes and media from
+  the other holders ([replication](../architecture/bootstrap.md#replication-and-repair)), and a
+  single node loses its only copy.
+- Update your own seeds and anything else that pins the old ID.
+
+A dry run in the network-test image (keygen, serve, wipe, keygen, serve) gives a new peer ID and
+the node answers `info`.
+
 ## Security
 
 ### Network
@@ -510,6 +534,8 @@ Coarse and fine prefixes are independently configurable.
   SHA-256 with `sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml`
   (`deny remove`, `deny list`); the running node applies it within 10 seconds, and they get
   `STATUS_REFUSED` here and use other nodes. Details: [deny list](../architecture/bootstrap.md#deny-list)
+- The deny list is local to your node. Deny-list exchange (below) is not part of the first
+  release; leave both switches off.
 - A shared list tells other operators the peer IDs, IP groups and hashes you refuse, so
   `share_deny_list` is off by default. Lists received with `accept_deny_lists` are only stored:
   review them with `dyappd deny received` and add what you agree with yourself

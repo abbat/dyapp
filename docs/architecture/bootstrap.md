@@ -482,8 +482,9 @@ connection guards in [Resource guards](#resource-guards) and the quotas and peer
 [Rate Limiting](#rate-limiting).
 
 The operator may refuse service to any user through a deny list (implemented, see
-[Deny list](#deny-list)). Nodes can exchange signed lists, with separate switches to share and
-to accept, both off by default; a node only stores received lists and acts on none of them.
+[Deny list](#deny-list)) on their own node only. Nodes can exchange signed lists, with separate
+switches to share and to accept, both off by default; a node only stores received lists and acts
+on none of them. The exchange is not part of the first release.
 Illegal media are removed by listing the blob hash; erasure-coded shards of a listed blob are not
 mapped yet.
 
@@ -711,7 +712,8 @@ The current protocol replies are:
   served, and a `get` of a listed owner's blob already stored is still answered (blobs are not
   indexed by owner on read); a listed blob hash gets `REFUSED` on `get` and `put`, and its file
   stays until no keep or attachment holds it.
-- <a id="deny-list-exchange"></a>**Deny-list exchange.** With `network.share_deny_list` on, a
+- <a id="deny-list-exchange"></a>**Deny-list exchange** (not part of the first release; both
+  switches stay off). With `network.share_deny_list` on, a
   `/dyapp/node` `deny_list` request gets the entries (no notes), sorted, cut at 20 000 so they fit
   one message, with the signing time, as a `SignedRecord` signed by the node's Ed25519 libp2p key
   (domain `dyapp/deny-list/v1`); the node signs anew whenever it reloads its list. Off, it answers
