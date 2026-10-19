@@ -14,6 +14,24 @@ trade-off. Routine choices do not need one.
 ADRs are written by hand. Agents only propose one; a person confirms it before it is added. API
 docs are covered in [documentation.md](../development/documentation.md).
 
+## Triggers
+
+Practice A5. A commit that makes one of these changes names an ADR in an
+`ADR: docs/decisions/NNNN-title.md` trailer:
+
+- a new crate (an added `Cargo.toml` with `[package]`);
+- a new direct dependency: a new name in a `Cargo.toml` dependency table (path dependencies on our
+  own crates and `workspace = true` reuses excepted) or a new Gradle coordinate;
+- a wire-format change: any change to `proto/*.proto`;
+- a storage-schema change: an added or removed Rust line with SQL schema text (`CREATE`, `ALTER`
+  or `DROP TABLE`/`INDEX`, `PRAGMA user_version`, or a backticked column with an SQLite type).
+
+The ADR must exist in that commit. An existing ADR that already covers the change is enough, for
+example [0015](0015-sqlite-node-storage.md) for a new SQLite table; otherwise the commit adds or
+updates one, which a person confirms first. `scripts/check-adr.py` checks every commit after its
+adoption commit in the quality step (`make quality`, CI job quality) and lists each trigger with
+its commit.
+
 ## Index
 
 | # | Title |

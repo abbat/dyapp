@@ -18,6 +18,7 @@
   "cargo-audit": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:error:|Crate:|Version:|Title:|Date:|ID:|URL:|Solution:|Dependency tree:|[└├│])"},
   "cargo-deny": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
   "repository": {"fix":"docs/development/code-quality.md#local-checks","format":"python"},
+  "adr": {"fix":"docs/decisions/README.md#triggers","format":"python"},
   "ci-results": {"fix":"docs/testing/README.md#required-status-checks","format":"lines","pattern":"^.+: error:"},
   "container-isolation": {"fix":"docs/testing/docker.md#container-isolation","format":"lines","details":true,"pattern":"^FAIL "},
   "android-build": {"fix":"docs/development/build.md#unsigned-android-release","format":"lines","nested":true,"pattern":"^.+: line [0-9]+:"},

@@ -30,6 +30,7 @@ step() {
         quality)
             check batches python3 -B scripts/check-batches.py --raw --report target/batches.json
             check repository python3 -B scripts/check-repository.py --raw
+            check adr python3 -B scripts/check-adr.py --raw
             check triggers python3 -B scripts/triggers.py --raw
             check docs-sync python3 -B scripts/docs-sync.py --raw
             check actionlint actionlint
