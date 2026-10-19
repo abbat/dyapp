@@ -1,0 +1,10 @@
+# Practice C6: methods and types that leak or weaken secrets
+# (docs/development/code-quality.md#secret-and-crypto-hygiene). A site that needs one says why:
+# #[expect(clippy::disallowed_methods, reason = "...")].
+disallowed-methods = [
+    { path = "std::mem::forget", reason = "skips Drop, so a Zeroizing secret is never cleared" },
+    { path = "ed25519_dalek::SigningKey::to_bytes", reason = "an unzeroized copy of the secret key; use Identity::secret" },
+]
+disallowed-types = [
+    { path = "sha1::Sha1", reason = "broken hash; only coturn's REST credentials (Secret::hmac_sha1) use it" },
+]

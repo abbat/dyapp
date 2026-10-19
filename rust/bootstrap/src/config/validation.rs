@@ -134,7 +134,15 @@ fn invalid_config_fails() {
     }));
     assert!(invalid(|c| {
         turn(c);
-        c.turn.secret.clear();
+        c.turn.secret = Default::default();
+    }));
+    assert!(invalid(|c| {
+        turn(c);
+        c.turn.credential_minutes = 0;
+    }));
+    assert!(!invalid(|c| {
+        turn(c);
+        c.turn.credential_minutes = 1;
     }));
     assert!(invalid(|c| {
         turn(c);

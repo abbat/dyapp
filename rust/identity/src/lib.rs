@@ -113,6 +113,13 @@ pub struct Identity {
     key: SigningKey,
 }
 
+/// Shows the peer ID only, never the secret key.
+impl std::fmt::Debug for Identity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Identity").field(&self.peer_id()).finish()
+    }
+}
+
 impl Identity {
     /// A new key from the OS random number generator; panics if it is unavailable.
     pub fn generate() -> Self {
@@ -235,6 +242,19 @@ mod tests {
         let mut short = record;
         short.public_key.pop();
         assert_eq!(short.verify(Domain::Profile), Err(Error::InvalidKey));
+    }
+
+    #[test]
+    fn debug_shows_the_peer_id_and_not_the_secret() {
+        let identity = Identity::from_secret(&[0xab; 32]);
+        let debug = format!("{identity:?}");
+        assert_eq!(debug, format!("Identity({:?})", identity.peer_id()));
+        let secret: String = identity
+            .secret()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert!(!debug.contains(&secret) && !debug.contains("171"));
     }
 
     #[test]

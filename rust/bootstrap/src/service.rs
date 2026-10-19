@@ -1765,9 +1765,9 @@ fn owner_request<M: Message + Default>(
     Ok((dyapp_identity::key_hash(&key), request))
 }
 
-/// Whether `got` is the nonce issued on this connection.
+/// Whether `got` is the nonce issued on this connection, compared in constant time.
 fn fresh(expected: Option<[u8; 32]>, got: &[u8]) -> bool {
-    expected.is_some_and(|expected| got == expected)
+    expected.is_some_and(|expected| subtle::ConstantTimeEq::ct_eq(got, &expected[..]).into())
 }
 
 fn mailbox_too_large(max: usize) -> MailboxResponse {
@@ -1810,14 +1810,11 @@ fn node_status(status: Status) -> NodeResponse {
 /// `<expiry>:<peer>`, password base64(HMAC-SHA1(secret, username)).
 fn turn_credentials(turn: &Turn, peer: &str, now: u64) -> TurnCredentials {
     use base64::Engine;
-    use hmac::Mac;
     let expires = now + u64::from(turn.credential_minutes) * 60;
     let username = format!("{expires}:{peer}");
-    let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(turn.secret.as_bytes())
-        .expect("HMAC takes a key of any length");
-    mac.update(username.as_bytes());
+    let mac = turn.secret.hmac_sha1(username.as_bytes());
     TurnCredentials {
-        password: base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()),
+        password: base64::engine::general_purpose::STANDARD.encode(mac),
         username,
         urls: turn.urls.clone(),
         expires,

@@ -23,6 +23,7 @@ dyapp-profile = { path = "../profile" }
 getrandom = "0.4"
 libc = "0.2"
 zeroize = "1.9"
+subtle = "2.6"
 
 # TURN REST credentials for coturn
 hmac = "0.12"

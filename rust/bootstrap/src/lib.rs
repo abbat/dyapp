@@ -14,6 +14,7 @@ pub mod rate_limit;
 /// Erasure coding of media blobs.
 pub mod replication;
 pub mod search;
+pub mod secret;
 pub mod service;
 /// Profile and mailbox stores.
 pub mod storage;

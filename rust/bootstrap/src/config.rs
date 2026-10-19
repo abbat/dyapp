@@ -243,7 +243,7 @@ pub struct Turn {
     /// `turn:` / `turns:` URLs handed to peers.
     pub urls: Vec<String>,
     /// coturn's `static-auth-secret`; `DYAPPD__TURN__SECRET` keeps it out of the file.
-    pub secret: String,
+    pub secret: crate::secret::Secret,
     /// Lifetime of the credentials the node hands out.
     pub credential_minutes: u32,
 }
@@ -252,7 +252,7 @@ impl Default for Turn {
     fn default() -> Self {
         Self {
             urls: vec![],
-            secret: String::new(),
+            secret: crate::secret::Secret::default(),
             credential_minutes: 60,
         }
     }
@@ -260,7 +260,7 @@ impl Default for Turn {
 
 impl Turn {
     fn validate(&self) -> anyhow::Result<()> {
-        if self.secret.is_empty() || self.credential_minutes < 1 {
+        if self.secret.expose().is_empty() || self.credential_minutes < 1 {
             anyhow::bail!("role turn needs turn.secret and turn.credential_minutes >= 1");
         }
         let turn_url = |u: &String| u.starts_with("turn:") || u.starts_with("turns:");
@@ -849,7 +849,7 @@ mod tests {
                 Vec::<(String, String)>::new(),
                 &[("turn.secret".into(), text.clone())],
             ).unwrap();
-            prop_assert_eq!(config.turn.secret, text);
+            prop_assert_eq!(config.turn.secret.expose(), text);
         }
 
         #[test]
@@ -930,7 +930,7 @@ mod tests {
         let (config, _) = NodeConfig::load(None, env, &options).unwrap();
         assert_eq!(config.limits.max_connections, 7);
         assert_eq!(config.listen, ["[::]:7070", "0.0.0.0:7070"]);
-        assert_eq!(config.turn.secret, "123");
+        assert_eq!(config.turn.secret.expose(), "123");
         assert!(config.network.share_deny_list);
         for option in ["limits.max-connection", "limits", "x"] {
             let options = [(option.to_owned(), "1".to_owned())];

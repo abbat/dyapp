@@ -234,7 +234,7 @@ a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `id
 `unsafe_code = "forbid"` applies to every crate except two:
 
 - workspace members via `[workspace.lints.rust]` in the root `Cargo.toml` and `[lints] workspace =
-  true`; `linux/`, `windows/` and `tools/arch-lint` set it in their own `[lints.rust]`;
+  true`; `linux/`, `windows/`, `tools/arch-lint` and `fuzz/` set it in their own `[lints.rust]`;
 - `rust/bootstrap` (libc calls) and `rust/ffi` (uniffi generates `#[no_mangle]`) instead deny
   `clippy::undocumented_unsafe_blocks`: each `unsafe` block needs a `// SAFETY:` comment stating
   the invariant that makes it sound.
@@ -243,6 +243,29 @@ a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `id
 cannot skip it. Adding `unsafe` code is a change trigger (see [Trigger list](#trigger-list)).
 
 Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
+
+### Secret and crypto hygiene
+
+Practice C6. Secret material lives only in wrappers that clear it on drop and never print it:
+
+| Secret | Holder | `Debug` |
+|--------|--------|---------|
+| Ed25519 identity and device keys | `dyapp_identity::Identity` (ed25519-dalek's `SigningKey`, zeroized on drop); `Identity::secret` hands out `Zeroizing<[u8; 32]>` | `Identity("<peer id>")` |
+| node key file | read into and written from `Zeroizing` buffers (`config.rs`) | libp2p prints the public key only |
+| coturn `static-auth-secret` (`turn.secret`) | `dyapp_bootstrap::secret::Secret` (`Zeroizing<String>`); `Secret::hmac_sha1` derives the TURN passwords | `Secret(redacted)` or `Secret(unset)` |
+
+Secrets and nonces are compared only with `subtle::ConstantTimeEq`: `Secret`'s `PartialEq` and
+the mailbox challenge check (`fresh` in `service.rs`). Content hashes, peer IDs and signatures are
+public and compare with `==`. Unit tests in `secret.rs` and `rust/identity` assert that `Debug`
+shows neither the secret nor its bytes.
+
+`clippy.toml` bans, with the reason in each entry, `std::mem::forget` (it skips the zeroizing
+`Drop`), `ed25519_dalek::SigningKey::to_bytes` (an unzeroized copy of the key) and the type
+`sha1::Sha1`. A site that needs one says why with
+`#[expect(clippy::disallowed_types, reason = "...")]`; the only one is `Secret::hmac_sha1`, since
+coturn's REST credentials are HMAC-SHA1. The clippy step of `make quality` and CI enforces the
+list. Planned: the FFI `KeyPair` and the messaging and video encryption are placeholders without
+real key material; they get the same wrappers when they carry keys.
 
 ## Dependency checks (cargo-deny)
 
