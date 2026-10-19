@@ -8,6 +8,10 @@ use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
+#[path = "storage/envelopes.rs"]
+mod envelopes;
+pub use envelopes::{NewEnvelope, Put};
+
 /// One SQLite file per data type in the storage directory.
 // ponytail: one connection per store behind a mutex; a reader pool if reads contend.
 pub struct BootstrapStore {
@@ -94,7 +98,7 @@ fn profiles_last_seen(db: &Connection) -> rusqlite::Result<()> {
 }
 
 /// `messages.db` format steps.
-const MESSAGE_STEPS: &[Step] = &[messages_class];
+const MESSAGE_STEPS: &[Step] = &[messages_class, envelopes::messages_tokens];
 
 /// `class`: 1 for a signal, 0 for a message; rows stored before the column are messages. The
 /// covering index serves the per-class sums, the signal victim choice and the mailbox lookups of
@@ -226,85 +230,6 @@ impl BootstrapStore {
                 MESSAGE_STEPS,
             )?,
         })
-    }
-
-    /// Stores a signed envelope once per (mailbox, id): a repeated put is a no-op and returns
-    /// true, whatever its class. A message is refused (false, nothing stored) when it would take
-    /// the mailbox's messages over `max_bytes`. A signal always fits: the mailbox's oldest signals
-    /// are deleted until its signals stay within `max_bytes`; messages are never touched.
-    pub fn put_envelope(
-        &self,
-        mailbox: &[u8],
-        id: &[u8],
-        record: &SignedRecord,
-        signal: bool,
-        expires_at: i64,
-        max_bytes: u64,
-    ) -> Result<bool> {
-        let record = record.encode_to_vec();
-        let mut db = lock(&self.messages)?;
-        let tx = db
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(storage_error)?;
-        let stored: bool = tx
-            .query_row(
-                "SELECT EXISTS (SELECT 1 FROM `envelopes` WHERE `mailbox` = ? AND `id` = ?)",
-                params![mailbox, id],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        if stored {
-            return Ok(true);
-        }
-        let class = i64::from(signal);
-        // ponytail: sums the mailbox's class on every put from the covering index; keep a
-        // per-mailbox total if puts get slow.
-        let used: i64 = tx
-            .query_row(
-                "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` \
-                 WHERE `mailbox` = ? AND `class` = ?",
-                params![mailbox, class],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        let size = i64::try_from(record.len()).map_err(storage_error)?;
-        let mut over = used + size - i64::try_from(max_bytes).unwrap_or(i64::MAX);
-        if over > 0 && !signal {
-            return Ok(false);
-        }
-        if over > 0 {
-            // ponytail: oldest-first victims let one sender evict others' signals; the
-            // write-token eviction routine replaces the victim choice.
-            let mut victims = Vec::new();
-            {
-                let mut oldest = tx
-                    .prepare(
-                        "SELECT `seq`, `size` FROM `envelopes` \
-                         WHERE `mailbox` = ? AND `class` = 1 ORDER BY `seq`",
-                    )
-                    .map_err(storage_error)?;
-                let mut rows = oldest.query([mailbox]).map_err(storage_error)?;
-                while over > 0 {
-                    let Some(row) = rows.next().map_err(storage_error)? else {
-                        break;
-                    };
-                    victims.push(row.get::<_, i64>(0).map_err(storage_error)?);
-                    over -= row.get::<_, i64>(1).map_err(storage_error)?;
-                }
-            }
-            for seq in victims {
-                tx.execute("DELETE FROM `envelopes` WHERE `seq` = ?", [seq])
-                    .map_err(storage_error)?;
-            }
-        }
-        tx.execute(
-            "INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`, `class`) \
-             VALUES (?, ?, ?, ?, ?, ?)",
-            params![mailbox, id, record, size, expires_at, class],
-        )
-        .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)?;
-        Ok(true)
     }
 
     /// The envelopes of a mailbox, messages first, then signals, oldest first in each: at most
@@ -510,8 +435,24 @@ mod tests {
     use dyapp_profile::Profile;
     use uuid::Uuid;
 
-    fn temp_store() -> BootstrapStore {
+    pub(super) fn temp_store() -> BootstrapStore {
         BootstrapStore::new(&format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4())).unwrap()
+    }
+
+    impl BootstrapStore {
+        /// A tokenless put without a pool: true when stored.
+        pub(super) fn put_plain(
+            &self,
+            mailbox: &[u8],
+            id: &[u8],
+            record: &SignedRecord,
+            signal: bool,
+            expires_at: i64,
+            max_bytes: u64,
+        ) -> Result<bool> {
+            let envelope = NewEnvelope::new(mailbox, id, record, signal, expires_at);
+            Ok(self.put_envelope(&envelope, max_bytes, None)? == Put::Stored)
+        }
     }
 
     #[test]
@@ -589,7 +530,7 @@ mod tests {
         };
         for id in 0..500u32 {
             store
-                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
+                .put_plain(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
                 .unwrap();
         }
         assert_eq!(store.cleanup_expired(1).unwrap(), 500);
@@ -625,7 +566,7 @@ mod tests {
         };
         for id in 0..200u32 {
             store
-                .put_envelope(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
+                .put_plain(&[1; 32], &id.to_be_bytes(), &record, false, 0, u64::MAX)
                 .unwrap();
         }
         let target = store.messages_usage().unwrap().0 / 2;
@@ -636,7 +577,7 @@ mod tests {
         assert_eq!(left.len(), 200 - evicted);
         // The newest is kept; asking again below the target deletes nothing.
         assert!(store
-            .put_envelope(&[1; 32], &199u32.to_be_bytes(), &record, false, 0, 0)
+            .put_plain(&[1; 32], &199u32.to_be_bytes(), &record, false, 0, 0)
             .unwrap());
         assert_eq!(store.evict_envelopes(u64::MAX).unwrap(), 0);
 
@@ -677,23 +618,23 @@ mod tests {
         let (a, b) = ([1u8; 32], [2u8; 32]);
 
         assert!(store
-            .put_envelope(&a, &[1], &record(1), false, 2000, 2 * size)
+            .put_plain(&a, &[1], &record(1), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[1], &record(9), false, 2000, 2 * size)
+            .put_plain(&a, &[1], &record(9), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[2], &record(2), false, 3000, 2 * size)
+            .put_plain(&a, &[2], &record(2), false, 3000, 2 * size)
             .unwrap());
         // Full, but a repeated put still succeeds.
         assert!(!store
-            .put_envelope(&a, &[3], &record(3), false, 2000, 2 * size)
+            .put_plain(&a, &[3], &record(3), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&a, &[2], &record(2), false, 2000, 2 * size)
+            .put_plain(&a, &[2], &record(2), false, 2000, 2 * size)
             .unwrap());
         assert!(store
-            .put_envelope(&b, &[1], &record(4), false, 2000, size)
+            .put_plain(&b, &[1], &record(4), false, 2000, size)
             .unwrap());
 
         let (all, more) = store.fetch_envelopes(&a, 10, u64::MAX).unwrap();
@@ -746,26 +687,16 @@ mod tests {
         let quota = 3 * record.encode_to_vec().len() as u64;
         let (a, b) = ([1u8; 32], [2u8; 32]);
         for i in 0..3 {
-            assert!(store
-                .put_envelope(&a, &[i], &record, true, 0, quota)
-                .unwrap());
+            assert!(store.put_plain(&a, &[i], &record, true, 0, quota).unwrap());
         }
-        assert!(store
-            .put_envelope(&b, &[0], &record, true, 0, quota)
-            .unwrap());
-        assert!(store
-            .put_envelope(&a, &[9], &record, false, 0, quota)
-            .unwrap());
+        assert!(store.put_plain(&b, &[0], &record, true, 0, quota).unwrap());
+        assert!(store.put_plain(&a, &[9], &record, false, 0, quota).unwrap());
         // The fourth signal evicts the oldest signal of mailbox a only.
-        assert!(store
-            .put_envelope(&a, &[3], &record, true, 0, quota)
-            .unwrap());
+        assert!(store.put_plain(&a, &[3], &record, true, 0, quota).unwrap());
         assert_eq!(ids(&store, &a), [[1], [2], [9], [3]]);
         assert_eq!(ids(&store, &b).len(), 1);
         // A repeated id is a no-op whatever its class.
-        assert!(store
-            .put_envelope(&a, &[9], &record, true, 0, quota)
-            .unwrap());
+        assert!(store.put_plain(&a, &[9], &record, true, 0, quota).unwrap());
         assert_eq!(ids(&store, &a).len(), 4);
     }
 
@@ -780,18 +711,18 @@ mod tests {
         let m = [1u8; 32];
         for i in 0..1000u16 {
             assert!(store
-                .put_envelope(&m, &i.to_be_bytes(), &record(0), true, 0, u64::MAX)
+                .put_plain(&m, &i.to_be_bytes(), &record(0), true, 0, u64::MAX)
                 .unwrap());
         }
         // Signals do not count against the message cap.
         assert!(store
-            .put_envelope(&m, &[7], &record(7), false, 0, cap)
+            .put_plain(&m, &[7], &record(7), false, 0, cap)
             .unwrap());
         assert!(store
-            .put_envelope(&m, &[8], &record(8), false, 0, cap)
+            .put_plain(&m, &[8], &record(8), false, 0, cap)
             .unwrap());
         assert!(!store
-            .put_envelope(&m, &[6], &record(6), false, 0, cap)
+            .put_plain(&m, &[6], &record(6), false, 0, cap)
             .unwrap());
         assert_eq!(
             store.fetch_envelopes(&m, 2, u64::MAX).unwrap(),
@@ -848,13 +779,12 @@ mod tests {
                 .unwrap()
                 .join("\n")
         };
-        for sql in [
-            "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` WHERE `mailbox` = x'01' AND `class` = 0",
-            "SELECT `seq`, `size` FROM `envelopes` WHERE `mailbox` = x'01' AND `class` = 1 ORDER BY `seq`",
-        ] {
-            let plan = plan(sql);
-            assert!(plan.contains("USING COVERING INDEX envelopes_class"), "{sql}: {plan}");
-        }
+        let sql = "SELECT COALESCE(SUM(`size`), 0) FROM `envelopes` WHERE `mailbox` = x'01' AND `class` = 0";
+        let sum = plan(sql);
+        assert!(
+            sum.contains("USING COVERING INDEX envelopes_class"),
+            "{sql}: {sum}"
+        );
         for sql in [
             "SELECT `record` FROM `envelopes` WHERE `mailbox` = x'01' ORDER BY `class`, `seq` LIMIT 5",
             "SELECT `id` FROM `envelopes` WHERE `mailbox` = x'01' ORDER BY `class`, `seq` LIMIT 5",

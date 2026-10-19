@@ -507,8 +507,11 @@ another replica.
 Signals: a like, a view or any other signal is an ordinary end-to-end encrypted
 mailbox envelope with `class = signal`, at most 1 KiB, so a node cannot tell a like from a view.
 Signals have their own quota per mailbox, `limits.signal_max_kb` (default 2048, about 8 000
-signals), apart from the 10 MB for messages: at the quota the node deletes the mailbox's oldest
-signals instead of answering "full", so the likes of a popular profile never block its messages.
+signals), apart from the 10 MB for messages: at the quota the node deletes the mailbox's
+signals instead of answering "full", so the likes of a popular profile never block its messages:
+tokenless ones first, from the sender label holding the most bytes, tokened ones only when none
+remain ([storage](#storage)). Until source labels are wired every tokenless signal shares
+one label, so this is the oldest tokenless signal.
 In a mixed network a node older than signals ignores `class` and stores a signal as a message;
 a client tells such a node by `max_signal_bytes = 0` in `info`.
 The client sends at most one view per profile a day. Implemented: the disk, traffic and
@@ -1060,9 +1063,15 @@ One SQLite file per data type in the storage directory, WAL journal,
 profiles.db  profiles(peer_id PK, record BLOB, live, last_seen)
              record: SignedRecord (protobuf), latest version or tombstone (live = 0)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at, class,
-                       UNIQUE (mailbox, id))
+                       token_key BLOB, via BLOB, source_group BLOB, UNIQUE (mailbox, id))
              record: the signed envelope as received; class: 1 signal, 0 message
-             indexes on (mailbox, class, seq, size), expires_at
+             token_key: the write token key, NULL for a tokenless envelope
+             via, source_group: 8-byte eviction labels, empty until the pool is wired
+             indexes on (mailbox, class, seq, size), expires_at,
+               (mailbox, class, via, source_group, seq, size) WHERE token_key IS NULL,
+               (mailbox, token_key, class, seq, size) WHERE token_key IS NOT NULL
+             tokenless_mailbox(mailbox, class, bytes, PK (mailbox, class)), index (class, bytes)
+             tokenless_total(class PK, bytes): tokenless bytes, kept by insert/delete triggers
 media.db     owners(owner PK, version, last_seen, record BLOB)
              attachments(slot PK, release, owner, expires, created, record BLOB)
              blobs(owner, hash, size, cost, PK (owner, hash))
@@ -1083,14 +1092,25 @@ profiles-idx.db  profile(key PK, topic, version, search fields, place, r), inter
 A `messages` table left by an older version is not read; it can be dropped by hand.
 `put_envelope` sums the `size` of the mailbox's envelopes of the same class on each put, from
 the covering index, in one immediate transaction. A message over the quota stores nothing; a
-signal over it first deletes the mailbox's oldest signals until it fits.
+signal over it first deletes the mailbox's tokenless signals by the pool rule, then, only when
+none remain, the oldest signal of the token key holding the most bytes. The pool rule takes the
+`via` holding the most bytes, in it the `source_group` holding the most, and that group's oldest
+envelope (ties go to the label holding the oldest envelope), until the new one fits; when the
+new envelope would itself be the victim, the put deletes nothing and drops it with `OK`. With a
+pool, tokenless messages count against the pool by the same rule and tokened ones alone against
+the quota; the service passes no pool yet (planned with write-token enforcement).
+`evict_tokenless` applies the rule store-wide: it trims the (mailbox, class) holding most
+tokenless bytes until it is no longer the largest, until the tokenless total is within a limit;
+no caller uses it yet.
 
 Each file has one connection behind a mutex. `storage::open` keeps the format version in
 `PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
 `profiles.db` 1 adds `last_seen`, `media.db` 1 adds the owner `last_seen`, the attachment
 `created`, the signed `record` columns, `cost` and the replica tables; `messages.db` 1 adds the
-envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`;
-`deny.db` is at 0. The first start after the `messages.db` step builds the index, O(n) once
+envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`,
+`messages.db` 2 the `token_key`, `via` and `source_group` columns, their partial indexes, the
+tokenless counter tables and triggers, counting existing rows as tokenless;
+`deny.db` is at 0. The first start after each `messages.db` step builds the indexes, O(n) once
 (seconds on a large file). An older `dyappd` refuses the newer `messages.db`; to roll back, move
 it aside, losing at most one TTL of undelivered mail, part of which mailbox repair returns. A file from before versions counts as 0 and its steps skip changes already there. A
 file newer than the binary fails the start with `<file> has store format N, this dyappd knows up

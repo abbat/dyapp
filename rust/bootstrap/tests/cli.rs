@@ -1,6 +1,6 @@
 //! Operator CLI contracts run against the real binary and disposable stores.
 use dyapp_bootstrap::deny::{self, DenyStore};
-use dyapp_bootstrap::BootstrapStore;
+use dyapp_bootstrap::{storage::NewEnvelope, BootstrapStore};
 use dyapp_identity::{Domain, Identity};
 use dyapp_p2p_net::proto;
 use prost::Message;
@@ -58,9 +58,8 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
         )
         .unwrap();
     let record = owner.sign(Domain::Envelope, vec![1; 7]);
-    store
-        .put_envelope(&[2; 32], &[3; 16], &record, false, i64::MAX, 1 << 20)
-        .unwrap();
+    let envelope = NewEnvelope::new(&[2; 32], &[3; 16], &record, false, i64::MAX);
+    store.put_envelope(&envelope, 1 << 20, None).unwrap();
     let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
     let output = success(&dir, &["status"]);
     for expected in [

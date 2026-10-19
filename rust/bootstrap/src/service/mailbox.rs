@@ -234,9 +234,10 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
-        if let Err(answer) = self.admit_token(record, &envelope, source) {
-            return Ok(status(answer));
-        }
+        let token_key = match self.admit_token(record, &envelope, source) {
+            Ok(key) => key,
+            Err(answer) => return Ok(status(answer)),
+        };
         let signal = is_signal(&envelope);
         if signal && record.payload.len() > MAX_SIGNAL_BYTES {
             return Ok(mailbox_too_large(MAX_SIGNAL_BYTES));
@@ -260,19 +261,26 @@ impl Service {
             return Ok(status(Status::Full));
         }
         let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
-        let stored = self.store.put_envelope(
-            &envelope.mailbox,
-            &envelope.id,
-            record,
-            signal,
-            expires_at,
-            if signal {
-                self.signal_quota()
-            } else {
-                MAX_MAILBOX_BYTES
-            },
-        )?;
-        Ok(status(if stored { Status::Ok } else { Status::Full }))
+        let new = crate::storage::NewEnvelope {
+            token_key: token_key.as_deref(),
+            ..crate::storage::NewEnvelope::new(
+                &envelope.mailbox,
+                &envelope.id,
+                record,
+                signal,
+                expires_at,
+            )
+        };
+        let quota = if signal {
+            self.signal_quota()
+        } else {
+            MAX_MAILBOX_BYTES
+        };
+        let stored = self.store.put_envelope(&new, quota, None)?;
+        Ok(status(match stored {
+            crate::storage::Put::Full => Status::Full,
+            crate::storage::Put::Stored | crate::storage::Put::Dropped => Status::Ok,
+        }))
     }
 
     /// The envelope's write token key, `None` without a token, or the answer that refuses it.
