@@ -195,5 +195,67 @@ mod tests {
         }
         .sign(&a);
         assert!(check(&[], 0, &[vec![lying]]).is_empty());
+        let key: [u8; 32] = replies[0][0].public_key.as_slice().try_into().unwrap();
+        let nonce = dyapp_profile::solve(&key, 2, 0, 1000).unwrap();
+        let mined = Profile {
+            version: 1,
+            pow_bits: 2,
+            pow_nonce: nonce,
+            ..Profile::default()
+        }
+        .sign(&a);
+        assert_eq!(check(&[], 2, &[vec![mined]]).len(), 1);
+    }
+
+    #[test]
+    fn every_field_and_op_is_checked() {
+        let p = Profile {
+            age: 30,
+            country: "DE".into(),
+            income_from: Some(10),
+            income_to: Some(u64::MAX),
+            has_kids: Some(true),
+            wants_more_kids: Some(false),
+            relationship_goal: "f10".into(),
+            career_ambition: "f11".into(),
+            education: "f12".into(),
+            orientation: "f13".into(),
+            role_preference: "f14".into(),
+            zodiac: "f15".into(),
+            financial_philosophy: "f16".into(),
+            employment_status: "f17".into(),
+            fitness_level: "f18".into(),
+            interests: vec!["chess".into(), "go".into()],
+            place: "f20".into(),
+            ..Profile::default()
+        };
+        let hits = |field, op, ints: &[i64], strings: &[&str]| {
+            matches(&condition(field, op, ints, strings), &p)
+        };
+        for (field, v) in [(3, 30), (6, 10), (7, i64::MAX), (8, 1), (9, 0)] {
+            assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
+            assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
+        }
+        let texts = (10..=18).chain([20]).map(|f| (f, format!("f{f}")));
+        let fixed = [(4, "DE".to_string()), (19, "go".into())];
+        for (field, v) in fixed.into_iter().chain(texts) {
+            assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");
+            assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
+        }
+        let nine = [22, 23, 24, 25, 26, 27, 28, 29, 30];
+        assert!(hits(3, Op::Unspecified, &[], &[]));
+        assert!(!hits(3, Op::Eq, &[30, 31], &[]));
+        assert!(hits(3, Op::In, &[29, 30], &[]));
+        assert!(!hits(3, Op::In, &[], &[]));
+        assert!(!hits(3, Op::In, &nine, &[]));
+        assert!(hits(3, Op::Range, &[20, 40], &[]));
+        assert!(!hits(3, Op::Range, &[20, 40, 50], &[]));
+        let nine = ["a", "b", "c", "d", "e", "f", "g", "h", "DE"];
+        assert!(hits(4, Op::Unspecified, &[], &[]));
+        assert!(hits(4, Op::Range, &[], &[]));
+        assert!(!hits(4, Op::Eq, &[], &["DE", "FR"]));
+        assert!(hits(4, Op::In, &[], &["FR", "DE"]));
+        assert!(!hits(4, Op::In, &[], &["FR"]));
+        assert!(!hits(4, Op::In, &[], &nine));
     }
 }
