@@ -25,9 +25,8 @@ c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the te
 "dyapp-video" = 4
 
 [scorecard]
-# Practice C3: OpenSSF Scorecard aggregate score (scripts/check-scorecard.py). 0 until the first
-# run of .github/workflows/scorecard.yml sets it; the target is 7.0.
-score = 0.0
+# Practice C3: OpenSSF Scorecard aggregate score (scripts/check-scorecard.py); the target is 7.0.
+score = 5.9
 
 [mutants]
 # Practice B2: weekly full cargo-mutants score, percent (scripts/check-mutants.py); the first

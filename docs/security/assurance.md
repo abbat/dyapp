@@ -17,7 +17,11 @@ each push to `main` and on demand:
   `scripts/baselines.toml`. Below the target of 7.0 it lists the checks that lose points; at
   0.5 above the baseline it asks to raise the baseline. Artifact **`scorecard`** keeps the JSON.
 
-The baseline is 0 until the first run sets it.
+The first run (2026-10-19, before `SECURITY.md`) scored 5.9, the baseline. The checks at 0
+were Maintained (the repository is younger than 90 days), Code-Review (changes merge without
+an approving review), CII-Best-Practices (no badge yet), Branch-Protection (not enabled on
+`main`), Security-Policy (since added) and Contributors. Code review, branch protection and the
+badge are maintainer decisions; until they change, the target of 7.0 is not met.
 
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
 is registered by the maintainer (a human gate) and kept current at every release. The badge
