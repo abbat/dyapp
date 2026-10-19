@@ -1,12 +1,17 @@
 """Practice B5: fail on flaky tests outside a fresh quarantine.
 
-A test is flaky when a JUnit report shows it failed and then passed on retry
-(`flakyFailure`/`flakyError`, as written by cargo-nextest). Each one needs an
+A test is flaky when it failed and then passed on retry: `flakyFailure` or
+`flakyError` in a cargo-nextest JUnit report (.xml), a failed Repetition under
+a passed Test Case in `xcresulttool get test-results tests` (.json), or a
+failure listed by an Android `am instrument` run (.txt) that a rerun of the
+suite passed. Each one needs an
 entry in [flaky] of scripts/baselines.toml, dated the day it was found; an
 entry stops covering its test after QUARANTINE_DAYS.
 """
 from datetime import date, timedelta
 from pathlib import Path
+import json
+import re
 import sys
 import tomllib
 import xml.etree.ElementTree as ET
@@ -22,6 +27,39 @@ def flaky_tests(report):
         for case in ET.fromstring(report).iter("testcase")
         if any(case.find(tag) is not None
                for tag in ("flakyFailure", "flakyError")))
+
+
+def xcresult_flaky(report, suite=""):
+    """Test Cases in an xcresult tests tree that passed after a failure."""
+    found = []
+    for node in report.get("testNodes", report.get("children", [])):
+        children = node.get("children", [])
+        if node.get("nodeType") == "Test Case":
+            runs = [child.get("result") for child in children
+                    if child.get("nodeType") == "Repetition"]
+            if node.get("result") == "Passed" and "Failed" in runs:
+                found.append(f"{suite} {node.get('name')}")
+        else:
+            found += xcresult_flaky(
+                {"children": children}, node.get("name", suite)
+                if node.get("nodeType") == "Test Suite" else suite)
+    return sorted(found)
+
+
+def instrumentation_failures(output):
+    """Tests listed as failed by `am instrument -w`; the run if none is."""
+    return sorted(f"{cls} {name}" for name, cls in re.findall(
+        r"^\d+\) (\w+)\(([\w.$]+)\)$", output, re.MULTILINE)
+    ) or ["android instrumentation"]
+
+
+def report_flaky(path):
+    """Flaky tests in a report, by its type."""
+    if path.suffix == ".json":
+        return xcresult_flaky(json.loads(path.read_text()))
+    if path.suffix == ".txt":
+        return instrumentation_failures(path.read_text())
+    return flaky_tests(path.read_bytes())
 
 
 def flaky_errors(flaky, quarantine, today):
@@ -41,7 +79,7 @@ if __name__ == "__main__":
     wrap("flaky")
     flaky = []
     for name in sys.argv[1:]:
-        flaky += flaky_tests(Path(name).read_bytes())
+        flaky += report_flaky(Path(name))
     quarantine = tomllib.loads(BASELINES.read_text()).get("flaky", {})
     errors = flaky_errors(flaky, quarantine, date.today())
     if errors:

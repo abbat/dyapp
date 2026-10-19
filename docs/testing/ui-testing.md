@@ -31,7 +31,12 @@ the peer ID is 64 lowercase hex characters.
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty
 `--list` per binary), `check-instrumentation-results.py` (needs `OK (n tests)` with n ≥ 3 and
 `INSTRUMENTATION_CODE: -1`, because `am instrument` exits 0 on failures), `check-apple-results.py`
-(xcresult summary: ≥3 total, 0 failed, 0 skipped, result `Passed`). The desktop smoke runs the app
+(xcresult summary: ≥3 total, 0 failed, 0 skipped, result `Passed`). A test that passes only on a
+retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test up to twice
+(`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
+`xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
+suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
+(`android instrumentation` when a failed run lists none). The desktop smoke runs the app
 twice: `--ui-test` must print `UI_SMOKE_PASS` and exit 0; `--ui-test --break-ui` must print
 `UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected). A pass also
 needs the page to show the peer ID from the `peer_id` command as 64 lowercase hex characters.
@@ -113,7 +118,7 @@ Docker diagnostics; exported reports and application files keep their formats.
 | Suite | Exported files |
 |-------|----------------|
 | `android-unit-test` | `gradle-version.txt`, `gradle-tasks.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |
-| `android-emulator-test` | `instrumentation.txt`/`.json`, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
+| `android-emulator-test` | `instrumentation.txt`/`.json`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
 | `linux-test` | `desktop-ui-results.json`; plus the `dyapp-linux` binary |
 
 In CI the Docker jobs upload **no** artifacts (logs only).
@@ -129,10 +134,11 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then
   `xcodebuild test` into `$RUNNER_TEMP/apple-results/<platform>.xcresult` (iOS on the first
   available iPhone simulator, macOS on `platform=macOS`), summarizes it with `xcresulttool` and
-  applies `check-apple-results.py`. Artifacts: `apple-ios`, `apple-macos`.
+  applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with
-  XcodeGen and run the scheme in Xcode yourself; that path is not scripted.- **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
+  XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
+- **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
   `cargo test --manifest-path windows/Cargo.toml --locked` and
   `python scripts/desktop-smoke.py windows/target/debug/dyapp-windows.exe` (report goes to

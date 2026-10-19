@@ -23,6 +23,31 @@ class Flaky(unittest.TestCase):
         self.assertEqual(CHECK.flaky_tests(REPORT),
                          ["core erred", "core retried"])
 
+    def test_xcresult_tests_passing_on_repetition_are_flaky(self):
+        def case(name, result, *runs):
+            return {"nodeType": "Test Case", "name": name, "result": result,
+                    "children": [{"nodeType": "Repetition", "result": run}
+                                 for run in runs]}
+        report = {"testNodes": [{"nodeType": "Test Plan", "children": [{
+            "nodeType": "UI test bundle", "children": [{
+                "nodeType": "Test Suite", "name": "AppUITests",
+                "children": [case("testStable()", "Passed"),
+                             case("testRetried()", "Passed",
+                                  "Failed", "Passed"),
+                             case("testBroken()", "Failed",
+                                  "Failed", "Failed", "Failed")]}]}]}]}
+        self.assertEqual(CHECK.xcresult_flaky(report),
+                         ["AppUITests testRetried()"])
+
+    def test_android_failures_before_a_passing_rerun_are_flaky(self):
+        output = ("com.dyapp.AppUITests:.E\nThere was 1 failure:\n"
+                  "1) launches(com.dyapp.AppUITests)\njava.lang.Error\n"
+                  "\nFAILURES!!!\nTests run: 3,  Failures: 1\n")
+        self.assertEqual(CHECK.instrumentation_failures(output),
+                         ["com.dyapp.AppUITests launches"])
+        self.assertEqual(CHECK.instrumentation_failures("Process crashed."),
+                         ["android instrumentation"])
+
     def test_unlisted_and_expired_tests_fail(self):
         flaky = ["core erred", "core retried"]
         quarantine = {"core erred": date(2026, 10, 12),

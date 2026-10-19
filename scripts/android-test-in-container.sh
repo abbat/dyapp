@@ -63,8 +63,19 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell wm dismiss-keyguard
         # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
         timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
-        timeout 900 adb -s emulator-5554 shell am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt"
-        python3 /app/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt"
+        # am instrument has no retries: rerun a failed suite twice; failures before a passing
+        # run are flaky (practice B5).
+        failed=()
+        for attempt in 1 2 3; do
+            timeout 900 adb -s emulator-5554 shell am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt" || true
+            if python3 /app/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt"; then
+                break
+            fi
+            [[ $attempt != 3 ]] || exit 1
+            cp -f "$report_dir/instrumentation.txt" "$report_dir/instrumentation-$attempt.txt"
+            failed+=("$report_dir/instrumentation-$attempt.txt")
+        done
+        python3 /app/scripts/check-flaky.py "${failed[@]}"
         timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"
         test -s "$report_dir/ready.png"
         ;;

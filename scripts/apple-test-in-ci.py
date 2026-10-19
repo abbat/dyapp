@@ -54,6 +54,7 @@ def main():
     result_bundle = reports / f"{platform}.xcresult"
     run(common + ["-destination", destination,
                   "-parallel-testing-enabled", "NO",
+                  "-retry-tests-on-failure", "-test-iterations", "3",
                   "-resultBundlePath", str(result_bundle), "test"],
         reports / "tests.log")
     summary = subprocess.check_output(
@@ -63,6 +64,13 @@ def main():
     run(["python3", "scripts/check-apple-results.py",
          str(reports / "summary.json")],
         reports / "inventory.log")
+    tests = subprocess.check_output(
+        ["xcrun", "xcresulttool", "get", "test-results", "tests",
+         "--path", str(result_bundle)], text=True)
+    (reports / "tests.json").write_text(tests)
+    run(["python3", "scripts/check-flaky.py", "--raw",
+         str(reports / "tests.json")],
+        reports / "flaky.log")
     apps = list((derived / "Build" / "Products").glob("*/DYApp.app"))
     if not apps:
         raise RuntimeError("Application artifact missing")
