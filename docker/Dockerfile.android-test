@@ -38,7 +38,7 @@ COPY --chown=999:999 Cargo.toml Cargo.lock ./
 COPY --chown=999:999 proto proto
 COPY --chown=999:999 rust rust
 COPY --chown=999:999 android android
-RUN echo '238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 999 so the outputs need no recursive chown (a copy-up layer doubles the image size).
 # Compile and populate all runtime dependencies online; do not run tests in the build.
 # The Release tasks only cache their Gradle dependencies (Release lint included) for the offline
