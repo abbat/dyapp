@@ -211,6 +211,9 @@ profiles_max_mb = 1024        # a full store answers FULL to writes; disk use st
                               # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
 signal_max_kb = 2048          # signals (likes, views) per mailbox, the oldest evicted; at least 2
+mailbox_pool_kb = 1024        # tokenless messages per mailbox with require_write_tokens; at least 101
+tokenless_share_pct = 20      # tokenless bytes store-wide, percent of messages_max_mb
+require_write_tokens = false  # tokenless messages go to the pool, not the 10 MiB
 media_max_mb = 10240          # media role; evict attachments then oldest owners to 95%
 media_per_owner_mb = 10       # billed bytes: whole copies × 5, shards ceil(bytes × (K+4)/K)
 attachment_retention_hours = 168  # unreleased chat attachments

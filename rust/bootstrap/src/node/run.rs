@@ -307,7 +307,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, nonce| {
                         if let Some(mailbox_request::Request::Put(record)) = &request.request {
                             let result = service.prepare_mailbox(&from, record.clone());
-                            return StoreDone::MailboxPut(channel, record.clone(), result);
+                            let group = service.put_group(record, &from);
+                            return StoreDone::MailboxPut(channel, record.clone(), group, result);
                         }
                         let kind = request.request.clone();
                         StoreDone::Mailbox(channel, kind, service.mailbox(&from, nonce, request))
@@ -802,10 +803,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                             tracing::error!(%error, "media request failed")
                         }
                     },
-                    StoreDone::MailboxPut(channel, record, result) => match result {
+                    StoreDone::MailboxPut(channel, record, group, result) => match result {
                         Ok(response) if response.status == i32::from(Status::Ok) => {
                             answered += 1;
-                            replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Mailbox(record), PutReply::Mailbox(channel));
+                            replicas.start_put(&mut swarm, &service, &watchers, PutRecord::Mailbox(record, group), PutReply::Mailbox(channel));
                         }
                         Ok(response) => {
                             answered += 1;

@@ -119,6 +119,10 @@ message NodeInfo {
   uint64 max_signal_bytes = 15;
   // Signal bytes kept per mailbox before the oldest are evicted; 0 as above.
   uint64 signal_quota_bytes = 16;
+  // Tokenless message bytes kept per mailbox while write tokens are required; 0 as above.
+  uint64 mailbox_pool_bytes = 17;
+  // Tokenless messages go to the mailbox pool instead of the mailbox quota.
+  bool require_write_tokens = 18;
 }
 
 // Every NodeInfo value is a hint from an untrusted node: a client never goes below its compiled
@@ -216,6 +220,9 @@ message Inventory {
 
 message Envelopes {
   repeated dyapp.identity.SignedRecord envelopes = 1;
+  // Unsigned per-mailbox sender labels set by the accepting node, parallel to `envelopes`; a
+  // missing one is empty. At most 8 bytes each; a longer one is read as empty.
+  repeated bytes source_groups = 2;
 }
 
 // Asks for a nonce bound to this libp2p connection, for one fetch or ack.

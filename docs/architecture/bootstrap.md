@@ -510,8 +510,8 @@ Signals have their own quota per mailbox, `limits.signal_max_kb` (default 2048, 
 signals), apart from the 10 MB for messages: at the quota the node deletes the mailbox's
 signals instead of answering "full", so the likes of a popular profile never block its messages:
 tokenless ones first, from the sender label holding the most bytes, tokened ones only when none
-remain ([storage](#storage)). Until source labels are wired every tokenless signal shares
-one label, so this is the oldest tokenless signal.
+remain ([storage](#storage)); the labels are the envelope's `via` and source group
+(see the tokenless pool below).
 In a mixed network a node older than signals ignores `class` and stores a signal as a message;
 a client tells such a node by `max_signal_bytes = 0` in `info`.
 The client sends at most one view per profile a day. Implemented: the disk, traffic and
@@ -568,8 +568,26 @@ replica paths (`replica_put`, repair, a local store) accept a token until the da
 `limits.message_ttl_hours` + 1 h. On a client put a forged token answers `DENIED` with a strike,
 an expired one `STALE` without a strike; on replica paths any token error drops the envelope
 silently, without a strike and without changing the batch status. The token counts towards the
-same 100 KiB signed-payload bound; the client reserves 256 bytes for it. Tokenless envelopes are
-stored as before; a separate pool for them, source groups and revocation are planned.
+same 100 KiB signed-payload bound; the client reserves 256 bytes for it. Token revocation is
+planned.
+
+**Tokenless pool.** Each stored envelope carries two 8-byte eviction labels: `via =
+SHA-256(peer id)[..8]` of the peer that handed it in (the node's own id for a local store), and
+`source_group = SHA-256(salt || mailbox || IP group)[..8]`, set by the node that accepts the
+client put. The salt is random, kept in memory and new on every start, so a label cannot be
+linked across mailboxes or restarts and needs no storage; repair after a restart mixes old and
+new labels for a while, which only coarsens eviction. Replicas pass the label unsigned in
+`Envelopes.source_groups` (parallel to `envelopes`; missing reads as empty, longer than 8 bytes
+is stored empty), and repair sends the stored one. A peer can spray labels, but they all sit
+under its own `via`, so it evicts only its own envelopes. With `limits.require_write_tokens`
+(default false) tokenless messages count against a pool of `limits.mailbox_pool_kb` per mailbox
+(default 1024, at least 101) evicted by the pool rule ([storage](#storage)), and tokened ones
+alone against the 10 MiB, so a flood of first messages cannot fill the mailbox. After each
+stored tokenless envelope the node also trims tokenless envelopes store-wide to
+`limits.tokenless_share_pct` of `limits.messages_max_mb` (default 20 %): signals only while the
+flag is off, messages too while it is on. In a network with mixed flags a node with the flag off
+stores tokenless messages up to the 10 MiB as before; a sender cannot tell, and `info` reports
+the flag and the pool.
 
 The node stores the signed record as received, once per (mailbox, id), and never learns the
 sender's identity: the sender key only proves someone signed it; puts are limited per sender key
@@ -667,7 +685,7 @@ The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `mailbox_pool_bytes` (`limits.mailbox_pool_kb` in bytes), `require_write_tokens` (`limits.require_write_tokens`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
@@ -680,7 +698,7 @@ The current protocol replies are:
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold, read from stored ids without the envelopes; `DENIED` and a strike from a peer without node proof of work; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
-| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded; an envelope with a forged or expired write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
+| `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded, with its unsigned source group from `source_groups`; an envelope with a forged or expired write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` with `max_bytes` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
@@ -1066,7 +1084,7 @@ messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires
                        token_key BLOB, via BLOB, source_group BLOB, UNIQUE (mailbox, id))
              record: the signed envelope as received; class: 1 signal, 0 message
              token_key: the write token key, NULL for a tokenless envelope
-             via, source_group: 8-byte eviction labels, empty until the pool is wired
+             via, source_group: 8-byte eviction labels (the tokenless pool)
              indexes on (mailbox, class, seq, size), expires_at,
                (mailbox, class, via, source_group, seq, size) WHERE token_key IS NULL,
                (mailbox, token_key, class, seq, size) WHERE token_key IS NOT NULL
@@ -1098,10 +1116,10 @@ none remain, the oldest signal of the token key holding the most bytes. The pool
 envelope (ties go to the label holding the oldest envelope), until the new one fits; when the
 new envelope would itself be the victim, the put deletes nothing and drops it with `OK`. With a
 pool, tokenless messages count against the pool by the same rule and tokened ones alone against
-the quota; the service passes no pool yet (planned with write-token enforcement).
+the quota; the service passes the pool only with `limits.require_write_tokens`.
 `evict_tokenless` applies the rule store-wide: it trims the (mailbox, class) holding most
 tokenless bytes until it is no longer the largest, until the tokenless total is within a limit;
-no caller uses it yet.
+the service calls it after each stored tokenless envelope.
 
 Each file has one connection behind a mutex. `storage::open` keeps the format version in
 `PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
@@ -1143,6 +1161,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
 `limits.{profiles_max_mb,messages_max_mb,signal_max_kb,media_max_mb,min_free_mb,bytes_per_second}`,
+`limits.{mailbox_pool_kb,tokenless_share_pct,require_write_tokens}` ([tokenless pool](#mailbox-envelope)),
 `limits.{max_connections,max_connections_per_peer,max_connections_per_ip_group,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,coarse_ipv4_prefix,coarse_ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`

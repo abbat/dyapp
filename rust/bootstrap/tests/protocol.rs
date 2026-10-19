@@ -103,6 +103,7 @@ impl ReplicaRequest {
                 client
                     .mailbox(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                         envelopes: vec![record.clone()],
+                        ..Default::default()
                     }))
                     .await
                     .status
@@ -469,6 +470,7 @@ async fn rejection_limits_survive_node_dispatch_over_tcp() {
     let mailbox = client
         .mailbox(mailbox_request::Request::ReplicaPut(proto::Envelopes {
             envelopes: vec![record(100 * 1024 + 1)],
+            ..Default::default()
         }))
         .await;
     assert_eq!(

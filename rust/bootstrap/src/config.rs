@@ -372,6 +372,13 @@ pub struct Limits {
     /// Signal bytes kept per mailbox, apart from the messages' 10 MiB; at the quota the oldest
     /// signals of the mailbox are deleted.
     pub signal_max_kb: u64,
+    /// Tokenless message bytes kept per mailbox while `require_write_tokens` is on; at the pool
+    /// the oldest envelope of the sender group holding most bytes is deleted.
+    pub mailbox_pool_kb: u64,
+    /// Tokenless envelope bytes kept store-wide, in percent of `messages_max_mb`.
+    pub tokenless_share_pct: u8,
+    /// Tokenless messages go to the mailbox pool instead of the 10 MiB mailbox quota.
+    pub require_write_tokens: bool,
     /// Distinct media blob bytes, and blob bytes per owner.
     pub media_max_mb: u64,
     /// Media blob bytes of one owner.
@@ -475,6 +482,9 @@ impl Default for Limits {
             profiles_max_mb: 1024,
             messages_max_mb: 4096,
             signal_max_kb: 2048,
+            mailbox_pool_kb: 1024,
+            tokenless_share_pct: 20,
+            require_write_tokens: false,
             media_max_mb: 10240,
             media_per_owner_mb: 10,
             attachment_retention_hours: 168,
@@ -664,6 +674,12 @@ impl NodeConfig {
         // A 1 KiB signal payload with its key and signature encodes to more than 1 KiB.
         if l.signal_max_kb < 2 {
             anyhow::bail!("limits.signal_max_kb must be at least 2");
+        }
+        // One largest envelope must fit the pool.
+        if l.mailbox_pool_kb < 101 || l.tokenless_share_pct > 100 {
+            anyhow::bail!(
+                "limits.mailbox_pool_kb must be at least 101 and tokenless_share_pct at most 100"
+            );
         }
         if self.limits.requests_per_second < 1 || self.limits.media_requests_per_second < 1 {
             anyhow::bail!(

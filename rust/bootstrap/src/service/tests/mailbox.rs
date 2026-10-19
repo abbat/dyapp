@@ -105,7 +105,10 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
         Status::Invalid
     );
     let batch = |envelopes| {
-        let request = mailbox_request::Request::ReplicaPut(proto::Envelopes { envelopes });
+        let request = mailbox_request::Request::ReplicaPut(proto::Envelopes {
+            envelopes,
+            ..Default::default()
+        });
         mailbox_status(&mailbox(&service, &mut None, request))
     };
     assert_eq!(batch(vec![signed(2)]), Status::Ok);
@@ -149,7 +152,14 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
     assert_eq!(payload.len(), MAX_ENVELOPE_BYTES);
     let exact = owner.sign(Domain::Envelope, payload);
     let response = s
-        .put(&exact, false, mailbox_role::Source::Local, MAX_ENVELOPE_BYTES - 1)
+        .put(
+            &exact,
+            false,
+            mailbox_role::Source::Local,
+            MAX_ENVELOPE_BYTES - 1,
+            "local",
+            mailbox_role::Group::Label(&[]),
+        )
         .unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
@@ -168,7 +178,7 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
         (response.status, response.max_bytes),
         (i32::from(Status::Ok), 0)
     );
-    let response = s.store_mailbox(&exact).unwrap();
+    let response = s.store_mailbox(&exact, "local", &[]).unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::Ok), 0)
@@ -189,7 +199,7 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), MAX_ENVELOPE_BYTES as u64)
     );
-    let response = s.store_mailbox(&large).unwrap();
+    let response = s.store_mailbox(&large, "local", &[]).unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), ENVELOPE_ACCEPT_BYTES as u64)
@@ -202,6 +212,7 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
             MailboxRequest {
                 request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                     envelopes: vec![large.clone(), exact.clone()],
+                    ..Default::default()
                 })),
             },
         )
@@ -220,6 +231,7 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
                 MailboxRequest {
                     request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                         envelopes,
+                        ..Default::default()
                     })),
                 },
             )
@@ -617,14 +629,31 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
 
 #[test]
 fn info_reports_signal_limits_only_with_the_store_role() {
-    let mut service = service_with(|l| l.signal_max_kb = 3);
+    let mut service = service_with(|l| {
+        l.signal_max_kb = 3;
+        l.mailbox_pool_kb = 200;
+        l.require_write_tokens = true;
+    });
     service.config.roles = vec![Role::Store];
     let info = service.info();
     assert_eq!(
-        (info.max_signal_bytes, info.signal_quota_bytes),
-        (MAX_SIGNAL_BYTES as u64, 3 * 1024)
+        (
+            info.max_signal_bytes,
+            info.signal_quota_bytes,
+            info.mailbox_pool_bytes,
+            info.require_write_tokens
+        ),
+        (MAX_SIGNAL_BYTES as u64, 3 * 1024, 200 * 1024, true)
     );
     service.config.roles.clear();
     let info = service.info();
-    assert_eq!((info.max_signal_bytes, info.signal_quota_bytes), (0, 0));
+    assert_eq!(
+        (
+            info.max_signal_bytes,
+            info.signal_quota_bytes,
+            info.mailbox_pool_bytes,
+            info.require_write_tokens
+        ),
+        (0, 0, 0, false)
+    );
 }

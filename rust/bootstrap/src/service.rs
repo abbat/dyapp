@@ -118,6 +118,9 @@ pub struct Service {
     tripped: [AtomicBool; 5],
     /// Requests each guard refused since the last `report`; the last one counts the byte rate.
     refused: [AtomicU64; 6],
+    /// Keys envelope source groups; in memory only, so a seized disk cannot map them back to IP
+    /// groups, and new on restart.
+    salt: [u8; 32],
 }
 
 const GUARDS: [&str; 6] = [
@@ -165,6 +168,11 @@ impl Service {
             shared_deny: RwLock::default(),
             tripped: Default::default(),
             refused: Default::default(),
+            salt: {
+                let mut salt = [0; 32];
+                getrandom::fill(&mut salt).expect("OS random source");
+                salt
+            },
         }
     }
 
@@ -384,6 +392,8 @@ impl Service {
             max_mailbox_bytes: if store { MAX_MAILBOX_BYTES } else { 0 },
             max_signal_bytes: if store { MAX_SIGNAL_BYTES as u64 } else { 0 },
             signal_quota_bytes: if store { self.signal_quota() } else { 0 },
+            mailbox_pool_bytes: if store { self.mailbox_pool() } else { 0 },
+            require_write_tokens: store && self.config.limits.require_write_tokens,
             retention_seconds: if store { self.retention() } else { 0 },
             search_fields: if search {
                 SEARCH_FIELDS.to_vec()
@@ -429,6 +439,11 @@ impl Service {
     /// Signal bytes kept per mailbox.
     fn signal_quota(&self) -> u64 {
         self.config.limits.signal_max_kb.saturating_mul(1024)
+    }
+
+    /// Tokenless message bytes kept per mailbox while write tokens are required.
+    fn mailbox_pool(&self) -> u64 {
+        self.config.limits.mailbox_pool_kb.saturating_mul(1024)
     }
 
     /// `peer` is the key for rate limiting and strikes. A storage failure is an

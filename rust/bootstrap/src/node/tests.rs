@@ -250,7 +250,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
             .encode_to_vec(),
         );
         assert_eq!(
-            source.store_mailbox(&record).unwrap().status,
+            source.store_mailbox(&record, "local", &[]).unwrap().status,
             i32::from(Status::Ok)
         );
     }
@@ -302,7 +302,7 @@ async fn repair_sends_no_signals_but_lists_them() {
             ..Default::default()
         };
         let record = owner.sign(dyapp_identity::Domain::Envelope, envelope.encode_to_vec());
-        let response = service.store_mailbox(&record).unwrap();
+        let response = service.store_mailbox(&record, "local", &[]).unwrap();
         assert_eq!(response.status, i32::from(Status::Ok));
     }
     let held = service.held(&mailbox).unwrap();
@@ -362,7 +362,7 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     .sign(&owner);
     replicas.puts.insert(
         0,
-        PendingPut::new(PutRecord::Mailbox(SignedRecord::default()), None, false),
+        PendingPut::new(PutRecord::Mailbox(SignedRecord::default(), vec![]), None, false),
     );
     replicas.puts.insert(
         1,
@@ -579,7 +579,7 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
 
 #[test]
 fn put_ack_counts_distinct_holders_and_times_out() {
-    let record = PutRecord::Mailbox(SignedRecord::default());
+    let record = PutRecord::Mailbox(SignedRecord::default(), vec![]);
     let (a, b) = (PeerId::random(), PeerId::random());
     let mut put = PendingPut::new(record.clone(), None, false);
     put.confirm(a, Status::Ok.into(), None);
@@ -746,7 +746,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     );
     replicas.puts.insert(
         0,
-        PendingPut::new(PutRecord::Mailbox(record.clone()), None, false),
+        PendingPut::new(PutRecord::Mailbox(record.clone(), vec![]), None, false),
     );
     replicas.put_holder(&mut swarm, &service, &watchers, 0, PeerId::random());
     assert_eq!(replicas.mailbox_puts.len(), 1);
@@ -769,6 +769,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
         (PeerId::random(), connection),
         Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
             envelopes: vec![record.clone()],
+            ..Default::default()
         })),
     );
     assert!(replicas.lookups.is_empty());
@@ -780,7 +781,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     for id in 1..MAX_PENDING_PUTS as u64 {
         replicas.puts.insert(
             id,
-            PendingPut::new(PutRecord::Mailbox(record.clone()), None, false),
+            PendingPut::new(PutRecord::Mailbox(record.clone(), vec![]), None, false),
         );
     }
     assert!(replicas.at_capacity());

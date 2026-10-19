@@ -274,7 +274,8 @@ const PUT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 enum PutRecord {
-    Mailbox(SignedRecord),
+    /// An envelope and its source group.
+    Mailbox(SignedRecord, Vec<u8>),
     Profile(SignedRecord),
     Media(proto::MediaReplicaPut),
     Sharded(proto::MediaReplicaPut, Arc<Vec<Vec<u8>>>),
@@ -579,15 +580,15 @@ fn send_envelopes(
         Err(error) => return tracing::error!(%error, "mailbox repair failed"),
     };
     let mut bytes = 0;
-    let envelopes: Vec<SignedRecord> = held
+    let envelopes: Vec<(SignedRecord, Vec<u8>)> = held
         .into_iter()
-        .filter(|(id, record)| {
+        .filter(|(id, (record, _))| {
             wanted(id)
                 && proto::Envelope::decode(record.payload.as_slice())
                     .is_ok_and(|e| !crate::service::is_signal(&e))
         })
-        .map(|(_, record)| record)
-        .take_while(|record| {
+        .map(|(_, held)| held)
+        .take_while(|(record, _)| {
             bytes += record.encoded_len();
             bytes <= REPAIR_BYTES
         })
@@ -598,7 +599,8 @@ fn send_envelopes(
         }
         let request = MailboxRequest {
             request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
-                envelopes: batch.to_vec(),
+                envelopes: batch.iter().map(|(record, _)| record.clone()).collect(),
+                source_groups: batch.iter().map(|(_, group)| group.clone()).collect(),
             })),
         };
         service.traffic.add(request.encoded_len() as u64);
@@ -778,6 +780,7 @@ enum StoreDone {
     MailboxPut(
         ResponseChannel<proto::MailboxResponse>,
         SignedRecord,
+        Vec<u8>,
         crate::Result<proto::MailboxResponse>,
     ),
     Mailbox(

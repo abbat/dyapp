@@ -317,7 +317,7 @@ impl Replicas {
         };
         let isolated = dyapp_p2p_net::known_peers(swarm).is_empty();
         let key = match &record {
-            PutRecord::Mailbox(record) => {
+            PutRecord::Mailbox(record, _) => {
                 proto::Envelope::decode(record.payload.as_slice())
                     .unwrap()
                     .mailbox
@@ -373,15 +373,17 @@ impl Replicas {
         }
         if to == *swarm.local_peer_id() {
             match &put.record {
-                PutRecord::Mailbox(record) => match service.store_mailbox(record) {
-                    Ok(response) => {
-                        if response.status == i32::from(Status::Ok) {
-                            push(swarm, watchers, vec![record.clone()]);
+                PutRecord::Mailbox(record, group) => {
+                    match service.store_mailbox(record, &swarm.local_peer_id().to_string(), group) {
+                        Ok(response) => {
+                            if response.status == i32::from(Status::Ok) {
+                                push(swarm, watchers, vec![record.clone()]);
+                            }
+                            put.confirm(to, response.status, None);
                         }
-                        put.confirm(to, response.status, None);
+                        Err(error) => tracing::error!(%error, "local mailbox replica failed"),
                     }
-                    Err(error) => tracing::error!(%error, "local mailbox replica failed"),
-                },
+                }
                 PutRecord::Profile(record) => match service.store_profile(record) {
                     Ok(response) => put.confirm(to, response.status, response.record),
                     Err(error) => tracing::error!(%error, "local profile replica failed"),
@@ -394,16 +396,17 @@ impl Replicas {
                 }
             }
         } else if self.trust.trusted(&to) {
-            if matches!(put.record, PutRecord::Mailbox(_) | PutRecord::Profile(_))
+            if matches!(put.record, PutRecord::Mailbox(..) | PutRecord::Profile(_))
                 && !self.cap.allow(&to, 1)
             {
                 return;
             }
             match &put.record {
-                PutRecord::Mailbox(record) => {
+                PutRecord::Mailbox(record, group) => {
                     let request = MailboxRequest {
                         request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                             envelopes: vec![record.clone()],
+                            source_groups: vec![group.clone()],
                         })),
                     };
                     service.traffic.add(request.encoded_len() as u64);

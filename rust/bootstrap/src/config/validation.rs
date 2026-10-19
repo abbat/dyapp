@@ -176,6 +176,10 @@ fn invalid_config_fails() {
     assert!(invalid(|c| c.limits.profile_ttl_days = 0));
     assert!(invalid(|c| c.limits.signal_max_kb = 1));
     assert!(!invalid(|c| c.limits.signal_max_kb = 2));
+    assert!(invalid(|c| c.limits.mailbox_pool_kb = 100));
+    assert!(!invalid(|c| c.limits.mailbox_pool_kb = 101));
+    assert!(invalid(|c| c.limits.tokenless_share_pct = 101));
+    assert!(!invalid(|c| c.limits.tokenless_share_pct = 100));
     assert!(invalid(|c| c.maintenance.io_mb_per_s = 0));
     assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
     let roles = [("DYAPPD__ROLES".into(), "[\"x\"]".into())];

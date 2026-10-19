@@ -437,6 +437,7 @@ async fn put(
         let request = if replica_pow.is_some() {
             mailbox_request::Request::ReplicaPut(proto::Envelopes {
                 envelopes: vec![record],
+                ..Default::default()
             })
         } else {
             mailbox_request::Request::Put(record)

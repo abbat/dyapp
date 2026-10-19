@@ -1,6 +1,7 @@
 //! The mailbox requests: put, fetch, ack and node-to-node repair.
 
 use super::*;
+use crate::storage::Put;
 
 impl Service {
     /// `nonce` is the challenge issued on this libp2p connection: `challenge` sets it and the
@@ -72,7 +73,7 @@ impl Service {
         if self.refused(peer) {
             return Ok(status(Status::Refused));
         }
-        let response = self.mailbox_request(nonce, request, store)?;
+        let response = self.mailbox_request(peer, nonce, request, store)?;
         if response.status == i32::from(Status::Denied) {
             self.strike(peer);
         }
@@ -81,6 +82,7 @@ impl Service {
 
     fn mailbox_request(
         &self,
+        peer: &Peer,
         nonce: &mut Option<[u8; 32]>,
         request: MailboxRequest,
         store: bool,
@@ -97,7 +99,15 @@ impl Service {
                 })
             }
             Some(mailbox_request::Request::Put(record)) => {
-                self.put(&record, store, Source::Client, MAX_ENVELOPE_BYTES)
+                let group = Group::Ip(&peer.group);
+                self.put(
+                    &record,
+                    store,
+                    Source::Client,
+                    MAX_ENVELOPE_BYTES,
+                    &peer.id,
+                    group,
+                )
             }
             Some(mailbox_request::Request::Fetch(record)) => {
                 let expected = nonce.take();
@@ -131,7 +141,7 @@ impl Service {
             // so no new envelope reuses them.
             Some(mailbox_request::Request::ReplicaAck(record)) => self.ack(&record, |_| true),
             Some(mailbox_request::Request::Inventory(inventory)) => self.inventory(&inventory),
-            Some(mailbox_request::Request::ReplicaPut(batch)) => self.replica_put(&batch),
+            Some(mailbox_request::Request::ReplicaPut(batch)) => self.replica_put(peer, &batch),
             None => Ok(status(Status::Unsupported)),
         }
     }
@@ -180,12 +190,20 @@ impl Service {
     /// One status for the batch: DENIED if any envelope is forged (a strike), else the first
     /// failure. ponytail: the sender rate limit applies per envelope, so a large gap of one
     /// sender fills over several repairs.
-    fn replica_put(&self, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
+    fn replica_put(&self, peer: &Peer, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
         let mut worst = status(Status::Ok);
         // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
         // watching device never acks until the mailbox cap; carry the expiry if that matters.
-        for record in &batch.envelopes {
-            let put = self.put(record, true, Source::Replica, ENVELOPE_ACCEPT_BYTES)?;
+        for (i, record) in batch.envelopes.iter().enumerate() {
+            let group = Group::Label(batch.source_groups.get(i).map_or(&[], Vec::as_slice));
+            let put = self.put(
+                record,
+                true,
+                Source::Replica,
+                ENVELOPE_ACCEPT_BYTES,
+                &peer.id,
+                group,
+            )?;
             if worst.status == i32::from(Status::Ok) || put.status == i32::from(Status::Denied) {
                 worst = put;
             }
@@ -199,28 +217,61 @@ impl Service {
         self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)
     }
 
-    /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, for repair.
-    pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, SignedRecord>> {
-        let (records, _) = self
-            .store
-            .fetch_envelopes(mailbox, MAX_INVENTORY as u32, u64::MAX)?;
-        Ok(records
+    /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, with their source groups, for
+    /// repair.
+    pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, Held>> {
+        let held = self.store.held_envelopes(mailbox, MAX_INVENTORY as u32)?;
+        Ok(held
             .into_iter()
-            .filter_map(|r| Some((proto::Envelope::decode(r.payload.as_slice()).ok()?.id, r)))
+            .filter_map(|(r, group)| {
+                Some((
+                    proto::Envelope::decode(r.payload.as_slice()).ok()?.id,
+                    (r, group),
+                ))
+            })
             .collect())
     }
 
-    /// Stores a locally held replica after admission, without billing the client twice.
-    pub fn store_mailbox(&self, record: &SignedRecord) -> crate::Result<MailboxResponse> {
-        self.put(record, true, Source::Local, ENVELOPE_ACCEPT_BYTES)
+    /// Stores a locally held replica after admission, without billing the client twice. `local`
+    /// is this node's peer ID and `group` the source group from [`Service::put_group`].
+    pub fn store_mailbox(
+        &self,
+        record: &SignedRecord,
+        local: &str,
+        group: &[u8],
+    ) -> crate::Result<MailboxResponse> {
+        let group = Group::Label(group);
+        self.put(
+            record,
+            true,
+            Source::Local,
+            ENVELOPE_ACCEPT_BYTES,
+            local,
+            group,
+        )
     }
 
+    /// The source group of a client put from `peer`: the salted hash of the mailbox and the
+    /// peer's IP group, empty for an undecodable envelope.
+    pub fn put_group(&self, record: &SignedRecord, peer: &Peer) -> Vec<u8> {
+        proto::Envelope::decode(record.payload.as_slice())
+            .map(|envelope| self.source_group(&envelope.mailbox, &peer.group))
+            .unwrap_or_default()
+    }
+
+    fn source_group(&self, mailbox: &[u8], ip_group: &str) -> Vec<u8> {
+        label(&[&self.salt[..], mailbox, ip_group.as_bytes()].concat()).to_vec()
+    }
+
+    /// `via` is the peer ID the envelope came from; `group` its sender's source group.
     pub(super) fn put(
         &self,
         record: &SignedRecord,
         store: bool,
         source: Source,
         max: usize,
+        via: &str,
+        group: Group,
     ) -> crate::Result<MailboxResponse> {
         if record.payload.len() > max {
             return Ok(mailbox_too_large(max));
@@ -261,8 +312,16 @@ impl Service {
             return Ok(status(Status::Full));
         }
         let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
+        let group = match group {
+            Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
+            Group::Label(label) if label.len() <= 8 => label.to_vec(),
+            Group::Label(_) => Vec::new(),
+        };
+        let via = label(via.as_bytes());
         let new = crate::storage::NewEnvelope {
             token_key: token_key.as_deref(),
+            via: &via,
+            source_group: &group,
             ..crate::storage::NewEnvelope::new(
                 &envelope.mailbox,
                 &envelope.id,
@@ -276,10 +335,17 @@ impl Service {
         } else {
             MAX_MAILBOX_BYTES
         };
-        let stored = self.store.put_envelope(&new, quota, None)?;
+        let tokens = self.config.limits.require_write_tokens;
+        let pool = tokens.then(|| self.mailbox_pool());
+        let stored = self.store.put_envelope(&new, quota, pool)?;
+        if stored == Put::Stored && token_key.is_none() {
+            // Pools join the store-wide share only once they are in use.
+            let share = (max_mb << 20) / 100 * u64::from(self.config.limits.tokenless_share_pct);
+            self.store.evict_tokenless(share, tokens)?;
+        }
         Ok(status(match stored {
-            crate::storage::Put::Full => Status::Full,
-            crate::storage::Put::Stored | crate::storage::Put::Dropped => Status::Ok,
+            Put::Full => Status::Full,
+            Put::Stored | Put::Dropped => Status::Ok,
         }))
     }
 
@@ -315,6 +381,25 @@ pub(super) enum Source {
     Replica,
     /// A local replica of an admitted client put: not billed again.
     Local,
+}
+
+/// A held envelope and its source group.
+pub type Held = (SignedRecord, Vec<u8>);
+
+/// Where the source group of an envelope comes from.
+#[derive(Clone, Copy)]
+pub(super) enum Group<'a> {
+    /// The IP group of the client that sent it: this node accepts it.
+    Ip(&'a str),
+    /// The accepting node's label, carried unsigned; one longer than 8 bytes is read as empty.
+    Label(&'a [u8]),
+}
+
+/// An 8-byte sender label: the head of the SHA-256 of `data`.
+fn label(data: &[u8]) -> [u8; 8] {
+    dyapp_identity::sha256(data)[..8]
+        .try_into()
+        .unwrap_or_default()
 }
 
 #[derive(Debug, PartialEq, Eq)]

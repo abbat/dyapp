@@ -219,6 +219,29 @@ impl BootstrapStore {
         Ok(Put::Stored)
     }
 
+    /// The first `limit` envelopes of a mailbox in fetch order, each with its source group, for
+    /// repair.
+    pub fn held_envelopes(
+        &self,
+        mailbox: &[u8],
+        limit: u32,
+    ) -> Result<Vec<(SignedRecord, Vec<u8>)>> {
+        let db = lock(&self.messages)?;
+        let mut query = db
+            .prepare(
+                "SELECT `record`, `source_group` FROM `envelopes` WHERE `mailbox` = ? \
+                 ORDER BY `class`, `seq` LIMIT ?",
+            )
+            .map_err(storage_error)?;
+        let rows: Vec<(Vec<u8>, Vec<u8>)> = query
+            .query_map(params![mailbox, limit], |row| Ok((row.get(0)?, row.get(1)?)))
+            .and_then(Iterator::collect)
+            .map_err(storage_error)?;
+        rows.into_iter()
+            .map(|(record, group)| Ok((decode(record)?, group)))
+            .collect()
+    }
+
     /// Deletes tokenless envelopes while they take more than `limit` bytes in the store: from
     /// the (mailbox, class) holding most of them, by the pool rule, until it is no longer the
     /// largest. Signals only unless `messages`. Bounded per call; returns the envelopes deleted.

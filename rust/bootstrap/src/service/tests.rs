@@ -307,6 +307,7 @@ fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
                     MailboxRequest {
                         request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                             envelopes: vec![SignedRecord::default()],
+                            ..Default::default()
                         })),
                     },
                 )
@@ -562,7 +563,7 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
     );
     assert!(service.held(&envelope.mailbox).unwrap().is_empty());
     assert_eq!(
-        mailbox_status(&service.store_mailbox(&record).unwrap()),
+        mailbox_status(&service.store_mailbox(&record, "local", &[]).unwrap()),
         Status::Ok
     );
     assert_eq!(service.held(&envelope.mailbox).unwrap().len(), 1);
