@@ -17,7 +17,7 @@ instrument() {
 tests() {
     cargo nextest run --workspace --all-features --locked --no-tests fail
     cargo test --workspace --all-features --locked --doc
-    python3 -B scripts/check-flaky.py --raw "${CARGO_TARGET_DIR:-target}/nextest/default/junit.xml"
+    python3 -B scripts/check-flaky.py --raw target/nextest/default/junit.xml
 }
 check() {
     local name=$1

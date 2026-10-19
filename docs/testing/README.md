@@ -174,7 +174,8 @@ documentation does not promise that a PR is blocked. See
 Practice B5. `scripts/rust-check.sh` steps `test` and `cov-test` run the workspace tests with
 cargo-nextest 0.9.148 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`), then the doctests
 with `cargo test --doc`, which nextest does not run. `.config/nextest.toml` retries a failed test
-twice and writes a JUnit report to `<target>/nextest/default/junit.xml`. A test that fails all
+twice and writes a JUnit report to `target/nextest/default/junit.xml` (`[store]`, so the coverage
+build in `target/llvm-cov-target` writes it there too). A test that fails all
 three attempts fails the step. XCUITest and Android UI tests retry the same way; see
 [ui-testing.md](ui-testing.md#what-is-tested).
 

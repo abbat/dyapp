@@ -220,7 +220,7 @@ base or `github.event.before`: every mutant in the changed Rust code must be cau
 Practice B4 ([fuzzing](../testing/README.md#fuzzing)). This job runs on ubuntu-24.04 with a
 30-minute timeout. Setup installs cargo-fuzz 0.13.2; rust-cache keeps `target/fuzz`. Step `fuzz`
 runs `rust-check.sh fuzz`: every target for 60 seconds, its saved corpus first. On failure the
-artifact **`fuzz-crashes`** keeps the crash inputs. The nightly hour per target is `fuzz.yml`
+artifact **`fuzz-crashes`** keeps the crash inputs and the raw check logs. The nightly hour per target is `fuzz.yml`
 ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
 ## What is not here
