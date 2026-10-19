@@ -15,8 +15,7 @@
 | `proto/profile.proto` | `dyapp.profile` | `Profile` |
 | `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` |
 
-The files are the source; comments in them define each field. The `Envelope.class` field is
-planned and is added together with its role ([protocol](bootstrap.md#protocol)).
+The files are the source; comments in them define each field.
 
 ## Signed records
 

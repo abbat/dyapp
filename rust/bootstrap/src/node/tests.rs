@@ -245,6 +245,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
                 id: vec![i; 16],
                 mailbox: mailbox.clone(),
                 ciphertext: vec![3],
+                ..Default::default()
             }
             .encode_to_vec(),
         );
@@ -701,6 +702,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
             id: vec![1; 16],
             mailbox: vec![2; 32],
             ciphertext: vec![3],
+            ..Default::default()
         }
         .encode_to_vec(),
     );

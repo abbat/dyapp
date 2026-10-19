@@ -549,6 +549,7 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         id: vec![3; 16],
         mailbox: vec![4; 32],
         ciphertext: vec![5],
+        ..Default::default()
     };
     let record = identity.sign(Domain::Envelope, envelope.encode_to_vec());
     assert_eq!(

@@ -45,5 +45,6 @@ keep likes, view history or matching preferences private, or enforce rules such 
   conversations between profiles.
 - Age, income and every other field are claims, not facts; the UI must not present them as
   verified (verification is low priority).
-- Not implemented: none of this exists in code yet; the bootstrap has no signal class or
-  signal quota ([bootstrap](../architecture/bootstrap.md)).
+- Implemented in the bootstrap: the signal class and the per-mailbox signal quota
+  ([bootstrap](../architecture/bootstrap.md#limits-and-abuse)). Not implemented: the client that
+  sends likes and views.

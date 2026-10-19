@@ -98,8 +98,6 @@ Not implemented yet:
 - Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
 - No relay or DCUtR hole punching.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
-- No signal protocol yet; signal envelopes are planned in
-  [Bootstrap — Protocol](bootstrap.md#protocol).
 
 ## Dial filtering
 

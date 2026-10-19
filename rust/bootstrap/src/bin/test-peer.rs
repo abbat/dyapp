@@ -412,6 +412,7 @@ fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, S
         id: id.to_vec(),
         mailbox,
         ciphertext,
+        ..Default::default()
     };
     let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
     Ok((id.to_vec(), record))

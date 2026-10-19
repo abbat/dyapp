@@ -24,8 +24,7 @@ runs as its own role, and signaling is planned.
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
 the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
-`profiles-idx.db`), mailbox replicas and repair over the DHT. Signals in the mailbox (the
-envelope class and the signal quota), ranged media reads, the search index rebuild, search defences against fake-profile and query
+`profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
@@ -505,11 +504,13 @@ Resource guards cap disk per store and for media (with a free-space reserve), tr
 an optional byte rate; near it the node sheds media first, then search, the mailbox last) and
 memory (connections, streams, request size). A full store answers "full" so the client tries
 another replica.
-Signals (planned): a like, a view or any other signal is an ordinary end-to-end encrypted
+Signals: a like, a view or any other signal is an ordinary end-to-end encrypted
 mailbox envelope with `class = signal`, at most 1 KiB, so a node cannot tell a like from a view.
 Signals have their own quota per mailbox, `limits.signal_max_kb` (default 2048, about 8 000
 signals), apart from the 10 MB for messages: at the quota the node deletes the mailbox's oldest
 signals instead of answering "full", so the likes of a popular profile never block its messages.
+In a mixed network a node older than signals ignores `class` and stores a signal as a message;
+a client tells such a node by `max_signal_bytes = 0` in `info`.
 The client sends at most one view per profile a day. Implemented: the disk, traffic and
 connection guards in [Resource guards](#resource-guards) and the quotas and peer bans in
 [Rate Limiting](#rate-limiting).
@@ -567,9 +568,10 @@ receives an envelope through mailbox repair (`replica_put`) starts a new TTL for
 device keeps watching without acking, replicas can re-seed each other and keep an envelope past
 the TTL; carrying the original expiry through repair is planned.
 
-Planned: `Envelope.class`, `message` (default) or `signal`, the only field that tells a node a
-signal from a message; signals count against `limits.signal_max_kb`, not the mailbox's 10 MiB
-([Limits and abuse](#limits-and-abuse)).
+`Envelope.class`, `ENVELOPE_CLASS_MESSAGE` (default, also any unknown value) or
+`ENVELOPE_CLASS_SIGNAL`, is the only field that tells a node a signal from a message. A signal's
+signed payload is at most 1 KiB (else `TOO_LARGE` with `max_bytes` 1024) and counts against
+`limits.signal_max_kb`, not the mailbox's 10 MiB ([Limits and abuse](#limits-and-abuse)).
 
 ### Signed profile
 
@@ -649,7 +651,7 @@ The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, search role only), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
 | `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
@@ -1103,7 +1105,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.dir` (every store
 in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
-`limits.{profiles_max_mb,messages_max_mb,media_max_mb,min_free_mb,bytes_per_second}`,
+`limits.{profiles_max_mb,messages_max_mb,signal_max_kb,media_max_mb,min_free_mb,bytes_per_second}`,
 `limits.{max_connections,max_connections_per_peer,max_connections_per_ip_group,max_streams,max_memory_mb}`
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,coarse_ipv4_prefix,coarse_ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`

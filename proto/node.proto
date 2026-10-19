@@ -115,6 +115,10 @@ message NodeInfo {
   repeated Capability capabilities = 13;
   // Minimum heartbeat proof-of-work difficulty on a search node, in leading zero bits.
   uint32 min_heartbeat_pow = 14;
+  // Largest signed payload of a SIGNAL envelope; 0 without the store role or on older nodes.
+  uint64 max_signal_bytes = 15;
+  // Signal bytes kept per mailbox before the oldest are evicted; 0 as above.
+  uint64 signal_quota_bytes = 16;
 }
 
 // Every NodeInfo value is a hint from an untrusted node: a client never goes below its compiled
@@ -225,6 +229,16 @@ message Envelope {
   bytes mailbox = 2;
   // MLS ciphertext; the recipient checks the sender inside it.
   bytes ciphertext = 3;
+  EnvelopeClass class = 4;
+}
+
+// What a node may tell apart; anything else is end-to-end encrypted.
+enum EnvelopeClass {
+  // A message, also any value a node does not know.
+  ENVELOPE_CLASS_MESSAGE = 0;
+  // A like, a view or another signal: at most 1 KiB of signed payload, its own quota per
+  // mailbox, the oldest evicted at the quota.
+  ENVELOPE_CLASS_SIGNAL = 1;
 }
 
 // Reads the mailbox whose address is the hash of the signing key, oldest first.

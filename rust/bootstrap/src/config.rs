@@ -369,6 +369,9 @@ pub struct Limits {
     pub profiles_max_mb: u64,
     /// Mailbox store size.
     pub messages_max_mb: u64,
+    /// Signal bytes kept per mailbox, apart from the messages' 10 MiB; at the quota the oldest
+    /// signals of the mailbox are deleted.
+    pub signal_max_kb: u64,
     /// Distinct media blob bytes, and blob bytes per owner.
     pub media_max_mb: u64,
     /// Media blob bytes of one owner.
@@ -471,6 +474,7 @@ impl Default for Limits {
             requests_per_second: 100,
             profiles_max_mb: 1024,
             messages_max_mb: 4096,
+            signal_max_kb: 2048,
             media_max_mb: 10240,
             media_per_owner_mb: 10,
             attachment_retention_hours: 168,
@@ -656,6 +660,10 @@ impl NodeConfig {
                 "limits.message_ttl_hours, attachment_retention_hours and profile_ttl_days must \
                  be at least 1"
             );
+        }
+        // A 1 KiB signal payload with its key and signature encodes to more than 1 KiB.
+        if l.signal_max_kb < 2 {
+            anyhow::bail!("limits.signal_max_kb must be at least 2");
         }
         if self.limits.requests_per_second < 1 || self.limits.media_requests_per_second < 1 {
             anyhow::bail!(

@@ -32,6 +32,8 @@ const PROFILE_SEND_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
 const PROFILE_ACCEPT_BYTES: usize = dyapp_profile::MAX_PAYLOAD_LEN;
 /// Fixed network record admission; raise before increasing the client-send default.
 pub(crate) const SEARCH_ACCEPT_BYTES: usize = 64 << 10;
+/// Largest signed payload of a SIGNAL envelope, sent and accepted.
+pub const MAX_SIGNAL_BYTES: usize = 1024;
 /// Stored bytes per device mailbox.
 pub const MAX_MAILBOX_BYTES: u64 = 10 * 1024 * 1024;
 /// Envelope bytes per fetch reply, leaving 64 KiB for protobuf framing.
@@ -380,6 +382,8 @@ impl Service {
             max_profile_bytes: if store { PROFILE_SEND_BYTES as u64 } else { 0 },
             max_message_bytes: if store { MAX_ENVELOPE_BYTES as u64 } else { 0 },
             max_mailbox_bytes: if store { MAX_MAILBOX_BYTES } else { 0 },
+            max_signal_bytes: if store { MAX_SIGNAL_BYTES as u64 } else { 0 },
+            signal_quota_bytes: if store { self.signal_quota() } else { 0 },
             retention_seconds: if store { self.retention() } else { 0 },
             search_fields: if search {
                 SEARCH_FIELDS.to_vec()
@@ -420,6 +424,11 @@ impl Service {
 
     fn retention(&self) -> u64 {
         u64::from(self.config.limits.message_ttl_hours) * 3600
+    }
+
+    /// Signal bytes kept per mailbox.
+    fn signal_quota(&self) -> u64 {
+        self.config.limits.signal_max_kb.saturating_mul(1024)
     }
 
     /// `nonce` is the challenge issued on this libp2p connection: `challenge` sets it and the
@@ -600,24 +609,20 @@ impl Service {
     /// failure. ponytail: the sender rate limit applies per envelope, so a large gap of one
     /// sender fills over several repairs.
     fn replica_put(&self, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
-        let mut worst = Status::Ok;
+        let mut worst = status(Status::Ok);
         // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
         // watching device never acks until the mailbox cap; carry the expiry if that matters.
         for record in &batch.envelopes {
-            let put = Status::try_from(self.put(record, true, true, ENVELOPE_ACCEPT_BYTES)?.status)
-                .unwrap_or_default();
-            if worst == Status::Ok || put == Status::Denied {
+            let put = self.put(record, true, true, ENVELOPE_ACCEPT_BYTES)?;
+            if worst.status == i32::from(Status::Ok) || put.status == i32::from(Status::Denied) {
                 worst = put;
             }
         }
-        Ok(if worst == Status::TooLarge {
-            mailbox_too_large(ENVELOPE_ACCEPT_BYTES)
-        } else {
-            status(worst)
-        })
+        Ok(worst)
     }
 
-    /// The ids of the oldest [`MAX_INVENTORY`] envelopes of a mailbox, read without the records.
+    /// The ids of the first [`MAX_INVENTORY`] envelopes of a mailbox in fetch order, read without
+    /// the records.
     pub fn held_ids(&self, mailbox: &[u8]) -> crate::Result<Vec<Vec<u8>>> {
         self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)
     }
@@ -657,6 +662,10 @@ impl Service {
         if envelope.id.len() != 16 || envelope.mailbox.len() != 32 {
             return Ok(status(Status::Invalid));
         }
+        let signal = is_signal(&envelope);
+        if signal && record.payload.len() > MAX_SIGNAL_BYTES {
+            return Ok(mailbox_too_large(MAX_SIGNAL_BYTES));
+        }
         if self.listed_key(&record.public_key) || self.listed(&envelope.mailbox) {
             return Ok(status(Status::Refused));
         }
@@ -680,9 +689,13 @@ impl Service {
             &envelope.mailbox,
             &envelope.id,
             record,
-            false,
+            signal,
             expires_at,
-            MAX_MAILBOX_BYTES,
+            if signal {
+                self.signal_quota()
+            } else {
+                MAX_MAILBOX_BYTES
+            },
         )?;
         Ok(status(if stored { Status::Ok } else { Status::Full }))
     }
@@ -930,6 +943,11 @@ fn owner_request<M: Message + Default>(
 /// Whether `got` is the nonce issued on this connection, compared in constant time.
 fn fresh(expected: Option<[u8; 32]>, got: &[u8]) -> bool {
     expected.is_some_and(|expected| subtle::ConstantTimeEq::ct_eq(got, &expected[..]).into())
+}
+
+/// A SIGNAL envelope; any other class, unknown values included, is a message.
+pub(crate) fn is_signal(envelope: &proto::Envelope) -> bool {
+    envelope.class == proto::EnvelopeClass::Signal as i32
 }
 
 fn mailbox_too_large(max: usize) -> MailboxResponse {

@@ -144,6 +144,7 @@ fn replica_requests() -> [ReplicaRequest; 4] {
                     id: vec![7; 16],
                     mailbox: vec![8; 32],
                     ciphertext: vec![9],
+                    ..Default::default()
                 }
                 .encode_to_vec(),
             ),
@@ -795,6 +796,7 @@ async fn every_request_type() {
         id: vec![7; 16],
         mailbox: dyapp_identity::key_hash(&device.public_key()).to_vec(),
         ciphertext: b"hello".to_vec(),
+        ..Default::default()
     };
     let put: SignedRecord = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
     let reply = client

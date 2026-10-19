@@ -210,6 +210,7 @@ requests_per_second = 100
 profiles_max_mb = 1024        # a full store answers FULL to writes; disk use stays below
                               # the sum of the store sizes plus SQLite overhead
 messages_max_mb = 4096
+signal_max_kb = 2048          # signals (likes, views) per mailbox, the oldest evicted; at least 2
 media_max_mb = 10240          # media role; evict attachments then oldest owners to 95%
 media_per_owner_mb = 10       # billed bytes: whole copies × 5, shards ceil(bytes × (K+4)/K)
 attachment_retention_hours = 168  # unreleased chat attachments

@@ -49,6 +49,7 @@
 # plus SQLite overhead.
 # profiles_max_mb = 1024              # profile store
 # messages_max_mb = 4096              # mailbox store
+# signal_max_kb = 2048                # signals per mailbox, the oldest evicted; at least 2
 # media_max_mb = 10240                # media role
 # media_per_owner_mb = 10             # media files of one user
 # min_free_mb = 512                   # writes stop while the disk of storage.dir has less free

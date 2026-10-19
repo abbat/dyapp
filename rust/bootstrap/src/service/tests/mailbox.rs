@@ -60,6 +60,7 @@ fn deny_list_refuses_without_strikes() {
         id: vec![1; 16],
         mailbox: address,
         ciphertext: vec![1],
+        ..Default::default()
     };
     let to_listed = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
     let put = mailbox_request::Request::Put(to_listed);
@@ -81,6 +82,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
             id: vec![id; 16],
             mailbox: address.clone(),
             ciphertext: vec![id],
+            ..Default::default()
         };
         sender.sign(Domain::Envelope, envelope.encode_to_vec())
     };
@@ -139,6 +141,7 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
         id: vec![4; 16],
         mailbox: vec![7; 32],
         ciphertext: vec![0; MAX_ENVELOPE_BYTES],
+        ..Default::default()
     };
     let overhead = envelope.encoded_len() - envelope.ciphertext.len();
     envelope.ciphertext.resize(MAX_ENVELOPE_BYTES - overhead, 0);
@@ -239,6 +242,7 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         id,
         mailbox: address.clone(),
         ciphertext,
+        ..Default::default()
     };
     let put = |envelope: proto::Envelope| {
         mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
@@ -387,6 +391,7 @@ fn full_stores_and_byte_rate_refuse_requests() {
         id: vec![7; 16],
         mailbox: vec![1; 32],
         ciphertext: vec![1],
+        ..Default::default()
     };
     let put =
         mailbox_request::Request::Put(identity.sign(Domain::Envelope, envelope.encode_to_vec()));
@@ -468,6 +473,7 @@ fn group_and_sender_quotas_and_bans() {
             id: vec![id; 16],
             mailbox: vec![1; 32],
             ciphertext: vec![1],
+            ..Default::default()
         };
         mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
     };
@@ -561,4 +567,61 @@ fn rate_limit_and_info() {
     let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
     assert_eq!(known.username, "1003600:12D3KooWpeer");
     assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc="); // gitleaks:allow (test vector)
+}
+
+#[test]
+fn signals_are_small_counted_apart_and_evict_the_oldest() {
+    use proto::EnvelopeClass::{Message, Signal};
+    let service = service_with(|l| {
+        l.signal_max_kb = 2;
+        l.sender_puts_per_second = 1000;
+    });
+    let (device, sender) = (Identity::generate(), Identity::generate());
+    let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
+    let record = |id: u8, class: proto::EnvelopeClass, len| {
+        let envelope = proto::Envelope {
+            id: vec![id; 16],
+            mailbox: address.clone(),
+            ciphertext: vec![id; len],
+            class: class.into(),
+        };
+        sender.sign(Domain::Envelope, envelope.encode_to_vec())
+    };
+    let mut conn = None;
+    let large = mailbox_request::Request::Put(record(9, Signal, MAX_SIGNAL_BYTES));
+    let response = mailbox(&service, &mut conn, large);
+    assert_eq!(
+        (mailbox_status(&response), response.max_bytes),
+        (Status::TooLarge, MAX_SIGNAL_BYTES as u64)
+    );
+    // The third signal overflows the 2 KiB quota and evicts the first; the message still fits.
+    let records = [
+        record(1, Signal, 600),
+        record(2, Signal, 600),
+        record(3, Signal, 600),
+        record(4, Message, 600),
+    ];
+    for put in &records {
+        let put = mailbox_request::Request::Put(put.clone());
+        let response = mailbox(&service, &mut conn, put);
+        assert_eq!(mailbox_status(&response), Status::Ok);
+    }
+    let nonce = challenge(&service, &mut conn);
+    let response = mailbox(&service, &mut conn, fetch(&device, nonce));
+    let [_, second, third, message] = records;
+    assert_eq!(response.envelopes, vec![message, second, third]);
+}
+
+#[test]
+fn info_reports_signal_limits_only_with_the_store_role() {
+    let mut service = service_with(|l| l.signal_max_kb = 3);
+    service.config.roles = vec![Role::Store];
+    let info = service.info();
+    assert_eq!(
+        (info.max_signal_bytes, info.signal_quota_bytes),
+        (MAX_SIGNAL_BYTES as u64, 3 * 1024)
+    );
+    service.config.roles.clear();
+    let info = service.info();
+    assert_eq!((info.max_signal_bytes, info.signal_quota_bytes), (0, 0));
 }
