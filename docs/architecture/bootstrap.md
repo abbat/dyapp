@@ -100,10 +100,12 @@ peer's queued claims go with its last connection. The node now uses `same_ip` fo
 addresses on the connected peer's exact remote IP and probes other claimed addresses with
 one-address, peer-ID-pinned dials before routing to them. Failed, stale and unrelated connections
 prove nothing. Both DHTs filter inbound records: no remote value records are stored, and
-search Kademlia stores no remote providers. The store DHT keeps a provider record only when
+search Kademlia stores no remote providers. The store DHT keeps a provider record only for
+`dyapp/search` and `/dyapp/turn`, from a peer ID with the node-ID proof of work, and only when
 every advertised direct address has the exact IP of a live connection to that provider,
 regardless of the address's port or transport; a disconnected provider or a forged foreign
-address is rejected. Local provider announcements still work. The outbound dial guard is
+address is rejected. Local provider announcements still work. A search node dials found
+providers only when their peer ID carries the proof of work. The outbound dial guard is
 described in [P2P networking](p2p-networking.md#dial-filtering).
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in

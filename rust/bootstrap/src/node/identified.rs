@@ -94,14 +94,18 @@ impl Admission {
             .map(|(_, a, _)| a)
     }
 
-    /// Accept a provider address only when its advertised peer has a live connection on the
-    /// same exact IP. The sender may be a different peer forwarding the record.
+    /// Accept a search or TURN provider whose peer ID carries the proof of work of `bits` and
+    /// whose every address has a live connection of that peer on the same exact IP. The sender
+    /// may be a different peer forwarding the record.
     pub(super) fn provider_allowed(
         &self,
         endpoints: &Endpoints,
         record: &kad::ProviderRecord,
+        bits: u32,
     ) -> bool {
-        !record.addresses.is_empty()
+        [dyapp_p2p_net::SEARCH_KEY, dyapp_p2p_net::TURN_KEY].contains(&record.key.as_ref())
+            && dyapp_p2p_net::id_has_pow(&record.provider, bits)
+            && !record.addresses.is_empty()
             && record.addresses.iter().all(|address| {
                 self.remotes.iter().any(|(id, (peer, _, _))| {
                     *peer == record.provider
@@ -122,7 +126,8 @@ impl Admission {
 
     /// Store only admissible provider records. FilterBoth leaves all other remote records out.
     pub(super) fn add_provider(&self, swarm: &mut Swarm<Behaviour>, record: kad::ProviderRecord) {
-        if self.provider_allowed(&swarm.behaviour().endpoints, &record) {
+        let bits = dyapp_p2p_net::id_pow_bits();
+        if self.provider_allowed(&swarm.behaviour().endpoints, &record, bits) {
             if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
                 tracing::debug!(%error, "DHT provider record not stored");
             }
@@ -244,26 +249,38 @@ mod tests {
             (sender, "/ip6/2001:db8::2/tcp/7070".parse().unwrap(), false),
         );
         let mut record = kad::ProviderRecord {
-            key: kad::RecordKey::new(&b"test"),
+            key: kad::RecordKey::new(&dyapp_p2p_net::SEARCH_KEY),
             provider,
             expires: None,
             addresses: vec!["/ip6/2001:db8::1/udp/7071/quic-v1".parse().unwrap()],
         };
+        assert!(admission.provider_allowed(&none, &record, 0));
+        // Without the node-ID proof of work, or for another key, nothing is stored.
+        assert!(!admission.provider_allowed(&none, &record, 255));
+        let turn = kad::ProviderRecord {
+            key: kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY),
+            ..record.clone()
+        };
+        assert!(admission.provider_allowed(&none, &turn, 0));
+        let other = kad::ProviderRecord {
+            key: kad::RecordKey::new(&b"test"),
+            ..record.clone()
+        };
+        assert!(!admission.provider_allowed(&none, &other, 0));
         // The sender's connection cannot substantiate the advertised provider's address.
-        assert!(admission.provider_allowed(&none, &record));
         record
             .addresses
             .push("/ip6/2001:db8::2/tcp/7070".parse().unwrap());
-        assert!(!admission.provider_allowed(&none, &record));
+        assert!(!admission.provider_allowed(&none, &record, 0));
         record.addresses = vec!["/dns/example.test/tcp/7070".parse().unwrap()];
-        assert!(!admission.provider_allowed(&none, &record));
+        assert!(!admission.provider_allowed(&none, &record, 0));
         record.addresses.clear();
-        assert!(!admission.provider_allowed(&none, &record));
+        assert!(!admission.provider_allowed(&none, &record, 0));
         record
             .addresses
             .push("/ip6/2001:db8::1/tcp/7070".parse().unwrap());
         admission.closed(provider_connection, provider, true);
-        assert!(!admission.provider_allowed(&none, &record));
+        assert!(!admission.provider_allowed(&none, &record, 0));
     }
 
     #[test]

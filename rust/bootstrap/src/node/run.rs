@@ -536,7 +536,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     ..
                 })) => {
                     for provider in providers {
-                        if provider != *swarm.local_peer_id() && !swarm.is_connected(&provider) {
+                        if provider != *swarm.local_peer_id()
+                            && !swarm.is_connected(&provider)
+                            && dyapp_p2p_net::id_has_pow(&provider, dyapp_p2p_net::id_pow_bits())
+                        {
                             let _ = swarm.dial(provider);
                         }
                     }

@@ -58,13 +58,18 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
    cannot pass for the seed; the client's built-in list always carries peer IDs. The default seed
    list is empty until independent operators run public seeds. The client asks several seeds at
    once.
-7. **Store protection.** The bootstrap store keeps a separate pool per data type, so likes and view
-   signals cannot evict messages, with quotas per sender key and per IP group. A hashcash stamp on
-   unsolicited writes (likes, view signals, messages without a match) is best effort: the envelope
-   reserves an optional stamp field, nodes may use it to prioritise under load, and none require it
-   in v1. The exception is search: a profile carries a proof of work bound to its owner's key
-   and not to its content, so it is computed once. It is memory-hard (Argon2id, 8 MiB, 1 pass,
-   leading zero bits over the key and a nonce), because SHA-256 would give a GPU a thousandfold
+7. **Store protection.** The bootstrap store keeps profiles, envelopes and media in separate
+   stores with their own size caps. In a mailbox, signals (likes, view signals) and messages have
+   separate quotas, so signals cannot evict messages. Eviction takes from the sender label
+   holding the most bytes, and writes without a write token are capped by a per-mailbox pool
+   (with `limits.require_write_tokens`) and a store-wide share
+   ([storage](../architecture/bootstrap.md#storage)). Kademlia stores no remote values and only
+   search and TURN providers from node IDs with the proof of work on a live connection. A
+   hashcash stamp on unsolicited writes (likes, view signals, messages without a match) is best
+   effort: the envelope reserves an optional stamp field, nodes may use it to prioritise under
+   load, and none require it in v1. The exception is search: a profile carries a proof of work
+   bound to its owner's key and not to its content, so it is computed once. It is memory-hard
+   (Argon2id, 8 MiB, 1 pass, leading zero bits over the key and a nonce), because SHA-256 would give a GPU a thousandfold
    edge over a phone. The client computes 11 bits, about 30 s on a phone, in the background and
    resumably; messaging does not wait for it. Store nodes do not check it; gossip relays and
    search nodes do, and each node sets the minimum it accepts (default 11, at most 20). Without it
@@ -79,7 +84,7 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
 - Proof-of-work costs an operator about a minute once per node key; a node key without it must be
   replaced, which changes the node's peer ID.
 - Some defences are our code on top of libp2p: the diversity filter, node-ID proof-of-work, anchors,
-  local reputation, replica placement and store pools.
+  local reputation, replica placement and store quotas.
 - Implemented in `rust/p2p-net`: disjoint lookups, the node-ID proof of work (22 bits, made by
   `dyappd keygen`), the per-bucket and per-table IP-group limits on manual inserts and one peer
   per /16 in each bucket ([p2p-networking.md](../architecture/p2p-networking.md)). The node joins
@@ -91,4 +96,3 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
   ([bootstrap.md](../architecture/bootstrap.md#rate-limiting)).
 - Implemented in `rust/profile` and `rust/bootstrap`: the profile proof of work, checked by
   search nodes ([bootstrap.md](../architecture/bootstrap.md#search)).
-- Not implemented (planned): per-type pools in the bootstrap store.
