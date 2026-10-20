@@ -175,6 +175,33 @@ fn padded_record(
 }
 
 #[test]
+fn maintenance_shrinks_the_stores() {
+    let s = service();
+    for _ in 0..100 {
+        let owner = Identity::generate();
+        let profile = Profile {
+            version: 1,
+            ..Default::default()
+        };
+        s.store_profile(&padded_profile(&owner, &profile, 8000))
+            .unwrap();
+    }
+    while s.store.evict_profiles(0).unwrap() > 0 {}
+    let size = || {
+        ["profiles.db", "profiles.db-wal"]
+            .iter()
+            .map(|name| {
+                std::fs::metadata(s.config.storage.dir.join(name)).map_or(0, |file| file.len())
+            })
+            .sum::<u64>()
+    };
+    let before = size();
+    assert!(before > 800_000, "{before}");
+    s.maintain(u32::MAX);
+    assert!(size() < before / 4, "{} of {before}", size());
+}
+
+#[test]
 fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     let s = service();
     let owner = Identity::generate();
