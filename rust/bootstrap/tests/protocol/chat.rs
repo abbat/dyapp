@@ -94,6 +94,20 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             .any(|window| window == hello));
     }
     assert!(stored[1].ciphertext.len() >= chat::MIN_PADDED_BYTES);
+    // Sealed sender: each envelope has its own signing key, and none of Alice's published keys.
+    assert_ne!(stored[0].sender_key, stored[1].sender_key);
+    let published = [
+        alice.identity.public_key().to_vec(),
+        alice.device_key.public_key().to_vec(),
+    ];
+    let certificate = alice.device.certificate().encode_to_vec();
+    for envelope in &stored {
+        assert_eq!(envelope.sender_key.len(), 32);
+        assert!(!published.contains(&envelope.sender_key));
+        assert!(!certificate
+            .windows(envelope.sender_key.len())
+            .any(|window| window == envelope.sender_key));
+    }
 
     let mut bob_groups = Vec::new();
     let (events, ids) = chat::receive(

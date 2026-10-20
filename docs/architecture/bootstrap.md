@@ -49,8 +49,8 @@ it describe today's code.
   mailbox, profile or media blob up to 1 MiB, writes each distinct holder, and waits for two
   stored copies. Sharded media confirms two manifests and K shards.
 - **Nodes see metadata, not content.** Messages, likes, views and every other signal are
-  end-to-end encrypted for the recipient. Nodes see which mailbox gets mail and when; the planned
-  sealed sender signs each envelope with a fresh key, so they do not see who wrote it.
+  end-to-end encrypted for the recipient. Nodes see which mailbox gets mail and when; sealed
+  sender signs each envelope with a fresh key, so they do not see who wrote it.
 
 ### Roles and discovery
 
@@ -127,7 +127,7 @@ on an identity's data carries a signature by a key of that identity:
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
 | `mailbox.revoke` | the mailbox's device key, over the request (no nonce: a replay revokes the same keys); to close the mailbox, the identity key the device accepted in its `owner` binding | mailbox address = H(device key), or H(the `owner` binding's signer) |
-| `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
+| `mailbox.put` | a sender key, over the envelope (fresh per envelope from `rust/client`) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
@@ -737,8 +737,8 @@ the flag and the pool.
 The node stores the signed record as received, once per (mailbox, id), and never learns the
 sender's identity: the sender key only proves someone signed it; puts are limited per sender key
 ([Rate Limiting](#rate-limiting)). `rust/client` pads the plaintext to the next power of two from
-1 KiB before encryption (`chat::pad`); it is meant to use a fresh key for every envelope (sealed
-sender, planned), never its published device key
+1 KiB before encryption (`chat::pad`) and signs every envelope with a fresh key it does not keep
+(sealed sender), never its published device key
 ([Threat Model](../security/threat-model.md#traffic-analysis)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
@@ -1133,7 +1133,9 @@ Scope and limits:
   `RATE_LIMITED` with `retry_after` 1 and no strike. Subscribers behind one carrier CGNAT (or
   one relay) share a group; `ipv4_prefix` tunes how wide it is.
 - A mailbox `put` also counts against the envelope's sender key (`sender_puts_per_second`,
-  default 10), after the signature is checked.
+  default 10), after the signature is checked. With sealed sender a client signs each envelope
+  with a fresh key, so this bucket binds only a sender that reuses one; the IP-group and mailbox
+  quotas are the real bounds.
 - libp2p keys and sender keys are free to generate; the IP-group bucket bounds what a client
   gains by rotating them. A relayed connection gets the relay's group. There is no Sybil
   resistance beyond that.

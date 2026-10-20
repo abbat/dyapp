@@ -59,6 +59,8 @@ pub enum Error {
 pub struct Envelope {
     /// 16 random bytes the sender chose.
     pub id: Vec<u8>,
+    /// The one-off key that signed it: says nothing about the sender, who is inside the MLS bytes.
+    pub sender_key: Vec<u8>,
     /// MLS message bytes.
     pub ciphertext: Vec<u8>,
 }
@@ -184,7 +186,8 @@ impl Node {
         Err(last)
     }
 
-    /// Stores `ciphertext` in `mailbox`, signed by a fresh sender key; returns the envelope id.
+    /// Stores `ciphertext` in `mailbox`, signed by a fresh key used only for this envelope (sealed
+    /// sender), never a published one; returns the envelope id.
     pub async fn put(&mut self, mailbox: &[u8], ciphertext: Vec<u8>) -> Result<Vec<u8>, Error> {
         let mut id = [0u8; 16];
         getrandom::fill(&mut id).map_err(|error| Error::Request(error.to_string()))?;
@@ -220,6 +223,7 @@ impl Node {
                     .map_err(|_| Error::Reply("bad envelope"))?;
                 Ok(Envelope {
                     id: envelope.id,
+                    sender_key: record.public_key.clone(),
                     ciphertext: envelope.ciphertext,
                 })
             })
