@@ -132,6 +132,8 @@ its slot once. Listening, listener removal and inbound events are delegated unch
 `PowGate::new(guard)` refuses pending outbound attempts whose known peer ID lacks the current
 node-ID proof of work and adds to the shared refusal count. Unknown peer IDs pass; inbound and
 established connections are unchanged. It contributes no extra dial addresses or swarm actions.
+So a request to a disconnected weak peer fails with `DialFailure`, while the same peer, once
+connected inbound, gets requests on that connection.
 `SwarmOptions::dial_guard` wires both: the swarm builder composes QUIC or TCP (Noise, Yamux)
 into one transport, wraps it in `GuardDial` and only then adds DNS, so the guard sees every
 resolved IP rather than the name; the same guard backs a `PowGate` in the behaviour. `dyappd`

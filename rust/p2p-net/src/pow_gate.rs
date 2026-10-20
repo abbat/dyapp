@@ -166,4 +166,118 @@ mod tests {
             .is_err());
         assert_eq!(guard.take_denied(), 1);
     }
+
+    // On a real swarm: a request to a disconnected weak peer fails before the transport, while
+    // the same peer, once connected inbound, gets the request on that connection.
+    #[tokio::test]
+    async fn weak_peer_is_not_dialed_but_served_on_its_inbound_connection() {
+        use crate::{
+            build_configured_swarm, build_swarm, proto, BehaviourEvent, Mode, SwarmOptions,
+        };
+        use libp2p::futures::StreamExt;
+        use libp2p::request_response::{Event, Message, OutboundFailure};
+        use libp2p::swarm::{behaviour::toggle::Toggle, SwarmEvent};
+        use std::time::Duration;
+
+        let keypair = libp2p::identity::Keypair::generate_ed25519;
+        let guard = DialGuard::new(false);
+        let options = SwarmOptions {
+            dial_guard: Some(guard.clone()),
+            ..SwarmOptions::default()
+        };
+        let mut node = build_configured_swarm(keypair(), options).unwrap();
+        // No peer ID carries 64 bits of proof, so every peer is weak.
+        node.behaviour_mut().pow_gate = Toggle::from(Some(PowGate {
+            guard: guard.clone(),
+            required_bits: || 64,
+        }));
+        let mut weak = build_swarm(keypair(), Mode::Auto).unwrap();
+        let weak_id = *weak.local_peer_id();
+        let request = || proto::NodeRequest {
+            request: Some(proto::node_request::Request::Info(proto::InfoRequest {})),
+        };
+        let listen = |swarm: &mut libp2p::Swarm<crate::Behaviour>| {
+            swarm
+                .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+                .unwrap();
+        };
+        listen(&mut weak);
+        listen(&mut node);
+        let wait = Duration::from_secs(10);
+
+        let weak_address = tokio::time::timeout(wait, async {
+            loop {
+                if let SwarmEvent::NewListenAddr { address, .. } = weak.select_next_some().await {
+                    return address;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        node.add_peer_address(weak_id, weak_address);
+        node.behaviour_mut().node.send_request(&weak_id, request());
+        let (node_address, failure) = tokio::time::timeout(wait, async {
+            let (mut address, mut failure) = (None::<Multiaddr>, None::<OutboundFailure>);
+            loop {
+                if let (Some(address), Some(failure)) = (&address, &failure) {
+                    return (address.clone(), format!("{failure:?}"));
+                }
+                tokio::select! {
+                    event = node.select_next_some() => match event {
+                        SwarmEvent::NewListenAddr { address: a, .. } => address = Some(a),
+                        SwarmEvent::Behaviour(BehaviourEvent::Node(Event::OutboundFailure {
+                            error, ..
+                        })) => failure = Some(error),
+                        _ => {}
+                    },
+                    event = weak.select_next_some() => {
+                        assert!(!matches!(event, SwarmEvent::ConnectionEstablished { .. }));
+                    }
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(failure, format!("{:?}", OutboundFailure::DialFailure));
+        assert!(guard.take_denied() > 0);
+
+        weak.dial(node_address).unwrap();
+        let mut sent = false;
+        tokio::time::timeout(wait, async {
+            loop {
+                tokio::select! {
+                    event = node.select_next_some() => match event {
+                        SwarmEvent::ConnectionEstablished { peer_id, .. } if !sent => {
+                            assert_eq!(peer_id, weak_id);
+                            node.behaviour_mut().node.send_request(&weak_id, request());
+                            sent = true;
+                        }
+                        SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
+                            message: Message::Response { .. },
+                            ..
+                        })) => return,
+                        SwarmEvent::Behaviour(BehaviourEvent::Node(Event::OutboundFailure {
+                            error, ..
+                        })) => panic!("{error:?}"),
+                        _ => {}
+                    },
+                    event = weak.select_next_some() => {
+                        if let SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
+                            message: Message::Request { channel, .. },
+                            ..
+                        })) = event
+                        {
+                            let response = proto::NodeResponse {
+                                status: proto::Status::Ok.into(),
+                                ..Default::default()
+                            };
+                            weak.behaviour_mut().node.send_response(channel, response).unwrap();
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .unwrap();
+    }
 }
