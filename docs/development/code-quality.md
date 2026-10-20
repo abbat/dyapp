@@ -126,9 +126,8 @@ again weakens the check. The required `commit-batches` PR status runs the checke
 branch over every proposed commit. `main` requires a PR and allows only rebase merge, so squash
 cannot turn several compliant commits into one oversized commit. The owner merges PRs carrying
 a justified `Large-Change` trailer. The local hooks provide early feedback but are optional;
-GitHub's required status and ruleset are the merge barrier. The ruleset also blocks changes
-to `.github/workflows/batch-policy.yml`; changing that trusted workflow requires an explicit
-ruleset change by the repository owner.
+GitHub's required status and ruleset are the merge barrier. The owner must review changes
+to `.github/workflows/batch-policy.yml` before merging: a PR can edit its own workflow.
 
 ### Docs change with the code
 
