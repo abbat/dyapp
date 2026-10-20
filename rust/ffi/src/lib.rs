@@ -1,10 +1,14 @@
-//! Prototype native exports; messaging and profiles include explicit stubs.
+//! Native exports: identity keys and MLS encryption; messaging, profiles and video are
+//! prototypes with explicit stubs.
 
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uniffi::*;
 use zeroize::Zeroizing;
+
+mod mls;
+pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 
 // Public FFI interface for Swift/Kotlin
 // Minimal surface: peer operations, key management, message/video

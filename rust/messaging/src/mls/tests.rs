@@ -417,6 +417,8 @@ fn sealed_state_is_encrypted_and_authenticated() {
     assert!(!sealed.windows(public.len()).any(|w| w == public));
     assert_ne!(sealed, device.seal(&key).unwrap());
 
+    assert_ne!(Device::state_key().unwrap(), Device::state_key().unwrap());
+
     let mut tampered = sealed.clone();
     *tampered.last_mut().unwrap() ^= 1;
     for (bytes, key) in [

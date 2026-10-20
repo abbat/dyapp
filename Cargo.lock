@@ -1194,7 +1194,10 @@ name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
  "dyapp-identity",
+ "dyapp-messaging",
+ "dyapp-profile",
  "dyapp-video",
+ "prost",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

@@ -42,6 +42,12 @@ or returns constants.
 | `IdentityKey` | Object | `generate()`, `unwrap(store: KeyStore, wrapped: Vec<u8>) -> Result<Self, CoreError>` | A `rust/identity` key; `unwrap` fails unless the store returns 32 bytes. |
 | | method | `wrap(store: KeyStore) -> Result<Vec<u8>, CoreError>` | The secret encrypted by `store`, for the app to persist. |
 | | method | `peer_id() -> String`, `public_key() -> Vec<u8>` | Hex SHA-256 of the public key; the 32 public key bytes. |
+| `MlsDevice` | Object | `new(identity: IdentityKey, device_key: IdentityKey, generation: u64)`, `open(store: KeyStore, wrapped_key: Vec<u8>, sealed: Vec<u8>)`, both `-> Result<Self, CoreError>` | A `rust/messaging` MLS device with a random state key; `open` restores one from its sealed state. |
+| | method | `wrap_state_key(store: KeyStore)`, `seal()`, both `-> Result<Vec<u8>, CoreError>` | The state key encrypted by `store`, stored once; all MLS state sealed under it, stored after every call that changes state and before sending its output. |
+| | method | `certificate() -> Vec<u8>`, `key_package(last_resort: bool) -> Result<Vec<u8>, CoreError>` | The encoded signed certificate for the profile's device list; a KeyPackage to publish. |
+| | method | `create_group(key_packages, profiles) -> Result<MlsNewGroup, CoreError>`, `join(welcome, profiles)`, `load_group(id) -> Result<Option<MlsGroup>, CoreError>` | `profiles` are encoded signed profiles, the newest the app holds for every member's owner, verified in Rust. |
+| `MlsNewGroup` | Record | `group: MlsGroup`, `welcome: Vec<u8>` | The new group and the Welcome for the added devices. |
+| `MlsGroup` | Object | `id()`, `members()`, `encrypt(device, plaintext)`, `process(device, message, profiles) -> Result<MlsReceived, CoreError>`, `remove_revoked(device, profiles)`, `export_secret(device, label, context, length)` | One group; each call takes its `MlsDevice`. `MlsReceived` is `Message { sender, plaintext }` or `Commit`. |
 | `ProfileService` | Object | `new()` | Stub. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
@@ -79,8 +85,8 @@ from foreign code. Rust turns it, and anything else the app throws, into
 ## Ownership and threading
 
 - **Objects** (`PeerConnection`, `MessageService`, `VideoSession`,
-  `ProfileService`, `IdentityKey`) are `Arc`-backed handles; the native side owns a reference
-  and the matching `free` symbol releases it. **Records** (`UserProfile`) are copied across the boundary.
+  `ProfileService`, `IdentityKey`, `MlsDevice`, `MlsGroup`) are `Arc`-backed handles; the native side owns a reference
+  and the matching `free` symbol releases it. **Records** (`UserProfile`, `MlsNewGroup`) are copied across the boundary.
 - All exports are **synchronous**. `VideoSession` owns its own multi-threaded
   Tokio runtime and every method calls `block_on`, so it blocks the calling
   thread for the whole WebRTC operation — never call it from a UI thread. Each
@@ -104,7 +110,8 @@ The boundary is **not** secure today; see
   secret in Rust; it reaches native code only as the argument of
   `KeyStore.wrap` and the result of `KeyStore.unwrap`, never as a string.
   Rust wipes its own copies; the FFI buffers that carry the secret are freed,
-  not wiped.
+  not wiped. `MlsDevice` handles its state key the same way and returns MLS state only
+  sealed.
 - Errors are strings and may echo internal state; do not show them to users
   or send them to telemetry unfiltered.
 
@@ -125,6 +132,7 @@ depends on the native side not using a handle after freeing it.
 ## Testing
 
 `cargo test -p dyapp-ffi` wraps and unwraps an `IdentityKey` through a test `KeyStore` and
-checks that keystore errors reach the caller. The Android UI test (`AppUITests.kt`) checks
+checks that keystore errors reach the caller; two `MlsDevice`s exchange a message across a
+sealed restart, and a wrong state key or a malformed profile fails. The Android UI test (`AppUITests.kt`) checks
 that the stored identity keeps its peer ID when the activity is recreated; the iOS and macOS
 UI tests (`LaunchTests.swift`) check that it survives an app relaunch.

@@ -163,6 +163,14 @@ impl Device {
         Ok([nonce.as_slice(), &ciphertext].concat())
     }
 
+    /// A fresh random key for [`Device::seal`].
+    pub fn state_key() -> Result<[u8; 32], Error> {
+        OpenMlsRustCrypto::default()
+            .rand()
+            .random_array()
+            .map_err(mls)
+    }
+
     /// The device that [`Device::seal`] wrote to `sealed` under `key`.
     pub fn open(sealed: &[u8], key: &[u8; 32]) -> Result<Self, Error> {
         let (nonce, ciphertext) = sealed
