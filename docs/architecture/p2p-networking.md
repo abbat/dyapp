@@ -107,10 +107,13 @@ IPv4-mapped IPv6 as IPv4. `DenyDial<T>` refuses a denied dial before calling the
 transport and counts refusals; clones share the counter and `take_denied()` resets it.
 Listening, inbound transport events and allowed dials are delegated unchanged.
 
-The wrapper and address tests are implemented. **Placing wrappers around raw TCP and QUIC
-beneath DNS, configuring the bootstrap denylist and reporting its counters remain planned**.
-A DNS-only address has no IP for the predicate to check; resolver placement is required to
-refuse names resolving to denied IPs. Current swarm builders do not yet apply this wrapper.
+`SwarmOptions::dial_filter` (empty by default) puts `DenyDial` around the combined QUIC and TCP
+transport, outside the dial guard and beneath DNS, so a name resolving into a denied range is
+refused on its resolved address and a refused dial takes no guard slot. A DNS-only address has
+no IP for the predicate itself. `dyappd` builds the filter from `network.deny_dial` (default:
+cloud metadata and link-local ranges, `169.254.0.0/16`, `fe80::/10`, `fd00:ec2::254/128`,
+`100.100.100.200/32`; `[]` turns it off; an entry that is no CIDR fails startup) and applies it
+whether or not `guard_dials` is on; the hourly status reports its refusals as `denied_dials`.
 
 `DialGuard::new(enabled)` also provides shared outbound attempt state. `admit(address, now)`
 returns a non-cloneable `DialSlot`: at most four concurrent attempts per IPv4 /24 or IPv6 /48,

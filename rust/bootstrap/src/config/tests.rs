@@ -160,6 +160,39 @@ fn options_override_env() {
     }
 }
 
+#[test]
+fn deny_dial_defaults_overrides_and_validation() {
+    let mut config = NodeConfig::default();
+    assert_eq!(
+        config.network.deny_dial,
+        [
+            "169.254.0.0/16",
+            "fe80::/10",
+            "fd00:ec2::254/128",
+            "100.100.100.200/32"
+        ]
+    );
+    let filter = config.network.dial_filter().unwrap();
+    assert!(filter.denies(&"/ip4/169.254.169.254/tcp/80".parse().unwrap()));
+    assert!(!filter.denies(&"/ip4/10.0.0.1/tcp/80".parse().unwrap()));
+    assert!(options_help().contains("--network.deny-dial"));
+
+    let env = [("DYAPPD_NETWORK_DENY_DIAL".into(), "[\"10.0.0.0/8\"]".into())];
+    let (loaded, _) = NodeConfig::load(None, env, &[]).unwrap();
+    assert_eq!(loaded.network.deny_dial, ["10.0.0.0/8"]);
+    let options =
+        ["10.0.0.0/8", "fc00::/7"].map(|net| ("network.deny-dial".to_owned(), net.into()));
+    let (loaded, _) = NodeConfig::load(None, [], &options).unwrap();
+    assert_eq!(loaded.network.deny_dial, ["10.0.0.0/8", "fc00::/7"]);
+
+    config.storage.dir = temp_dir();
+    config.network.deny_dial = vec![];
+    config.validate().unwrap();
+    config.network.deny_dial = vec!["10.0.0.0/8".into(), "nonsense".into()];
+    let error = config.validate().unwrap_err().to_string();
+    assert_eq!(error, "network.deny_dial: invalid CIDR \"nonsense\"");
+}
+
 /// The packaged file, and so `--help`, lists every key with the default the code uses.
 #[test]
 fn reference_matches_defaults() {

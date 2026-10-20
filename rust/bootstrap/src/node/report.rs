@@ -40,6 +40,7 @@ pub(super) fn status(
             .pow_gate
             .as_ref()
             .map_or(0, |gate| gate.guard().take_denied()),
+        denied_dials = service.dial_filter.take_denied(),
         pow_checks,
         pow_forged,
         newcomer_evictions = service.search.as_ref().map_or(0, |s| s.take_newcomer_evictions()),

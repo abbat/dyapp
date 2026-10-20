@@ -68,11 +68,13 @@ pub fn swarm_with_wire(
         wire,
         Arc::new(dyapp_p2p_net::Protocols::public()),
         false,
+        dyapp_p2p_net::DialFilter::default(),
     )
 }
 
 /// Builds a node with protocol IDs shared with its service; config selection is separate.
-/// Outbound dials always pass the peer-proof gate; `guard_dials` adds the IP and group limits.
+/// Outbound dials always pass the peer-proof gate; `guard_dials` adds the IP and group limits,
+/// and `dial_filter` refuses its ranges.
 pub fn swarm_with_protocols(
     keypair: Keypair,
     limits: &Limits,
@@ -80,6 +82,7 @@ pub fn swarm_with_protocols(
     wire: Arc<dyapp_p2p_net::WireBytes>,
     protocols: Arc<dyapp_p2p_net::Protocols>,
     guard_dials: bool,
+    dial_filter: dyapp_p2p_net::DialFilter,
 ) -> anyhow::Result<Swarm<Behaviour>> {
     let mode = if roles.contains(&Role::Store) {
         Mode::Auto
@@ -111,6 +114,7 @@ pub fn swarm_with_protocols(
                 limits.ipv6_prefix,
             )?),
             dial_guard: Some(DialGuard::new(guard_dials)),
+            dial_filter,
         },
     )
 }

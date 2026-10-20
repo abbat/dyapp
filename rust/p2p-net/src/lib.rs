@@ -338,6 +338,8 @@ pub struct SwarmOptions {
     /// Outbound dial guard of a node: wraps the transport below DNS and adds a [`PowGate`].
     /// Clients pass `None` and dial unguarded.
     pub dial_guard: Option<DialGuard>,
+    /// Outgoing deny ranges, checked below DNS before the dial guard; empty allows all.
+    pub dial_filter: DialFilter,
 }
 
 impl Default for SwarmOptions {
@@ -352,6 +354,7 @@ impl Default for SwarmOptions {
             wire: Arc::default(),
             protocols: Arc::new(Protocols::public()),
             dial_guard: None,
+            dial_filter: DialFilter::default(),
         }
     }
 }
@@ -406,6 +409,7 @@ pub fn build_configured_swarm(
         wire,
         protocols,
         dial_guard,
+        dial_filter,
     } = options;
     let pow_gate = dial_guard.clone().map(PowGate::new);
     Ok(SwarmBuilder::with_existing_identity(keypair)
@@ -421,11 +425,12 @@ pub fn build_configured_swarm(
                     Either::Left((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
                     Either::Right((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
                 });
-            // Below DNS, so the guard sees every resolved IP, not the name.
-            Ok(match dial_guard {
+            // Below DNS, so the filter and the guard see every resolved IP, not the name.
+            let guarded = match dial_guard {
                 Some(guard) => GuardDial::new(combined, guard).boxed(),
                 None => combined.boxed(),
-            })
+            };
+            Ok(DenyDial::new(guarded, dial_filter).boxed())
         })
         .map_err(|error| anyhow::anyhow!("transport: {error}"))?
         .with_dns()?

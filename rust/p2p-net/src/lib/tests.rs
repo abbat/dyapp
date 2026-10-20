@@ -808,3 +808,68 @@ async fn dial_guard_refuses_names_resolving_to_private_ips() {
         assert_eq!(refused > 0, !reaches);
     }
 }
+
+// A filter refuses a denied IP and a name resolving into a denied range, counting each once,
+// while two filtered swarms still connect over loopback.
+#[tokio::test]
+async fn dial_filter_refuses_denied_and_resolved_addresses_below_dns() {
+    let filtered = |nets: &[&str]| {
+        let filter = DialFilter::new(nets.iter().map(|net| net.parse().unwrap()).collect());
+        let options = SwarmOptions {
+            dial_filter: filter.clone(),
+            ..SwarmOptions::default()
+        };
+        (
+            build_configured_swarm(Keypair::generate_ed25519(), options).unwrap(),
+            filter,
+        )
+    };
+    let (mut node, _) = filtered(&["169.254.0.0/16"]);
+    node.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let port = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = node.select_next_some().await {
+            break address.iter().find_map(|p| match p {
+                Protocol::Tcp(port) => Some(port),
+                _ => None,
+            });
+        }
+    }
+    .unwrap();
+    for (nets, address, reaches) in [
+        (
+            &["169.254.0.0/16"][..],
+            "/ip4/169.254.169.254/tcp/80".to_string(),
+            false,
+        ),
+        (
+            &["127.0.0.0/8"][..],
+            format!("/dns4/localhost/tcp/{port}"),
+            false,
+        ),
+        (
+            &["169.254.0.0/16"][..],
+            format!("/ip4/127.0.0.1/tcp/{port}"),
+            true,
+        ),
+    ] {
+        let (mut dialer, filter) = filtered(nets);
+        dialer.dial(address.parse::<Multiaddr>().unwrap()).unwrap();
+        let connected = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                tokio::select! {
+                    _ = node.select_next_some() => {}
+                    event = dialer.select_next_some() => match event {
+                        SwarmEvent::ConnectionEstablished { .. } => break true,
+                        SwarmEvent::OutgoingConnectionError { .. } => break false,
+                        _ => {}
+                    },
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(connected, reaches, "{address}");
+        assert_eq!(filter.take_denied(), u64::from(!reaches), "{address}");
+    }
+}

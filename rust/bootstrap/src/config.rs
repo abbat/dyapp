@@ -339,6 +339,9 @@ pub struct Network {
     /// Refuse outbound dials to private and reserved IPs and cap them per /24 (IPv6 /48). Turn
     /// it off only on a network whose nodes dial each other on private or loopback addresses.
     pub guard_dials: bool,
+    /// CIDR ranges the node never dials, even after DNS: cloud metadata and link-local services.
+    /// Empty turns the filter off.
+    pub deny_dial: Vec<String>,
     /// Minutes after the first connection before a peer gets replicas (repair, forwarded acks);
     /// 0 trusts at once.
     pub storage_trust_minutes: u32,
@@ -356,10 +359,32 @@ impl Default for Network {
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
             distinct_outbound_groups: true,
             guard_dials: true,
+            deny_dial: [
+                "169.254.0.0/16",
+                "fe80::/10",
+                "fd00:ec2::254/128",
+                "100.100.100.200/32",
+            ]
+            .map(String::from)
+            .to_vec(),
             storage_trust_minutes: 60,
             share_deny_list: false,
             accept_deny_lists: false,
         }
+    }
+}
+
+impl Network {
+    /// The outgoing filter of [`Network::deny_dial`]; fails on the first entry that is no CIDR.
+    pub fn dial_filter(&self) -> anyhow::Result<dyapp_p2p_net::DialFilter> {
+        let nets = self.deny_dial.iter().map(|entry| {
+            entry
+                .parse()
+                .map_err(|_| anyhow::anyhow!("network.deny_dial: invalid CIDR {entry:?}"))
+        });
+        Ok(dyapp_p2p_net::DialFilter::new(
+            nets.collect::<anyhow::Result<_>>()?,
+        ))
     }
 }
 
@@ -691,6 +716,7 @@ impl NodeConfig {
         for address in &self.seeds {
             seed(address)?;
         }
+        self.network.dial_filter()?;
         if self.listen.is_empty() {
             anyhow::bail!("listen: at least one address is required");
         }

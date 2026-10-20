@@ -101,6 +101,8 @@ pub struct Service {
     pub traffic: Traffic,
     /// Successful protobuf frame bytes, shared with swarm codecs.
     pub wire: Arc<dyapp_p2p_net::WireBytes>,
+    /// The swarm's outgoing deny filter, for its refusal count.
+    pub dial_filter: dyapp_p2p_net::DialFilter,
     /// Network IDs shared with this node's swarm; configuration still selects public.
     pub protocols: Arc<dyapp_p2p_net::Protocols>,
     /// Process memory against `limits.max_memory_mb`.
@@ -166,6 +168,7 @@ impl Service {
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),
             wire: Arc::default(),
+            dial_filter: dyapp_p2p_net::DialFilter::default(),
             protocols: Arc::new(dyapp_p2p_net::Protocols::public()),
             memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
             rebuild_budget: RebuildBudget::new(config.maintenance.io_mb_per_s),

@@ -156,6 +156,7 @@ async fn main() -> anyhow::Result<()> {
 
     let wire = std::sync::Arc::new(dyapp_p2p_net::WireBytes::default());
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new(&config.network.name)?);
+    let dial_filter = config.network.dial_filter()?;
     let mut swarm = node::swarm_with_protocols(
         keypair,
         &config.limits,
@@ -163,6 +164,7 @@ async fn main() -> anyhow::Result<()> {
         wire.clone(),
         protocols.clone(),
         config.network.guard_dials,
+        dial_filter.clone(),
     )?;
     // A host without IPv6 cannot open [::]; the node runs on whatever does open.
     let mut listening = 0;
@@ -196,6 +198,7 @@ async fn main() -> anyhow::Result<()> {
         .transpose()?;
     let mut service = Service::new(store, config);
     service.wire = wire;
+    service.dial_filter = dial_filter;
     service.protocols = protocols;
     service.media = media;
     if service.config.roles.contains(&Role::Search) {

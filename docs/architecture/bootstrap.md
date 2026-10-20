@@ -1339,7 +1339,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 ([Resource guards](#resource-guards)),
 `limits.{ip_group_requests_per_second,ipv4_prefix,ipv6_prefix,coarse_ipv4_prefix,coarse_ipv6_prefix,sender_puts_per_second,strikes_to_ban,ban_minutes}`
 ([Rate Limiting](#rate-limiting)), `maintenance.{interval_minutes,vacuum_pages,io_mb_per_s}`,
-`network.{name,id_pow_bits,distinct_outbound_groups,guard_dials}` ([P2P networking](p2p-networking.md)),
+`network.{name,id_pow_bits,distinct_outbound_groups,guard_dials,deny_dial}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
 `turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
@@ -1401,7 +1401,7 @@ index phase (`search_phase`: `off`, `serving`, `rebuilding` or `refilling`), its
 version (`search_index_version`) and rebuild postpones, overflows, forced drops and forced
 stops since start (`rebuild_postpones`, `rebuild_overflows`, `rebuild_drop_refills`,
 `rebuild_stop_the_worlds`), capped replica
-sends (`replica_dropped`), refused outbound dials (`throttled_dials`), and per-protocol `wire_bytes`; plus refusals per
+sends (`replica_dropped`), refused outbound dials (`throttled_dials`, and `denied_dials` for `network.deny_dial`), and per-protocol `wire_bytes`; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and

@@ -1,4 +1,4 @@
-//! Outgoing IP filtering; runtime swarm/resolver integration is a separate step.
+//! Outgoing IP filtering: [`DenyDial`] sits below DNS in every swarm built by this crate.
 
 use ipnet::IpNet;
 use libp2p::core::transport::{DialOpts, ListenerId, TransportError, TransportEvent};
