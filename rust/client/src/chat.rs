@@ -221,7 +221,14 @@ mod tests {
 
     #[test]
     fn padding_hides_length_up_to_a_power_of_two() {
-        for (length, size) in [(0, 1024), (1020, 1024), (1021, 2048), (5000, 8192)] {
+        for (length, size) in [
+            (0, 1024),
+            (200, 1024),
+            (1020, 1024),
+            (1021, 2048),
+            (1500, 2048),
+            (5000, 8192),
+        ] {
             let plaintext = vec![7u8; length];
             let padded = pad(&plaintext);
             assert_eq!(padded.len(), size, "{length}");

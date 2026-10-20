@@ -715,9 +715,10 @@ the flag and the pool.
 
 The node stores the signed record as received, once per (mailbox, id), and never learns the
 sender's identity: the sender key only proves someone signed it; puts are limited per sender key
-([Rate Limiting](#rate-limiting)). The client is meant to use a fresh key for every envelope
-(sealed sender, planned), never its published device key, and to pad the plaintext to the next
-power of two from 1 KiB before encryption ([Threat Model](../security/threat-model.md#traffic-analysis)).
+([Rate Limiting](#rate-limiting)). `rust/client` pads the plaintext to the next power of two from
+1 KiB before encryption (`chat::pad`); it is meant to use a fresh key for every envelope (sealed
+sender, planned), never its published device key
+([Threat Model](../security/threat-model.md#traffic-analysis)).
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
 (`dyappd` deletes expired envelopes every hour) → fetched messages first, then signals,
