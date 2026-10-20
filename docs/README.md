@@ -55,6 +55,8 @@ it are entry points that tools discover by path (see
 - [Bootstrap node operator manual](manuals/bootstrap.md) ([Russian](manuals/bootstrap.ru.md))
 - [Linux desktop client](manuals/linux.md) ([Russian](manuals/linux.ru.md))
 - [Windows desktop client](manuals/windows.md) ([Russian](manuals/windows.ru.md))
+- [macOS client](manuals/macos.md) ([Russian](manuals/macos.ru.md))
+- [iOS client](manuals/ios.md) ([Russian](manuals/ios.ru.md))
 
 ### AI agents
 - [Project guide for agents](agents/project.md): layout, commands, limits, rules

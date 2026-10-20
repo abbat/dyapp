@@ -140,7 +140,10 @@ refreshed the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
 The producer checks the real package bytes and writes `size.json`/`size.log`
 using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
 separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets)).
-Signing and notarization remain planned.
+The unsigned IPA and ZIP are kept as the run's `apple-ios-unsigned` and
+`apple-macos-unsigned` artifacts. The project has no Apple account, so upstream
+signing and notarization are not done: the [macOS](../manuals/macos.md) and
+[iOS](../manuals/ios.md) manuals show how an account holder builds and signs a copy.
 
 ## What a working build would need (roadmap)
 
