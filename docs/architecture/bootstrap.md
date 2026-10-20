@@ -261,8 +261,10 @@ resent from the sender's retry queue.
   limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,
   for length and control characters
   ([Threat Model](../security/threat-model.md#spoofing)).
-- The profile lists the owner's device keys, so a sender can reach every device's mailbox before
-  any MLS group exists; anyone can see how many devices a user has.
+- **Planned:** the identity-signed profile will carry the current device directory. A sender
+  checks it before fetching a KeyPackage and writes the first Welcome to every listed device's
+  mailbox. The directory is public, including the device count. See
+  [Device directory and KeyPackages](#device-directory-and-keypackages).
 - The profile carries a proof of work bound to the owner's key (
   [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)): fields `pow_nonce` and
   `pow_bits`, valid when Argon2id(salt `dyapp-profile-pow`, password signer key ‖ nonce, 8 MiB,
@@ -273,6 +275,57 @@ resent from the sender's retry queue.
   counts as 0 bits: store nodes keep it, gossip does not relay it, search does not index it.
 - Deletion is a signed tombstone kept for the TTL
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
+
+### Device directory and KeyPackages
+
+**Planned for the first client release; no wire fields or node handler exist yet.**
+[ADR 0019](../decisions/0019-device-directory-and-keypackage-rendezvous.md) fixes the format;
+the node and client tasks will implement it. A `Profile` gains a repeated `devices` field (number
+24), with at most 64 entries sorted by mailbox address and no duplicate keys. Each entry is an
+identity-signed `DeviceCertificate` containing the 32-byte Ed25519 device public key, the distinct
+32-byte MLS signature public key, and a device generation. The enclosing profile signature and
+strictly increasing version make the entire list authoritative. A device's mailbox is
+SHA-256(device public key). A KeyPackage's MLS leaf signature key must equal the certified MLS
+key. A sender fetches at least two profile replicas, retains the highest version seen for each
+contact, and refuses a lower version or a device absent from that directory. If the directory is
+unavailable, first contact waits; no guessed mailbox or stale package is used.
+
+`/dyapp/keypackage` on store nodes will accept a device-signed publication and an unauthenticated
+fetch. The publication binds the mailbox, SHA-256 of the exact MLS KeyPackage bytes, expiry (at
+most 30 days), and a `last_resort` bit; the MLS bytes must have suite 0x0001, a valid MLS
+signature and lifetime, and the certified MLS signature key. The node verifies the current
+identity-signed profile and certificate before accepting a publication, then stores it at R = 5
+replica points keyed by the mailbox. A fetch names the mailbox, profile version and one replica
+slot (0–4). The node returns only packages for a device in a profile at least that new; the
+sender independently checks the certificate, hash, expiry and suite against its newest profile.
+
+Each ordinary package belongs to one slot, assigned by the first byte of its hash modulo 5. A
+fetch for that slot is serialized by its current holder: in one durable transaction it marks one
+package consumed before replying; replayed fetches cannot retrieve it there. Other holders keep
+copies for recovery but do not allocate that slot. A changed or malicious holder can allocate a
+copy again; there is no cross-node atomicity guarantee. The sender retries a fresh package on a
+failed Welcome; the recipient rejects a replayed group or duplicate Welcome. The reusable
+last-resort package is returned only when no ordinary package can be obtained and is clearly
+marked. Reuse permits replay attempts and weaker first-message forward secrecy, so the client
+prefers a fresh package and rotates the last-resort one when online
+([RFC 9420 §16.8](https://www.rfc-editor.org/rfc/rfc9420#section-16.8)).
+
+A device publishes 20 ordinary packages (four per slot) and one last-resort package, refilling
+when fewer than eight ordinary packages remain or during its daily heartbeat. The node limits
+ordinary stock to 20 and last-resort stock to one per device, each signed publication to 16 KiB,
+and total KeyPackage storage to 512 KiB per device; it rate-limits unauthenticated fetches by
+peer ID and IP group, including fetches that consume a package. Packages expire within 30 days;
+no package is silently extended by a profile heartbeat. If all ordinary packages are gone or
+holders are unreachable, use the last-resort package; if it too is absent, first contact waits
+for refill. Node eviction and malicious withholding remain denial-of-service risks.
+
+Removing a device means publishing a higher-version profile without its certificate. Nodes
+refuse new package publications for it and stop serving its packages after they learn the new
+version; clients reject its packages and remove it from MLS groups as soon as they learn the new
+profile. The old mailbox and already delivered ciphertext cannot be erased reliably. A stale
+profile withheld by every queried replica can delay revocation, so a verified contact is shown
+as changed and requires renewed verification on a device-list change. The public directory and
+fetch reveal device count and contact interest to store nodes; no private directory is promised.
 
 ### Search
 
