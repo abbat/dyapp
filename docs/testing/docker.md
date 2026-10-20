@@ -217,6 +217,10 @@ sockets to make the check pass.
 
 ## Troubleshooting
 
+The network-test image builds the current Rust tree in a fresh `/build-src` directory while
+writing binaries to `/workspace/target`. This prevents renamed binary targets left in the
+prepared base image from appearing alongside current sources during Cargo discovery.
+
 Quiet stage failures, shell aggregates, the operator image test and build
 preflight failures use `FAIL`/`FIX`/`DETAILS`. Shell aggregates accept `--raw`
 to bypass their frontend; help and interactive/verbose modes remain direct.
