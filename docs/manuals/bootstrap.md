@@ -1,0 +1,697 @@
+# Bootstrap node operator manual
+
+This manual takes an operator from an empty Debian 12 host to a running `dyappd` bootstrap node
+and through its daily operation. A Russian translation of the same revision is in
+[bootstrap.ru.md](bootstrap.ru.md). How the node works inside is described in
+[Bootstrap server architecture](../architecture/bootstrap.md); this manual links there where an
+option needs more than a paragraph.
+
+> ⚠️ **Not production-ready.** Message encryption is a stub: an operator and the network see
+> plaintext. The node checks Ed25519 signatures: the owner's on profiles, the sender's on
+> envelopes and the device's on mailbox reads. See
+> [Encryption & Security Status](../security/encryption.md) and [Privacy](../security/privacy.md).
+
+## Contents
+
+1. [What a node does](#what-a-node-does)
+2. [Requirements](#requirements)
+3. [Getting dyappd](#getting-dyappd)
+4. [Installing](#installing)
+5. [Node key](#node-key)
+6. [Configuration](#configuration)
+7. [First start](#first-start)
+8. [Status and metrics](#status-and-metrics)
+9. [Operations](#operations)
+10. [Backups](#backups)
+11. [Security](#security)
+12. [Capacity](#capacity)
+13. [Troubleshooting](#troubleshooting)
+
+## What a node does
+
+`dyappd` is a libp2p node of the dyapp network. Clients write profiles, mailbox envelopes and
+media to it; it keeps them for a limited time, replicates them to other nodes and serves them
+back. A node serves one or more roles:
+
+| Role | Serves |
+|------|--------|
+| `store` | Profiles, mailboxes and the network directory (Kademlia DHT). The base role; every other role needs it too. |
+| `media` | Media blobs: avatars and chat attachments. |
+| `turn` | Short-lived passwords for a coturn relay running next to the node ([TURN relay](#turn-relay)). Calls are not part of the first release. |
+| `search` | Experimental profile search ([Search](../architecture/bootstrap.md#search)). Keep it off public nodes. |
+
+Every write is replicated whole to five DHT points and acknowledged once two distinct nodes
+store it; media larger than 1 MiB is split into Reed-Solomon shards. Nodes repair missing
+replicas between themselves ([replication](../architecture/bootstrap.md#replication-and-repair)).
+A single node keeps the only copy, so a network needs several.
+
+## Requirements
+
+- Debian 12 (bookworm) with systemd, or any Linux host with Docker.
+- About 2 vCPU, 1 GiB of memory and 16 GiB of disk with the default quotas
+  ([Capacity](#capacity)). Run without swap: the key must not reach it.
+- A public IPv4 and/or IPv6 address, with TCP **and** UDP open on the node port (7070 by default).
+- An authenticated time source, such as `chrony` with NTS ([Clock](#clock)).
+- Optional: a TPM 2.0 or a vTPM, so the sealed node key is bound to the machine
+  ([Node key](#node-key)).
+
+## Getting dyappd
+
+Releases are not published or signed yet. Planned: every artifact carries a Sigstore keyless
+signature, SLSA build provenance and an SBOM, checked with `gh attestation verify` before
+install ([supply chain](../security/threat-model.md#supply-chain)). Until then, build the
+package or the image yourself from a commit you trust:
+
+```bash
+git clone https://github.com/abbat/dyapp && cd dyapp
+make deb      # → target/deb/dyappd_<version>_<arch>.deb, built in a Debian 12 image
+make image    # → the dyappd:latest container image
+```
+
+`make deb` builds a release binary in a Debian 12 image, so it runs on glibc 2.36, and
+test-installs the package on a clean `debian:bookworm-slim`. `make image` runs the image
+read-only with no network, makes a key, starts the node, edits the deny list and checks that the
+image has no shell. Both need only Docker on the build host.
+
+**Dependency list in the binary.** Both builds use `cargo auditable build`: the binary carries
+its crate names and versions as zlib-compressed JSON in the ELF section `.dep-v0`, which `strip`
+keeps. `scripts/check-auditable.py` checks that the list names `dyapp-bootstrap` and matches
+`Cargo.lock`. To check an installed binary against RustSec, run `cargo audit bin /usr/bin/dyappd`
+(cargo-audit) or extract the list with `rust-audit-info`. The list names the crates compiled in;
+it is not an SPDX SBOM and says nothing about whether an advisory's code is reachable.
+
+## Installing
+
+### Debian 12 package
+
+```bash
+sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables the unit
+```
+
+The package holds `/usr/bin/dyappd`, `/etc/dyappd.toml` (a conffile, kept on upgrade) and
+`/lib/systemd/system/dyappd.service`. The unit:
+
+- runs as the system user `dyappd` (no shell, no login) with no capabilities, `NoNewPrivileges`,
+  a read-only system (`ProtectSystem=strict`), no access to `/home`, a private `/tmp` and write
+  access to `/var/lib/dyappd` only;
+- is bounded to `MemoryHigh=768M`, `MemoryMax=1G`, `CPUQuota=150%` and `TasksMax=256`;
+  `limits.max_memory_mb` defaults to MemoryHigh, so the node sheds requests before the kernel
+  throttles it. On a larger host raise both in a drop-in;
+- sets `LimitCORE=0` and `MemorySwapMax=0` (cgroup v2); `dyappd` also makes itself non-dumpable at
+  start, so the node key stays out of core dumps and swap;
+- decrypts the [sealed node key](#node-key) with `LoadCredentialEncrypted=node.key`;
+- logs to the journal with `RUST_LOG=info`; `systemctl reload dyappd` sends SIGHUP.
+
+The default port 7070 needs no privilege. Another `storage.dir` or a port below 1024 needs a
+drop-in (`sudo systemctl edit dyappd`):
+
+```ini
+[Service]
+ReadWritePaths=/srv/dyappd
+# Only for a port below 1024:
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+```
+
+Removing the package stops and disables the unit. Purging (`apt purge dyappd`) keeps the user,
+`/var/lib/dyappd` and `/etc/credstore.encrypted/node.key`, because the key is the node's
+identity: delete them by hand to [retire the node](#retiring-a-node).
+
+### Container image
+
+```bash
+docker volume create dyappd
+run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
+$run dyappd:latest keygen              # once: about a minute on 2 vCPU
+$run -d --name dyappd --memory 1g -p 7070:7070/tcp -p 7070:7070/udp \
+    -e DYAPPD__SEEDS='["seed.example.org:7070"]' dyappd:latest
+docker exec dyappd dyappd deny add <entry> [note]   # applied within 10 s
+docker exec dyappd dyappd status
+docker logs dyappd
+```
+
+`docker/Dockerfile.dyappd` copies the release binary with the glibc libraries it links onto an
+empty base: no shell, no package manager, no `/etc`. The node runs as UID 65532 and writes only
+`/var/lib/dyappd`, its `storage.dir` and the image's one volume, so the root can be read-only and
+every capability dropped. A new named volume takes the owner and mode 0700 from the image; a
+bind mount needs `chown 65532:65532`. The image sets `listen` to `["[::]:7070", "0.0.0.0:7070"]`;
+other settings are `DYAPPD__` variables, `--<section>.<key>` options after the image name, or a
+config file mounted read-only and named with `--config`. With `--memory 1g` the default
+`limits.max_memory_mb = 768` sheds requests before Docker's limit. In a container the key is a
+plain 0600 file in the volume.
+
+The image is not published to a registry, and there are no Kubernetes manifests yet.
+
+## Node key
+
+The node key is a libp2p Ed25519 key. Its peer ID is the node's identity: peers pin it, the
+stores are bound to it, and a new key is a new node. The key carries a proof of work: SHA-256 of
+the peer ID starts with `network.id_pow_bits` zero bits (22 on the public network, about a
+minute on 2 vCPU; [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)).
+
+`dyappd` reads the key from a file and does not care how the host protects it. With
+`storage.key` empty it takes `$CREDENTIALS_DIRECTORY/node.key` when the unit passes that
+credential, else `storage.dir/node.key`; a set `storage.key` always wins.
+
+**Sealed with systemd-creds (package default).** The plain key never touches the disk:
+
+```bash
+sudo install -d -m 0700 /etc/credstore.encrypted
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # prints the peer ID on stderr
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
+```
+
+The unit's `LoadCredentialEncrypted=node.key` finds the file by name and decrypts it into a
+memory-backed directory only the service reads. `--with-key=auto` binds the credential to the
+TPM 2.0 plus the host key in `/var/lib/systemd/credential.secret` when a TPM exists
+(`systemd-creds has-tpm2`), so a copy of the disk alone does not open it. Without a TPM only the
+host key is used, which sits on the same disk: that covers a stray copy of the key file, not a
+copied volume.
+
+**Keeping a copy.** A sealed key cannot move to another host. To keep a backup, encrypt a copy
+for yourself while generating, e.g. with `age`:
+
+```bash
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your age key> >node.key.age) |
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
+```
+
+**Sealing an older plain key.** Stop the node, run
+`sudo systemd-creds encrypt --with-key=auto --name=node.key /var/lib/dyappd/node.key /etc/credstore.encrypted/node.key`,
+remove the plain file with `sudo shred -u /var/lib/dyappd/node.key` and start the node. While
+both exist, the credential is used.
+
+**Without systemd or a TPM**, choose one of:
+
+- a plain 0600 file, `dyappd keygen` without `-` (containers, test nodes);
+- a passphrase: keep the key encrypted (`age -p`) and before each start decrypt it into a 0600
+  file on a `tmpfs` named by `storage.key`;
+- an encrypted volume (LUKS, unlocked by Clevis/Tang or by hand) holding `storage.dir`.
+
+What keygen and startup check:
+
+- `dyappd keygen` writes the key (mode 0600) to `storage.key` or `storage.dir/node.key`, writes
+  `node.id` (the peer ID) and `network` (the network name) to `storage.dir` and prints the peer
+  ID; `dyappd keygen -` writes the key to stdout, refuses a terminal, and prints the peer ID on
+  stderr.
+- Keygen refuses when a key or any data already exists.
+- The node does not start without the key, with a key that lacks the proof of work or with one
+  that does not match `node.id`.
+- A key file must be readable only by its owner: startup refuses group or other permission bits
+  with a `chmod 600` hint and never changes the mode itself; 0400 also loads. A systemd
+  credential is not checked: systemd makes it readable to the service user only.
+
+## Configuration
+
+### Where settings come from
+
+Every setting is optional. Later sources override earlier ones:
+
+1. the defaults in the code;
+2. the TOML file named with `--config` (`/etc/dyappd.toml` in the package, every key commented
+   out with its default; a test keeps that file equal to the code);
+3. environment variables `DYAPPD__<SECTION>__<KEY>`, parsed as TOML (a bare string is taken as
+   is), e.g. `DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` or `DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`;
+4. options `--<section>.<key>` with `-` for `_`, e.g. `--limits.max-connections 500` or
+   `--storage.dir=/srv/dyappd`; a list option is given once per item and replaces the list
+   (`--listen '[::]:7070' --listen 0.0.0.0:7070`).
+
+`dyappd --help` lists every option with its default. An unknown option stops the node; an
+unknown key in the file or the environment is logged and ignored, so a config written for a
+newer node does not stop an older one. Changes take effect on restart
+(`sudo systemctl restart dyappd`); only the deny list is reloaded while running. Keep
+`turn.secret` off the command line: other users see it in `ps`.
+
+At startup the node refuses to run as root, checks addresses, roles and limits against the
+ranges below, creates missing directories and checks that each is writable. Commands other
+than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...`).
+
+### Addresses and roles
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `listen` | `["[::1]:7070", "127.0.0.1:7070"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:7070", "0.0.0.0:7070"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
+| `external` | `[]` | Public addresses announced to peers, when known (a static address, port forwarding). Empty: peers learn the listen addresses through identify, and the address they see the node from is announced once AutoNAT confirms it. Until then the node is a DHT client: it uses the DHT but serves no part of it. |
+| `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:7070`, `[2001:db8::7]:7070`). The peer ID, printed by the seed's keygen and kept in its `node.id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
+| `roles` | `["store"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
+
+`listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.
+
+### `[storage]`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `dir` | `/var/lib/dyappd` | All node data ([Backups](#backups) lists the files). Another path needs `ReadWritePaths=` in a unit drop-in. One directory belongs to one node and one network. |
+| `key` | `""` | The node key file. Empty: the unit's `node.key` credential if there is one, else `dir/node.key` ([Node key](#node-key)). |
+
+### `[limits]`
+
+Retention:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `message_ttl_hours` | 24 | How long an undelivered mailbox envelope is kept. |
+| `attachment_retention_hours` | 168 | How long a chat attachment the recipient never released is kept. |
+| `profile_ttl_days` | 30 | How long a profile or tombstone, and the owner's media, is kept after the owner's last signed action. |
+
+Disk. A full store answers `FULL` to writes instead of growing; disk use stays below the sum of
+the store sizes plus SQLite overhead:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `profiles_max_mb` | 1024 | Profile store size. |
+| `messages_max_mb` | 4096 | Mailbox store size. |
+| `signal_max_kb` | 2048 | Signals (likes, views) kept per mailbox, apart from the messages' 10 MiB; at the quota the oldest are deleted. At least 2. |
+| `require_write_tokens` | `false` | Messages without a mailbox write token go to a small per-mailbox pool instead of the 10 MiB mailbox quota ([write tokens](../architecture/bootstrap.md#mailbox-envelope)). |
+| `mailbox_pool_kb` | 1024 | That pool, per mailbox, while `require_write_tokens` is on; when full, the oldest envelope of the sender group holding most bytes is deleted. At least 101. |
+| `tokenless_share_pct` | 20 | Tokenless envelope bytes kept store-wide, in percent of `messages_max_mb`. |
+| `media_max_mb` | 10240 | Media store size (media role); when full, unreleased attachments go first, then the oldest owners, down to 95 %. |
+| `media_per_owner_mb` | 10 | Media bytes of one owner, billed as whole copies × 5 and shards as `ceil(bytes × (K+4)/K)`. |
+| `min_free_mb` | 512 | Free space kept on the file system of `storage.dir`; writes stop below it. |
+
+Rates. A peer is a libp2p peer ID; an IP group is the addresses sharing the leading
+`ipv4_prefix` / `ipv6_prefix` bits:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `requests_per_second` | 100 | Profile and mailbox requests per second from one peer. |
+| `media_requests_per_second` | 10 | Media requests per second from one peer. |
+| `ip_group_requests_per_second` | 1000 | Requests per second shared by all peers of one IP group; 1..429496729. |
+| `sender_puts_per_second` | 10 | Envelopes per second accepted from one sender key. |
+| `bytes_per_second` | 0 | Node protocol bytes in and out per second. Media and repair are shed from 75 %, profiles from 90 %, the mailbox at 100 %. 0 = no limit. |
+| `ipv4_prefix` | 24 | Leading bits of an IPv4 address that form its group. |
+| `ipv6_prefix` | 48 | Leading bits of an IPv6 address that form its group. |
+| `coarse_ipv4_prefix` | 16 | Validated (0..32); the second, coarse group budget at ten times `ip_group_requests_per_second` is planned. |
+| `coarse_ipv6_prefix` | 32 | The same for IPv6 (0..128); planned. |
+
+Connections, memory and bans:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `max_connections` | 1000 | Connections in total. |
+| `max_connections_per_peer` | 4 | Connections from one peer. |
+| `max_connections_per_ip_group` | 32 | Pending and established incoming connections per IP group; outgoing connections are exempt. Refusals are counted as `group_refused` in the connection log. |
+| `max_streams` | 16 | Concurrent streams per connection and protocol. |
+| `max_memory_mb` | 768 | Resident memory of the process: from 80 % requests that the byte rate sheds are refused, at 100 % every request is dropped and new connections refused. 0 = no limit. Keep it at the unit's `MemoryHigh`. |
+| `strikes_to_ban` | 100 | Refused floods and bad signatures that ban a peer. |
+| `ban_minutes` | 10 | How long a local ban lasts. |
+
+Details: [resource guards](../architecture/bootstrap.md#resource-guards) and
+[rate limiting](../architecture/bootstrap.md#rate-limiting).
+
+### `[network]`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `name` | `""` | The network to join; empty is the public network. A named network is public too (anyone who knows the name can join) and keeps its nodes apart from other networks. Keygen or the first start writes it to `storage.dir/network`, and a node never starts in a directory of another network ([storage binding](../architecture/bootstrap.md#storage-network)). |
+| `id_pow_bits` | 22 | Proof of work in node keys, required of this node and of every routed peer. Nodes of the public network do not route a key with fewer bits: lower it on test networks only. |
+| `distinct_outbound_groups` | `true` | At most one routed peer per /16 (IPv6 /32) in each k-bucket, an eclipse defence. Turn it off only on a network whose nodes share a /16, such as a LAN or a test network. |
+| `storage_trust_minutes` | 60 | Minutes after the first connection before a peer gets replicas; 0 trusts at once (test networks). The time is kept in memory only: see [First deployment](#first-deployment). |
+| `share_deny_list` | `false` | Answer other nodes' requests with this node's signed deny list (without notes). Not part of the first release; leave it off. |
+| `accept_deny_lists` | `false` | Fetch connected nodes' deny lists each maintenance run and store them; no action is taken on them. Not part of the first release; leave it off. |
+
+### `[maintenance]`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `interval_minutes` | 60 | Minutes between runs: expired data cleanup, incremental vacuum, WAL checkpoint, `PRAGMA optimize`, peer list save, seed redial. |
+| `vacuum_pages` | 2048 | Free 4 KiB pages released per store and run; bounds the I/O of one run. |
+| `io_mb_per_s` | 16 | Write budget in MiB/s shared by background store rebuilds; must be above 0. |
+
+### `[metrics]`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `listen` | `""` | A loopback `ip:port`, such as `127.0.0.1:9464`, serving Prometheus text at `GET /metrics` without authentication. Empty: off. Only loopback addresses are accepted, and the node does not start when the port is taken. |
+
+### `[media]`
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `shard_threshold` | 1048576 | Bytes; uploads above it are split into Reed-Solomon shards (K ≤ 6 data, 4 parity), smaller ones are stored whole. 1..1048576 ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)). |
+
+### `[turn]`
+
+Used by the `turn` role only.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `urls` | `[]` | `turn:` / `turns:` URLs of the coturn relay handed to peers, e.g. `turn:turn.example.org:3478`. |
+| `secret` | `""` | coturn's `static-auth-secret`. Set it as `DYAPPD__TURN__SECRET` in a mode 0600 `EnvironmentFile=`, never on the command line. |
+| `credential_minutes` | 60 | Lifetime of the passwords handed out. |
+
+### `[search]`
+
+Used by the experimental `search` role only. Details: [Search](../architecture/bootstrap.md#search).
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `max_profile_bytes` | 65536 | Largest profile record indexed, in bytes, reported to clients in `info`; 1..65536. |
+| `max_bytes` | 53687091200 | Size of `profiles-idx.db` (records plus index); above it established keys leave, from the place with the most profiles first. |
+| `newcomer_days` | 30 | Days a key counts as a newcomer after its first put; 1..365. |
+| `newcomer_share` | 0.1 | Share of `max_bytes` newcomers' records may hold together, above 0 and at most 1; past it the newcomer with the oldest heartbeat leaves. |
+| `max_scan_rows` | 10000 | Rows one query scans at most; past it the reply is marked partial. |
+| `puzzle_wait_ms` | 100 | Median queue wait, in ms, above which queries need a client hash puzzle; at least 1. |
+| `max_puzzle_bits` | 20 | Puzzle difficulty ceiling, 12..32. |
+| `topics` | `[]` | Gossip topics 0..15 kept; empty keeps all 16. A subset is refused on the public network. |
+| `min_profile_pow_bits` | 11 | Argon2id proof of work a profile needs to be indexed; 0..20. |
+| `min_heartbeat_pow_bits` | 8 | Daily Argon2id proof a heartbeat needs; 0 = none, 0..16. |
+
+## First start
+
+On the package install, after [sealing the key](#node-key):
+
+```bash
+sudoedit /etc/dyappd.toml        # at least: listen, seeds (or external on a known address)
+sudo systemctl start dyappd
+journalctl -u dyappd -f          # "listening on ..." for every address
+sudo -u dyappd dyappd status --config /etc/dyappd.toml
+```
+
+A minimal serving config:
+
+```toml
+listen = ["[::]:7070", "0.0.0.0:7070"]
+seeds = ["seed1.example.org:7070/12D3KooW...", "seed2.example.org:7070/12D3KooW..."]
+```
+
+Open TCP and UDP on the port in the host and cloud firewalls. Check from another host with
+`test-peer` (the client CLI from the repository,
+[commands](../architecture/bootstrap.md#test-client)):
+
+```bash
+test-peer info /ip4/<node address>/tcp/7070   # exit 0 and "STATUS_OK" → alive
+```
+
+A new node answers `STATUS_FULL` to writes until it has trusted peers for
+`network.storage_trust_minutes`; reads work at once.
+
+### First deployment
+
+The steps below start a network of seed nodes with the production defaults
+(`id_pow_bits = 22`, `distinct_outbound_groups = true`, `storage_trust_minutes = 60`) and take it
+through one upgrade and one rollback.
+
+A node sends replicas only to peers it first connected to at least
+`network.storage_trust_minutes` ago, and keeps that time in memory only. A put (a profile, an
+envelope, a media part) needs a second holder, so a node that trusts no peer yet answers it
+`STATUS_FULL` after 10 seconds; reads are not affected. A new network therefore refuses all
+writes for the first trust period, and every restarted node refuses writes through it for one
+period. The peers of a restarted node keep trusting it while it stays in their routing table.
+
+1. **Cold start.** Generate each key (about a minute per node at 22 bits), list the other seeds
+   in `seeds` on every seed and start them in any order; a seed that starts first is dialled by
+   the later ones. Check each with `test-peer info`.
+2. **Canary.** After `storage_trust_minutes`, publish a test profile through each node:
+   `test-peer publish` returns `STATUS_OK` and `test-peer get` finds the record on at least two
+   nodes. Before that it returns `STATUS_FULL`.
+3. **Rolling upgrade.** For each node in turn: stop it, take a [backup](#backups) of
+   `storage.dir`, start the new version, check its health and that it still serves the canary
+   records, publish a canary through a node that was not restarted in the last trust period,
+   then wait `storage_trust_minutes` before the next node. Restarting every node within one
+   period stops all writes until the first restarted node's period ends.
+4. **Rollback.** Stop the node and start the old version. When the update changed a store
+   format, the old version exits with "has store format N, this dyappd knows up to M"; restore
+   the backup from step 3 and start the old version on it. Writes the node took after the backup
+   are lost on that node; the other replicas and the owner's next visit repair them. There is no
+   rollback across a store-format change without that backup.
+
+`make rehearsal FROM=<git ref>` runs these steps on three loopback nodes (127.1.0.1, 127.2.0.1
+and 127.3.0.1, three /16 groups) with release builds of the ref and of the working tree, the ref
+being a commit before a store-format step; it takes about three trust periods
+(`scripts/rehearsal.py`). The manual `rehearsal.yml` workflow runs the same check on CI with the
+ref as its `from` input.
+
+## Status and metrics
+
+**Status.** `sudo -u dyappd dyappd status --config /etc/dyappd.toml` (in Docker:
+`docker exec dyappd dyappd status`) prints the peer ID and what the stores hold: profiles,
+envelopes, media blobs and bytes, deny entries, cached peers. It opens the stores read-only and
+works while the node runs. There is no admin HTTP API.
+
+**Logs.** `journalctl -u dyappd` (run by hand: stderr). The node logs startup, listen addresses,
+storage errors, the hourly cleanup and maintenance; not individual requests. `RUST_LOG` sets the
+level, e.g. `RUST_LOG=info` (the unit's default) or `RUST_LOG=debug`.
+`sudo systemctl reload dyappd` (SIGHUP) logs one in-memory state line: pending requests,
+connection and peer counts.
+
+**Health.** There is no HTTP health endpoint. A node is alive when it answers `/dyapp/node`
+`info` (`test-peer info`, above); the reply holds roles and limits only.
+
+### Metrics
+
+Set `[metrics] listen = "127.0.0.1:9464"` to serve Prometheus text at
+`http://127.0.0.1:9464/metrics`. A scraper on another host reaches it through a tunnel or a local
+agent. Families and listener limits:
+[metric families](../architecture/bootstrap.md#metric-families),
+[metrics listener](../architecture/bootstrap.md#metrics-listener).
+
+```bash
+curl -s http://127.0.0.1:9464/metrics | grep '^dyapp_connected_peers'
+```
+
+Reading the values:
+
+- Counters (`*_total`) start at 0 with the process. A restart shows as a new
+  `dyapp_process_start_time_seconds`; use `rate()`/`increase()` in Prometheus or a "Change per
+  second" step in Zabbix, both of which treat a drop as a reset.
+- Storage gauges are up to 5 minutes old: alert on
+  `time() - dyapp_snapshot_timestamp_seconds > 900` (no snapshot for three periods) and on
+  `dyapp_storage_read_ok == 0`, not on a missing `storage_used_bytes`.
+- The series set is fixed by the roles and configured stores.
+
+**Prometheus.** Run Prometheus, or an agent that forwards to it, on the node host:
+
+```yaml
+scrape_configs:
+  - job_name: dyappd
+    scrape_interval: 60s
+    scrape_timeout: 4s     # under the listener's 5 s deadline
+    static_configs:
+      - targets: ['127.0.0.1:9464']
+```
+
+**Zabbix.** One master item fetches the page and dependent items cut samples out of it with the
+"Prometheus pattern" preprocessing step, so each scrape is one request:
+
+- Master item, type "HTTP agent", URL `http://127.0.0.1:9464/metrics`, type of information
+  "Text", history 0. The HTTP agent runs on the Zabbix server or proxy, so this needs one on the
+  node host. Otherwise use a Zabbix agent item `web.page.get[127.0.0.1,/metrics,9464]` as the
+  master; it returns the response headers too, so add a first "Regular expression" step
+  `\r\n\r\n([\s\S]*)` with output `\1`.
+- Dependent items, master the item above, preprocessing "Prometheus pattern", for example
+  `dyapp_connected_peers` (numeric unsigned), or
+  `dyapp_request_outcomes_total{protocol="mailbox",outcome="omitted"}` followed by "Change per
+  second".
+
+Neither setup is installed or tested by this project; the exposition itself is checked by the
+`metrics` unit tests.
+
+## Operations
+
+### Config changes
+
+Edit `/etc/dyappd.toml` (or a drop-in's `Environment=`) and `sudo systemctl restart dyappd`. A
+restart makes the node refuse writes for `storage_trust_minutes`; on a network of several nodes
+restart them one at a time as in a [rolling upgrade](#updates).
+
+### Updates
+
+Install the new package (`sudo apt install ./dyappd_<new>.deb`) or start the new image, one node
+at a time:
+
+- Profiles, mailboxes and media have five replicas on other nodes, so while one node is down
+  clients read the other replicas and the owner's next visit repairs what it missed. A single
+  node keeps the only copy.
+- A restarted node trusts no peer for `network.storage_trust_minutes` and refuses writes for
+  that long; restart the next node only after it ([First deployment](#first-deployment)).
+- On start a new `dyappd` upgrades its store files in place (each keeps its format in
+  `PRAGMA user_version`). An older `dyappd` refuses files a newer one has upgraded, so a
+  downgrade needs the [backup](#backups) taken before the update. Building a changed format next
+  to the old one while the old one keeps answering is planned.
+- `apt` keeps your edited `/etc/dyappd.toml`; compare it with the new default in
+  `/etc/dyappd.toml.dpkg-dist` when `apt` offers one.
+
+### Rollback
+
+Stop the node, install the previous package and start it. If it exits with "has store format N,
+this dyappd knows up to M", stop it, restore the backup taken before the update and start again
+([First deployment](#first-deployment), step 4).
+
+### Deny list
+
+To stop serving an abuser or a media blob, add their peer ID, IP group, key hash or the blob's
+SHA-256:
+
+```bash
+sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml
+sudo -u dyappd dyappd deny remove <entry> --config /etc/dyappd.toml
+sudo -u dyappd dyappd deny list --config /etc/dyappd.toml
+```
+
+The running node applies a change within 10 seconds, or at once on `systemctl reload dyappd`;
+denied peers get `STATUS_REFUSED` here and use other nodes. An IP group is given with the node's
+prefix, e.g. `198.51.100.0/24`. The list is local to the node and kept in `deny.db`. Deny-list
+exchange between nodes (`share_deny_list`, `accept_deny_lists`) is not part of the first release:
+a shared list tells other operators what you refuse, and received lists are only stored, to be
+reviewed with `dyappd deny received`. Details: [deny list](../architecture/bootstrap.md#deny-list).
+
+### Retiring a node
+
+```bash
+sudo apt purge dyappd
+sudo rm -rf /var/lib/dyappd /etc/credstore.encrypted/node.key
+sudo userdel dyappd
+```
+
+Tell the operators who list this node in `seeds` to remove it. Its replicas are repaired from the
+other holders.
+
+### Node key compromise
+
+A copied `node.key` cannot be revoked, so the node starts over as a new node:
+
+```bash
+sudo systemctl stop dyappd
+sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id and every store
+sudo rm -f /etc/credstore.encrypted/node.key   # the sealed key, if used
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # prints the new peer ID
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
+sudo systemctl start dyappd
+```
+
+Keygen refuses while any data is left, so the wipe comes first. Consequences:
+
+- The node has a new peer ID. The stolen key can still run a node under the old one, so tell the
+  operators who list the old ID (a seed `host:port/<peer ID>`, a deny entry) to replace it or
+  deny it with `dyappd deny add <old peer ID>`.
+- What the old node held is lost to it; replication repairs profiles, mailboxes and media from
+  the other holders, and a single node loses its only copy.
+- Update your own seeds and anything else that pins the old ID.
+
+### TURN relay
+
+The `turn` role hands out credentials for a coturn relay that runs next to the node; `dyappd`
+relays nothing itself. Calls are not part of the first release. Install coturn
+(`apt-get install coturn` on Debian 12) and set in `/etc/turnserver.conf`:
+
+```
+use-auth-secret
+static-auth-secret=<the same secret as turn.secret>
+realm=turn.example.org
+total-quota=100
+user-quota=4
+max-bps=1000000
+no-cli
+```
+
+Pass `DYAPPD__TURN__SECRET` through a systemd `EnvironmentFile=` with mode 0600. Open the
+listening port (3478 UDP and TCP, 5349 for TLS) and the relay port range (`min-port`/`max-port`,
+49152–65535 by default). At startup the node refuses the role without a secret or with a URL
+that does not start with `turn:` or `turns:`. Credentials expire after `turn.credential_minutes`;
+rotating the secret needs both services restarted together.
+
+### Data cleanup and compaction
+
+Expired envelopes, profiles, tombstones and attachments are deleted every hour, by the
+[retention limits](#limits). No full `VACUUM` is needed: every `maintenance.interval_minutes` the
+node returns up to `maintenance.vacuum_pages` free pages per store to the file system, truncates
+the WAL and refreshes planner statistics. The log line "store maintenance done" shows the free
+pages left; a steadily growing number means `vacuum_pages` is too small for the delete rate.
+Background rebuilds share `maintenance.io_mb_per_s` and report "store rebuild progress".
+
+## Backups
+
+There is no online backup: SQLite files copied while the node writes are inconsistent. Stop the
+node first.
+
+| In `storage.dir` | Back up? |
+|------------------|----------|
+| `node.key` (unless sealed or set by `storage.key`) | **Yes**, privately: a lost key is a new node. A sealed key is backed up as the `age` copy made at keygen. |
+| `node.id`, `network` | Yes: the node does not start on its stores without them. |
+| `profiles.db`, `messages.db`, `media.db` and `data/` | Yes before an update (the only way back across a store-format change); otherwise optional, since replicas are repaired from other nodes. |
+| `deny.db` | Yes: your deny list. |
+| `profiles-idx.db` or `profiles-idx-vN.db`, `search.lock` | No: the search index is disposable and refilled by catch-up. |
+| `peers`, `anchors` | No: the peer cache, rebuilt from the network. |
+
+A `traffic` file left by an older version is no longer read and can be deleted. Example with the
+package layout:
+
+```bash
+sudo systemctl stop dyappd
+sudo sh -c 'umask 077; tar czf /root/dyappd-$(date +%Y%m%d).tar.gz -C /var/lib dyappd'
+sudo systemctl start dyappd
+# Restore: stop, move /var/lib/dyappd aside, untar into /var/lib, start, check status
+```
+
+Keep backups that hold `node.key` off the cloud provider, or encrypted with a key it does not
+have. Scheduled backups, retention and off-host storage are not provided.
+
+## Security
+
+### Network
+
+Every connection is libp2p: TCP with Noise and yamux, or QUIC (TLS 1.3), authenticated by the
+node's key; there is no certificate authority. The node protocol is public: anyone can read any
+profile, and only the owner's signature can store, replace or delete one. Requests are limited
+per peer, per IP group and per sender key, and peers that keep hitting the limits or sending bad
+signatures are banned locally for `ban_minutes`.
+
+### Clock
+
+Retention, expiry and the 10-minute windows for signed times use the node's clock. A clock pushed
+forward, for example by a spoofed NTP server, makes the hourly cleanup delete envelopes, profiles
+and attachments early; one pushed back refuses fresh heartbeats and keeps. Synchronise the host
+with an authenticated source, such as `chrony` with NTS (`server <host> iburst nts`), and watch
+for large steps in its log.
+
+### Cloud hosting
+
+On a rented VM, assume that the provider, or anyone holding your cloud account, can read the
+disk, its snapshots and backups, write to the disk and read the VM's memory. They can then copy
+the node key and the TURN secret, see what you see as an operator, and replace `dyappd` with a
+backdoored build; they cannot forge users' signed records or read end-to-end content
+([threat model](../security/threat-model.md#cloud-host-access)). A sealed key bound to a vTPM
+keeps a copied volume from yielding the node key; only a confidential VM (AMD SEV-SNP, Intel TDX)
+keeps the memory of a running VM from the host. There is no encryption of the stores at rest and
+no start-time integrity check, so:
+
+- Protect the cloud account with hardware-key 2FA and limit who may snapshot or attach volumes.
+- Keep backups that hold the key off the provider, or encrypted with a key it does not have.
+- If you suspect access, reinstall from a package you build or verify yourself, follow
+  [Node key compromise](#node-key-compromise) and rotate the [TURN](#turn-relay) secret.
+
+### Best practices
+
+- Pin every seed with its peer ID (`host:port/<peer ID>`).
+- Keep the production defaults of `[network]` on the public network.
+- Run several nodes in different /16 networks and providers; restart them one at a time.
+- Keep the metrics listener on loopback and scrape it locally.
+- Watch free disk space, `dyapp_storage_read_ok` and the snapshot age.
+- Take a stopped backup before every update.
+
+## Capacity
+
+Not measured: there is no load test yet. Disk, the byte rate, memory and connections are capped
+by `[limits]`. With the default quotas a node needs about 16 GiB of disk (`profiles_max_mb`
+1 GiB + `messages_max_mb` 4 GiB + `media_max_mb` 10 GiB + `min_free_mb` 512 MiB; without the
+media role about 6 GiB; a search node adds `search.max_bytes`) and 1 GiB of memory
+(`MemoryMax=1G`, `limits.max_memory_mb` 768). A full store answers `FULL` instead of growing.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
+| `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
+| Writes answer `STATUS_FULL` | The node trusts no peer yet (`storage_trust_minutes` after its start), a store is at its quota, or the disk is below `min_free_mb` |
+| `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or `ReadWritePaths=` |
+| `run as the owner of ...` | Run commands as the service user: `sudo -u dyappd dyappd ...` |
+| `dyappd` exits with `storage belongs to ...` | `storage.dir` was bound to another `network.name`; restore that name or use a new directory |
+| `test-peer info` fails against a named-network node | Set `DYAPPD__NETWORK__NAME` to the node's network name for `test-peer` too |
+| `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
+| `dyappd` exits with `has search index format N, this dyappd knows up to M` | A newer `dyappd` rebuilt the search index; run that version, or delete the named `profiles-idx-vN.db`: catch-up refills it |
+| `dyappd` exits with `search.lock: ...; another dyappd uses this search index` | Two nodes share one `storage.dir`; give each its own directory |
+| `not listening` warning or `no address could be opened` | The port is taken (another `dyappd`?) or IPv6 is disabled on the host; adjust `listen` |
+| Key refused with a `chmod 600` hint | The key file has group or other permission bits |
+| Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas |

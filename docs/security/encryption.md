@@ -100,10 +100,10 @@ Rules:
   string, and copies are wiped after use (planned).
 - `dyappd` reads the node key from `storage.key`, from the unit's `node.key` credential or from
   `storage.dir/node.key`, and leaves its protection to the host; the package default is a
-  credential sealed by `systemd-creds` ([node key](../operations/deployment.md#node-key)). It
+  credential sealed by `systemd-creds` ([node key](../manuals/bootstrap.md#node-key)). It
   checks an opened key file (not a credential, which systemd guards) and refuses any group/other
   permission bits, with a `chmod 600` hint; it leaves permissions unchanged. Mode 0600 is created by keygen, and 0400
-  also loads. Back it up with `umask 077` ([backups](../operations/deployment.md#backups)).
+  also loads. Back it up with `umask 077` ([backups](../manuals/bootstrap.md#backups)).
 - The Rust identity generator guards its random buffer with `Zeroizing`; `Identity::secret`
   returns `Zeroizing<[u8; 32]>`, populated from borrowed signing-key bytes and cleared on drop.
   Callers borrow it for use; copying into unguarded arrays or strings creates separate copies.

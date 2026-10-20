@@ -1,6 +1,6 @@
 name: rehearsal
 
-# First-deployment rehearsal with production defaults (docs/operations/deployment.md#first-deployment):
+# First-deployment rehearsal with production defaults (docs/manuals/bootstrap.md#first-deployment):
 # about three storage trust periods, so only on demand.
 on:
   workflow_dispatch:

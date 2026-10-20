@@ -107,7 +107,7 @@ gathered. TURN is not "always succeeds": a relay requires a deployed TURN
 server with credentials, and the call fails if the relay is unreachable or
 both peers are behind networks that block it. A `dyappd` node with the `turn`
 role hands out short-lived credentials for a coturn relay its operator runs
-([TURN relay](../operations/deployment.md#turn-relay)); the video code does
+([TURN relay](../manuals/bootstrap.md#turn-relay)); the video code does
 not request them yet.
 
 ## Codecs

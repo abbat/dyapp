@@ -52,6 +52,7 @@ it are entry points that tools discover by path (see
 
 ### Operations
 - [Deployment](operations/deployment.md)
+- [Bootstrap node operator manual](manuals/bootstrap.md) ([Russian](manuals/bootstrap.ru.md))
 
 ### AI agents
 - [Project guide for agents](agents/project.md): layout, commands, limits, rules

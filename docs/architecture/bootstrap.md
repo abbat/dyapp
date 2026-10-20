@@ -566,7 +566,7 @@ mapped yet.
 - Runs as an unprivileged system user and refuses to start as root; default port 7070, every
   path must be writable by that user (implemented in `dyappd`). The Debian 12 package adds a
   hardened systemd unit and the `dyappd` system user
-  ([deployment](../operations/deployment.md#debian-12-package)).
+  ([deployment](../manuals/bootstrap.md#debian-12-package)).
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
   fails at startup ([Configuration](#configuration)).
@@ -1238,7 +1238,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
 `search.{max_profile_bytes,max_bytes,newcomer_days,newcomer_share,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
 the role); the
-example and startup checks are in [Deployment](../operations/deployment.md#dyappd). `dyappd`
+example and startup checks are in [operator manual](../manuals/bootstrap.md#configuration). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). The `store`, `media`, `turn`
 and experimental `search` roles are accepted, the last three only together with `store`. On start it dials its
@@ -1312,7 +1312,7 @@ publish once, excluding transport fan-out, duplicates suppressed by libp2p, and 
 Kademlia, identify, AutoNAT, transport overhead and encryption framing are not measured here.
 Each status line reports the change since the previous one; the counters behind it never reset
 (see [Metric families](#metric-families)). The snapshot is not globally atomic. See the
-[Deployment Guide](../operations/deployment.md#monitoring).
+[operator manual](../manuals/bootstrap.md#status-and-metrics).
 
 `dyapp-p2p-net` provides `WireBytes` / `WireCounts` for interval payload-byte accounting.
 The fixed slots are node, profile, mailbox, push, media, search, inventory, digest, gossip and

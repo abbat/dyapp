@@ -319,7 +319,7 @@ RUN cargo install --locked cargo-machete   # example extra tool
 ### Production image (planned)
 
 There is no production image: `rust/bootstrap` has no server binary to package
-(see [Deployment Guide](../operations/deployment.md#bootstrapping-a-node)).
+(see [operator manual](../manuals/bootstrap.md#installing)).
 The Dockerfiles in this repository are test images only.
 
 ## CI/CD Integration

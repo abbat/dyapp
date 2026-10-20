@@ -6,7 +6,7 @@ and 127.3.0.1, three /16 groups, so `network.distinct_outbound_groups` stays
 on; nothing else is overridden, and settings in the environment (a
 `DYAPPD__NETWORK__STORAGE_TRUST_MINUTES` for a dry run, say) reach every node.
 
-Steps, as in docs/operations/deployment.md#first-deployment:
+Steps, as in docs/manuals/bootstrap.md#first-deployment:
 cold start of the old version, a canary that needs two holders, a rolling
 upgrade one node at a time, and a rollback of the last node within the
 store-format limit. Every step prints one line; the run takes about three

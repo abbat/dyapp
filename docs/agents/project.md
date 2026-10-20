@@ -33,7 +33,7 @@ pulls anything).
 |------|---------|------|
 | Unit tests | `make test` | `scripts/docker-test.sh test` |
 | Integration | `make test-integration` | bootstrap `integration_tests` + network compose + `rust-check.sh memory` (5-minute RSS plateau) |
-| First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `scripts/rehearsal.py`, see [deployment.md](../operations/deployment.md#first-deployment) |
+| First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `scripts/rehearsal.py`, see [operator manual](../manuals/bootstrap.md#first-deployment) |
 | Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
 | Debian 12 package | `make deb` | `scripts/build-deb.sh`, then `scripts/deb-test.sh` on bookworm-slim |
 | Container image | `make image` | builds `dyappd:latest` (`docker/Dockerfile.dyappd`), then `scripts/image-test.sh` |
