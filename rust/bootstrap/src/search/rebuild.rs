@@ -8,7 +8,14 @@ use rusqlite::types::Value;
 /// Every row of the tables a generation holds, in key order.
 fn dump(db: &Connection) -> Vec<Vec<Value>> {
     let mut all = vec![];
-    for table in ["key", "profile", "interest", "record", "place_count", "digest"] {
+    for table in [
+        "key",
+        "profile",
+        "interest",
+        "record",
+        "place_count",
+        "digest",
+    ] {
         let mut statement = db
             .prepare(&format!("SELECT * FROM `{table}` ORDER BY 1, 2"))
             .unwrap();
@@ -60,7 +67,10 @@ async fn changes_during_the_copy_reach_the_candidate() {
     let copy = Connection::open(&candidate.path).unwrap();
     let source = dump(&lock(&index.db).unwrap());
     assert_eq!(dump(&copy), source);
-    assert_eq!(source.iter().filter(|row| row.len() == 10).count(), 600 + 1 + 5 - 10);
+    assert_eq!(
+        source.iter().filter(|row| row.len() == 10).count(),
+        600 + 1 + 5 - 10
+    );
     assert_digest_consistent(&index);
     let generation: (u32, bool) = copy
         .query_row("SELECT * FROM `generation`", [], |row| {
@@ -69,7 +79,11 @@ async fn changes_during_the_copy_reach_the_candidate() {
         .unwrap();
     assert_eq!(generation, (2, false));
     let created: i64 = copy
-        .query_row("SELECT `value` FROM `meta` WHERE `name` = 'created'", [], |row| row.get(0))
+        .query_row(
+            "SELECT `value` FROM `meta` WHERE `name` = 'created'",
+            [],
+            |row| row.get(0),
+        )
         .unwrap();
     assert_eq!(created, t);
 }

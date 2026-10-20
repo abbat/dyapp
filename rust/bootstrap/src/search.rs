@@ -963,11 +963,11 @@ pub use writer::Overflow;
 use writer::Writer;
 
 #[cfg(test)]
-#[path = "search/tracking.rs"]
-mod tracking_tests;
-#[cfg(test)]
 #[path = "search/rebuild.rs"]
 mod rebuild_tests;
+#[cfg(test)]
+#[path = "search/tracking.rs"]
+mod tracking_tests;
 
 #[cfg(test)]
 #[path = "search/newcomers.rs"]
