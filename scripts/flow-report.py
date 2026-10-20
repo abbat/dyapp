@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from flow_metrics import instant, report
+from flow_metrics import health, instant, report
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,7 +90,7 @@ def commits(since):
     return result
 
 
-def collect(now, ledger):
+def collect(now, ledger, full=True):
     if git("rev-parse", "--is-shallow-repository").strip() != "false":
         raise ValueError("Full Git history is required")
     since = (instant(now) - timedelta(days=7)).isoformat()
@@ -135,19 +135,22 @@ def collect(now, ledger):
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         attempts = [a for group in pool.map(details, selected) for a in group]
-    beads = json.loads(command("bd", "list", "--all", "--limit", "0",
-                               "--json", "--brief"))
-    return {
-        "schema": 1, "now": now, "beads": beads, "runs": attempts,
-        "commits": commits(since), "practices": adoption_dates(),
-        "alerts": alerts(repo),
-        "observations": ledger.get("observations", []),
-        "reviews": ledger.get("reviews", []),
+    snapshot = {
+        "schema": 1, "now": now, "runs": attempts,
         "sources": {"repository": repo,
                     "main": git("rev-parse", "main").strip(),
                     "github_runs": len(all_runs),
                     "selected_runs": len(selected)},
     }
+    if full:
+        snapshot.update({
+            "beads": json.loads(command("bd", "list", "--all", "--limit", "0",
+                                        "--json", "--brief")),
+            "commits": commits(since), "practices": adoption_dates(),
+            "alerts": alerts(repo),
+            "observations": ledger.get("observations", []),
+            "reviews": ledger.get("reviews", [])})
+    return snapshot
 
 
 def write(path, value):
@@ -164,19 +167,24 @@ def main():
     parser.add_argument("--snapshot-out", type=Path, help="save live input")
     parser.add_argument("--ledger", type=Path, help="local review ledger")
     parser.add_argument("--report", type=Path, help="output JSON")
+    parser.add_argument("--health", action="store_true",
+                        help="daily main CI check only: exit 2 on a warning")
     args = parser.parse_args()
     try:
         if args.snapshot:
             snapshot = json.loads(args.snapshot.read_text())
         else:
             ledger = json.loads(args.ledger.read_text()) if args.ledger else {}
-            snapshot = collect(datetime.now(timezone.utc).isoformat(), ledger)
+            snapshot = collect(datetime.now(timezone.utc).isoformat(), ledger,
+                               full=not args.health)
             write(args.snapshot_out, snapshot)
-        result = report(snapshot)
+        result = (health if args.health else report)(snapshot)
     except (ValueError, KeyError, TypeError, OSError, RuntimeError) as error:
         result = {"errors": [str(error)]}
     print(write(args.report, result), end="")
-    return bool(result["errors"])
+    if result["errors"]:
+        return 1
+    return 2 if args.health and result["warnings"] else 0
 
 
 if __name__ == "__main__":

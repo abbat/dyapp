@@ -133,6 +133,29 @@ def postmortems(snapshot, ci, now):
     return rows, errors
 
 
+def health(snapshot):
+    """Daily canonical-main check: red for over 24 hours is an error; red for
+    less, or an unresolved latest run, is a warning; only green is clean."""
+    if snapshot["schema"] != 1:
+        raise ValueError("Unsupported snapshot schema")
+    now = instant(snapshot["now"])
+    ci = ci_metrics(snapshot["runs"], now - timedelta(days=7), now)
+    errors, warnings = [], []
+    if ci["current_red_hours"] > 24:
+        errors.append(f"Main red {ci['current_red_hours']:.2f} hours > 24")
+    elif ci["main_state"] == "red":
+        warnings.append(f"Main red {ci['current_red_hours']:.2f} hours; "
+                        "fix before 24")
+    elif ci["main_state"] == "unknown":
+        warnings.append("Main state unknown: latest run is not a success")
+    return {"schema": 1, "until": now.isoformat(),
+            "sources": snapshot.get("sources"),
+            "main_state": ci["main_state"],
+            "current_red_hours": ci["current_red_hours"],
+            "red_intervals": ci["red_intervals"],
+            "errors": errors, "warnings": warnings}
+
+
 def report(snapshot):
     if snapshot["schema"] != 1:
         raise ValueError("Unsupported snapshot schema")

@@ -108,6 +108,25 @@ class Metrics(unittest.TestCase):
                                     finished, conclusion))
             self.assertEqual(FLOW.report(data)["ci"]["main_state"], "unknown")
 
+    def test_daily_health_separates_24_hours_over_24_and_unknown(self):
+        cases = [("success", "2026-10-15T11:00:00Z", "green", [], []),
+                 ("failure", "2026-10-14T12:00:00Z", "red", [],
+                  ["Main red 24.00 hours; fix before 24"]),
+                 ("failure", "2026-10-14T11:59:59Z", "red",
+                  ["Main red 24.00 hours > 24"], []),
+                 ("cancelled", "2026-10-15T11:00:00Z", "unknown", [],
+                  ["Main state unknown: latest run is not a success"])]
+        for conclusion, finished, state, errors, warnings in cases:
+            data = {"schema": 1, "now": "2026-10-15T12:00:00Z",
+                    "runs": snapshot()["runs"]}
+            data["runs"].append(run("new", "2026-10-14T10:00:00Z",
+                                    finished, conclusion))
+            result = FLOW.health(data)
+            self.assertEqual((result["main_state"], result["errors"],
+                              result["warnings"]),
+                             (state, errors, warnings), conclusion)
+        self.assertEqual(len(result["red_intervals"]), 0)
+
     def test_postmortems_are_due_within_48_hours_of_a_trigger(self):
         data = snapshot()
         data["practices"] = [{"id": "A8",

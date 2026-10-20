@@ -24,6 +24,29 @@ Its snapshot records the local main SHA and GitHub collection counts.
 Reports and snapshots contain private bead details; keep them outside Git
 and public artifacts. No tracker or GitHub changes are made.
 
+## Daily main health
+
+A weekly report cannot catch a main-red interval before it passes 24 hours, so
+check canonical main daily:
+
+```bash
+python3 -B scripts/flow-report.py --health --report /tmp/ai/main-health.json
+```
+
+It collects only workflow runs (no beads, commits or alerts) and applies the
+canonical main rules below to the same seven-day window. The JSON gives
+`main_state`, `current_red_hours` and the red intervals that overlap the week.
+Exit 1: main red for more than 24 hours, or the data could not be read.
+Exit 2: main red for 24 hours or less, or `unknown` (the latest run was
+cancelled, is pending or was skipped); unknown is never reported as green.
+Exit 0: green. `--snapshot` and `--snapshot-out` work as for the weekly report.
+
+Nothing is scheduled and nothing is sent. To run it daily, a maintainer can add
+a user cron entry for a dedicated clone on `main`, such as
+`17 7 * * * cd ~/dyapp-health && git pull -q --ff-only && python3 -B scripts/flow-report.py --health`,
+or a systemd user timer, and act on a nonzero exit; a red over 24 hours also
+needs the A8 postmortem below.
+
 ## Definitions
 
 The window is the trailing seven days in UTC, start inclusive and end exclusive.
