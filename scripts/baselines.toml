@@ -13,6 +13,7 @@ max_lines = 400
 
 [batches.exceptions]
 # Reasons for pushed commits that lack a Large-Change trailer; history is not rewritten.
+d571505c6ea9b41a1a7a85058d6f595fd40d7c00 = "Atomic CLI consolidation: dyappd.rs and test-peer.rs moved into dyappd subcommands with tests and docs"
 3ae99aab9795a045edeb99d803f054526338891b = "New operator manual and its translation; the trailer's wrapped line broke trailer parsing"
 c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
 b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"

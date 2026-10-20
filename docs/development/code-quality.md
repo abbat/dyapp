@@ -104,6 +104,8 @@ Every non-merge commit after `[batches].base` in `scripts/baselines.toml` must c
 most `max_lines = 400` text lines, additions plus deletions, or carry a nonempty
 `Large-Change: <reason>` commit trailer. A pushed commit that lacks the trailer gets its
 reason in `[batches.exceptions]` (full SHA = reason) instead of a history rewrite.
+The `d571505` exception records the atomic move of the node and test client into
+`dyappd` subcommands, counted as both deletions and additions.
 Exactly 400 passes. Renames count as deletion
 plus addition; binary files contribute no text lines. Commits on merged branches are checked,
 but merge commits themselves are excluded, as in the commit-message check.
