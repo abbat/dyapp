@@ -116,7 +116,10 @@ The unit runs as the system user `dyappd` (no shell, no login) with no capabilit
 `/tmp` and write access to `/var/lib/dyappd` only. It is bounded to `MemoryHigh=768M`,
 `MemoryMax=1G`, `CPUQuota=150%` and `TasksMax=256`; `limits.max_memory_mb` defaults to
 MemoryHigh, so the node sheds requests before the kernel throttles it. On a larger host raise
-both in a drop-in. Removing the package stops and disables
+both in a drop-in. `LimitCORE=0` and `MemorySwapMax=0` (cgroup v2), with `dyappd` making itself
+non-dumpable at start, keep the node key out of core dumps and swap; run the node without swap.
+A hypervisor can still read the memory of a running VM: only a confidential VM (AMD SEV-SNP,
+Intel TDX) prevents that. Removing the package stops and disables
 the unit; purging keeps the user and `/var/lib/dyappd`, because `node.key` is the node's
 identity — delete them by hand to retire the node.
 

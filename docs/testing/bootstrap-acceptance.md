@@ -171,6 +171,7 @@ assertion changes.
 | Operator CLI reports empty/populated stores without creating missing databases, adds local deny entries idempotently, and displays received lists without applying them | CLI integration | `tests/cli.rs::status_reports_absent_and_populated_stores_without_creating_missing_databases`, `::deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied` | exists |
 | CLI help and incomplete options leave storage untouched | CLI integration | `tests/cli.rs::help_and_incomplete_options_do_not_create_stores` | exists |
 | The packaged node reloads a deny entry within 10 seconds; root may not touch the stores | Package | `deb-test.sh` | exists, local only |
+| The packaged node is not dumpable and its unit sets `LimitCORE=0` | Package | `deb-test.sh` | exists, local only |
 
 ### Storage and configuration
 

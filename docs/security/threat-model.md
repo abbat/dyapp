@@ -83,7 +83,7 @@ defences already in place. Nodes are untrusted by design
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ✅ Implemented: nothing is negotiated; announced limits are hints within compiled floors ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |
-| 23 | Cloud host access to a node VM: memory dump, disk read, disk write | High | Medium | ⚠️ Partial: no client IPs on disk, a key-compromise runbook; a host-protected node key and memory hardening are planned; binary replacement, snapshot rollback and planted content are accepted for v1 ([below](#cloud-host-access)) |
+| 23 | Cloud host access to a node VM: memory dump, disk read, disk write | High | Medium | ⚠️ Partial: no client IPs on disk, a key-compromise runbook; no core dumps or swap; a host-protected node key is planned; binary replacement, snapshot rollback and planted content are accepted for v1 ([below](#cloud-host-access)) |
 
 ### Cryptography
 
@@ -503,17 +503,17 @@ network and to the users the node serves. In place: `node.key` has mode 0600 and
 logs and no client IP to disk (the only addresses on disk are the peer cache, anchors and IP
 groups the operator denied); the TURN secret lives in a separate `EnvironmentFile=`; every record
 a node holds is signed by its owner. Nothing is encrypted at rest, the binary is not checked at
-start, and a hypervisor can read any VM's memory unless it is a confidential VM. Two fixes are
-planned for the first release: the node key read from a path the host protects as it chooses
-(by default a systemd credential sealed to the host key or a vTPM), and a unit that keeps
-`dyappd` out of core dumps and swap. The other disk-write risks are accepted for v1 below.
+start, and a hypervisor can read any VM's memory unless it is a confidential VM. The unit keeps
+`dyappd` out of core dumps and swap. Planned for the first release: the node key read from a
+path the host protects as it chooses (by default a systemd credential sealed to the host key or
+a vTPM). The other disk-write risks are accepted for v1 below.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | Copy `node.key` from the volume, a snapshot or a backup and run a node under its peer ID: its proof-of-work DHT position, its local reputation with peers, a seed others pin as `host:port/<peer ID>` | Disk read | High × medium | Accept for now: the [runbook](../operations/deployment.md#node-key-compromise) moves the node to a new key; impersonating a pinned seed also needs its address, which a cloud-account attacker may hold. Fix (planned): `dyappd` reads the key from a path it does not interpret; the package seals it with `systemd-creds` to the host key or a vTPM, so a copied volume alone does not open it, and a host without systemd or a TPM uses a 0600 file, a passphrase or an encrypted volume |
 | Read the stores: mailbox addresses, sender keys, write token keys (one contact's envelopes per day, until the TTL), revoked token keys, sizes and times of envelopes, profiles, the search index, media manifests, the deny list | Disk read | Medium × medium | Accept: the same view as the node operator ([privacy](privacy.md)); profiles are public and envelopes are to be end-to-end encrypted. While payload crypto is a stub (class 1) envelope content is readable too |
 | Read the TURN secret and mint relay credentials | Disk read (`EnvironmentFile=`), memory | Medium × medium | Accept: coturn's `total-quota` and `max-bps` bound the relay; the operator rotates the secret in the node and coturn together ([TURN relay](../operations/deployment.md#turn-relay)) |
-| Dump memory: the node key, the TURN secret, live TLS and Noise session keys, peer IPs of open connections, nonces and rate-limit state | Hypervisor | High × low | Accept: with the session keys and captured traffic the attacker sees the live requests a node operator sees, including client IPs; only a confidential VM (AMD SEV-SNP, Intel TDX) closes this. Fix (planned): `LimitCORE=0`, `MemorySwapMax=0` and a non-dumpable process, which keep the key out of crash dumps and swap but not out of a live hypervisor read |
+| Dump memory: the node key, the TURN secret, live TLS and Noise session keys, peer IPs of open connections, nonces and rate-limit state | Hypervisor | High × low | Accept: with the session keys and captured traffic the attacker sees the live requests a node operator sees, including client IPs; only a confidential VM (AMD SEV-SNP, Intel TDX) closes this. In place: `LimitCORE=0`, `MemorySwapMax=0` and a non-dumpable process keep the key out of crash dumps and swap, not out of a live hypervisor read |
 | Replace the `dyappd` binary, the systemd unit or the config: a backdoored node that logs client IPs against keys, withholds or delays data, serves old profiles, points seeds at the attacker's nodes | Disk write | High × low | Accept: such a node is a hostile node (class 8) under an honest operator's name; it cannot forge signed records or read end-to-end content. No check at start for v1: whoever writes the disk can also replace any check that runs from it; signed releases verified at install are planned ([updates](../operations/deployment.md#updates)), and Secure Boot with dm-verity is the host-side defence for an operator who needs it |
 | Plant illegal media or records to expose the operator | Disk write | High × low | Accept for v1: the same legal exposure as class 14; only full-volume encryption (LUKS, a provider-encrypted volume with the operator's key) would make an offline write impossible, and that is the host's choice |
 | Restore an old snapshot: an old deny list, a store without recent data, a key the operator already replaced | Snapshot restore | Medium × low | Accept: replication repairs missing data and other nodes refuse older profile versions; a revived replaced key is the key-theft row above, and the runbook's rotation covers it. For v1 the node does not detect that its state went back in time |

@@ -16,6 +16,9 @@ grep -q "dyappd keygen" /tmp/node.log || { cat /tmp/node.log; exit 1; }
 as_node keygen >/dev/null
 as_node >/tmp/node.log 2>&1 &
 sleep 3
+# Not dumpable: /proc/<pid> of such a process belongs to root.
+test "$(stat -c %U /proc/$!)" = root || { cat /tmp/node.log; exit 1; }
+grep -qx LimitCORE=0 /lib/systemd/system/dyappd.service
 # The running node picks up a deny entry within 10 seconds; root may not touch the stores.
 as_node deny add 203.0.113.9/24 deb test >/dev/null
 if /usr/bin/dyappd status --config /etc/dyappd.toml 2>/dev/null; then exit 1; fi

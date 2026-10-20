@@ -64,6 +64,13 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("unknown config key ignored: {key}");
     }
     config.validate()?;
+    // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
+    // After validate: the /proc/self of a non-dumpable process belongs to root.
+    #[cfg(target_os = "linux")]
+    // SAFETY: PR_SET_DUMPABLE takes integers and touches no memory of the process.
+    if unsafe { libc::prctl(libc::PR_SET_DUMPABLE, 0) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
     dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
     let command: Vec<&str> = command.iter().map(String::as_str).collect();

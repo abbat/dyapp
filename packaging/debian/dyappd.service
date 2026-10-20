@@ -20,6 +20,10 @@ MemoryHigh=768M
 MemoryMax=1G
 CPUQuota=150%
 TasksMax=256
+# Keys stay out of core dumps and swap (dyappd also makes itself non-dumpable). MemorySwapMax
+# needs cgroup v2. A live hypervisor read is not covered: only a confidential VM is.
+LimitCORE=0
+MemorySwapMax=0
 # /var/lib/dyappd, owned by the service user. Stores configured elsewhere need a drop-in
 # with ReadWritePaths=.
 StateDirectory=dyappd
