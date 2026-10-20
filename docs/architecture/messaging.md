@@ -95,8 +95,10 @@ a message from the hard-coded sender `"self_id"`; it does not deliver it.
 - `Group::export_secret` derives per-epoch secrets such as a call's frame key.
 
 `verify_member` is the credential check: the certificate's signature under the
-`dyapp/device-certificate/v1` label, and the certified MLS key equal to the leaf's signature key.
-Whether the certificate is still in the owner's newest profile is the caller's check. openmls keeps
+`dyapp/device-certificate/v1` label, the certified MLS key equal to the leaf's signature key, and
+the certificate listed in the owner's profile among those the caller passes (the newest it holds).
+Every call above takes those profiles, so a device dropped from the list is refused as a sender or
+new leaf, and `Group::remove_revoked` commits its removal. openmls keeps
 group state in memory, so groups and unused KeyPackages are lost on restart until the client stores
 them.
 

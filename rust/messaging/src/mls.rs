@@ -3,13 +3,11 @@
 //! A device signs its MLS messages with its own Ed25519 key. The identity key certifies that key
 //! in a [`DeviceCertificate`](dyapp_profile::DeviceCertificate), and the signed certificate is the
 //! device's MLS basic credential, so any member checks the chain from a leaf to its owner's Peer
-//! ID without fetching anything.
-//! Whether the certificate is still in the owner's current profile is the caller's check.
-
-use std::time::{SystemTime, UNIX_EPOCH};
+//! ID. Every check also needs the certificate in the owner's newest profile the caller holds, so a
+//! device the owner dropped from the list (lost or replaced) can no longer join, commit or send.
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_profile::DeviceCertificate;
+use dyapp_profile::{DeviceCertificate, VerifiedProfile};
 use openmls::prelude::tls_codec::{Deserialize as _, Serialize as _};
 use openmls::prelude::*;
 use openmls_basic_credential::SignatureKeyPair;
@@ -32,6 +30,9 @@ pub enum Error {
     /// A member's credential is not a device certificate for its MLS signature key.
     #[error("MLS credential does not chain to an identity")]
     Credential,
+    /// The member's certificate is not in its owner's profile among those given.
+    #[error("device is not in its owner's current profile")]
+    Revoked,
     /// The KeyPackage is valid for longer than [`KEY_PACKAGE_LIFETIME_SECONDS`].
     #[error("KeyPackage lifetime is too long")]
     Lifetime,
@@ -47,9 +48,11 @@ fn mls(error: impl std::fmt::Display) -> Error {
     Error::Mls(error.to_string())
 }
 
-/// Checks that `credential` is a device certificate signed by an identity key for
-/// `signature_key` and returns that identity's Peer ID.
-pub fn verify_member(credential: &Credential, signature_key: &[u8]) -> Result<String, Error> {
+// The Peer ID behind a device certificate for `signature_key`, and the certificate.
+fn certified(
+    credential: &Credential,
+    signature_key: &[u8],
+) -> Result<(String, SignedRecord), Error> {
     let basic = BasicCredential::try_from(credential.clone()).map_err(|_| Error::Credential)?;
     let signed = SignedRecord::decode(basic.identity()).map_err(|_| Error::Credential)?;
     let peer_id = signed
@@ -60,11 +63,27 @@ pub fn verify_member(credential: &Credential, signature_key: &[u8]) -> Result<St
     if certificate.mls_signature_key != signature_key || signature_key == signed.public_key {
         return Err(Error::Credential);
     }
-    Ok(peer_id)
+    Ok((peer_id, signed))
 }
 
-fn verify_leaf(leaf: &LeafNode) -> Result<String, Error> {
-    verify_member(leaf.credential(), leaf.signature_key().as_slice())
+/// Checks that `credential` is a device certificate signed by an identity key for
+/// `signature_key` and listed in that identity's profile in `profiles`, the newest the caller
+/// holds; returns the identity's Peer ID.
+pub fn verify_member(
+    credential: &Credential,
+    signature_key: &[u8],
+    profiles: &[VerifiedProfile],
+) -> Result<String, Error> {
+    let (peer_id, certificate) = certified(credential, signature_key)?;
+    profiles
+        .iter()
+        .any(|owner| owner.peer_id == peer_id && owner.profile.devices.contains(&certificate))
+        .then_some(peer_id)
+        .ok_or(Error::Revoked)
+}
+
+fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, Error> {
+    verify_member(leaf.credential(), leaf.signature_key().as_slice(), profiles)
 }
 
 /// One device's MLS signature key and the private keys of its KeyPackages and groups.
@@ -141,11 +160,15 @@ impl Device {
 
     /// Starts a group with the devices behind `key_packages`; returns it with the Welcome to
     /// send them. Each KeyPackage must be valid, current, at most 30 days long, use
-    /// [`CIPHERSUITE`] and carry a certified credential.
-    pub fn create_group(&self, key_packages: &[Vec<u8>]) -> Result<(Group, Vec<u8>), Error> {
+    /// [`CIPHERSUITE`] and carry a credential [`verify_member`] accepts with `profiles`.
+    pub fn create_group(
+        &self,
+        key_packages: &[Vec<u8>],
+        profiles: &[VerifiedProfile],
+    ) -> Result<(Group, Vec<u8>), Error> {
         let packages = key_packages
             .iter()
-            .map(|bytes| self.verify_key_package(bytes))
+            .map(|bytes| self.verify_key_package(bytes, profiles))
             .collect::<Result<Vec<_>, _>>()?;
         let config = MlsGroupCreateConfig::builder()
             .ciphersuite(CIPHERSUITE)
@@ -165,7 +188,11 @@ impl Device {
         Ok((Group { group }, welcome.to_bytes().map_err(mls)?))
     }
 
-    fn verify_key_package(&self, bytes: &[u8]) -> Result<KeyPackage, Error> {
+    fn verify_key_package(
+        &self,
+        bytes: &[u8],
+        profiles: &[VerifiedProfile],
+    ) -> Result<KeyPackage, Error> {
         let package = KeyPackageIn::tls_deserialize_exact(bytes)
             .map_err(mls)?
             .validate(self.provider.crypto(), ProtocolVersion::Mls10)
@@ -173,22 +200,21 @@ impl Device {
         if package.ciphersuite() != CIPHERSUITE {
             return Err(Error::Ciphersuite);
         }
+        // `validate` has checked that now lies inside the lifetime, so its length bounds it.
         let lifetime = package.life_time();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(mls)?
-            .as_secs();
-        if lifetime.not_after() > now + KEY_PACKAGE_LIFETIME_SECONDS + LIFETIME_MARGIN_SECONDS {
+        if lifetime.not_after().saturating_sub(lifetime.not_before())
+            > KEY_PACKAGE_LIFETIME_SECONDS + LIFETIME_MARGIN_SECONDS
+        {
             return Err(Error::Lifetime);
         }
-        verify_leaf(package.leaf_node())?;
+        verify_leaf(package.leaf_node(), profiles)?;
         Ok(package)
     }
 
     /// Joins the group a Welcome invites this device to. The Welcome must use [`CIPHERSUITE`],
     /// target a KeyPackage of this device that is still unused (or last-resort), and list only
-    /// members with certified credentials.
-    pub fn join(&self, welcome: &[u8]) -> Result<Group, Error> {
+    /// members [`verify_member`] accepts with `profiles`.
+    pub fn join(&self, welcome: &[u8], profiles: &[VerifiedProfile]) -> Result<Group, Error> {
         let MlsMessageBodyIn::Welcome(welcome) = MlsMessageIn::tls_deserialize_exact(welcome)
             .map_err(mls)?
             .extract()
@@ -205,7 +231,7 @@ impl Device {
         let staged =
             StagedWelcome::new_from_welcome(&self.provider, &config, welcome, None).map_err(mls)?;
         for member in staged.members() {
-            verify_member(&member.credential, &member.signature_key)?;
+            verify_member(&member.credential, &member.signature_key, profiles)?;
         }
         Ok(Group {
             group: staged.into_group(&self.provider).map_err(mls)?,
@@ -238,12 +264,42 @@ impl Group {
         self.group.group_id().as_slice()
     }
 
-    /// Peer IDs of all members' identities, one per device, in leaf order.
+    /// Peer IDs of all members' identities, one per device, in leaf order, revoked ones included.
     pub fn members(&self) -> Result<Vec<String>, Error> {
         self.group
             .members()
-            .map(|member| verify_member(&member.credential, &member.signature_key))
+            .map(|member| Ok(certified(&member.credential, &member.signature_key)?.0))
             .collect()
+    }
+
+    /// Removes every other member [`verify_member`] refuses with `profiles`; returns the commit
+    /// to send to the group, or `None` if all members are still listed.
+    pub fn remove_revoked(
+        &mut self,
+        device: &Device,
+        profiles: &[VerifiedProfile],
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let own = self.group.own_leaf_index();
+        let revoked: Vec<_> = self
+            .group
+            .members()
+            .filter(|member| {
+                member.index != own
+                    && verify_member(&member.credential, &member.signature_key, profiles).is_err()
+            })
+            .map(|member| member.index)
+            .collect();
+        if revoked.is_empty() {
+            return Ok(None);
+        }
+        let (commit, _, _) = self
+            .group
+            .remove_members(&device.provider, &device.signer, &revoked)
+            .map_err(mls)?;
+        self.group
+            .merge_pending_commit(&device.provider)
+            .map_err(mls)?;
+        Ok(Some(commit.to_bytes().map_err(mls)?))
     }
 
     /// Encrypts and signs `plaintext` for the current epoch; returns the MLS message bytes.
@@ -255,10 +311,15 @@ impl Group {
             .map_err(mls)
     }
 
-    /// Decrypts an application message or applies a commit. A commit is refused, and the group
-    /// left as it was, if a new or updated leaf lacks a certified credential or if it changes
-    /// the group's extensions.
-    pub fn process(&mut self, device: &Device, message: &[u8]) -> Result<Received, Error> {
+    /// Decrypts an application message or applies a commit; the sender and every new or updated
+    /// leaf must pass [`verify_member`] with `profiles`. A refused commit, or one that changes the
+    /// group's extensions, leaves the group as it was.
+    pub fn process(
+        &mut self,
+        device: &Device,
+        message: &[u8],
+        profiles: &[VerifiedProfile],
+    ) -> Result<Received, Error> {
         let message = MlsMessageIn::tls_deserialize_exact(message)
             .map_err(mls)?
             .try_into_protocol_message()
@@ -275,7 +336,7 @@ impl Group {
                 };
                 let member = self.group.member_at(index).ok_or(Error::Credential)?;
                 Ok(Received::Message {
-                    sender: verify_member(&member.credential, &member.signature_key)?,
+                    sender: verify_member(&member.credential, &member.signature_key, profiles)?,
                     plaintext: message.into_bytes(),
                 })
             }
@@ -283,18 +344,22 @@ impl Group {
                 let changes_extensions = commit
                     .queued_proposals()
                     .any(|queued| matches!(queued.proposal(), Proposal::GroupContextExtensions(_)));
-                let uncertified = commit
+                let leaf = |leaf: &LeafNode| verify_leaf(leaf, profiles);
+                let refused = commit
                     .add_proposals()
-                    .map(|add| verify_leaf(add.add_proposal().key_package().leaf_node()))
+                    .map(|add| leaf(add.add_proposal().key_package().leaf_node()))
                     .chain(
                         commit
                             .update_proposals()
-                            .map(|update| verify_leaf(update.update_proposal().leaf_node())),
+                            .map(|update| leaf(update.update_proposal().leaf_node())),
                     )
-                    .chain(commit.update_path_leaf_node().map(verify_leaf))
-                    .any(|leaf| leaf.is_err());
-                if changes_extensions || uncertified {
+                    .chain(commit.update_path_leaf_node().map(leaf))
+                    .find_map(Result::err);
+                if changes_extensions {
                     return Err(Error::Credential);
+                }
+                if let Some(error) = refused {
+                    return Err(error);
                 }
                 self.group
                     .merge_staged_commit(&device.provider, *commit)

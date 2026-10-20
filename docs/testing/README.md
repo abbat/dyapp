@@ -30,7 +30,7 @@ Located in `#[cfg(test)]` modules within each crate.
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
 - MessageQueue: enqueue/dequeue, pending filtering, mark/remove delivered (no TTL; `retry_failed` only in integration tests, first retry)
 - MLS: roundtrip, tampered, replayed and foreign messages, single-use Welcome, forged
-  certificates, suite and lifetime checks, commits, exporter
+  certificates, revoked devices, suite and lifetime checks, commits, exporter
 - HybridClock: wall-clock tracking, counter on a stalled or backward clock, observe, skew
   rejection, peer-ID tie-break
 
@@ -208,7 +208,7 @@ forced push) and runs
 caught: a missed one fails the step with its location and mutation, for example
 
 ```text
-MISSED   rust/messaging/src/mls.rs:52:5: replace verify_member -> Result<String, Error> with Ok(String::new())
+MISSED   rust/messaging/src/mls.rs:79:5: replace verify_member -> Result<String, Error> with Ok(String::new())
 ```
 
 Locally, run it after committing and before pushing, since it diffs against `origin/main`. Each

@@ -42,4 +42,4 @@ Encrypt everything private with **MLS via the `openmls` crate**:
   post-quantum suite is planned once openmls ships an audited one.
 - Implemented in `rust/messaging/src/mls.rs`: credentials, the suite and KeyPackage checks,
   groups, messages, commits and the exporter. Not implemented: storing MLS state, the client
-  that sends through mailboxes, and checking certificates against the current profile.
+  that sends through mailboxes.

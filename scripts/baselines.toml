@@ -34,6 +34,7 @@ score = 72.2
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.
+"dyapp-bootstrap search::rebuild_tests::continuous_changes_postpone_then_replay_settles" = 2026-10-20
 
 [size]
 # Practice B6: a source file has at most max_lines lines (scripts/check-repository.py).

@@ -12,7 +12,7 @@ here instead of repeating guarantees.
 
 | Layer | Code | What it actually does |
 |-------|------|-----------------------|
-| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. Group state lives in memory only; checking a certificate against the owner's current profile is the caller's job |
+| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. Group state lives in memory only; keeping the newest profile is the client's job |
 | Video frames | — | None: SFrame with keys from the MLS exporter is planned |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
 | KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; the client checks the MLS signature, credential and lifetime when it adds the device (`Device::create_group`) |
@@ -23,8 +23,8 @@ here instead of repeating guarantees.
 
 The MLS tests (`rust/messaging/src/mls/tests.rs`) check a roundtrip both ways and that a
 tampered, replayed or foreign-group message, a second join with a single-use Welcome, a forged
-certificate, another suite, a too-long lifetime and a commit adding an uncertified member are
-rejected, and that the exporter gives every member the same secret. The profile tests check that
+certificate, a device missing from its owner's profile, another suite, a too-long lifetime and a
+commit adding an uncertified member are rejected, that a revoked device is removed, and that the exporter gives every member the same secret. The profile tests check that
 a tampered payload, a foreign key and an older version are rejected.
 
 ## Threat model
