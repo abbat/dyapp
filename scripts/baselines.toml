@@ -3,8 +3,9 @@
 
 [coverage]
 # Workspace line coverage, percent (scripts/check_coverage.py).
-# 86.0 from 87.8: bootstrap's inline test modules moved to tests files, which llvm-cov leaves out.
-lines = 86.0
+# 86.6 measured on 2026-10-20; previously lowered from 87.8 to 86.0 when
+# bootstrap's inline test modules moved to tests files, which llvm-cov leaves out.
+lines = 86.6
 
 [batches]
 # Server-side A4 enforcement starts after this already-published commit.
