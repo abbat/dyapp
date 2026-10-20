@@ -453,6 +453,45 @@ a tunnel or a local agent. Families and listener limits:
 curl -s http://127.0.0.1:9464/metrics | grep '^dyapp_connected_peers'
 ```
 
+Reading the values:
+
+- Counters (`*_total`) start at 0 with the process. A restart shows as a new
+  `dyapp_process_start_time_seconds`; use `rate()`/`increase()` in Prometheus or a
+  "Change per second" step in Zabbix, both of which treat a drop as a reset.
+- Storage gauges are up to 5 minutes old: alert on
+  `time() - dyapp_snapshot_timestamp_seconds > 900` (no snapshot for three periods) and on
+  `dyapp_storage_read_ok == 0`, not on a missing `storage_used_bytes`.
+- The series set is fixed by the role and configured stores; labels are listed under
+  [metric families](../architecture/bootstrap.md#metric-families).
+
+**Prometheus.** Run Prometheus (or an agent that forwards to it, such as Prometheus in agent
+mode) on the node host, since the listener is loopback only:
+
+```yaml
+scrape_configs:
+  - job_name: dyappd
+    scrape_interval: 60s
+    scrape_timeout: 4s     # under the listener's 5 s deadline
+    static_configs:
+      - targets: ['127.0.0.1:9464']
+```
+
+**Zabbix.** One master item fetches the page and dependent items cut samples out of it with the
+"Prometheus pattern" preprocessing step, so each scrape is one request:
+
+- Master item, type "HTTP agent", URL `http://127.0.0.1:9464/metrics`, type of information
+  "Text", history 0 (do not keep the page). The HTTP agent runs on the Zabbix server or proxy, so
+  this needs one on the node host. Otherwise use a Zabbix agent item
+  `web.page.get[127.0.0.1,/metrics,9464]` as the master; it returns the response headers too, so
+  add a first "Regular expression" step `\r\n\r\n([\s\S]*)` with output `\1`.
+- Dependent items, master the item above, preprocessing "Prometheus pattern", for example
+  `dyapp_connected_peers` (numeric unsigned), or
+  `dyapp_request_outcomes_total{protocol="mailbox",outcome="omitted"}` followed by
+  "Change per second".
+
+Neither setup is installed or tested by this project; the exposition itself is checked by the
+`metrics` unit tests.
+
 ### Not implemented
 
 These do not exist and need a separate implementation task before they can be
