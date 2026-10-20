@@ -453,7 +453,11 @@ resent from the sender's retry queue.
   rebuild workers write a batch then await a reserved time slot outside the store lock, at most
   `maintenance.io_mb_per_s` (default 16 MiB/s, must be positive). Concurrent rebuilds share the
   same allowance. Each maintenance run logs file and percent complete; a finished build is
-  reported once. Format rebuild workers remain planned. Incremental vacuum keeps its page
+  reported once. Format rebuild workers remain planned. For the planned search index rebuild,
+  every index mutation (put, tombstone, heartbeat, expiry, eviction) already marks its key, after
+  the commit in the same writer lock hold, while tracking is on (`track_start`, `take_dirty`,
+  `track_stop` in `rust/bootstrap/src/search/writer.rs`); past 262 144 keys (about 16 MiB) the
+  set is dropped and `take_dirty` returns `Overflow` until tracking restarts. Incremental vacuum keeps its page
   budget and network repair keeps its traffic cap.
 - Format versions (implemented, [Storage](#storage)): each file holds its format in
   `PRAGMA user_version`, one number that only grows; there is no downgrade, a fix ships as a

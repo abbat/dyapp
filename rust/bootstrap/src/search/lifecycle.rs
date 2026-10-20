@@ -93,7 +93,7 @@ fn reader_works_during_a_write_transaction() {
     let (key, p, r) = signed(&Identity::generate(), profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
     let mut db = lock(&index.db).unwrap();
-    let tx = db.transaction().unwrap();
+    let tx = db.change().unwrap();
     tx.execute("DELETE FROM `record`", []).unwrap();
     // The reader sees the committed state.
     assert_eq!(index.records(&[key], 1 << 20).unwrap(), vec![r]);

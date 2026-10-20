@@ -72,7 +72,7 @@ pub(super) fn uncount(tx: &Connection, key: &[u8]) -> Result<()> {
 }
 
 /// Deletes `keys` from every table, the digest and the place counts; returns their record bytes.
-pub(super) fn remove_keys(tx: &Connection, keys: &[Vec<u8>]) -> Result<u64> {
+pub(super) fn remove_keys(tx: &mut writer::Change<'_>, keys: &[Vec<u8>]) -> Result<u64> {
     let mut bytes = 0;
     for key in keys {
         let row: Option<(i64, i64)> = tx
@@ -88,6 +88,7 @@ pub(super) fn remove_keys(tx: &Connection, keys: &[Vec<u8>]) -> Result<u64> {
         };
         let key_array = <&[u8; 32]>::try_from(key.as_slice())
             .map_err(|_| storage_error("invalid search key length"))?;
+        tx.mark(*key_array);
         flip(tx, key_array, version.unsigned_abs())?;
         uncount(tx, key)?;
         bytes += size.unsigned_abs();
@@ -145,7 +146,7 @@ impl SearchIndex {
         }
         while held > self.newcomer_quota {
             let mut db = lock(&self.db)?;
-            let tx = db.transaction().map_err(storage_error)?;
+            let mut tx = db.change()?;
             // ponytail: walks heartbeat order past established keys; index newcomers by
             // heartbeat if this scan shows up in profiles.
             let mut statement = tx
@@ -172,8 +173,8 @@ impl SearchIndex {
             if keys.is_empty() {
                 break;
             }
-            remove_keys(&tx, &keys)?;
-            tx.commit().map_err(storage_error)?;
+            remove_keys(&mut tx, &keys)?;
+            tx.commit()?;
             held = held.saturating_sub(freed);
             let evicted = keys.len() as u64;
             self.newcomer_evictions
@@ -188,7 +189,7 @@ impl SearchIndex {
     pub(super) fn evict_established(&self, now: i64) -> Result<usize> {
         let since = now - self.newcomer_seconds;
         let mut db = lock(&self.db)?;
-        let tx = db.transaction().map_err(storage_error)?;
+        let mut tx = db.change()?;
         let mut keys = vec![];
         for offset in 0..PLACE_TRIES {
             let place: Option<(String, String)> = tx
@@ -221,8 +222,8 @@ impl SearchIndex {
                 params![since, BATCH],
             )?;
         }
-        remove_keys(&tx, &keys)?;
-        tx.commit().map_err(storage_error)?;
+        remove_keys(&mut tx, &keys)?;
+        tx.commit()?;
         Ok(keys.len())
     }
 }

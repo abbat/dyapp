@@ -152,7 +152,7 @@ pub enum Beat {
 
 /// The search index database.
 pub struct SearchIndex {
-    db: Mutex<Connection>,
+    db: Mutex<Writer>,
     /// Read-only connections for `records` and `query`; WAL lets them run beside the writer.
     readers: Mutex<Vec<Connection>>,
     path: PathBuf,
@@ -204,8 +204,10 @@ fn sql(v: u64) -> Option<i64> {
 impl SearchIndex {
     /// Opens or creates the index at `path`, keeping it below `search.max_bytes`.
     pub fn open(path: &Path, search: &crate::config::Search) -> Result<Self> {
-        let db = storage::open(path, SCHEMA, STEPS)?;
-        let created = lock(&db)?
+        let conn = storage::open(path, SCHEMA, STEPS)?
+            .into_inner()
+            .map_err(storage_error)?;
+        let created = conn
             .query_row(
                 "SELECT `value` FROM `meta` WHERE `name` = 'created'",
                 [],
@@ -213,7 +215,7 @@ impl SearchIndex {
             )
             .map_err(storage_error)?;
         let index = Self {
-            db,
+            db: Mutex::new(Writer::new(conn)),
             readers: Mutex::new(Vec::new()),
             path: path.to_owned(),
             max_bytes: search.max_bytes,
@@ -240,7 +242,7 @@ impl SearchIndex {
         let started = std::time::Instant::now();
         let mut rows_seen = 0u64;
         let mut db = lock(&self.db)?;
-        let tx = db.transaction().map_err(storage_error)?;
+        let tx = db.derived()?;
         tx.execute("DELETE FROM `digest`", [])
             .map_err(storage_error)?;
         let mut sums: HashMap<(u32, u32), [u8; 32]> = HashMap::new();
@@ -409,7 +411,7 @@ impl SearchIndex {
             return Ok((Put::Stale, None));
         };
         let mut db = lock(&self.db)?;
-        let tx = db.transaction().map_err(storage_error)?;
+        let mut tx = db.change()?;
         let known: Option<(i64, i64, i64, i64)> = tx
             .query_row(
                 "SELECT `version`, `updated`, `first_seen`, `bytes` FROM `key` WHERE `key` = ?",
@@ -429,6 +431,7 @@ impl SearchIndex {
             }
             _ => {}
         }
+        tx.mark(*key);
         if let Some((stored, ..)) = known {
             flip(&tx, key, stored.unsigned_abs())?;
         }
@@ -503,7 +506,7 @@ impl SearchIndex {
             )
             .map_err(storage_error)?;
         }
-        tx.commit().map_err(storage_error)?;
+        tx.commit()?;
         let newcomer = first_seen > now - self.newcomer_seconds;
         Ok((Put::Stored, newcomer.then_some(bytes - old_bytes)))
     }
@@ -512,16 +515,19 @@ impl SearchIndex {
     /// An unknown key, a tombstone or any other version is `NotFound`: the sender republishes
     /// or catch-up brings the newer version.
     pub fn heartbeat(&self, key: &[u8; 32], version: u64, now: i64) -> Result<Beat> {
-        let db = lock(&self.db)?;
-        let (day, beats) = match due(&db, key, version, now)? {
+        let mut db = lock(&self.db)?;
+        let mut tx = db.change()?;
+        let (day, beats) = match due(&tx, key, version, now)? {
             Ok(due) => due,
             Err(beat) => return Ok(beat),
         };
-        db.execute(
+        tx.execute(
             "UPDATE `key` SET `heartbeat` = ?2, `beat_day` = ?3, `beats` = ?4 WHERE `key` = ?1",
             params![&key[..], now, day, beats + 1],
         )
         .map_err(storage_error)?;
+        tx.mark(*key);
+        tx.commit()?;
         Ok(Beat::Ok)
     }
 
@@ -678,14 +684,14 @@ impl SearchIndex {
     /// transaction so puts and heartbeats interleave.
     fn remove_batch(&self, before: i64) -> Result<usize> {
         let mut db = lock(&self.db)?;
-        let tx = db.transaction().map_err(storage_error)?;
+        let mut tx = db.change()?;
         let keys = select_keys(
             &tx,
             "SELECT `key` FROM `key` WHERE `heartbeat` < ? ORDER BY `heartbeat` LIMIT ?",
             params![before, BATCH],
         )?;
-        remove_keys(&tx, &keys)?;
-        tx.commit().map_err(storage_error)?;
+        remove_keys(&mut tx, &keys)?;
+        tx.commit()?;
         Ok(keys.len())
     }
 }
@@ -943,6 +949,14 @@ fn rand_bytes() -> [u8; 8] {
 #[path = "search/counts.rs"]
 mod counts;
 use counts::{count_place, remove_keys, select_keys, uncount};
+#[path = "search/writer.rs"]
+mod writer;
+pub use writer::Overflow;
+use writer::Writer;
+
+#[cfg(test)]
+#[path = "search/tracking.rs"]
+mod tracking_tests;
 
 #[cfg(test)]
 #[path = "search/newcomers.rs"]

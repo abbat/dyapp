@@ -191,7 +191,7 @@ pub(crate) fn free(path: &str) -> Result<u64> {
     Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
 }
 
-pub(crate) fn lock(db: &Mutex<Connection>) -> Result<MutexGuard<'_, Connection>> {
+pub(crate) fn lock<T>(db: &Mutex<T>) -> Result<MutexGuard<'_, T>> {
     db.lock().map_err(storage_error)
 }
 
