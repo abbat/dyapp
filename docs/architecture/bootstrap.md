@@ -90,9 +90,15 @@ virtual positions per node would each need a proof of work and would open a Sybi
 
 Address admission is being tightened. The shared `same_ip` helper compares exact leading
 IPv4 or IPv6 addresses independently of ports and transport; it rejects DNS, relay/circuit
-routes, missing IPs and embedded or multiple IP components. Using it for identify and
-provider records, and authenticating alternative addresses through bounded probes, are
-planned; the node still admits identify listen addresses without that verification.
+routes, missing IPs and embedded or multiple IP components. The bounded state for probing
+claimed addresses exists (`claims` in dyapp-bootstrap): at most 4 queued or dialled
+addresses per peer and 64 in total, an address pending for any peer is not queued again, one
+dial per peer at a time with its connection ID, an address dialled at most once an hour, and
+the 4096 most recently dialled addresses remembered. Only a connection of the claiming peer
+on that dial's ID proves an address; a failed or at once refused dial frees its slot, and a
+peer's queued claims go with its last connection. Using `same_ip` and these probes for
+identify, and filtering provider records, are planned; the node still admits identify listen
+addresses without that verification.
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,

@@ -1,6 +1,7 @@
 //! The dyappd node: configuration, stores, request handling and the libp2p event loop.
 
 pub mod catch_up;
+pub mod claims;
 pub mod config;
 pub mod deny;
 /// Error and result types.
