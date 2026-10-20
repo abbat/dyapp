@@ -43,6 +43,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/check-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --base $base --head $head --report target/artifact-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: portable zip
+        shell: pwsh
+        run: |
+          python scripts/package-windows-zip.py windows/target/release/dyapp-windows.exe target/windows-zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Expand-Archive -Path target/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
+          $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
+          python scripts/desktop-smoke.py $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-zip
+          path: target/windows-zip/
+          if-no-files-found: error
       - name: evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
