@@ -29,8 +29,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let mut deny_check = tokio::time::interval(Duration::from_secs(10));
     // The mailbox challenge issued on each open connection.
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
-    // The IP group of each open connection.
-    let mut groups: HashMap<ConnectionId, String> = HashMap::new();
     // The remote address of each connection, and identify addresses waiting for a probe.
     let mut admission = identified::Admission::default();
     let mut watchers = Watchers::new();
@@ -54,8 +52,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             }
         }
     }
-    // The IP group of each connected peer, to strike the source of a bad gossip message.
-    let mut peer_groups: HashMap<PeerId, String> = HashMap::new();
     // Index reads run off the swarm loop on two workers, fed from a queue fair between IP
     // groups; a read the queue refuses gets RATE_LIMITED. At most two items are ever in the
     // channel: one per worker.
@@ -155,7 +151,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     message: Message::Request { request, channel, .. },
                 })) => {
                     // Node requests touch no store, so they stay on the loop.
-                    let response = service.node(&peer(id, &groups, connection_id), request);
+                    let response = service.node(&peer(&swarm, &service, id, connection_id), request);
                     answered += 1;
                     service.traffic.add(response.encoded_len() as u64);
                     let _ = swarm.behaviour_mut().node.send_response(channel, response);
@@ -176,7 +172,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
                         if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
                             let result = service.prepare_profile(&from, record.clone());
@@ -205,7 +201,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
                         if let Some(proto::key_package_request::Request::Publish(record)) = &request.request {
                             let result = service.prepare_keypackage(&from, record.clone());
@@ -227,7 +223,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         let _ = swarm.behaviour_mut().media.send_response(channel, response);
                         continue;
                     }
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
                         if let Some(proto::media_request::Request::Put(put)) = &request.request {
                             return StoreDone::MediaPut(channel, service.prepare_media(&from, put));
@@ -258,7 +254,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, nonce| {
                         if let Some(mailbox_request::Request::Put(record)) = &request.request {
                             let result = service.prepare_mailbox(&from, record.clone());
@@ -280,7 +276,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         Some(proto::search_request::Request::Get(get)) => get.puzzle.clone(),
                         _ => None,
                     };
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     match service.search(&from, request) {
                         Ok(Search::Reply(response)) => {
                             answered += 1;
@@ -341,7 +337,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
                         StoreDone::Inventory(channel, service.search_inventory(&from, request))
                     }));
@@ -351,7 +347,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let from = peer(id, &groups, connection_id);
+                    let from = peer(&swarm, &service, id, connection_id);
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
                         StoreDone::Digest(channel, service.search_digest(&from, request))
                     }));
@@ -365,7 +361,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     match service.search_gossip(&message.data) {
                         // Queue full: drop without a strike.
                         Verdict::Pow(_) if pow_gossip >= POW_GOSSIP_QUEUE => {
-                            judge(&mut swarm, &service, &peer_groups, &message_id, &propagation_source, Verdict::Ignore);
+                            judge(&mut swarm, &service, &message_id, &propagation_source, Verdict::Ignore);
                         }
                         Verdict::Pow(check) => {
                             pow_gossip += 1;
@@ -381,7 +377,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                                 .await;
                             });
                         }
-                        verdict => judge(&mut swarm, &service, &peer_groups, &message_id, &propagation_source, verdict),
+                        verdict => judge(&mut swarm, &service, &message_id, &propagation_source, verdict),
                     }
                 }
                 // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
@@ -481,16 +477,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     }
                 }
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
-                    let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
-                    peer_groups.insert(peer_id, group.clone());
-                    groups.insert(connection_id, group);
                     replicas.trust.seen.entry(peer_id).or_insert_with(Instant::now);
                     admission.established(&mut swarm, connection_id, peer_id, &endpoint);
                     drop_banned(&mut swarm, &service, peer_id);
                 }
                 SwarmEvent::ConnectionClosed { peer_id, connection_id, num_established, .. } => {
                     if num_established == 0 {
-                        peer_groups.remove(&peer_id);
                         catch_up_queue.remove(&peer_id);
                         asks.forget(&peer_id);
                         service.search_peer(&peer_id.to_string(), false);
@@ -499,7 +491,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         }
                     }
                     nonces.remove(&connection_id);
-                    groups.remove(&connection_id);
                     admission.closed(connection_id, peer_id, num_established == 0);
                     // ponytail: a scan of all watchers per closed connection; index them by
                     // connection if many devices watch at once.
@@ -646,7 +637,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             _ = hangup.recv() => {
                 deny_version = None;
                 reload_deny(&service, &deny, &mut deny_version);
-                state(&replicas, &swarm, &[nonces.len(), groups.len(), admission.len()], &watchers);
+                state(&replicas, &swarm, &[nonces.len(), swarm.behaviour().endpoints.len(), admission.len()], &watchers);
             }
             _ = rejoin.tick() => {
                 if dyapp_p2p_net::known_peers(&mut swarm).is_empty() {
@@ -688,7 +679,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             }
             Some(Finished { peer: id, connection, nonce, done }) = store_done.recv() => {
                 store_queue.done(id);
-                if let Some(nonce) = nonce.filter(|_| groups.contains_key(&connection)) {
+                if let Some(nonce) = nonce.filter(|_| swarm.behaviour().endpoints.ip(connection).is_some()) {
                     nonces.insert(connection, nonce);
                 }
                 let Some(done) = done else {
@@ -779,7 +770,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                                 }
                             }
                             if let Some(manifest) = manifest {
-                                let from = peer(id, &groups, connection);
+                                let from = peer(&swarm, &service, id, connection);
                                 if replicas.media_reads.len() >= 4 || !service.prepare_media_read(&from, &manifest) {
                                     PutReply::Media(channel).send(&mut swarm, &service, Status::RateLimited, None);
                                 } else { replicas.start_read(&mut swarm, &service, manifest, channel); }
@@ -905,7 +896,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         Some(Verdict::Pow(_)) => Verdict::Ignore,
                         Some(verdict) => verdict,
                     };
-                    judge(&mut swarm, &service, &peer_groups, &id, &source, verdict);
+                    judge(&mut swarm, &service, &id, &source, verdict);
                 }
                 PowDone::CatchUp { records } => {
                     let stored = records.iter().filter(|r| matches!(service.search_apply(r), Ok(Caught::Stored))).count();
@@ -985,7 +976,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     refused = 0;
                 }
                 status(&service, &swarm, peers.len(), answered, failed, foreign_peers, replicas.media_holders.1, replicas.cap.take_dropped());
-                state(&replicas, &swarm, &[nonces.len(), groups.len(), admission.len()], &watchers);
+                state(&replicas, &swarm, &[nonces.len(), swarm.behaviour().endpoints.len(), admission.len()], &watchers);
                 (answered, failed, foreign_peers) = (0, 0, 0);
                 if service.search.is_some()
                     && swarm.behaviour().gossip.as_ref().is_some_and(|g| g.all_peers().count() < 6)

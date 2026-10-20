@@ -291,6 +291,7 @@ fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
         data: big.data.clone(),
         ..put
     };
+    crate::rate_limit::fresh_second(); // the store above may cross a second on a loaded host
     assert!(s
         .prepare_media(&replica_peer("gallery"), &put)
         .unwrap()

@@ -3,8 +3,9 @@
 // The NetworkBehaviour derive emits `BehaviourEvent` without docs.
 #![allow(missing_docs)]
 use super::{
-    DigestBehaviour, IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour, MailboxBehaviour,
-    MediaBehaviour, NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour, SearchBehaviour,
+    DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour,
+    MailboxBehaviour, MediaBehaviour, NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour,
+    SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
@@ -21,6 +22,8 @@ pub struct Behaviour {
     pub incoming_groups: Toggle<IncomingGroupGuard>,
     /// Refuses outbound peers without node-ID proof of work, on nodes with a dial guard.
     pub pow_gate: Toggle<PowGate>,
+    /// The remote IP of each connection, resolved for DNS dials.
+    pub endpoints: Endpoints,
     /// Store-role Kademlia over [`KAD_PROTOCOL`](crate::KAD_PROTOCOL).
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
     /// Identify, with [`IDENTIFY_PROTOCOL`](crate::IDENTIFY_PROTOCOL).

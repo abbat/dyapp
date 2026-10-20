@@ -121,10 +121,11 @@ pub struct Service {
     /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
     /// logged once, not per request.
     tripped: [AtomicBool; 5],
-    /// Requests each guard refused since start; the last one counts the byte rate.
-    refused: [AtomicU64; 6],
+    /// Requests each guard refused since start; the last two count the byte rate and requests
+    /// on a connection whose IP is unknown, neither logged when it trips.
+    refused: [AtomicU64; 7],
     /// `refused` at the last `report`.
-    reported: [AtomicU64; 6],
+    reported: [AtomicU64; 7],
     /// Request, connection and storage metrics.
     pub metrics: crate::metrics::Metrics,
     /// Keys envelope source groups; in memory only, so a seized disk cannot map them back to IP
@@ -132,13 +133,14 @@ pub struct Service {
     salt: [u8; 32],
 }
 
-const GUARDS: [&str; 6] = [
+const GUARDS: [&str; 7] = [
     "disk: profiles",
     "disk: messages",
     "disk: media",
     "memory: rate limited",
     "memory: dropped",
     "traffic: bytes per second",
+    "endpoint: unknown",
 ];
 
 impl Service {
@@ -226,7 +228,7 @@ impl Service {
     }
 
     /// Requests each guard refused since start, in `GUARDS` order.
-    pub fn refusals(&self) -> [u64; 6] {
+    pub fn refusals(&self) -> [u64; 7] {
         std::array::from_fn(|i| self.refused[i].load(Ordering::Relaxed))
     }
 
@@ -294,7 +296,8 @@ impl Service {
 
     fn admit_units(&self, peer: &Peer, units: u32) -> bool {
         let admitted = self.admit_quiet(peer, units);
-        if !admitted {
+        // An unknown IP is the node's gap, not the peer's fault.
+        if !admitted && !peer.group.is_empty() {
             self.strike(peer);
         }
         admitted
@@ -304,7 +307,17 @@ impl Service {
     fn admit_quiet(&self, peer: &Peer, units: u32) -> bool {
         !self.reputation.banned(&peer.id)
             && self.rate_limiter.check_units(&peer.id, units)
-            && self.groups.check_units(&peer.group, units)
+            && self.group_admits(&peer.group, units)
+    }
+
+    /// Spends `units` from the IP group's bucket. A connection whose IP is not known yet has
+    /// an empty group: it is refused and counted, never pooled with other such connections.
+    fn group_admits(&self, group: &str, units: u32) -> bool {
+        if group.is_empty() {
+            self.refused[6].fetch_add(1, Ordering::Relaxed);
+            return false;
+        }
+        self.groups.check_units(group, units)
     }
 
     fn node_peer(&self, peer: &Peer) -> bool {
@@ -350,7 +363,7 @@ impl Service {
             Some(node_request::Request::Info(_)) if self.refused(peer) => {
                 node_status(Status::Refused)
             }
-            Some(node_request::Request::Info(_)) if !self.groups.check_units(&peer.group, 1) => {
+            Some(node_request::Request::Info(_)) if !self.group_admits(&peer.group, 1) => {
                 node_status(Status::RateLimited)
             }
             Some(node_request::Request::Info(_)) => NodeResponse {

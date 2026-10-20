@@ -24,7 +24,7 @@ publishes separately under `gossip`, and reports interval counts in the hourly `
 `SwarmOptions.incoming_groups` optionally enables `IncomingGroupLimits::new(max, ipv4_prefix,
 ipv6_prefix)`: a positive connection budget shared by pending and established incoming
 connections. It groups the first remote IP by masks 0..32 and 0..128; IPv4-mapped IPv6 stays
-IPv6, matching the node's existing grouping. Non-IP endpoints share one bounded group.
+IPv6 here, while the node's request groups treat it as IPv4. Non-IP endpoints share one bounded group.
 A slot survives handshake completion and is released on handshake failure, a refusal by any
 composed behaviour, or connection close. Outgoing connections are exempt.
 `IncomingGroupGuard::take_denied()` reads and resets refusals; `active_connections()` and
@@ -33,6 +33,13 @@ Legacy constructors leave this optional guard disabled. Bootstrap enables it wit
 (default 32) and the fine request-group masks. Deterministic callback and real TCP tests verify
 pending/established admission, cleanup on failure/close, composed refusals and outgoing exemption.
 `network.distinct_outbound_groups` does not disable this inbound guard.
+
+`Behaviour.endpoints` (`Endpoints`) maps each open connection to its remote IP; `ip(connection)`
+returns it, `None` for a non-IP endpoint or a closed connection. Below DNS the transport reports
+the resolved address a dial reached as an address change before any substream of the connection
+runs, so a dial by DNS name records the IP that answered; kad likewise keeps resolved addresses
+in its buckets. IPv4-mapped IPv6 is recorded as IPv4. QUIC connection migration is not reported,
+so a migrated connection keeps its first IP.
 
 | Part | Setting |
 |------|---------|

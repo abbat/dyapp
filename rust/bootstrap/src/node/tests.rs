@@ -892,4 +892,5 @@ fn ip_groups_mask_the_prefix() {
     let ip6 = "/ip6/2001:db8::5".parse().unwrap();
     assert_eq!(ip_group(&ip6, &all), "2001:db8::5/128");
     assert_eq!(group("/memory/5"), "/memory/5");
+    assert_eq!(group("/ip6/::ffff:203.0.113.77/tcp/1"), "203.0.113.0/24");
 }

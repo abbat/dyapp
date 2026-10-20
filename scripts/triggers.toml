@@ -12,7 +12,7 @@ paths = [
     "rust/messaging/src/mls/*",
     "rust/bootstrap/src/pow.rs",
     "rust/p2p-net/src/pow_gate.rs",
-    "rust/p2p-net/src/endpoint_tag.rs",
+    "rust/p2p-net/src/endpoints.rs",
 ]
 
 [[trigger]]

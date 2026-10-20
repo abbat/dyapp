@@ -39,6 +39,7 @@ use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
+use std::net::IpAddr;
 use std::path::Path;
 use std::sync::{Arc, PoisonError};
 use std::time::{Duration, Instant};
@@ -119,29 +120,32 @@ pub fn swarm_with_protocols(
     )
 }
 
-/// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits.
+/// The IP group of a remote address: its first IP masked to `ipv4_prefix` / `ipv6_prefix` bits,
+/// an IPv4-mapped IPv6 address as IPv4.
 /// ponytail: a relayed connection gets the relay's group; per-hop groups need the circuit's
 /// source address, which relays do not pass on.
 pub fn ip_group(address: &Multiaddr, limits: &Limits) -> String {
     let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
-    for protocol in address.iter() {
-        match protocol {
-            Protocol::Ip4(ip) => {
-                let ip = u128::from(u32::from(ip)) & mask(limits.ipv4_prefix, 32);
-                return format!(
-                    "{}/{}",
-                    std::net::Ipv4Addr::from(ip as u32),
-                    limits.ipv4_prefix
-                );
-            }
-            Protocol::Ip6(ip) => {
-                let ip = u128::from(ip) & mask(limits.ipv6_prefix, 128);
-                return format!("{}/{}", std::net::Ipv6Addr::from(ip), limits.ipv6_prefix);
-            }
-            _ => {}
+    let ip = address.iter().find_map(|protocol| match protocol {
+        Protocol::Ip4(ip) => Some(IpAddr::V4(ip)),
+        Protocol::Ip6(ip) => Some(IpAddr::V6(ip).to_canonical()),
+        _ => None,
+    });
+    match ip {
+        Some(IpAddr::V4(ip)) => {
+            let ip = u128::from(u32::from(ip)) & mask(limits.ipv4_prefix, 32);
+            format!(
+                "{}/{}",
+                std::net::Ipv4Addr::from(ip as u32),
+                limits.ipv4_prefix
+            )
         }
+        Some(IpAddr::V6(ip)) => {
+            let ip = u128::from(ip) & mask(limits.ipv6_prefix, 128);
+            format!("{}/{}", std::net::Ipv6Addr::from(ip), limits.ipv6_prefix)
+        }
+        None => address.to_string(),
     }
-    address.to_string()
 }
 
 /// Peers saved by the last run; a missing file or a damaged line is skipped.
@@ -211,11 +215,20 @@ fn reload_deny(service: &Service, deny: &DenyStore, version: &mut Option<i64>) {
     }
 }
 
-/// The request's peer, with the IP group of the connection it came on.
-fn peer(peer: PeerId, groups: &HashMap<ConnectionId, String>, connection: ConnectionId) -> Peer {
+/// The request's peer, with the IP group of the connection it came on: empty while its IP is
+/// unknown, which every group limit refuses.
+fn peer(
+    swarm: &Swarm<Behaviour>,
+    service: &Service,
+    peer: PeerId,
+    connection: ConnectionId,
+) -> Peer {
+    let ip = swarm.behaviour().endpoints.ip(connection);
     Peer {
         id: peer.to_string(),
-        group: groups.get(&connection).cloned().unwrap_or_default(),
+        group: ip
+            .map(|ip| ip_group(&Multiaddr::from(ip), &service.config.limits))
+            .unwrap_or_default(),
     }
 }
 
@@ -245,7 +258,6 @@ fn spread(
 fn judge(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
-    peer_groups: &HashMap<PeerId, String>,
     id: &gossipsub::MessageId,
     source: &PeerId,
     verdict: Verdict,
@@ -259,10 +271,10 @@ fn judge(
         gossip.report_message_validation_result(id, source, acceptance);
     }
     if matches!(verdict, Verdict::Reject) {
-        let group = peer_groups.get(source).cloned().unwrap_or_default();
+        // A strike counts by peer ID; gossip has no connection to take a group from.
         service.strike(&Peer {
             id: source.to_string(),
-            group,
+            group: String::new(),
         });
         drop_banned(swarm, service, *source);
     }

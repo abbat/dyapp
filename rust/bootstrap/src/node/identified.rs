@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::claims::Claims;
+use dyapp_p2p_net::Endpoints;
 use libp2p::core::ConnectedPoint;
 use libp2p::kad::store::RecordStore as _;
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
@@ -95,18 +96,33 @@ impl Admission {
 
     /// Accept a provider address only when its advertised peer has a live connection on the
     /// same exact IP. The sender may be a different peer forwarding the record.
-    pub(super) fn provider_allowed(&self, record: &kad::ProviderRecord) -> bool {
+    pub(super) fn provider_allowed(
+        &self,
+        endpoints: &Endpoints,
+        record: &kad::ProviderRecord,
+    ) -> bool {
         !record.addresses.is_empty()
             && record.addresses.iter().all(|address| {
-                self.remotes.iter().any(|(_, (peer, remote, _))| {
-                    *peer == record.provider && dyapp_p2p_net::same_ip(remote, address)
+                self.remotes.iter().any(|(id, (peer, _, _))| {
+                    *peer == record.provider
+                        && dyapp_p2p_net::same_ip(&self.remote(endpoints, *id), address)
                 })
             })
     }
 
+    /// The connection's remote address: its resolved IP once known, so a DNS dial proves the
+    /// IP it reached, else the address it was established with.
+    fn remote(&self, endpoints: &Endpoints, id: ConnectionId) -> Multiaddr {
+        match (endpoints.ip(id), self.remotes.get(&id)) {
+            (Some(ip), _) => Multiaddr::from(ip),
+            (None, Some((_, remote, _))) => remote.clone(),
+            (None, None) => Multiaddr::empty(),
+        }
+    }
+
     /// Store only admissible provider records. FilterBoth leaves all other remote records out.
     pub(super) fn add_provider(&self, swarm: &mut Swarm<Behaviour>, record: kad::ProviderRecord) {
-        if self.provider_allowed(&record) {
+        if self.provider_allowed(&swarm.behaviour().endpoints, &record) {
             if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
                 tracing::debug!(%error, "DHT provider record not stored");
             }
@@ -146,10 +162,10 @@ pub(super) fn add_node(
     // Only search nodes serve the search DHT, so its protocol marks one.
     let search = pow && info.protocols.contains(&service.protocols.search_kad);
     let kad = info.protocols.contains(&service.protocols.kad);
-    let Some((_, remote, _)) = admission.remotes.get(&id) else {
+    if !admission.remotes.contains_key(&id) {
         return false;
-    };
-    let remote = remote.clone();
+    }
+    let remote = admission.remote(&swarm.behaviour().endpoints, id);
     let mut proved = Vec::new();
     if search || (kad && pow) {
         admission.roles.insert(peer_id, (kad, search));
@@ -214,6 +230,7 @@ mod tests {
         let provider_connection = ConnectionId::new_unchecked(1);
         let sender_connection = ConnectionId::new_unchecked(2);
         let mut admission = Admission::default();
+        let none = Endpoints::default();
         admission.remotes.insert(
             provider_connection,
             (
@@ -233,20 +250,20 @@ mod tests {
             addresses: vec!["/ip6/2001:db8::1/udp/7071/quic-v1".parse().unwrap()],
         };
         // The sender's connection cannot substantiate the advertised provider's address.
-        assert!(admission.provider_allowed(&record));
+        assert!(admission.provider_allowed(&none, &record));
         record
             .addresses
             .push("/ip6/2001:db8::2/tcp/7070".parse().unwrap());
-        assert!(!admission.provider_allowed(&record));
+        assert!(!admission.provider_allowed(&none, &record));
         record.addresses = vec!["/dns/example.test/tcp/7070".parse().unwrap()];
-        assert!(!admission.provider_allowed(&record));
+        assert!(!admission.provider_allowed(&none, &record));
         record.addresses.clear();
-        assert!(!admission.provider_allowed(&record));
+        assert!(!admission.provider_allowed(&none, &record));
         record
             .addresses
             .push("/ip6/2001:db8::1/tcp/7070".parse().unwrap());
         admission.closed(provider_connection, provider, true);
-        assert!(!admission.provider_allowed(&record));
+        assert!(!admission.provider_allowed(&none, &record));
     }
 
     #[test]

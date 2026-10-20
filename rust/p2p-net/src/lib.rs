@@ -3,7 +3,6 @@
 //! `/dyapp/media`) over request-response with protobuf messages. A search node adds
 //! `/dyapp/search-kad`, gossipsub, `/dyapp/search`, `/dyapp/inventory` and `/dyapp/digest`.
 
-use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::upgrade;
 use libp2p::futures::future::Either;
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -29,8 +28,9 @@ mod dial_filter;
 pub use dial_filter::{DenyDial, DialFilter};
 mod dial_guard;
 pub use dial_guard::{DialGuard, DialSlot};
-#[cfg(test)]
-mod endpoint_tag;
+mod endpoints;
+use endpoints::tag;
+pub use endpoints::Endpoints;
 mod guard_dial;
 pub use guard_dial::GuardDial;
 pub mod hints;
@@ -424,9 +424,9 @@ pub fn build_configured_swarm(
                 .multiplex(yamux::Config::default());
             let combined = quic::tokio::Transport::new(quic::Config::new(key))
                 .or_transport(tcp)
-                .map(|output, _| match output {
-                    Either::Left((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
-                    Either::Right((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
+                .map(|output, point| match output {
+                    Either::Left((peer, muxer)) => (peer, tag(muxer, point)),
+                    Either::Right((peer, muxer)) => (peer, tag(muxer, point)),
                 });
             // Below DNS, so the filter and the guard see every resolved IP, not the name.
             let guarded = match dial_guard {
@@ -506,6 +506,7 @@ pub fn build_configured_swarm(
                 memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),
                 incoming_groups: incoming_groups.map(IncomingGroupGuard::new).into(),
                 pow_gate: pow_gate.into(),
+                endpoints: Endpoints::default(),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
                     protocols.version.clone(),

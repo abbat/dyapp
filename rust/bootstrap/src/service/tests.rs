@@ -518,6 +518,33 @@ fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
 }
 
 #[test]
+fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
+    let service = service_with(|l| l.strikes_to_ban = 1);
+    let unknown = Peer {
+        id: "unknown".into(),
+        group: String::new(),
+    };
+    assert_eq!(
+        status(&service.profile(&unknown, get(vec![0; 32])).unwrap()),
+        Status::RateLimited
+    );
+    let info = NodeRequest {
+        request: Some(node_request::Request::Info(Default::default())),
+    };
+    assert_eq!(
+        service.node(&unknown, info).status,
+        i32::from(Status::RateLimited)
+    );
+    assert_eq!(service.refusals()[6], 2);
+    assert!(!service.reputation.banned("unknown"));
+    // The same request with a known group passes.
+    assert_eq!(
+        status(&service.profile(&peer("known"), get(vec![0; 32])).unwrap()),
+        Status::NotFound
+    );
+}
+
+#[test]
 fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
     let identity = Identity::generate();
     let record = Profile {

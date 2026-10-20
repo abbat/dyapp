@@ -34,13 +34,14 @@ const OUTCOMES: [&str; 6] = [
     "io",
 ];
 /// Service guards, in `Service` guard order.
-const GUARDS: [&str; 6] = [
+const GUARDS: [&str; 7] = [
     "disk_profiles",
     "disk_messages",
     "disk_media",
     "memory_rate_limited",
     "memory_dropped",
     "traffic_bytes_per_second",
+    "unknown_endpoint",
 ];
 /// Stores with size gauges.
 const STORES: [&str; 3] = ["profiles", "messages", "media"];

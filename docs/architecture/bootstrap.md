@@ -1152,8 +1152,11 @@ Scope and limits:
 - Every `/dyapp/profile` and `/dyapp/mailbox` request counts against two buckets: the remote
   libp2p peer ID (`requests_per_second`) and its IP group (`ip_group_requests_per_second`,
   default 1000), the connection's remote IP masked to `ipv4_prefix` / `ipv6_prefix` bits
-  (defaults /24 and /48). `/dyapp/node` `deny_list` counts one unit against both; `info` counts
-  only against the IP-group bucket, with no strike, so discovery stays cheap.
+  (defaults /24 and /48). The IP is the one that answered: for a dial by DNS name the resolved
+  address, and an IPv4-mapped IPv6 address groups as IPv4. A request on a connection whose IP is
+  unknown (no IP transport) is refused with `RATE_LIMITED` and counted under the
+  `unknown_endpoint` guard, without a strike. `/dyapp/node` `deny_list` counts one unit against
+  both; `info` counts only against the IP-group bucket, with no strike, so discovery stays cheap.
 - `/dyapp/search` and `/dyapp/inventory` count in units against the same two buckets: a query
   1, a publish or heartbeat 5, a get 1 per started 64 KiB of its reply, an inventory 10. Requests
   from a connected search node (one listing `/dyapp/search-kad` in identify) skip the units for
@@ -1230,7 +1233,7 @@ starts refusing and a line when it clears, not one per request:
   period, and the byte rate bounds a month too.
 - **Guard metrics**: a guard that starts or stops refusing logs once; each maintenance run logs
   per guard how many requests it refused since the last run (the byte rate, which flips every
-  second under load, only here).
+  second under load, and `unknown_endpoint`, only here).
 - **Incoming group connections**: `max_connections_per_ip_group` (default 32, positive)
   combines pending and established incoming connections within a fine IP group using
   `ipv4_prefix` / `ipv6_prefix`. Outgoing connections are exempt. Slots are freed on failed
@@ -1437,7 +1440,7 @@ stops since start (`rebuild_postpones`, `rebuild_overflows`, `rebuild_drop_refil
 sends (`replica_dropped`), refused outbound dials (`throttled_dials`, and `denied_dials` for `network.deny_dial`), and per-protocol `wire_bytes`; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
-map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and
+map (challenge nonces, connection IPs, dialed peers) against the open connections, mailbox watches and
 peers with a trust score. An idle node drains to no pending request and no entry of a closed
 connection; a count that idling does not lower is a leak. `dyappd status` prints whether
 the node answers, what the stores hold and the metrics totals; there is no admin HTTP API.
@@ -1477,7 +1480,7 @@ with traffic.
 | `request_outcomes_total` | counter | `protocol`; `outcome`: answered, timeout, closed, unsupported, omitted, io |
 | `wire_bytes_total` | counter | `protocol`: the `WireBytes` slots; `direction`: in, out |
 | `pow_checks_total`, `pow_forged_total` | counter | — |
-| `refused_total` | counter | `guard`: disk_profiles, disk_messages, disk_media, memory_rate_limited, memory_dropped, traffic_bytes_per_second |
+| `refused_total` | counter | `guard`: disk_profiles, disk_messages, disk_media, memory_rate_limited, memory_dropped, traffic_bytes_per_second, unknown_endpoint |
 | `connected_peers`, `connections` | gauge | — |
 | `search_index_version` | gauge | — (search nodes) |
 | `search_phase` | gauge | `phase`: refilling, rebuilding, serving; 1 for the current one (search nodes) |
