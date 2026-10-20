@@ -367,7 +367,7 @@ pub enum Role {
     Store,
     /// Media blobs.
     Media,
-    /// The experimental profile search index.
+    /// The profile search index.
     Search,
     /// TURN credentials for a coturn relay.
     Turn,
@@ -482,7 +482,7 @@ impl Default for NodeConfig {
             listen: vec!["[::1]:7070".into(), "127.0.0.1:7070".into()],
             external: vec![],
             seeds: vec![],
-            roles: vec![Role::Store],
+            roles: vec![Role::Store, Role::Search],
             storage: StorageConfig::default(),
             limits: Limits::default(),
             maintenance: Maintenance::default(),

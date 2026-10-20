@@ -104,7 +104,7 @@ def start(bin_dir, storage, peers, processes, environments,
                "DYAPPD_LISTEN": f'["127.0.0.1:{port}"]',
                "DYAPPD_EXTERNAL": f'["127.0.0.1:{port}"]',
                "DYAPPD_STORAGE_DIR": f"{storage}/{port}",
-               "DYAPPD_ROLES": '["store", "media"]',
+               "DYAPPD_ROLES": '["store", "search", "media"]',
                "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
                # Loopback nodes share one /16.
                "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
@@ -115,7 +115,7 @@ def start(bin_dir, storage, peers, processes, environments,
             # Plateau clients share loopback and outpace idle cleanup.
             env["DYAPPD_LIMITS_MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
         if not peers:
-            env["DYAPPD_ROLES"] = '["store", "media", "turn"]'
+            env["DYAPPD_ROLES"] = '["store", "search", "media", "turn"]'
             env["DYAPPD_TURN_URLS"] = '["turn:127.0.0.1:3478"]'
             env["DYAPPD_TURN_SECRET"] = TURN_SECRET
             env["DYAPPD_NETWORK_SHARE_DENY_LIST"] = "true"

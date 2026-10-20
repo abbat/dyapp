@@ -38,7 +38,7 @@ back. A node serves one or more roles:
 | `store` | Profiles, mailboxes and the network directory (Kademlia DHT). The base role; every other role needs it too. |
 | `media` | Media blobs: avatars and chat attachments. |
 | `turn` | Short-lived passwords for a coturn relay running next to the node ([TURN relay](#turn-relay)). Calls are not part of the first release. |
-| `search` | Experimental profile search ([Search](../architecture/bootstrap.md#search)). Keep it off public nodes. |
+| `search` | Profile search ([Search](../architecture/bootstrap.md#search)). On by default. |
 
 Every write is replicated whole to five DHT points and acknowledged once two distinct nodes
 store it; media larger than 1 MiB is split into Reed-Solomon shards. Nodes repair missing
@@ -244,7 +244,7 @@ than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...
 | `listen` | `["[::1]:7070", "127.0.0.1:7070"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:7070", "0.0.0.0:7070"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
 | `external` | `[]` | Public addresses announced to peers, when known (a static address, port forwarding). Empty: peers learn the listen addresses through identify, and the address they see the node from is announced once AutoNAT confirms it. Until then the node is a DHT client: it uses the DHT but serves no part of it. |
 | `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:7070`, `[2001:db8::7]:7070`). The peer ID, printed by the seed's `dyappd id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
-| `roles` | `["store"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
+| `roles` | `["store", "search"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
 
 `listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.
 
@@ -353,7 +353,7 @@ Used by the `turn` role only.
 
 ### `[search]`
 
-Used by the experimental `search` role only. Details: [Search](../architecture/bootstrap.md#search).
+Used by the `search` role only. Details: [Search](../architecture/bootstrap.md#search).
 
 | Key | Default | Meaning |
 |-----|---------|---------|
@@ -686,7 +686,8 @@ no start-time integrity check, so:
 Not measured: there is no load test yet. Disk, the byte rate, memory and connections are capped
 by `[limits]`. With the default quotas a node needs about 16 GiB of disk (`profiles_max_mb`
 1 GiB + `messages_max_mb` 4 GiB + `media_max_mb` 10 GiB + `min_free_mb` 512 MiB; without the
-media role about 6 GiB; a search node adds `search.max_bytes`) and 1 GiB of memory
+media role about 6 GiB; the default search role adds up to `search.max_bytes`, 50 GiB, as the
+network grows, so lower it on a small disk) and 1 GiB of memory
 (`MemoryMax=1G`, `limits.max_memory_mb` 768). A full store answers `FULL` instead of growing.
 
 ## Troubleshooting

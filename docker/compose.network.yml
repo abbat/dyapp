@@ -32,7 +32,7 @@ x-peer: &peer
     # The default listens on loopback only.
     DYAPPD_LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
     DYAPPD_STORAGE_DIR: /tmp/node
-    DYAPPD_ROLES: '["store", "media"]'
+    DYAPPD_ROLES: '["store", "search", "media"]'
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
     DYAPPD_NETWORK_ID_POW_BITS: "8"
     # Every test node shares one /16.
@@ -66,7 +66,7 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD_ROLES: '["store", "media", "turn"]'
+      DYAPPD_ROLES: '["store", "search", "media", "turn"]'
       DYAPPD_TURN_URLS: '["turn:turn:3478"]'
       DYAPPD_TURN_SECRET: network-test-secret
   bootstrap-b:

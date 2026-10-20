@@ -119,7 +119,7 @@ docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
     sleep 3
     target/debug/test-peer info /ip4/127.0.0.1/tcp/7070
     kill %1'
-# → {"max_profile_bytes":1048576,"roles":["ROLE_STORE"],"status":"STATUS_OK"}
+# → {"max_profile_bytes":1048576,"roles":["ROLE_STORE","ROLE_SEARCH"],"status":"STATUS_OK"}
 ```
 
 **With a local Rust 1.99 toolchain:**

@@ -46,7 +46,7 @@ def environment(storage, index):
             "DYAPPD_LISTEN": f'["{host}:{PORT}"]',
             "DYAPPD_EXTERNAL": f'["{host}:{PORT}"]',
             "DYAPPD_STORAGE_DIR": f"{storage}/{'abc'[index]}",
-            "DYAPPD_ROLES": '["store"]',
+            "DYAPPD_ROLES": '["store", "search"]',
             "DYAPPD_SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]"}
 
 

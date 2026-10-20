@@ -27,8 +27,8 @@
 #   "store"   profiles, mailboxes and the network directory (DHT); the base role
 #   "media"   media files (avatars, attachments), see limits.media_max_mb
 #   "turn"    passwords for a coturn relay that helps calls through NAT, see [turn]
-#   "search"  experimental profile search, see [search]; keep it off public nodes
-# roles = ["store"]              # e.g. ["store", "media"] or ["store", "media", "turn"]
+#   "search"  profile search, see [search]
+# roles = ["store", "search"]    # e.g. ["store", "search", "media"]
 
 [storage]
 # All node data. Databases: profiles.db, messages.db, media.db (media role), deny.db,
@@ -88,7 +88,7 @@
 # ban_minutes = 10                    # how long a ban lasts
 
 [search]
-# Used by the search role (experimental).
+# Used by the search role.
 # max_profile_bytes = 65536           # client record send limit; 1..65536; network accepts 65536
 # max_bytes = 53687091200             # profiles-idx.db size; above it the largest place sheds keys
 # newcomer_days = 30                  # days a key counts as a newcomer; 1..365

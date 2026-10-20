@@ -4,8 +4,8 @@
 
 A bootstrap node (`dyappd`) serves owner-signed profiles and per-device mailboxes over
 libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
-repairs mailbox, profile and media replicas node to node; an experimental [profile search](#search)
-runs as its own role, and signaling is planned.
+repairs mailbox, profile and media replicas node to node; [profile search](#search)
+runs as its own role, on by default, and signaling is planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -14,7 +14,7 @@ runs as its own role, and signaling is planned.
 **Key principles:**
 - **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
-- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the experimental [search role](#search)
+- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the [search role](#search)
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network**: open, anyone may run a node, Kademlia DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md), [P2P networking](p2p-networking.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
@@ -23,7 +23,7 @@ runs as its own role, and signaling is planned.
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
-the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
+the store, media and TURN roles, the search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
@@ -275,9 +275,6 @@ resent from the sender's retry queue.
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 
 ### Search
-
-> ⚠️ Experimental: no shipped or seed config enables the role, and the index rebuild runs only
-> on an index version bump, which no release has shipped yet.
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
@@ -1242,7 +1239,7 @@ the role); the
 example and startup checks are in [operator manual](../manuals/bootstrap.md#configuration). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). The `store`, `media`, `turn`
-and experimental `search` roles are accepted, the last three only together with `store`. On start it dials its
+and `search` roles are accepted, the last three only together with `store`. On start it dials its
 anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
@@ -1448,7 +1445,7 @@ run `make test` first to build the current `dyappd` and `test-peer` binaries.
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Ranged media reads and assembly caching remain planned
-- The search role is experimental: a version bump does not activate a rebuilt index yet, and expiry drops at most 4096 silent keys an hour
+- Search expiry drops at most 4096 silent keys an hour
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).
