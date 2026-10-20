@@ -46,7 +46,7 @@ The apps are shells that call one core function at most:
 - `android/` loads `libdyapp_ffi.so` through the UniFFI Kotlin bindings and shows the peer ID
   of its stored `IdentityKey`.
 - `ios/` and `macos/` link `DyappFFI.xcframework` through the UniFFI Swift bindings and show
-  the peer ID from `generate_peer_id`.
+  the peer ID of their stored `IdentityKey`.
 - `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
   `rust/identity` only, to show a peer ID.
 

@@ -419,7 +419,7 @@ ready-screen render, identity and close only. Details, test counts and report ex
 | Android instrumented (3, API 31 emulator, no KVM) | `make ui-test-android-emulator` | Docker, local + CI |
 | Linux (2 cargo tests + 2 Xvfb smoke cases) | `make ui-test-linux` | Docker, local + CI |
 | All three Docker suites | `make ui-test` | Docker |
-| iOS / macOS (1 XCTest + 3 XCUITest each) | none locally (`apple-test-in-ci.sh` exits 2 outside Actions) | CI, macos-15 |
+| iOS / macOS (1 XCTest + 4 XCUITest each) | none locally (`apple-test-in-ci.sh` exits 2 outside Actions) | CI, macos-15 |
 | Windows (2 cargo tests + 2 smoke cases) | `cargo test --manifest-path windows/Cargo.toml --locked` | CI, windows-2022 |
 
 There are no GLib/ctest, .NET or FFI wrapper test suites.

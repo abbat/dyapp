@@ -16,6 +16,7 @@ targets:
     type: application
     platform: macOS
     sources: [src/App.swift, ../ios/DYApp/ContentView.swift, ../ios/DYApp/RustBridge.swift,
+              ../ios/DYApp/PlatformKeyStore.swift,
               ../ios/DYApp/Localizable.xcstrings, ../target/apple/swift/dyapp.swift]
     dependencies:
       # Built by scripts/build-apple-core.sh before XcodeGen runs.

@@ -13,15 +13,19 @@ The exported surface, error model, ownership and threading are defined in
 generated Kotlin bindings, the iOS and macOS apps through generated Swift bindings.
 
 The code samples and directory trees below show the **target** wrapper API and
-layout. Apart from `RustBridge.kt` with `PlatformKeyStore.kt` and the one-call
-`RustBridge.swift`, none of it exists yet.
+layout. Apart from `RustBridge.kt` and `RustBridge.swift` with their `PlatformKeyStore`, none of
+it exists yet.
 
 ## iOS (Swift)
 
 ### Setup
 
 `scripts/build-apple-core.sh` builds `target/apple/DyappFFI.xcframework` and the
-Swift bindings; the app calls `generatePeerId()` through `RustBridge.swift`. See
+Swift bindings; the app shows the peer ID of its stored identity key through
+`RustBridge.swift`: the first start creates the key, `PlatformKeyStore.swift` wraps it with
+CryptoKit AES-256-GCM under a random key kept in the Keychain
+(`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), and the blob lives in the app's
+Application Support folder, excluded from backups. The macOS app shares both files. See
 [FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 
 ### Integration (target sketch)

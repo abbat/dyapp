@@ -18,15 +18,16 @@ The shells call the Rust core for one value, a peer ID (see
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
 identity and close; the Android, iOS and macOS UI tests and the desktop smoke also check that
 the peer ID is 64 lowercase hex characters. The Android UI test also recreates the activity and
-checks that the peer ID, unwrapped again from the stored identity key, stays the same.
+checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
+iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 4 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×1, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 2 cargo tests (`desktop/main.rs`, `linux/tests/integration_tests.rs`) | 3 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | same 2 cargo tests (`windows/` includes `desktop/` and `linux/tests`) | same 3 smoke cases | same |
-| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 3 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
-| macOS | CI only (macos-15) | 1 XCTest | 3 XCUITest | `check-apple-results.py` (≥3) |
+| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 4 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
+| macOS | CI only (macos-15) | 1 XCTest | 4 XCUITest | `check-apple-results.py` (≥3) |
 
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty

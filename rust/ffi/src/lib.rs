@@ -190,12 +190,6 @@ impl From<WrapError> for CoreError {
     }
 }
 
-/// Peer ID of a freshly generated identity key; the key is dropped, nothing is stored.
-#[uniffi::export]
-pub fn generate_peer_id() -> String {
-    dyapp_identity::Identity::generate().peer_id()
-}
-
 /// The platform keystore (Android Keystore, Keychain, Secret Service, DPAPI), implemented by
 /// the app: it encrypts with a key that never leaves the keystore.
 #[uniffi::export(with_foreign)]

@@ -17,6 +17,24 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
     }
 
+    /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
+    func testRelaunchKeepsPeerId() {
+        let app = XCUIApplication()
+        app.launch()
+        let first = shownPeerId(app)
+        XCTAssertNotNil(first.range(of: "^[0-9a-f]{64}$", options: .regularExpression), first)
+        app.terminate()
+        app.launch()
+        XCTAssertEqual(shownPeerId(app), first)
+        app.terminate()
+    }
+
+    private func shownPeerId(_ app: XCUIApplication) -> String {
+        let peerId = app.staticTexts["peer-id"]
+        XCTAssertTrue(peerId.waitForExistence(timeout: 10))
+        return peerId.value as? String ?? ""
+    }
+
     /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
     func testDoubleLengthPseudoLanguage() {
         let app = XCUIApplication()

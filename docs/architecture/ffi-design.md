@@ -12,7 +12,8 @@
 | `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
 | `android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Creates or opens the stored `IdentityKey` and shows its peer ID. |
 | `android/app/src/main/kotlin/com/dyapp/PlatformKeyStore.kt` | The app's `KeyStore`: AES-256-GCM with a non-exportable Android Keystore key. |
-| `ios/DYApp/RustBridge.swift` | Calls `generatePeerId()` from the generated bindings; shared by the iOS and macOS apps. |
+| `ios/DYApp/RustBridge.swift` | Creates or opens the stored `IdentityKey` and shows its peer ID; shared by the iOS and macOS apps. |
+| `ios/DYApp/PlatformKeyStore.swift` | The Apple apps' `KeyStore`: CryptoKit AES-256-GCM with a random key in the Keychain, this device only. |
 
 The Android, iOS and macOS apps link the library.
 
@@ -37,7 +38,6 @@ or returns constants.
 | | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Parses and applies the remote answer, then applies stored remote ICE candidates (see [video](video.md)). |
 | | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
 | | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |
-| `generate_peer_id()` | function | `-> String` | Peer ID (hex SHA-256 of the public key) of a freshly generated `rust/identity` key; the key is dropped. |
 | `KeyStore` | foreign trait | `wrap(secret: Vec<u8>)`, `unwrap(wrapped: Vec<u8>)`, both `-> Result<Vec<u8>, WrapError>` | Implemented by the app over its platform keystore; encrypts with a key that never leaves it. |
 | `IdentityKey` | Object | `generate()`, `unwrap(store: KeyStore, wrapped: Vec<u8>) -> Result<Self, CoreError>` | A `rust/identity` key; `unwrap` fails unless the store returns 32 bytes. |
 | | method | `wrap(store: KeyStore) -> Result<Vec<u8>, CoreError>` | The secret encrypted by `store`, for the app to persist. |
@@ -56,7 +56,7 @@ The library's C ABI is UniFFI-internal (`nm -D libdyapp_ffi.so`):
 `uniffi_dyapp_ffi_fn_constructor_<object>_new`,
 `uniffi_dyapp_ffi_fn_method_<object>_<method>`,
 `uniffi_dyapp_ffi_fn_free_<object>`,
-`uniffi_dyapp_ffi_fn_func_generate_peer_id`, plus checksum and
+`uniffi_dyapp_ffi_fn_func_<function>`, plus checksum and
 `RustBuffer` helpers. They take `RustBuffer`/`RustCallStatus` arguments and are
 meant to be called only by UniFFI-generated code. **There is no hand-callable
 C API** (no `dyapp_client_new`, `dyapp_send_message`, …); a C/.NET
@@ -127,4 +127,4 @@ depends on the native side not using a handle after freeing it.
 `cargo test -p dyapp-ffi` wraps and unwraps an `IdentityKey` through a test `KeyStore` and
 checks that keystore errors reach the caller. The Android UI test (`AppUITests.kt`) checks
 that the stored identity keeps its peer ID when the activity is recreated; the iOS and macOS
-UI tests (`LaunchTests.swift`) check the peer ID from `generate_peer_id`.
+UI tests (`LaunchTests.swift`) check that it survives an app relaunch.
