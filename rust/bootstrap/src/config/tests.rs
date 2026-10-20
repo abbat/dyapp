@@ -243,6 +243,7 @@ fn key_source_is_independent_of_its_protection() {
 
     // A systemd credential: readable through an ACL, so its mode shows group bits.
     let credentials = temp_dir();
+    fs::create_dir_all(&credentials).unwrap();
     let credential = credentials.join("node.key");
     fs::write(&credential, &sealed).unwrap();
     fs::set_permissions(&credential, fs::Permissions::from_mode(0o440)).unwrap();
@@ -267,7 +268,7 @@ fn key_source_is_independent_of_its_protection() {
     // keygen writes a plain key to storage.key, outside storage.dir.
     let mut config = NodeConfig::default();
     config.storage.dir = temp_dir();
-    config.storage.key = temp_dir().join("node.key");
+    config.storage.key = credentials.join("node2.key");
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
     let peer = config.keygen(None).unwrap();
