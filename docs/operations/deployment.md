@@ -559,17 +559,61 @@ test-peer get /ip4/127.0.0.1/tcp/7070 <known peer id>   # must return "STATUS_OK
 
 Scheduled backups, retention and off-host storage are not provided.
 
+### First deployment
+
+The steps below start a network of seed nodes with the production defaults
+(`id_pow_bits = 22`, `distinct_outbound_groups = true`,
+`storage_trust_minutes = 60`) and take it through one upgrade and one rollback.
+
+A node sends replicas only to peers it first connected to at least
+`network.storage_trust_minutes` ago, and keeps that time in memory only. A put
+(a profile, an envelope, a media part) needs a second holder, so a node that
+trusts no peer yet answers it `STATUS_FULL` after 10 seconds; reads are not
+affected. A new network therefore refuses all writes for the first trust period,
+and every restarted node refuses writes through it for one period. The peers of
+a restarted node keep trusting it while it stays in their routing table.
+
+1. **Cold start.** Generate each key with `dyappd keygen` (about a minute per
+   node at 22 bits), list the other seeds in `seeds` on every seed and start
+   them in any order; a seed that starts first is dialled by the later ones.
+   Check each with `test-peer info` ([health check](#health-check-exists)).
+2. **Canary.** After `storage_trust_minutes`, publish a test profile through each
+   node: `test-peer publish` returns `STATUS_OK` and `test-peer get` finds the
+   record on at least two nodes. Before that it returns `STATUS_FULL`.
+3. **Rolling upgrade.** For each node in turn: stop it, take a
+   [backup](#backups) of `storage.dir`, start the new version, check its health
+   and that it still serves the canary records, publish a canary through a node
+   that was not restarted in the last trust period, then wait
+   `storage_trust_minutes` before the next node. Restarting every node within
+   one period stops all writes until the first restarted node's period ends.
+4. **Rollback.** Stop the node and start the old version. When the update
+   changed a store format, the old version exits with
+   "has store format N, this dyappd knows up to M"; restore the backup from
+   step 3 and start the old version on it. Writes the node took after the backup
+   are lost on that node; the other replicas and the owner's next visit repair
+   them. There is no rollback across a store-format change without that backup.
+
+`make rehearsal FROM=<git ref>` runs these steps on three loopback nodes
+(127.1.0.1, 127.2.0.1 and 127.3.0.1, three /16 groups) with release builds of
+the ref and of the working tree, the ref being a commit before a store-format
+step; it takes about three trust periods (`scripts/rehearsal.py`). The
+manual `rehearsal.yml` workflow runs the same check on CI with the ref as
+its `from` input.
+
 ### Updates
 
 **Rolling update.** Profiles, mailboxes and media have five replicas on other
 nodes ([replication](../architecture/bootstrap.md#replication-and-repair)), so
 upgrade nodes one at a time: while one is down, clients read the other replicas,
 and the owner's next visit repairs what it missed. A single node keeps the only
-copy. On start a new `dyappd` upgrades its store files in place (each file keeps
-its format in `PRAGMA user_version`); an older `dyappd` refuses files a newer one
-has upgraded, so a downgrade needs the backup taken before the update. Building a
-changed store format next to the old one while the old one keeps answering is
-planned ([bootstrap design](../architecture/bootstrap.md#principles)).
+copy. A restarted node trusts no peer for `network.storage_trust_minutes`, so it
+refuses writes for that long; restart the next node only after it (the steps
+under [first deployment](#first-deployment)). On start a new `dyappd` upgrades
+its store files in place (each file keeps its format in `PRAGMA user_version`);
+an older `dyappd` refuses files a newer one has upgraded, so a downgrade needs
+the backup taken before the update. Building a changed store format next to the
+old one while the old one keeps answering is planned
+([bootstrap design](../architecture/bootstrap.md#principles)).
 
 **Verifying a release.** Releases are not published or signed yet. Planned: every artifact
 carries a Sigstore keyless signature, SLSA build provenance and the SBOM, checked with

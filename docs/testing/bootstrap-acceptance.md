@@ -32,6 +32,7 @@ preserve runtime behavior, schema and assertions.
 | **E2E local** | Three `dyappd` processes on loopback, driven by `test-peer` | `scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
 | **E2E Docker** | Three `dyappd` containers and a coturn relay on a Docker network | `docker/compose.network.yml`, `scripts/network-test.py` | `make test-integration` | no (local only) |
 | **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
+| **Rehearsal** | Cold start, two-holder canary, rolling upgrade from an older commit and rollback on three release `dyappd` with production defaults | `scripts/rehearsal.py` | `make rehearsal FROM=<git ref>` (`rust-check.sh rehearsal`) | manual `rehearsal.yml`, about 3 h |
 | **Package** | The `.deb` installed on Debian 12, node started as its user | `scripts/deb-test.sh` | `make deb` | no (local only) |
 
 The functional suite keeps shared node/client fixtures in `protocol.rs`.

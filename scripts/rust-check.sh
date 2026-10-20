@@ -128,6 +128,18 @@ step() {
             cargo build --release -p dyapp-bootstrap --bins --locked
             python3 scripts/network-test.py --raw --plateau "${CARGO_TARGET_DIR:-target}/release"
             ;;
+        rehearsal)
+            # Release binaries of REHEARSAL_FROM (a commit before a store-format step) and of
+            # this tree, upgraded with production defaults; about three storage trust periods.
+            local old=/tmp/ai/rehearsal-old target=${CARGO_TARGET_DIR:-$PWD/target}
+            cargo build --release -p dyapp-bootstrap --bins --locked
+            rm -rf "$old" && mkdir -p "$old"
+            git -c safe.directory="$PWD" archive "${REHEARSAL_FROM:?git ref required}" |
+                tar -x -C "$old"
+            cargo build --release -p dyapp-bootstrap --bin dyappd --locked \
+                --manifest-path "$old/Cargo.toml" --target-dir "$target/rehearsal-old"
+            python3 scripts/rehearsal.py --raw "$target/rehearsal-old/release" "$target/release"
+            ;;
         security)
             if [[ -d /opt/advisory-dbs ]]; then
                 # The dev image ships the advisory DB; --frozen also skips fetching it. The workspace
@@ -146,7 +158,7 @@ step() {
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|security}
+    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
         quality|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
@@ -154,7 +166,7 @@ if [[ ${1:-} != --raw ]]; then
         coverage|cov-report) policy=rust-coverage ;;
         mutants) policy=rust-mutants ;;
         fuzz) policy=rust-fuzz ;;
-        network|memory) policy=rust-network ;;
+        network|memory|rehearsal) policy=rust-network ;;
         *) policy=rust-build ;;
     esac
     check "$policy" bash "$0" --raw "$@"

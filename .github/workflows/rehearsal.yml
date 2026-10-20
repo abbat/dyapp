@@ -1,0 +1,41 @@
+name: rehearsal
+
+# First-deployment rehearsal with production defaults (docs/operations/deployment.md#first-deployment):
+# about three storage trust periods, so only on demand.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: Git ref of the old version, before a store-format step
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  DYAPP_CHECK_LOG_DIR: /tmp/ai/rust-check-output
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: setup
+        run: bash scripts/ci-setup.sh rust
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: rehearsal
+        env:
+          REHEARSAL_FROM: ${{ inputs.from }}
+        run: bash scripts/rust-check.sh rehearsal
+      - name: raw check logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rehearsal-check-output
+          path: /tmp/ai/rust-check-output/*.log
+          if-no-files-found: warn

@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check fmt build release deb image security audit deny msrv doc pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
 
 .SILENT:
 
@@ -24,6 +24,10 @@ test-integration:
 	$(CHECK) rust-test -- cargo test -p dyapp-bootstrap --test integration_tests --all-features --locked --offline
 	bash scripts/docker-test.sh network
 	$(DEV) bash scripts/rust-check.sh memory
+
+# First-deployment rehearsal with production defaults, upgrading from FROM (a git ref); ~3 h.
+rehearsal:
+	$(DEV) env REHEARSAL_FROM=$(FROM) bash scripts/rust-check.sh rehearsal
 
 test-all:
 	bash scripts/docker-test.sh all
