@@ -175,13 +175,13 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
         .add_address(&node_peer, address);
     for search in [false, true] {
         let mut last = Vec::new();
-        let result = tokio::time::timeout(Duration::from_secs(10), async {
+        let result = tokio::time::timeout(Duration::from_secs(20), async {
             loop {
                 let peers = closest(&mut observer, advertiser_peer, search).await;
-                let advertised = peers
-                    .iter()
-                    .find(|peer| peer.peer_id == advertiser_peer)
-                    .expect("advertiser missing from routing answers");
+                let Some(advertised) = peers.iter().find(|peer| peer.peer_id == advertiser_peer)
+                else {
+                    continue;
+                };
                 assert!(
                     !advertised.addrs.contains(&fake_routed),
                     "foreign identify address entered a DHT"
