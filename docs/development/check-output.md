@@ -33,8 +33,8 @@ quality/security to their mapped tools. `linux-test.sh`, `build-apple-core.sh`,
 `apple-test-in-ci.sh`, `apple-test-in-ci.py` and `build-android-release.sh` use mapped frontends.
 Apple CI restrictions and Android offline dependency requirements still apply.
 
-`android-test-in-container.sh`, `rust-command-in-container.sh`, `build-deb.sh`
-and `deb-test.sh` are internal stage bodies. Their raw compiler, package-manager
+`android-test-in-container.sh`, `rust-command-in-container.sh`, `build-deb.sh`,
+`deb-test.sh` and `tarball-test.sh` are internal stage bodies. Their raw compiler, package-manager
 and test output is captured by the owning Docker stage. The Android emulator
 is a streaming service. None of these is a supported standalone host check;
 in particular, package-test containers copy only their self-contained script.

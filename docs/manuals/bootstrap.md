@@ -65,12 +65,13 @@ package or the image yourself from a commit you trust:
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp
-make deb      # → target/deb/dyappd_<version>_<arch>.deb, built in a Debian 12 image
+make deb      # → target/deb/dyappd_<version>_<arch>.deb and a tarball, built in Debian 12
 make image    # → the dyappd:latest container image
 ```
 
 `make deb` builds a release binary in a Debian 12 image, so it runs on glibc 2.36, and
-test-installs the package on a clean `debian:bookworm-slim`. `make image` runs the image
+test-installs the package and the [tarball](#tarball-manual-install) on a clean
+`debian:bookworm-slim`. `make image` runs the image
 read-only with no network, makes a key, starts the node, edits the deny list and checks that the
 image has no shell. Both need only Docker on the build host.
 
@@ -142,6 +143,42 @@ config file mounted read-only at `/etc/dyappd.toml`, which is read without `--co
 a container the key is a plain 0600 file in the volume.
 
 The image is not published to a registry, and there are no Kubernetes manifests yet.
+
+### Tarball (manual install)
+
+For a host without `apt`, or an operator who wants to see every step: `make deb` also writes
+`target/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` with the same binary (glibc 2.36 or
+newer), `dyappd.toml`, `LICENSE` and `dyappd.service`, the package's unit with the binary at
+`/usr/local/bin/dyappd`. It is gzip rather than xz: `tar -xzf` works everywhere and the archive
+is a few megabytes either way. `make deb` installs it this way on a clean Debian 12:
+
+```bash
+tar -xzf dyappd-*-linux-gnu.tar.gz && cd dyappd-*-linux-gnu
+sudo install -m 0755 dyappd /usr/local/bin/dyappd
+sudo install -m 0644 dyappd.toml /etc/dyappd.toml
+sudo install -m 0644 dyappd.service /etc/systemd/system/dyappd.service
+sudo useradd --system --user-group --home-dir /var/lib/dyappd --shell /usr/sbin/nologin dyappd
+sudo install -d -o dyappd -g dyappd -m 0750 /var/lib/dyappd
+sudo systemctl daemon-reload
+```
+
+Then make and seal the key ([Node key](#node-key)), set `listen` in `/etc/dyappd.toml`
+([Configuration](#configuration)) and start: `sudo systemctl enable --now dyappd`;
+`sudo -u dyappd dyappd status` prints `node running`. The unit is the package's, with the same
+sandbox and limits, so the rest of this manual applies as written.
+
+It is a system unit with `User=dyappd`, not a `systemd --user` unit: a user manager runs only
+while its user is logged in unless lingering is enabled, and it can neither apply the system
+sandbox above nor decrypt a credential sealed with the host key. Without systemd, run
+`dyappd --config /etc/dyappd.toml` as `dyappd` under your supervisor with the key as a 0600 file
+(`storage.key`); `dyappd status` exits 0 while the node answers and 3 when it does not.
+
+To update, keep the old binary (`sudo cp -f /usr/local/bin/dyappd /usr/local/bin/dyappd.previous`),
+install the new one and the new unit, compare `dyappd.toml` with your `/etc/dyappd.toml`, then
+`sudo systemctl daemon-reload && sudo systemctl restart dyappd` ([Updates](#updates)). To roll
+back, put `dyappd.previous` back and restart ([Rollback](#rollback)). To remove, disable the
+unit and delete the three installed files; the user, `/var/lib/dyappd` and the sealed key stay
+as with the package.
 
 ## Node key
 

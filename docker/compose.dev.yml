@@ -111,6 +111,19 @@ services:
       - ../scripts/deb-test.sh:/deb-test.sh:ro
     command: [bash, /deb-test.sh]
     profiles: [deb]
+  # The same clean Debian 12 for the manual tarball installation.
+  tarball-test:
+    image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    cpus: ${DYAPP_CPUS:-4}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    volumes:
+      - ../target/deb:/deb:ro
+      - ../scripts/tarball-test.sh:/tarball-test.sh:ro
+    command: [bash, /tarball-test.sh]
+    profiles: [deb]
 
 volumes:
   workspace-cache:

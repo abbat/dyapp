@@ -66,12 +66,13 @@ Sigstore, SLSA build provenance и SBOM, которые проверяются `
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp
-make deb      # → target/deb/dyappd_<version>_<arch>.deb, собирается в образе Debian 12
+make deb      # → target/deb/dyappd_<version>_<arch>.deb и архив tar, собираются в Debian 12
 make image    # → образ контейнера dyappd:latest
 ```
 
 `make deb` собирает release-бинарник в образе Debian 12, поэтому он работает на glibc 2.36, и
-пробно устанавливает пакет в чистый `debian:bookworm-slim`. `make image` запускает образ в режиме
+пробно устанавливает пакет и [архив tar](#архив-tar-ручная-установка) в чистый
+`debian:bookworm-slim`. `make image` запускает образ в режиме
 только для чтения без сети, создаёт ключ, запускает узел, меняет список запретов и проверяет, что в
 образе нет оболочки. Обоим нужен только Docker на хосте сборки.
 
@@ -145,6 +146,44 @@ docker logs dyappd
 ключ — обычный файл 0600 в томе.
 
 Образ не опубликован в реестре, манифестов Kubernetes пока нет.
+
+### Архив tar (ручная установка)
+
+Для хоста без `apt` или оператора, который хочет видеть каждый шаг: `make deb` также пишет
+`target/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` с тем же бинарником (glibc 2.36 или
+новее), `dyappd.toml`, `LICENSE` и `dyappd.service` — юнитом пакета с бинарником в
+`/usr/local/bin/dyappd`. Это gzip, а не xz: `tar -xzf` есть везде, а архив в любом случае весит
+несколько мегабайт. `make deb` устанавливает его так в чистый Debian 12:
+
+```bash
+tar -xzf dyappd-*-linux-gnu.tar.gz && cd dyappd-*-linux-gnu
+sudo install -m 0755 dyappd /usr/local/bin/dyappd
+sudo install -m 0644 dyappd.toml /etc/dyappd.toml
+sudo install -m 0644 dyappd.service /etc/systemd/system/dyappd.service
+sudo useradd --system --user-group --home-dir /var/lib/dyappd --shell /usr/sbin/nologin dyappd
+sudo install -d -o dyappd -g dyappd -m 0750 /var/lib/dyappd
+sudo systemctl daemon-reload
+```
+
+Затем создайте и запечатайте ключ ([Ключ узла](#ключ-узла)), задайте `listen` в
+`/etc/dyappd.toml` ([Настройка](#настройка)) и запустите: `sudo systemctl enable --now dyappd`;
+`sudo -u dyappd dyappd status` печатает `node running`. Юнит тот же, что в пакете, с той же
+песочницей и пределами, поэтому остальная часть руководства применима как есть.
+
+Это системный юнит с `User=dyappd`, а не юнит `systemd --user`: пользовательский менеджер
+работает, только пока пользователь вошёл в систему (если не включён lingering), и не может ни
+применить системную песочницу выше, ни расшифровать credential, запечатанный ключом хоста. Без
+systemd запускайте `dyappd --config /etc/dyappd.toml` от имени `dyappd` под своим супервизором с
+ключом в файле 0600 (`storage.key`); `dyappd status` завершается с 0, пока узел отвечает, и с 3,
+когда нет.
+
+Для обновления сохраните старый бинарник
+(`sudo cp -f /usr/local/bin/dyappd /usr/local/bin/dyappd.previous`), установите новый бинарник и
+новый юнит, сравните `dyappd.toml` со своим `/etc/dyappd.toml`, затем
+`sudo systemctl daemon-reload && sudo systemctl restart dyappd` ([Обновления](#обновления)). Для
+отката верните `dyappd.previous` и перезапустите ([Откат](#откат)). Для удаления отключите юнит и
+удалите три установленных файла; пользователь, `/var/lib/dyappd` и запечатанный ключ остаются, как
+и с пакетом.
 
 ## Ключ узла
 
