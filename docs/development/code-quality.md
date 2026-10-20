@@ -282,9 +282,10 @@ they get the same wrappers when they carry keys.
 databases baked into the dev image. In the CI `core / build` step `deny` it fetches them at run time:
 
 - **advisories**: any RustSec advisory fails (no CVSS threshold); a yanked crate fails. Ignored: RUSTSEC-2024-0436
-  (`paste` unmaintained, a proc-macro reached only through libp2p's `if-watch`, no upgrade yet) and
+  (`paste` unmaintained, a proc-macro reached only through libp2p's `if-watch`, no upgrade yet),
   RUSTSEC-2026-0374 (`basic-toml` unmaintained, a build-time parser reached only through uniffi's
-  `askama`, no upgrade yet).
+  `askama`, no upgrade yet) and RUSTSEC-2026-0173 (`proc-macro-error2` unmaintained, a proc-macro
+  of `hax-lib` reached only through openmls -> hpke-rs -> libcrux, no upgrade yet).
 - **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.
 - **bans**: `openssl` and `openssl-sys` are denied; a second version of a crate fails unless
   `[bans] skip` lists that older version with the dependency that keeps it. cargo-deny warns about
