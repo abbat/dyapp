@@ -88,6 +88,12 @@ replacing it with the new one only if it is still disconnected after 60 s, so lo
 stay in it. The search Kademlia (`/dyapp/search-kad`) inserts the same way through
 `add_search_peer`: the same proof of work and limits, counted in its own table. Unit tests
 check the limits. Identify addresses on another IP require a successful peer-ID-pinned dial before routing.
+Real three-peer TCP tests check that a forged identify address stays out of both DHT routing
+answers, a reachable alternative address appears after the authenticated probe, a forged
+provider is not returned from either DHT, and a local search provider remains discoverable.
+The simultaneous, failed and stale connection-ID cases have focused node admission tests.
+Outbound probe traffic is bounded by the [dial guard](#dial-filtering), with its documented
+policy exceptions.
 
 Not implemented yet:
 

@@ -1,5 +1,7 @@
 //! The node protocol end to end: a `node::run` loop on loopback TCP and libp2p clients.
 
+#[path = "protocol/address_admission.rs"]
+mod address_admission;
 #[path = "protocol/keypackages.rs"]
 mod keypackages;
 
