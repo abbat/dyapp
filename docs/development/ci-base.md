@@ -90,9 +90,11 @@ with the exact `HEAD^..HEAD` source range. Push/debug smoke CI is separate.
 Apple jobs in the same workflow request unsigned iOS device and universal macOS
 Release packages with optimized Rust core libraries. They archive measurement
 JSON, Xcode version, actual package size-gate reports and captured logs. Distinct
-unsigned device IPA and universal macOS ZIP baselines come from the successful
-[2026-10-20 native producer run](https://github.com/abbat/dyapp/actions/runs/39409459725)
-([producer details](build.md#unsigned-apple-release-packages)).
+unsigned device IPA and universal macOS ZIP baselines come from the
+[2026-10-20 native producer run](https://github.com/abbat/dyapp/actions/runs/39458581481) on
+`9e6c832`: both packages built, then failed the old budgets after about 49% growth from the
+MLS encryption core (openmls and its crypto provider), so the inventory records the measured
+sizes ([producer details](build.md#unsigned-apple-release-packages)).
 
 The Android job builds the `dyapp:android-test` image, runs the
 [offline Release runner](build.md#unsigned-android-release) in it without network,
