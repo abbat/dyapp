@@ -472,7 +472,8 @@ pub(super) fn check_token(
     let Some(token) = &envelope.write_token else {
         return Ok(None);
     };
-    let Ok((mailbox, payload)) = owner_request::<proto::WriteToken>(token, Domain::WriteToken, |_| true)
+    let Ok((mailbox, payload)) =
+        owner_request::<proto::WriteToken>(token, Domain::WriteToken, |_| true)
     else {
         return Err(TokenError::Forged);
     };

@@ -209,7 +209,10 @@ mod tests {
             let mut rows = query.raw_query();
             let mut plan = String::new();
             while let Some(row) = rows.next().unwrap() {
-                plan += &row.get::<_, String>(3).unwrap().replace("SCAN CONSTANT ROW", "");
+                plan += &row
+                    .get::<_, String>(3)
+                    .unwrap()
+                    .replace("SCAN CONSTANT ROW", "");
             }
             assert!(!plan.contains("SCAN"), "{sql}: {plan}");
         }

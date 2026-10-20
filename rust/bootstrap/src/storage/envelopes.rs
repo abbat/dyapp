@@ -234,7 +234,9 @@ impl BootstrapStore {
             )
             .map_err(storage_error)?;
         let rows: Vec<(Vec<u8>, Vec<u8>)> = query
-            .query_map(params![mailbox, limit], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_map(params![mailbox, limit], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         rows.into_iter()

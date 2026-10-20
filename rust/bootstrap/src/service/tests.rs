@@ -646,8 +646,8 @@ fn heartbeat_keeps_the_profile_seen() {
 }
 
 mod mailbox;
-mod write_token;
-mod revoke;
 mod media;
+mod revoke;
+mod write_token;
 use mailbox::mailbox_status;
 pub(super) use media::media_service;

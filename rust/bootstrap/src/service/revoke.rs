@@ -14,9 +14,11 @@ impl Service {
     /// envelopes. Answers and whether a DENIED strikes: a forged record strikes, a `created_at`
     /// more than an hour ahead does not.
     pub(super) fn revoke(&self, record: &SignedRecord) -> crate::Result<(MailboxResponse, bool)> {
-        let Ok((mailbox, revoke)) = owner_request::<proto::Revoke>(record, Domain::MailboxRevoke, |r| {
-            r.token_keys.len() <= MAX_REVOKE_KEYS
-        }) else {
+        let Ok((mailbox, revoke)) =
+            owner_request::<proto::Revoke>(record, Domain::MailboxRevoke, |r| {
+                r.token_keys.len() <= MAX_REVOKE_KEYS
+            })
+        else {
             return Ok((status(Status::Denied), true));
         };
         if revoke.mailbox != mailbox {
