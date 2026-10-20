@@ -77,7 +77,7 @@ defences already in place. Nodes are untrusted by design
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, technical abuse response only (accepted residual risk); a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
-| 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ❌ Planned |
+| 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ✅ Rated: checked identify and provider addresses, a dial guard, replica caps and TURN deny ranges; the rest accepted ([below](#reflection-through-an-honest-node)) |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ✅ Implemented: nothing is negotiated; announced limits are hints within compiled floors ([below](#downgrade)) |
@@ -480,6 +480,33 @@ the proof of work are fixed in code.
 | A hostile node lies in `NodeInfo` to downgrade clients: a tiny size limit, a huge proof-of-work minimum, a weaker requirement | `node.info`, replies | Medium × medium | Implemented: `NodeInfo` values are hints only; a client keeps compiled floors, only tightens its requests and skips a node whose values fall outside the accepted range (`dyapp_p2p_net::hints`, [ADR 0016](../decisions/0016-protocol-evolution.md)) |
 | A node announces weak Argon2id parameters | Proof of work | High × low | Accept: the parameters are constants, not announced |
 | An operator lowers `search.min_profile_pow_bits` or other limits | `dyappd` config | Low × medium | Accept: it weakens only that node; every other node checks gossip against its own minimum, and config validation bounds each value |
+
+### Reflection through an honest node
+
+Class 17 in detail: an attacker makes honest nodes send traffic to a victim it names. Every
+node-to-node surface either checks the address it is told to dial or answers only over the
+requester's own connection.
+
+| Surface | Defence | Status |
+|---------|---------|--------|
+| identify `listen_addrs` handed out by both DHTs | An address on the connection's own IP is routed at once; any other one only after a peer-ID-pinned dial reaches that peer, at most 4 pending per peer and 64 per node, each tried once an hour ([protocol](../architecture/bootstrap.md#protocol)) | ✅ Implemented |
+| Kademlia `ADD_PROVIDER` addresses | A remote provider is stored only when each of its addresses has the IP of a live connection from it; search Kademlia stores no remote providers ([protocol](../architecture/bootstrap.md#protocol)) | ✅ Implemented |
+| Kademlia `closer_peers` naming fake peers at a victim's address | Dial guard: no dial to a peer ID without the node-ID proof of work, at most 4 dials in flight and 10 failed dials a minute per /24 or /48, no internal ranges ([dial filtering](../architecture/p2p-networking.md#dial-filtering)) | ✅ Implemented |
+| TURN relay to the operator's network or cloud metadata | The coturn example denies internal ranges, multicast and TCP relay ([TURN relay](../manuals/bootstrap.md#turn-relay)) | ✅ Implemented for internal targets |
+| Replication fan-out of clients' puts ground onto one node, so it bans an honest sender | `replica_put` only from node-ID proof-of-work peers; at most 50 units/s per destination; a rate refusal of a node's `replica_put` is no strike ([replication](../architecture/bootstrap.md#replication-and-repair), [limits](../architecture/bootstrap.md#limits-and-abuse)) | ✅ Implemented |
+| autonat dial-back | Accept: the server dials the observed IP, global addresses only, throttled; the attacker picks only the port | Accepted |
+| Search replies, mailbox push, media and mailbox repair, gossipsub | Accept: replies go over the requester's authenticated connection, a search reply is at most 1 MiB, repair answers only the closest or trusted peers, gossipsub runs in strict mode without peer exchange | Accepted |
+
+Accepted residuals:
+
+- Peers behind one CGNAT or NAT IP can claim each other's ports.
+- The TURN relay still reaches public addresses, bounded by `user-quota`, `total-quota` and
+  `max-bps`.
+- A proof-of-work flooder is no longer banned for `replica_put` overload and can crowd honest
+  replicas out of a sender's per-destination cap until repair; the peer and IP-group buckets
+  still refuse it.
+- A claimed public address is still dialled, at up to 10 failed dials a minute per /24 or /48
+  per node: each reflected dial costs the attacker a node ID's proof of work.
 
 ### Clock manipulation
 

@@ -693,8 +693,29 @@ realm=turn.example.org
 total-quota=100
 user-quota=4
 max-bps=1000000
+no-multicast-peers
+no-tcp-relay
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.0.0-192.0.0.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=240.0.0.0-255.255.255.255
+denied-peer-ip=::1
+denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=64:ff9b::-64:ff9b::ffff:ffff
 no-cli
 ```
+
+The `denied-peer-ip` ranges, `no-multicast-peers` and `no-tcp-relay` keep any peer holding
+credentials from relaying into the operator's own network or to cloud metadata; coturn takes
+single addresses or `a-b` ranges here, not CIDR. Relaying to public addresses stays possible,
+bounded by the quotas.
 
 Give the node the secret as a file through `turn.secret_file` (or `DYAPPD_TURN_SECRET` in a
 systemd `EnvironmentFile=` with mode 0600). Open the
