@@ -32,6 +32,18 @@ COVERED = {
         "docs/decisions/0016-protocol-evolution.md",
     "491a1d7a03ab0dd8e4ef3bb763ee21a580525e88":
         "docs/decisions/0016-protocol-evolution.md",
+    "ea10ace72a43d1ef28acc5a3558d66efa3cb4818":
+        "docs/decisions/0015-sqlite-node-storage.md",
+    "6715ab5de96764ca489818ac6ef2e89e9be927cc":
+        "docs/decisions/0016-protocol-evolution.md",
+    "a2ba459e70cef16fcbaf1d2aef1c26eb76d27bd6":
+        "docs/decisions/0009-message-delivery-and-storage.md",
+    "bc6cee52f9930c5637f34117847045ea18762cc0":
+        "docs/decisions/0009-message-delivery-and-storage.md",
+    "9f41870bd54c9c7d78fec0455766395b70a8c735":
+        "docs/decisions/0009-message-delivery-and-storage.md",
+    "94776c519116605dd2dd43c63d28eec1489803b0":
+        "docs/decisions/0009-message-delivery-and-storage.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
