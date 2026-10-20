@@ -3,15 +3,19 @@
 //! `/dyapp/media`) over request-response with protobuf messages. A search node adds
 //! `/dyapp/search-kad`, gossipsub, `/dyapp/search` and `/dyapp/inventory`.
 
+use libp2p::core::muxing::StreamMuxerBox;
+use libp2p::core::upgrade;
+use libp2p::futures::future::Either;
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
-    autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits, noise, tcp,
-    yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+    autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits, noise, quic,
+    tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
+use std::error::Error;
 use std::io;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -331,6 +335,9 @@ pub struct SwarmOptions {
     pub wire: Arc<WireBytes>,
     /// Network negotiation IDs; public unless explicitly supplied.
     pub protocols: Arc<Protocols>,
+    /// Outbound dial guard of a node: wraps the transport below DNS and adds a [`PowGate`].
+    /// Clients pass `None` and dial unguarded.
+    pub dial_guard: Option<DialGuard>,
 }
 
 impl Default for SwarmOptions {
@@ -344,6 +351,7 @@ impl Default for SwarmOptions {
             incoming_groups: None,
             wire: Arc::default(),
             protocols: Arc::new(Protocols::public()),
+            dial_guard: None,
         }
     }
 }
@@ -378,9 +386,7 @@ pub fn build_limited_swarm(
             max_streams,
             max_memory_bytes,
             search,
-            incoming_groups: None,
-            wire: Arc::default(),
-            protocols: Arc::new(Protocols::public()),
+            ..SwarmOptions::default()
         },
     )
 }
@@ -399,15 +405,29 @@ pub fn build_configured_swarm(
         incoming_groups,
         wire,
         protocols,
+        dial_guard,
     } = options;
+    let pow_gate = dial_guard.clone().map(PowGate::new);
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
-        .with_tcp(
-            tcp::Config::default(),
-            noise::Config::new,
-            yamux::Config::default,
-        )?
-        .with_quic()
+        .with_other_transport(|key| -> Result<_, Box<dyn Error + Send + Sync>> {
+            let tcp = tcp::tokio::Transport::new(tcp::Config::default())
+                .upgrade(upgrade::Version::V1Lazy)
+                .authenticate(noise::Config::new(key)?)
+                .multiplex(yamux::Config::default());
+            let combined = quic::tokio::Transport::new(quic::Config::new(key))
+                .or_transport(tcp)
+                .map(|output, _| match output {
+                    Either::Left((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
+                    Either::Right((peer, muxer)) => (peer, StreamMuxerBox::new(muxer)),
+                });
+            // Below DNS, so the guard sees every resolved IP, not the name.
+            Ok(match dial_guard {
+                Some(guard) => GuardDial::new(combined, guard).boxed(),
+                None => combined.boxed(),
+            })
+        })
+        .map_err(|error| anyhow::anyhow!("transport: {error}"))?
         .with_dns()?
         .with_behaviour(|key| {
             let peer_id = key.public().to_peer_id();
@@ -474,6 +494,7 @@ pub fn build_configured_swarm(
                 limits: connection_limits::Behaviour::new(limits),
                 memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),
                 incoming_groups: incoming_groups.map(IncomingGroupGuard::new).into(),
+                pow_gate: pow_gate.into(),
                 kad,
                 identify: identify::Behaviour::new(identify::Config::new(
                     protocols.version.clone(),

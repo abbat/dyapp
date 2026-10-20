@@ -119,6 +119,7 @@
 # Change these only on a test network.
 # id_pow_bits = 22                    # proof of work in node keys; the public network needs 22
 # distinct_outbound_groups = true     # at most one routed peer per /16 (IPv6 /32) per bucket
+# guard_dials = true                  # refuse dials to private IPs, cap them per /24 (IPv6 /48)
 # storage_trust_minutes = 60          # a new peer gets copies of data only after this
 # share_deny_list = false             # answer other nodes' requests for this node's deny list
 # accept_deny_lists = false           # fetch other nodes' deny lists (stored, not applied)

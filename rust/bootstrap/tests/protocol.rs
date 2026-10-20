@@ -63,6 +63,7 @@ async fn start_config_in_protocols(
         &service.config.roles,
         service.wire.clone(),
         service.protocols.clone(),
+        false,
     )
     .unwrap();
     if service.config.roles.contains(&Role::Media) {
@@ -691,6 +692,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
             &service.config.roles,
             service.wire.clone(),
             service.protocols.clone(),
+            false,
         )
         .unwrap();
         swarm

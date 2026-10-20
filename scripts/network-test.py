@@ -108,6 +108,7 @@ def start(bin_dir, storage, peers, processes, environments,
                "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
                # Loopback nodes share one /16.
                "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
+               "DYAPPD_NETWORK_GUARD_DIALS": "false",
                # Repair and ack forwarding run seconds after
                # the nodes meet.
                "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES": "0"}

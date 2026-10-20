@@ -223,7 +223,8 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
             break address;
         }
     };
-    sender.dial(addr.with(Protocol::P2p(remote))).unwrap();
+    // By address only: the peer-proof gate refuses a known peer ID without node-ID proof of work.
+    sender.dial(addr).unwrap();
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             tokio::select! {

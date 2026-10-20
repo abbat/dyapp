@@ -25,6 +25,11 @@ impl PowGate {
             required_bits: crate::id_pow_bits,
         }
     }
+
+    /// The shared guard: its `take_denied` counts transport and peer-proof refusals together.
+    pub fn guard(&self) -> &DialGuard {
+        &self.guard
+    }
 }
 
 impl NetworkBehaviour for PowGate {

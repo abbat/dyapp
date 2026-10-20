@@ -132,8 +132,13 @@ its slot once. Listening, listener removal and inbound events are delegated unch
 `PowGate::new(guard)` refuses pending outbound attempts whose known peer ID lacks the current
 node-ID proof of work and adds to the shared refusal count. Unknown peer IDs pass; inbound and
 established connections are unchanged. It contributes no extra dial addresses or swarm actions.
-**Placement below DNS, node wiring of both guards and hourly `throttled_dials` reporting
-remain planned**; current builders do not yet enforce these guards.
+`SwarmOptions::dial_guard` wires both: the swarm builder composes QUIC or TCP (Noise, Yamux)
+into one transport, wraps it in `GuardDial` and only then adds DNS, so the guard sees every
+resolved IP rather than the name; the same guard backs a `PowGate` in the behaviour. `dyappd`
+always passes a guard, enabled by `network.guard_dials` (default `true`; test networks on
+loopback or private addresses turn it off, which keeps the peer-proof gate). Clients pass `None`
+and dial unguarded. The hourly node status reports `throttled_dials`, the refusals of both since
+the preceding line.
 
 ## Protocol namespaces
 

@@ -162,6 +162,7 @@ async fn main() -> anyhow::Result<()> {
         &config.roles,
         wire.clone(),
         protocols.clone(),
+        config.network.guard_dials,
     )?;
     // A host without IPv6 cannot open [::]; the node runs on whatever does open.
     let mut listening = 0;

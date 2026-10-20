@@ -756,3 +756,55 @@ async fn client_gets_node_info() {
     .expect("no reply");
     assert_eq!(reply.info.unwrap().max_profile_bytes, 7);
 }
+
+// The guard sits below DNS: a name that resolves to loopback is refused like the IP itself,
+// while a disabled guard and an unguarded client reach the same listener.
+#[tokio::test]
+async fn dial_guard_refuses_names_resolving_to_private_ips() {
+    let mut node = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+    node.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let port = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = node.select_next_some().await {
+            break address.iter().find_map(|p| match p {
+                Protocol::Tcp(port) => Some(port),
+                _ => None,
+            });
+        }
+    }
+    .unwrap();
+    for (guard, reaches) in [
+        (Some(DialGuard::new(true)), false),
+        (Some(DialGuard::new(false)), true),
+        (None, true),
+    ] {
+        let mut dialer = build_configured_swarm(
+            Keypair::generate_ed25519(),
+            SwarmOptions {
+                dial_guard: guard.clone(),
+                ..SwarmOptions::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(dialer.behaviour().pow_gate.is_enabled(), guard.is_some());
+        let address: Multiaddr = format!("/dns4/localhost/tcp/{port}").parse().unwrap();
+        dialer.dial(address).unwrap();
+        let connected = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                tokio::select! {
+                    _ = node.select_next_some() => {}
+                    event = dialer.select_next_some() => match event {
+                        SwarmEvent::ConnectionEstablished { .. } => break true,
+                        SwarmEvent::OutgoingConnectionError { .. } => break false,
+                        _ => {}
+                    },
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(connected, reaches);
+        let refused = guard.map_or(0, |guard| guard.take_denied());
+        assert_eq!(refused > 0, !reaches);
+    }
+}

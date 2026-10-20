@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 use super::{
     IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour,
-    NodeBehaviour, ProfileBehaviour, PushBehaviour, SearchBehaviour,
+    NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour, SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
@@ -19,6 +19,8 @@ pub struct Behaviour {
     pub memory: memory_connection_limits::Behaviour,
     /// Incoming connections per remote IP group, when configured.
     pub incoming_groups: Toggle<IncomingGroupGuard>,
+    /// Refuses outbound peers without node-ID proof of work, on nodes with a dial guard.
+    pub pow_gate: Toggle<PowGate>,
     /// Store-role Kademlia over [`KAD_PROTOCOL`](crate::KAD_PROTOCOL).
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
     /// Identify, with [`IDENTIFY_PROTOCOL`](crate::IDENTIFY_PROTOCOL).

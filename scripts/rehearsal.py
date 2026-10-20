@@ -3,7 +3,8 @@
 Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR. Both hold `dyappd`; the
 NEW_BIN_DIR one is also the client. The nodes listen on 127.1.0.1, 127.2.0.1
 and 127.3.0.1, three /16 groups, so `network.distinct_outbound_groups` stays
-on; nothing else is overridden, and settings in the environment (a
+on; only `network.guard_dials` is off, since the nodes dial loopback
+addresses. Settings in the environment (a
 `DYAPPD_NETWORK_STORAGE_TRUST_MINUTES` for a dry run, say) reach every node.
 
 Steps, as in docs/manuals/bootstrap.md#first-deployment:
@@ -47,6 +48,7 @@ def environment(storage, index):
             "DYAPPD_EXTERNAL": f'["{host}:{PORT}"]',
             "DYAPPD_STORAGE_DIR": f"{storage}/{'abc'[index]}",
             "DYAPPD_ROLES": '["store", "search"]',
+            "DYAPPD_NETWORK_GUARD_DIALS": "false",
             "DYAPPD_SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]"}
 
 

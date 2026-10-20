@@ -336,6 +336,9 @@ pub struct Network {
     /// At most one peer per /16 (IPv6 /32) in a k-bucket. Turn it off only on a network whose
     /// nodes share a /16, such as a test network.
     pub distinct_outbound_groups: bool,
+    /// Refuse outbound dials to private and reserved IPs and cap them per /24 (IPv6 /48). Turn
+    /// it off only on a network whose nodes dial each other on private or loopback addresses.
+    pub guard_dials: bool,
     /// Minutes after the first connection before a peer gets replicas (repair, forwarded acks);
     /// 0 trusts at once.
     pub storage_trust_minutes: u32,
@@ -352,6 +355,7 @@ impl Default for Network {
             name: String::new(),
             id_pow_bits: dyapp_p2p_net::ID_POW_BITS,
             distinct_outbound_groups: true,
+            guard_dials: true,
             storage_trust_minutes: 60,
             share_deny_list: false,
             accept_deny_lists: false,
