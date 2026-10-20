@@ -17,19 +17,18 @@
 
 ## Field visibility
 
-Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`,
-`rust/video/src/encryption.rs`.
+Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`.
 
 | Data | Who sees it today | Protection today | Retention today | Target protection | Residual risk even in target |
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
-| Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; crypto stub) | Until acked or the TTL (default 24 h; repair can extend it, see [Retention](#retention)) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB (planned) | Size bucket and timing |
+| Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; no client encrypts with MLS yet) | Until acked or the TTL (default 24 h; repair can extend it, see [Retention](#retention)) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB (planned) | Size bucket and timing |
 | Envelope `class` (message or signal) | Operator, mailbox replicas | None; the node needs it for the signal quota | Same as body | Same | Operator counts a mailbox's signals, not which kind |
 | Mailbox address, sender key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Sealed sender (planned): a fresh key per envelope, the sender only inside the ciphertext | Operator learns which mailbox gets mail and when, and the sender's IP; today, with the published device key, also who writes to whom |
 | Profile fields (name (planned), age, country, location, income, kids, goals, orientation, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after a newer profile publish or fresh signed heartbeat, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
 | Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | A client proxy or Tor is research, not designed | Nodes link the IP to identity on publish, heartbeat, fetch and media requests, so several profiles of one person are linkable; calls with verified contacts reveal IPs to the peer |
-| Video frame content | Peer; network once transport exists | None (stub returns plaintext) | Not stored | Frame AEAD | — |
-| Video `FrameHeader` (`frame_id`, `timestamp`, `width`, `height`, `nonce`, `tag`) | Peer and network path | None | Not stored | Unencrypted by design | Resolution, frame rate, call duration |
+| Video frame content | Peer; network once transport exists | None (no frame encryption) | Not stored | SFrame | — |
+| Video frame sizes, timing and SFrame header (planned) | Peer and network path | None | Not stored | Unencrypted by design | Resolution, frame rate, call duration |
 | SDP / ICE candidates | Whoever relays signaling; no signaling channel exists yet (bootstrap has no endpoint for it) | — | — | Encrypted signaling (not designed); relay-only ICE until the contact is verified, a setting for every call (planned) | IP addresses of verified contacts inside ICE candidates |
 
 ## Retention

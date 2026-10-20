@@ -8,7 +8,8 @@
 [[trigger]]
 name = "crypto"
 paths = [
-    "rust/*/src/encryption.rs",
+    "rust/messaging/src/mls.rs",
+    "rust/messaging/src/mls/*",
     "rust/bootstrap/src/pow.rs",
     "rust/p2p-net/src/pow_gate.rs",
     "rust/p2p-net/src/endpoint_tag.rs",
@@ -17,7 +18,7 @@ paths = [
 [[trigger]]
 name = "crypto-dependency"
 paths = ["*Cargo.toml"]
-lines = '^\s*"?(argon2|blake\d*|chacha\w*|aes\w*|ed25519\w*|x25519\w*|getrandom|hkdf|hmac|rand\w*|ring|rustls\w*|sha\d\w*|zeroize)\b'
+lines = '^\s*"?(argon2|blake\d*|chacha\w*|aes\w*|ed25519\w*|x25519\w*|getrandom|hkdf|hmac|hpke\w*|openmls\w*|rand\w*|ring|rustls\w*|sha\d\w*|zeroize)\b'
 
 [[trigger]]
 name = "identity"

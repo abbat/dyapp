@@ -20,7 +20,7 @@ max_lines = 400
 "dyapp-messaging" = 4
 "dyapp-p2p-net" = 4
 "dyapp-profile" = 2
-"dyapp-video" = 4
+"dyapp-video" = 3
 
 [scorecard]
 # Practice C3: OpenSSF Scorecard aggregate score (scripts/check-scorecard.py); the target is 7.0.

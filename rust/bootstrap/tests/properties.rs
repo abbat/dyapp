@@ -4,10 +4,9 @@
 //! `scripts/check-repository.py` fails when a protobuf or serde type is missing.
 use dyapp_bootstrap::replication::ReplicationFragment;
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_messaging::{EncryptionConfig, Message, MessageStatus, Timestamp};
+use dyapp_messaging::{Message, MessageStatus, Timestamp};
 use dyapp_p2p_net::proto::*;
 use dyapp_profile::{DeviceCertificate, Photo, Profile};
-use dyapp_video::encryption::FrameHeader;
 use dyapp_video::{CodecFormat, CodecInfo, ICECandidate, ICEGatheringState};
 use proptest::prelude::*;
 use prost::Message as _;
@@ -142,8 +141,6 @@ json_round_trip! {
     message: Message = any::<Message>(),
     message_status: MessageStatus = any::<MessageStatus>(),
     timestamp: Timestamp = any::<Timestamp>(),
-    encryption_config: EncryptionConfig = any::<EncryptionConfig>(),
-    frame_header: FrameHeader = any::<FrameHeader>(),
     codec_format: CodecFormat = any::<CodecFormat>(),
     codec_info: CodecInfo = any::<CodecInfo>(),
     ice_gathering_state: ICEGatheringState = any::<ICEGatheringState>(),

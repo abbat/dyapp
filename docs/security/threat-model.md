@@ -35,7 +35,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Threat | Defence | Status |
 |--------|---------|--------|
 | Observer reads or tampers with traffic | libp2p QUIC (TLS 1.3) and TCP + Noise | ✅ Implemented ([p2p-net](../architecture/p2p-networking.md)) |
-| Operator or observer reads messages | MLS end-to-end encryption ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) | ❌ Planned: payload crypto is a stub |
+| Operator or observer reads messages | MLS end-to-end encryption ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) | ⚠️ Partial: MLS is implemented in `rust/messaging`; no client sends messages with it yet |
 | Forged or rolled-back profile | Ed25519 signature by the owner; a node rejects an older version | ✅ Implemented; a node can still serve an older version it kept, a client check is planned ([below](#data-tampering)) |
 | Another client reads or empties a mailbox | Fetch and ack signed by the device key over a nonce issued for this connection | ✅ Implemented ([mailboxes](../architecture/bootstrap.md#mailboxes)) |
 | Replayed mailbox request | The nonce is bound to one libp2p connection; other requests are idempotent | ✅ Implemented |
@@ -49,7 +49,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | No way in without one seed | Several seeds, DNS seed names, a cache of peers seen before | ⚠️ Partial: seeds the operator writes, the node's peer cache and anchors exist; node list distribution is out of scope for the first release ([joining](../architecture/p2p-networking.md#out-of-scope-for-the-first-release)) |
 | Search index flooded with fake profiles | Profile proof of work bound to the owner's key ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) | Fix: implemented canonical places, newcomer byte quota, largest-place eviction and daily heartbeat proof of work ([search](../architecture/bootstrap.md#search)); query floods face a fair queue and load puzzle ([rate limiting](../architecture/bootstrap.md#rate-limiting)). This bounds fresh-key damage; accepted residuals are listed under [denial of service](#denial-of-service) and quantified in [search capacity](../architecture/search-capacity.md#adversary) |
 | Metadata: who talks to whom | Mailbox addresses are device keys, not user IDs; delivery receipts travel as ordinary encrypted messages | ⚠️ Partial: the operator still sees which sender key writes to which mailbox, and IPs ([privacy](privacy.md)) |
-| Stolen identity or device key | Keys stay on the device, separate transport keys ([ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md)); MLS post-compromise security | ❌ Planned: no key storage, no MLS |
+| Stolen identity or device key | Keys stay on the device, separate transport keys ([ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md)); MLS post-compromise security | ⚠️ Partial: Android, iOS and macOS wrap the identity key with the platform keystore; MLS is in `rust/messaging`, its state in memory only |
 | Operator links peer IDs to IPs | — | Not defended: no relay or proxy is designed |
 
 ## Threat classes
@@ -91,7 +91,7 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, random unchecked frame tags | `rust/messaging/src/encryption.rs`, `rust/video/src/encryption.rs` | Critical × certain | Fix: MLS and frame encryption replace and delete the stubs |
+| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, random unchecked frame tags | Messages, video frames | Critical × certain | Fixed: the stubs are deleted; MLS is in `rust/messaging/src/mls.rs`, frame encryption is planned |
 | Forged, malleable or weak-key Ed25519 signature | Any `SignedRecord` | Critical × low | Accept: `verify_strict` rejects non-canonical and small-order input; every check goes through `dyapp-identity` |
 | A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: one complete registry and tests enforce distinct labels ending in `\0`, prefix freedom, separation from the locked libp2p signing contexts and rejection of cross-domain verification |
 | One key serving two purposes | Identity, device, MLS and libp2p keys | High × medium | Fix: one key per purpose, listed in [keys](encryption.md#keys) |

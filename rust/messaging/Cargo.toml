@@ -9,6 +9,13 @@ license.workspace = true
 [dependencies]
 uuid = { version = "1.0", features = ["v4"] }
 serde = { version = "1.0", features = ["derive"] }
+dyapp-identity = { path = "../identity" }
+dyapp-profile = { path = "../profile" }
+openmls = "0.9"
+openmls_basic_credential = "0.6"
+openmls_rust_crypto = "0.6"
+prost.workspace = true
+thiserror = "2"
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 

@@ -2,15 +2,12 @@
 
 /// Codec descriptions and local format matching.
 pub mod codec;
-/// Prototype frame encryption helpers.
-pub mod encryption;
 /// Local ICE candidate bookkeeping.
 pub mod ice;
 /// Caller-side WebRTC session setup.
 pub mod session;
 
 pub use codec::{CodecFormat, CodecInfo};
-pub use encryption::FrameEncryption;
 pub use ice::{ICECandidate, ICEGatheringState};
 pub use session::{SessionState, VideoSession};
 

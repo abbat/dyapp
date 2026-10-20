@@ -9,7 +9,7 @@
 > [Encryption & Security Status](../security/encryption.md).
 
 Source: `rust/video/src/session.rs` (session), `ice.rs` (candidate helpers),
-`codec.rs` (codec preference helper), `encryption.rs` (frame encryption stub),
+`codec.rs` (codec preference helper),
 `rust/ffi/src/lib.rs` (FFI wrapper).
 
 **Transport split (target):** video uses the WebRTC stack (`webrtc` crate 0.21,
@@ -38,7 +38,7 @@ hardware and open-source flags are static classifications, not capability probes
 | Callee path (accept offer, create answer) | **Not implemented**: no method sets a remote offer or creates an answer |
 | Media tracks, capture, rendering | Not implemented |
 | Signaling channel | Not implemented; bootstrap has no SDP/ICE endpoint |
-| Frame encryption | Stub (`encryption.rs`), see [below](#frame-encryption-target-design-not-implemented) |
+| Frame encryption | Not implemented, see [below](#frame-encryption-target-design-not-implemented) |
 
 ## Session states
 
@@ -131,9 +131,7 @@ value.
 
 ## Frame Encryption (target design, not implemented)
 
-`rust/video/src/encryption.rs` wraps the messaging stub: payload bytes are
-returned unchanged, nonce and tag are random bytes, and `decrypt` does not
-verify the tag. It is not called on any media path because none exists.
+No code encrypts frames, and no media path exists.
 
 WebRTC media is already encrypted hop-by-hop with DTLS-SRTP once a connection
 is established. The intended addition is end-to-end frame encryption on top
@@ -143,16 +141,16 @@ see content:
 ```
 Raw frame
   ↓ encode (codec)
-  ↓ encrypt payload with per-call key (ChaCha20-Poly1305)
+  ↓ encrypt payload with SFrame (RFC 9605), keys from the MLS exporter
   ↓ RTP packetize
   ↓ SRTP (DTLS-derived keys) over ICE-selected path
 ```
 
-**Frame header metadata** (not encrypted by design): frame ID, timestamp,
-width × height, nonce, auth tag (currently random and unchecked).
+**Frame metadata** (not encrypted): the SFrame header carries the key ID and
+counter; frame sizes and timing stay visible.
 
-**Intended per-call key** (not implemented): derived from the MLS exporter of
-the chat's group [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md). Offer and answer,
+**Per-call key**: derived from the MLS exporter of the chat's group
+(`Group::export_secret` in `rust/messaging/src/mls.rs`; no call path uses it yet) [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md). Offer and answer,
 with their DTLS fingerprints, travel as MLS messages, so MLS authenticates the
 fingerprints [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md).
 
@@ -168,15 +166,15 @@ fingerprints [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.
 ## Security and metadata
 
 - Media: no media flows today. Target hop-by-hop protection is DTLS-SRTP;
-  end-to-end frame encryption is a stub.
+  end-to-end frame encryption is planned.
 - SDP and ICE candidates are not encrypted by WebRTC; they carry IP addresses
   and DTLS fingerprints. No signaling channel exists; whoever relays it will
   see peer IDs, candidate IPs and call timing. Signaling must be
   authenticated, or a relay can swap fingerprints and sit in the middle.
 - A direct connection reveals each peer's IP to the other; a TURN server sees
   both IPs and traffic volume.
-- `FrameHeader` fields reveal resolution, frame rate and duration to anyone on
-  the media path.
+- Frame sizes and timing reveal resolution, frame rate and duration to anyone
+  on the media path.
 
 See [Privacy & Metadata Visibility](../security/privacy.md).
 

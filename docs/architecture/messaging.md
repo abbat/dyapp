@@ -19,8 +19,9 @@ delivery yet: nothing sends, retries on a timer, or persists messages.
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
   planned
 - Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
-- E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)): *planned, stubbed*
-- Signatures for authenticity (Ed25519): *planned, stubbed*
+- E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
+  implemented in `mls.rs`, [below](#e2e-encryption-mls); not yet used by the queue or delivery
+- Sender authenticity: MLS signs every message with the sender device's certified key
 
 ## Message Model
 
@@ -76,54 +77,28 @@ only a message enqueued already `Failed` can be retried today.
 `MessagingService` (in `lib.rs`) wraps the queue: `send_message` increments the clock and enqueues
 a message from the hard-coded sender `"self_id"`; it does not deliver it.
 
-## E2E Encryption (target design, not implemented)
+## E2E Encryption (MLS)
 
-The code below exists, but `encrypt`/`decrypt` return input unchanged,
-`sign` returns the message, `verify` only checks non-emptiness and
-`derive_session_key` is XOR. The flows describe the **intended** design.
+`rust/messaging/src/mls.rs` wraps openmls 0.9 ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
 
-```rust
-pub struct EncryptionConfig {    // held by E2EEncryption; values are labels only
-    pub algorithm: String,            // "ChaCha20-Poly1305" (not used)
-    pub key_exchange: String,         // "X25519" (not used)
-    pub enable_frame_encryption: bool,
-}
-```
+- `Device::new(identity, device_key, generation)` makes a fresh MLS signature key and the
+  identity-signed `DeviceCertificate` for the profile's device list; the signed certificate is the
+  device's MLS basic credential.
+- `Device::key_package(last_resort)` returns a KeyPackage valid for 30 days; a single-use one works
+  for one Welcome only.
+- `Device::create_group(key_packages)` checks each KeyPackage (signature, suite 0x0001, current and
+  at most 30 days long, certified credential) and returns the group with the Welcome for them;
+  `Device::join(welcome)` checks the suite and every member's credential.
+- `Group::encrypt` seals an application message; `Group::process` decrypts one and names the
+  sender's Peer ID, or applies a commit after checking every new or updated leaf, and refuses a
+  commit that changes the group's extensions and any bare proposal.
+- `Group::export_secret` derives per-epoch secrets such as a call's frame key.
 
-**Intended encryption flow:**
-```
-Plaintext Message
-       ↓
-[Encrypt with Session Key]
-       ↓
-Encrypted Payload + Nonce + Tag
-       ↓
-[Sign with Ed25519 Private Key]
-       ↓
-Payload + Signature + Public Key
-       ↓
-Serialize & send to peer
-```
-
-**Intended decryption flow:**
-```
-Received Message
-       ↓
-[Verify Signature with Sender's Public Key]
-       ↓
-[Decrypt with Session Key]
-       ↓
-Plaintext Message
-```
-
-**Intended session key derivation** (today: XOR placeholder):
-```
-Shared Secret (X25519) + Salt
-       ↓
-[HKDF-SHA256]
-       ↓
-32-byte Session Key
-```
+`verify_member` is the credential check: the certificate's signature under the
+`dyapp/device-certificate/v1` label, and the certified MLS key equal to the leaf's signature key.
+Whether the certificate is still in the owner's newest profile is the caller's check. openmls keeps
+group state in memory, so groups and unused KeyPackages are lost on restart until the client stores
+them.
 
 ## Hybrid Logical Clock Ordering
 
@@ -218,13 +193,4 @@ No serialization of these envelopes exists; `Message` derives serde but no forma
 Unit tests in `rust/messaging/src/*.rs` cover message creation and status setters, queue
 enqueue/dequeue, pending filter, `mark_delivered`, `remove_delivered`, clock
 increment/observe/current/clone, and `MessageOrdering` sort. `tests/integration_tests.rs` checks only the first `retry_failed()` call (re-enqueueing resets `retry_count`); later backoff steps and
-`merge()` have no tests. The encryption tests exercise the stubs only (not a security test).
-
-## Configuration
-
-Planned options (config fields exist, behaviour is not implemented):
-- **Enable frame encryption**: encrypt video frames (more secure, more CPU)
-- **Algorithm agility**: switch between ChaCha20 and AES-256 (future)
-- **Signature verification**: always verify or skip (security vs speed)
-
-`EncryptionConfig::default_secure()` sets the labels "ChaCha20-Poly1305" / "X25519"; no algorithm runs.
+`merge()` have no tests. `src/mls/tests.rs` covers MLS ([what it checks](../security/encryption.md#current-state-verified-against-source)).

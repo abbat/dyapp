@@ -38,9 +38,9 @@ node, and there is no WebRTC signaling channel.
 |-----------|--------|--------|---------------------|
 | Identity | `rust/identity/src/` | library | Ed25519 identity key, `SignedRecord` (protobuf) signed over a domain label, peer ID = hex SHA-256 of the public key; the key is not persisted or exposed over FFI yet |
 | Profile | `rust/profile/src/` | library | Public `Profile` (protobuf), signature and content checks, highest version wins, tombstone for deletion |
-| Messaging | `rust/messaging/src/` | library prototype | Message types, hybrid logical clock, in-memory queue, ChaCha20-Poly1305 helpers in `encryption.rs` |
+| Messaging | `rust/messaging/src/` | library prototype | Message types, hybrid logical clock, in-memory queue, MLS groups in `mls.rs` (openmls, in-memory state) |
 | P2P networking | `rust/p2p-net/src/` | library | libp2p 0.57 swarm: QUIC and TCP+Noise+Yamux, Kademlia `/dyapp/kad`, identify, AutoNAT; request-response `/dyapp/node`, `/dyapp/profile` with `ProtoCodec` ([P2P networking](p2p-networking.md)) |
-| Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
+| Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; no frame encryption |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers every served protocol ([bootstrap](bootstrap.md#served-protocol)), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon media (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; mailbox push, replication to five DHT points and repair |
 | Node | `rust/bootstrap/src/bin/dyappd/main.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |

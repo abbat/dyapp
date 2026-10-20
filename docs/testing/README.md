@@ -29,7 +29,8 @@ Located in `#[cfg(test)]` modules within each crate.
 **Messaging** (rust/messaging)
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
 - MessageQueue: enqueue/dequeue, pending filtering, mark/remove delivered (no TTL; `retry_failed` only in integration tests, first retry)
-- E2EEncryption: algorithm config, roundtrip encryption/decryption, signatures
+- MLS: roundtrip, tampered, replayed and foreign messages, single-use Welcome, forged
+  certificates, suite and lifetime checks, commits, exporter
 - HybridClock: wall-clock tracking, counter on a stalled or backward clock, observe, skew
   rejection, peer-ID tie-break
 
@@ -37,7 +38,6 @@ Located in `#[cfg(test)]` modules within each crate.
 - VideoSession: state machine (Idle→OfferCreated→Connected), SDP generation
 - ICECandidate: type detection (host/srflx/relay), priority ranking
 - CodecNegotiation: agreement algorithm, no agreement without a common codec
-- FrameEncryption: frame counter, roundtrip encrypt/decrypt
 
 **Bootstrap** (rust/bootstrap)
 - Mailbox: envelope once per id, size limits, fetch with challenge, ack, replay and forgery rejected, TTL
@@ -208,7 +208,7 @@ forced push) and runs
 caught: a missed one fails the step with its location and mutation, for example
 
 ```text
-MISSED   rust/messaging/src/encryption.rs:68:9: replace E2EEncryption::decrypt -> Result<Vec<u8>, String> with Ok(vec![])
+MISSED   rust/messaging/src/mls.rs:52:5: replace verify_member -> Result<String, Error> with Ok(String::new())
 ```
 
 Locally, run it after committing and before pushing, since it diffs against `origin/main`. Each

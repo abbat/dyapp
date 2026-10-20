@@ -1,15 +1,14 @@
-//! Message records, shared logical time and an in-memory plaintext queue.
+//! Message records, shared logical time, an in-memory plaintext queue and MLS groups.
 
-/// Prototype encryption helpers, not integrated into the queue service.
-pub mod encryption;
 /// Hybrid logical timestamps and deterministic ordering.
 pub mod hlc;
 /// Serializable message fields and caller-assigned status.
 pub mod message;
+/// End-to-end encrypted groups over MLS.
+pub mod mls;
 /// In-memory FIFO and retry bookkeeping.
 pub mod queue;
 
-pub use encryption::{E2EEncryption, EncryptionConfig};
 pub use hlc::{HybridClock, Timestamp};
 pub use message::{Message, MessageStatus};
 pub use queue::{MessageQueue, QueueEntry};

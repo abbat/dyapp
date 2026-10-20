@@ -1,8 +1,8 @@
 # Encryption & Security Status
 
-> **Status: NOT SECURE. Profile and KeyPackage record signatures are implemented.**
-> Every message and video frame is handled as plaintext today; profiles are
-> public by design and signed, not encrypted.
+> **Status: NOT SECURE. Profile and KeyPackage record signatures and the MLS core are
+> implemented.** No client sends messages with MLS yet and video frames are not encrypted;
+> profiles are public by design and signed, not encrypted.
 > Do not use this code with real user data.
 
 This page is the single source of truth for security claims. Other docs link
@@ -12,26 +12,20 @@ here instead of repeating guarantees.
 
 | Layer | Code | What it actually does |
 |-------|------|-----------------------|
-| Message payload | `rust/messaging/src/encryption.rs` `encrypt`/`decrypt` | Returns input bytes unchanged; key is ignored |
-| Signatures | same file, `sign` / `verify` | `sign` returns the message itself; `verify` only checks the signature is non-empty |
-| Key derivation | same file, `derive_session_key` | XOR of secret and salt, not HKDF |
-| Video frames | `rust/video/src/encryption.rs` | Wraps the stub above; nonce/tag are random bytes, tag is never checked |
+| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. Group state lives in memory only; checking a certificate against the owner's current profile is the caller's job |
+| Video frames | — | None: SFrame with keys from the MLS exporter is planned |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
-| KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; MLS signature, leaf key and lifetime must be verified by the future client |
+| KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; the client checks the MLS signature, credential and lifetime when it adds the device (`Device::create_group`) |
 | Identity key storage (FFI) | `rust/ffi/src/lib.rs` `IdentityKey`, `KeyStore` | Real in Rust: the secret leaves only through the app's `KeyStore` wrap and unwrap; Android wraps with a Keystore AES-256-GCM key, iOS and macOS with a Keychain one; desktop keystores are planned |
 | P2P transport | `rust/p2p-net/src/lib.rs` `build_swarm` | Real: libp2p QUIC (TLS 1.3) and TCP with Noise; `dyappd` uses it, no app yet |
 | Bootstrap protocol | `rust/bootstrap/src/service.rs` | libp2p only, no HTTP; profile writes need the owner's signature, reads are open; mailbox fetch and ack need the device's signature and a connection nonce |
 | Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; envelopes, profiles and KeyPackage stock as signed protobuf records |
 
-`EncryptionConfig::default_secure()` only sets strings such as
-`"ChaCha20-Poly1305"`; nothing reads them to select an algorithm, and no
-cipher crate is a dependency.
-
-Existing unit tests of `rust/messaging` and `rust/video` (roundtrip, `verify`
-returns true) exercise the stubs. **They are not evidence of any security
-property.** The profile tests do check that a tampered payload, a foreign key
-and an older version are rejected. The identity key is not stored anywhere yet:
-FFI does not expose it and no app keeps it.
+The MLS tests (`rust/messaging/src/mls/tests.rs`) check a roundtrip both ways and that a
+tampered, replayed or foreign-group message, a second join with a single-use Welcome, a forged
+certificate, another suite, a too-long lifetime and a commit adding an uncertified member are
+rejected, and that the exporter gives every member the same secret. The profile tests check that
+a tampered payload, a foreign key and an older version are rejected.
 
 ## Threat model
 
@@ -40,7 +34,7 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 | Layer | Target property | Today |
 |-------|-----------------|-------|
 | Transport (client ↔ bootstrap, peer ↔ peer) | Confidentiality and integrity in transit | libp2p QUIC (TLS 1.3) and TCP with Noise |
-| Payload (message / frame) | Only the recipient can read; sender authenticity | None: payload is plaintext, signatures are not checked |
+| Payload (message / frame) | Only the recipient can read; sender authenticity | MLS in `rust/messaging`, not yet used by a client; frames: none |
 | Profile | Only the owner can publish or change it | Signed by the owner's identity key; a node can still withhold it or serve an older signed version |
 | Storage (bootstrap SQLite) | Operator cannot read content | None: operator reads everything |
 | Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Mailboxes: only the device reads or acks; anyone may put |
@@ -49,7 +43,8 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 ## Target design
 
 The items below describe the intended client security model. The directory and node-side
-KeyPackage checks noted above are implemented; end-to-end encryption and client MLS validation
+KeyPackage checks noted above are implemented; the MLS core in
+`rust/messaging/src/mls.rs` is implemented; its use in a client, MLS state storage and SFrame
 remain planned.
 
 - Payload: MLS (RFC 9420) via `openmls`, ciphersuite 0x0001; one MLS group per conversation
@@ -88,9 +83,9 @@ One key per purpose; no key signs or encrypts for another.
 | Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; wrapped over FFI through the app's `KeyStore`; Android Keystore and Apple Keychain done, desktop planned |
 | Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
 | Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Planned |
-| MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Planned |
+| MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Implemented in `rust/messaging`, in memory only |
 | libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: a `systemd-creds` credential sealed to the host and its vTPM, or a 0600 key file | Node: implemented. Client: planned |
-| MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | Planned |
+| MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | MLS implemented in `rust/messaging`; SFrame planned |
 | Attachment key | One attachment | Inside the MLS message | Planned |
 
 Rules:
