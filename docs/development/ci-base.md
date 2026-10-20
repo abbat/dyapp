@@ -211,7 +211,7 @@ runs in `security.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 Practice B2 ([mutation testing](../testing/README.md#mutation-testing)). This job runs on
 ubuntu-24.04 with a 120-minute timeout and a full-history checkout. Setup installs
 cargo-mutants 27.1.0. Step `mutants` runs `rust-check.sh mutants` with `MUTANTS_BASE` = the PR
-base or `github.event.before`: every mutant in the changed Rust code must be caught. Artifact
+base or `github.event.before` (`origin/main` when that commit is absent): every mutant in the changed Rust code must be caught. Artifact
 **`mutants-diff`** (`if: always()`) keeps the diff and the outcome lists. The weekly full run is
 `mutants.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 

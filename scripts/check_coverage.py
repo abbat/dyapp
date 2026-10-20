@@ -92,7 +92,11 @@ def diff_coverage(changes, lines):
 
 def check_diff(lcov):
     base = os.environ.get("COVERAGE_BASE") or "origin/main"
-    if set(base) == {"0"}:  # a push that creates a branch
+    # A push that creates a branch (zeros) or is forced (the old head is gone).
+    if subprocess.run(
+            ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}",
+             "cat-file", "-e", f"{base}^{{commit}}"],
+            stderr=subprocess.DEVNULL).returncode:
         base = "origin/main"
     diff = subprocess.check_output(
         ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}", "diff",

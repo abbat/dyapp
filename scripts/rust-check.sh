@@ -82,7 +82,8 @@ step() {
         mutants)
             # Practice B2: every mutant in Rust code changed since MUTANTS_BASE must be caught.
             local base=${MUTANTS_BASE:-origin/main} src=target/mutants-src
-            [[ $base =~ ^0+$ ]] && base=origin/main # a push that creates a branch
+            # A push that creates a branch (zeros) or is forced (the old head is gone).
+            git -c safe.directory="$PWD" cat-file -e "$base^{commit}" 2>/dev/null || base=origin/main
             rm -rf "$src" target/mutants-tmp
             mkdir -p "$src" target/mutants-tmp
             git -c safe.directory="$PWD" diff --no-ext-diff --no-color "$base" -- '*.rs' \

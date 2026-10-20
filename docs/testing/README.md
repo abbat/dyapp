@@ -202,7 +202,8 @@ Practice B2, with cargo-mutants 27.1.0 (pinned in `docker/Dockerfile.dev`, `ci-b
 
 **Changed code, every push.** `make mutants` (`rust-check.sh mutants`, CI job
 [`mutants`](../development/ci-base.md#mutants--mutants)) diffs the Rust files against
-`MUTANTS_BASE` (the push or PR base in CI, `origin/main` locally) and runs
+`MUTANTS_BASE` (the push or PR base in CI; `origin/main` locally, for a new branch and after a
+forced push) and runs
 `cargo mutants --in-diff` on a copy of the tracked files. Every mutant in a changed region must be
 caught: a missed one fails the step with its location and mutation, for example
 
@@ -292,7 +293,7 @@ This is the single source of truth for coverage numbers; other docs link here.
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
 | Threshold | Ratchet (practice B1): the total must not drop below `[coverage] lines` in `scripts/baselines.toml` (86.0%). When the total exceeds it by 0.5 points or more, the check prints the value to raise it to; raise it in the same change. Lowering it weakens the gate; it was lowered once, from 87.8%, when bootstrap's inline test modules moved to separate `tests.rs` and `tests/` files, which cargo-llvm-cov leaves out of the report, so their covered lines left the total. |
-| Changed lines | At least **80%** (`MIN_DIFF`) of the instrumented Rust lines changed since `COVERAGE_BASE` must be covered: the working tree is diffed (`git diff -U0`) against it and matched with `coverage.lcov`. CI sets the PR base or the pushed-over commit; locally and for a new branch it is `origin/main`. On failure the first 50 uncovered `path:line` are printed. |
+| Changed lines | At least **80%** (`MIN_DIFF`) of the instrumented Rust lines changed since `COVERAGE_BASE` must be covered: the working tree is diffed (`git diff -U0`) against it and matched with `coverage.lcov`. CI sets the PR base or the pushed-over commit; locally, for a new branch and after a forced push (the pushed-over commit is gone) it is `origin/main`. On failure the first 50 uncovered `path:line` are printed. |
 | Scope check | Fails with "Partial workspace coverage" unless files from all 7 crates appear: bootstrap, ffi, identity, messaging, p2p-net, profile, video |
 | Exclusions | `--ignore-filename-regex '/registry/\|/dyapp[.]uniffi[.]rs$'` — dependency sources and the generated UniFFI scaffolding. Hand-written `lib.rs` files are **not** excluded. |
 | Outputs | `coverage.json`, `coverage.lcov`, `coverage.txt` |
