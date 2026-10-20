@@ -59,6 +59,7 @@ paths = [
     "rust/bootstrap/src/deny.rs",
     "rust/bootstrap/src/replication.rs",
     "rust/bootstrap/src/config.rs",
+    "rust/bootstrap/src/config/key.rs",
     "rust/bootstrap/dyappd.toml",
     "docker/Dockerfile.dyappd",
 ]
