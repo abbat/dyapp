@@ -153,8 +153,8 @@ trailing space; empty means public, and case is preserved. Named IDs use
 `/dyapp/net-<ns>/<protocol>`, where `ns` is the first eight bytes of
 SHA-256(`dyapp/network/` || name) in hex. The identify version is `/dyapp/net-<ns>`,
 the gossip prefix is `/dyapp/net-<ns>/meshsub`, and search topics are
-`/dyapp/net-<ns>/profiles/<n>`. The reserved digest ID receives the same namespace
-but has no behaviour yet; `all()` lists the nine existing protocol IDs.
+`/dyapp/net-<ns>/profiles/<n>`. `all()` lists the eleven served protocol IDs, `/dyapp/digest`
+included.
 
 The value type and name validation are implemented. `ProtoCodec::with_protocols(Arc<Protocols>)`
 uses exact configured IDs for the media frame limit and stable wire counter slots; clones share
@@ -169,7 +169,7 @@ identify/Kademlia role checks and search subscription/publication topics. A name
 covers profile/search RPCs, named gossip delivery and fixed wire labels. `dyappd` builds one
 `Protocols` from `network.name` and passes it to both; legacy node constructors remain public.
 Real TCP tests cover named/public in both directions and two different names:
-node/profile/mailbox/media/search/inventory negotiation fails with `UnsupportedProtocols`, and
+node/profile/mailbox/media/search/inventory/digest negotiation fails with `UnsupportedProtocols`, and
 gossip reports `GossipsubNotSupported`; no application payload is counted. Noise/TCP connections and
 common libp2p identify/AutoNAT protocols can still operate.
 `network.name` is parsed from file/env/CLI and validated with the same rules, defaulting to

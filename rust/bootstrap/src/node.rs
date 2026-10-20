@@ -846,6 +846,10 @@ enum StoreDone {
         ResponseChannel<proto::InventoryResponse>,
         crate::Result<proto::InventoryResponse>,
     ),
+    Digest(
+        ResponseChannel<proto::DigestResponse>,
+        crate::Result<proto::DigestResponse>,
+    ),
 }
 
 /// A finished store job; `done` is `None` when it panicked, which drops the reply.

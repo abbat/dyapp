@@ -32,7 +32,7 @@ pub struct Protocols {
     pub search: StreamProtocol,
     /// Search index inventory exchange.
     pub inventory: StreamProtocol,
-    /// Reserved for the future digest behaviour; not included in `all()` yet.
+    /// Search bucket digests.
     pub digest: StreamProtocol,
     /// None preserves libp2p's public gossipsub prefix.
     pub gossip_prefix: Option<String>,
@@ -99,8 +99,8 @@ impl Protocols {
         gossipsub::IdentTopic::new(format!("{}/profiles/{n}", self.version))
     }
 
-    /// The ten served protocol IDs; the reserved digest ID is not served yet.
-    pub fn all(&self) -> [&StreamProtocol; 10] {
+    /// The eleven served protocol IDs.
+    pub fn all(&self) -> [&StreamProtocol; 11] {
         [
             &self.kad,
             &self.search_kad,
@@ -112,6 +112,7 @@ impl Protocols {
             &self.media,
             &self.search,
             &self.inventory,
+            &self.digest,
         ]
     }
 }
@@ -137,6 +138,7 @@ mod tests {
                 "/dyapp/media",
                 "/dyapp/search",
                 "/dyapp/inventory",
+                "/dyapp/digest",
             ]
         );
         assert_eq!(public.version, "/dyapp");

@@ -33,7 +33,7 @@ class Fuzz(unittest.TestCase):
         texts = {name: (ROOT / name).read_text() for name in names}
         self.assertEqual(CHECK.fuzz_errors(texts), [])
         self.assertEqual(sum(len(CHECK.HANDLER.findall(texts[name]))
-                             for name in CHECK.HANDLERS), 7)
+                             for name in CHECK.HANDLERS), 8)
 
 
 if __name__ == "__main__":

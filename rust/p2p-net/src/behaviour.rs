@@ -3,8 +3,8 @@
 // The NetworkBehaviour derive emits `BehaviourEvent` without docs.
 #![allow(missing_docs)]
 use super::{
-    IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour,
-    NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour, SearchBehaviour,
+    DigestBehaviour, IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour, MailboxBehaviour,
+    MediaBehaviour, NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour, SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
@@ -47,4 +47,6 @@ pub struct Behaviour {
     pub search: SearchBehaviour,
     /// Search index inventory exchange.
     pub inventory: InventoryBehaviour,
+    /// Search bucket digests.
+    pub digest: DigestBehaviour,
 }

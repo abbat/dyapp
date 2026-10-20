@@ -249,13 +249,14 @@ with no request, byte or ban limits, so inputs reach the parsers instead of the 
 | `media` | `Service::media` | `MediaRequest` (`/dyapp/media`) |
 | `search` | `Service::search` | `SearchRequest` (`/dyapp/search`) |
 | `inventory` | `Service::search_inventory` | `InventoryRequest` (`/dyapp/inventory`), from a search peer |
+| `digest` | `Service::search_digest` | `DigestRequest` (`/dyapp/digest`), from a search peer |
 | `gossip` | `Service::search_gossip` | gossip bytes |
 
 The first input byte decides whether the signed records in the request are signed again by a fixed
 key; its low bits pick the signature domain. A random signature never verifies, so without this the
 payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
 stop at the nonce, which each input cannot know. Responses that a node reads as a client, mailbox
-pushes and digests have no target yet (planned).
+pushes have no target yet (planned).
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
 `rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for

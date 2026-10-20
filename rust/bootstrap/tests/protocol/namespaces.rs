@@ -95,11 +95,19 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
             proto::InventoryRequest {
                 topic: 0,
                 after: vec![],
+                before: vec![],
+            },
+        );
+        behaviour.digest.send_request(
+            &id,
+            proto::DigestRequest {
+                topic: 0,
+                bucket: None,
             },
         );
         let mut failed = std::collections::HashSet::new();
         tokio::time::timeout(Duration::from_secs(10), async {
-            while failed.len() < 7 {
+            while failed.len() < 8 {
                 if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
                     match event {
                         BehaviourEvent::Node(event) if unsupported(&event) => {
@@ -119,6 +127,9 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
                         }
                         BehaviourEvent::Inventory(event) if unsupported(&event) => {
                             failed.insert("inventory");
+                        }
+                        BehaviourEvent::Digest(event) if unsupported(&event) => {
+                            failed.insert("digest");
                         }
                         BehaviourEvent::Gossip(
                             libp2p::gossipsub::Event::GossipsubNotSupported { peer_id },

@@ -22,7 +22,8 @@ runs as its own role, on by default, and signaling is planned.
 ## Target Design — planned
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
-`/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
+`/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` and
+`/dyapp/digest`,
 the store, media and TURN roles, the search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
@@ -95,7 +96,7 @@ planned; the node still admits identify listen addresses without that verificati
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,
-`/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`
+`/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` and `/dyapp/digest`
 ([schema](protobuf-schema.md#node-protocol)); the other services get their
 schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
 `unsupported` and the client tries another node. Every reply carries a status: `ok`, `not_found`,
@@ -110,7 +111,8 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
-| `/dyapp/inventory` | search | node to node: `(topic, after)` → up to 10 000 (key, version) pairs sorted by key, for search catch-up |
+| `/dyapp/inventory` | search | node to node: `(topic, after, before)` → up to 10 000 (key, version) pairs sorted by key, for search catch-up; `before` is an exclusive upper bound, empty = none |
+| `/dyapp/digest` | search | node to node: `(topic)` → the 256 bucket hashes of the topic, `(topic, bucket)` → the 256 sub-bucket hashes of one bucket; 32 B each, same guards as `/dyapp/inventory` |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
@@ -427,8 +429,11 @@ fetch reveal device count and contact interest to store nodes; no private direct
   in the same transaction as `key`; heartbeats do not change them. Sub-bucket hashes are
   computed with a range scan and report the scanned row count. Every open rebuilds the derived
   table from `key` and logs rows and elapsed milliseconds; this full scan adds startup time
-  proportional to the number of keys. The internal inventory supports an exclusive upper bound;
-  the network still uses unbounded inventory pages. Digest-based network catch-up is planned.
+  proportional to the number of keys. `/dyapp/digest` serves these hashes and
+  `/dyapp/inventory` takes an exclusive upper bound; a search peer pays for a bucket digest out
+  of its sync budget as the larger of the reply and 40 B per scanned row, so a digest costs as
+  much as the inventory of the same rows. Catch-up does not use them yet: digest-based network
+  catch-up is planned.
 - **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks two
   random search nodes of its gossip mesh for each kept topic (one if the mesh has one), so a
   single peer that keeps a subset or withholds records leaves no silent hole, and pulls the
@@ -1442,7 +1447,7 @@ with traffic.
 | Family | Type | Labels |
 |--------|------|--------|
 | `process_start_time_seconds` | gauge | — |
-| `requests_total` | counter | `protocol`: node, profile, mailbox, media, search, inventory |
+| `requests_total` | counter | `protocol`: node, profile, mailbox, media, search, inventory, digest |
 | `request_outcomes_total` | counter | `protocol`; `outcome`: answered, timeout, closed, unsupported, omitted, io |
 | `wire_bytes_total` | counter | `protocol`: the `WireBytes` slots; `direction`: in, out |
 | `pow_checks_total`, `pow_forged_total` | counter | — |

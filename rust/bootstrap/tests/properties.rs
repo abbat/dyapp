@@ -126,6 +126,8 @@ protobuf_round_trip! {
     search_response: SearchResponse,
     inventory_request: InventoryRequest,
     inventory_response: InventoryResponse,
+    digest_request: DigestRequest,
+    digest_response: DigestResponse,
     puzzle: Puzzle,
 }
 

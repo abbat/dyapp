@@ -1,6 +1,7 @@
 //! The swarm event loop of a node.
 
 use super::*;
+mod overload;
 mod search_jobs;
 use search_jobs::{start_search, SearchDone, SearchJob};
 
@@ -147,33 +148,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 }
                 // At max_memory_mb a request is dropped unanswered: its stream is reset and the
                 // client tries another node.
-                SwarmEvent::Behaviour(
-                    BehaviourEvent::Node(Event::Message { message: Message::Request { .. }, .. })
-                    | BehaviourEvent::Profile(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    })
-                    | BehaviourEvent::KeyPackage(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    })
-                    | BehaviourEvent::Media(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    })
-                    | BehaviourEvent::Mailbox(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    })
-                    | BehaviourEvent::Search(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    })
-                    | BehaviourEvent::Inventory(Event::Message {
-                        message: Message::Request { .. },
-                        ..
-                    }),
-                ) if service.overloaded() => {}
+                SwarmEvent::Behaviour(event) if service.overloaded() && overload::is_request(&event) => {}
                 SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
                     peer: id,
                     connection_id,
@@ -371,6 +346,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         StoreDone::Inventory(channel, service.search_inventory(&from, request))
                     }));
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Digest(Event::Message {
+                    peer: id,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    let from = peer(id, &groups, connection_id);
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        StoreDone::Digest(channel, service.search_digest(&from, request))
+                    }));
+                }
                 SwarmEvent::Behaviour(BehaviourEvent::Gossip(gossipsub::Event::Message {
                     propagation_source,
                     message_id,
@@ -431,7 +416,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     }
                     if have.len() == 10_000 {
                         let after = have.last().map(|h| h.0.to_vec()).unwrap_or_default();
-                        let request = proto::InventoryRequest { topic, after };
+                        let request = proto::InventoryRequest { topic, after, before: Vec::new() };
                         let next = swarm.behaviour_mut().inventory.send_request(&id, request);
                         inventory_asked.insert(next, topic);
                     }
@@ -854,6 +839,17 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             tracing::error!(%error, "inventory request failed");
                         }
                     },
+                    StoreDone::Digest(channel, result) => match result {
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().digest.send_response(channel, response);
+                        }
+                        Err(error) => {
+                            failed += 1;
+                            tracing::error!(%error, "digest request failed");
+                        }
+                    },
                 }
                 drop_banned(&mut swarm, &service, id);
             }
@@ -928,7 +924,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
                     let Ok(pick) = getrandom::u32() else { continue };
                     for peer in catch_up_peers(&peers, pick) {
-                        let request = proto::InventoryRequest { topic, after: Vec::new() };
+                        let request = proto::InventoryRequest { topic, after: Vec::new(), before: Vec::new() };
                         let id = swarm.behaviour_mut().inventory.send_request(&peer, request);
                         inventory_asked.insert(id, topic);
                     }

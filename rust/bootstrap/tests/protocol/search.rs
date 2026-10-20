@@ -79,6 +79,29 @@ async fn search_profile_spreads_between_nodes() {
 }
 
 #[tokio::test]
+async fn digest_answers_256_bucket_hashes() {
+    let addr = start_search(None).await;
+    let mut client = Client::connect(&addr).await;
+    for bucket in [None, Some(3)] {
+        let request = proto::DigestRequest { topic: 0, bucket };
+        client
+            .swarm
+            .behaviour_mut()
+            .digest
+            .send_request(&client.server, request);
+        let reply = client
+            .wait(|event| match event {
+                BehaviourEvent::Digest(event) => response(event),
+                _ => None,
+            })
+            .await;
+        assert_eq!(status(reply.status), Status::Ok);
+        // An empty index: every bucket hash is zero.
+        assert_eq!(reply.hashes, vec![vec![0; 32]; 256]);
+    }
+}
+
+#[tokio::test]
 async fn search_queries_do_not_hold_up_the_node() {
     let addr = start_search(None).await;
     let mut client = Client::connect(&addr).await;

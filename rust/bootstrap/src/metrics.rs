@@ -15,7 +15,15 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Served request-response protocols, in label order.
-const PROTOCOLS: [&str; 6] = ["node", "profile", "mailbox", "media", "search", "inventory"];
+const PROTOCOLS: [&str; 7] = [
+    "node",
+    "profile",
+    "mailbox",
+    "media",
+    "search",
+    "inventory",
+    "digest",
+];
 /// How a served request ended: its response sent, or the inbound failure libp2p reports.
 const OUTCOMES: [&str; 6] = [
     "answered",
@@ -99,6 +107,7 @@ impl Metrics {
             SwarmEvent::Behaviour(BehaviourEvent::Media(event)) => self.served(3, event),
             SwarmEvent::Behaviour(BehaviourEvent::Search(event)) => self.served(4, event),
             SwarmEvent::Behaviour(BehaviourEvent::Inventory(event)) => self.served(5, event),
+            SwarmEvent::Behaviour(BehaviourEvent::Digest(event)) => self.served(6, event),
             SwarmEvent::ConnectionEstablished { .. } | SwarmEvent::ConnectionClosed { .. } => {
                 let counters = swarm.network_info().connection_counters().num_established();
                 let peers = swarm.connected_peers().count() as u64;

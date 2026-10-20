@@ -423,10 +423,18 @@ impl Service {
         if self.refused(peer) {
             return Ok(reply(Status::Refused));
         }
-        if request.topic >= crate::search::SEARCH_TOPICS || request.after.len() > 32 {
+        if request.topic >= crate::search::SEARCH_TOPICS
+            || request.after.len() > 32
+            || request.before.len() > 32
+        {
             return Ok(reply(Status::Invalid));
         }
-        let have = index.inventory(request.topic, &request.after, &[], MAX_SEARCH_INVENTORY)?;
+        let have = index.inventory(
+            request.topic,
+            &request.after,
+            &request.before,
+            MAX_SEARCH_INVENTORY,
+        )?;
         let response = InventoryResponse {
             status: Status::Ok.into(),
             have: have
@@ -438,6 +446,47 @@ impl Service {
                 .collect(),
         };
         if sync && !self.search_sync.try_add(response.encoded_len() as u64, 100) {
+            return Ok(reply(Status::RateLimited));
+        }
+        Ok(response)
+    }
+
+    /// `/dyapp/digest`: 256 bucket hashes of a topic, or 256 sub-bucket hashes of one bucket.
+    pub fn search_digest(
+        &self,
+        peer: &Peer,
+        request: DigestRequest,
+    ) -> crate::Result<DigestResponse> {
+        let reply = |status: Status| DigestResponse {
+            status: status.into(),
+            hashes: vec![],
+        };
+        let Some(index) = &self.search else {
+            return Ok(reply(Status::Unsupported));
+        };
+        let sync = self.is_search_peer(peer);
+        if self.shed(request.encoded_len(), SHED_MEDIA) || (!sync && !self.admit_units(peer, 10)) {
+            return Ok(reply(Status::RateLimited));
+        }
+        if self.refused(peer) {
+            return Ok(reply(Status::Refused));
+        }
+        let bucket = request.bucket.map(u8::try_from).transpose();
+        let (Ok(bucket), true) = (bucket, request.topic < crate::search::SEARCH_TOPICS) else {
+            return Ok(reply(Status::Invalid));
+        };
+        // A bucket digest scans its rows: charge them like inventory hashes (about 40 B each),
+        // so the work per budget byte matches `search_inventory`.
+        let (hashes, rows) = match bucket {
+            Some(bucket) => index.sub_digest(request.topic, bucket)?,
+            None => (index.digest(request.topic)?, 0),
+        };
+        let response = DigestResponse {
+            status: Status::Ok.into(),
+            hashes: hashes.iter().map(|hash| hash.to_vec()).collect(),
+        };
+        let charge = response.encoded_len().max(rows * 40) as u64;
+        if sync && !self.search_sync.try_add(charge, 100) {
             return Ok(reply(Status::RateLimited));
         }
         Ok(response)

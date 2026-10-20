@@ -578,16 +578,58 @@ fn search_peers_sync_on_their_own_budget() {
         let request = InventoryRequest {
             topic,
             after: vec![],
+            before: vec![],
         };
         s.search_inventory(peer, request).unwrap()
     };
-    let have = inventory(&sync, crate::search::topic(&key)).have;
+    let topic = crate::search::topic(&key);
+    let have = inventory(&sync, topic).have;
     assert_eq!(have[0].key, key.to_vec());
     assert_eq!(status_of(inventory(&sync, 16).status), Status::Invalid);
+    let bounded = |before: Vec<u8>| {
+        let request = InventoryRequest {
+            topic,
+            after: vec![],
+            before,
+        };
+        s.search_inventory(&sync, request).unwrap()
+    };
+    assert!(bounded(key.to_vec()).have.is_empty());
+    let mut above = key;
+    above[31] = above[31].wrapping_add(1);
+    assert_eq!(
+        bounded(above.to_vec()).have.len(),
+        usize::from(above[31] != 0)
+    );
+    assert_eq!(status_of(bounded(vec![0; 33]).status), Status::Invalid);
+    let digest = |topic, bucket| {
+        s.search_digest(&sync, DigestRequest { topic, bucket })
+            .unwrap()
+    };
+    let top = digest(topic, None);
+    assert_eq!(status_of(top.status), Status::Ok);
+    assert_eq!(top.hashes.len(), 256);
+    assert!(top.hashes.iter().all(|hash| hash.len() == 32));
+    let bucket = crate::search::slot(&key) >> 8;
+    assert_eq!(
+        top.hashes.iter().position(|hash| *hash != [0; 32]),
+        Some(bucket as usize)
+    );
+    let sub = digest(topic, Some(bucket));
+    assert_eq!(sub.hashes.len(), 256);
+    assert_eq!(
+        sub.hashes.iter().filter(|hash| **hash != [0; 32]).count(),
+        1
+    );
+    assert_eq!(status_of(digest(16, None).status), Status::Invalid);
+    assert_eq!(status_of(digest(0, Some(256)).status), Status::Invalid);
+    let none = service().search_digest(&sync, DigestRequest::default());
+    assert_eq!(status_of(none.unwrap().status), Status::Unsupported);
     s.search_sync
         .add(u64::from(s.config.maintenance.io_mb_per_s) << 20);
     assert_eq!(search_status(&get(&sync)), Status::RateLimited);
     assert_eq!(status_of(inventory(&sync, 0).status), Status::RateLimited);
+    assert_eq!(status_of(digest(0, None).status), Status::RateLimited);
     s.search_peer(&sync.id, false);
     assert!(!s.search_peers.lock().unwrap().contains(&sync.id));
 }

@@ -1,7 +1,7 @@
 //! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
 //! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`,
 //! `/dyapp/media`) over request-response with protobuf messages. A search node adds
-//! `/dyapp/search-kad`, gossipsub, `/dyapp/search` and `/dyapp/inventory`.
+//! `/dyapp/search-kad`, gossipsub, `/dyapp/search`, `/dyapp/inventory` and `/dyapp/digest`.
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::upgrade;
@@ -75,7 +75,7 @@ pub const SEARCH_KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/sear
 pub const SEARCH_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/search");
 /// Search index inventory exchange between search nodes.
 pub const INVENTORY_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/inventory");
-/// Reserved for search bucket digests; no behaviour serves it yet.
+/// Search bucket digests exchanged between search nodes.
 pub const DIGEST_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/digest");
 /// Provider key under which search nodes announce themselves in the main `/dyapp/kad`.
 pub const SEARCH_KEY: &[u8] = b"dyapp/search";
@@ -136,6 +136,9 @@ pub type SearchBehaviour =
 /// Request-response behaviour of [`INVENTORY_PROTOCOL`].
 pub type InventoryBehaviour =
     request_response::Behaviour<ProtoCodec<proto::InventoryRequest, proto::InventoryResponse>>;
+/// Request-response behaviour serving search bucket digests.
+pub type DigestBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::DigestRequest, proto::DigestResponse>>;
 
 /// One protobuf message per stream; the writer closes the stream after it.
 pub struct ProtoCodec<Req, Resp> {
@@ -554,7 +557,14 @@ pub fn build_configured_swarm(
                     ProtoCodec::default()
                         .with_wire(wire.clone())
                         .with_protocols(protocols.clone()),
-                    [(protocols.inventory.clone(), search_support)],
+                    [(protocols.inventory.clone(), search_support.clone())],
+                    config.clone(),
+                ),
+                digest: request_response::Behaviour::with_codec(
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.digest.clone(), search_support)],
                     config.clone(),
                 ),
                 media: request_response::Behaviour::with_codec(

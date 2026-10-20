@@ -52,6 +52,17 @@ fn old_heartbeat_decodes_with_version_zero() {
     }
     .encode_to_vec();
     assert_eq!(proto::Heartbeat::decode(old.as_slice()).unwrap().version, 0);
+    // Field 3 is absent from an older inventory request: no upper bound.
+    let old = proto::InventoryRequest {
+        topic: 3,
+        after: vec![1],
+        before: vec![],
+    }
+    .encode_to_vec();
+    assert!(proto::InventoryRequest::decode(old.as_slice())
+        .unwrap()
+        .before
+        .is_empty());
 }
 
 fn frame_bytes(size: usize) -> Vec<u8> {

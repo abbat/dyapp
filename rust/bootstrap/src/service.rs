@@ -17,9 +17,9 @@ use crate::{
 use dyapp_identity::{Domain, SignedRecord};
 use dyapp_p2p_net::proto::{
     self, mailbox_request, media_request, node_request, profile_request, search_request,
-    InventoryRequest, InventoryResponse, MailboxRequest, MailboxResponse, MediaRequest,
-    MediaResponse, NodeInfo, NodeRequest, NodeResponse, ProfileRequest, ProfileResponse,
-    SearchRequest, SearchResponse, Status, TurnCredentials,
+    DigestRequest, DigestResponse, InventoryRequest, InventoryResponse, MailboxRequest,
+    MailboxResponse, MediaRequest, MediaResponse, NodeInfo, NodeRequest, NodeResponse,
+    ProfileRequest, ProfileResponse, SearchRequest, SearchResponse, Status, TurnCredentials,
 };
 use prost::Message;
 use std::collections::{HashMap, HashSet};

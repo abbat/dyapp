@@ -13,7 +13,7 @@
 |------|---------|----------|
 | `proto/identity.proto` | `dyapp.identity` | `SignedRecord` |
 | `proto/profile.proto` | `dyapp.profile` | `Profile`, `DeviceCertificate` |
-| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` |
+| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory`, `/dyapp/digest` |
 
 The files are the source; comments in them define each field.
 
@@ -132,8 +132,12 @@ SHA-256 of the device public key (32 bytes each).
   `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 8 values,
   inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and
   `partial` when the scan budget ran out; `get(SearchGet)` returns up to 50 records, cut at 1 MiB.
-- **`/dyapp/inventory`** (search role): node to node, `InventoryRequest(topic, after)`
-  returns up to 10 000 `SearchHit`s of that gossip topic sorted by key, for catch-up.
+- **`/dyapp/inventory`** (search role): node to node, `InventoryRequest(topic, after, before)`
+  returns up to 10 000 `SearchHit`s of that gossip topic sorted by key, for catch-up; `before`
+  is an exclusive upper bound, empty (as from an older node) means none.
+- **`/dyapp/digest`** (search role): node to node, `DigestRequest(topic, bucket?)` returns
+  exactly 256 hashes of 32 B: the buckets of the topic, or the sub-buckets of one bucket;
+  `INVALID` for a topic past 15 or a bucket past 255.
 
 ### Rejection hints
 
