@@ -4,6 +4,7 @@
 use super::*;
 use crate::claims::Claims;
 use libp2p::core::ConnectedPoint;
+use libp2p::kad::store::RecordStore as _;
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 
 /// The identify version of a peer of another network is logged up to this many bytes.
@@ -37,8 +38,8 @@ pub(super) fn drop_foreign(
 /// address the peer says it sees for this node.
 #[derive(Default)]
 pub(super) struct Admission {
-    /// The remote address of each open connection, and whether this node dialled it.
-    remotes: HashMap<ConnectionId, (Multiaddr, bool)>,
+    /// The peer and remote address of each open connection, and whether this node dialled it.
+    remotes: HashMap<ConnectionId, (PeerId, Multiaddr, bool)>,
     claims: Claims,
     /// Whether each connected peer with claims routes in the node DHT and the search DHT.
     roles: HashMap<PeerId, (bool, bool)>,
@@ -55,7 +56,8 @@ impl Admission {
         endpoint: &ConnectedPoint,
     ) {
         let remote = endpoint.get_remote_address().clone();
-        self.remotes.insert(id, (remote, endpoint.is_dialer()));
+        self.remotes
+            .insert(id, (peer, remote, endpoint.is_dialer()));
         if let Some(address) = self.claims.confirm(id, peer) {
             let (kad, search) = self.roles.get(&peer).copied().unwrap_or_default();
             if search {
@@ -87,8 +89,28 @@ impl Admission {
     pub(super) fn dialed(&self, id: &ConnectionId) -> Option<&Multiaddr> {
         self.remotes
             .get(id)
-            .filter(|(_, dialer)| *dialer)
-            .map(|(a, _)| a)
+            .filter(|(_, _, dialer)| *dialer)
+            .map(|(_, a, _)| a)
+    }
+
+    /// Accept a provider address only when its advertised peer has a live connection on the
+    /// same exact IP. The sender may be a different peer forwarding the record.
+    pub(super) fn provider_allowed(&self, record: &kad::ProviderRecord) -> bool {
+        !record.addresses.is_empty()
+            && record.addresses.iter().all(|address| {
+                self.remotes.iter().any(|(_, (peer, remote, _))| {
+                    *peer == record.provider && dyapp_p2p_net::same_ip(remote, address)
+                })
+            })
+    }
+
+    /// Store only admissible provider records. FilterBoth leaves all other remote records out.
+    pub(super) fn add_provider(&self, swarm: &mut Swarm<Behaviour>, record: kad::ProviderRecord) {
+        if self.provider_allowed(&record) {
+            if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
+                tracing::debug!(%error, "DHT provider record not stored");
+            }
+        }
     }
 
     /// Open connections.
@@ -124,7 +146,7 @@ pub(super) fn add_node(
     // Only search nodes serve the search DHT, so its protocol marks one.
     let search = pow && info.protocols.contains(&service.protocols.search_kad);
     let kad = info.protocols.contains(&service.protocols.kad);
-    let Some((remote, _)) = admission.remotes.get(&id) else {
+    let Some((_, remote, _)) = admission.remotes.get(&id) else {
         return false;
     };
     let remote = remote.clone();
@@ -183,6 +205,48 @@ mod tests {
         assert_eq!(cut("ab", 80), "ab");
         assert_eq!(cut("aй", 2), "a");
         assert_eq!(cut("aй", 3), "aй");
+    }
+
+    #[test]
+    fn provider_addresses_need_the_advertised_peers_live_ip() {
+        let provider = PeerId::random();
+        let sender = PeerId::random();
+        let provider_connection = ConnectionId::new_unchecked(1);
+        let sender_connection = ConnectionId::new_unchecked(2);
+        let mut admission = Admission::default();
+        admission.remotes.insert(
+            provider_connection,
+            (
+                provider,
+                "/ip6/2001:db8::1/tcp/7070".parse().unwrap(),
+                false,
+            ),
+        );
+        admission.remotes.insert(
+            sender_connection,
+            (sender, "/ip6/2001:db8::2/tcp/7070".parse().unwrap(), false),
+        );
+        let mut record = kad::ProviderRecord {
+            key: kad::RecordKey::new(&b"test"),
+            provider,
+            expires: None,
+            addresses: vec!["/ip6/2001:db8::1/udp/7071/quic-v1".parse().unwrap()],
+        };
+        // The sender's connection cannot substantiate the advertised provider's address.
+        assert!(admission.provider_allowed(&record));
+        record
+            .addresses
+            .push("/ip6/2001:db8::2/tcp/7070".parse().unwrap());
+        assert!(!admission.provider_allowed(&record));
+        record.addresses = vec!["/dns/example.test/tcp/7070".parse().unwrap()];
+        assert!(!admission.provider_allowed(&record));
+        record.addresses.clear();
+        assert!(!admission.provider_allowed(&record));
+        record
+            .addresses
+            .push("/ip6/2001:db8::1/tcp/7070".parse().unwrap());
+        admission.closed(provider_connection, provider, true);
+        assert!(!admission.provider_allowed(&record));
     }
 
     #[test]

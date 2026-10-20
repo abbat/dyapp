@@ -35,6 +35,21 @@ fn same_ip_compares_direct_hosts_not_groups_or_ports() {
     }
 }
 
+#[test]
+fn filtered_kad_keeps_local_provider_announcements() {
+    use libp2p::kad::store::RecordStore as _;
+    let mut swarm = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+    let key = kad::RecordKey::new(&b"local-provider");
+    swarm
+        .behaviour_mut()
+        .kad
+        .start_providing(key.clone())
+        .unwrap();
+    let providers = swarm.behaviour_mut().kad.store_mut().providers(&key);
+    assert_eq!(providers.len(), 1);
+    assert_eq!(providers[0].provider, *swarm.local_peer_id());
+}
+
 #[derive(Clone, PartialEq, prost::Message)]
 struct Frame {
     #[prost(bytes = "vec", tag = "1")]

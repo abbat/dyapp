@@ -99,7 +99,12 @@ on that dial's ID proves an address; a failed or at once refused dial frees its 
 peer's queued claims go with its last connection. The node now uses `same_ip` for identify listen
 addresses on the connected peer's exact remote IP and probes other claimed addresses with
 one-address, peer-ID-pinned dials before routing to them. Failed, stale and unrelated connections
-prove nothing. Provider-record filtering and the outbound dial guard remain planned.
+prove nothing. Both DHTs filter inbound records: no remote value records are stored, and
+search Kademlia stores no remote providers. The store DHT keeps a provider record only when
+every advertised direct address has the exact IP of a live connection to that provider,
+regardless of the address's port or transport; a disconnected provider or a forged foreign
+address is rejected. Local provider announcements still work. The outbound dial guard is
+described in [P2P networking](p2p-networking.md#dial-filtering).
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,

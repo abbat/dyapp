@@ -38,7 +38,7 @@ pending/established admission, cleanup on failure/close, composed refusals and o
 |------|---------|
 | Transports | QUIC (`/udp/<port>/quic-v1`) and TCP with Noise and Yamux |
 | Kademlia | protocol `/dyapp/kad`, in-memory record store |
-| identify | protocol `/dyapp`; tells peers their observed address. `dyappd` routes a same-IP listen address from the connection's remote endpoint immediately; other claimed addresses require a one-address, peer-ID-pinned successful probe. Node/search DHT membership still requires the corresponding protocol and node-ID proof of work. Provider-record filtering remains planned. |
+| identify | protocol `/dyapp`; tells peers their observed address. `dyappd` routes a same-IP listen address from the connection's remote endpoint immediately; other claimed addresses require a one-address, peer-ID-pinned successful probe. Node/search DHT membership still requires the corresponding protocol and node-ID proof of work. Both DHTs filter inbound records; dyappd stores no remote DHT values or search providers, and keeps a store-DHT provider only when every advertised address matches a live connection IP of that provider. |
 | AutoNAT | v1, as client and server; confirms external addresses |
 | Dialing | Happy Eyeballs (RFC 8305), libp2p smart dial: every address of a peer is dialled, QUIC before TCP and IPv6 before IPv4; IPv4 starts 250 ms after IPv6 on public addresses, 30 ms on private ones, and the first connection wins. A failed IPv6 dial does not start IPv4 sooner, and an IPv6 failure is not remembered, so every dial tries IPv6 again |
 | Idle connections | closed after 60 s |
@@ -87,7 +87,7 @@ connected peers: libp2p tests before it evicts, dialling the oldest disconnected
 replacing it with the new one only if it is still disconnected after 60 s, so long-lived peers
 stay in it. The search Kademlia (`/dyapp/search-kad`) inserts the same way through
 `add_search_peer`: the same proof of work and limits, counted in its own table. Unit tests
-check the limits. Addresses claimed through identify are not verified by a dial.
+check the limits. Identify addresses on another IP require a successful peer-ID-pinned dial before routing.
 
 Not implemented yet:
 

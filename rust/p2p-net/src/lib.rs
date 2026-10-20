@@ -443,7 +443,8 @@ pub fn build_configured_swarm(
             // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
             kad_config
                 .disjoint_query_paths(true)
-                .set_kbucket_inserts(kad::BucketInserts::Manual);
+                .set_kbucket_inserts(kad::BucketInserts::Manual)
+                .set_record_filtering(kad::StoreInserts::FilterBoth);
             let mut kad = kad::Behaviour::with_config(
                 peer_id,
                 kad::store::MemoryStore::new(peer_id),
@@ -459,7 +460,9 @@ pub fn build_configured_swarm(
             };
             kad.set_mode(kad_mode);
             let mut search_config = kad::Config::new(protocols.search_kad.clone());
-            search_config.set_kbucket_inserts(kad::BucketInserts::Manual);
+            search_config
+                .set_kbucket_inserts(kad::BucketInserts::Manual)
+                .set_record_filtering(kad::StoreInserts::FilterBoth);
             let mut search_kad = kad::Behaviour::with_config(
                 peer_id,
                 kad::store::MemoryStore::new(peer_id),

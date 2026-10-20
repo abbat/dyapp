@@ -536,6 +536,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         Err(error) => tracing::warn!(%error, "search node not announced"),
                     }
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::InboundRequest {
+                    request: kad::InboundRequest::AddProvider { record: Some(record) },
+                })) => admission.add_provider(&mut swarm, record),
                 // Only a search node with too few gossip peers looks for providers: dial them.
                 SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
                     result: kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FoundProviders { providers, .. })),
