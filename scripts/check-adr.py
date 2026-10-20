@@ -26,6 +26,8 @@ SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
 # Pushed commits that lack the trailer and the ADR covering each;
 # history is not rewritten.
 COVERED = {
+    "792eb488d0f521f4e99647b0eed6dbb0ea1b3efe":
+        "docs/decisions/0015-sqlite-node-storage.md",
     "b665f8eb6103cfae36c96750ab1b7e62216ece23":
         "docs/decisions/0014-libp2p-only-node-protocol.md",
     "47d3207e88219a2eb6619f108aa43fd307a70804":

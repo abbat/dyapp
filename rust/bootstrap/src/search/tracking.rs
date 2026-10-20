@@ -78,8 +78,9 @@ fn size_eviction_marks_the_evicted_keys() {
         .collect();
     index.track_start().unwrap();
     let after = put_at(&index, "2950159", 60, t, false);
+    // Eviction takes the highest `r`, which may fall on new keys only; those are in `after`.
     let evicted = removed(&index, &held);
-    assert!(!evicted.is_empty());
+    assert!(!evicted.is_empty() || !removed(&index, &after).is_empty());
     let mut expected: HashSet<_> = after.into_iter().collect();
     expected.extend(evicted);
     assert_eq!(dirty(&index), expected);
