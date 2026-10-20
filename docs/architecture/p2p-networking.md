@@ -162,9 +162,12 @@ and two different names: node/profile/mailbox/media/search/inventory negotiation
 `UnsupportedProtocols`, and gossip reports `GossipsubNotSupported`; no application payload is
 counted. Noise/TCP connections and common libp2p identify/AutoNAT protocols can still operate.
 `network.name` is parsed from file/env/CLI and validated with the same rules, defaulting to
-empty. Binary activation and storage binding are still staged: `dyappd` explicitly refuses
-nonempty names for start and keygen, preventing a silent fallback to public. **Storage guards,
-actual binary selection and disconnecting foreign identify peers remain planned**; namespace
+empty. `NodeConfig::bind_network` binds `storage.dir` to one network through the `network`
+marker file (the name, no newline), written by `keygen` or at the first start and never
+replaced; a directory with data but no marker belongs to the public network
+([bootstrap](bootstrap.md#storage-network)). Binary activation is still staged: `dyappd`
+explicitly refuses nonempty names for start and keygen, preventing a silent fallback to public.
+**Actual binary selection and disconnecting foreign identify peers remain planned**; namespace
 IDs alone do not implement those policies.
 
 ## Out of scope for the first release

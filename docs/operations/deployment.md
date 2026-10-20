@@ -199,7 +199,7 @@ roles = ["store"]      # e.g. ["store", "media", "turn"]: media serves /dyapp/me
                        # profile search; all need store in the list
 
 [storage]
-dir = "/var/lib/dyappd"   # node.key, node.id, profiles.db, messages.db, media.db,
+dir = "/var/lib/dyappd"   # node.key, node.id, network, profiles.db, messages.db, media.db,
                           # deny.db, profiles-idx.db (search), peers, anchors;
                           # media blob files in data/
 
@@ -275,7 +275,9 @@ creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
 `storage.dir` and prints the peer ID. The key carries the node-ID proof of work: SHA-256 of
 the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCPU
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Keygen refuses when a key or any
-data already exists. Turn `network.distinct_outbound_groups` off only on a network whose
+data already exists. Keygen, or the first start, also writes `network` with `network.name`; a
+node never starts in a directory of another network, so moving a node to another network needs
+a new `storage.dir` ([storage binding](../architecture/bootstrap.md#storage-network)). Turn `network.distinct_outbound_groups` off only on a network whose
 nodes share a /16, such as a LAN or a test network. The node does not start without the key,
 with a key that lacks the proof of work or with one that does not match `node.id`: a new key is
 a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe and readable

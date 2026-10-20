@@ -92,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     let keypair = config.node_key()?;
+    config.bind_network()?;
     let deny_signer = config
         .network
         .share_deny_list

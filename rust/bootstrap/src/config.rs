@@ -731,20 +731,24 @@ impl NodeConfig {
     }
 
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
-    /// 2 vCPU) and binds the data directory to it. Refuses an existing key or existing data: a new
-    /// key is a new node.
+    /// 2 vCPU) and binds the data directory to it and to `network.name`. Refuses an existing key,
+    /// existing data or a directory of another network: a new key is a new node.
     pub fn keygen(&self) -> anyhow::Result<PeerId> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
-        let mut data = [key_path.clone(), id_path.clone()]
-            .into_iter()
-            .chain(self.storage.stores());
-        if let Some(file) = data.find(|s| s.exists()) {
+        if let Some(file) = [&key_path, &id_path].into_iter().find(|s| s.exists()) {
             anyhow::bail!(
                 "{} exists: a new key is a new node, delete the data to start from scratch",
                 file.display()
             );
         }
+        if self.has_data()? {
+            anyhow::bail!(
+                "{} holds node data: a new key is a new node, delete the data to start from scratch",
+                self.storage.dir.display()
+            );
+        }
+        self.bind_network()?;
         let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
         let encoded = Zeroizing::new(keypair.to_protobuf_encoding()?);
         OpenOptions::new()
@@ -830,6 +834,8 @@ fn check_writable(dir: &Path) -> anyhow::Result<()> {
         .and_then(|()| fs::remove_file(&probe))
         .map_err(|e| anyhow::anyhow!("{} is not writable by this user: {e}", dir.display()))
 }
+
+mod binding;
 
 #[cfg(test)]
 #[path = "config/validation.rs"]

@@ -227,3 +227,113 @@ fn node_key_is_bound_to_the_data() {
     config.network.id_pow_bits = 32;
     config.node_key().unwrap_err();
 }
+
+fn named(name: &str) -> NodeConfig {
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    config.network.name = name.into();
+    config.network.id_pow_bits = 0;
+    config.validate().unwrap();
+    config
+}
+
+fn marker(config: &NodeConfig) -> Vec<u8> {
+    fs::read(config.storage.dir.join("network")).unwrap()
+}
+
+#[test]
+fn keygen_and_start_bind_storage_to_one_network() {
+    // keygen binds a fresh directory to the configured name.
+    let mut config = named("city");
+    config.keygen().unwrap();
+    assert_eq!(marker(&config), b"city");
+    config.bind_network().unwrap();
+    config.network.name = "other".into();
+    let error = config.bind_network().unwrap_err().to_string();
+    assert!(
+        error.contains("\"city\"") && error.contains("\"other\""),
+        "{error}"
+    );
+    config.network.name = String::new();
+    config.bind_network().unwrap_err();
+    assert_eq!(marker(&config), b"city");
+
+    // A first start without data takes the configured name, the public one included.
+    for name in ["city", ""] {
+        let config = named(name);
+        config.bind_network().unwrap();
+        assert_eq!(marker(&config), name.as_bytes());
+    }
+
+    // keygen in a directory of another network writes neither key nor id.
+    let mut config = named("city");
+    config.bind_network().unwrap();
+    config.network.name = "other".into();
+    config.keygen().unwrap_err();
+    assert!(!config.storage.key_path().exists());
+    assert!(!config.storage.dir.join("node.id").exists());
+    assert_eq!(marker(&config), b"city");
+}
+
+#[test]
+fn data_without_a_marker_belongs_to_the_public_network() {
+    let mut data: Vec<String> = ["profiles.db", "profiles-idx.db", "messages.db", "media.db"]
+        .into_iter()
+        .flat_map(|store| ["", "-wal", "-shm", "-journal"].map(|suffix| format!("{store}{suffix}")))
+        .collect();
+    data.extend(["data/".into(), "media/".into()]);
+    for name in data {
+        let mut config = named("city");
+        let path = config.storage.dir.join(&name);
+        if name.ends_with('/') {
+            fs::create_dir(&path).unwrap();
+        } else {
+            fs::write(&path, b"").unwrap();
+        }
+        let error = config.bind_network().unwrap_err().to_string();
+        assert!(
+            error.contains("storage belongs to the public network"),
+            "{name}: {error}"
+        );
+        assert_eq!(marker(&config), b"", "{name}");
+        config.keygen().unwrap_err();
+        config.network.name = String::new();
+        config.bind_network().unwrap();
+    }
+
+    // The deny list, peer caches and a key alone are not data.
+    let config = named("city");
+    for path in [
+        config.storage.deny_path(),
+        config.storage.peers_path(),
+        config.storage.anchors_path(),
+        config.storage.key_path(),
+    ] {
+        fs::write(path, b"").unwrap();
+    }
+    config.bind_network().unwrap();
+    assert_eq!(marker(&config), b"city");
+}
+
+#[test]
+fn malformed_markers_are_refused_and_kept() {
+    for bad in [
+        vec![b'a'; 65],
+        vec![0xff],
+        b"bad\nname".to_vec(),
+        b" city".to_vec(),
+    ] {
+        for name in ["", "city"] {
+            let config = named(name);
+            fs::write(config.storage.dir.join("network"), &bad).unwrap();
+            config.bind_network().unwrap_err();
+            config.keygen().unwrap_err();
+            assert_eq!(marker(&config), bad);
+            assert!(!config.storage.key_path().exists());
+        }
+    }
+    // A directory in place of the marker is an inspection error, not a missing marker.
+    let config = named("city");
+    fs::create_dir(config.storage.dir.join("network")).unwrap();
+    config.bind_network().unwrap_err();
+}
