@@ -25,8 +25,12 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
     ] {
         let server_protocols =
             std::sync::Arc::new(dyapp_p2p_net::Protocols::new(server_name).unwrap());
-        let client_protocols =
-            std::sync::Arc::new(dyapp_p2p_net::Protocols::new(client_name).unwrap());
+        // The server's identify version keeps the node from dropping the client, so only the
+        // stream IDs differ.
+        let client_protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols {
+            version: server_protocols.version.clone(),
+            ..dyapp_p2p_net::Protocols::new(client_name).unwrap()
+        });
         let (address, wire) = start_config_in_protocols(
             |c| {
                 c.roles = vec![Role::Store, Role::Media, Role::Search];
@@ -137,6 +141,41 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
         assert_eq!(wire.take().0, [[0; 2]; 10]);
         assert_eq!(client.wire.take().0, [[0; 2]; 10]);
     }
+}
+
+#[tokio::test]
+async fn peers_of_another_network_are_dropped_after_identify() {
+    let city = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("city").unwrap());
+    let (address, _) = start_config_in_protocols(|c| c.network.name = "city".into(), city).await;
+    let mut client = Client::connect(&address).await; // the public network
+    let id = client.server;
+    client.swarm.behaviour_mut().node.send_request(
+        &id,
+        proto::NodeRequest {
+            request: Some(node_request::Request::Info(proto::InfoRequest {})),
+        },
+    );
+    // The request fails on the IDs; only the identify check closes the connection: the idle
+    // timeout is 60 s.
+    let (mut failed, mut closed) = (false, false);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while !(failed && closed) {
+            match client.swarm.select_next_some().await {
+                SwarmEvent::Behaviour(BehaviourEvent::Node(Event::OutboundFailure { .. })) => {
+                    failed = true;
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message { .. })) => {
+                    panic!("RPC negotiated across networks")
+                }
+                SwarmEvent::ConnectionClosed {
+                    num_established: 0, ..
+                } => closed = true,
+                _ => {}
+            }
+        }
+    })
+    .await
+    .expect("not disconnected");
 }
 
 #[tokio::test]

@@ -670,7 +670,9 @@ Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 Source: `rust/bootstrap/src/service.rs` and `service/` (request handling), `node.rs` and
 `node/` (the libp2p loop), `rust/p2p-net` (`ProtoCodec`, protocol IDs), `storage.rs` (SQLite), `media.rs` (blobs).
 `dyappd` serves these libp2p request-response protocols over TCP and QUIC, one protobuf request and one reply
-per stream ([schema](protobuf-schema.md#node-protocol)). Each request and reply is capped at
+per stream ([schema](protobuf-schema.md#node-protocol)). The IDs below are the public network's;
+a node with a `network.name` serves each as `/dyapp/net-<ns>/<p>`
+([ADR 0017](../decisions/0017-network-names.md)). Each request and reply is capped at
 1 MiB + 64 KiB, except `/dyapp/media`, which allows 6 MiB + 64 KiB. These are wire limits;
 the payload and storage limits below are checked separately.
 
@@ -1245,7 +1247,9 @@ prevented. See [Privacy & Metadata Visibility](../security/privacy.md).
 
 There is no health endpoint: `/dyapp/node` `info` answering is the liveness check. Metrics are
 log lines without peer or key identifiers. Each maintenance run logs `node status`: connected and
-known peers, requests answered and failed with a node error since the last run, stored bytes of
+known peers, requests answered and failed with a node error since the last run, connections
+dropped after identify because the peer belongs to another network (`foreign_peers`; a peer with
+two connections counts twice), stored bytes of
 profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
 (`pow_forged`), search newcomers evicted by the quota (`newcomer_evictions`), capped replica
 sends (`replica_dropped`), and per-protocol `wire_bytes`; plus refusals per

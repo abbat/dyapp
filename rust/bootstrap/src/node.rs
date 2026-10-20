@@ -1,5 +1,6 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
+mod identified;
 mod jobs;
 mod replicas;
 mod replies;
@@ -901,12 +902,14 @@ fn send_catch_up(
 }
 
 /// The hourly status line: no peer or key identifiers, counts and sizes only.
+#[allow(clippy::too_many_arguments)]
 fn status(
     service: &Service,
     swarm: &Swarm<Behaviour>,
     known: usize,
     answered: u64,
     failed: u64,
+    foreign_peers: u64,
     media_replica_holders: usize,
     replica_dropped: u64,
 ) {
@@ -918,6 +921,7 @@ fn status(
         known,
         answered,
         failed,
+        foreign_peers,
         profiles_bytes = bytes(service.store.profiles_usage()),
         messages_bytes = bytes(service.store.messages_usage()),
         media_bytes = service.media.as_ref().map_or(0, |m| bytes(m.usage())),

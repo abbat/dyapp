@@ -51,8 +51,8 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
         })
         .finish();
     tracing::subscriber::with_default(subscriber, || {
-        status(&service, &swarm, 0, 3, 0, 0, 0);
-        status(&service, &swarm, 0, 0, 0, 0, 0);
+        status(&service, &swarm, 0, 3, 0, 0, 0, 0);
+        status(&service, &swarm, 0, 0, 0, 0, 0, 0);
     });
     let log = std::fs::read_to_string(path).unwrap();
     let lines = log.lines().collect::<Vec<_>>();

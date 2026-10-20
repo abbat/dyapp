@@ -53,5 +53,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0014](0014-libp2p-only-node-protocol.md) | Clients and nodes talk over libp2p only |
 | [0015](0015-sqlite-node-storage.md) | SQLite for bootstrap node storage |
 | [0016](0016-protocol-evolution.md) | Protocol evolution without versions: capabilities, tightening as new variants, NodeInfo as hints |
+| [0017](0017-network-names.md) | Network names: namespaced protocol IDs, foreign peers dropped after identify, storage bound to one network |
 
 All listed ADRs are accepted.

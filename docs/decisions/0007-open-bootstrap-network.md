@@ -38,6 +38,8 @@ run them, and whoever controls them can control the network.
 - Node operators see public profiles and routing metadata by design
   ([ADR 0003](0003-public-signed-profile-encrypted-private-data.md)).
 - Calls behind strict NATs depend on volunteers running TURN nodes.
+- Independent networks with their own names share the code but not the network:
+  [ADR 0017](0017-network-names.md).
 - Implemented: `dyappd` is a libp2p node in the Kademlia DHT (`/dyapp/kad`, the store role's
   key space) and announces its roles, TURN included, through identify
   ([Roles and discovery](../architecture/bootstrap.md#roles-and-discovery)). Separate key spaces

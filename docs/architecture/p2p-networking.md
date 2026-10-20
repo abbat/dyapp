@@ -171,8 +171,10 @@ key and before opening any store. `test-peer` speaks the network named by
 `DYAPPD__NETWORK__NAME` (public when unset or empty) and fails on an invalid name.
 `scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the
 same name is served, a public client is not, and a public start on its storage is refused.
-**Disconnecting foreign identify peers remains planned**; namespace IDs alone do not implement
-that policy.
+After identify a node disconnects a peer whose `protocol_version` differs from its own and adds
+it to no DHT and no anchor list ([ADR 0017](../decisions/0017-network-names.md)): `warn` with
+the address when it dialled that peer (a seed or anchor of another network), `debug` otherwise;
+the peer's version is logged escaped and cut to 80 bytes.
 
 ## Out of scope for the first release
 

@@ -147,7 +147,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
         Duration::from_secs(3600),
     );
     // Requests answered and failed with a node error since the last maintenance run.
-    let (mut answered, mut failed) = (0u64, 0u64);
+    // Connections dropped after identify because the peer belongs to another network.
+    let (mut answered, mut failed, mut foreign_peers) = (0u64, 0u64, 0u64);
     let mut puzzle_tick = tokio::time::interval(crate::puzzle::TICK);
     let mut put_check = tokio::time::interval(Duration::from_millis(100));
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
@@ -624,36 +625,21 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 })) => {
                     replicas.media_failure(&mut swarm, &service, peer, request_id, &error);
                 }
+                // Before any routing: a peer of another network enters no DHT and no anchors.
+                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                    connection_id, peer_id, info,
+                })) if info.protocol_version != service.protocols.version => {
+                    foreign_peers += 1;
+                    identified::drop_foreign(&mut swarm, dialed.get(&connection_id), peer_id, &info.protocol_version);
+                }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
-                // ponytail: claimed addresses pass the IP-group limits but are not verified by a
-                // dial; a peer can claim another group's address.
                 SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
-                    connection_id,
-                    peer_id,
-                    info,
+                    connection_id, peer_id, info,
                 })) if info.protocols.contains(&service.protocols.kad) || info.protocols.contains(&service.protocols.search_kad) => {
-                    let bits = dyapp_p2p_net::id_pow_bits();
-                    // Only search nodes serve the search DHT, so its protocol marks one.
-                    if info.protocols.contains(&service.protocols.search_kad) && dyapp_p2p_net::id_has_pow(&peer_id, bits) {
-                        for address in &info.listen_addrs {
-                            dyapp_p2p_net::add_search_peer(&mut swarm, peer_id, address.clone());
-                        }
-                        service.search_peer(&peer_id.to_string(), true);
-                    }
-                    if !info.protocols.contains(&service.protocols.kad) {
+                    if !identified::add_node(&mut swarm, &service, &mut anchors, dialed.get(&connection_id), peer_id, info) {
                         continue;
                     }
-                    // A routable peer this node dialled answered: it becomes an anchor.
-                    if let Some(address) = dialed.get(&connection_id) {
-                        if dyapp_p2p_net::id_has_pow(&peer_id, bits) {
-                            remember_anchor(&mut anchors, peer_id, address);
-                        }
-                    }
-                    for address in info.listen_addrs {
-                        dyapp_p2p_net::add_peer(&mut swarm, peer_id, address);
-                    }
-                    // Peers enter the routing table here, not through kad's own inserts.
                     if turn_unannounced && turn_query.is_none() {
                         let key = kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY);
                         turn_query = swarm.behaviour_mut().kad.start_providing(key).ok();
@@ -983,9 +969,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     tracing::warn!(refused, group_refused, "connections refused by connection, IP group or memory limits");
                     refused = 0;
                 }
-                status(&service, &swarm, peers.len(), answered, failed, replicas.media_holders.1, replicas.cap.take_dropped());
+                status(&service, &swarm, peers.len(), answered, failed, foreign_peers, replicas.media_holders.1, replicas.cap.take_dropped());
                 state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
-                (answered, failed) = (0, 0);
+                (answered, failed, foreign_peers) = (0, 0, 0);
                 if service.search.is_some()
                     && swarm.behaviour().gossip.as_ref().is_some_and(|g| g.all_peers().count() < 6)
                 {
