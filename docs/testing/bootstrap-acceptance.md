@@ -104,8 +104,8 @@ three distinct nodes remains planned.
 ### Replication, placement and repair
 
 Media-repair scheduling cursor/window/rolling-hour assertions live in
-`src/media_repair/schedule.rs`; transfer and recoverability fixtures remain
-in `media_repair.rs`. Both files meet the source-size limit, with no runtime or
+`src/media_repair/schedule.rs`; transfer and recoverability fixtures live
+in `src/media_repair/tests.rs`. Both files meet the source-size limit, with no runtime or
 assertion changes.
 
 | Behaviour | Layer | Test | Status |
