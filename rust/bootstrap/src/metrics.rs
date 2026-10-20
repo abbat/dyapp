@@ -3,6 +3,8 @@
 //! Counters only grow while the process runs; the hourly status lines take their own deltas.
 //! Label values come from fixed tables, never from peers, keys, hashes or addresses.
 
+pub mod listener;
+
 use crate::service::Service;
 use dyapp_p2p_net::{Behaviour, BehaviourEvent, WireBytes};
 use libp2p::request_response::{self, InboundFailure, Message};

@@ -16,6 +16,7 @@
 use dyapp_bootstrap::config::{options_help, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
+use dyapp_bootstrap::metrics::{self, listener};
 use dyapp_bootstrap::search::SearchIndex;
 use dyapp_bootstrap::service::Service;
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
@@ -106,6 +107,10 @@ async fn main() -> anyhow::Result<()> {
     }
     let keypair = config.node_key()?;
     config.bind_network()?;
+    let scrapes = match config.metrics.address()? {
+        Some(address) => Some(listener::bind(address).await?),
+        None => None,
+    };
     let deny_signer = config
         .network
         .share_deny_list
@@ -165,6 +170,11 @@ async fn main() -> anyhow::Result<()> {
         service.search = Some(std::sync::Arc::new(index));
     }
     service.deny_signer = deny_signer;
+    let service = std::sync::Arc::new(service);
+    if let Some(scrapes) = scrapes {
+        metrics::spawn_snapshots(&service);
+        tokio::spawn(listener::serve(scrapes, service.clone()));
+    }
     node::run(swarm, service).await;
     Ok(())
 }

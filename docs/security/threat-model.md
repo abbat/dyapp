@@ -73,7 +73,7 @@ defences already in place. Nodes are untrusted by design
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
-| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ⚠️ Partial: no metrics endpoint, no software version in `NodeInfo`, logs without peer identifiers; global-only addresses and a plain agent version in identify are planned ([below](#node-internals-disclosure)) |
+| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ⚠️ Partial: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers; global-only addresses and a plain agent version in identify are planned ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, technical abuse response only (accepted residual risk); a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
@@ -340,7 +340,9 @@ protection. A compromised OS, root and accessibility malware are out of scope.
 ### Node internals disclosure
 
 Class 13 in detail. In place: `NodeInfo` carries roles, limits and retention but no software
-version; nodes have no HTTP admin or metrics endpoint; `node status` and `node state` log lines
+version; nodes have no HTTP admin endpoint, and the opt-in metrics listener binds loopback only,
+serves only `GET /metrics` and labels series from fixed tables ([metrics
+listener](../architecture/bootstrap.md#metrics-listener)); `node status` and `node state` log lines
 carry no peer or key identifiers and request logs are not written; `dyappd status` is a local
 command. Identify still sends the libp2p default agent version (`rust-libp2p/<version>`) and every
 listen address, so a node listening on `[::]` or `0.0.0.0` announces its LAN, Docker and VPN
@@ -354,8 +356,8 @@ addresses, and receivers add them to their routing tables unfiltered.
 | Map the network from Kademlia replies | `FIND_NODE` | Low × high | Accept: routing needs it; Sybil limits are in [Hostile node](#hostile-node) |
 | Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |
 | Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers |
-| Scrape a future metrics endpoint | Metrics (planned) | Medium × medium | Fix: when metrics land, they bind to loopback by default and carry no peer or key identifiers |
-| An attack or a failing node goes unnoticed: there are no metrics or alerts, only `dyappd status`, the health check and logs | Operator | Medium × high | Accept for the first release: the operator reads status and logs ([monitoring](../operations/deployment.md#monitoring)). Fix (planned): Prometheus metrics on loopback ([metrics](../architecture/bootstrap.md#monitoring--metrics)) |
+| Scrape the metrics endpoint | Metrics | Medium × medium | Fix: implemented; the listener is off by default, accepts only a loopback address, has no authentication beyond that, bounds connections, head size and time, and carries no peer or key identifiers ([metrics listener](../architecture/bootstrap.md#metrics-listener)). Accept: any local user of the host can read the counters |
+| An attack or a failing node goes unnoticed | Operator | Medium × high | Fix: Prometheus metrics on an opt-in loopback listener ([metrics](../architecture/bootstrap.md#metric-families)); alerts are the operator's scraper's job ([monitoring](../operations/deployment.md#monitoring)) |
 | Fingerprint a node by response timing | Any request | Low × low | See [Side channels and timing](#side-channels-and-timing) |
 
 ### Side channels and timing

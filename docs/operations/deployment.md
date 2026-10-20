@@ -261,6 +261,9 @@ storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on tes
 share_deny_list = false          # answer other nodes with the signed deny list (no notes)
 accept_deny_lists = false        # fetch and store other nodes' lists; no action taken
 
+[metrics]
+listen = ""            # loopback ip:port such as 127.0.0.1:9464 serves GET /metrics; empty = off
+
 [search]               # search role only
 max_profile_bytes = 65536
 max_bytes = 53687091200     # profiles-idx.db; above it the oldest heartbeats leave
@@ -429,7 +432,7 @@ built-in list of bootstrap URLs plus a user-editable setting.
 
 ### Health check (exists)
 
-There is no HTTP endpoint. A node is alive when it answers `/dyapp/node` `info`:
+There is no HTTP health endpoint. A node is alive when it answers `/dyapp/node` `info`:
 
 ```bash
 test-peer info /ip4/127.0.0.1/tcp/7070    # exit 0 and "STATUS_OK" → alive
@@ -437,14 +440,24 @@ test-peer info /ip4/127.0.0.1/tcp/7070    # exit 0 and "STATUS_OK" → alive
 
 The reply holds roles and limits only: no counts, peer numbers or replication fields.
 
+### Metrics (exists)
+
+Set `[metrics] listen = "127.0.0.1:9464"` (or `--metrics.listen`, `DYAPPD__METRICS__LISTEN`) to
+serve Prometheus text at `http://127.0.0.1:9464/metrics`; only loopback addresses are accepted
+and the node does not start when the port is taken. A scraper on another host reaches it through
+a tunnel or a local agent. Families and listener limits:
+[metric families](../architecture/bootstrap.md#metric-families),
+[metrics listener](../architecture/bootstrap.md#metrics-listener).
+
+```bash
+curl -s http://127.0.0.1:9464/metrics | grep '^dyapp_connected_peers'
+```
+
 ### Not implemented
 
 These do not exist and need a separate implementation task before they can be
 documented as runnable:
 
-- Metrics: beyond the hourly `node status`, guard and connection log lines and the
-  `node state` line (hourly and on `kill -HUP`, [Monitoring](../architecture/bootstrap.md#monitoring--metrics)),
-  none; no `/metrics` endpoint
 - Request logs: `dyappd` logs startup, listen addresses, storage errors and cleanup
   (`RUST_LOG`), not individual requests
 

@@ -4,9 +4,8 @@ use super::*;
 
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and on SIGHUP; an old `<storage.dir>/deny` file is imported once at start.
-pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
+pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     use tokio::signal::unix::{signal, SignalKind};
-    let service = Arc::new(service);
     let mut hangup = match signal(SignalKind::hangup()) {
         Ok(hangup) => hangup,
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),

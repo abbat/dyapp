@@ -122,3 +122,7 @@
 # storage_trust_minutes = 60          # a new peer gets copies of data only after this
 # share_deny_list = false             # answer other nodes' requests for this node's deny list
 # accept_deny_lists = false           # fetch other nodes' deny lists (stored, not applied)
+
+[metrics]
+# Prometheus text format at GET /metrics, without authentication; see docs/architecture/bootstrap.md.
+# listen = ""                         # loopback ip:port such as 127.0.0.1:9464; empty = off

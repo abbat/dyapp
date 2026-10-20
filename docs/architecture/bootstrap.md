@@ -1325,10 +1325,10 @@ traffic, duplicate delivery and forwarding fan-out.
 ### Metric families
 
 `dyapp_bootstrap::metrics` keeps process-lifetime counters and renders them in the Prometheus
-text format 0.0.4; the hourly status lines take their own deltas and never reset them. The
-`/metrics` listener that serves the text is planned. Every name starts with `dyapp_`; label
-values come from fixed tables, never from peers, keys, hashes or addresses, so the series count
-does not grow with traffic.
+text format 0.0.4, served by the [metrics listener](#metrics-listener); the hourly status lines
+take their own deltas and never reset them. Every name starts with `dyapp_`; label values come
+from fixed tables, never from peers, keys, hashes or addresses, so the series count does not grow
+with traffic.
 
 | Family | Type | Labels |
 |--------|------|--------|
@@ -1355,6 +1355,21 @@ connection events. Storage gauges come from a snapshot read every 5 minutes on t
 pool, off the swarm loop; rendering reads only atomics, that snapshot and the search index
 state, takes no store lock and changes nothing, so repeated scrapes are safe. A failed read
 sets `storage_read_ok` to 0 and drops the size samples rather than reporting zero.
+
+### Metrics listener
+
+`[metrics] listen` turns on an HTTP/1.x listener in the node process; it is empty, and the
+listener off, by default. The address is a loopback `ip:port` such as `127.0.0.1:9464` or
+`[::1]:9464`: startup refuses any other address, a hostname or port 0, because the endpoint has
+no authentication, and fails when the address cannot be bound. The listener and the 5-minute
+storage snapshots run only when it is set; they stop with the process.
+
+It answers one request per connection and closes it. `GET /metrics` returns the families above
+with `Content-Type: text/plain; version=0.0.4; charset=utf-8`; another method on that path gets
+405, any other path, query string included, 404, a malformed request line 400 and a request head
+over 8 KiB 431. At most 4 connections are served at once, others wait in the accept queue, and
+a connection that has not sent its request and taken the reply within 5 seconds is closed. The
+listener reads no request body and serves nothing else.
 
 ## Testing
 

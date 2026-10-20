@@ -2,7 +2,7 @@ use super::*;
 use crate::storage::BootstrapStore;
 use crate::NodeConfig;
 
-fn service() -> Service {
+pub(super) fn service() -> Service {
     let dir = format!("/tmp/ai/test-metrics-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
@@ -30,6 +30,24 @@ fn a_fresh_render_is_well_formed_and_has_no_snapshot() {
         assert!(name.starts_with("dyapp_"), "{line}");
         assert!(name.bytes().all(|b| b.is_ascii_graphic()), "{line}");
         value.parse::<u64>().unwrap();
+        // Labels come from the fixed tables only: no peer, key or address.
+        let labels = name
+            .split_once('{')
+            .map_or("", |(_, l)| l.trim_end_matches('}'));
+        for label in labels.split(',').filter(|l| !l.is_empty()) {
+            let value = label.split_once('=').unwrap().1.trim_matches('"');
+            let known: [&[&str]; 8] = [
+                &PROTOCOLS,
+                &OUTCOMES,
+                &GUARDS,
+                &STORES,
+                &PHASES,
+                &WireBytes::NAMES,
+                &["in", "out"],
+                &["postpone", "overflow", "drop_refill", "stop_the_world"],
+            ];
+            assert!(known.iter().any(|t| t.contains(&value)), "{line}");
+        }
     }
     assert_eq!(value(&text, "dyapp_snapshot_timestamp_seconds"), Some(0));
     assert!(!text.contains("dyapp_storage_read_ok{"));

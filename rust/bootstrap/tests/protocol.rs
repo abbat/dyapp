@@ -80,7 +80,7 @@ async fn start_config_in_protocols(
         }
     };
     let wire = service.wire.clone();
-    tokio::spawn(node::run(swarm, service));
+    tokio::spawn(node::run(swarm, std::sync::Arc::new(service)));
     (addr.with(libp2p::multiaddr::Protocol::P2p(peer)), wire)
 }
 
@@ -741,7 +741,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         }
     }
     for (swarm, service) in swarms.into_iter().zip(services) {
-        tokio::spawn(node::run(swarm, service));
+        tokio::spawn(node::run(swarm, std::sync::Arc::new(service)));
     }
     let mut client = Client::connect(&addresses[0]).await;
     let reply = client.media(Request::Keep(record)).await;

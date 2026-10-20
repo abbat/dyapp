@@ -160,6 +160,8 @@ pub struct NodeConfig {
     pub media: Media,
     /// The `[search]` section.
     pub search: Search,
+    /// The `[metrics]` section.
+    pub metrics: Metrics,
 }
 
 /// The search role, see docs/architecture/bootstrap.md#search.
@@ -246,6 +248,30 @@ impl Search {
     /// Whether this node keeps keys of `topic`.
     pub fn keeps(&self, topic: u32) -> bool {
         self.topics.is_empty() || self.topics.contains(&topic)
+    }
+}
+
+/// The `[metrics]` section: the optional Prometheus listener.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Metrics {
+    /// Loopback `ip:port` serving `GET /metrics`; empty, the default, serves nothing.
+    pub listen: String,
+}
+
+impl Metrics {
+    /// The listener address, `None` when off. Only a loopback address with a port is accepted:
+    /// the endpoint has no authentication.
+    pub fn address(&self) -> anyhow::Result<Option<SocketAddr>> {
+        if self.listen.is_empty() {
+            return Ok(None);
+        }
+        match self.listen.parse::<SocketAddr>() {
+            Ok(address) if address.ip().is_loopback() && address.port() != 0 => Ok(Some(address)),
+            _ => anyhow::bail!(
+                "metrics.listen must be a loopback ip:port such as 127.0.0.1:9464, or empty"
+            ),
+        }
     }
 }
 
@@ -466,6 +492,7 @@ impl Default for NodeConfig {
             turn: Turn::default(),
             media: Media::default(),
             search: Search::default(),
+            metrics: Metrics::default(),
         }
     }
 }
@@ -657,6 +684,7 @@ impl NodeConfig {
         if self.listen.is_empty() {
             anyhow::bail!("listen: at least one address is required");
         }
+        self.metrics.address()?;
         if let Some(role) = self
             .roles
             .iter()

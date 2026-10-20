@@ -226,3 +226,32 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
     );
     assert!(options_help().contains("--network.name"));
 }
+
+#[test]
+fn metrics_listen_is_off_or_loopback() {
+    // A config from before the section loads with the listener off.
+    let (config, ignored) = NodeConfig::load(None, [], &[]).unwrap();
+    assert!(ignored.is_empty());
+    assert_eq!(config.metrics.address().unwrap(), None);
+    let listen = |address: &str| {
+        let options = [("metrics.listen".to_owned(), address.to_owned())];
+        let (config, _) = NodeConfig::load(None, [], &options).unwrap();
+        config.metrics.address()
+    };
+    assert_eq!(
+        listen("127.0.0.1:9464").unwrap(),
+        Some("127.0.0.1:9464".parse().unwrap())
+    );
+    assert!(listen("[::1]:9464").unwrap().is_some());
+    for refused in [
+        "0.0.0.0:9464",
+        "[::]:9464",
+        "192.0.2.1:9464",
+        "[::ffff:127.0.0.1]:9464",
+        "127.0.0.1:0",
+        "localhost:9464",
+        "127.0.0.1",
+    ] {
+        assert!(listen(refused).is_err(), "{refused}");
+    }
+}
