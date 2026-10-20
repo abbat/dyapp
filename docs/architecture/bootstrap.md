@@ -1342,7 +1342,7 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `network.{name,id_pow_bits,distinct_outbound_groups,guard_dials,deny_dial}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
-`turn.{urls,secret,credential_minutes}` ([TURN](#turn-credentials)),
+`turn.{urls,secret,secret_file,credential_minutes}` (`secret_file` is read into `secret` before validation) ([TURN](#turn-credentials)),
 `search.{max_profile_bytes,max_bytes,newcomer_days,newcomer_share,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
 the role); the
 example and startup checks are in [operator manual](../manuals/bootstrap.md#configuration). `dyappd`

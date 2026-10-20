@@ -295,8 +295,11 @@ impl Default for Media {
 pub struct Turn {
     /// `turn:` / `turns:` URLs handed to peers.
     pub urls: Vec<String>,
-    /// coturn's `static-auth-secret`; `DYAPPD_TURN_SECRET` keeps it out of the file.
+    /// coturn's `static-auth-secret`; prefer `secret_file`: an option shows in `ps`.
     pub secret: crate::secret::Secret,
+    /// A file holding the secret, one trailing newline dropped, e.g. a systemd credential;
+    /// empty means unset.
+    pub secret_file: PathBuf,
     /// Lifetime of the credentials the node hands out.
     pub credential_minutes: u32,
 }
@@ -306,6 +309,7 @@ impl Default for Turn {
         Self {
             urls: vec![],
             secret: crate::secret::Secret::default(),
+            secret_file: PathBuf::new(),
             credential_minutes: 60,
         }
     }
@@ -638,6 +642,27 @@ impl StorageConfig {
 }
 
 impl NodeConfig {
+    /// Reads `turn.secret_file` into `turn.secret`; call before [`NodeConfig::validate`].
+    pub fn resolve_secrets(&mut self) -> anyhow::Result<()> {
+        let path = &self.turn.secret_file;
+        if path.as_os_str().is_empty() {
+            return Ok(());
+        }
+        if !self.turn.secret.expose().is_empty() {
+            anyhow::bail!("turn.secret and turn.secret_file are both set");
+        }
+        let text = Zeroizing::new(
+            fs::read_to_string(path)
+                .map_err(|e| anyhow::anyhow!("turn.secret_file {}: {e}", path.display()))?,
+        );
+        let secret = text.strip_suffix('\n').unwrap_or(&text);
+        if secret.is_empty() {
+            anyhow::bail!("turn.secret_file {}: empty", path.display());
+        }
+        self.turn.secret = secret.into();
+        Ok(())
+    }
+
     /// Reads the file (if given), the environment and the `--` options as (`section.key`,
     /// value); an option is named as its key with `-` for `_`, and a list option is given once
     /// per item. Returns the config and the ignored keys; an unknown option is refused.

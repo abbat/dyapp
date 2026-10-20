@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
             .init();
     }
     let file = file.or_else(default_file);
-    let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
+    let (mut config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
     for key in ignored {
         tracing::warn!("unknown config key ignored: {key}");
     }
@@ -91,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
         println!("{output}");
         return Ok(());
     }
+    config.resolve_secrets()?;
     config.validate()?;
     // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
     // After validate: the /proc/self of a non-dumpable process belongs to root.

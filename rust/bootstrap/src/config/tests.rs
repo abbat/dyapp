@@ -161,6 +161,39 @@ fn options_override_env() {
 }
 
 #[test]
+fn turn_secret_file() {
+    let dir = temp_dir();
+    fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("turn.secret");
+    let path = file.display().to_string();
+    let load = |content: &str, secret: Option<&str>| {
+        fs::write(&file, content).unwrap();
+        let mut env = vec![("DYAPPD_TURN_SECRET_FILE".to_owned(), path.clone())];
+        env.extend(secret.map(|s| ("DYAPPD_TURN_SECRET".to_owned(), s.to_owned())));
+        let (mut config, _) = NodeConfig::load(None, env, &[]).unwrap();
+        config
+            .resolve_secrets()
+            .map(|()| config.turn.secret.expose().to_owned())
+    };
+    assert_eq!(load("s3cret\n", None).unwrap(), "s3cret");
+    assert_eq!(load("s3cret\n\n", None).unwrap(), "s3cret\n");
+    assert!(load("", None).unwrap_err().to_string().contains(&path));
+    let both = load("s3cret", Some("other")).unwrap_err().to_string();
+    assert_eq!(both, "turn.secret and turn.secret_file are both set");
+    fs::remove_dir_all(&dir).unwrap();
+    let options = [("turn.secret-file".to_owned(), path.clone())];
+    let (mut config, _) = NodeConfig::load(None, [], &options).unwrap();
+    assert!(config
+        .resolve_secrets()
+        .unwrap_err()
+        .to_string()
+        .contains(&path));
+    let mut config = NodeConfig::default();
+    config.resolve_secrets().unwrap();
+    assert!(config.turn.secret.expose().is_empty());
+}
+
+#[test]
 fn deny_dial_defaults_overrides_and_validation() {
     let mut config = NodeConfig::default();
     assert_eq!(

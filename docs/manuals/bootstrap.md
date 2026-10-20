@@ -434,7 +434,8 @@ Used by the `turn` role only.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `urls` | `[]` | `turn:` / `turns:` URLs of the coturn relay handed to peers, e.g. `turn:turn.example.org:3478`. |
-| `secret` | `""` | coturn's `static-auth-secret`. Set it as `DYAPPD_TURN_SECRET` in a mode 0600 `EnvironmentFile=`, never on the command line. |
+| `secret` | `""` | coturn's `static-auth-secret`. Prefer `secret_file`; otherwise set `DYAPPD_TURN_SECRET` in a mode 0600 `EnvironmentFile=`, never on the command line. |
+| `secret_file` | `""` | A file holding the secret, e.g. a systemd credential (`LoadCredential=turn.secret:/etc/dyappd/turn.secret` and `DYAPPD_TURN_SECRET_FILE=%d/turn.secret`). One trailing newline is dropped. Setting both `secret` and `secret_file`, or an empty or unreadable file, stops startup. |
 | `credential_minutes` | 60 | Lifetime of the passwords handed out. |
 
 ### `[search]`
@@ -695,7 +696,8 @@ max-bps=1000000
 no-cli
 ```
 
-Pass `DYAPPD_TURN_SECRET` through a systemd `EnvironmentFile=` with mode 0600. Open the
+Give the node the secret as a file through `turn.secret_file` (or `DYAPPD_TURN_SECRET` in a
+systemd `EnvironmentFile=` with mode 0600). Open the
 listening port (3478 UDP and TCP, 5349 for TLS) and the relay port range (`min-port`/`max-port`,
 49152–65535 by default). At startup the node refuses the role without a secret or with a URL
 that does not start with `turn:` or `turns:`. Credentials expire after `turn.credential_minutes`;

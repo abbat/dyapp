@@ -106,7 +106,8 @@
 [turn]
 # Used by the turn role. coturn runs with use-auth-secret and the same static-auth-secret.
 # urls = []                           # e.g. ["turn:turn.example.org:3478", "turns:turn.example.org:5349"]
-# secret = ""                         # set DYAPPD_TURN_SECRET in a drop-in: an option shows in ps
+# secret = ""                         # prefer secret_file; an option shows in ps
+# secret_file = ""                    # file with the secret (one trailing newline dropped), e.g. a systemd credential
 # credential_minutes = 60             # lifetime of the passwords handed out
 
 [maintenance]

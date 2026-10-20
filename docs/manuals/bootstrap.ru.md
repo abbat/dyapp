@@ -443,7 +443,8 @@ peer ID, затем по одной записи `seeds` на каждый ад�
 | Ключ | По умолчанию | Значение |
 |------|--------------|----------|
 | `urls` | `[]` | URL `turn:` / `turns:` ретранслятора coturn, выдаваемые пирам, например `turn:turn.example.org:3478`. |
-| `secret` | `""` | `static-auth-secret` coturn. Задавайте как `DYAPPD_TURN_SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
+| `secret` | `""` | `static-auth-secret` coturn. Предпочтительнее `secret_file`; иначе задавайте `DYAPPD_TURN_SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
+| `secret_file` | `""` | Файл с секретом, например systemd credential (`LoadCredential=turn.secret:/etc/dyappd/turn.secret` и `DYAPPD_TURN_SECRET_FILE=%d/turn.secret`). Один завершающий перевод строки отбрасывается. Заданные одновременно `secret` и `secret_file`, пустой или нечитаемый файл останавливают запуск. |
 | `credential_minutes` | 60 | Время жизни выдаваемых паролей. |
 
 ### `[search]`
@@ -711,7 +712,8 @@ max-bps=1000000
 no-cli
 ```
 
-Передавайте `DYAPPD_TURN_SECRET` через systemd `EnvironmentFile=` с режимом 0600. Откройте порт
+Передавайте секрет файлом через `turn.secret_file` (или `DYAPPD_TURN_SECRET` через systemd
+`EnvironmentFile=` с режимом 0600). Откройте порт
 прослушивания (3478 UDP и TCP, 5349 для TLS) и диапазон портов ретрансляции
 (`min-port`/`max-port`, по умолчанию 49152–65535). При запуске узел отклоняет роль без секрета или
 с URL, который не начинается с `turn:` или `turns:`. Учётные данные истекают через
