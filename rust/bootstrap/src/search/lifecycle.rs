@@ -107,8 +107,9 @@ fn puts_past_max_bytes_stay_near_it() {
     let max = probe.usage().unwrap();
     let index = sized(max);
     put_at(&index, "2950159", 4_000, index.created(), false);
-    // One 1 % check window plus a batch.
-    assert!(index.usage().unwrap() <= max + max / 50);
+    // Usage is re-read every 1 % of max_bytes of records written, but the file also grows by
+    // their index rows and random keys fill B-tree pages unevenly: 2 % was flaky.
+    assert!(index.usage().unwrap() <= max * 105 / 100);
     assert!(index.place_counts()[0].2 < 4_000);
     assert_eq!(index.place_counts(), index.recount());
     assert_digest_consistent(&index);
