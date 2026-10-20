@@ -73,7 +73,7 @@ defences already in place. Nodes are untrusted by design
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
-| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ⚠️ Partial: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers; global-only addresses and a plain agent version in identify are planned ([below](#node-internals-disclosure)) |
+| 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, technical abuse response only (accepted residual risk); a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
@@ -346,14 +346,14 @@ version; nodes have no HTTP admin endpoint, and the opt-in metrics listener bind
 serves only `GET /metrics` and labels series from fixed tables ([metrics
 listener](../architecture/bootstrap.md#metrics-listener)); `node status` and `node state` log lines
 carry no peer or key identifiers and request logs are not written; `dyappd status` is a local
-command. Identify still sends the libp2p default agent version (`rust-libp2p/<version>`) and every
-listen address, so a node listening on `[::]` or `0.0.0.0` announces its LAN, Docker and VPN
-addresses, and receivers add them to their routing tables unfiltered.
+command. Identify sends the agent version `dyapp` and only the global listen addresses, or all of
+them when none is global (a LAN or test network), so a node listening on `[::]` or `0.0.0.0`
+keeps its LAN, Docker and VPN addresses.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Learn a node's private LAN, Docker or VPN addresses | Identify listen addresses | Medium × high | Fix: a node announces only global addresses unless all its listen addresses are non-global (a LAN or test network); receivers drop non-global addresses learned from identify of a peer with a global address |
-| Pick an exploit by the libp2p version | Identify agent version | Medium × medium | Fix: the agent version is the constant `dyapp`, no version. Accept: protocol versions stay visible, they are needed to talk |
+| Learn a node's private LAN, Docker or VPN addresses | Identify listen addresses | Medium × high | Fix, implemented: a node announces only global addresses unless all its listen addresses are non-global (a LAN or test network); receivers drop non-global addresses learned from identify of a peer with a global address |
+| Pick an exploit by the libp2p version | Identify agent version | Medium × medium | Fix, implemented: the agent version is the constant `dyapp`, no version. Accept: protocol versions stay visible, they are needed to talk |
 | Learn a node's roles from its protocol list and `NodeInfo` | Identify protocols, `node.info` | Low × high | Accept: clients need roles and limits to choose nodes |
 | Map the network from Kademlia replies | `FIND_NODE` | Low × high | Accept: routing needs it; Sybil limits are in [Hostile node](#hostile-node) |
 | Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |

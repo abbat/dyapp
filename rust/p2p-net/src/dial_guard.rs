@@ -155,7 +155,7 @@ fn group(ip: IpAddr) -> IpAddr {
 }
 
 /// The specified deny ranges, not a complete IANA global-unicast classifier.
-fn forbidden(ip: IpAddr) -> bool {
+pub(crate) fn forbidden(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
             let [a, b, c, _] = ip.octets();

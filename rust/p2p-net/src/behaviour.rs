@@ -3,13 +3,13 @@
 // The NetworkBehaviour derive emits `BehaviourEvent` without docs.
 #![allow(missing_docs)]
 use super::{
-    DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour,
-    MailboxBehaviour, MediaBehaviour, NodeBehaviour, PowGate, ProfileBehaviour, PushBehaviour,
-    SearchBehaviour,
+    Announce, DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour,
+    KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour, NodeBehaviour, PowGate,
+    ProfileBehaviour, PushBehaviour, SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits};
+use libp2p::{autonat, connection_limits, gossipsub, kad, memory_connection_limits};
 
 /// Every behaviour of a client or node swarm.
 #[derive(NetworkBehaviour)]
@@ -26,8 +26,9 @@ pub struct Behaviour {
     pub endpoints: Endpoints,
     /// Store-role Kademlia over [`KAD_PROTOCOL`](crate::KAD_PROTOCOL).
     pub kad: kad::Behaviour<kad::store::MemoryStore>,
-    /// Identify, with [`IDENTIFY_PROTOCOL`](crate::IDENTIFY_PROTOCOL).
-    pub identify: identify::Behaviour,
+    /// Identify, with [`IDENTIFY_PROTOCOL`](crate::IDENTIFY_PROTOCOL), announcing only preferred
+    /// listen addresses.
+    pub identify: Announce,
     /// External address confirmation.
     pub autonat: autonat::Behaviour,
     /// Node control requests.

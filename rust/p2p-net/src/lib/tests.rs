@@ -204,6 +204,14 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
     let response_len = expected_response.encoded_len() as u64;
     let check_identify = |info: &identify::Info, server: bool| {
         assert_eq!(info.protocol_version, protocols.version);
+        assert_eq!(info.agent_version, crate::AGENT_VERSION);
+        // A loopback-only node still announces its address; the client listens on none.
+        let listening = if server {
+            vec![address.clone()]
+        } else {
+            Vec::new()
+        };
+        assert_eq!(info.listen_addrs, listening);
         let ids = info
             .protocols
             .iter()
@@ -232,7 +240,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
             .iter()
             .any(|id| id.starts_with(protocols.gossip_prefix.as_ref().unwrap())));
     };
-    b.dial(address).unwrap();
+    b.dial(address.clone()).unwrap();
     let (mut a_identified, mut b_identified, mut received) = (false, false, false);
     tokio::time::timeout(Duration::from_secs(10), async {
         while !(a_identified && b_identified && received) {

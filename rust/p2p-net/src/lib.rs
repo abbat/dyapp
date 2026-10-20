@@ -22,6 +22,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod announce;
+pub use announce::Announce;
 mod behaviour;
 pub use behaviour::{Behaviour, BehaviourEvent};
 mod dial_filter;
@@ -57,6 +59,8 @@ pub mod proto {
 pub const KAD_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/kad");
 /// Identify protocol version and ID prefix of the public network.
 pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
+/// Identify agent version of every peer: no library or build version.
+pub const AGENT_VERSION: &str = "dyapp";
 /// Node control requests.
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 /// Profile publication and lookup.
@@ -508,9 +512,9 @@ pub fn build_configured_swarm(
                 pow_gate: pow_gate.into(),
                 endpoints: Endpoints::default(),
                 kad,
-                identify: identify::Behaviour::new(identify::Config::new(
-                    protocols.version.clone(),
-                    key.public(),
+                identify: Announce::new(identify::Behaviour::new(
+                    identify::Config::new(protocols.version.clone(), key.public())
+                        .with_agent_version(AGENT_VERSION.into()),
                 )),
                 autonat: autonat::Behaviour::new(peer_id, autonat::Config::default()),
                 node: request_response::Behaviour::with_codec(
