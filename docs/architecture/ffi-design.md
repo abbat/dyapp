@@ -37,8 +37,10 @@ or returns constants.
 | | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
 | | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |
 | `generate_peer_id()` | function | `-> String` | Peer ID (hex SHA-256 of the public key) of a freshly generated `rust/identity` key; the key is dropped. |
-| `generate_keypair()` | function | `-> Result<KeyPair, CoreError>` | **Stub.** Returns `{ public_key: "placeholder", secret_key: "placeholder" }`. |
-| `KeyPair` | Record | `public_key: String`, `secret_key: String` | Copied by value. |
+| `KeyStore` | foreign trait | `wrap(secret: Vec<u8>)`, `unwrap(wrapped: Vec<u8>)`, both `-> Result<Vec<u8>, CoreError>` | Implemented by the app over its platform keystore; encrypts with a key that never leaves it. |
+| `IdentityKey` | Object | `generate()`, `unwrap(store: KeyStore, wrapped: Vec<u8>) -> Result<Self, CoreError>` | A `rust/identity` key; `unwrap` fails unless the store returns 32 bytes. |
+| | method | `wrap(store: KeyStore) -> Result<Vec<u8>, CoreError>` | The secret encrypted by `store`, for the app to persist. |
+| | method | `peer_id() -> String`, `public_key() -> Vec<u8>` | Hex SHA-256 of the public key; the 32 public key bytes. |
 | `ProfileService` | Object | `new()` | Stub. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
@@ -53,7 +55,7 @@ The library's C ABI is UniFFI-internal (`nm -D libdyapp_ffi.so`):
 `uniffi_dyapp_ffi_fn_constructor_<object>_new`,
 `uniffi_dyapp_ffi_fn_method_<object>_<method>`,
 `uniffi_dyapp_ffi_fn_free_<object>`,
-`uniffi_dyapp_ffi_fn_func_generate_keypair`, plus checksum and
+`uniffi_dyapp_ffi_fn_func_generate_peer_id`, plus checksum and
 `RustBuffer` helpers. They take `RustBuffer`/`RustCallStatus` arguments and are
 meant to be called only by UniFFI-generated code. **There is no hand-callable
 C API** (no `dyapp_client_new`, `dyapp_send_message`, …); a C/.NET
@@ -71,16 +73,16 @@ Kotlin bindings throw it as `CoreException`, the Swift bindings as `CoreError`. 
 ## Ownership and threading
 
 - **Objects** (`PeerConnection`, `MessageService`, `VideoSession`,
-  `ProfileService`) are `Arc`-backed handles; the native side owns a reference
-  and the matching `free` symbol releases it. **Records** (`KeyPair`,
-  `UserProfile`) are copied across the boundary.
+  `ProfileService`, `IdentityKey`) are `Arc`-backed handles; the native side owns a reference
+  and the matching `free` symbol releases it. **Records** (`UserProfile`) are copied across the boundary.
 - All exports are **synchronous**. `VideoSession` owns its own multi-threaded
   Tokio runtime and every method calls `block_on`, so it blocks the calling
   thread for the whole WebRTC operation — never call it from a UI thread. Each
   `VideoSession` object spawns a separate runtime.
 - `VideoSession` methods other than `create_offer` return
   `"Session not initialized"` until `create_offer` has succeeded.
-- No callbacks or async exports exist.
+- `KeyStore` is the only callback: Rust calls the app's implementation
+  synchronously on the calling thread. No async exports exist.
 
 ## Security boundary
 
@@ -92,11 +94,11 @@ The boundary is **not** secure today; see
   plaintext (`send_message(peer_id, text)`, `update_field`). The target is that
   Rust encrypts before anything leaves the device, not that plaintext never
   crosses FFI.
-- **Secret keys cross FFI today.** `KeyPair.secret_key` is a public field of a
-  record copied into native memory (currently the string `"placeholder"`).
-  Once real keys exist this would expose them to native code, logs and crash
-  reports. Target: key material stays in Rust behind an opaque handle, and
-  `KeyPair` exposes only the public key.
+- **Secret keys cross FFI only into the keystore.** `IdentityKey` keeps the
+  secret in Rust; it reaches native code only as the argument of
+  `KeyStore.wrap` and the result of `KeyStore.unwrap`, never as a string.
+  Rust wipes its own copies; the FFI buffers that carry the secret are freed,
+  not wiped.
 - Errors are strings and may echo internal state; do not show them to users
   or send them to telemetry unfiltered.
 

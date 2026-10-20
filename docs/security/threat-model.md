@@ -91,7 +91,7 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, placeholder keys, random unchecked frame tags | `rust/messaging/src/encryption.rs`, `rust/video/src/encryption.rs`, FFI `generate_keypair` | Critical × certain | Fix: MLS, frame encryption and identity storage replace and delete the stubs |
+| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, random unchecked frame tags | `rust/messaging/src/encryption.rs`, `rust/video/src/encryption.rs` | Critical × certain | Fix: MLS and frame encryption replace and delete the stubs |
 | Forged, malleable or weak-key Ed25519 signature | Any `SignedRecord` | Critical × low | Accept: `verify_strict` rejects non-canonical and small-order input; every check goes through `dyapp-identity` |
 | A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: one complete registry and tests enforce distinct labels ending in `\0`, prefix freedom, separation from the locked libp2p signing contexts and rejection of cross-domain verification |
 | One key serving two purposes | Identity, device, MLS and libp2p keys | High × medium | Fix: one key per purpose, listed in [keys](encryption.md#keys) |

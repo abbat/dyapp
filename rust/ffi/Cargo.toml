@@ -12,6 +12,7 @@ dyapp-identity = { path = "../identity" }
 dyapp-video = { path = "../video" }
 thiserror = "2"
 tokio = { version = "1", features = ["sync", "rt"] }
+zeroize = "1.9"
 
 [build-dependencies]
 uniffi = { version = "0.32", features = ["build"] }

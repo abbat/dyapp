@@ -18,7 +18,7 @@ here instead of repeating guarantees.
 | Video frames | `rust/video/src/encryption.rs` | Wraps the stub above; nonce/tag are random bytes, tag is never checked |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
 | KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; MLS signature, leaf key and lifetime must be verified by the future client |
-| Key generation (FFI) | `rust/ffi/src/lib.rs` `generate_keypair` | Returns the strings `"placeholder"` |
+| Identity key storage (FFI) | `rust/ffi/src/lib.rs` `IdentityKey`, `KeyStore` | Real in Rust: the secret leaves only through the app's `KeyStore` wrap and unwrap; the platform keystores in the apps are planned |
 | P2P transport | `rust/p2p-net/src/lib.rs` `build_swarm` | Real: libp2p QUIC (TLS 1.3) and TCP with Noise; `dyappd` uses it, no app yet |
 | Bootstrap protocol | `rust/bootstrap/src/service.rs` | libp2p only, no HTTP; profile writes need the owner's signature, reads are open; mailbox fetch and ack need the device's signature and a connection nonce |
 | Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; envelopes, profiles and KeyPackage stock as signed protobuf records |
@@ -85,7 +85,7 @@ One key per purpose; no key signs or encrypts for another.
 
 | Key | Signs or encrypts | Stored | Status |
 |-----|-------------------|--------|--------|
-| Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; storage planned |
+| Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; wrapped over FFI through the app's `KeyStore`; platform keystores planned |
 | Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
 | Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Planned |
 | MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Planned |
@@ -103,8 +103,9 @@ Rules:
   prefix freedom, separation from the locked libp2p peer-record, Noise, TLS and pubsub signing
   contexts, and rejection when a signature is verified under any other domain. The context
   snapshots are rechecked when those dependencies change.
-- A secret key crosses FFI only into the platform keystore's wrap and unwrap calls, never as a
-  string, and copies are wiped after use (planned).
+- A secret key crosses FFI only into the app's `KeyStore` `wrap` and out of its `unwrap`
+  (`IdentityKey`), never as a string. Rust wipes its copies; the FFI buffers that carry the
+  secret are freed, not wiped.
 - `dyappd` reads the node key from `storage.key`, from the unit's `node.key` credential or from
   `storage.dir/node.key`, and leaves its protection to the host; the package default is a
   credential sealed by `systemd-creds` ([node key](../manuals/bootstrap.md#node-key)). It

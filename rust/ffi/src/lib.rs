@@ -1,9 +1,10 @@
-//! Prototype native exports; messaging, keys and profiles include explicit stubs.
+//! Prototype native exports; messaging and profiles include explicit stubs.
 
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uniffi::*;
+use zeroize::Zeroizing;
 
 // Public FFI interface for Swift/Kotlin
 // Minimal surface: peer operations, key management, message/video
@@ -163,28 +164,73 @@ pub enum CoreError {
     Failed(String),
 }
 
+/// A foreign `KeyStore` call that failed without a `CoreError`.
+impl From<uniffi::UnexpectedUniFFICallbackError> for CoreError {
+    fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::Failed(error.reason)
+    }
+}
+
 /// Peer ID of a freshly generated identity key; the key is dropped, nothing is stored.
 #[uniffi::export]
 pub fn generate_peer_id() -> String {
     dyapp_identity::Identity::generate().peer_id()
 }
 
-/// Returns placeholder key strings; no cryptographic key material is generated.
-#[uniffi::export]
-pub fn generate_keypair() -> Result<KeyPair, CoreError> {
-    Ok(KeyPair {
-        public_key: "placeholder".to_string(),
-        secret_key: "placeholder".to_string(),
-    })
+/// The platform keystore (Android Keystore, Keychain, Secret Service, DPAPI), implemented by
+/// the app: it encrypts with a key that never leaves the keystore.
+#[uniffi::export(with_foreign)]
+pub trait KeyStore: Send + Sync {
+    /// Encrypts a secret key; the app persists the result.
+    fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, CoreError>;
+    /// Decrypts what `wrap` returned.
+    fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, CoreError>;
 }
 
-/// Unvalidated key fields; the current generator fills both with placeholders.
-#[derive(Clone, uniffi::Record)]
-pub struct KeyPair {
-    /// Public-key text; no encoding or validity is enforced.
-    pub public_key: String,
-    /// Secret-key text; the current generator does not supply a real secret.
-    pub secret_key: String,
+/// An Ed25519 identity or device key; its secret leaves Rust only through a [`KeyStore`].
+#[derive(uniffi::Object)]
+pub struct IdentityKey {
+    identity: dyapp_identity::Identity,
+}
+
+#[uniffi::export]
+impl IdentityKey {
+    /// A new key from the OS random number generator.
+    #[uniffi::constructor]
+    pub fn generate() -> Arc<Self> {
+        Arc::new(Self {
+            identity: dyapp_identity::Identity::generate(),
+        })
+    }
+
+    /// The key that `store` unwraps from `wrapped`, a blob from [`IdentityKey::wrap`].
+    #[uniffi::constructor]
+    pub fn unwrap(store: Arc<dyn KeyStore>, wrapped: Vec<u8>) -> Result<Arc<Self>, CoreError> {
+        let secret = Zeroizing::new(store.unwrap(wrapped)?);
+        let secret: &[u8; 32] = secret
+            .as_slice()
+            .try_into()
+            .map_err(|_| CoreError::Failed("unwrapped key is not 32 bytes".to_string()))?;
+        Ok(Arc::new(Self {
+            identity: dyapp_identity::Identity::from_secret(secret),
+        }))
+    }
+
+    /// The secret encrypted by `store`, for the app to persist.
+    pub fn wrap(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
+        // ponytail: the FFI buffer that carries the secret to the app is freed, not wiped.
+        store.wrap(self.identity.secret().to_vec())
+    }
+
+    /// Hex SHA-256 of the public key.
+    pub fn peer_id(&self) -> String {
+        self.identity.peer_id()
+    }
+
+    /// The Ed25519 public key bytes.
+    pub fn public_key(&self) -> Vec<u8> {
+        self.identity.public_key().to_vec()
+    }
 }
 
 /// Profile placeholder; it does not read or persist user data.
@@ -224,6 +270,44 @@ pub struct UserProfile {
     pub age: i32,
     /// Verification flag; the placeholder service returns false.
     pub verified: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// XOR with a fixed byte: stands in for the platform keystore.
+    struct TestStore;
+
+    impl KeyStore for TestStore {
+        fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+            Ok(secret.iter().map(|byte| byte ^ 0x5a).collect())
+        }
+
+        fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+            self.wrap(wrapped)
+        }
+    }
+
+    #[test]
+    fn wrapped_key_unwraps_to_the_same_peer_id() {
+        let store: Arc<dyn KeyStore> = Arc::new(TestStore);
+        let key = IdentityKey::generate();
+        let wrapped = key.wrap(store.clone()).unwrap();
+        assert_eq!(wrapped.len(), 32);
+        assert_ne!(wrapped, key.identity.secret().to_vec());
+        let opened = IdentityKey::unwrap(store, wrapped).unwrap();
+        assert_eq!(opened.peer_id(), key.peer_id());
+        assert_eq!(opened.public_key(), key.public_key());
+    }
+
+    #[test]
+    fn unwrap_rejects_a_key_of_the_wrong_length() {
+        let store: Arc<dyn KeyStore> = Arc::new(TestStore);
+        for wrapped in [vec![], vec![0; 31], vec![0; 33]] {
+            assert!(IdentityKey::unwrap(store.clone(), wrapped).is_err());
+        }
+    }
 }
 
 // Generated UniFFI scaffolding: a doc-comment gap and large metadata const arrays.

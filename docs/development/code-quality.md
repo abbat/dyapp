@@ -273,8 +273,8 @@ shows neither the secret nor its bytes.
 `sha1::Sha1`. A site that needs one says why with
 `#[expect(clippy::disallowed_types, reason = "...")]`; the only one is `Secret::hmac_sha1`, since
 coturn's REST credentials are HMAC-SHA1. The clippy step of `make quality` and CI enforces the
-list. Planned: the FFI `KeyPair` and the messaging and video encryption are placeholders without
-real key material; they get the same wrappers when they carry keys.
+list. Planned: the messaging and video encryption are placeholders without real key material;
+they get the same wrappers when they carry keys.
 
 ## Dependency checks (cargo-deny)
 
