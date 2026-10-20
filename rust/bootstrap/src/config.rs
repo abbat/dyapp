@@ -256,23 +256,20 @@ impl Search {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Metrics {
-    /// Loopback `ip:port` serving `GET /metrics`; empty, the default, serves nothing.
-    pub listen: String,
+    /// Port serving `GET /metrics` on `[::1]` and `127.0.0.1`; 0, the default, serves nothing.
+    pub port: u16,
 }
 
 impl Metrics {
-    /// The listener address, `None` when off. Only a loopback address with a port is accepted:
-    /// the endpoint has no authentication.
-    pub fn address(&self) -> anyhow::Result<Option<SocketAddr>> {
-        if self.listen.is_empty() {
-            return Ok(None);
+    /// The listener addresses, IPv6 first; none when off. Loopback only: the endpoint has no
+    /// authentication.
+    pub fn addresses(&self) -> Vec<SocketAddr> {
+        if self.port == 0 {
+            return vec![];
         }
-        match self.listen.parse::<SocketAddr>() {
-            Ok(address) if address.ip().is_loopback() && address.port() != 0 => Ok(Some(address)),
-            _ => anyhow::bail!(
-                "metrics.listen must be a loopback ip:port such as 127.0.0.1:9464, or empty"
-            ),
-        }
+        let v6 = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, self.port));
+        let v4 = SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, self.port));
+        vec![v6, v4]
     }
 }
 
@@ -693,7 +690,6 @@ impl NodeConfig {
         if self.listen.is_empty() {
             anyhow::bail!("listen: at least one address is required");
         }
-        self.metrics.address()?;
         if let Some(role) = self
             .roles
             .iter()

@@ -333,7 +333,7 @@ Details: [resource guards](../architecture/bootstrap.md#resource-guards) and
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `listen` | `""` | A loopback `ip:port`, such as `127.0.0.1:9464`, serving Prometheus text at `GET /metrics` without authentication. Empty: off. Only loopback addresses are accepted, and the node does not start when the port is taken. |
+| `port` | `0` | A port, such as `9464`, serving Prometheus text at `GET /metrics` on `[::1]` and `127.0.0.1` without authentication. 0: off. Only these loopback addresses are bound; a host without IPv6 serves `127.0.0.1` alone, and the node does not start when the port is taken. |
 
 ### `[media]`
 
@@ -451,14 +451,14 @@ connection and peer counts.
 
 ### Metrics
 
-Set `[metrics] listen = "127.0.0.1:9464"` to serve Prometheus text at
-`http://127.0.0.1:9464/metrics`. A scraper on another host reaches it through a tunnel or a local
+Set `[metrics] port = 9464` to serve Prometheus text at `http://[::1]:9464/metrics` and,
+for IPv4-only tools, `http://127.0.0.1:9464/metrics`. A scraper on another host reaches it through a tunnel or a local
 agent. Families and listener limits:
 [metric families](../architecture/bootstrap.md#metric-families),
 [metrics listener](../architecture/bootstrap.md#metrics-listener).
 
 ```bash
-curl -s http://127.0.0.1:9464/metrics | grep '^dyapp_connected_peers'
+curl -s 'http://[::1]:9464/metrics' | grep '^dyapp_connected_peers'
 ```
 
 Reading the values:
@@ -479,13 +479,13 @@ scrape_configs:
     scrape_interval: 60s
     scrape_timeout: 4s     # under the listener's 5 s deadline
     static_configs:
-      - targets: ['127.0.0.1:9464']
+      - targets: ['[::1]:9464']
 ```
 
 **Zabbix.** One master item fetches the page and dependent items cut samples out of it with the
 "Prometheus pattern" preprocessing step, so each scrape is one request:
 
-- Master item, type "HTTP agent", URL `http://127.0.0.1:9464/metrics`, type of information
+- Master item, type "HTTP agent", URL `http://[::1]:9464/metrics`, type of information
   "Text", history 0. The HTTP agent runs on the Zabbix server or proxy, so this needs one on the
   node host. Otherwise use a Zabbix agent item `web.page.get[127.0.0.1,/metrics,9464]` as the
   master; it returns the response headers too, so add a first "Regular expression" step

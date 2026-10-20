@@ -1359,11 +1359,12 @@ sets `storage_read_ok` to 0 and drops the size samples rather than reporting zer
 
 ### Metrics listener
 
-`[metrics] listen` turns on an HTTP/1.x listener in the node process; it is empty, and the
-listener off, by default. The address is a loopback `ip:port` such as `127.0.0.1:9464` or
-`[::1]:9464`: startup refuses any other address, a hostname or port 0, because the endpoint has
-no authentication, and fails when the address cannot be bound. The listener and the 5-minute
-storage snapshots run only when it is set; they stop with the process.
+`[metrics] port` turns on an HTTP/1.x listener in the node process; it is 0, and the listener
+off, by default. The listener binds only the loopback addresses `[::1]` and `127.0.0.1` at that
+port, because the endpoint has no authentication. An address the host cannot open, such as `[::1]`
+without IPv6, is skipped with a warning; startup fails when the port is taken on either address
+or neither opens. The listener and the 5-minute storage snapshots run only when the port is set;
+they stop with the process.
 
 It answers one request per connection and closes it. `GET /metrics` returns the families above
 with `Content-Type: text/plain; version=0.0.4; charset=utf-8`; another method on that path gets

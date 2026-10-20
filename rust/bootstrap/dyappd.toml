@@ -125,4 +125,4 @@
 
 [metrics]
 # Prometheus text format at GET /metrics, without authentication; see docs/architecture/bootstrap.md.
-# listen = ""                         # loopback ip:port such as 127.0.0.1:9464; empty = off
+# port = 0                            # serves [::1] and 127.0.0.1 at this port; 0 = off

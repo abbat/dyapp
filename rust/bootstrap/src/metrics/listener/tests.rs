@@ -2,9 +2,9 @@ use super::*;
 use crate::metrics::tests::service;
 
 async fn start() -> (SocketAddr, tokio::task::JoinHandle<()>) {
-    let listener = bind("127.0.0.1:0".parse().unwrap()).await.unwrap();
-    let address = listener.local_addr().unwrap();
-    (address, tokio::spawn(serve(listener, Arc::new(service()))))
+    let listeners = bind(&["127.0.0.1:0".parse().unwrap()]).await.unwrap();
+    let address = listeners[0].local_addr().unwrap();
+    (address, tokio::spawn(serve(listeners, Arc::new(service()))))
 }
 
 async fn ask(address: SocketAddr, request: &[u8]) -> String {
@@ -80,10 +80,23 @@ async fn slow_clients_are_dropped_and_free_their_slots() {
 }
 
 #[tokio::test]
+async fn every_open_address_is_served() {
+    // `[::1]` is skipped on a host without IPv6.
+    let addresses = ["[::1]:0".parse().unwrap(), "127.0.0.1:0".parse().unwrap()];
+    let listeners = bind(&addresses).await.unwrap();
+    let opened: Vec<_> = listeners.iter().map(|l| l.local_addr().unwrap()).collect();
+    let _task = tokio::spawn(serve(listeners, Arc::new(service())));
+    for address in opened {
+        let reply = ask(address, b"GET /metrics HTTP/1.1\r\n\r\n").await;
+        assert!(reply.starts_with("HTTP/1.1 200 OK\r\n"), "{address}");
+    }
+}
+
+#[tokio::test]
 async fn a_taken_address_fails_and_a_stopped_listener_closes_the_port() {
     let (address, task) = start().await;
-    let error = bind(address).await.unwrap_err().to_string();
-    assert!(error.starts_with("metrics.listen 127.0.0.1:"), "{error}");
+    let error = bind(&[address]).await.unwrap_err().to_string();
+    assert!(error.starts_with("metrics.port 127.0.0.1:"), "{error}");
     task.abort();
     assert!(task.await.unwrap_err().is_cancelled());
     assert!(TcpStream::connect(address).await.is_err());

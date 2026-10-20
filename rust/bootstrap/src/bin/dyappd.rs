@@ -115,9 +115,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(file = ?file, "config");
     let keypair = config.node_key()?;
     config.bind_network()?;
-    let scrapes = match config.metrics.address()? {
-        Some(address) => Some(listener::bind(address).await?),
-        None => None,
+    let scrapes = match config.metrics.addresses() {
+        addresses if addresses.is_empty() => None,
+        addresses => Some(listener::bind(&addresses).await?),
     };
     let deny_signer = config
         .network
