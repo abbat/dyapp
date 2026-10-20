@@ -175,7 +175,7 @@ async fn receive_repair_batch(
                         assert!((1..=50).contains(&count));
                         assert!(request.encoded_len() <= REPAIR_BYTES + 64 * 1024);
                         let response = service.mailbox(
-                            &Peer { id: peer.to_string(), group: "g".into() },
+                            &Peer { id: peer.to_string(), group: "g".into(), coarse: "g".into() },
                             &mut None,
                             request,
                         ).unwrap();
@@ -893,4 +893,12 @@ fn ip_groups_mask_the_prefix() {
     assert_eq!(ip_group(&ip6, &all), "2001:db8::5/128");
     assert_eq!(group("/memory/5"), "/memory/5");
     assert_eq!(group("/ip6/::ffff:203.0.113.77/tcp/1"), "203.0.113.0/24");
+    // Coarse groups by the default /16 and /32: neighbouring /24s and /48s share one.
+    let coarse = |ip: &str| masked(ip.parse().unwrap(), 16, 32);
+    assert_eq!(coarse("203.0.113.77"), coarse("203.0.7.1"));
+    assert_eq!(coarse("203.0.113.77"), "203.0.0.0/16");
+    assert_ne!(coarse("203.1.113.77"), "203.0.0.0/16");
+    assert_eq!(coarse("2001:db8:1::5"), "2001:db8::/32");
+    assert_eq!(coarse("2001:db8:ffff::5"), "2001:db8::/32");
+    assert_eq!(coarse("::ffff:203.0.113.77"), "203.0.0.0/16");
 }

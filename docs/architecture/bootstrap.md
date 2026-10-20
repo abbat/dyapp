@@ -1155,8 +1155,12 @@ Scope and limits:
   (defaults /24 and /48). The IP is the one that answered: for a dial by DNS name the resolved
   address, and an IPv4-mapped IPv6 address groups as IPv4. A request on a connection whose IP is
   unknown (no IP transport) is refused with `RATE_LIMITED` and counted under the
-  `unknown_endpoint` guard, without a strike. `/dyapp/node` `deny_list` counts one unit against
-  both; `info` counts only against the IP-group bucket, with no strike, so discovery stays cheap.
+  `unknown_endpoint` guard, without a strike. Every unit spent from the IP-group bucket is also
+  spent from a coarse-group bucket at ten times its rate, keyed by the same IP masked to
+  `coarse_ipv4_prefix` / `coarse_ipv6_prefix` (defaults /16 and /32), so rotating /24s within a
+  /16 or /48s within a /32 does not multiply the budget. `/dyapp/node` `deny_list` counts one
+  unit against both; `info` counts only against the group buckets, with no strike, so discovery
+  stays cheap. The deny list matches only fine groups.
 - `/dyapp/search` and `/dyapp/inventory` count in units against the same two buckets: a query
   1, a publish or heartbeat 5, a get 1 per started 64 KiB of its reply, an inventory 10. Requests
   from a connected search node (one listing `/dyapp/search-kad` in identify) skip the units for
@@ -1242,10 +1246,10 @@ starts refusing and a line when it clears, not one per request:
   `group_refused` alongside the total; the state line exposes `incoming_group_connections`
   and `incoming_groups`. Real TCP tests verify the 33rd refusal and slot reuse; QUIC churn
   checks both counts return to zero after each close.
-- **Planned coarse request budget**: a second request bucket at ten times the fine-group rate
-  will use `coarse_ipv4_prefix` / `coarse_ipv6_prefix` (defaults /16 and /32). These fields are
-  accepted and validated, with independent bounds 0..32 and 0..128. The fine-group rate is
-  limited to 1..429496729 so its derived budget fits `u32`; enforcement is still planned.
+- **Coarse request budget**: a second request bucket at ten times the fine-group rate per
+  `coarse_ipv4_prefix` / `coarse_ipv6_prefix` group (defaults /16 and /32, bounds 0..32 and
+  0..128) ([Rate Limiting](#rate-limiting)). The fine-group rate is limited to 1..100000000, so
+  the coarse bucket refills at most once a nanosecond, the precision of its clock.
 - **Connections and memory**: libp2p connection limits — `max_connections` established and
   pending incoming (default 1000), `max_connections_per_peer` (default 4) — and `max_streams`
   concurrent streams per connection and protocol (default 16). Media additionally caps this

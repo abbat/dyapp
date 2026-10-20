@@ -473,9 +473,10 @@ pub struct Limits {
     pub ipv4_prefix: u8,
     /// Leading bits of an IPv6 address that form its group.
     pub ipv6_prefix: u8,
-    /// Planned: a second group budget at ten times `ip_group_requests_per_second`.
+    /// Leading bits of an IPv4 address that form its coarse group, with a second budget at ten
+    /// times `ip_group_requests_per_second`.
     pub coarse_ipv4_prefix: u8,
-    /// Planned: IPv6 prefix of the coarse group.
+    /// Leading bits of an IPv6 address that form its coarse group.
     pub coarse_ipv6_prefix: u8,
     /// Envelopes per second accepted from one sender key.
     pub sender_puts_per_second: u32,
@@ -823,8 +824,9 @@ impl NodeConfig {
                 "limits.coarse_ipv4_prefix must be at most 32 and coarse_ipv6_prefix at most 128"
             );
         }
-        if l.ip_group_requests_per_second.checked_mul(10).is_none() {
-            anyhow::bail!("limits.ip_group_requests_per_second must be at most 429496729 for the 10x coarse budget");
+        // The coarse bucket refills every 1 / (10 x rate) s, and governor counts nanoseconds.
+        if l.ip_group_requests_per_second > 100_000_000 {
+            anyhow::bail!("limits.ip_group_requests_per_second must be at most 100000000 for the 10x coarse budget");
         }
         if self.network.id_pow_bits > 32 {
             anyhow::bail!("network.id_pow_bits must be at most 32");

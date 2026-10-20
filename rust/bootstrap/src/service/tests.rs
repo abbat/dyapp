@@ -107,6 +107,7 @@ pub(super) fn peer(id: &str) -> Peer {
     Peer {
         id: id.into(),
         group: "g".into(),
+        coarse: "g".into(),
     }
 }
 
@@ -120,6 +121,7 @@ pub(super) fn replica_peer(label: &str) -> Peer {
     Peer {
         id,
         group: "g".into(),
+        coarse: "g".into(),
     }
 }
 
@@ -523,6 +525,7 @@ fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
     let unknown = Peer {
         id: "unknown".into(),
         group: String::new(),
+        coarse: String::new(),
     };
     assert_eq!(
         status(&service.profile(&unknown, get(vec![0; 32])).unwrap()),
@@ -540,6 +543,32 @@ fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
     // The same request with a known group passes.
     assert_eq!(
         status(&service.profile(&peer("known"), get(vec![0; 32])).unwrap()),
+        Status::NotFound
+    );
+}
+
+#[test]
+fn fine_groups_of_one_coarse_group_share_ten_times_the_budget() {
+    let service = service_with(|l| l.ip_group_requests_per_second = 1);
+    let at = |id: &str, group: &str, coarse: &str| Peer {
+        id: id.into(),
+        group: group.into(),
+        coarse: coarse.into(),
+    };
+    let get_at = |peer: &Peer| status(&service.profile(peer, get(vec![1; 32])).unwrap());
+    crate::rate_limit::fresh_second(); // the requests below share one second
+    for i in 0..10 {
+        let peer = at(&format!("p{i}"), &format!("10.0.{i}.0/24"), "10.0.0.0/16");
+        assert_eq!(get_at(&peer), Status::NotFound);
+    }
+    // An eleventh /24 of the /16 finds the coarse bucket empty, its own still full.
+    assert_eq!(
+        get_at(&at("p10", "10.0.10.0/24", "10.0.0.0/16")),
+        Status::RateLimited
+    );
+    // Another /16 has its own coarse budget.
+    assert_eq!(
+        get_at(&at("q", "10.1.0.0/24", "10.1.0.0/16")),
         Status::NotFound
     );
 }

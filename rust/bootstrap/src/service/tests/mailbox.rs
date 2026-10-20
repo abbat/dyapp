@@ -53,6 +53,7 @@ fn deny_list_refuses_without_strikes() {
     let group = Peer {
         id: "q".into(),
         group: "g6".into(),
+        coarse: "g6".into(),
     };
     let response = service.profile(&group, get(vec![1; 32])).unwrap();
     assert_eq!(status(&response), Status::Refused);
@@ -475,6 +476,7 @@ fn group_and_sender_quotas_and_bans() {
     let other = Peer {
         id: "d".into(),
         group: "h".into(),
+        coarse: "h".into(),
     };
     assert_eq!(
         status(&service.profile(&other, id()).unwrap()),
@@ -498,6 +500,7 @@ fn group_and_sender_quotas_and_bans() {
     let sender_peer = Peer {
         id: "e".into(),
         group: "i".into(),
+        coarse: "i".into(),
     };
     let put = |id| {
         let request = MailboxRequest {
@@ -513,6 +516,7 @@ fn group_and_sender_quotas_and_bans() {
     let bad = |group: &str| Peer {
         id: "f".into(),
         group: group.into(),
+        coarse: group.into(),
     };
     for group in ["j", "k"] {
         let response = service.profile(&bad(group), publish(forged.clone()));

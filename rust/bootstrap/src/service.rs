@@ -68,6 +68,8 @@ pub struct Peer {
     pub id: String,
     /// IP group of the remote address.
     pub group: String,
+    /// The wider group of the same address, by `coarse_ipv4_prefix` / `coarse_ipv6_prefix`.
+    pub coarse: String,
 }
 
 /// Request handling of every role, shared by the swarm loop and the blocking pool.
@@ -93,6 +95,8 @@ pub struct Service {
     media_bytes: PeerRateLimiter,
     /// Requests per second of one IP group.
     pub groups: PeerRateLimiter,
+    /// Requests per second of one coarse IP group, at ten times the group rate.
+    coarse_groups: PeerRateLimiter,
     /// Envelope puts per second of one sender key.
     pub senders: PeerRateLimiter,
     /// Strikes and bans.
@@ -166,6 +170,8 @@ impl Service {
                 u32::try_from(l.bytes_per_second).unwrap_or(u32::MAX).max(1),
             ),
             groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
+            // Validation caps the group rate, so the product fits.
+            coarse_groups: PeerRateLimiter::new(l.ip_group_requests_per_second * 10),
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),
@@ -307,17 +313,19 @@ impl Service {
     fn admit_quiet(&self, peer: &Peer, units: u32) -> bool {
         !self.reputation.banned(&peer.id)
             && self.rate_limiter.check_units(&peer.id, units)
-            && self.group_admits(&peer.group, units)
+            && self.group_admits(peer, units)
     }
 
-    /// Spends `units` from the IP group's bucket. A connection whose IP is not known yet has
-    /// an empty group: it is refused and counted, never pooled with other such connections.
-    fn group_admits(&self, group: &str, units: u32) -> bool {
-        if group.is_empty() {
+    /// Spends `units` from the IP group's and the coarse group's buckets. A connection whose IP
+    /// is not known yet has empty groups: it is refused and counted, never pooled with other
+    /// such connections.
+    fn group_admits(&self, peer: &Peer, units: u32) -> bool {
+        if peer.group.is_empty() || peer.coarse.is_empty() {
             self.refused[6].fetch_add(1, Ordering::Relaxed);
             return false;
         }
-        self.groups.check_units(group, units)
+        self.groups.check_units(&peer.group, units)
+            && self.coarse_groups.check_units(&peer.coarse, units)
     }
 
     fn node_peer(&self, peer: &Peer) -> bool {
@@ -363,7 +371,7 @@ impl Service {
             Some(node_request::Request::Info(_)) if self.refused(peer) => {
                 node_status(Status::Refused)
             }
-            Some(node_request::Request::Info(_)) if !self.group_admits(&peer.group, 1) => {
+            Some(node_request::Request::Info(_)) if !self.group_admits(peer, 1) => {
                 node_status(Status::RateLimited)
             }
             Some(node_request::Request::Info(_)) => NodeResponse {

@@ -587,6 +587,7 @@ mod tests {
         let peer = Peer {
             id: "repair-test".into(),
             group: "loopback".into(),
+            coarse: "loopback".into(),
         };
         assert_eq!(
             service
@@ -636,6 +637,7 @@ mod tests {
                             &Peer {
                                 id: "repair-transfer".into(),
                                 group: "loopback".into(),
+                                coarse: "loopback".into(),
                             },
                             request.clone(),
                         )

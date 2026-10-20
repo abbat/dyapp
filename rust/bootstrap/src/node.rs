@@ -125,26 +125,30 @@ pub fn swarm_with_protocols(
 /// ponytail: a relayed connection gets the relay's group; per-hop groups need the circuit's
 /// source address, which relays do not pass on.
 pub fn ip_group(address: &Multiaddr, limits: &Limits) -> String {
-    let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
     let ip = address.iter().find_map(|protocol| match protocol {
         Protocol::Ip4(ip) => Some(IpAddr::V4(ip)),
-        Protocol::Ip6(ip) => Some(IpAddr::V6(ip).to_canonical()),
+        Protocol::Ip6(ip) => Some(IpAddr::V6(ip)),
         _ => None,
     });
-    match ip {
-        Some(IpAddr::V4(ip)) => {
-            let ip = u128::from(u32::from(ip)) & mask(limits.ipv4_prefix, 32);
-            format!(
-                "{}/{}",
-                std::net::Ipv4Addr::from(ip as u32),
-                limits.ipv4_prefix
-            )
+    ip.map_or_else(
+        || address.to_string(),
+        |ip| masked(ip, limits.ipv4_prefix, limits.ipv6_prefix),
+    )
+}
+
+/// `ip` masked to its leading `ipv4` / `ipv6` bits as `ip/bits`, an IPv4-mapped IPv6 address
+/// as IPv4.
+fn masked(ip: IpAddr, ipv4: u8, ipv6: u8) -> String {
+    let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
+    match ip.to_canonical() {
+        IpAddr::V4(ip) => {
+            let ip = u128::from(u32::from(ip)) & mask(ipv4, 32);
+            format!("{}/{ipv4}", std::net::Ipv4Addr::from(ip as u32))
         }
-        Some(IpAddr::V6(ip)) => {
-            let ip = u128::from(ip) & mask(limits.ipv6_prefix, 128);
-            format!("{}/{}", std::net::Ipv6Addr::from(ip), limits.ipv6_prefix)
+        IpAddr::V6(ip) => {
+            let ip = u128::from(ip) & mask(ipv6, 128);
+            format!("{}/{ipv6}", std::net::Ipv6Addr::from(ip))
         }
-        None => address.to_string(),
     }
 }
 
@@ -224,11 +228,12 @@ fn peer(
     connection: ConnectionId,
 ) -> Peer {
     let ip = swarm.behaviour().endpoints.ip(connection);
+    let l = &service.config.limits;
+    let group = |ipv4, ipv6| ip.map(|ip| masked(ip, ipv4, ipv6)).unwrap_or_default();
     Peer {
         id: peer.to_string(),
-        group: ip
-            .map(|ip| ip_group(&Multiaddr::from(ip), &service.config.limits))
-            .unwrap_or_default(),
+        group: group(l.ipv4_prefix, l.ipv6_prefix),
+        coarse: group(l.coarse_ipv4_prefix, l.coarse_ipv6_prefix),
     }
 }
 
@@ -275,6 +280,7 @@ fn judge(
         service.strike(&Peer {
             id: source.to_string(),
             group: String::new(),
+            coarse: String::new(),
         });
         drop_banned(swarm, service, *source);
     }

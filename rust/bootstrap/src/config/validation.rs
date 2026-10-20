@@ -75,11 +75,11 @@ fn incoming_group_and_coarse_settings_validate_boundaries() {
         .to_string()
         .contains("coarse_ipv6_prefix"));
     config.limits.coarse_ipv6_prefix = 32;
-    for rate in [1, u32::MAX / 10] {
+    for rate in [1, 100_000_000] {
         config.limits.ip_group_requests_per_second = rate;
         assert!(config.validate().is_ok());
     }
-    for rate in [0, u32::MAX / 10 + 1, u32::MAX] {
+    for rate in [0, 100_000_001, u32::MAX] {
         config.limits.ip_group_requests_per_second = rate;
         assert!(config
             .validate()

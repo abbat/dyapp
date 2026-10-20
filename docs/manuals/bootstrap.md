@@ -371,13 +371,13 @@ Rates. A peer is a libp2p peer ID; an IP group is the addresses sharing the lead
 |-----|---------|---------|
 | `requests_per_second` | 100 | Profile and mailbox requests per second from one peer. |
 | `media_requests_per_second` | 10 | Media requests per second from one peer. |
-| `ip_group_requests_per_second` | 1000 | Requests per second shared by all peers of one IP group; 1..429496729. |
+| `ip_group_requests_per_second` | 1000 | Requests per second shared by all peers of one IP group; 1..100000000. |
 | `sender_puts_per_second` | 10 | Envelopes per second accepted from one sender key. |
 | `bytes_per_second` | 0 | Node protocol bytes in and out per second. Media and repair are shed from 75 %, profiles from 90 %, the mailbox at 100 %. 0 = no limit. |
 | `ipv4_prefix` | 24 | Leading bits of an IPv4 address that form its group. |
 | `ipv6_prefix` | 48 | Leading bits of an IPv6 address that form its group. |
-| `coarse_ipv4_prefix` | 16 | Validated (0..32); the second, coarse group budget at ten times `ip_group_requests_per_second` is planned. |
-| `coarse_ipv6_prefix` | 32 | The same for IPv6 (0..128); planned. |
+| `coarse_ipv4_prefix` | 16 | Leading bits of an IPv4 address that form its coarse group (0..32); all its peers share a second budget of ten times `ip_group_requests_per_second`. |
+| `coarse_ipv6_prefix` | 32 | The same for IPv6 (0..128). |
 
 Connections, memory and bans:
 
