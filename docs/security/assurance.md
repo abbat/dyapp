@@ -37,6 +37,37 @@ Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
 is registered by the maintainer (a human gate) and kept current at every release. The badge
 level is passing; until the entry exists, the badge is planned.
 
+## Verification checklists
+
+Practice C2, planned: the control catalogue exists, statuses and evidence do not yet.
+[`controls.csv`](controls.csv) lists every control the checklist must give a status, one row
+per control: `id`, `scope` (`dyappd` or `apps`), `level`, `title`, then `status` and `evidence`,
+which the agent fills and a quorum reviews. Ids are the upstream ones with the revision in the
+ASVS prefix, and they are never renumbered; a new revision is a new catalogue.
+
+| Scope | Standard | Pinned source | Rows |
+|-------|----------|---------------|------|
+| `dyappd` | [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.0.0_release), levels 1 and 2 | `OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json` | 60 |
+| `apps` | [OWASP MASVS 2.1.0](https://github.com/OWASP/masvs/releases/tag/v2.1.0), all controls | `OWASP_MASVS.yaml` | 24 |
+
+Release asset sha256: ASVS `8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311`,
+MASVS `1175fe92ddb846c327b48f8efbd3fcb0148397cfb1ae0bb5a06f8c169e5e34a8`. ASVS rows sort by id;
+the title column is the ASVS section name or the MASVS control statement.
+
+C2 was written against ASVS 4 chapters; in ASVS 5 they map by meaning, not number:
+
+| C2 scope | ASVS 4.0.3 | ASVS 5.0.0 |
+|----------|-----------|-----------|
+| input | V5 Validation, Sanitization and Encoding | V1 Encoding and Sanitization, V2 Validation and Business Logic |
+| communications | V9 Communication | V12 Secure Communication |
+| configuration | V14 Configuration | V13 Configuration |
+
+ASVS 5's V5, V9 and V14 (file handling, tokens, data protection) are other topics and are not in
+scope. MASVS 2 has no levels: the level is the [MASTG](https://github.com/OWASP/mastg) testing
+profile, pinned to MASTG 2.0.0 profiles L2 and P (privacy). The RESILIENCE controls are tested
+mainly under profile R, so their status records whether L2 or P tests apply. A status is
+reviewed per platform (Android, iOS) once the apps exist; the completeness check is planned.
+
 ## Vulnerability disclosure
 
 Practice C8. [`.github/SECURITY.md`](../../.github/SECURITY.md) asks reporters to use GitHub's
