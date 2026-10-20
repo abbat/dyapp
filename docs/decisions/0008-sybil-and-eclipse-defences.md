@@ -69,13 +69,13 @@ Use **rust-libp2p** (Kademlia, QUIC, Noise, AutoNAT, DCUtR) and add the defences
    effort: the envelope reserves an optional stamp field, nodes may use it to prioritise under
    load, and none require it in v1. The exception is search: a profile carries a proof of work
    bound to its owner's key and not to its content, so it is computed once. It is memory-hard
-   (Argon2id, 8 MiB, 1 pass, leading zero bits over the key and a nonce), because SHA-256 would give a GPU a thousandfold
-   edge over a phone. The client computes 11 bits, about 30 s on a phone, in the background and
-   resumably; messaging does not wait for it. Store nodes do not check it; gossip relays and
-   search nodes do, and each node sets the minimum it accepts (default 11, at most 20). Without it
-   free keys could flood the search index with fake profiles and evict real ones. It only raises
-   the cost of a flood linearly (about $100 of cloud CPU per million fake profiles at 11 bits);
-   the index limits and heartbeat eviction carry the rest.
+   (Argon2id, 8 MiB, 1 pass, leading zero bits over the key and a nonce), because SHA-256 would
+   give a GPU a thousandfold edge over a phone. The client computes 11 bits, about 30 s on a
+   phone, in the background and resumably; messaging does not wait for it. Store nodes do not
+   check it; gossip relays and search nodes do, and each node sets the minimum it accepts
+   (default 11, at most 20). Without it free keys could flood the search index with fake profiles
+   and evict real ones. It only raises the cost of a flood linearly (about $100 of cloud CPU per
+   million fake profiles at 11 bits); the index limits and heartbeat eviction carry the rest.
 
 ## Consequences
 
