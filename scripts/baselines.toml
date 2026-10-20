@@ -9,7 +9,8 @@ lines = 86.6
 
 [batches]
 # Server-side A4 enforcement starts after this already-published commit.
-base = "b2566f9c78862b7e07458426c2aa419ad2a5ec3e"
+# Moved past 499b4d3 (444 lines), pushed with its Large-Change trailer outside the final paragraph.
+base = "bc963c474e8616d5e47b4c9dfd2edf4860484870"
 max_lines = 400
 
 [panics]
