@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
             print!(
-                "{USAGE}\n\nOptions override the --config file and DYAPPD__ variables; a list \
+                "{USAGE}\n\nOptions override the --config file and DYAPPD_ variables; a list \
                  option is given once per item. Defaults:\n{}",
                 options_help()
             );

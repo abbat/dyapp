@@ -9,7 +9,7 @@ test "$(stat -c %U /var/lib/dyappd)" = dyappd
 # keygen fast.
 as_node() {
     setpriv --reuid dyappd --regid dyappd --init-groups --no-new-privs \
-        env RUST_LOG=info DYAPPD__NETWORK__ID_POW_BITS=8 CREDENTIALS_DIRECTORY=/run/creds \
+        env RUST_LOG=info DYAPPD_NETWORK_ID_POW_BITS=8 CREDENTIALS_DIRECTORY=/run/creds \
         /usr/bin/dyappd "$@" --config /etc/dyappd.toml
 }
 if as_node >/tmp/node.log 2>&1; then exit 1; fi

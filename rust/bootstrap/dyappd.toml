@@ -1,6 +1,6 @@
 # dyappd configuration. Every key is optional: a commented line shows the default.
 # Apply changes with `systemctl restart dyappd`. Full reference: docs/manuals/bootstrap.md.
-# Every key can also be set as DYAPPD__<SECTION>__<KEY>, e.g. DYAPPD__LIMITS__MAX_CONNECTIONS=500,
+# Every key can also be set as DYAPPD_<SECTION>_<KEY>, e.g. DYAPPD_LIMITS_MAX_CONNECTIONS=500,
 # or as an option, e.g. --limits.max-connections 500; `dyappd --help` lists them.
 # The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
@@ -106,7 +106,7 @@
 [turn]
 # Used by the turn role. coturn runs with use-auth-secret and the same static-auth-secret.
 # urls = []                           # e.g. ["turn:turn.example.org:3478", "turns:turn.example.org:5349"]
-# secret = ""                         # set DYAPPD__TURN__SECRET in a drop-in: an option shows in ps
+# secret = ""                         # set DYAPPD_TURN_SECRET in a drop-in: an option shows in ps
 # credential_minutes = 60             # lifetime of the passwords handed out
 
 [maintenance]

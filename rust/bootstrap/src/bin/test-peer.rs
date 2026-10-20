@@ -34,7 +34,7 @@
 //!
 //! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
 //! `fetch` and `ack` ask for a challenge and sign it on one connection. Every connection speaks
-//! the network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty; an
+//! the network named by `DYAPPD_NETWORK_NAME`, the public one when it is unset or empty; an
 //! invalid name is an error.
 
 use anyhow::{anyhow, bail, Context};
@@ -561,14 +561,14 @@ async fn mailbox_call(
     .await
 }
 
-/// The network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty.
+/// The network named by `DYAPPD_NETWORK_NAME`, the public one when it is unset or empty.
 fn network() -> anyhow::Result<Protocols> {
-    let name = match std::env::var("DYAPPD__NETWORK__NAME") {
+    let name = match std::env::var("DYAPPD_NETWORK_NAME") {
         Ok(name) => name,
         Err(std::env::VarError::NotPresent) => String::new(),
-        Err(e) => bail!("DYAPPD__NETWORK__NAME: {e}"),
+        Err(e) => bail!("DYAPPD_NETWORK_NAME: {e}"),
     };
-    Protocols::new(&name).context("DYAPPD__NETWORK__NAME")
+    Protocols::new(&name).context("DYAPPD_NETWORK_NAME")
 }
 
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.

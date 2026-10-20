@@ -22,7 +22,7 @@ trap cleanup EXIT
 # A low proof of work keeps keygen fast.
 run() {
     docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-        --network none -v "$name:/var/lib/dyappd" -e DYAPPD__NETWORK__ID_POW_BITS=8 "$@"
+        --network none -v "$name:/var/lib/dyappd" -e DYAPPD_NETWORK_ID_POW_BITS=8 "$@"
 }
 if run dyappd:latest >/dev/null 2>&1; then exit 1; fi
 run dyappd:latest keygen >/dev/null

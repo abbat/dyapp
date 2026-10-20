@@ -1218,7 +1218,7 @@ message files beat deletes.
 ## Configuration
 
 `NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyappd`: defaults, then a TOML
-file (`--config`), then `DYAPPD__<SECTION>__<KEY>` variables, then `--<section>.<key> <value>`
+file (`--config`), then `DYAPPD_<SECTION>_<KEY>` variables, then `--<section>.<key> <value>`
 options (unknown ones refused; `--help` prints them from `rust/bootstrap/dyappd.toml`, which a
 test keeps equal to the defaults). Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:

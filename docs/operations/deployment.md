@@ -112,8 +112,8 @@ make test-integration   # integration tests, three dyappd containers on an inter
 
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
-  -e DYAPPD__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
-    export DYAPPD__NETWORK__ID_POW_BITS=8
+  -e DYAPPD_STORAGE_DIR=/tmp/node dyapp:network-test bash -c '
+    export DYAPPD_NETWORK_ID_POW_BITS=8
     target/debug/dyappd keygen
     target/debug/dyappd &
     sleep 3
@@ -125,7 +125,7 @@ docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
 **With a local Rust 1.99 toolchain:**
 
 ```bash
-export DYAPPD__STORAGE__DIR=/tmp/ai/node DYAPPD__NETWORK__ID_POW_BITS=8
+export DYAPPD_STORAGE_DIR=/tmp/ai/node DYAPPD_NETWORK_ID_POW_BITS=8
 cargo run --package dyapp-bootstrap --bin dyappd -- keygen
 cargo run --package dyapp-bootstrap --bin dyappd &
 cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7070

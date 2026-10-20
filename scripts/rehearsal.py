@@ -4,7 +4,7 @@ Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR. Both hold `dyappd`; NEW_BIN_DIR
 also holds the `test-peer` client. The nodes listen on 127.1.0.1, 127.2.0.1
 and 127.3.0.1, three /16 groups, so `network.distinct_outbound_groups` stays
 on; nothing else is overridden, and settings in the environment (a
-`DYAPPD__NETWORK__STORAGE_TRUST_MINUTES` for a dry run, say) reach every node.
+`DYAPPD_NETWORK_STORAGE_TRUST_MINUTES` for a dry run, say) reach every node.
 
 Steps, as in docs/manuals/bootstrap.md#first-deployment:
 cold start of the old version, a canary that needs two holders, a rolling
@@ -30,7 +30,7 @@ spec.loader.exec_module(net)
 HOSTS = ("127.1.0.1", "127.2.0.1", "127.3.0.1")
 PORT = 7070
 TRUST_MINUTES = int(os.environ.get(
-    "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES", "60"))
+    "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES", "60"))
 STARTED = time.monotonic()
 
 
@@ -43,11 +43,11 @@ def environment(storage, index):
     host = HOSTS[index]
     seeds = [f"{other}:{PORT}" for other in HOSTS if other != host]
     return {**os.environ,
-            "DYAPPD__LISTEN": f'["{host}:{PORT}"]',
-            "DYAPPD__EXTERNAL": f'["{host}:{PORT}"]',
-            "DYAPPD__STORAGE__DIR": f"{storage}/{'abc'[index]}",
-            "DYAPPD__ROLES": '["store"]',
-            "DYAPPD__SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]"}
+            "DYAPPD_LISTEN": f'["{host}:{PORT}"]',
+            "DYAPPD_EXTERNAL": f'["{host}:{PORT}"]',
+            "DYAPPD_STORAGE_DIR": f"{storage}/{'abc'[index]}",
+            "DYAPPD_ROLES": '["store"]',
+            "DYAPPD_SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]"}
 
 
 def start(bin_dir, env, client, tcp):
@@ -144,7 +144,7 @@ def rehearse(old_dir, new_dir, storage):
                         if holders(client, [tcp], signed)]
             halt(processes[i])
             if i == 2:
-                shutil.copytree(env["DYAPPD__STORAGE__DIR"], backup)
+                shutil.copytree(env["DYAPPD_STORAGE_DIR"], backup)
             processes[i] = start(new_dir, env, client, tcp)
             log(f"upgraded {tcp}")
             for signed in before:
@@ -157,8 +157,8 @@ def rehearse(old_dir, new_dir, storage):
                 wait_trust(f"storage trust of {tcp} before the next node")
         halt(processes[2])
         log(f"rollback refused: {refused(old_dir, envs[2])}")
-        shutil.rmtree(envs[2]["DYAPPD__STORAGE__DIR"])
-        shutil.move(backup, envs[2]["DYAPPD__STORAGE__DIR"])
+        shutil.rmtree(envs[2]["DYAPPD_STORAGE_DIR"])
+        shutil.move(backup, envs[2]["DYAPPD_STORAGE_DIR"])
         processes[2] = start(old_dir, envs[2], client, addresses[2])
         log(f"rolled back {addresses[2]} from the pre-update backup")
         if sum(holders(client, [addresses[2]], s) for s in kept) != len(kept):

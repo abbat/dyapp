@@ -182,9 +182,9 @@ fn invalid_config_fails() {
     assert!(!invalid(|c| c.limits.tokenless_share_pct = 100));
     assert!(invalid(|c| c.maintenance.io_mb_per_s = 0));
     assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
-    let roles = [("DYAPPD__ROLES".into(), "[\"x\"]".into())];
+    let roles = [("DYAPPD_ROLES".into(), "[\"x\"]".into())];
     assert!(NodeConfig::load(None, roles, &[]).is_err());
-    let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
+    let removed = [("DYAPPD_STORAGE_MEDIA".into(), "/big/media".into())];
     assert!(NodeConfig::load(None, removed, &[]).is_err());
 }
 
@@ -214,12 +214,12 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
     };
     assert_eq!(load(vec![], vec![]), "file");
     assert_eq!(
-        load(vec![("DYAPPD__NETWORK__NAME".into(), "env".into())], vec![]),
+        load(vec![("DYAPPD_NETWORK_NAME".into(), "env".into())], vec![]),
         "env"
     );
     assert_eq!(
         load(
-            vec![("DYAPPD__NETWORK__NAME".into(), "env".into())],
+            vec![("DYAPPD_NETWORK_NAME".into(), "env".into())],
             vec![("network.name".into(), "00123".into())]
         ),
         "00123"

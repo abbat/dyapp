@@ -125,7 +125,7 @@ docker volume create dyappd
 run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
 $run dyappd:latest keygen              # один раз: около минуты на 2 vCPU
 $run -d --name dyappd --memory 1g -p 7070:7070/tcp -p 7070:7070/udp \
-    -e DYAPPD__SEEDS='["seed.example.org:7070"]' dyappd:latest
+    -e DYAPPD_SEEDS='["seed.example.org:7070"]' dyappd:latest
 docker exec dyappd dyappd deny add <entry> [note]   # применяется в течение 10 с
 docker exec dyappd dyappd status
 docker logs dyappd
@@ -136,7 +136,7 @@ docker logs dyappd
 65532 и пишет только в `/var/lib/dyappd` — свой `storage.dir` и единственный том образа, поэтому
 корень может быть только для чтения, а все capabilities сброшены. Новый именованный том получает
 владельца и режим 0700 из образа; bind mount требует `chown 65532:65532`. Образ задаёт `listen`
-равным `["[::]:7070", "0.0.0.0:7070"]`; остальные настройки — переменные `DYAPPD__`, опции
+равным `["[::]:7070", "0.0.0.0:7070"]`; остальные настройки — переменные `DYAPPD_`, опции
 `--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения и
 указанный через `--config`. С `--memory 1g` значение по умолчанию `limits.max_memory_mb = 768`
 сбрасывает запросы раньше предела Docker. В контейнере ключ — обычный файл 0600 в томе.
@@ -211,9 +211,9 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 1. значения по умолчанию в коде;
 2. TOML-файл, указанный через `--config` (`/etc/dyappd.toml` в пакете, каждый ключ закомментирован
    со своим значением по умолчанию; тест держит этот файл равным коду);
-3. переменные окружения `DYAPPD__<SECTION>__<KEY>`, разбираемые как TOML (голая строка берётся как
-   есть), например `DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` или
-   `DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`;
+3. переменные окружения `DYAPPD_<SECTION>_<KEY>`, разбираемые как TOML (голая строка берётся как
+   есть), например `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` или
+   `DYAPPD_LISTEN='["[2001:db8::7]:7070"]'`;
 4. опции `--<section>.<key>` с `-` вместо `_`, например `--limits.max-connections 500` или
    `--storage.dir=/srv/dyappd`; опция-список задаётся по разу на элемент и заменяет список
    (`--listen '[::]:7070' --listen 0.0.0.0:7070`).
@@ -340,7 +340,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 | Ключ | По умолчанию | Значение |
 |------|--------------|----------|
 | `urls` | `[]` | URL `turn:` / `turns:` ретранслятора coturn, выдаваемые пирам, например `turn:turn.example.org:3478`. |
-| `secret` | `""` | `static-auth-secret` coturn. Задавайте как `DYAPPD__TURN__SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
+| `secret` | `""` | `static-auth-secret` coturn. Задавайте как `DYAPPD_TURN_SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
 | `credential_minutes` | 60 | Время жизни выдаваемых паролей. |
 
 ### `[search]`
@@ -593,7 +593,7 @@ max-bps=1000000
 no-cli
 ```
 
-Передавайте `DYAPPD__TURN__SECRET` через systemd `EnvironmentFile=` с режимом 0600. Откройте порт
+Передавайте `DYAPPD_TURN_SECRET` через systemd `EnvironmentFile=` с режимом 0600. Откройте порт
 прослушивания (3478 UDP и TCP, 5349 для TLS) и диапазон портов ретрансляции
 (`min-port`/`max-port`, по умолчанию 49152–65535). При запуске узел отклоняет роль без секрета или
 с URL, который не начинается с `turn:` или `turns:`. Учётные данные истекают через
@@ -699,7 +699,7 @@ sudo systemctl start dyappd
 | `dyappd` завершается при запуске из-за каталога | Каталог хранилища недоступен на запись пользователю узла; исправьте права или `ReadWritePaths=` |
 | `run as the owner of ...` | Запускайте команды от пользователя службы: `sudo -u dyappd dyappd ...` |
 | `dyappd` завершается с `storage belongs to ...` | `storage.dir` привязан к другому `network.name`; верните то имя или используйте новый каталог |
-| `test-peer info` не работает с узлом именованной сети | Задайте `DYAPPD__NETWORK__NAME` с именем сети узла и для `test-peer` |
+| `test-peer info` не работает с узлом именованной сети | Задайте `DYAPPD_NETWORK_NAME` с именем сети узла и для `test-peer` |
 | `dyappd` завершается с `has store format N, this dyappd knows up to M` | Более новый `dyappd` обновил этот файл; запустите ту версию или восстановите копию, сделанную до неё ([Обновления](#обновления)) |
 | `dyappd` завершается с `has search index format N, this dyappd knows up to M` | Более новый `dyappd` перестроил поисковый индекс; запустите ту версию или удалите названный `profiles-idx-vN.db`: догоняющая синхронизация заполнит его снова |
 | `dyappd` завершается с `search.lock: ...; another dyappd uses this search index` | Два узла делят один `storage.dir`; дайте каждому свой каталог |

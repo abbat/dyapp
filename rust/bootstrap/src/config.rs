@@ -1,4 +1,4 @@
-//! Node configuration: defaults, then a TOML file, then `DYAPPD__<SECTION>__<KEY>` variables,
+//! Node configuration: defaults, then a TOML file, then `DYAPPD_<SECTION>_<KEY>` variables,
 //! then `--<section>.<key> <value>` options.
 //! Every field has a default, so a config written for an older node keeps working. Unknown keys
 //! are logged and ignored, so a node rolled back to an older version still starts.
@@ -14,8 +14,9 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use zeroize::Zeroizing;
 
-/// Prefix of environment variables that override config keys: `DYAPPD__<SECTION>__<KEY>`.
-pub const ENV_PREFIX: &str = "DYAPPD__";
+/// Prefix of environment variables that override config keys: `DYAPPD_<SECTION>_<KEY>`, or
+/// `DYAPPD_<KEY>` for a top-level key. Section names have no `_`, so the first one ends it.
+pub const ENV_PREFIX: &str = "DYAPPD_";
 
 /// The packaged `/etc/dyappd.toml`: every key commented out with its default and a description.
 pub const REFERENCE: &str = include_str!("../dyappd.toml");
@@ -297,7 +298,7 @@ impl Default for Media {
 pub struct Turn {
     /// `turn:` / `turns:` URLs handed to peers.
     pub urls: Vec<String>,
-    /// coturn's `static-auth-secret`; `DYAPPD__TURN__SECRET` keeps it out of the file.
+    /// coturn's `static-auth-secret`; `DYAPPD_TURN_SECRET` keeps it out of the file.
     pub secret: crate::secret::Secret,
     /// Lifetime of the credentials the node hands out.
     pub credential_minutes: u32,
@@ -626,14 +627,22 @@ impl NodeConfig {
                 .map_err(|e| anyhow::anyhow!("config {}: {e}", path.display()))?,
             None => toml::Table::new(),
         };
+        let defaults = toml::Value::try_from(Self::default())?;
         for (name, value) in env {
             let Some(key) = name.strip_prefix(ENV_PREFIX) else {
                 continue;
             };
-            let path: Vec<String> = key.split("__").map(str::to_lowercase).collect();
+            let key = key.to_lowercase();
+            let path: Vec<String> = match key.split_once('_') {
+                Some((section, field))
+                    if defaults.get(section).is_some_and(toml::Value::is_table) =>
+                {
+                    vec![section.into(), field.into()]
+                }
+                _ => vec![key],
+            };
             set(&mut table, &path, toml_value(&value), &name)?;
         }
-        let defaults = toml::Value::try_from(Self::default())?;
         let mut lists: Vec<(Vec<String>, Vec<toml::Value>)> = Vec::new();
         for (option, text) in options {
             let path: Vec<String> = option.split('.').map(|k| k.replace('-', "_")).collect();
