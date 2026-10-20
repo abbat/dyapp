@@ -93,7 +93,7 @@ Not implemented yet:
 
 - Only `dyappd` runs the node, serving `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
   `/dyapp/mailbox-push` and, with the media role, `/dyapp/media`
-  ([bootstrap](bootstrap.md#served-protocol)); `test-peer` is the only client, and the FFI does
+  ([bootstrap](bootstrap.md#served-protocol)); `dyappd`'s client commands are the only client, and the FFI does
   not expose `p2p-net`.
 - Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
 - No relay or DCUtR hole punching.
@@ -167,8 +167,8 @@ empty. `NodeConfig::bind_network` binds `storage.dir` to one network through the
 marker file (the name, no newline), written by `keygen` or at the first start and never
 replaced; a directory with data but no marker belongs to the public network
 ([bootstrap](bootstrap.md#storage-network)). `dyappd` checks the marker after loading the node
-key and before opening any store. `test-peer` speaks the network named by
-`DYAPPD_NETWORK_NAME` (public when unset or empty) and fails on an invalid name.
+key and before opening any store. `dyappd info` and the other client commands speak the
+network of their config's `network.name` and fail on an invalid name.
 `scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the
 same name is served, a public client is not, and a public start on its storage is refused.
 After identify a node disconnects a peer whose `protocol_version` differs from its own and adds

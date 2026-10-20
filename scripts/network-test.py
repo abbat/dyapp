@@ -1,6 +1,6 @@
 """Exercise the libp2p node protocol on three dyappd peers.
 
-`test-peer` is the client: the script has no libp2p library. Without
+`dyappd` is also the client: the script has no libp2p library. Without
 arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
 starts three dyappd processes from BIN_DIR on the loopback instead and
 also stops one to check that replicas skip a departed node, checks the deny
@@ -31,7 +31,7 @@ import time
 from capture import Capture
 from memory_report import write_report
 
-CLIENT = "/workspace/target/debug/test-peer"
+CLIENT = "/workspace/target/debug/dyappd"
 FLOOD_LIMIT = 5
 # Node-ID proof of work of the test nodes, as in docker/compose.network.yml.
 POW_BITS = "8"
@@ -52,7 +52,7 @@ def call(client, *args, env=None):
                             timeout=90, env=env)
     if result.returncode:
         raise subprocess.SubprocessError(
-            f"test-peer {args[0]}: {result.stderr.strip()}")
+            f"dyappd {args[0]}: {result.stderr.strip()}")
     return json.loads(result.stdout)
 
 
@@ -97,7 +97,7 @@ def start(bin_dir, storage, peers, processes, environments,
     lists, fetching them every maintenance minute, and with `flood` limits
     every peer to FLOOD_LIMIT requests per second.
     """
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     for port in (7071, 7072, 7073):
         tcp, quic = addresses("127.0.0.1", port)
         env = {**os.environ,
@@ -162,7 +162,7 @@ def stop(processes, failed):
 
 def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []
@@ -254,7 +254,7 @@ def plateau(bin_dir):
     The first round warms caches up. Afterwards the peak of the second half
     may exceed the peak of the first half by PLATEAU_GROWTH at most.
     """
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []

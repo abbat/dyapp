@@ -158,7 +158,7 @@ confirm two. At most 64 fan-outs are active, each for 10 seconds; excess or time
 `FULL`, so the client tries another key. Other holders are filled in the background after the
 reply, without a persistent queue. A profile holder with an equal or newer verified record
 counts as stored and supplies the highest confirmed stale record in a `STALE` reply.
-The app clients do not call this protocol yet; `test-peer` exercises the single-upload path.
+The app clients do not call this protocol yet; `dyappd put` exercises the single-upload path.
 
 Media keys use the blob's SHA-256. The acceptor carries a persisted signed keep or attachment
 in `MediaReplicaPut`; a receiver independently verifies it and never forwards it. A keep is
@@ -898,35 +898,37 @@ then trusts it as the owner's own claim, not as fact:
   target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)). The node checks
   nothing beyond the signature: it would accept `17`.
 
-### Test client
+### Client commands
 
-`test-peer` is a libp2p client for scripts (`rust/bootstrap/src/bin/test-peer.rs`); each command
-prints one JSON object:
+`dyappd` is also a libp2p client for operators and scripts
+(`rust/bootstrap/src/bin/dyappd/client.rs`). These commands read the config only for
+`network.name`: they need neither the node key nor the owner of `storage.dir`. Each prints one
+JSON object:
 
 ```
-test-peer sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
-test-peer heartbeat <multiaddr> <secret hex> → {"status"}
-test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
-test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
-test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
-test-peer device-key                        → {"secret", "mailbox"}
-test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
-test-peer put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
-test-peer put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
-test-peer watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
-test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
-test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
-test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
-test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
-test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
-test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
-test-peer media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
-test-peer media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
-test-peer media-keep <multiaddr> <record hex> → {"status", "data", "missing"}
-test-peer media-refresh <multiaddr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
-test-peer media-get <multiaddr> <hash hex>  → {"status", "data"}
-test-peer turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
-test-peer relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
+dyappd sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
+dyappd heartbeat <multiaddr> <secret hex> → {"status"}
+dyappd info    /ip6/::1/tcp/7070         → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
+dyappd publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
+dyappd get     <multiaddr> <peer_id hex> → {"status", "record"}
+dyappd device-key                        → {"secret", "mailbox"}
+dyappd put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
+dyappd put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
+dyappd put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
+dyappd watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
+dyappd fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
+dyappd ack     <multiaddr> <secret hex> <id hex>... → {"status"}
+dyappd closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
+dyappd replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
+dyappd flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
+dyappd media   <multiaddr> <data hex>    → {"keep", "put", "get"}
+dyappd media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
+dyappd media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
+dyappd media-keep <multiaddr> <record hex> → {"status", "data", "missing"}
+dyappd media-refresh <multiaddr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
+dyappd media-get <multiaddr> <hash hex>  → {"status", "data"}
+dyappd turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
+dyappd relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
@@ -1413,7 +1415,7 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 
 
 The network test (`scripts/network-test.py`) runs three `dyappd` instances, all with
-roles `store` and `media` (only the first also serves TURN), and drives them with `test-peer`: `info` over TCP and QUIC, publish
+roles `store`, `search` and `media` (only the first also serves TURN), and drives them with `dyappd`'s client commands: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a
 media keep, put and get; 512 KiB whole-copy and 3 MiB sharded uploads readable on all three
@@ -1438,7 +1440,7 @@ CI) repeats the suite's mailbox and media load on three release nodes for 5 minu
 the flood limit, and fails when a node's resident memory peak in the second half exceeds the first
 half's by more than 10 %.
 The Docker network compose mounts the current checkout and the dev build volume read-only;
-run `make test` first to build the current `dyappd` and `test-peer` binaries.
+run `make test` first to build the current `dyappd` binary.
 
 ## Limitations & Future
 

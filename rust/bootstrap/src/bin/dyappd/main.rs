@@ -13,8 +13,11 @@
 //!
 //! `dyappd id`: the peer ID, then `<external address>/<peer ID>` seed entries for other nodes.
 //!
-//! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
+//! `dyappd status`: what the stores hold, read-only. These subcommands run as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
+//!
+//! `dyappd info <multiaddr>` and the other [client] commands talk to a running node; they only
+//! read the config, for `network.name`.
 
 use dyapp_bootstrap::config::{options_help, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
@@ -30,21 +33,23 @@ use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
+mod client;
+
 const USAGE: &str = "usage: dyappd [keygen [-] | id | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
     let (mut file, mut options, mut command) = (None, Vec::new(), Vec::new());
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
             print!(
-                "{USAGE}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
+                "{USAGE}\n{}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
                  /etc/dyappd.toml that exists is read. Options override the config file and \
                  DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
+                client::USAGE,
                 options_help()
             );
             return Ok(());
@@ -66,10 +71,23 @@ async fn main() -> anyhow::Result<()> {
             options.push((key, value));
         }
     }
+    // A subcommand prints its result to stdout, so its logs go to stderr.
+    if command.is_empty() {
+        tracing_subscriber::fmt::init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .init();
+    }
     let file = file.or_else(default_file);
     let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
     for key in ignored {
         tracing::warn!("unknown config key ignored: {key}");
+    }
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
+    if let Some(output) = client::run(&config.network.name, &command).await? {
+        println!("{output}");
+        return Ok(());
     }
     config.validate()?;
     // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
@@ -81,7 +99,6 @@ async fn main() -> anyhow::Result<()> {
     }
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
     dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
-    let command: Vec<&str> = command.iter().map(String::as_str).collect();
     if command.first().is_some_and(|&c| c != "keygen") {
         let owner = std::fs::metadata(&config.storage.dir)?.uid();
         // SAFETY: geteuid has no preconditions.
@@ -106,12 +123,11 @@ async fn main() -> anyhow::Result<()> {
         ["id"] => print!("{}", id(&config)?),
         ["status"] => print!("{}", status(&config)),
         ["deny", rest @ ..] => deny(&config, rest)?,
-        _ => anyhow::bail!(USAGE),
+        _ => anyhow::bail!("{USAGE}\n{}", client::USAGE),
     }
     if !command.is_empty() {
         return Ok(());
     }
-    // Only here: logs go to stdout, which `keygen -` pipes into systemd-creds.
     tracing::info!(file = ?file, "config");
     let keypair = config.node_key()?;
     config.bind_network()?;

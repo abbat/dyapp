@@ -31,7 +31,7 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
    └──► identity, profile, p2p-net   (Cargo dependencies; tests also use messaging, video)
 ```
 
-Only `dyappd` and its test client `test-peer` talk over the network today: no app calls a
+Only `dyappd`, as a node and through its client commands, talks over the network today: no app calls a
 node, and there is no WebRTC signaling channel.
 
 | Component | Source | Status | What it really does |
@@ -43,8 +43,8 @@ node, and there is no WebRTC signaling channel.
 | Video | `rust/video/src/` | library prototype | `session.rs` creates a real WebRTC offer and applies the remote answer and candidates; no callee path or media; frame encryption in `encryption.rs` |
 | FFI | `rust/ffi/src/lib.rs`, `dyapp.udl` | library prototype | UniFFI surface over the crates above |
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers every served protocol ([bootstrap](bootstrap.md#served-protocol)), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon media (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; mailbox push, replication to five DHT points and repair |
-| Node | `rust/bootstrap/src/bin/dyappd.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
-| Test peer | `rust/bootstrap/src/bin/test-peer.rs` | prototype | libp2p client CLI for the node protocol; used by network tests |
+| Node | `rust/bootstrap/src/bin/dyappd/main.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
+| Node client | `rust/bootstrap/src/bin/dyappd/client.rs` | prototype | `dyappd info` and the other libp2p client commands for the node protocol; used by network tests |
 | Android app | `android/` | skeleton | Shows the peer ID from `generate_peer_id` via UniFFI Kotlin bindings |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |

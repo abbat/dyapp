@@ -387,11 +387,11 @@ seeds = ["seed1.example.org:7070/12D3KooW...", "seed2.example.org:7070/12D3KooW.
 ```
 
 Open TCP and UDP on the port in the host and cloud firewalls. Check from another host with
-`test-peer` (the client CLI from the repository,
-[commands](../architecture/bootstrap.md#test-client)):
+`dyappd info` ([client commands](../architecture/bootstrap.md#client-commands)):
 
 ```bash
-test-peer info /ip4/<node address>/tcp/7070   # exit 0 and "STATUS_OK" → alive
+dyappd info /ip6/<node address>/tcp/7070   # exit 0 and "STATUS_OK" → alive
+dyappd info /ip4/<node address>/tcp/7070   # an IPv4-only node
 ```
 
 A new node answers `STATUS_FULL` to writes until it has trusted peers for
@@ -412,9 +412,9 @@ period. The peers of a restarted node keep trusting it while it stays in their r
 
 1. **Cold start.** Generate each key (about a minute per node at 22 bits), list the other seeds
    in `seeds` on every seed and start them in any order; a seed that starts first is dialled by
-   the later ones. Check each with `test-peer info`.
+   the later ones. Check each with `dyappd info`.
 2. **Canary.** After `storage_trust_minutes`, publish a test profile through each node:
-   `test-peer publish` returns `STATUS_OK` and `test-peer get` finds the record on at least two
+   `dyappd publish` returns `STATUS_OK` and `dyappd get` finds the record on at least two
    nodes. Before that it returns `STATUS_FULL`.
 3. **Rolling upgrade.** For each node in turn: stop it, take a [backup](#backups) of
    `storage.dir`, start the new version, check its health and that it still serves the canary
@@ -447,7 +447,7 @@ level, e.g. `RUST_LOG=info` (the unit's default) or `RUST_LOG=debug`.
 connection and peer counts.
 
 **Health.** There is no HTTP health endpoint. A node is alive when it answers `/dyapp/node`
-`info` (`test-peer info`, above); the reply holds roles and limits only.
+`info` (`dyappd info`, above); the reply holds roles and limits only.
 
 ### Metrics
 
@@ -694,13 +694,13 @@ network grows, so lower it on a small disk) and 1 GiB of memory
 
 | Symptom | Check |
 |---------|-------|
-| `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
-| `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
+| `dyappd info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip6/` or `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
+| `dyappd info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | Writes answer `STATUS_FULL` | The node trusts no peer yet (`storage_trust_minutes` after its start), a store is at its quota, or the disk is below `min_free_mb` |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or `ReadWritePaths=` |
 | `run as the owner of ...` | Run commands as the service user: `sudo -u dyappd dyappd ...` |
 | `dyappd` exits with `storage belongs to ...` | `storage.dir` was bound to another `network.name`; restore that name or use a new directory |
-| `test-peer info` fails against a named-network node | Set `DYAPPD_NETWORK_NAME` to the node's network name for `test-peer` too |
+| `dyappd info` fails against a named-network node | The client speaks its config's `network.name`; run it with the node's config or add `--network.name <name>` |
 | `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
 | `dyappd` exits with `has search index format N, this dyappd knows up to M` | A newer `dyappd` rebuilt the search index; run that version, or delete the named `profiles-idx-vN.db`: catch-up refills it |
 | `dyappd` exits with `search.lock: ...; another dyappd uses this search index` | Two nodes share one `storage.dir`; give each its own directory |

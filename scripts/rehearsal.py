@@ -1,7 +1,7 @@
 """Rehearse a first deployment on three loopback nodes, production defaults.
 
-Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR. Both hold `dyappd`; NEW_BIN_DIR
-also holds the `test-peer` client. The nodes listen on 127.1.0.1, 127.2.0.1
+Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR. Both hold `dyappd`; the
+NEW_BIN_DIR one is also the client. The nodes listen on 127.1.0.1, 127.2.0.1
 and 127.3.0.1, three /16 groups, so `network.distinct_outbound_groups` stays
 on; nothing else is overridden, and settings in the environment (a
 `DYAPPD_NETWORK_STORAGE_TRUST_MINUTES` for a dry run, say) reach every node.
@@ -117,7 +117,7 @@ def refused(old_dir, env):
 
 
 def rehearse(old_dir, new_dir, storage):
-    client = f"{new_dir}/test-peer"
+    client = f"{new_dir}/dyappd"
     envs = [environment(storage, i) for i in range(3)]
     addresses = [net.addresses(host, PORT)[0] for host in HOSTS]
     keygens = []

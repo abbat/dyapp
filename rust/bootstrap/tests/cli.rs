@@ -144,6 +144,15 @@ fn without_config_the_working_directory_file_is_read() {
 }
 
 #[test]
+fn client_commands_print_json_without_a_usable_storage_dir() {
+    let dir = directory();
+    let args = ["device-key", "--storage.dir", "/nonexistent/dyappd"];
+    let reply: serde_json::Value = serde_json::from_str(&success(&dir, &args)).unwrap();
+    assert_eq!(reply["mailbox"].as_str().map(str::len), Some(64));
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);

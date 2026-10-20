@@ -62,7 +62,7 @@ media is different: full copies are expensive, and a node should hold no object 
   activity (a full store evicts its oldest records: profiles by last publish, envelopes by arrival);
   acceptors use full DHT lookups of `dyapp_p2p_net::replica_key` for mailbox/profile fan-out
   and wait for two distinct stored copies (one only with no routing peers), within 10 seconds
-  and a 64-write cap. `test-peer` uploads once; app clients are not wired yet. Nodes push to
+  and a 64-write cap. `dyappd put` uploads once; app clients are not wired yet. Nodes push to
   watching devices, forward acks and repair mailboxes on watching fetch. Profile publish and
   heartbeat trigger version inventories and fill older or missing holders, at most once per
   rolling hour per key and within the 75 % repair budget. Acceptors store media up to the node's
