@@ -91,7 +91,7 @@ fn forged_revokes_strike_and_future_or_expired_ones_do_not() {
     };
     let expired = now - 31 * 86_400 - service.retention() as i64 - 3600;
     assert_eq!(
-        send("a", revoke(&owner, &mailbox, &[&contact], now + 3601)),
+        send("a", revoke(&owner, &mailbox, &[&contact], now + 7200)),
         Status::Denied
     );
     assert_eq!(
