@@ -199,7 +199,10 @@ Gate: `cargo clippy --workspace --all-features --all-targets --locked --offline 
 i.e. clippy's default lint groups as errors. The unsafe policy and explicit panic
 budgets below add targeted rules. Other pedantic/restriction lints (such as
 `arithmetic_side_effects` and `cast_possible_truncation`) are not generally enforced.
-`codeql.yml` additionally fails on `clippy::pedantic`; see [linting.md](linting.md#rust).
+`codeql.yml` additionally reports `clippy::pedantic` without failing; see
+[linting.md](linting.md#rust).
+A local `#[allow]` states its lasting reason, in `reason = "..."` or in the comment beside it
+(generated modules); none is temporary. This is a review convention, not a check.
 
 ### Explicit panic budgets
 

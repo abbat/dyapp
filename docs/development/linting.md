@@ -45,10 +45,10 @@ cargo clippy --workspace --all-features --all-targets --locked --offline -- -D w
 [B8 check](code-quality.md#explicit-panic-budgets) force-enables `unwrap_used`,
 `expect_used` and `panic` on non-test workspace targets and enforces their budgets.
 
-`codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings`, so
-pedantic findings fail that job, and a second clippy run converts its JSON output to SARIF for code
-scanning. That job runs outside Docker and is not part of `make quality`; a clean local
-`make quality` does not mean it passes.
+`codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings` and
+the cargo-deny checks, all with `continue-on-error`: they are advisory and mark only their step
+failed, while the gating clippy and cargo-deny runs are in `make quality`. A second clippy run
+converts its JSON output to SARIF for code scanning. That job runs outside Docker.
 
 Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `cargo fmt --all` in the dev container.
 

@@ -39,7 +39,10 @@ fn put(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "mirrors BootstrapStore::put_envelope for the tests"
+)]
 fn put_record(
     store: &BootstrapStore,
     mailbox: u8,

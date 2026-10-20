@@ -63,6 +63,8 @@ jobs:
         toolchain: stable
         components: clippy
 
+    # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
+    # (scripts/rust-check.sh); here a finding must not stop the SARIF upload.
     - name: install cargo-deny
       run: cargo install cargo-deny
 

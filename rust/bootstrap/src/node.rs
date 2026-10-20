@@ -902,7 +902,10 @@ fn send_catch_up(
 }
 
 /// The hourly status line: no peer or key identifiers, counts and sizes only.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one argument per counter the swarm loop owns"
+)]
 fn status(
     service: &Service,
     swarm: &Swarm<Behaviour>,

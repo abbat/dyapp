@@ -321,7 +321,10 @@ impl Service {
     }
 
     /// The rest of [`Service::put`] once the token is admitted.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the second half of put, called once with put's own arguments"
+    )]
     fn store_put(
         &self,
         record: &SignedRecord,
@@ -394,7 +397,10 @@ impl Service {
 
     /// The envelope's write token key, `None` without a token, or the answer that refuses it and
     /// whether a DENIED one strikes.
-    #[allow(clippy::type_complexity)]
+    #[allow(
+        clippy::type_complexity,
+        reason = "store error, then refusal: a named type would serve its one caller"
+    )]
     fn admit_token(
         &self,
         record: &SignedRecord,
