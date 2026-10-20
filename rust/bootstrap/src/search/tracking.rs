@@ -77,9 +77,17 @@ fn size_eviction_marks_the_evicted_keys() {
         .copied()
         .collect();
     index.track_start().unwrap();
-    let after = put_at(&index, "2950159", 60, t, false);
-    // Eviction takes the highest `r`, which may fall on new keys only; those are in `after`.
-    let evicted = removed(&index, &held);
+    // Eviction in `before` may have freed a few batches of room, so put until it runs again.
+    // It takes the highest `r`, which may fall on new keys only; those are in `after`.
+    let mut after = vec![];
+    let mut evicted = HashSet::new();
+    for _ in 0..20 {
+        after.extend(put_at(&index, "2950159", 30, t, false));
+        evicted = removed(&index, &held);
+        if !evicted.is_empty() || !removed(&index, &after).is_empty() {
+            break;
+        }
+    }
     assert!(!evicted.is_empty() || !removed(&index, &after).is_empty());
     let mut expected: HashSet<_> = after.into_iter().collect();
     expected.extend(evicted);
