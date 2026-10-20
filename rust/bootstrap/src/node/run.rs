@@ -142,6 +142,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     let mut catch_up_queue: HashMap<PeerId, VecDeque<[u8; 32]>> = HashMap::new();
     let mut catch_up_asked: HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)> = HashMap::new();
     let mut catch_up_at = tokio::time::Instant::now();
+    let mut refill_round = refill::Round::default();
+    refill::spawn_rebuild(&service);
     let mut catch_up = tokio::time::interval_at(
         tokio::time::Instant::now() + Duration::from_secs(60),
         Duration::from_secs(3600),
@@ -176,6 +178,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
     let (store_tx, mut store_done) = tokio::sync::mpsc::unbounded_channel::<Finished>();
     loop {
         dispatch(&mut store_queue, &mut nonces, &service, &store_tx);
+        if inventory_asked.is_empty()
+            && catch_up_asked.is_empty()
+            && catch_up_queue.values().all(VecDeque::is_empty)
+        {
+            refill_round.drained(&service);
+        }
         tokio::select! {
             event = swarm.select_next_some() => {
             dyapp_p2p_net::route(&mut swarm, &event);
@@ -430,6 +438,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                     let (Some(topic), Some(index)) = (inventory_asked.remove(&request_id), &service.search) else {
                         continue;
                     };
+                    refill_round.answered();
                     let have: Vec<([u8; 32], u64)> = response
                         .have
                         .iter()
@@ -910,6 +919,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
                 if peers.is_empty() {
                     continue;
                 }
+                refill_round.start(&service);
                 for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
                     let Ok(pick) = getrandom::u32() else { continue };
                     for peer in catch_up_peers(&peers, pick) {

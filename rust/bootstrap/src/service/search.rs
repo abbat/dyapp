@@ -86,7 +86,7 @@ pub fn run_query(
                     .collect(),
                 applied: found.applied,
                 partial: found.partial,
-                index_version: crate::search::INDEX_VERSION,
+                index_version: index.index_version(),
                 ..search_reply(Status::Ok)
             },
         },

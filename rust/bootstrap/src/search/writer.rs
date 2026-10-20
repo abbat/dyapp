@@ -49,6 +49,32 @@ impl Writer {
     pub(super) fn derived(&mut self) -> Result<rusqlite::Transaction<'_>> {
         self.conn.transaction().map_err(storage_error)
     }
+
+    /// Puts the writer on a newly active generation; returns the old connection.
+    pub(super) fn replace(&mut self, conn: Connection) -> Connection {
+        std::mem::replace(&mut self.conn, conn)
+    }
+
+    /// Takes the changed keys if at most `bound`; `None` leaves them for another round.
+    pub(super) fn take_at_most(
+        &mut self,
+        bound: usize,
+    ) -> std::result::Result<Option<Vec<[u8; 32]>>, Overflow> {
+        if self.overflow {
+            return Err(Overflow);
+        }
+        match self.dirty.as_mut() {
+            Some(dirty) if dirty.len() > bound => Ok(None),
+            Some(dirty) => Ok(Some(dirty.drain().collect())),
+            None => Ok(Some(Vec::new())),
+        }
+    }
+
+    /// Stops tracking and frees the set.
+    pub(super) fn stop(&mut self) {
+        self.dirty = None;
+        self.overflow = false;
+    }
 }
 
 /// An index transaction; dropping it without `commit` rolls back and marks nothing.
@@ -109,9 +135,7 @@ impl SearchIndex {
 
     /// Stops tracking and frees the set.
     pub fn track_stop(&self) -> Result<()> {
-        let mut db = lock(&self.db)?;
-        db.dirty = None;
-        db.overflow = false;
+        lock(&self.db)?.stop();
         Ok(())
     }
 }

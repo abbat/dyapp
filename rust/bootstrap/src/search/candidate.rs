@@ -7,7 +7,7 @@ use rusqlite::types::Value;
 /// Keys per copy or replay batch.
 const COPY_KEYS: u32 = 256;
 /// Changed keys a final unlocked round may take; activation replays the rest under the lock.
-const SETTLED_KEYS: usize = 1024;
+pub(super) const SETTLED_KEYS: usize = 1024;
 /// Unlocked replay rounds before the build is postponed.
 const REPLAY_ROUNDS: u32 = 8;
 /// The `key` row, copied as it is: version, tombstone, limits, heartbeat, newcomer bookkeeping.
@@ -47,7 +47,7 @@ impl From<crate::error::BootstrapError> for Abort {
 }
 
 /// The source state of one key.
-struct Row {
+pub(super) struct Row {
     columns: Vec<Value>,
     version: i64,
     record: Option<Vec<u8>>,
@@ -65,7 +65,7 @@ fn file_len(path: &Path) -> u64 {
 }
 
 /// Deletes a database file with its `-wal` and `-shm`; a leftover is deleted at the next start.
-fn remove_files(path: &Path) {
+pub(super) fn remove_files(path: &Path) {
     for suffix in ["", "-wal", "-shm"] {
         let _ = std::fs::remove_file(sibling(path, suffix));
     }
@@ -77,7 +77,7 @@ fn free(path: &Path) -> Result<u64> {
 }
 
 /// Reads the state of `keys` from the source in one read transaction; `None` for an absent key.
-fn read(db: &Connection, keys: &[[u8; 32]]) -> Result<Vec<([u8; 32], Option<Row>)>> {
+pub(super) fn read(db: &Connection, keys: &[[u8; 32]]) -> Result<Vec<([u8; 32], Option<Row>)>> {
     let tx = db.unchecked_transaction().map_err(storage_error)?;
     let mut out = Vec::with_capacity(keys.len());
     for key in keys {
@@ -126,11 +126,18 @@ fn read(db: &Connection, keys: &[[u8; 32]]) -> Result<Vec<([u8; 32], Option<Row>
     Ok(out)
 }
 
-/// Makes the candidate hold the source state of each key in one transaction: the old rows go
-/// with their digest and place counts, the source rows come in, `profile` and `interest` rebuilt
-/// from the record. Idempotent. Returns the estimated bytes written.
+/// `apply_rows` in a transaction of its own.
 fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
     let tx = db.transaction().map_err(storage_error)?;
+    let bytes = apply_rows(&tx, rows)?;
+    tx.commit().map_err(storage_error)?;
+    Ok(bytes)
+}
+
+/// Makes the candidate hold the source state of each key: the old rows go with their digest
+/// and place counts, the source rows come in, `profile` and `interest` rebuilt from the record.
+/// Idempotent. Returns the estimated bytes written.
+pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
     let mut bytes = 0;
     for (key, row) in rows {
         let old: Option<i64> = tx
@@ -142,8 +149,8 @@ fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
             .optional()
             .map_err(storage_error)?;
         if let Some(version) = old {
-            flip(&tx, key, version.unsigned_abs())?;
-            uncount(&tx, &key[..])?;
+            flip(tx, key, version.unsigned_abs())?;
+            uncount(tx, &key[..])?;
             for table in ["profile", "interest", "record", "key"] {
                 tx.execute(
                     &format!("DELETE FROM `{table}` WHERE `key` = ?"),
@@ -161,14 +168,14 @@ fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
             rusqlite::params_from_iter(&row.columns),
         )
         .map_err(storage_error)?;
-        flip(&tx, key, row.version.unsigned_abs())?;
+        flip(tx, key, row.version.unsigned_abs())?;
         if let Some(record) = &row.record {
             let profile = SignedRecord::decode(record.as_slice())
                 .ok()
                 .and_then(|signed| Profile::decode(signed.payload.as_slice()).ok())
                 .ok_or_else(|| storage_error("invalid indexed record"))?;
             let r = row.r.unwrap_or_else(|| i64::from_ne_bytes(rand_bytes()));
-            insert_profile(&tx, key, &profile, r)?;
+            insert_profile(tx, key, &profile, r)?;
             tx.execute(
                 "INSERT INTO `record` VALUES (?, ?)",
                 params![&key[..], record],
@@ -177,7 +184,6 @@ fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
             bytes += record.len() as u64;
         }
     }
-    tx.commit().map_err(storage_error)?;
     Ok(bytes)
 }
 
@@ -193,8 +199,7 @@ fn keys(rows: Vec<Vec<u8>>) -> Result<Vec<[u8; 32]>> {
 impl SearchIndex {
     /// The file of generation `version` (2 and up) beside this one: `profiles-idx-v2.db`.
     pub(crate) fn generation_path(&self, version: u32) -> PathBuf {
-        let stem = self.path.file_stem().unwrap_or_default().to_string_lossy();
-        self.path.with_file_name(format!("{stem}-v{version}.db"))
+        generation_file(&self.path, version)
     }
 
     /// Copies the index into a new generation file, then replays the keys changed meanwhile
@@ -237,7 +242,7 @@ impl SearchIndex {
         }
     }
 
-    fn discard(&self, path: &Path) {
+    pub(super) fn discard(&self, path: &Path) {
         let _ = self.track_stop();
         remove_files(path);
     }
@@ -248,8 +253,9 @@ impl SearchIndex {
         budget: &RebuildBudget,
         min_free: u64,
     ) -> std::result::Result<(), Abort> {
-        let need = (file_len(&self.path) + file_len(&sibling(&self.path, "-wal")))
-            .saturating_add(min_free);
+        let active = self.active_path();
+        let need =
+            (file_len(&active) + file_len(&sibling(&active, "-wal"))).saturating_add(min_free);
         if free(&self.path)? < need {
             return Err(Abort::Disk);
         }
@@ -259,18 +265,10 @@ impl SearchIndex {
         let mut db = storage::open(&candidate.path, SCHEMA, STEPS)?
             .into_inner()
             .map_err(storage_error)?;
-        db.execute_batch(
-            "CREATE TABLE `generation` (`version` INTEGER NOT NULL, `complete` INTEGER NOT NULL)",
-        )
-        .map_err(storage_error)?;
-        db.execute(
-            "INSERT INTO `generation` VALUES (?, 0)",
-            [candidate.version],
-        )
-        .map_err(storage_error)?;
+        stamp(&db, candidate.version, false)?;
         db.execute(
             "UPDATE `meta` SET `value` = ? WHERE `name` = 'created'",
-            [self.created],
+            [self.created()],
         )
         .map_err(storage_error)?;
         let file = candidate.path.to_string_lossy();

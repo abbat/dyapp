@@ -2,6 +2,7 @@
 
 mod identified;
 mod jobs;
+mod refill;
 mod replicas;
 mod replies;
 mod run;
@@ -919,6 +920,7 @@ fn status(
     let bytes = |usage: crate::Result<(u64, u64)>| usage.map_or(0, |(used, _)| used);
     let (pow_checks, pow_forged) = service.pow.take_counts();
     let wire_bytes = service.wire.take();
+    let rebuild = service.search.as_ref().map(|s| s.rebuild_report());
     tracing::info!(
         connected = swarm.connected_peers().count(),
         known,
@@ -933,6 +935,12 @@ fn status(
         pow_checks,
         pow_forged,
         newcomer_evictions = service.search.as_ref().map_or(0, |s| s.take_newcomer_evictions()),
+        search_phase = rebuild.map_or("off", |r| r.phase),
+        search_index_version = service.search.as_ref().map_or(0, |s| s.index_version()),
+        rebuild_postpones = rebuild.map_or(0, |r| r.postpones),
+        rebuild_overflows = rebuild.map_or(0, |r| r.overflows),
+        rebuild_drop_refills = rebuild.map_or(0, |r| r.drop_refills),
+        rebuild_stop_the_worlds = rebuild.map_or(0, |r| r.stop_the_worlds),
         wire_bytes = %wire_bytes,
         "node status"
     );

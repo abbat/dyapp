@@ -194,16 +194,26 @@ pub enum Beat {
 /// The search index database.
 pub struct SearchIndex {
     db: Mutex<Writer>,
-    /// Read-only connections for `records` and `query`; WAL lets them run beside the writer.
-    readers: Mutex<Vec<Connection>>,
+    /// The active generation and read-only connections to it for `records` and `query`; WAL
+    /// lets them run beside the writer.
+    readers: Mutex<Pool>,
+    /// The first generation's file; later ones are named after it.
     path: PathBuf,
+    /// `search.lock`, held while the index is open.
+    _lock: std::fs::File,
+    /// The index format this binary builds.
+    target: u32,
+    /// Set after a drop until a full catch-up round; persisted in `meta`.
+    refilling: AtomicBool,
+    /// Rebuild counters for the status line.
+    rebuild: worker::Stats,
     max_bytes: u64,
     /// Record bytes put since the last `usage()` check.
     written: AtomicU64,
     /// Set when usage passed `max_bytes`; each put evicts one batch until under 95 %.
     over: AtomicBool,
-    /// When the file was created (Unix seconds).
-    created: i64,
+    /// When the active generation was created (Unix seconds).
+    created: AtomicI64,
     /// A key is a newcomer this long after its first put.
     newcomer_seconds: i64,
     /// Record bytes newcomers may hold together.
@@ -216,66 +226,15 @@ pub struct SearchIndex {
     newcomer_evictions: AtomicU64,
 }
 
-/// A reader connection on loan; goes back to the pool on drop.
-pub(crate) struct Reader<'a> {
-    index: &'a SearchIndex,
-    db: Option<Connection>,
-}
-
-impl std::ops::Deref for Reader<'_> {
-    type Target = Connection;
-    fn deref(&self) -> &Connection {
-        self.db.as_ref().expect("reader present until drop")
-    }
-}
-
-impl Drop for Reader<'_> {
-    fn drop(&mut self) {
-        if let (Some(db), Ok(mut pool)) = (self.db.take(), self.index.readers.lock()) {
-            pool.push(db);
-        }
-    }
-}
-
 /// i64 for SQLite; `put` refuses versions above i64::MAX as stale.
 fn sql(v: u64) -> Option<i64> {
     i64::try_from(v).ok()
 }
 
 impl SearchIndex {
-    /// Opens or creates the index at `path`, keeping it below `search.max_bytes`.
-    pub fn open(path: &Path, search: &crate::config::Search) -> Result<Self> {
-        let conn = storage::open(path, SCHEMA, STEPS)?
-            .into_inner()
-            .map_err(storage_error)?;
-        let created = conn
-            .query_row(
-                "SELECT `value` FROM `meta` WHERE `name` = 'created'",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        let index = Self {
-            db: Mutex::new(Writer::new(conn)),
-            readers: Mutex::new(Vec::new()),
-            path: path.to_owned(),
-            max_bytes: search.max_bytes,
-            written: AtomicU64::new(0),
-            over: AtomicBool::new(false),
-            created,
-            newcomer_seconds: i64::from(search.newcomer_days) * 86_400,
-            newcomer_quota: (search.max_bytes as f64 * search.newcomer_share).round() as u64,
-            newcomer_bytes: AtomicU64::new(0),
-            newcomer_checked: AtomicI64::new(i64::MIN),
-            newcomer_evictions: AtomicU64::new(0),
-        };
-        index.rebuild_digest()?;
-        Ok(index)
-    }
-
     /// When the file was created (Unix seconds).
     pub fn created(&self) -> i64 {
-        self.created
+        self.created.load(Ordering::Relaxed)
     }
 
     /// Heal derived state on open, including files last written by an older binary.
@@ -384,22 +343,6 @@ impl SearchIndex {
         Ok((out, scanned))
     }
 
-    pub(crate) fn reader(&self) -> Result<Reader<'_>> {
-        let pooled = self.readers.lock().map_err(storage_error)?.pop();
-        let db = match pooled {
-            Some(db) => db,
-            None => Connection::open_with_flags(
-                &self.path,
-                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-            )
-            .map_err(storage_error)?,
-        };
-        Ok(Reader {
-            index: self,
-            db: Some(db),
-        })
-    }
-
     /// Stores a new version or a tombstone (`p.deleted`). `limit = false` skips the update
     /// limit for catch-up; every other check stays.
     pub fn put(
@@ -492,7 +435,7 @@ impl SearchIndex {
             record.encoded_len() as i64
         };
         // Replicas while the file is young are the existing network's keys, not newcomers.
-        let grace = !limit && now < self.created + self.newcomer_seconds;
+        let grace = !limit && now < self.created() + self.newcomer_seconds;
         let (first_seen, old_bytes) =
             known.map_or((if grace { 0 } else { now }, 0), |k| (k.2, k.3));
         tx.execute(
@@ -920,7 +863,8 @@ impl SearchIndex {
                 heads[i] = next(&mut cursors[i])?;
             }
         }
-        let partial = hits.len() < limit && scanned >= max_scan_rows;
+        // A refilling index misses keys: clients complete the results from other nodes.
+        let partial = hits.len() < limit && scanned >= max_scan_rows || self.refilling();
         Ok(Ok(Found {
             hits,
             applied,
@@ -955,6 +899,13 @@ use counts::{count_place, remove_keys, select_keys, uncount};
 #[path = "search/candidate.rs"]
 mod candidate;
 pub use candidate::{Abort, Candidate};
+#[path = "search/generation.rs"]
+mod generation;
+pub use generation::Replay;
+use generation::{generation_file, stamp, Pool};
+#[path = "search/worker.rs"]
+mod worker;
+pub use worker::Report;
 #[path = "search/writer.rs"]
 mod writer;
 pub use writer::Overflow;

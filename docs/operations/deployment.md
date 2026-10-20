@@ -206,7 +206,8 @@ roles = ["store"]      # e.g. ["store", "media", "turn"]: media serves /dyapp/me
 
 [storage]
 dir = "/var/lib/dyappd"   # node.key, node.id, network, profiles.db, messages.db, media.db,
-                          # deny.db, profiles-idx.db (search), peers, anchors;
+                          # deny.db, profiles-idx.db or profiles-idx-vN.db and
+                          # search.lock (search), peers, anchors;
                           # media blob files in data/
 key = ""                  # node key file; empty: the unit's node.key credential if
                           # there is one, else <dir>/node.key
@@ -639,6 +640,8 @@ Only what applies to the code that exists today:
 | `dyappd` exits with `storage belongs to ...` | `storage.dir` was bound to another `network.name`; restore that name or use a new directory |
 | `test-peer info` fails against a named-network node | Set `DYAPPD__NETWORK__NAME` to the node's network name for `test-peer` too |
 | `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
+| `dyappd` exits with `has search index format N, this dyappd knows up to M` | A newer `dyappd` rebuilt the search index; run that version, or delete the named `profiles-idx-vN.db` to roll back: the index is disposable and catch-up refills it |
+| `dyappd` exits with `search.lock: ...; another dyappd uses this search index` | Two nodes share one `storage.dir`; stop the other one or give each its own directory |
 | `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | `not listening` warning or `no address could be opened` | Port 7070 is taken (another `dyappd`?) or IPv6 is disabled on the host; set `DYAPPD__LISTEN` |
 | Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas (see [Data cleanup](#data-cleanup)) |

@@ -276,8 +276,8 @@ resent from the sender's retry queue.
 
 ### Search
 
-> ⚠️ Experimental: the index rebuild on a version bump is built but not activated yet, and no
-> shipped or seed config enables the role.
+> ⚠️ Experimental: no shipped or seed config enables the role, and the index rebuild runs only
+> on an index version bump, which no release has shipped yet.
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
@@ -335,7 +335,8 @@ resent from the sender's retry queue.
   `search.topics`, and then holds a uniform sample. A subset is refused at startup on the public
   network (empty `network.name`), so a public search node answers for every topic. The index
   is its own disposable file, `profiles-idx.db`, which also keeps the signed records in a
-  `record` table apart from the store's profiles; catch-up refills a lost file. The search role needs the store role, since a
+  `record` table apart from the store's profiles; catch-up refills a lost or dropped file
+  ([rebuild](#storage-on-a-node)). The search role needs the store role, since a
   node without it serves no protocol. It holds typed columns for every
   `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
@@ -383,9 +384,10 @@ resent from the sender's retry queue.
   `INVALID`.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
-  come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`.
+  come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;
+  `partial` is also set while the index refills after a forced drop.
   The reply holds (identity key, version) pairs, 40 bytes each, 50 by default and at most 200,
-  with the conditions applied, `partial` and the index version. A repeated query gives a new
+  with the conditions applied, `partial` and the active generation's index version. A repeated query gives a new
   sample; there is no pagination. The client fetches the records it does not have in its cache
   with `get(keys)`, up to 50 keys, from the same node; the reply is cut at 1 MiB and the client
   asks again for the rest. A `query` costs 1 unit and a `get` one unit per started 64 KiB of its
@@ -453,8 +455,8 @@ resent from the sender's retry queue.
   rebuild workers write a batch then await a reserved time slot outside the store lock, at most
   `maintenance.io_mb_per_s` (default 16 MiB/s, must be positive). Concurrent rebuilds share the
   same allowance. Each maintenance run logs file and percent complete; a finished build is
-  reported once. Format rebuild workers remain planned. For the planned search index rebuild,
-  every index mutation (put, tombstone, heartbeat, expiry, eviction) already marks its key, after
+  reported once. Store format rebuild workers remain planned; the search index rebuild is
+  implemented. Every index mutation (put, tombstone, heartbeat, expiry, eviction) already marks its key, after
   the commit in the same writer lock hold, while tracking is on (`track_start`, `take_dirty`,
   `track_stop` in `rust/bootstrap/src/search/writer.rs`); past 262 144 keys (about 16 MiB) the
   set is dropped and `take_dirty` returns `Overflow` until tracking restarts. The search
@@ -466,9 +468,28 @@ resent from the sender's retry queue.
   deletes the candidate on `Overflow`, on a store error, or when free space would drop below
   `min_free_mb` (checked before the copy against the index size and after every batch); after 8
   unsettled rounds it returns `Postpone` and keeps the candidate and tracking for a later
-  `replay`. Scheduling the build, its retries and report, and activating the candidate remain
-  planned. Incremental vacuum keeps its page
-  budget and network repair keeps its traffic cap.
+  `replay`.
+- Search index generations: the first is `profiles-idx.db`, version N above 1 is
+  `profiles-idx-vN.db` with a `generation` row (version, complete). The node holds
+  `search.lock` beside them while it runs, so a second `dyappd` on the directory refuses to
+  start. At start the highest complete generation is active and every incomplete or lower one is
+  deleted; a complete generation newer than the binary's index version refuses the start and
+  names the file. When the active version is below the binary's, a background worker
+  (`rust/bootstrap/src/search/worker.rs`) builds the candidate and activates it under the writer
+  lock: it replays the last tracked keys (at most 1024, more postpones again), switches the
+  writer and the reader pool (a reader of the old generation is closed, not pooled), resets the
+  write counters, recomputes the size limit against `search.max_bytes` and deletes the old
+  generation. A larger schema thus holds fewer profiles in the same budget. Searches and writes
+  go on meanwhile. A postponed candidate is replayed after 10 minutes, any other abort rebuilds
+  after an hour. Three aborts of one kind in a row force the next attempt: three postpones or
+  three overflows stop the world (build or take the candidate, then replay every tracked key
+  under the writer lock, however many); three free-space aborts drop the index for an empty
+  candidate and set `refilling`. A store error never forces. Each forced step logs a warning
+  with `step` = `stop_the_world` or `drop_refill`. While `refilling` is set, every query reply is
+  `partial` and the next catch-up tick starts a refill round; once a round in which a peer
+  answered has no inventory or catch-up request pending and no queued key left, the flag is
+  cleared. The flag survives a restart. Incremental vacuum keeps its page budget and network
+  repair keeps its traffic cap.
 - Format versions (implemented, [Storage](#storage)): each file holds its format in
   `PRAGMA user_version`, one number that only grows; there is no downgrade, a fix ships as a
   higher version. On open the node runs the numbered steps from the file's version to its own, in
@@ -480,7 +501,7 @@ resent from the sender's retry queue.
   started (by rowid or `seq`), switches under a short lock and deletes the old file. Deletes during
   the build (acks, expiry, eviction) go to both files, so nothing deleted comes back. The build
   starts only with the old file's size plus `min_free_mb` free, otherwise it waits and logs why.
-  The first user is `profiles-idx.db`, rebuilt on an index version bump.
+  The search index already rebuilds this way on an index version bump (above).
 - Activity: one UPSERT of a user's last-active date per day.
 
 ### Limits and abuse
@@ -750,7 +771,7 @@ The current protocol replies are:
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version, pow_nonce, pow_bits, pow_day }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal), or for a heartbeat proof that is missing, below `min_heartbeat_pow` or not for the current UTC day; `DENIED` also for a forged heartbeat proof; `REFUSED`; `UNSUPPORTED` |
-| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `PUZZLE` with `puzzle_challenge` and `puzzle_bits` while the node is loaded and `puzzle` is missing, wrong or used ([Search](#search)); `UNSUPPORTED` |
+| `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out or the index refills; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `PUZZLE` with `puzzle_challenge` and `puzzle_bits` while the node is loaded and `puzzle` is missing, wrong or used ([Search](#search)); `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `PUZZLE` as for `query`; `UNSUPPORTED` |
 | `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
 
@@ -1268,7 +1289,11 @@ known peers, requests answered and failed with a node error since the last run, 
 dropped after identify because the peer belongs to another network (`foreign_peers`; a peer with
 two connections counts twice), stored bytes of
 profiles, messages and media, profile proof-of-work checks (`pow_checks`) and forgeries
-(`pow_forged`), search newcomers evicted by the quota (`newcomer_evictions`), capped replica
+(`pow_forged`), search newcomers evicted by the quota (`newcomer_evictions`), the search
+index phase (`search_phase`: `off`, `serving`, `rebuilding` or `refilling`), its active
+version (`search_index_version`) and rebuild postpones, overflows, forced drops and forced
+stops since start (`rebuild_postpones`, `rebuild_overflows`, `rebuild_drop_refills`,
+`rebuild_stop_the_worlds`), capped replica
 sends (`replica_dropped`), and per-protocol `wire_bytes`; plus refusals per
 guard and refused connections ([Resource guards](#resource-guards)). The same run and every SIGHUP
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
