@@ -276,8 +276,8 @@ resent from the sender's retry queue.
 
 ### Search
 
-> ⚠️ Experimental: no index rebuild on a version bump yet, and no shipped or seed config enables
-> the role.
+> ⚠️ Experimental: the index rebuild on a version bump is built but not activated yet, and no
+> shipped or seed config enables the role.
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
@@ -457,7 +457,17 @@ resent from the sender's retry queue.
   every index mutation (put, tombstone, heartbeat, expiry, eviction) already marks its key, after
   the commit in the same writer lock hold, while tracking is on (`track_start`, `take_dirty`,
   `track_stop` in `rust/bootstrap/src/search/writer.rs`); past 262 144 keys (about 16 MiB) the
-  set is dropped and `take_dirty` returns `Overflow` until tracking restarts. Incremental vacuum keeps its page
+  set is dropped and `take_dirty` returns `Overflow` until tracking restarts. The search
+  candidate build (`build` and `replay` in `rust/bootstrap/src/search/candidate.rs`) starts
+  tracking, then copies the index into `profiles-idx-v{N}.db` in key order, 256 keys per batch:
+  key rows and tombstones as they are, `profile` and `interest` rebuilt from the stored record
+  with the same random sort key, place counts and digest kept per key. It then replays the
+  tracked keys in up to 8 rounds and settles once a round takes at most 1024 keys. It aborts and
+  deletes the candidate on `Overflow`, on a store error, or when free space would drop below
+  `min_free_mb` (checked before the copy against the index size and after every batch); after 8
+  unsettled rounds it returns `Postpone` and keeps the candidate and tracking for a later
+  `replay`. Scheduling the build, its retries and report, and activating the candidate remain
+  planned. Incremental vacuum keeps its page
   budget and network repair keeps its traffic cap.
 - Format versions (implemented, [Storage](#storage)): each file holds its format in
   `PRAGMA user_version`, one number that only grows; there is no downgrade, a fix ships as a
@@ -1359,7 +1369,7 @@ run `make test` first to build the current `dyappd` and `test-peer` binaries.
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Ranged media reads and assembly caching remain planned
-- The search role is experimental: no index rebuild on a version bump, and expiry drops at most 4096 silent keys an hour
+- The search role is experimental: a version bump does not activate a rebuilt index yet, and expiry drops at most 4096 silent keys an hour
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

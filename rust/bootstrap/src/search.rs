@@ -122,6 +122,47 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
     Ok(())
 }
 
+/// Inserts the typed rows of a live profile with random rank `r` and counts its place.
+fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Result<()> {
+    let place = crate::places::canonical(&p.country, &p.place);
+    count_place(tx, &p.country, place, 1)?;
+    tx.execute(
+        "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+        params![
+            &key[..],
+            topic(key),
+            sql(p.version),
+            p.age,
+            p.country,
+            p.income_from.and_then(sql),
+            p.income_to.and_then(sql),
+            p.has_kids,
+            p.wants_more_kids,
+            p.relationship_goal,
+            p.career_ambition,
+            p.education,
+            p.orientation,
+            p.role_preference,
+            p.zodiac,
+            p.financial_philosophy,
+            p.employment_status,
+            p.fitness_level,
+            place,
+            r
+        ],
+    )
+    .map_err(storage_error)?;
+    for interest in &p.interests {
+        tx.execute(
+            "INSERT OR IGNORE INTO `interest` VALUES (?, ?)",
+            params![&key[..], interest],
+        )
+        .map_err(storage_error)?;
+    }
+    Ok(())
+}
+
 /// What became of an indexed publish.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Put {
@@ -463,43 +504,7 @@ impl SearchIndex {
         )
         .map_err(storage_error)?;
         if !p.deleted {
-            let r = i64::from_ne_bytes(rand_bytes());
-            let place = crate::places::canonical(&p.country, &p.place);
-            count_place(&tx, &p.country, place, 1)?;
-            tx.execute(
-                "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                   ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
-                params![
-                    &key[..],
-                    topic,
-                    version,
-                    p.age,
-                    p.country,
-                    p.income_from.and_then(sql),
-                    p.income_to.and_then(sql),
-                    p.has_kids,
-                    p.wants_more_kids,
-                    p.relationship_goal,
-                    p.career_ambition,
-                    p.education,
-                    p.orientation,
-                    p.role_preference,
-                    p.zodiac,
-                    p.financial_philosophy,
-                    p.employment_status,
-                    p.fitness_level,
-                    place,
-                    r
-                ],
-            )
-            .map_err(storage_error)?;
-            for interest in &p.interests {
-                tx.execute(
-                    "INSERT OR IGNORE INTO `interest` VALUES (?, ?)",
-                    params![&key[..], interest],
-                )
-                .map_err(storage_error)?;
-            }
+            insert_profile(&tx, key, p, i64::from_ne_bytes(rand_bytes()))?;
             tx.execute(
                 "INSERT INTO `record` VALUES (?, ?)",
                 params![&key[..], record.encode_to_vec()],
@@ -949,6 +954,9 @@ fn rand_bytes() -> [u8; 8] {
 #[path = "search/counts.rs"]
 mod counts;
 use counts::{count_place, remove_keys, select_keys, uncount};
+#[path = "search/candidate.rs"]
+mod candidate;
+pub use candidate::{Abort, Candidate};
 #[path = "search/writer.rs"]
 mod writer;
 pub use writer::Overflow;
@@ -957,6 +965,9 @@ use writer::Writer;
 #[cfg(test)]
 #[path = "search/tracking.rs"]
 mod tracking_tests;
+#[cfg(test)]
+#[path = "search/rebuild.rs"]
+mod rebuild_tests;
 
 #[cfg(test)]
 #[path = "search/newcomers.rs"]
