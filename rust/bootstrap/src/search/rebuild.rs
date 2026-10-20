@@ -123,7 +123,10 @@ async fn continuous_changes_postpone_then_replay_settles() {
             tokio::task::yield_now().await;
         }
     };
+    // Build first: tracking starts before the first load, and every pause of the build runs
+    // the load before the next round takes the changed keys.
     let built = tokio::select! {
+        biased;
         built = index.build(2, &budget, 0) => built,
         () = load => unreachable!(),
     };
