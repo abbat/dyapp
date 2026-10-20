@@ -22,6 +22,7 @@ b61bb3ce6fb2bdee12aab9fab312f57e8cb06bce = "Atomic move of mailbox requests out 
 bc6cee52f9930c5637f34117847045ea18762cc0 = "Token key storage, pool eviction rules and their schema migration with tests and docs"
 9f41870bd54c9c7d78fec0455766395b70a8c735 = "Envelope labels across put, replica_put and repair with the pool enforcement and docs"
 94776c519116605dd2dd43c63d28eec1489803b0 = "Signed revoke across storage, service, forwarding and repair with tests and docs"
+cadff2195a895330e55fd67efc7bf4ae9591fa21 = "Search candidate build with its tests and docs; trailer outside the final paragraph"
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
