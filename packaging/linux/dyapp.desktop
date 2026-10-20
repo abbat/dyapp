@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DYApp
+Comment=Peer-to-peer dating client
+Exec=dyapp
+Icon=dyapp
+Terminal=false
+Categories=Network;InstantMessaging;

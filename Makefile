@@ -53,12 +53,14 @@ build release:
 	bash scripts/docker-test.sh build
 
 # target/deb/dyappd_<version>_<arch>.deb and dyappd-<version>-<machine>-linux-gnu.tar.gz, then a
-# test install of each on a clean Debian 12.
+# test install of each on a clean Debian 12; the same pair for the desktop client (dyapp_...,
+# dyapp-...), installed with apt and smoke-tested under Xvfb.
 deb:
 	mkdir -p target/deb
 	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb
 	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb-test
 	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never tarball-test
+	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never client-deb-test
 
 # dyappd:latest, then a run with a read-only root, no capabilities and one volume.
 image:

@@ -35,7 +35,7 @@ pulls anything).
 | Integration | `make test-integration` | bootstrap `integration_tests` + network compose + `rust-check.sh memory` (5-minute RSS plateau) |
 | First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `scripts/rehearsal.py`, see [operator manual](../manuals/bootstrap.md#first-deployment) |
 | Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
-| Debian 12 package | `make deb` | `scripts/build-deb.sh` (.deb and tar.gz), then `scripts/deb-test.sh` and `scripts/tarball-test.sh` on bookworm-slim |
+| Debian 12 package | `make deb` | `scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `scripts/deb-test.sh`, `scripts/tarball-test.sh` and `scripts/client-deb-test.sh` on bookworm-slim |
 | Container image | `make image` | builds `dyappd:latest` (`docker/Dockerfile.dyappd`), then `scripts/image-test.sh` |
 | fmt check | `make fmt` | `cargo fmt --all -- --check` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `scripts/check-quality.sh` |
