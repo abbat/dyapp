@@ -23,7 +23,7 @@ max_lines = 400
 
 [scorecard]
 # Practice C3: OpenSSF Scorecard aggregate score (scripts/check-scorecard.py); the target is 7.0.
-score = 6.8
+score = 7.3
 
 [mutants]
 # Practice B2: weekly full cargo-mutants score, percent (scripts/check-mutants.py); the first

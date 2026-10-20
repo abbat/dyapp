@@ -43,9 +43,9 @@ admission (`search.rs`).
 The split preserves every existing test body and actual loopback assertion;
 all files now satisfy the 1000-line size limit without an exception.
 
-The memory plateau explicitly allows 1000 incoming connections per IP group: its short-lived
-clients all share loopback and can reach the default cap before idle cleanup. The default 32
-budget is covered separately by real TCP tests in `node/tests/groups.rs`, including pending handshakes,
+The local E2E and memory plateau suites allow 1000 incoming connections per IP group: their
+short-lived clients all share loopback and can reach the default cap before idle cleanup. The
+default 32 budget is covered separately by real TCP tests in `node/tests/groups.rs`, including pending handshakes,
 established connections, close/failure slot reuse, outgoing exemption and composed refusals.
 A 100-connection QUIC churn test checks guard reservations and groups return to zero.
 

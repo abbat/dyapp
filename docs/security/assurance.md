@@ -17,13 +17,12 @@ each push to `main` and on demand:
   `scripts/baselines.toml`. Below the target of 7.0 it lists the checks that lose points; at
   0.5 above the baseline it asks to raise the baseline. Artifact **`scorecard`** keeps the JSON.
 
-The first run (2026-10-19, before `SECURITY.md`) scored 5.9, the baseline. The checks at 0
-were Maintained (the repository is younger than 90 days), Code-Review (changes merge without
-an approving review), CII-Best-Practices (no badge yet), Branch-Protection (not enabled on
-`main`), Security-Policy (since added) and Contributors. Code review, branch protection and the
-badge are maintainer decisions; until they change, the target of 7.0 is not met. With
-`SECURITY.md`, digest-pinned images, hash-pinned flake8 and the OSV exceptions the score is 6.8,
-the current baseline.
+The first run (2026-10-19, before `SECURITY.md`) scored 5.9. With `SECURITY.md`,
+digest-pinned images, hash-pinned flake8 and the OSV exceptions it rose to 6.8.
+The 2026-10-20 run on `fd8c98b` measured 7.3, the current baseline. The target of 7.0 is met.
+Maintained remains at 0 while the repository is younger than 90 days; Code-Review and
+Contributors are also at 0. The registered Best Practices badge scores 2 and branch
+protection scores 4. Improving these checks requires maintainer decisions.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
 An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `linux/`, `windows/`) lists the
@@ -34,8 +33,8 @@ Dockerfile; those findings are dismissed in code scanning as false positives, an
 Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
 
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
-is registered by the maintainer (a human gate) and kept current at every release. The badge
-level is passing; until the entry exists, the badge is planned.
+is registered and currently at InProgress level. The maintainer keeps its answers current at
+every release; passing level remains a goal.
 
 ## Verification checklists
 
