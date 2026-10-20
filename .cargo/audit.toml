@@ -1,0 +1,3 @@
+# cargo audit in security.yml. The reasons are in deny.toml, which ignores the same ids.
+[advisories]
+ignore = ["RUSTSEC-2026-0330", "RUSTSEC-2026-0331"]

@@ -2,6 +2,8 @@
 [default.extend-words]
 # Apple device identifier (simctl).
 udid = "udid"
+# hax-lib, the verification library under libcrux (deny.toml).
+hax = "hax"
 
 [files]
 # Raw fuzz inputs and the embedded GeoNames places.
