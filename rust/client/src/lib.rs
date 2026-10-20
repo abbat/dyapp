@@ -1,6 +1,8 @@
 //! Client network core: one libp2p connection to a node and the profile, KeyPackage and mailbox
-//! requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes.
+//! requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
+//! [`attachment`] encrypts their attachments.
 
+pub mod attachment;
 pub mod chat;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -47,6 +49,9 @@ pub enum Error {
     /// An MLS operation or incoming MLS message was refused.
     #[error(transparent)]
     Mls(#[from] dyapp_messaging::mls::Error),
+    /// An attachment could not be sealed, or its blob failed a check.
+    #[error("attachment: {0}")]
+    Attachment(&'static str),
 }
 
 /// One fetched envelope: the id to ack and the MLS bytes.

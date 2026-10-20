@@ -15,6 +15,7 @@ here instead of repeating guarantees.
 |-------|------|-----------------------|
 | Message payload | `rust/messaging/src/mls.rs` | Real in Rust: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. `Device::seal` encrypts the whole MLS state (signature key, unused KeyPackages, groups) with ChaCha20-Poly1305 under a 32-byte key the client keeps wrapped by the platform KeyStore, and `Device::open` and `Group::load` restore it; all of it is exported over FFI as `MlsDevice`/`MlsGroup`. Storing the state and keeping the newest profile are the client's job |
 | Message delivery | `rust/client` | Real in Rust, not used by the app yet: `chat::invite` fetches a KeyPackage for every device in the members' profiles and puts the Welcome in each device mailbox; `chat::message` pads the plaintext to the next power of two from 1 KiB and puts one MLS application message per member device; `chat::receive` fetches the mailbox, joins or applies each envelope and returns the ids to ack once the state is sealed. A node stores and returns only MLS bytes. A Welcome from a sender whose profile the receiver does not hold is refused and acked; write tokens are not used |
+| Chat attachments | `rust/client/src/attachment.rs` | Real in Rust, not used by the app yet: `attachment::seal` encrypts a blob under a fresh random 256-bit key, AES-256-GCM per 64 KiB chunk with the chunk index as the nonce and the last chunk marked in the additional data, and returns an `Attachment` with the key, the plaintext and blob SHA-256 and a 32-byte release secret from `getrandom`; `attachment::open` checks the blob hash, decrypts every chunk and checks the plaintext hash. Carrying the `Attachment` in the chat message and uploading the blob over `/dyapp/media` are planned |
 | Video frames | — | None: SFrame with keys from the MLS exporter is planned |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
 | KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; the client checks the MLS signature, credential and lifetime when it adds the device (`Device::create_group`) |
@@ -26,7 +27,9 @@ here instead of repeating guarantees.
 The MLS tests (`rust/messaging/src/mls/tests.rs`) check a roundtrip both ways and that a
 tampered, replayed or foreign-group message, a second join with a single-use Welcome, a forged
 certificate, a device missing from its owner's profile, another suite, a too-long lifetime and a
-commit adding an uncertified member are rejected, that a revoked device is removed, and that the exporter gives every member the same secret. The profile tests check that
+commit adding an uncertified member are rejected, that a revoked device is removed, and that the exporter gives every member the same secret. The attachment tests check that a tampered,
+reordered or truncated blob and a wrong key fail, and that no two attachments share a key or
+release secret. The profile tests check that
 a tampered payload, a foreign key and an older version are rejected.
 
 ## Threat model
@@ -89,7 +92,7 @@ One key per purpose; no key signs or encrypts for another.
 | MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Implemented in `rust/messaging`; sealed with the MLS state by `Device::seal` |
 | libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: a `systemd-creds` credential sealed to the host and its vTPM, or a 0600 key file | Node: implemented. Client: planned |
 | MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | MLS implemented in `rust/messaging`; SFrame planned |
-| Attachment key | One attachment | Inside the MLS message | Planned |
+| Attachment key | One attachment | Inside the MLS message | Generated and used in `rust/client/src/attachment.rs`; sending it in a chat message is planned |
 
 Rules:
 

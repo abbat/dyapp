@@ -498,8 +498,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   sender's mailboxes; nodes never link the two.
 - Reading and deleting a mailbox needs a signature over a nonce the node issued for this libp2p
   connection, so a captured request cannot be replayed. Other requests are idempotent.
-- Chat attachments are encrypted media blobs (planned: a fresh key per attachment,
-  [Encryption](../security/encryption.md#target-design)). The sender attaches them under the SHA-256 of a
+- Chat attachments are encrypted media blobs: a fresh key per attachment
+  ([Encryption](../security/encryption.md#target-design); the client's sending them is planned). The sender attaches them under the SHA-256 of a
   release secret of 32 random bytes and sends the secret inside the message; the recipient releases them
   after downloading, and unreleased ones expire after an operator-set retention.
 

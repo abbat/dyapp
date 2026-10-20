@@ -28,6 +28,9 @@ Encrypt everything private with **MLS via the `openmls` crate**:
 - **KeyPackages:** each device publishes a few single-use KeyPackages plus a last-resort one to the
   bootstrap network ([ADR 0007](0007-open-bootstrap-network.md)); a first message starts the group
   from one of them.
+- **Attachments** are not MLS messages: each blob is encrypted under its own random key with
+  AES-256-GCM (`aes-gcm` 0.10, the copy openmls' crypto provider already uses), and the key and
+  hashes travel inside an MLS message.
 - **Video** takes its per-call frame key from the MLS exporter of the chat's group
   ([ADR 0013](0013-video-calls-one-to-one.md)).
 

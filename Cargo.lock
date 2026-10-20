@@ -1194,6 +1194,7 @@ dependencies = [
 name = "dyapp-client"
 version = "0.0.1"
 dependencies = [
+ "aes-gcm",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",

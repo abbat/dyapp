@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+aes-gcm = "0.10"
 dyapp-identity = { path = "../identity" }
 dyapp-messaging = { path = "../messaging" }
 dyapp-p2p-net = { path = "../p2p-net" }
