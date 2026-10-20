@@ -24,6 +24,9 @@ TasksMax=256
 # needs cgroup v2. A live hypervisor read is not covered: only a confidential VM is.
 LimitCORE=0
 MemorySwapMax=0
+# The node key sealed by systemd-creds, looked up by name in /etc/credstore.encrypted. Absent, it
+# is skipped and dyappd reads storage.dir/node.key (or storage.key) instead.
+LoadCredentialEncrypted=node.key
 # /var/lib/dyappd, owned by the service user. Stores configured elsewhere need a drop-in
 # with ReadWritePaths=.
 StateDirectory=dyappd

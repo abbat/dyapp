@@ -33,11 +33,13 @@
 [storage]
 # All node data. Databases: profiles.db, messages.db, media.db (media role), deny.db,
 # profiles-idx.db (search role).
-# Media files: data/. Identity: node.key (keep a copy: a lost key is a new node) and node.id.
+# Media files: data/. Identity: node.key (keep a copy: a lost key is a new node) and node.id;
+# the key may live elsewhere, e.g. a systemd encrypted credential (see key).
 # Peers seen before: peers, anchors.
 # Back up with the node stopped: SQLite files copied while the node writes are inconsistent.
 # Another path needs ReadWritePaths= in a unit drop-in (`systemctl edit dyappd`).
 # dir = "/var/lib/dyappd"             # all node data
+# key = ""                            # node key file; empty: the unit's node.key credential, else dir/node.key
 
 [limits]
 # How long data is kept.

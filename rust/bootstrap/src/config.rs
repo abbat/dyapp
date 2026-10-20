@@ -353,8 +353,12 @@ pub enum Role {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct StorageConfig {
-    /// Holds the node key and every database; media blob files go in `data/`.
+    /// Holds every database and, unless `key` is set, the node key; media blob files go in
+    /// `data/`.
     pub dir: PathBuf,
+    /// The node key file. Empty: `$CREDENTIALS_DIRECTORY/node.key` when the systemd unit passes
+    /// that credential, else `dir/node.key`. How the file is protected is the host's choice.
+    pub key: PathBuf,
 }
 
 /// Retention, disk, rate, connection and ban limits.
@@ -470,6 +474,7 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             dir: "/var/lib/dyappd".into(),
+            key: PathBuf::new(),
         }
     }
 }
@@ -530,9 +535,27 @@ impl StorageConfig {
         self.dir.join("media.db")
     }
 
-    /// The node's libp2p key, `node.key`.
+    /// Where keygen writes the node's libp2p key: `key`, or `node.key` in `dir`.
     pub fn key_path(&self) -> PathBuf {
-        self.dir.join("node.key")
+        if self.key.as_os_str().is_empty() {
+            self.dir.join("node.key")
+        } else {
+            self.key.clone()
+        }
+    }
+
+    /// Where the node reads its key, and whether the file mode is checked: with `key` empty, a
+    /// `node.key` credential in `credentials` (systemd places it, readable through an ACL), else
+    /// [`Self::key_path`].
+    fn key_source(&self, credentials: Option<&Path>) -> (PathBuf, bool) {
+        let credential = credentials
+            .filter(|_| self.key.as_os_str().is_empty())
+            .map(|dir| dir.join("node.key"))
+            .filter(|path| path.exists());
+        match credential {
+            Some(path) => (path, false),
+            None => (self.key_path(), true),
+        }
     }
 
     /// The routing-table peers saved by the last run, one multiaddr per line.
@@ -732,8 +755,9 @@ impl NodeConfig {
 
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
     /// 2 vCPU) and binds the data directory to it and to `network.name`. Refuses an existing key,
-    /// existing data or a directory of another network: a new key is a new node.
-    pub fn keygen(&self) -> anyhow::Result<PeerId> {
+    /// existing data or a directory of another network: a new key is a new node. The key goes to
+    /// `out` when given (to be sealed by another tool), else to a new 0600 file.
+    pub fn keygen(&self, out: Option<&mut dyn Write>) -> anyhow::Result<PeerId> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
         if let Some(file) = [&key_path, &id_path].into_iter().find(|s| s.exists()) {
@@ -751,22 +775,36 @@ impl NodeConfig {
         self.bind_network()?;
         let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
         let encoded = Zeroizing::new(keypair.to_protobuf_encoding()?);
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&key_path)
-            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
-            .write_all(&encoded)?;
+        match out {
+            Some(out) => {
+                out.write_all(&encoded)?;
+                out.flush()?;
+            }
+            None => OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&key_path)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
+                .write_all(&encoded)?,
+        }
         let peer_id = keypair.public().to_peer_id();
         fs::write(&id_path, peer_id.to_string())?;
         Ok(peer_id)
     }
 
     /// Loads the node key made by [`Self::keygen`]. A key that does not belong to the stored data
-    /// or lacks the proof of work is refused, as is a key with group/other permission bits.
+    /// or lacks the proof of work is refused, as is a key file with group/other permission bits.
     pub fn node_key(&self) -> anyhow::Result<Keypair> {
-        let key_path = self.storage.key_path();
+        self.load_key(
+            std::env::var_os("CREDENTIALS_DIRECTORY")
+                .as_deref()
+                .map(Path::new),
+        )
+    }
+
+    fn load_key(&self, credentials: Option<&Path>) -> anyhow::Result<Keypair> {
+        let (key_path, check_mode) = self.storage.key_source(credentials);
         let id_path = self.storage.dir.join("node.id");
         let keypair = {
             let mut file = match File::open(&key_path) {
@@ -781,7 +819,7 @@ impl NodeConfig {
             let metadata = file
                 .metadata()
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
-            if metadata.mode() & 0o077 != 0 {
+            if check_mode && metadata.mode() & 0o077 != 0 {
                 anyhow::bail!(
                     "{} has group/other permissions: use chmod 600 before starting",
                     key_path.display()

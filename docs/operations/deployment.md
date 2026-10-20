@@ -99,7 +99,9 @@ Example: User opens app
 ```bash
 make deb                                   # → target/deb/dyappd_<version>_<arch>.deb
 sudo apt install ./dyappd_*.deb        # creates the dyappd user, enables the unit
-sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # once: about a minute on 2 vCPU
+sudo install -d -m 0700 /etc/credstore.encrypted
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # once: about a minute on 2 vCPU
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 sudoedit /etc/dyappd.toml              # conffile: kept on upgrade; set listen to serve
 sudo systemctl start dyappd
 sudo systemctl restart dyappd          # config changes need a restart
@@ -119,9 +121,10 @@ MemoryHigh, so the node sheds requests before the kernel throttles it. On a larg
 both in a drop-in. `LimitCORE=0` and `MemorySwapMax=0` (cgroup v2), with `dyappd` making itself
 non-dumpable at start, keep the node key out of core dumps and swap; run the node without swap.
 A hypervisor can still read the memory of a running VM: only a confidential VM (AMD SEV-SNP,
-Intel TDX) prevents that. Removing the package stops and disables
-the unit; purging keeps the user and `/var/lib/dyappd`, because `node.key` is the node's
-identity — delete them by hand to retire the node.
+Intel TDX) prevents that. `LoadCredentialEncrypted=node.key` decrypts the
+[sealed node key](#node-key) for the service. Removing the package stops and disables
+the unit; purging keeps the user, `/var/lib/dyappd` and `/etc/credstore.encrypted/node.key`,
+because the key is the node's identity — delete them by hand to retire the node.
 
 The default port 7070 needs no privilege. Another `storage.dir` or a port below 1024 needs a
 drop-in (`systemctl edit dyappd`):
@@ -205,6 +208,8 @@ roles = ["store"]      # e.g. ["store", "media", "turn"]: media serves /dyapp/me
 dir = "/var/lib/dyappd"   # node.key, node.id, network, profiles.db, messages.db, media.db,
                           # deny.db, profiles-idx.db (search), peers, anchors;
                           # media blob files in data/
+key = ""                  # node key file; empty: the unit's node.key credential if
+                          # there is one, else <dir>/node.key
 
 [limits]
 message_ttl_hours = 24
@@ -274,8 +279,9 @@ credential_minutes = 60
 Unknown keys are logged and ignored, so a config written for a newer node does not
 stop an older one. At startup the node refuses to run as root, checks addresses,
 roles and limits, and checks that every directory is writable. `dyappd keygen`
-creates `node.key` (libp2p key, mode 0600) and `node.id` (its peer ID) in
-`storage.dir` and prints the peer ID. The key carries the node-ID proof of work: SHA-256 of
+creates the node key (libp2p key, mode 0600) at `storage.key`, by default `node.key` in
+`storage.dir`, writes `node.id` (its peer ID) there and prints the peer ID; `dyappd keygen -`
+writes the key to stdout for [sealing](#node-key) and the peer ID to stderr. The key carries the node-ID proof of work: SHA-256 of
 the peer ID starts with `network.id_pow_bits` zero bits, about a minute on 2 vCPU
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Keygen refuses when a key or any
 data already exists. Keygen, or the first start, also writes `network` with `network.name`; a
@@ -283,13 +289,47 @@ node never starts in a directory of another network, so moving a node to another
 a new `storage.dir` ([storage binding](../architecture/bootstrap.md#storage-network)). Turn `network.distinct_outbound_groups` off only on a network whose
 nodes share a /16, such as a LAN or a test network. The node does not start without the key,
 with a key that lacks the proof of work or with one that does not match `node.id`: a new key is
-a new node, so delete the data to start from scratch. Keep a copy of `node.key` safe and readable
-only by its owner. Startup checks the opened file and refuses any group/other permission bits
-with a `chmod 600` hint; it does not change the file's permissions. Keygen creates mode 0600;
-owner-read-only mode 0400 also loads. Owned serialization/loading buffers are cleared on drop.
+a new node, so delete the data to start from scratch. A key file (`storage.key` or
+`storage.dir/node.key`) must be readable only by its owner: startup checks the opened file and
+refuses any group/other permission bits with a `chmod 600` hint; it does not change the file's
+permissions. Keygen creates mode 0600; owner-read-only mode 0400 also loads. A systemd
+credential is not checked: systemd makes it readable to the service user only, through an ACL. Owned serialization/loading buffers are cleared on drop.
 A key file that changes size during loading fails startup. Expired envelopes are deleted every
 hour. Logging uses `RUST_LOG`
 (e.g. `RUST_LOG=info`).
+
+### Node key
+
+`dyappd` reads the key from a file and does not care how the host protects it. With
+`storage.key` empty it takes `$CREDENTIALS_DIRECTORY/node.key` when the unit passes that
+credential, else `storage.dir/node.key`; a set `storage.key` always wins.
+
+The package default seals the key with `systemd-creds` (systemd 252 on Debian 12), as in the
+[quick start](#debian-12-package): the plain key never touches the disk, and the unit's
+`LoadCredentialEncrypted=node.key` finds `/etc/credstore.encrypted/node.key` by name and
+decrypts it into a memory-backed directory only the service reads. `--with-key=auto` binds the
+credential to the VM's TPM 2.0 plus the host key in `/var/lib/systemd/credential.secret` when a
+TPM exists (`systemd-creds has-tpm2`), so a copy of the disk alone does not open it. Without a
+TPM only the host key is used, which sits on the same disk: that covers a stray copy of the key
+file, not a copied volume. A sealed key cannot move to another host; to keep a backup, encrypt a
+copy for yourself while generating, e.g. with `age`:
+
+```bash
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your age key> >node.key.age) |
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
+```
+
+To seal a plain key of an older install, stop the node, run
+`sudo systemd-creds encrypt --with-key=auto --name=node.key /var/lib/dyappd/node.key /etc/credstore.encrypted/node.key`,
+remove the plain file with `sudo shred -u /var/lib/dyappd/node.key` and start the node. While
+both exist, the credential is used.
+
+Without systemd or a TPM, choose one of:
+
+- a plain 0600 file, `dyappd keygen` without `-` (containers, test nodes);
+- a passphrase: keep the key encrypted (`age -p`) and before each start decrypt it into a 0600
+  file on a `tmpfs` named by `storage.key`;
+- an encrypted volume (LUKS, unlocked by Clevis/Tang or by hand) holding `storage.dir`.
 
 ### Development quick start
 
@@ -432,8 +472,8 @@ this budget does not change incremental vacuum's page limit or network repair's 
 There is no online backup: copying the SQLite files while the server writes
 to them does not give a consistent snapshot. Stop the process first.
 
-`storage.dir` (`/var/lib/dyappd` from the package) holds `node.key`, the node's identity, and
-`node.id`; the stores `profiles.db`, `messages.db` and `media.db`, with the media blob files in
+`storage.dir` (`/var/lib/dyappd` from the package) holds `node.key` unless the key is
+[sealed](#node-key) or set by `storage.key`, and `node.id`; the stores `profiles.db`, `messages.db` and `media.db`, with the media blob files in
 `data/`; `deny.db`, the operator's deny list; and `peers` and `anchors`, the peer cache, which
 the node rebuilds. A `traffic` file left by an older version is no longer read and can be
 deleted. A media store an older version kept in `media/` is moved to `media.db` and `data/` on
@@ -489,7 +529,9 @@ A copied `node.key` cannot be revoked, so the node starts over as a new node:
 ```bash
 sudo systemctl stop dyappd
 sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id and every store
-sudo -u dyappd dyappd keygen --config /etc/dyappd.toml   # prints the new peer ID
+sudo rm -f /etc/credstore.encrypted/node.key   # the sealed key, if used
+sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # prints the new peer ID
+  sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 sudo systemctl start dyappd
 ```
 
@@ -527,8 +569,9 @@ On a rented VM, assume that the provider, or anyone holding your cloud account, 
 its snapshots and backups, write to the disk and read the VM's memory. They can then copy
 `node.key` and the TURN secret, see what you see as an operator, and replace `dyappd` with a
 backdoored build; they cannot forge users' signed records or read end-to-end content
-([threat model](../security/threat-model.md#cloud-host-access)). Until encryption at rest and a
-start-time integrity check exist:
+([threat model](../security/threat-model.md#cloud-host-access)). A [sealed key](#node-key) bound
+to a vTPM keeps a copied volume from yielding the node key; there is no encryption of the
+stores at rest and no start-time integrity check, so:
 
 - Protect the cloud account with hardware-key 2FA and limit who may snapshot or attach volumes.
 - Keep backups that hold `node.key` off the provider, or encrypted with a key the provider does

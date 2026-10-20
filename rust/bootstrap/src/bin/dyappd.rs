@@ -2,8 +2,9 @@
 //! and runs the libp2p node. Any config problem stops the node before it opens a store or a
 //! socket. `dyappd --help` lists the options, one per config key.
 //!
-//! `dyappd keygen [--config <file>]`: makes the node key once (about a minute on 2 vCPU) and
-//! prints the peer ID; the node does not start without it.
+//! `dyappd keygen [-] [--config <file>]`: makes the node key once (about a minute on 2 vCPU) and
+//! prints the peer ID; the node does not start without it. With `-` the key goes to stdout, for
+//! `systemd-creds encrypt`, and the peer ID to stderr.
 //!
 //! `dyappd deny add <entry> [note]`, `deny remove <entry>`, `deny list`: edit the deny list in
 //! `<storage.dir>/deny.db`; a running node applies a change within 10 seconds.
@@ -21,10 +22,11 @@ use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
 use dyapp_p2p_net::proto;
 use prost::Message;
 use rusqlite::{Connection, OpenFlags};
+use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-const USAGE: &str = "usage: dyappd [keygen | status | deny add <entry> [note] | \
+const USAGE: &str = "usage: dyappd [keygen [-] | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
 
@@ -74,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
     dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
     let command: Vec<&str> = command.iter().map(String::as_str).collect();
-    if !command.is_empty() && command != ["keygen"] {
+    if command.first().is_some_and(|&c| c != "keygen") {
         let owner = std::fs::metadata(&config.storage.dir)?.uid();
         // SAFETY: geteuid has no preconditions.
         if owner != unsafe { libc::geteuid() } {
@@ -86,7 +88,15 @@ async fn main() -> anyhow::Result<()> {
     }
     match command.as_slice() {
         [] => {}
-        ["keygen"] => println!("{}", config.keygen()?),
+        ["keygen"] => println!("{}", config.keygen(None)?),
+        ["keygen", "-"] => {
+            let mut stdout = std::io::stdout().lock();
+            anyhow::ensure!(
+                !stdout.is_terminal(),
+                "keygen -: pipe the key into systemd-creds or a file, not a terminal"
+            );
+            eprintln!("{}", config.keygen(Some(&mut stdout))?);
+        }
         ["status"] => print!("{}", status(&config)),
         ["deny", rest @ ..] => deny(&config, rest)?,
         _ => anyhow::bail!(USAGE),

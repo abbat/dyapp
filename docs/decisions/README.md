@@ -54,5 +54,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0015](0015-sqlite-node-storage.md) | SQLite for bootstrap node storage |
 | [0016](0016-protocol-evolution.md) | Protocol evolution without versions: capabilities, tightening as new variants, NodeInfo as hints |
 | [0017](0017-network-names.md) | Network names: namespaced protocol IDs, foreign peers dropped after identify, storage bound to one network |
+| [0018](0018-node-key-source.md) | Node key source: a file `dyappd` does not interpret; the package seals it with `systemd-creds` |
 
 All listed ADRs are accepted.

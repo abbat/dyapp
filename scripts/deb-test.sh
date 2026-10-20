@@ -9,11 +9,20 @@ test "$(stat -c %U /var/lib/dyappd)" = dyappd
 # keygen fast.
 as_node() {
     setpriv --reuid dyappd --regid dyappd --init-groups --no-new-privs \
-        env RUST_LOG=info DYAPPD__NETWORK__ID_POW_BITS=8 /usr/bin/dyappd "$@" --config /etc/dyappd.toml
+        env RUST_LOG=info DYAPPD__NETWORK__ID_POW_BITS=8 CREDENTIALS_DIRECTORY=/run/creds \
+        /usr/bin/dyappd "$@" --config /etc/dyappd.toml
 }
 if as_node >/tmp/node.log 2>&1; then exit 1; fi
 grep -q "dyappd keygen" /tmp/node.log || { cat /tmp/node.log; exit 1; }
-as_node keygen >/dev/null
+# The packaged default: the key piped to systemd-creds, which the unit decrypts into a credential
+# readable by the service user only. Here the pipe ends in that credential directly.
+grep -qx LoadCredentialEncrypted=node.key /lib/systemd/system/dyappd.service
+mkdir -p /run/creds
+as_node keygen - >/run/creds/node.key 2>/tmp/keygen.log
+grep -q "^12D3Koo" /tmp/keygen.log
+chgrp dyappd /run/creds/node.key
+chmod 0440 /run/creds/node.key
+test ! -e /var/lib/dyappd/node.key
 as_node >/tmp/node.log 2>&1 &
 sleep 3
 # Not dumpable: /proc/<pid> of such a process belongs to root.
@@ -29,6 +38,6 @@ grep -q "listening" /tmp/node.log || { cat /tmp/node.log; exit 1; }
 test "$(grep -c "deny list loaded" /tmp/node.log)" = 2 || { cat /tmp/node.log; exit 1; }
 as_node deny list | grep -q "^203.0.113.0/24	.*	deb test$"
 as_node status | grep -q "^deny_entries 1$"
-test -s /var/lib/dyappd/node.key
+test "$(cat /var/lib/dyappd/node.id)" = "$(cat /tmp/keygen.log)"
 dpkg -r dyappd >/dev/null
 echo "dyappd package installs on Debian 12, runs as dyappd and removes"

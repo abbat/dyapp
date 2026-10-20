@@ -549,9 +549,11 @@ mapped yet.
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
   fails at startup ([Configuration](#configuration)).
-- The node key is a libp2p key file (mode 0600) in the data directory, made once by
-  `dyappd keygen` with the node-ID proof of work; the node does not start without it or with
-  group/other permission bits. It checks the opened file and suggests `chmod 600` without
+- The node key is a libp2p key made once by `dyappd keygen` with the node-ID proof of work: a
+  file (mode 0600) at `storage.key`, by default in the data directory, or, from the package, a
+  `systemd-creds` credential the unit decrypts (`keygen -` pipes it to `systemd-creds encrypt`,
+  [ADR 0018](../decisions/0018-node-key-source.md)). The node does not start without it or with
+  a key file that has group/other permission bits. It checks the opened file and suggests `chmod 600` without
   changing permissions. Owned serialization/loading buffers are cleared on drop.
   A new key is a new node: the node refuses a key that does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
@@ -1201,6 +1203,7 @@ test keeps equal to the defaults). Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.dir` (every store
 in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
+`storage.key` (the node key file; empty: the unit's `node.key` credential, else `<dir>/node.key`),
 `limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
 `limits.{profiles_max_mb,messages_max_mb,signal_max_kb,media_max_mb,min_free_mb,bytes_per_second}`,
 `limits.{mailbox_pool_kb,tokenless_share_pct,require_write_tokens}` ([tokenless pool](#mailbox-envelope)),

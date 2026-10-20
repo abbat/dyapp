@@ -175,7 +175,7 @@ fn node_key_refuses_group_other_bits_without_repairing_permissions() {
     config.storage.dir = temp_dir();
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
-    let peer = config.keygen().unwrap();
+    let peer = config.keygen(None).unwrap();
     let path = config.storage.key_path();
     for mode in [0o640, 0o604, 0o601] {
         fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
@@ -197,8 +197,8 @@ fn node_key_is_bound_to_the_data() {
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
     config.node_key().unwrap_err();
-    let peer = config.keygen().unwrap();
-    config.keygen().unwrap_err();
+    let peer = config.keygen(None).unwrap();
+    config.keygen(None).unwrap_err();
     let key = config.node_key().unwrap();
     assert_eq!(key.public().to_peer_id(), peer);
     let mode = fs::metadata(config.storage.key_path()).unwrap().mode();
@@ -216,16 +216,65 @@ fn node_key_is_bound_to_the_data() {
     fs::remove_file(config.storage.key_path()).unwrap();
     config.node_key().unwrap_err();
     // node.id is left: keygen does not replace the node.
-    config.keygen().unwrap_err();
+    config.keygen(None).unwrap_err();
 
     // A key without the proof of work is refused.
     let mut config = NodeConfig::default();
     config.storage.dir = temp_dir();
     config.network.id_pow_bits = 0;
     config.validate().unwrap();
-    config.keygen().unwrap();
+    config.keygen(None).unwrap();
     config.network.id_pow_bits = 32;
     config.node_key().unwrap_err();
+}
+
+#[test]
+fn key_source_is_independent_of_its_protection() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    config.network.id_pow_bits = 4;
+    config.validate().unwrap();
+    // keygen to a writer leaves no key file: another tool seals what it gets.
+    let mut sealed = Vec::new();
+    let peer = config.keygen(Some(&mut sealed)).unwrap();
+    assert!(!config.storage.key_path().exists());
+    config.load_key(None).unwrap_err();
+
+    // A systemd credential: readable through an ACL, so its mode shows group bits.
+    let credentials = temp_dir();
+    let credential = credentials.join("node.key");
+    fs::write(&credential, &sealed).unwrap();
+    fs::set_permissions(&credential, fs::Permissions::from_mode(0o440)).unwrap();
+    let key = config.load_key(Some(&credentials)).unwrap();
+    assert_eq!(key.public().to_peer_id(), peer);
+
+    // An explicit storage.key wins over the credential, and its mode is checked.
+    config.storage.key = credentials.join("plain.key");
+    fs::write(&config.storage.key, &sealed).unwrap();
+    fs::set_permissions(&config.storage.key, fs::Permissions::from_mode(0o640)).unwrap();
+    let error = config.load_key(Some(&credentials)).unwrap_err().to_string();
+    assert!(
+        error.contains("plain.key") && error.contains("chmod 600"),
+        "{error}"
+    );
+    fs::set_permissions(&config.storage.key, fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(
+        config.load_key(Some(&credentials)).unwrap().public(),
+        key.public()
+    );
+
+    // keygen writes a plain key to storage.key, outside storage.dir.
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    config.storage.key = temp_dir().join("node.key");
+    config.network.id_pow_bits = 4;
+    config.validate().unwrap();
+    let peer = config.keygen(None).unwrap();
+    assert!(!config.storage.dir.join("node.key").exists());
+    let mode = fs::metadata(&config.storage.key).unwrap().mode();
+    assert_eq!(mode & 0o777, 0o600);
+    assert_eq!(config.load_key(None).unwrap().public().to_peer_id(), peer);
 }
 
 fn named(name: &str) -> NodeConfig {
@@ -245,7 +294,7 @@ fn marker(config: &NodeConfig) -> Vec<u8> {
 fn keygen_and_start_bind_storage_to_one_network() {
     // keygen binds a fresh directory to the configured name.
     let mut config = named("city");
-    config.keygen().unwrap();
+    config.keygen(None).unwrap();
     assert_eq!(marker(&config), b"city");
     config.bind_network().unwrap();
     config.network.name = "other".into();
@@ -269,7 +318,7 @@ fn keygen_and_start_bind_storage_to_one_network() {
     let mut config = named("city");
     config.bind_network().unwrap();
     config.network.name = "other".into();
-    config.keygen().unwrap_err();
+    config.keygen(None).unwrap_err();
     assert!(!config.storage.key_path().exists());
     assert!(!config.storage.dir.join("node.id").exists());
     assert_eq!(marker(&config), b"city");
@@ -296,7 +345,7 @@ fn data_without_a_marker_belongs_to_the_public_network() {
             "{name}: {error}"
         );
         assert_eq!(marker(&config), b"", "{name}");
-        config.keygen().unwrap_err();
+        config.keygen(None).unwrap_err();
         config.network.name = String::new();
         config.bind_network().unwrap();
     }
@@ -327,7 +376,7 @@ fn malformed_markers_are_refused_and_kept() {
             let config = named(name);
             fs::write(config.storage.dir.join("network"), &bad).unwrap();
             config.bind_network().unwrap_err();
-            config.keygen().unwrap_err();
+            config.keygen(None).unwrap_err();
             assert_eq!(marker(&config), bad);
             assert!(!config.storage.key_path().exists());
         }

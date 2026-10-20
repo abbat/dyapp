@@ -172,6 +172,8 @@ assertion changes.
 | CLI help and incomplete options leave storage untouched | CLI integration | `tests/cli.rs::help_and_incomplete_options_do_not_create_stores` | exists |
 | The packaged node reloads a deny entry within 10 seconds; root may not touch the stores | Package | `deb-test.sh` | exists, local only |
 | The packaged node is not dumpable and its unit sets `LimitCORE=0` | Package | `deb-test.sh` | exists, local only |
+| The packaged node starts from a key piped by `keygen -` into its credential directory; the unit loads `node.key` encrypted | Package | `deb-test.sh` | exists, local only |
+| The node key comes from `storage.key`, a credential or `storage.dir`; a credential's mode is not checked, a key file's is | Unit | `config.rs` | exists |
 
 ### Storage and configuration
 

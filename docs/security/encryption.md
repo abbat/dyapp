@@ -82,7 +82,7 @@ One key per purpose; no key signs or encrypts for another.
 | Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
 | Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Planned |
 | MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Planned |
-| libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: `node.key`, mode 0600 | Node: implemented. Client: planned |
+| libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: a `systemd-creds` credential sealed to the host and its vTPM, or a 0600 key file | Node: implemented. Client: planned |
 | MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | Planned |
 | Attachment key | One attachment | Inside the MLS message | Planned |
 
@@ -98,8 +98,11 @@ Rules:
   snapshots are rechecked when those dependencies change.
 - A secret key crosses FFI only into the platform keystore's wrap and unwrap calls, never as a
   string, and copies are wiped after use (planned).
-- `dyappd` checks the opened `node.key` and refuses any group/other permission bits, with a
-  `chmod 600` hint; it leaves permissions unchanged. Mode 0600 is created by keygen, and 0400
+- `dyappd` reads the node key from `storage.key`, from the unit's `node.key` credential or from
+  `storage.dir/node.key`, and leaves its protection to the host; the package default is a
+  credential sealed by `systemd-creds` ([node key](../operations/deployment.md#node-key)). It
+  checks an opened key file (not a credential, which systemd guards) and refuses any group/other
+  permission bits, with a `chmod 600` hint; it leaves permissions unchanged. Mode 0600 is created by keygen, and 0400
   also loads. Back it up with `umask 077` ([backups](../operations/deployment.md#backups)).
 - The Rust identity generator guards its random buffer with `Zeroizing`; `Identity::secret`
   returns `Zeroizing<[u8; 32]>`, populated from borrowed signing-key bytes and cleared on drop.

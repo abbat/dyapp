@@ -9,12 +9,15 @@ if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     if [ "$1" = configure ] && [ -z "$2" ]; then
         systemctl enable dyappd.service
-        if [ -e /var/lib/dyappd/node.key ]; then
+        if [ -e /etc/credstore.encrypted/node.key ] || [ -e /var/lib/dyappd/node.key ]; then
             systemctl start dyappd.service
         else
-            echo "dyappd: make the node key, then start the node:" >&2
-            echo "  sudo -u dyappd dyappd keygen --config /etc/dyappd.toml" >&2
+            echo "dyappd: make the node key sealed to this host, then start the node:" >&2
+            echo "  sudo install -d -m 0700 /etc/credstore.encrypted" >&2
+            echo "  sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |" >&2
+            echo "    sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key" >&2
             echo "  sudo systemctl start dyappd" >&2
+            echo "Without systemd-creds: sudo -u dyappd dyappd keygen --config /etc/dyappd.toml" >&2
         fi
     else
         systemctl try-restart dyappd.service
