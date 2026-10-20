@@ -156,19 +156,23 @@ public options leave its default unchanged. Legacy constructors remain public. R
 verify advertised IDs, the identify version, and 2 MiB media frames in both directions.
 `node::swarm_with_protocols` and `Service.protocols` share the configured IDs for node
 identify/Kademlia role checks and search subscription/publication topics. A named-node TCP test
-covers profile/search RPCs, named gossip delivery and fixed wire labels. Legacy node constructors
-and `dyappd` still select public protocols. Real TCP tests cover named/public in both directions
-and two different names: node/profile/mailbox/media/search/inventory negotiation fails with
-`UnsupportedProtocols`, and gossip reports `GossipsubNotSupported`; no application payload is
-counted. Noise/TCP connections and common libp2p identify/AutoNAT protocols can still operate.
+covers profile/search RPCs, named gossip delivery and fixed wire labels. `dyappd` builds one
+`Protocols` from `network.name` and passes it to both; legacy node constructors remain public.
+Real TCP tests cover named/public in both directions and two different names:
+node/profile/mailbox/media/search/inventory negotiation fails with `UnsupportedProtocols`, and
+gossip reports `GossipsubNotSupported`; no application payload is counted. Noise/TCP connections and
+common libp2p identify/AutoNAT protocols can still operate.
 `network.name` is parsed from file/env/CLI and validated with the same rules, defaulting to
 empty. `NodeConfig::bind_network` binds `storage.dir` to one network through the `network`
 marker file (the name, no newline), written by `keygen` or at the first start and never
 replaced; a directory with data but no marker belongs to the public network
-([bootstrap](bootstrap.md#storage-network)). Binary activation is still staged: `dyappd`
-explicitly refuses nonempty names for start and keygen, preventing a silent fallback to public.
-**Actual binary selection and disconnecting foreign identify peers remain planned**; namespace
-IDs alone do not implement those policies.
+([bootstrap](bootstrap.md#storage-network)). `dyappd` checks the marker after loading the node
+key and before opening any store. `test-peer` speaks the network named by
+`DYAPPD__NETWORK__NAME` (public when unset or empty) and fails on an invalid name.
+`scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the
+same name is served, a public client is not, and a public start on its storage is refused.
+**Disconnecting foreign identify peers remains planned**; namespace IDs alone do not implement
+that policy.
 
 ## Out of scope for the first release
 

@@ -64,10 +64,6 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("unknown config key ignored: {key}");
     }
     config.validate()?;
-    anyhow::ensure!(
-        config.network.name.is_empty(),
-        "named networks are not enabled in this build"
-    );
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
     dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
     let command: Vec<&str> = command.iter().map(String::as_str).collect();
@@ -104,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let wire = std::sync::Arc::new(dyapp_p2p_net::WireBytes::default());
-    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new(&config.network.name)?);
     let mut swarm = node::swarm_with_protocols(
         keypair,
         &config.limits,

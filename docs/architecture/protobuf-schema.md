@@ -180,9 +180,9 @@ validated network name ([P2P networking](p2p-networking.md#protocol-namespaces))
 Protobuf packages, schemas and field numbers are shared across networks. Configured swarm
 builders and node services use the same `Protocols` for negotiation, codec limits, role checks
 and gossip topics. Different namespaces cannot negotiate the application RPCs or gossip,
-although the common transport can connect. Binary network selection, storage guards and
-foreign-peer disconnect policy remain planned; `dyappd` and legacy constructors still use the
-public IDs.
+although the common transport can connect. `dyappd` selects the IDs from `network.name` and
+binds its storage to that network; legacy constructors use the public IDs. Foreign-peer
+disconnect policy remains planned.
 
 ## Evolution rules (proto3)
 

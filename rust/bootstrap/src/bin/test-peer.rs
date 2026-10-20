@@ -33,14 +33,19 @@
 //! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
 //! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
-//! `fetch` and `ack` ask for a challenge and sign it on one connection.
+//! `fetch` and `ack` ask for a challenge and sign it on one connection. Every connection speaks
+//! the network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty; an
+//! invalid name is an error.
 
 use anyhow::{anyhow, bail, Context};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
     self, mailbox_request, media_request, node_request, profile_request, Status,
 };
-use dyapp_p2p_net::{build_swarm, replica_key, Behaviour, BehaviourEvent, Mode, REPLICAS};
+use dyapp_p2p_net::{
+    build_configured_swarm, replica_key, Behaviour, BehaviourEvent, Mode, Protocols, SwarmOptions,
+    REPLICAS,
+};
 use dyapp_profile::Profile;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
@@ -52,6 +57,7 @@ use prost::Message;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[tokio::main]
@@ -555,6 +561,16 @@ async fn mailbox_call(
     .await
 }
 
+/// The network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty.
+fn network() -> anyhow::Result<Protocols> {
+    let name = match std::env::var("DYAPPD__NETWORK__NAME") {
+        Ok(name) => name,
+        Err(std::env::VarError::NotPresent) => String::new(),
+        Err(e) => bail!("DYAPPD__NETWORK__NAME: {e}"),
+    };
+    Protocols::new(&name).context("DYAPPD__NETWORK__NAME")
+}
+
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
 async fn connect(addr: &str) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
     connect_with_key(addr, Keypair::generate_ed25519()).await
@@ -564,7 +580,14 @@ async fn connect_with_key(
     addr: &str,
     keypair: Keypair,
 ) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
-    let mut swarm = build_swarm(keypair, Mode::Client)?;
+    let mut swarm = build_configured_swarm(
+        keypair,
+        SwarmOptions {
+            mode: Mode::Client,
+            protocols: Arc::new(network()?),
+            ..SwarmOptions::default()
+        },
+    )?;
     let addr: Multiaddr = addr.parse()?;
     swarm.dial(addr.clone())?;
     loop {

@@ -245,7 +245,7 @@ vacuum_pages = 2048    # free 4 KiB pages released per store and run
 io_mb_per_s = 16       # shared background rebuild writes in MiB/s; must be > 0
 
 [network]
-name = ""             # public; nonempty binary names are refused until storage binding is enabled
+name = ""             # public; a name joins that network only, fixed per storage.dir
 id_pow_bits = 22       # node-ID proof of work; lower it on test networks only
 distinct_outbound_groups = true  # one routed peer per /16 (IPv6 /32) in each k-bucket
 storage_trust_minutes = 60       # a new peer gets replicas after this; 0 on test networks
@@ -590,6 +590,8 @@ Only what applies to the code that exists today:
 |---------|-------|
 | `test-peer info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or set `DYAPPD__STORAGE__DIR` |
+| `dyappd` exits with `storage belongs to ...` | `storage.dir` was bound to another `network.name`; restore that name or use a new directory |
+| `test-peer info` fails against a named-network node | Set `DYAPPD__NETWORK__NAME` to the node's network name for `test-peer` too |
 | `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
 | `test-peer info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | `not listening` warning or `no address could be opened` | Port 7070 is taken (another `dyappd`?) or IPv6 is disabled on the host; set `DYAPPD__LISTEN` |

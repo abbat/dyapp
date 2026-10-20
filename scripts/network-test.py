@@ -47,9 +47,9 @@ LOGS = {}
 DRAINS = []
 
 
-def call(client, *args):
+def call(client, *args, env=None):
     result = subprocess.run([client, *args], capture_output=True, text=True,
-                            timeout=90)
+                            timeout=90, env=env)
     if result.returncode:
         raise subprocess.SubprocessError(
             f"test-peer {args[0]}: {result.stderr.strip()}")
@@ -199,11 +199,52 @@ def local(bin_dir):
             print("Missing second holder: profile and mailbox refused")
             media_retention(client, bin_dir, storage, peers[0], processes,
                             environments[0])
+            named_network(client, bin_dir, storage, processes)
         except BaseException:
             failed = True
             raise
         finally:
             stop(processes, failed)
+
+
+def named_network(client, bin_dir, storage, processes):
+    """A node of a named network serves only clients of that name and its
+    storage refuses a start under another name."""
+    tcp, _ = addresses("127.0.0.1", 7074)
+    env = {**os.environ,
+           "DYAPPD__LISTEN": '["127.0.0.1:7074"]',
+           "DYAPPD__STORAGE__DIR": f"{storage}/7074",
+           "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
+           "DYAPPD__NETWORK__NAME": "lab"}
+    dyappd(bin_dir, env, "keygen")
+    if (Path(storage) / "7074" / "network").read_text() != "lab":
+        raise RuntimeError("keygen did not bind the storage to lab")
+    processes.append(start_node(bin_dir, env))
+    for _ in range(60):
+        try:
+            reply = call(client, "info", tcp, env=env)
+            break
+        except (subprocess.SubprocessError, OSError):
+            time.sleep(1)
+    else:
+        raise RuntimeError(f"Named node did not start: {tcp}")
+    if reply["status"] != "STATUS_OK":
+        raise RuntimeError(f"Named client refused: {reply}")
+    try:
+        call(client, "info", tcp)
+    except subprocess.SubprocessError:
+        pass
+    else:
+        raise RuntimeError("A public client reached the lab node")
+    processes[-1].terminate()
+    processes[-1].wait()
+    public = {k: v for k, v in env.items() if k != "DYAPPD__NETWORK__NAME"}
+    result = subprocess.run([f"{bin_dir}/dyappd"], env=public,
+                            capture_output=True, text=True, timeout=30)
+    if result.returncode == 0 or "storage belongs to" not in result.stderr:
+        raise RuntimeError(f"Lab storage started as public: {result.stderr}")
+    print("Named network: lab client served, public client and storage "
+          "refused")
 
 
 def plateau(bin_dir):
