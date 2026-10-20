@@ -61,8 +61,12 @@ These are goals. Nothing here is a current guarantee.
 - Attachments: a fresh random 256-bit key per attachment, AES-256-GCM per chunk with the chunk
   index as the nonce, key and blob hashes inside the MLS message; the release secret is 32 random
   bytes.
-- KeyPackages are used only for devices in the newest known profile and expire after 30 days;
-  the client keeps the highest profile version seen per contact and asks several replicas.
+- The public device directory is an identity-signed field of the versioned profile; each
+  identity-signed certificate binds a device mailbox key to a distinct MLS signature key.
+  Clients keep the highest profile version seen, query at least two replica points, and use
+  KeyPackages only for devices in that directory. Packages expire within 30 days; ordinary
+  packages are allocated once per replica slot where possible, with a reusable last-resort
+  package for exhaustion ([ADR 0019](../decisions/0019-device-directory-and-keypackage-rendezvous.md)).
 - Only ciphersuite 0x0001 is accepted; a KeyPackage or Welcome with any other is rejected.
   Nothing is negotiated: a new algorithm comes with a new domain label or ciphersuite and a dated
   cut-over. 0x0001 is not post-quantum; a hybrid suite is planned once openmls ships an audited
