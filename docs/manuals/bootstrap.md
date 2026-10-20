@@ -136,9 +136,9 @@ empty base: no shell, no package manager, no `/etc`. The node runs as UID 65532 
 every capability dropped. A new named volume takes the owner and mode 0700 from the image; a
 bind mount needs `chown 65532:65532`. The image sets `listen` to `["[::]:7070", "0.0.0.0:7070"]`;
 other settings are `DYAPPD_` variables, `--<section>.<key>` options after the image name, or a
-config file mounted read-only and named with `--config`. With `--memory 1g` the default
-`limits.max_memory_mb = 768` sheds requests before Docker's limit. In a container the key is a
-plain 0600 file in the volume.
+config file mounted read-only at `/etc/dyappd.toml`, which is read without `--config`. With
+`--memory 1g` the default `limits.max_memory_mb = 768` sheds requests before Docker's limit. In
+a container the key is a plain 0600 file in the volume.
 
 The image is not published to a registry, and there are no Kubernetes manifests yet.
 
@@ -157,7 +157,7 @@ credential, else `storage.dir/node.key`; a set `storage.key` always wins.
 
 ```bash
 sudo install -d -m 0700 /etc/credstore.encrypted
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # prints the peer ID on stderr
+sudo -u dyappd dyappd keygen - |   # prints the peer ID on stderr
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -172,7 +172,7 @@ copied volume.
 for yourself while generating, e.g. with `age`:
 
 ```bash
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your age key> >node.key.age) |
+sudo -u dyappd dyappd keygen - | tee >(age -r <your age key> >node.key.age) |
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -208,7 +208,8 @@ What keygen and startup check:
 Every setting is optional. Later sources override earlier ones:
 
 1. the defaults in the code;
-2. the TOML file named with `--config` (`/etc/dyappd.toml` in the package, every key commented
+2. the TOML file named with `--config`, else the first of `./dyappd.toml`, `~/dyappd.toml` and
+   `/etc/dyappd.toml` that exists (`/etc/dyappd.toml` in the package, every key commented
    out with its default; a test keeps that file equal to the code);
 3. environment variables `DYAPPD_<SECTION>_<KEY>`, parsed as TOML (a bare string is taken as
    is), e.g. `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` or `DYAPPD_LISTEN='["[2001:db8::7]:7070"]'`;
@@ -365,7 +366,7 @@ On the package install, after [sealing the key](#node-key):
 sudoedit /etc/dyappd.toml        # at least: listen, seeds (or external on a known address)
 sudo systemctl start dyappd
 journalctl -u dyappd -f          # "listening on ..." for every address
-sudo -u dyappd dyappd status --config /etc/dyappd.toml
+sudo -u dyappd dyappd status
 ```
 
 A minimal serving config:
@@ -424,7 +425,7 @@ ref as its `from` input.
 
 ## Status and metrics
 
-**Status.** `sudo -u dyappd dyappd status --config /etc/dyappd.toml` (in Docker:
+**Status.** `sudo -u dyappd dyappd status` (in Docker:
 `docker exec dyappd dyappd status`) prints the peer ID and what the stores hold: profiles,
 envelopes, media blobs and bytes, deny entries, cached peers. It opens the stores read-only and
 works while the node runs. There is no admin HTTP API.
@@ -524,9 +525,9 @@ To stop serving an abuser or a media blob, add their peer ID, IP group, key hash
 SHA-256:
 
 ```bash
-sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny remove <entry> --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny list --config /etc/dyappd.toml
+sudo -u dyappd dyappd deny add <entry> [note]
+sudo -u dyappd dyappd deny remove <entry>
+sudo -u dyappd dyappd deny list
 ```
 
 The running node applies a change within 10 seconds, or at once on `systemctl reload dyappd`;
@@ -555,7 +556,7 @@ A copied `node.key` cannot be revoked, so the node starts over as a new node:
 sudo systemctl stop dyappd
 sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id and every store
 sudo rm -f /etc/credstore.encrypted/node.key   # the sealed key, if used
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # prints the new peer ID
+sudo -u dyappd dyappd keygen - |   # prints the new peer ID
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 sudo systemctl start dyappd
 ```

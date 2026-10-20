@@ -17,6 +17,7 @@ fn command(dir: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
         .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .current_dir(dir)
         .arg("--storage.dir")
         .arg(dir)
         .args(args)
@@ -117,6 +118,23 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     ] {
         assert!(!command(&dir, &args).status.success(), "{args:?}");
     }
+}
+
+#[test]
+fn without_config_the_working_directory_file_is_read() {
+    let (cwd, store) = (directory(), directory());
+    std::fs::write(store.join("node.id"), "from-cwd\n").unwrap();
+    let toml = format!("[storage]\ndir = {:?}\n", store.to_str().unwrap());
+    std::fs::write(cwd.join("dyappd.toml"), toml).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_dyappd"))
+        .env_clear()
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .current_dir(&cwd)
+        .arg("status")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.starts_with("peer_id from-cwd\n"), "{stdout}");
 }
 
 #[test]

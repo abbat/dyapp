@@ -1,6 +1,7 @@
 //! `dyappd [--config <file>] [--<section>.<key> <value>]...`: checks the config, opens the stores
-//! and runs the libp2p node. Any config problem stops the node before it opens a store or a
-//! socket. `dyappd --help` lists the options, one per config key.
+//! and runs the libp2p node. Without `--config` the first of `./dyappd.toml`, `~/dyappd.toml`
+//! and `/etc/dyappd.toml` that exists is read. Any config problem stops the node before it opens
+//! a store or a socket. `dyappd --help` lists the options, one per config key.
 //!
 //! `dyappd keygen [-] [--config <file>]`: makes the node key once (about a minute on 2 vCPU) and
 //! prints the peer ID; the node does not start without it. With `-` the key goes to stdout, for
@@ -39,8 +40,9 @@ async fn main() -> anyhow::Result<()> {
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
             print!(
-                "{USAGE}\n\nOptions override the --config file and DYAPPD_ variables; a list \
-                 option is given once per item. Defaults:\n{}",
+                "{USAGE}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
+                 /etc/dyappd.toml that exists is read. Options override the config file and \
+                 DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
                 options_help()
             );
             return Ok(());
@@ -62,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
             options.push((key, value));
         }
     }
+    let file = file.or_else(default_file);
     let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
     for key in ignored {
         tracing::warn!("unknown config key ignored: {key}");
@@ -105,6 +108,8 @@ async fn main() -> anyhow::Result<()> {
     if !command.is_empty() {
         return Ok(());
     }
+    // Only here: logs go to stdout, which `keygen -` pipes into systemd-creds.
+    tracing::info!(file = ?file, "config");
     let keypair = config.node_key()?;
     config.bind_network()?;
     let scrapes = match config.metrics.address()? {
@@ -177,6 +182,16 @@ async fn main() -> anyhow::Result<()> {
     }
     node::run(swarm, service).await;
     Ok(())
+}
+
+/// The first of `./dyappd.toml`, `~/dyappd.toml` and `/etc/dyappd.toml` that exists.
+fn default_file() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(|home| Path::new(&home).join("dyappd.toml"));
+    let etc = Some("/etc/dyappd.toml".into());
+    [Some(PathBuf::from("dyappd.toml")), home, etc]
+        .into_iter()
+        .flatten()
+        .find(|file| file.is_file())
 }
 
 /// `dyappd deny ...`, with `deny` stripped from `args`.

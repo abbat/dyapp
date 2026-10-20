@@ -137,9 +137,10 @@ docker logs dyappd
 корень может быть только для чтения, а все capabilities сброшены. Новый именованный том получает
 владельца и режим 0700 из образа; bind mount требует `chown 65532:65532`. Образ задаёт `listen`
 равным `["[::]:7070", "0.0.0.0:7070"]`; остальные настройки — переменные `DYAPPD_`, опции
-`--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения и
-указанный через `--config`. С `--memory 1g` значение по умолчанию `limits.max_memory_mb = 768`
-сбрасывает запросы раньше предела Docker. В контейнере ключ — обычный файл 0600 в томе.
+`--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения в
+`/etc/dyappd.toml`: он читается без `--config`. С `--memory 1g` значение по умолчанию
+`limits.max_memory_mb = 768` сбрасывает запросы раньше предела Docker. В контейнере
+ключ — обычный файл 0600 в томе.
 
 Образ не опубликован в реестре, манифестов Kubernetes пока нет.
 
@@ -159,7 +160,7 @@ peer ID начинается с `network.id_pow_bits` нулевых бит (22 
 
 ```bash
 sudo install -d -m 0700 /etc/credstore.encrypted
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает peer ID в stderr
+sudo -u dyappd dyappd keygen - |   # печатает peer ID в stderr
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -173,7 +174,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает 
 копию, зашифруйте копию для себя при генерации, например через `age`:
 
 ```bash
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your age key> >node.key.age) |
+sudo -u dyappd dyappd keygen - | tee >(age -r <your age key> >node.key.age) |
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -209,7 +210,8 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 Каждая настройка необязательна. Поздние источники переопределяют ранние:
 
 1. значения по умолчанию в коде;
-2. TOML-файл, указанный через `--config` (`/etc/dyappd.toml` в пакете, каждый ключ закомментирован
+2. TOML-файл, указанный через `--config`, иначе первый существующий из `./dyappd.toml`,
+   `~/dyappd.toml` и `/etc/dyappd.toml` (`/etc/dyappd.toml` в пакете, каждый ключ закомментирован
    со своим значением по умолчанию; тест держит этот файл равным коду);
 3. переменные окружения `DYAPPD_<SECTION>_<KEY>`, разбираемые как TOML (голая строка берётся как
    есть), например `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` или
@@ -369,7 +371,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 sudoedit /etc/dyappd.toml        # как минимум: listen, seeds (или external на известном адресе)
 sudo systemctl start dyappd
 journalctl -u dyappd -f          # "listening on ..." для каждого адреса
-sudo -u dyappd dyappd status --config /etc/dyappd.toml
+sudo -u dyappd dyappd status
 ```
 
 Минимальная конфигурация обслуживающего узла:
@@ -429,7 +431,7 @@ workflow `rehearsal.yml` выполняет ту же проверку на CI �
 
 ## Состояние и метрики
 
-**Состояние.** `sudo -u dyappd dyappd status --config /etc/dyappd.toml` (в Docker:
+**Состояние.** `sudo -u dyappd dyappd status` (в Docker:
 `docker exec dyappd dyappd status`) печатает peer ID и содержимое хранилищ: профили, конверты,
 медиаблобы и байты, записи запретов, сохранённые пиры. Команда открывает хранилища только для
 чтения и работает при запущенном узле. HTTP API администрирования нет.
@@ -531,9 +533,9 @@ format N, this dyappd knows up to M", остановите его, восста�
 или SHA-256 блоба:
 
 ```bash
-sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny remove <entry> --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny list --config /etc/dyappd.toml
+sudo -u dyappd dyappd deny add <entry> [note]
+sudo -u dyappd dyappd deny remove <entry>
+sudo -u dyappd dyappd deny list
 ```
 
 Работающий узел применяет изменение в течение 10 секунд или сразу по `systemctl reload dyappd`;
@@ -563,7 +565,7 @@ sudo userdel dyappd
 sudo systemctl stop dyappd
 sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id и все хранилища
 sudo rm -f /etc/credstore.encrypted/node.key   # запечатанный ключ, если используется
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает новый peer ID
+sudo -u dyappd dyappd keygen - |   # печатает новый peer ID
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 sudo systemctl start dyappd
 ```
