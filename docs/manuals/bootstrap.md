@@ -654,8 +654,37 @@ signatures are banned locally for `ban_minutes`.
 Retention, expiry and the 10-minute windows for signed times use the node's clock. A clock pushed
 forward, for example by a spoofed NTP server, makes the hourly cleanup delete envelopes, profiles
 and attachments early; one pushed back refuses fresh heartbeats and keeps. Synchronise the host
-with an authenticated source, such as `chrony` with NTS (`server <host> iburst nts`), and watch
-for large steps in its log.
+with an authenticated source and watch for large steps in the `chrony` log.
+
+Plain NTP answers are not signed: anyone on the path between the host and its time server can
+forge them and move the clock. Network Time Security (NTS, RFC 8915) adds a TLS handshake with the
+server (NTS-KE, TCP port 4460), which checks the server's certificate and hands out keys; every
+later NTP reply (UDP port 123) carries an authentication tag made with those keys. `chrony` then
+uses only replies that really come from that server and were not changed on the way.
+
+NTS does not make the time correct by itself. A server you chose can still send wrong time, the
+VM host and anyone with root on it can still set the clock, and a plain NTP source next to the NTS
+ones can still pull the clock unless unauthenticated sources are refused. Prefer two or three NTS
+servers from different operators. Debian 12 ships `chrony` 4.3, which supports NTS:
+
+```bash
+sudo apt-get install -y chrony
+# Comment out the default `pool` line in /etc/chrony/chrony.conf, then:
+sudo tee /etc/chrony/sources.d/nts.sources >/dev/null <<'EOF'
+server time.cloudflare.com iburst nts
+server nts.netnod.se iburst nts
+server ptbtime1.ptb.de iburst nts
+EOF
+echo 'authselectmode require' | sudo tee /etc/chrony/conf.d/nts.conf
+sudo systemctl restart chrony
+chronyc -N authdata   # each server: Mode NTS, a non-zero KeyID and Cook column
+chronyc sources       # `^*` marks the server in use
+chronyc tracking      # "Leap status: Normal" and a small "System time" offset
+```
+
+`authselectmode require` makes `chrony` ignore every source without authentication. The firewall
+must allow outgoing TCP 4460 and UDP 123. If `authdata` shows `-` for the mode or zero cookies,
+the NTS handshake failed: check that port 4460 is open and the server name is right.
 
 ### Cloud hosting
 
