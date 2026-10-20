@@ -67,7 +67,8 @@ fn client_put_denies_forged_tokens_with_a_strike_and_expired_without() {
         Status::Ok
     );
     assert_eq!(service.held_ids(&mailbox).unwrap(), vec![vec![1; 16]]);
-    let expired = token(&owner, &mailbox, &contact, today() - 1);
+    // Two days back: yesterday's token is still valid in the first hour after UTC midnight.
+    let expired = token(&owner, &mailbox, &contact, today() - 2);
     assert_eq!(
         put(
             &service,
