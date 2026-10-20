@@ -57,6 +57,8 @@ pub const IDENTIFY_PROTOCOL: &str = "/dyapp";
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 /// Profile publication and lookup.
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
+/// Device KeyPackage publication and allocation.
+pub const KEY_PACKAGE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/keypackage");
 /// Mailbox store, fetch and ack.
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
 /// Node-to-client mailbox notifications.
@@ -112,6 +114,9 @@ pub type NodeBehaviour =
 /// Request-response behaviour of [`PROFILE_PROTOCOL`].
 pub type ProfileBehaviour =
     request_response::Behaviour<ProtoCodec<proto::ProfileRequest, proto::ProfileResponse>>;
+/// Request-response behaviour of [`KEY_PACKAGE_PROTOCOL`].
+pub type KeyPackageBehaviour =
+    request_response::Behaviour<ProtoCodec<proto::KeyPackageRequest, proto::KeyPackageResponse>>;
 /// Request-response behaviour of [`MAILBOX_PROTOCOL`].
 pub type MailboxBehaviour =
     request_response::Behaviour<ProtoCodec<proto::MailboxRequest, proto::MailboxResponse>>;
@@ -487,6 +492,13 @@ pub fn build_configured_swarm(
                         .with_wire(wire.clone())
                         .with_protocols(protocols.clone()),
                     [(protocols.profile.clone(), support.clone())],
+                    config.clone(),
+                ),
+                key_package: request_response::Behaviour::with_codec(
+                    ProtoCodec::default()
+                        .with_wire(wire.clone())
+                        .with_protocols(protocols.clone()),
+                    [(protocols.key_package.clone(), support.clone())],
                     config.clone(),
                 ),
                 mailbox: request_response::Behaviour::with_codec(

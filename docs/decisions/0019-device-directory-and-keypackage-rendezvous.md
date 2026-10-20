@@ -23,11 +23,13 @@ keys in that version. A missing current directory delays first contact.
 A store-role `/dyapp/keypackage` service accepts device-signed, bounded MLS KeyPackage records and
 serves them for a named mailbox. A record binds its exact bytes/hash, expiry and ordinary or
 last-resort status. It is valid only with MLS ciphersuite 0x0001, a matching certified MLS leaf
-signature key and a certificate in the current profile. The node fans publications
-out to R = 5 mailbox-derived replica points. Each ordinary package is assigned to one slot by
-its hash modulo five; only the current holder of that slot allocates it. Allocation is a local
-durable consume-before-reply transaction. Other holders keep recovery copies but cannot
-allocate that slot. A last-resort package is reusable only after ordinary allocation fails.
+signature key and a certificate in the current profile. The node checks the outer device
+signature, certificate, expiry, size and MLS suite header; clients verify the MLS leaf signature,
+certified MLS key and MLS lifetime before use. The node fans publications out to R = 5
+owner-derived replica points alongside the profile. Each ordinary package is assigned to one
+slot by its hash modulo five. Each responding replica uses a local durable consume-before-reply transaction, but another
+replica can allocate its copy. A last-resort package is reusable only after ordinary allocation
+fails.
 
 Each device keeps four ordinary packages per slot plus one last-resort package, refills below
 eight ordinary packages or on its daily heartbeat, and rotates the last-resort one when online.
@@ -51,5 +53,6 @@ required behaviour.
 - A stale signed profile can delay revocation when all queried nodes withhold the newer one.
   Clients never roll back a version they have seen; removal cannot erase an already delivered
   message or a compromised device's local history.
-- The directory, KeyPackage service and client are planned, not implemented. The separate node,
-  client and revocation tasks must verify validation, race handling and multi-device delivery.
+- The profile directory field, certificate validation and node KeyPackage service are
+  implemented. Client publication, MLS validation, refill, first-contact delivery and group
+  revocation remain planned; their tasks must verify race handling and multi-device delivery.

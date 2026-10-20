@@ -1,9 +1,9 @@
 //! Validated protocol namespaces shared by swarm negotiation and protobuf codecs.
 
 use crate::{
-    DIGEST_PROTOCOL, IDENTIFY_PROTOCOL, INVENTORY_PROTOCOL, KAD_PROTOCOL, MAILBOX_PROTOCOL,
-    MAILBOX_PUSH_PROTOCOL, MEDIA_PROTOCOL, NODE_PROTOCOL, PROFILE_PROTOCOL, SEARCH_KAD_PROTOCOL,
-    SEARCH_PROTOCOL,
+    DIGEST_PROTOCOL, IDENTIFY_PROTOCOL, INVENTORY_PROTOCOL, KAD_PROTOCOL, KEY_PACKAGE_PROTOCOL,
+    MAILBOX_PROTOCOL, MAILBOX_PUSH_PROTOCOL, MEDIA_PROTOCOL, NODE_PROTOCOL, PROFILE_PROTOCOL,
+    SEARCH_KAD_PROTOCOL, SEARCH_PROTOCOL,
 };
 use libp2p::{gossipsub, StreamProtocol};
 
@@ -20,6 +20,8 @@ pub struct Protocols {
     pub node: StreamProtocol,
     /// Profile publication and lookup.
     pub profile: StreamProtocol,
+    /// Device KeyPackage publication and allocation.
+    pub key_package: StreamProtocol,
     /// Mailbox store, fetch and ack.
     pub mailbox: StreamProtocol,
     /// Node-to-client mailbox notifications.
@@ -45,6 +47,7 @@ impl Protocols {
             search_kad: SEARCH_KAD_PROTOCOL,
             node: NODE_PROTOCOL,
             profile: PROFILE_PROTOCOL,
+            key_package: KEY_PACKAGE_PROTOCOL,
             mailbox: MAILBOX_PROTOCOL,
             mailbox_push: MAILBOX_PUSH_PROTOCOL,
             media: MEDIA_PROTOCOL,
@@ -79,6 +82,7 @@ impl Protocols {
             search_kad: id("search-kad")?,
             node: id("node")?,
             profile: id("profile")?,
+            key_package: id("keypackage")?,
             mailbox: id("mailbox")?,
             mailbox_push: id("mailbox-push")?,
             media: id("media")?,
@@ -95,13 +99,14 @@ impl Protocols {
         gossipsub::IdentTopic::new(format!("{}/profiles/{n}", self.version))
     }
 
-    /// The nine existing protocol IDs; the reserved digest ID is not served yet.
-    pub fn all(&self) -> [&StreamProtocol; 9] {
+    /// The ten served protocol IDs; the reserved digest ID is not served yet.
+    pub fn all(&self) -> [&StreamProtocol; 10] {
         [
             &self.kad,
             &self.search_kad,
             &self.node,
             &self.profile,
+            &self.key_package,
             &self.mailbox,
             &self.mailbox_push,
             &self.media,
@@ -126,6 +131,7 @@ mod tests {
                 "/dyapp/search-kad",
                 "/dyapp/node",
                 "/dyapp/profile",
+                "/dyapp/keypackage",
                 "/dyapp/mailbox",
                 "/dyapp/mailbox-push",
                 "/dyapp/media",

@@ -9,6 +9,7 @@ impl Replicas {
         self.puts.len()
             + self.mailbox_puts.len()
             + self.profile_puts.len()
+            + self.keypackage_puts.len()
             + self.media_puts.len()
             + self.shard_puts.len()
             + self.shard_gets.len()
@@ -325,6 +326,13 @@ impl Replicas {
             PutRecord::Profile(record) => {
                 dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec()
             }
+            PutRecord::KeyPackage(record) => {
+                let Ok(package) = proto::KeyPackageRecord::decode(record.payload.as_slice()) else {
+                    reply.send(swarm, service, Status::Invalid, None);
+                    return;
+                };
+                package.owner
+            }
             PutRecord::Media(replica) => dyapp_identity::sha256(&replica.data).to_vec(),
             PutRecord::Sharded(replica, _) => replica.manifest.as_ref().unwrap().hash.clone(),
         };
@@ -388,6 +396,10 @@ impl Replicas {
                     Ok(response) => put.confirm(to, response.status, response.record),
                     Err(error) => tracing::error!(%error, "local profile replica failed"),
                 },
+                PutRecord::KeyPackage(record) => match service.store_keypackage(record) {
+                    Ok(response) => put.confirm(to, response.status, None),
+                    Err(error) => tracing::error!(%error, "local KeyPackage replica failed"),
+                },
                 PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
                     match service.store_media(replica) {
                         Ok(response) => put.confirm(to, response.status, None),
@@ -396,8 +408,10 @@ impl Replicas {
                 }
             }
         } else if self.trust.trusted(&to) {
-            if matches!(put.record, PutRecord::Mailbox(..) | PutRecord::Profile(_))
-                && !self.cap.allow(&to, 1)
+            if matches!(
+                put.record,
+                PutRecord::Mailbox(..) | PutRecord::Profile(_) | PutRecord::KeyPackage(_)
+            ) && !self.cap.allow(&to, 1)
             {
                 return;
             }
@@ -420,6 +434,16 @@ impl Replicas {
                     service.traffic.add(request.encoded_len() as u64);
                     let request_id = swarm.behaviour_mut().profile.send_request(&to, request);
                     self.profile_puts.insert(request_id, id);
+                }
+                PutRecord::KeyPackage(record) => {
+                    let request = proto::KeyPackageRequest {
+                        request: Some(proto::key_package_request::Request::ReplicaPut(
+                            record.clone(),
+                        )),
+                    };
+                    service.traffic.add(request.encoded_len() as u64);
+                    let request_id = swarm.behaviour_mut().key_package.send_request(&to, request);
+                    self.keypackage_puts.insert(request_id, id);
                 }
                 PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
                     let _ = replica;
@@ -477,6 +501,7 @@ impl Replicas {
                 .any(|lookup| matches!(lookup, Lookup::Put(p) if p == id))
                 || self.mailbox_puts.values().any(|p| p == id)
                 || self.profile_puts.values().any(|p| p == id)
+                || self.keypackage_puts.values().any(|p| p == id)
                 || self.media_puts.values().any(|p| p == id)
                 || self.shard_puts.values().any(|(p, _)| p == id)
                 || self.lookups.values().any(|l| matches!(l, Lookup::ShardPut(p, _) if p == id))
@@ -493,6 +518,8 @@ impl Replicas {
         }
         self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
         self.profile_puts.retain(|_, id| self.puts.contains_key(id));
+        self.keypackage_puts
+            .retain(|_, id| self.puts.contains_key(id));
         self.media_puts.retain(|_, id| self.puts.contains_key(id));
         self.shard_puts
             .retain(|_, (id, _)| self.puts.contains_key(id));

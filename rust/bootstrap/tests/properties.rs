@@ -6,7 +6,7 @@ use dyapp_bootstrap::replication::ReplicationFragment;
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_messaging::{EncryptionConfig, Message, MessageStatus, Timestamp};
 use dyapp_p2p_net::proto::*;
-use dyapp_profile::{Photo, Profile};
+use dyapp_profile::{DeviceCertificate, Photo, Profile};
 use dyapp_video::encryption::FrameHeader;
 use dyapp_video::{CodecFormat, CodecInfo, ICECandidate, ICEGatheringState};
 use proptest::prelude::*;
@@ -75,6 +75,7 @@ macro_rules! json_round_trip {
 protobuf_round_trip! {
     signed_record: SignedRecord,
     profile: Profile,
+    device_certificate: DeviceCertificate,
     photo: Photo,
     node_request: NodeRequest,
     info_request: InfoRequest,
@@ -88,6 +89,10 @@ protobuf_round_trip! {
     get_profile: GetProfile,
     heartbeat: Heartbeat,
     profile_response: ProfileResponse,
+    key_package_request: KeyPackageRequest,
+    key_package_record: KeyPackageRecord,
+    get_key_package: GetKeyPackage,
+    key_package_response: KeyPackageResponse,
     mailbox_request: MailboxRequest,
     inventory: Inventory,
     envelopes: Envelopes,

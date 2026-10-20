@@ -1,6 +1,6 @@
 # Encryption & Security Status
 
-> **Status: NOT SECURE. Only profile signatures are implemented.**
+> **Status: NOT SECURE. Profile and KeyPackage record signatures are implemented.**
 > Every message and video frame is handled as plaintext today; profiles are
 > public by design and signed, not encrypted.
 > Do not use this code with real user data.
@@ -16,11 +16,12 @@ here instead of repeating guarantees.
 | Signatures | same file, `sign` / `verify` | `sign` returns the message itself; `verify` only checks the signature is non-empty |
 | Key derivation | same file, `derive_session_key` | XOR of secret and salt, not HKDF |
 | Video frames | `rust/video/src/encryption.rs` | Wraps the stub above; nonce/tag are random bytes, tag is never checked |
-| Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions |
+| Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
+| KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; MLS signature, leaf key and lifetime must be verified by the future client |
 | Key generation (FFI) | `rust/ffi/src/lib.rs` `generate_keypair` | Returns the strings `"placeholder"` |
 | P2P transport | `rust/p2p-net/src/lib.rs` `build_swarm` | Real: libp2p QUIC (TLS 1.3) and TCP with Noise; `dyappd` uses it, no app yet |
 | Bootstrap protocol | `rust/bootstrap/src/service.rs` | libp2p only, no HTTP; profile writes need the owner's signature, reads are open; mailbox fetch and ack need the device's signature and a connection nonce |
-| Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; envelopes and profiles as the signed protobuf record |
+| Bootstrap storage | `rust/bootstrap/src/storage.rs` | SQLite; envelopes, profiles and KeyPackage stock as signed protobuf records |
 
 `EncryptionConfig::default_secure()` only sets strings such as
 `"ChaCha20-Poly1305"`; nothing reads them to select an algorithm, and no
@@ -45,9 +46,11 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 | Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Mailboxes: only the device reads or acks; anyone may put |
 | Metadata | Hide who talks to whom and when | None: sender, recipient and timestamps are visible to bootstrap and network ([field table](privacy.md)) |
 
-## Target design (not implemented)
+## Target design
 
-These are goals. Nothing here is a current guarantee.
+The items below describe the intended client security model. The directory and node-side
+KeyPackage checks noted above are implemented; end-to-end encryption and client MLS validation
+remain planned.
 
 - Payload: MLS (RFC 9420) via `openmls`, ciphersuite 0x0001; one MLS group per conversation
   [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md).

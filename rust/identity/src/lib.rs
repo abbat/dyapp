@@ -44,6 +44,10 @@ macro_rules! signature_domains {
 signature_domains! {
     /// A public profile, signed by the owner's identity key.
     Profile => b"dyapp/profile/v1\0",
+    /// One device's mailbox and MLS keys, certified by the owner.
+    DeviceCertificate => b"dyapp/device-certificate/v1\0",
+    /// A device's published MLS KeyPackage.
+    KeyPackage => b"dyapp/keypackage/v1\0",
     /// A mailbox envelope, signed by the sender's device key.
     Envelope => b"dyapp/envelope/v1\0",
     /// A mailbox fetch, signed by the mailbox's device key.

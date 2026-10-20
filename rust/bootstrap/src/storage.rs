@@ -11,6 +11,8 @@ use std::sync::{Mutex, MutexGuard};
 #[path = "storage/envelopes.rs"]
 mod envelopes;
 pub use envelopes::{NewEnvelope, Put};
+#[path = "storage/keypackages.rs"]
+mod keypackages;
 #[path = "storage/revocations.rs"]
 mod revocations;
 pub use revocations::MAX_REVOKED;
@@ -85,7 +87,7 @@ pub(crate) fn add_column(
 }
 
 /// `profiles.db` format steps.
-const PROFILE_STEPS: &[Step] = &[profiles_last_seen];
+const PROFILE_STEPS: &[Step] = &[profiles_last_seen, keypackages::profiles_keypackages];
 
 /// `last_seen`: node time of a newer publish, or the latest validated heartbeat time. Rows
 /// stored before the column count as seen now, so an upgrade deletes nothing.

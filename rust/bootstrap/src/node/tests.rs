@@ -33,7 +33,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
             &service,
         );
     }
-    assert_eq!(service.wire.take().0, [[0; 2]; 10]);
+    assert_eq!(service.wire.take().0, [[0; 2]; 11]);
     service.wire.add(0, dyapp_p2p_net::Dir::In, 7);
     service.wire.add(0, dyapp_p2p_net::Dir::Out, 11);
     let path = format!("{dir}/status.log");
@@ -61,7 +61,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
     assert!(lines[1].contains("wire_bytes=node=0/0 profile=0/0"));
     assert!(lines[0].contains("answered=3"));
     assert!(lines[0].contains("pow_checks=0"));
-    assert_eq!(service.wire.take().0, [[0; 2]; 10]);
+    assert_eq!(service.wire.take().0, [[0; 2]; 11]);
 }
 
 mod groups;

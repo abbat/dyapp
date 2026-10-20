@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package dyapp.profile;
 
+import "identity.proto";
+
 // Public profile, the payload of a `SignedRecord` signed by the owner's identity key.
 // Every field is public. Empty strings, unset optionals and an age of 0 mean "not published".
 message Profile {
@@ -37,6 +39,18 @@ message Profile {
   // "Proof of work". Missing = 0 bits.
   uint64 pow_nonce = 22;
   uint32 pow_bits = 23;
+  // Current identity-certified devices, sorted by SHA-256 of the device key; at most 64.
+  repeated dyapp.identity.SignedRecord devices = 24;
+}
+
+// Signed by the owner's identity key under dyapp/device-certificate/v1\0.
+message DeviceCertificate {
+  // Ed25519 key for the device mailbox, distinct from the identity and MLS keys.
+  bytes device_key = 1;
+  // Ed25519 MLS leaf signature key.
+  bytes mls_signature_key = 2;
+  // Increasing when a device replaces either key; starts at 1.
+  uint64 generation = 3;
 }
 
 // A photo as `/dyapp/media` blobs, each named by the SHA-256 of its data. Lists and search results

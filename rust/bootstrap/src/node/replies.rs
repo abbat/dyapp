@@ -157,6 +157,38 @@ impl Replicas {
         self.profile_inventories.remove(&request_id);
     }
 
+    /// A peer's KeyPackage replica reply confirms a publication.
+    pub(super) fn keypackage_response(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        peer: PeerId,
+        request_id: OutboundRequestId,
+        response: proto::KeyPackageResponse,
+    ) {
+        service.traffic.add(response.encoded_len() as u64);
+        self.trust.add(peer, 1);
+        if let Some(id) = self.keypackage_puts.remove(&request_id) {
+            if let Some(put) = self.puts.get_mut(&id) {
+                put.confirm(peer, response.status, None);
+            }
+            self.finish_puts(swarm, service, Instant::now());
+        }
+    }
+
+    /// A peer's KeyPackage request failed.
+    pub(super) fn keypackage_failure(
+        &mut self,
+        peer: PeerId,
+        request_id: OutboundRequestId,
+        error: &OutboundFailure,
+    ) {
+        if !matches!(error, OutboundFailure::UnsupportedProtocols) {
+            self.trust.add(peer, -1);
+        }
+        self.keypackage_puts.remove(&request_id);
+    }
+
     /// A peer's media reply: a repair, shard or whole-copy answer.
     pub(super) fn media_response(
         &mut self,

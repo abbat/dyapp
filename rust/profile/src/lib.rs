@@ -6,8 +6,9 @@
 //! re-imported.
 
 use argon2::{Algorithm, Argon2, Params, Version};
-use dyapp_identity::{Domain, Identity, SignedRecord};
+use dyapp_identity::{key_hash, Domain, Identity, SignedRecord};
 use prost::Message;
+use std::collections::HashSet;
 
 /// Largest accepted profile payload. Media are not part of it: the profile only links to blobs.
 pub const MAX_PAYLOAD_LEN: usize = 1024 * 1024;
@@ -35,6 +36,8 @@ pub const MAX_PLACE_CHARS: usize = 1024;
 pub const MAX_PHOTOS: usize = 16;
 /// Most blobs one full photo is split into.
 pub const MAX_PHOTO_BLOBS: usize = 64;
+/// Most devices an owner can list in one profile.
+pub const MAX_DEVICES: usize = 64;
 
 mod generated {
     #![allow(clippy::pedantic)]
@@ -42,7 +45,7 @@ mod generated {
     #![allow(missing_docs)]
     include!(concat!(env!("OUT_DIR"), "/dyapp.profile.rs"));
 }
-pub use generated::{Photo, Profile};
+pub use generated::{DeviceCertificate, Photo, Profile};
 
 impl Profile {
     /// A deletion marker: version and proof of work set, every other field empty.
@@ -61,7 +64,7 @@ impl Profile {
         identity.sign(Domain::Profile, self.encode_to_vec())
     }
 
-    fn validate(&self) -> Result<(), Error> {
+    fn validate(&self, owner_key: &[u8]) -> Result<(), Error> {
         if self.version == 0 {
             return Err(Error::Invalid("version must start at 1"));
         }
@@ -93,6 +96,36 @@ impl Profile {
         {
             return Err(Error::Invalid("photos are not blob hashes or too many"));
         }
+        if self.devices.len() > MAX_DEVICES {
+            return Err(Error::Invalid("too many devices"));
+        }
+        let mut previous = None;
+        let mut mls_keys = HashSet::new();
+        for signed in &self.devices {
+            if signed.public_key != owner_key || signed.verify(Domain::DeviceCertificate).is_err() {
+                return Err(Error::Invalid("invalid device certificate signature"));
+            }
+            let certificate = DeviceCertificate::decode(signed.payload.as_slice())
+                .map_err(|_| Error::Invalid("malformed device certificate"))?;
+            let (Ok(device), Ok(mls)) = (
+                <[u8; 32]>::try_from(certificate.device_key.as_slice()),
+                <[u8; 32]>::try_from(certificate.mls_signature_key.as_slice()),
+            ) else {
+                return Err(Error::Invalid("invalid device key length"));
+            };
+            if certificate.generation == 0
+                || device == mls
+                || device.as_slice() == owner_key
+                || mls.as_slice() == owner_key
+            {
+                return Err(Error::Invalid("invalid device key or generation"));
+            }
+            let mailbox = key_hash(&device);
+            if previous.is_some_and(|last| mailbox <= last) || !mls_keys.insert(mls) {
+                return Err(Error::Invalid("duplicate or unsorted devices"));
+            }
+            previous = Some(mailbox);
+        }
         Ok(())
     }
 }
@@ -113,7 +146,7 @@ pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
     }
     let peer_id = record.verify(Domain::Profile)?;
     let profile = Profile::decode(record.payload.as_slice()).map_err(|_| Error::Decode)?;
-    profile.validate()?;
+    profile.validate(&record.public_key)?;
     Ok(VerifiedProfile { peer_id, profile })
 }
 
@@ -218,6 +251,67 @@ mod tests {
             interests: vec!["hiking".into()],
             ..Profile::default()
         }
+    }
+
+    #[test]
+    fn device_directory_checks_owner_keys_order_and_signature() {
+        let owner = Identity::generate();
+        let first = Identity::generate();
+        let second = Identity::generate();
+        let mls_first = Identity::generate();
+        let mls_second = Identity::generate();
+        let certificate = |device: &Identity, mls: &Identity| {
+            owner.sign(
+                Domain::DeviceCertificate,
+                DeviceCertificate {
+                    device_key: device.public_key().to_vec(),
+                    mls_signature_key: mls.public_key().to_vec(),
+                    generation: 1,
+                }
+                .encode_to_vec(),
+            )
+        };
+        let mut devices = vec![
+            certificate(&first, &mls_first),
+            certificate(&second, &mls_second),
+        ];
+        devices.sort_by_key(|signed| {
+            let cert = DeviceCertificate::decode(signed.payload.as_slice()).unwrap();
+            key_hash(&cert.device_key.try_into().unwrap())
+        });
+        let mut profile = sample(1);
+        profile.devices = devices;
+        assert!(verify(&profile.sign(&owner)).is_ok());
+
+        profile.devices.reverse();
+        assert_eq!(
+            verify(&profile.sign(&owner)),
+            Err(Error::Invalid("duplicate or unsorted devices"))
+        );
+        profile.devices.reverse();
+        profile.devices[1] = profile.devices[0].clone();
+        assert_eq!(
+            verify(&profile.sign(&owner)),
+            Err(Error::Invalid("duplicate or unsorted devices"))
+        );
+        profile.devices[0].signature[0] ^= 1;
+        assert_eq!(
+            verify(&profile.sign(&owner)),
+            Err(Error::Invalid("invalid device certificate signature"))
+        );
+        profile.devices[0] = Identity::generate().sign(
+            Domain::DeviceCertificate,
+            DeviceCertificate {
+                device_key: first.public_key().to_vec(),
+                mls_signature_key: mls_first.public_key().to_vec(),
+                generation: 1,
+            }
+            .encode_to_vec(),
+        );
+        assert_eq!(
+            verify(&profile.sign(&owner)),
+            Err(Error::Invalid("invalid device certificate signature"))
+        );
     }
 
     #[test]

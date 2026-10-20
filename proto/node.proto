@@ -190,6 +190,50 @@ message ProfileResponse {
   uint64 server_time = 5;
 }
 
+// ---- /dyapp/keypackage: store role ----
+
+message KeyPackageRequest {
+  oneof request {
+    // Payload `KeyPackageRecord`, signed by the listed device's mailbox key.
+    dyapp.identity.SignedRecord publish = 1;
+    GetKeyPackage fetch = 2;
+    // Node to node: checked like publish, stored locally and never forwarded.
+    dyapp.identity.SignedRecord replica_put = 3;
+  }
+}
+
+message KeyPackageRecord {
+  // SHA-256 of the owner identity public key and device public key, respectively.
+  bytes owner = 1;
+  bytes mailbox = 2;
+  // Exact TLS-serialized MLS KeyPackage bytes; its SHA-256 names the record. Nodes check
+  // only the suite header; clients verify the MLS signature, leaf key and lifetime.
+  bytes package = 3;
+  // Unix seconds, at most 30 days from publication.
+  uint64 expires = 4;
+  // Reusable only when ordinary packages cannot be allocated.
+  bool last_resort = 5;
+  // Increasing for each last-resort rotation; ordinary packages set zero.
+  uint32 revision = 6;
+}
+
+message GetKeyPackage {
+  bytes owner = 1;
+  bytes mailbox = 2;
+  // The newest profile version the caller has seen; a node below it returns STALE.
+  uint64 profile_version = 3;
+  // Ordinary package allocation slot, 0..4. Fallback may return last resort.
+  uint32 slot = 4;
+}
+
+message KeyPackageResponse {
+  Status status = 1;
+  // fetch: the signed publication, consumed locally before this reply for ordinary packages.
+  dyapp.identity.SignedRecord record = 2;
+  // TOO_LARGE: the signed publication bound.
+  uint64 max_bytes = 3;
+}
+
 // ---- /dyapp/mailbox: store role ----
 
 message MailboxRequest {

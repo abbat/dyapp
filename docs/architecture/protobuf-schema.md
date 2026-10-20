@@ -3,8 +3,8 @@
 > **Status:** the schemas in `proto/` are compiled into the Rust crates
 > ([code generation](../development/protobuf-codegen.md)). `identity.proto` and `profile.proto`
 > are the signed profile used today. `node.proto` defines the libp2p node protocol; `dyappd`
-> serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push` and
-> `/dyapp/media`
+> serves `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,
+> `/dyapp/mailbox-push` and `/dyapp/media`
 > ([bootstrap](bootstrap.md#served-protocol)).
 
 ## Files
@@ -12,8 +12,8 @@
 | File | Package | Messages |
 |------|---------|----------|
 | `proto/identity.proto` | `dyapp.identity` | `SignedRecord` |
-| `proto/profile.proto` | `dyapp.profile` | `Profile` |
-| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` |
+| `proto/profile.proto` | `dyapp.profile` | `Profile`, `DeviceCertificate` |
+| `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` |
 
 The files are the source; comments in them define each field.
 
@@ -27,6 +27,8 @@ as received, so a node keeps fields it does not understand.
 | Payload | Domain | Signed by |
 |---------|--------|-----------|
 | `dyapp.profile.Profile` | `dyapp/profile/v1\0` | identity key |
+| `dyapp.profile.DeviceCertificate` | `dyapp/device-certificate/v1\0` | identity key |
+| `dyapp.node.KeyPackageRecord` | `dyapp/keypackage/v1\0` | certified device key |
 | `dyapp.node.Envelope` | `dyapp/envelope/v1\0` | sender key |
 | `dyapp.node.Fetch`, `Ack` | `dyapp/mailbox-fetch/v1\0`, `dyapp/mailbox-ack/v1\0` | device key |
 | `dyapp.node.WriteToken` | `dyapp/write-token/v1\0` | device key |
@@ -45,7 +47,10 @@ signed version wins); `deleted` marks a tombstone with every other field except 
 key (see [Proof of work](bootstrap.md#search)); missing means 0 bits. Tag 5 held
 coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
 full image as ordered blobs plus one small `thumbnail` blob for lists and search results. See
-the [bootstrap signed profile](bootstrap.md#signed-profile).
+the [bootstrap signed profile](bootstrap.md#signed-profile). `devices` (field 24) contains
+at most 64 identity-signed, mailbox-sorted `DeviceCertificate` records; each binds a distinct
+32-byte device key and MLS signature key with a positive generation. Duplicate device or MLS
+keys and malformed certificates invalidate the profile.
 
 ## Node protocol
 
@@ -65,6 +70,12 @@ SHA-256 of the device public key (32 bytes each).
   node clock. A stale publish or replayed heartbeat does not extend retention. Successful
   publishes and heartbeats start node-driven version repair, once per rolling hour per key;
   only older or missing holders receive a signed record, within the 75 % traffic budget.
+- **`/dyapp/keypackage`**: `publish` and node-to-node `replica_put` carry a device-signed
+  `KeyPackageRecord` to the profile's owner-derived replicas. Nodes require a current certified
+  device, check the outer signature, size, expiry and MLS suite header, and cap stock per mailbox.
+  Unauthenticated `fetch(owner, mailbox, profile_version, slot)` consumes an ordinary package
+  locally before reply, or returns the reusable last-resort package. Clients verify the full MLS
+  KeyPackage and profile version before use; replicas cannot guarantee global single use.
 - **`/dyapp/mailbox`**: `challenge` returns a nonce bound to the connection; `fetch` and `ack` are
   signed by the mailbox's device key and carry that nonce. `put` stores an `Envelope` once per
   random 16-byte id, so it needs no nonce; the acceptor confirms two distinct replica holders.

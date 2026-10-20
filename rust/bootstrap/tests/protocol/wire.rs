@@ -12,13 +12,13 @@ async fn tcp_exchange_counts_exact_request_and_response_frames() {
     let response = client.info().await;
     let (sent, received) = (request.encoded_len() as u64, response.encoded_len() as u64);
     let slot = dyapp_p2p_net::WireBytes::protocol_slot(&dyapp_p2p_net::NODE_PROTOCOL);
-    let mut expected = [[0; 2]; 10];
+    let mut expected = [[0; 2]; 11];
     expected[slot] = [sent, received];
     assert_eq!(wire.take().0, expected);
     expected[slot] = [received, sent];
     assert_eq!(client.wire.take().0, expected);
-    assert_eq!(wire.take().0, [[0; 2]; 10]);
-    assert_eq!(client.wire.take().0, [[0; 2]; 10]);
+    assert_eq!(wire.take().0, [[0; 2]; 11]);
+    assert_eq!(client.wire.take().0, [[0; 2]; 11]);
 }
 
 #[tokio::test]

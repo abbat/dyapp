@@ -3,8 +3,8 @@
 // The NetworkBehaviour derive emits `BehaviourEvent` without docs.
 #![allow(missing_docs)]
 use super::{
-    IncomingGroupGuard, InventoryBehaviour, MailboxBehaviour, MediaBehaviour, NodeBehaviour,
-    ProfileBehaviour, PushBehaviour, SearchBehaviour,
+    IncomingGroupGuard, InventoryBehaviour, KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour,
+    NodeBehaviour, ProfileBehaviour, PushBehaviour, SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
@@ -29,6 +29,8 @@ pub struct Behaviour {
     pub node: NodeBehaviour,
     /// Profile publication and lookup.
     pub profile: ProfileBehaviour,
+    /// Device KeyPackage publication and allocation.
+    pub key_package: KeyPackageBehaviour,
     /// Mailbox store, fetch and ack.
     pub mailbox: MailboxBehaviour,
     /// Node to client only: a node sends, a client receives.

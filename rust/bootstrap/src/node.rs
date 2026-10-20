@@ -6,7 +6,6 @@ mod refill;
 mod replicas;
 mod replies;
 mod run;
-
 pub use run::run;
 
 use crate::config::{Limits, Role};
@@ -279,6 +278,7 @@ enum PutRecord {
     /// An envelope and its source group.
     Mailbox(SignedRecord, Vec<u8>),
     Profile(SignedRecord),
+    KeyPackage(SignedRecord),
     Media(proto::MediaReplicaPut),
     Sharded(proto::MediaReplicaPut, Arc<Vec<Vec<u8>>>),
 }
@@ -286,6 +286,7 @@ enum PutRecord {
 enum PutReply {
     Mailbox(libp2p::request_response::ResponseChannel<proto::MailboxResponse>),
     Profile(libp2p::request_response::ResponseChannel<proto::ProfileResponse>),
+    KeyPackage(libp2p::request_response::ResponseChannel<proto::KeyPackageResponse>),
     Media(libp2p::request_response::ResponseChannel<proto::MediaResponse>),
 }
 
@@ -319,6 +320,17 @@ impl PutReply {
                 let _ = swarm
                     .behaviour_mut()
                     .profile
+                    .send_response(channel, response);
+            }
+            Self::KeyPackage(channel) => {
+                let response = proto::KeyPackageResponse {
+                    status: status.into(),
+                    ..Default::default()
+                };
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm
+                    .behaviour_mut()
+                    .key_package
                     .send_response(channel, response);
             }
             Self::Media(channel) => {
@@ -535,6 +547,7 @@ struct Replicas {
     puts: HashMap<u64, PendingPut>,
     mailbox_puts: HashMap<OutboundRequestId, u64>,
     profile_puts: HashMap<OutboundRequestId, u64>,
+    keypackage_puts: HashMap<OutboundRequestId, u64>,
     media_puts: HashMap<OutboundRequestId, u64>,
     shard_puts: HashMap<OutboundRequestId, (u64, usize)>,
     shard_gets: HashMap<OutboundRequestId, (u64, usize)>,
@@ -786,6 +799,15 @@ enum StoreDone {
         ResponseChannel<proto::ProfileResponse>,
         crate::Result<proto::ProfileResponse>,
         Option<SignedRecord>,
+    ),
+    KeyPackagePublish(
+        ResponseChannel<proto::KeyPackageResponse>,
+        SignedRecord,
+        crate::Result<proto::KeyPackageResponse>,
+    ),
+    KeyPackage(
+        ResponseChannel<proto::KeyPackageResponse>,
+        crate::Result<proto::KeyPackageResponse>,
     ),
     MediaPut(
         ResponseChannel<proto::MediaResponse>,

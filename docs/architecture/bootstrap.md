@@ -22,7 +22,7 @@ runs as its own role, on by default, and signaling is planned.
 ## Target Design — planned
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
-`/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
+`/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
 the store, media and TURN roles, the search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
@@ -58,7 +58,7 @@ Each role is enabled separately in the node config:
 
 | Role | Holds |
 |------|-------|
-| store | signed profiles, per-device mailboxes (messages, likes, views and other signals) |
+| store | signed profiles, device KeyPackages, per-device mailboxes (messages, likes, views and other signals) |
 | media | media blobs and erasure-coded shards, thumbnails |
 | search | the search index over profiles collected from the whole network |
 | TURN | short-lived credentials for an operator-run coturn relay of call media |
@@ -84,7 +84,7 @@ provider records, and authenticating alternative addresses through bounded probe
 planned; the node still admits identify listen addresses without that verification.
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
-`proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
+`proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,
 `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`
 ([schema](protobuf-schema.md#node-protocol)); the other services get their
 schemas with their roles. Each request is a `oneof`; a node that gets a variant it does not know answers
@@ -95,6 +95,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
+| `/dyapp/keypackage` | store | `publish(device-signed KeyPackageRecord)`, `fetch(owner, mailbox, profile version, slot)`; node to node `replica_put` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
@@ -261,10 +262,9 @@ resent from the sender's retry queue.
   limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,
   for length and control characters
   ([Threat Model](../security/threat-model.md#spoofing)).
-- **Planned:** the identity-signed profile will carry the current device directory. A sender
-  checks it before fetching a KeyPackage and writes the first Welcome to every listed device's
-  mailbox. The directory is public, including the device count. See
-  [Device directory and KeyPackages](#device-directory-and-keypackages).
+- The identity-signed profile can carry a validated device directory. The node's KeyPackage
+  rendezvous and the sender workflow are still planned. The directory is public, including the
+  device count. See [Device directory and KeyPackages](#device-directory-and-keypackages).
 - The profile carries a proof of work bound to the owner's key (
   [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)): fields `pow_nonce` and
   `pow_bits`, valid when Argon2id(salt `dyapp-profile-pow`, password signer key ‖ nonce, 8 MiB,
@@ -278,10 +278,10 @@ resent from the sender's retry queue.
 
 ### Device directory and KeyPackages
 
-**Planned for the first client release; no wire fields or node handler exist yet.**
-[ADR 0019](../decisions/0019-device-directory-and-keypackage-rendezvous.md) fixes the format;
-the node and client tasks will implement it. A `Profile` gains a repeated `devices` field (number
-24), with at most 64 entries sorted by mailbox address and no duplicate keys. Each entry is an
+**The profile field, certificate checks and node KeyPackage protocol are implemented; the
+client workflow is planned.** [ADR 0019](../decisions/0019-device-directory-and-keypackage-rendezvous.md)
+fixes the format. `Profile.devices` (field 24) holds at most 64 entries sorted by mailbox address
+and no duplicate keys. Each entry is an
 identity-signed `DeviceCertificate` containing the 32-byte Ed25519 device public key, the distinct
 32-byte MLS signature public key, and a device generation. The enclosing profile signature and
 strictly increasing version make the entire list authoritative. A device's mailbox is
@@ -290,20 +290,23 @@ key. A sender fetches at least two profile replicas, retains the highest version
 contact, and refuses a lower version or a device absent from that directory. If the directory is
 unavailable, first contact waits; no guessed mailbox or stale package is used.
 
-`/dyapp/keypackage` on store nodes will accept a device-signed publication and an unauthenticated
-fetch. The publication binds the mailbox, SHA-256 of the exact MLS KeyPackage bytes, expiry (at
-most 30 days), and a `last_resort` bit; the MLS bytes must have suite 0x0001, a valid MLS
-signature and lifetime, and the certified MLS signature key. The node verifies the current
-identity-signed profile and certificate before accepting a publication, then stores it at R = 5
-replica points keyed by the mailbox. A fetch names the mailbox, profile version and one replica
-slot (0–4). The node returns only packages for a device in a profile at least that new; the
-sender independently checks the certificate, hash, expiry and suite against its newest profile.
+`/dyapp/keypackage` on store nodes accepts a device-signed publication and an unauthenticated
+fetch. The publication binds the owner, mailbox, exact MLS KeyPackage bytes, expiry (at most 30
+days), `last_resort` bit and rotation revision. The node verifies the current identity-signed
+profile and device certificate, outer device signature, size, expiry and MLS suite header before
+accepting a publication, then stores it at R = 5 owner-derived replica points alongside the
+profile. A client publishes to a holder that has already stored its current profile; another
+node rejects the record until it receives that profile. The node does not parse or verify the MLS
+leaf signature, certified MLS key or MLS lifetime; clients must do so
+before use. A fetch names the owner, mailbox, profile version and one slot (0–4). The node returns
+only packages for a device in a profile at least that new. The sender independently checks the
+certificate, MLS signature/key, lifetime, expiry and suite against its newest profile.
 
 Each ordinary package belongs to one slot, assigned by the first byte of its hash modulo 5. A
-fetch for that slot is serialized by its current holder: in one durable transaction it marks one
-package consumed before replying; replayed fetches cannot retrieve it there. Other holders keep
-copies for recovery but do not allocate that slot. A changed or malicious holder can allocate a
-copy again; there is no cross-node atomicity guarantee. The sender retries a fresh package on a
+fetch for that slot is serialized locally: in one durable transaction the responding replica marks
+one package consumed before replying; replayed fetches cannot retrieve it there. Other replicas
+can independently allocate their copies, so there is no cross-node single-use guarantee.
+The sender retries a fresh package on a
 failed Welcome; the recipient rejects a replayed group or duplicate Welcome. The reusable
 last-resort package is returned only when no ordinary package can be obtained and is clearly
 marked. Reuse permits replay attempts and weaker first-message forward secrecy, so the client
@@ -486,7 +489,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
 - Reading and deleting a mailbox needs a signature over a nonce the node issued for this libp2p
   connection, so a captured request cannot be replayed. Other requests are idempotent.
 - Chat attachments are encrypted media blobs (planned: a fresh key per attachment,
-  [Encryption](../security/encryption.md#target-design-not-implemented)). The sender attaches them under the SHA-256 of a
+  [Encryption](../security/encryption.md#target-design)). The sender attaches them under the SHA-256 of a
   release secret of 32 random bytes and sends the secret inside the message; the recipient releases them
   after downloading, and unreleased ones expire after an operator-set retention.
 
@@ -1356,7 +1359,7 @@ connection; a count that idling does not lower is a leak. `dyappd status` prints
 the stores hold; there are no HTTP endpoints.
 
 `wire_bytes` reports protobuf frame bytes since the previous status line as
-`node=in/out profile=in/out mailbox=in/out push=in/out media=in/out search=in/out inventory=in/out digest=in/out gossip=in/out other=in/out`.
+`node=in/out profile=in/out mailbox=in/out push=in/out media=in/out search=in/out inventory=in/out digest=in/out gossip=in/out other=in/out keypackage=in/out`.
 A received frame counts only after successful decoding; a sent frame counts only after a full
 write. Malformed/oversized reads and partial/failed writes are excluded. `digest` is reserved
 but not currently served; unknown protocols count as `other` only when handled by this codec.
@@ -1368,8 +1371,8 @@ Each status line reports the change since the previous one; the counters behind 
 [operator manual](../manuals/bootstrap.md#status-and-metrics).
 
 `dyapp-p2p-net` provides `WireBytes` / `WireCounts` for interval payload-byte accounting.
-The fixed slots are node, profile, mailbox, push, media, search, inventory, digest, gossip and
-other; counts display as `name=in/out`. Digest is reserved and has no served protocol yet.
+The fixed slots are node, profile, mailbox, push, media, search, inventory, digest, gossip,
+other and keypackage; counts display as `name=in/out`. Digest is reserved and has no served protocol yet.
 Counters only grow: `totals()` reads them since start and `take()` returns the change since the
 previous take, so concurrent increments fall into this or the next interval and the snapshot
 across counters is not globally atomic. They exclude transport overhead and gossip control

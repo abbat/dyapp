@@ -2,14 +2,14 @@
 //! control traffic.
 
 use crate::{
-    DIGEST_PROTOCOL, INVENTORY_PROTOCOL, MAILBOX_PROTOCOL, MAILBOX_PUSH_PROTOCOL, MEDIA_PROTOCOL,
-    NODE_PROTOCOL, PROFILE_PROTOCOL, SEARCH_PROTOCOL,
+    DIGEST_PROTOCOL, INVENTORY_PROTOCOL, KEY_PACKAGE_PROTOCOL, MAILBOX_PROTOCOL,
+    MAILBOX_PUSH_PROTOCOL, MEDIA_PROTOCOL, NODE_PROTOCOL, PROFILE_PROTOCOL, SEARCH_PROTOCOL,
 };
 use libp2p::StreamProtocol;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-const SLOTS: [&str; 10] = [
+const SLOTS: [&str; 11] = [
     "node",
     "profile",
     "mailbox",
@@ -20,6 +20,7 @@ const SLOTS: [&str; 10] = [
     "digest",
     "gossip",
     "other",
+    "keypackage",
 ];
 
 /// Direction of a payload relative to this node.
@@ -49,10 +50,13 @@ impl WireBytes {
     /// Slot of unknown protocols.
     pub const OTHER: usize = 9;
     /// Slot names, in slot order.
-    pub const NAMES: [&'static str; 10] = SLOTS;
+    pub const NAMES: [&'static str; 11] = SLOTS;
 
     /// Slot for a protobuf request-response protocol, or `OTHER` for an unknown one.
     pub fn protocol_slot(protocol: &StreamProtocol) -> usize {
+        if protocol == &KEY_PACKAGE_PROTOCOL {
+            return 10;
+        }
         [
             NODE_PROTOCOL,
             PROFILE_PROTOCOL,
@@ -70,6 +74,9 @@ impl WireBytes {
 
     /// Slot for this configured network, without interpreting arbitrary protocol suffixes.
     pub fn protocol_slot_for(protocol: &StreamProtocol, protocols: &crate::Protocols) -> usize {
+        if protocol == &protocols.key_package {
+            return 10;
+        }
         [
             &protocols.node,
             &protocols.profile,
@@ -159,6 +166,14 @@ mod tests {
         );
         let public = crate::Protocols::public();
         assert_eq!(WireBytes::protocol_slot_for(&MEDIA_PROTOCOL, &public), 4);
+        assert_eq!(
+            WireBytes::protocol_slot_for(&KEY_PACKAGE_PROTOCOL, &public),
+            10
+        );
+        assert_eq!(
+            WireBytes::protocol_slot_for(&configured.key_package, &configured),
+            10
+        );
     }
 
     #[test]
@@ -198,7 +213,7 @@ mod tests {
         assert_eq!(counts.0[WireBytes::OTHER], [2, 0]);
         assert_eq!(
             counts.to_string(),
-            "node=0/0 profile=0/0 mailbox=0/0 push=0/0 media=0/0 search=0/0 inventory=12/9 digest=0/0 gossip=0/3 other=2/0"
+            "node=0/0 profile=0/0 mailbox=0/0 push=0/0 media=0/0 search=0/0 inventory=12/9 digest=0/0 gossip=0/3 other=2/0 keypackage=0/0"
         );
         assert!(bytes.take().0.iter().all(|slot| *slot == [0, 0]));
         assert_eq!(bytes.totals().0[inventory], [12, 9]);

@@ -1,6 +1,9 @@
 //! Answers node protocol requests (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`,
 //! `/dyapp/media`) from the stores. The libp2p loop in `dyappd` passes each request here and sends back the reply.
 
+#[path = "service/keypackages.rs"]
+mod keypackages;
+
 use crate::replication::MediaManifestExt;
 use crate::{
     config::{Role, Turn},

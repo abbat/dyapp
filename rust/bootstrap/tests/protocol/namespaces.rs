@@ -138,8 +138,8 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
         .await
         .unwrap();
         assert!(client.swarm.is_connected(&id)); // Common transport is separate from application isolation.
-        assert_eq!(wire.take().0, [[0; 2]; 10]);
-        assert_eq!(client.wire.take().0, [[0; 2]; 10]);
+        assert_eq!(wire.take().0, [[0; 2]; 11]);
+        assert_eq!(client.wire.take().0, [[0; 2]; 11]);
     }
 }
 

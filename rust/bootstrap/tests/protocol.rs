@@ -1,5 +1,8 @@
 //! The node protocol end to end: a `node::run` loop on loopback TCP and libp2p clients.
 
+#[path = "protocol/keypackages.rs"]
+mod keypackages;
+
 use dyapp_bootstrap::config::{Limits, Role};
 use dyapp_bootstrap::search::SearchIndex;
 use dyapp_bootstrap::service::Service;
@@ -344,6 +347,23 @@ impl Client {
             .send_request(&self.server, request);
         self.wait(|event| match event {
             BehaviourEvent::Profile(event) => response(event),
+            _ => None,
+        })
+        .await
+    }
+
+    async fn keypackage(
+        &mut self,
+        request: proto::key_package_request::Request,
+    ) -> proto::KeyPackageResponse {
+        self.swarm.behaviour_mut().key_package.send_request(
+            &self.server,
+            proto::KeyPackageRequest {
+                request: Some(request),
+            },
+        );
+        self.wait(|event| match event {
+            BehaviourEvent::KeyPackage(event) => response(event),
             _ => None,
         })
         .await

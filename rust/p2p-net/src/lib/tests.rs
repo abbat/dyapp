@@ -245,7 +245,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
             }
         }
     }).await.unwrap();
-    let mut expected = [[0; 2]; 10];
+    let mut expected = [[0; 2]; 11];
     expected[4] = [request_len, response_len];
     assert_eq!(a_wire.take().0, expected);
     expected[4] = [response_len, request_len];
@@ -339,7 +339,7 @@ async fn configured_media_ids_keep_large_frames_and_stable_counter_slots() {
             .write_response(&protocols.media, &mut Cursor::new(Vec::new()), frame)
             .await
             .unwrap();
-        let mut expected = [[0; 2]; 10];
+        let mut expected = [[0; 2]; 11];
         expected[4] = [2 * bytes.len() as u64; 2];
         assert_eq!(wire.take().0, expected);
         assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
@@ -359,7 +359,7 @@ async fn configured_media_ids_keep_large_frames_and_stable_counter_slots() {
                 .await
                 .is_err());
         }
-        assert_eq!(wire.take().0, [[0; 2]; 10]);
+        assert_eq!(wire.take().0, [[0; 2]; 11]);
         let unknown = frame_bytes(16);
         codec
             .read_request(
@@ -413,7 +413,7 @@ async fn codec_counts_exact_frames_in_all_directions_and_shares_clones() {
             .write_response(&protocol, &mut Cursor::new(Vec::new()), frame)
             .await
             .unwrap();
-        let mut expected = [[0; 2]; 10];
+        let mut expected = [[0; 2]; 11];
         expected[WireBytes::protocol_slot(&protocol)] = [2 * incoming.len() as u64, 2 * n as u64];
         assert_eq!(wire.take().0, expected);
     }
@@ -489,7 +489,7 @@ async fn failed_codec_io_does_not_count_and_releases_media_permits() {
         .await
         .is_err());
     assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
-    assert_eq!(wire.take().0, [[0; 2]; 10]);
+    assert_eq!(wire.take().0, [[0; 2]; 11]);
 }
 
 #[tokio::test]

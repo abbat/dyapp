@@ -1,6 +1,8 @@
 //! The swarm event loop of a node.
 
 use super::*;
+mod search_jobs;
+use search_jobs::{start_search, SearchDone, SearchJob};
 
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and on SIGHUP; an old `<storage.dir>/deny` file is imported once at start.
@@ -56,55 +58,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     // Index reads run off the swarm loop on two workers, fed from a queue fair between IP
     // groups; a read the queue refuses gets RATE_LIMITED. At most two items are ever in the
     // channel: one per worker.
-    struct SearchJob {
-        from: Peer,
-        channel: ResponseChannel<SearchResponse>,
-        work: Search,
-        queued: std::time::Instant,
-    }
-    struct SearchDone {
-        from: Peer,
-        channel: ResponseChannel<SearchResponse>,
-        get: bool,
-        reply: crate::Result<SearchResponse>,
-    }
-    const SEARCH_WORKERS: usize = 2;
-    fn start_search(
-        queue: &mut jobs::GroupQueue<SearchJob>,
-        running: &mut usize,
-        service: &Service,
-        done: &tokio::sync::mpsc::UnboundedSender<SearchDone>,
-    ) {
-        let Some(index) = &service.search else { return };
-        while *running < SEARCH_WORKERS {
-            let Some(SearchJob {
-                from,
-                channel,
-                work,
-                queued,
-            }) = queue.pop()
-            else {
-                return;
-            };
-            service.puzzle.record_wait(queued.elapsed());
-            *running += 1;
-            let (index, done) = (index.clone(), done.clone());
-            let rows = service.config.search.max_scan_rows;
-            tokio::task::spawn_blocking(move || {
-                let (get, reply) = match work {
-                    Search::Get(keys) => (true, run_get(&index, &keys)),
-                    Search::Query(query) => (false, run_query(&index, &query, rows)),
-                    Search::Reply(_) | Search::Pow(..) => unreachable!("answered on the loop"),
-                };
-                let _ = done.send(SearchDone {
-                    from,
-                    channel,
-                    get,
-                    reply,
-                });
-            });
-        }
-    }
     let mut search_queue = jobs::GroupQueue::<SearchJob>::default();
     let mut searching = 0;
     let (search_done_tx, mut search_done) = tokio::sync::mpsc::unbounded_channel::<SearchDone>();
@@ -200,6 +153,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         message: Message::Request { .. },
                         ..
                     })
+                    | BehaviourEvent::KeyPackage(Event::Message {
+                        message: Message::Request { .. },
+                        ..
+                    })
                     | BehaviourEvent::Media(Event::Message {
                         message: Message::Request { .. },
                         ..
@@ -266,6 +223,20 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             })
                         });
                         StoreDone::Profile(channel, result, stored)
+                    }));
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
+                    peer: id,
+                    connection_id,
+                    message: Message::Request { request, channel, .. },
+                })) => {
+                    let from = peer(id, &groups, connection_id);
+                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        if let Some(proto::key_package_request::Request::Publish(record)) = &request.request {
+                            let result = service.prepare_keypackage(&from, record.clone());
+                            return StoreDone::KeyPackagePublish(channel, record.clone(), result);
+                        }
+                        StoreDone::KeyPackage(channel, service.keypackage(&from, request))
                     }));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
@@ -624,6 +595,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 })) => {
                     replicas.profile_failure(peer, request_id, &error);
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
+                    peer: id, message: Message::Response { request_id, response }, ..
+                })) => {
+                    replicas.keypackage_response(&mut swarm, &service, id, request_id, response);
+                }
+                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::OutboundFailure {
+                    peer, request_id, error, ..
+                })) => {
+                    replicas.keypackage_failure(peer, request_id, &error);
+                }
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
                     peer: id, message: Message::Response { request_id, response }, ..
                 })) => {
@@ -688,6 +669,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     Ok(removed) => tracing::info!(removed, "expired messages removed"),
                     Err(error) => tracing::error!(%error, "message cleanup failed"),
                 }
+                if let Err(error) = service.store.expire_keypackages(now) {
+                    tracing::error!(%error, "KeyPackage cleanup failed");
+                }
                 let ttl = i64::from(service.config.limits.profile_ttl_days) * 86_400;
                 match service.store.expire_profiles(now - ttl) {
                     Ok(removed) => tracing::info!(removed, "profiles of inactive owners removed"),
@@ -751,6 +735,27 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             failed += 1;
                             tracing::error!(%error, "profile request failed")
                         }
+                    },
+                    StoreDone::KeyPackagePublish(channel, record, result) => match result {
+                        Ok(response) if response.status == i32::from(Status::Ok) => {
+                            answered += 1;
+                            replicas.start_put(&mut swarm, &service, &watchers,
+                                PutRecord::KeyPackage(record), PutReply::KeyPackage(channel));
+                        }
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().key_package.send_response(channel, response);
+                        }
+                        Err(error) => { failed += 1; tracing::error!(%error, "KeyPackage admission failed"); }
+                    },
+                    StoreDone::KeyPackage(channel, result) => match result {
+                        Ok(response) => {
+                            answered += 1;
+                            service.traffic.add(response.encoded_len() as u64);
+                            let _ = swarm.behaviour_mut().key_package.send_response(channel, response);
+                        }
+                        Err(error) => { failed += 1; tracing::error!(%error, "KeyPackage request failed"); }
                     },
                     StoreDone::MediaPut(channel, result) => match result {
                         Ok(Ok(replica)) => {
