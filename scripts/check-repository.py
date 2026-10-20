@@ -61,6 +61,8 @@ SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.
 HANDLERS = ("rust/bootstrap/src/service.rs",
+            "rust/bootstrap/src/service/mailbox.rs",
+            "rust/bootstrap/src/service/media.rs",
             "rust/bootstrap/src/service/search.rs")
 HANDLER = re.compile(r"pub fn (\w+)\(\s*&self,[^)]*?"
                      r"(?:request: \w+Request|data: &\[u8\])")

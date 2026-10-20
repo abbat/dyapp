@@ -256,7 +256,7 @@ stop at the nonce, which each input cannot know. Responses that a node reads as 
 pushes and digests have no target yet (planned).
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
-`rust/bootstrap/src/service.rs` that takes a `request: …Request` or `data: &[u8]`: it looks for
+`rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for
 `SERVICE.<name>(` in `fuzz/fuzz_targets/`.
 
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
