@@ -21,7 +21,7 @@ final class PlatformKeyStore: KeyStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = item as? Data else {
-            throw WrapError.failed(reason: "Keychain read: OSStatus \(status)")
+            throw WrapError.Failed(reason: "Keychain read: OSStatus \(status)")
         }
         return SymmetricKey(data: data)
     }
@@ -33,7 +33,7 @@ final class PlatformKeyStore: KeyStore {
         item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(item as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw WrapError.failed(reason: "Keychain write: OSStatus \(status)")
+            throw WrapError.Failed(reason: "Keychain write: OSStatus \(status)")
         }
         return key
     }
@@ -42,7 +42,7 @@ final class PlatformKeyStore: KeyStore {
         try keystoreCall {
             let key = try Self.storedKey() ?? Self.createKey()
             guard let blob = try AES.GCM.seal(secret, using: key).combined else {
-                throw WrapError.failed(reason: "no combined GCM output")
+                throw WrapError.Failed(reason: "no combined GCM output")
             }
             return blob
         }
@@ -52,7 +52,7 @@ final class PlatformKeyStore: KeyStore {
         try keystoreCall {
             // A missing key is an error, not a reason to make a new one: the blob stays unreadable.
             guard let key = try Self.storedKey() else {
-                throw WrapError.failed(reason: "the wrapping key is gone")
+                throw WrapError.Failed(reason: "the wrapping key is gone")
             }
             return try AES.GCM.open(AES.GCM.SealedBox(combined: wrapped), using: key)
         }
@@ -65,7 +65,7 @@ final class PlatformKeyStore: KeyStore {
         } catch let error as WrapError {
             throw error
         } catch {
-            throw WrapError.failed(reason: "\(type(of: error)): \(error)")
+            throw WrapError.Failed(reason: "\(type(of: error)): \(error)")
         }
     }
 }
