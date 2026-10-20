@@ -116,8 +116,12 @@ pub struct Service {
     /// Guards (in `GUARDS` order) that refused the last request they checked. A change is
     /// logged once, not per request.
     tripped: [AtomicBool; 5],
-    /// Requests each guard refused since the last `report`; the last one counts the byte rate.
+    /// Requests each guard refused since start; the last one counts the byte rate.
     refused: [AtomicU64; 6],
+    /// `refused` at the last `report`.
+    reported: [AtomicU64; 6],
+    /// Request, connection and storage metrics.
+    pub metrics: crate::metrics::Metrics,
     /// Keys envelope source groups; in memory only, so a seized disk cannot map them back to IP
     /// groups, and new on restart.
     salt: [u8; 32],
@@ -168,6 +172,8 @@ impl Service {
             shared_deny: RwLock::default(),
             tripped: Default::default(),
             refused: Default::default(),
+            reported: Default::default(),
+            metrics: crate::metrics::Metrics::default(),
             salt: crate::random(),
         }
     }
@@ -213,10 +219,16 @@ impl Service {
         self.guard(4, self.memory.share() >= 100)
     }
 
-    /// Logs and resets the refusals per guard; called hourly.
+    /// Requests each guard refused since start, in `GUARDS` order.
+    pub fn refusals(&self) -> [u64; 6] {
+        std::array::from_fn(|i| self.refused[i].load(Ordering::Relaxed))
+    }
+
+    /// Logs the refusals per guard since the last call; called hourly.
     pub fn report(&self) {
-        for (name, refused) in GUARDS.iter().zip(&self.refused) {
-            let refused = refused.swap(0, Ordering::Relaxed);
+        let totals = self.refusals();
+        for ((name, total), reported) in GUARDS.iter().zip(totals).zip(&self.reported) {
+            let refused = total.saturating_sub(reported.fetch_max(total, Ordering::Relaxed));
             if refused > 0 {
                 tracing::info!(guard = name, refused, "requests refused in the last hour");
             }

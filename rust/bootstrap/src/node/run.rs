@@ -187,6 +187,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Service) {
         tokio::select! {
             event = swarm.select_next_some() => {
             dyapp_p2p_net::route(&mut swarm, &event);
+            service.metrics.observe(&swarm, &event);
             match event {
                 SwarmEvent::NewListenAddr { address, .. } => tracing::info!(%address, "listening"),
                 SwarmEvent::ExternalAddrConfirmed { address } => {

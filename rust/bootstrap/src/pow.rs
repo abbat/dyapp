@@ -28,8 +28,12 @@ type ProofId = ([u8; 32], u64, Option<u32>);
 #[derive(Default)]
 pub struct PowCache {
     known: Mutex<HashMap<ProofId, u32>>,
+    /// Checks since start; never reset, so metrics and the status line read it independently.
     checks: AtomicU64,
+    /// Forged claims since start.
     forged: AtomicU64,
+    /// `checks` and `forged` at the last [`PowCache::take_counts`].
+    taken: [AtomicU64; 2],
 }
 
 impl PowCache {
@@ -66,12 +70,21 @@ impl PowCache {
         true
     }
 
-    /// Checks and forgeries since the last call.
-    pub fn take_counts(&self) -> (u64, u64) {
+    /// Checks and forgeries since start.
+    pub fn totals(&self) -> (u64, u64) {
         (
-            self.checks.swap(0, Ordering::Relaxed),
-            self.forged.swap(0, Ordering::Relaxed),
+            self.checks.load(Ordering::Relaxed),
+            self.forged.load(Ordering::Relaxed),
         )
+    }
+
+    /// Checks and forgeries since the last call; the totals go on.
+    pub fn take_counts(&self) -> (u64, u64) {
+        let (checks, forged) = self.totals();
+        let since = |taken: &AtomicU64, total: u64| {
+            total.saturating_sub(taken.fetch_max(total, Ordering::Relaxed))
+        };
+        (since(&self.taken[0], checks), since(&self.taken[1], forged))
     }
 }
 
@@ -105,6 +118,8 @@ mod tests {
         assert!(!cache.check(&forged));
         assert!(!cache.confirmed(&PowCheck { bits: 0, ..forged }));
         assert_eq!(cache.take_counts(), (1, 1));
+        // Taking the hourly counts leaves the totals that metrics export.
+        assert_eq!(cache.totals(), (2, 1));
 
         // A heartbeat proof is cached per day, apart from the profile proof.
         let day = 20_000;

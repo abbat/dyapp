@@ -1310,17 +1310,51 @@ but not currently served; unknown protocols count as `other` only when handled b
 Gossip counts each delivered application payload before validation and each successful local
 publish once, excluding transport fan-out, duplicates suppressed by libp2p, and control traffic.
 Kademlia, identify, AutoNAT, transport overhead and encryption framing are not measured here.
-The per-slot atomic counters reset each interval; the snapshot is not globally atomic and is
-not a cumulative metrics total. See the
+Each status line reports the change since the previous one; the counters behind it never reset
+(see [Metric families](#metric-families)). The snapshot is not globally atomic. See the
 [Deployment Guide](../operations/deployment.md#monitoring).
 
 `dyapp-p2p-net` provides `WireBytes` / `WireCounts` for interval payload-byte accounting.
 The fixed slots are node, profile, mailbox, push, media, search, inventory, digest, gossip and
 other; counts display as `name=in/out`. Digest is reserved and has no served protocol yet.
-Each `take()` atomically resets individual counters; concurrent increments fall into this or
-the next interval, so the snapshot across counters is not globally atomic. These are interval
-counts, not monotonic monitoring totals; they exclude transport overhead and gossip control
+Counters only grow: `totals()` reads them since start and `take()` returns the change since the
+previous take, so concurrent increments fall into this or the next interval and the snapshot
+across counters is not globally atomic. They exclude transport overhead and gossip control
 traffic, duplicate delivery and forwarding fan-out.
+
+### Metric families
+
+`dyapp_bootstrap::metrics` keeps process-lifetime counters and renders them in the Prometheus
+text format 0.0.4; the hourly status lines take their own deltas and never reset them. The
+`/metrics` listener that serves the text is planned. Every name starts with `dyapp_`; label
+values come from fixed tables, never from peers, keys, hashes or addresses, so the series count
+does not grow with traffic.
+
+| Family | Type | Labels |
+|--------|------|--------|
+| `process_start_time_seconds` | gauge | — |
+| `requests_total` | counter | `protocol`: node, profile, mailbox, media, search, inventory |
+| `request_outcomes_total` | counter | `protocol`; `outcome`: answered, timeout, closed, unsupported, omitted, io |
+| `wire_bytes_total` | counter | `protocol`: the `WireBytes` slots; `direction`: in, out |
+| `pow_checks_total`, `pow_forged_total` | counter | — |
+| `refused_total` | counter | `guard`: disk_profiles, disk_messages, disk_media, memory_rate_limited, memory_dropped, traffic_bytes_per_second |
+| `connected_peers`, `connections` | gauge | — |
+| `search_index_version` | gauge | — (search nodes) |
+| `search_phase` | gauge | `phase`: refilling, rebuilding, serving; 1 for the current one (search nodes) |
+| `search_rebuild_events_total` | counter | `event`: postpone, overflow, drop_refill, stop_the_world (search nodes) |
+| `snapshot_timestamp_seconds` | gauge | — ; 0 before the first storage read |
+| `storage_read_ok` | gauge | `store`: profiles, messages, media (configured stores only) |
+| `storage_used_bytes`, `storage_free_bytes` | gauge | `store`; absent for a store whose last read failed |
+
+Requests are counted in the swarm loop from the request-response events: a request when it
+arrives and its outcome when the reply is sent or libp2p reports the inbound failure, so a reply
+sent long after the request (a replica answer, a store worker) counts once. A request dropped
+unanswered, by a guard or under memory pressure, ends as `omitted`. Media bytes served are
+`wire_bytes_total{protocol="media",direction="out"}`. The connection gauges change on
+connection events. Storage gauges come from a snapshot read every 5 minutes on the blocking
+pool, off the swarm loop; rendering reads only atomics, that snapshot and the search index
+state, takes no store lock and changes nothing, so repeated scrapes are safe. A failed read
+sets `storage_read_ok` to 0 and drops the size samples rather than reporting zero.
 
 ## Testing
 
