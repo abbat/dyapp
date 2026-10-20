@@ -45,6 +45,12 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
          media_blobs none\nmedia_bytes none\ndeny_entries none\ncached_peers 0\n"
     );
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    assert_eq!(success(&dir, &["id"]), "operator-peer\n");
+    let (v6, v4) = ("[2001:db8::7]:7070", "192.0.2.7:7070");
+    assert_eq!(
+        success(&dir, &["id", "--external", v6, "--external", v4]),
+        "operator-peer\n[2001:db8::7]:7070/operator-peer\n192.0.2.7:7070/operator-peer\n"
+    );
 
     let store = BootstrapStore::new(dir.to_str().unwrap()).unwrap();
     let owner = Identity::generate();

@@ -188,6 +188,16 @@ both exist, the credential is used.
   file on a `tmpfs` named by `storage.key`;
 - an encrypted volume (LUKS, unlocked by Clevis/Tang or by hand) holding `storage.dir`.
 
+**Peer ID.** `sudo -u dyappd dyappd id` (in Docker: `docker exec dyappd dyappd id`) prints the
+peer ID, then one `seeds` entry per `external` address, ready to hand to the operators who list
+this node:
+
+```text
+12D3KooW...
+[2001:db8::7]:7070/12D3KooW...
+192.0.2.7:7070/12D3KooW...
+```
+
 What keygen and startup check:
 
 - `dyappd keygen` writes the key (mode 0600) to `storage.key` or `storage.dir/node.key`, writes
@@ -233,7 +243,7 @@ than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...
 |-----|---------|---------|
 | `listen` | `["[::1]:7070", "127.0.0.1:7070"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:7070", "0.0.0.0:7070"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
 | `external` | `[]` | Public addresses announced to peers, when known (a static address, port forwarding). Empty: peers learn the listen addresses through identify, and the address they see the node from is announced once AutoNAT confirms it. Until then the node is a DHT client: it uses the DHT but serves no part of it. |
-| `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:7070`, `[2001:db8::7]:7070`). The peer ID, printed by the seed's keygen and kept in its `node.id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
+| `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:7070`, `[2001:db8::7]:7070`). The peer ID, printed by the seed's `dyappd id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
 | `roles` | `["store"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
 
 `listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.

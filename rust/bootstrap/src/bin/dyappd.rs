@@ -11,6 +11,8 @@
 //! `<storage.dir>/deny.db`; a running node applies a change within 10 seconds.
 //! `dyappd deny received`: the lists other nodes shared, stored only.
 //!
+//! `dyappd id`: the peer ID, then `<external address>/<peer ID>` seed entries for other nodes.
+//!
 //! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
 
@@ -28,7 +30,7 @@ use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-const USAGE: &str = "usage: dyappd [keygen [-] | status | deny add <entry> [note] | \
+const USAGE: &str = "usage: dyappd [keygen [-] | id | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
 
@@ -101,6 +103,7 @@ async fn main() -> anyhow::Result<()> {
             );
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
+        ["id"] => print!("{}", id(&config)?),
         ["status"] => print!("{}", status(&config)),
         ["deny", rest @ ..] => deny(&config, rest)?,
         _ => anyhow::bail!(USAGE),
@@ -232,6 +235,16 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
         _ => anyhow::bail!(USAGE),
     }
     Ok(())
+}
+
+/// The peer ID, then one `seeds` entry per `external` address for other nodes to pin this one.
+fn id(config: &NodeConfig) -> anyhow::Result<String> {
+    let path = config.storage.dir.join("node.id");
+    let peer_id = std::fs::read_to_string(&path)
+        .map_err(|e| anyhow::anyhow!("{}: {e}; run `dyappd keygen` once", path.display()))?;
+    let peer_id = peer_id.trim();
+    let seeds = config.external.iter().map(|a| format!("{a}/{peer_id}\n"));
+    Ok(format!("{peer_id}\n{}", seeds.collect::<String>()))
 }
 
 /// One `name value` line per count; a store not created yet shows `none`.

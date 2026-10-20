@@ -38,6 +38,6 @@ grep -q "listening" /tmp/node.log || { cat /tmp/node.log; exit 1; }
 test "$(grep -c "deny list loaded" /tmp/node.log)" = 2 || { cat /tmp/node.log; exit 1; }
 as_node deny list | grep -q "^203.0.113.0/24	.*	deb test$"
 as_node status | grep -q "^deny_entries 1$"
-test "$(cat /var/lib/dyappd/node.id)" = "$(cat /tmp/keygen.log)"
+test "$(as_node id)" = "$(cat /tmp/keygen.log)"
 dpkg -r dyappd >/dev/null
 echo "dyappd package installs on Debian 12, runs as dyappd and removes"
