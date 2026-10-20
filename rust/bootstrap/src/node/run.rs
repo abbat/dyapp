@@ -31,8 +31,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let mut nonces: HashMap<ConnectionId, [u8; 32]> = HashMap::new();
     // The IP group of each open connection.
     let mut groups: HashMap<ConnectionId, String> = HashMap::new();
-    // The remote address of each connection this node dialled.
-    let mut dialed: HashMap<ConnectionId, Multiaddr> = HashMap::new();
+    // The remote address of each connection, and identify addresses waiting for a probe.
+    let mut admission = identified::Admission::default();
     let mut watchers = Watchers::new();
     let delay = u64::from(service.config.network.storage_trust_minutes) * 60;
     let mut replicas = Replicas::default();
@@ -485,9 +485,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer_groups.insert(peer_id, group.clone());
                     groups.insert(connection_id, group);
                     replicas.trust.seen.entry(peer_id).or_insert_with(Instant::now);
-                    if endpoint.is_dialer() {
-                        dialed.insert(connection_id, endpoint.get_remote_address().clone());
-                    }
+                    admission.established(&mut swarm, connection_id, peer_id, &endpoint);
                     drop_banned(&mut swarm, &service, peer_id);
                 }
                 SwarmEvent::ConnectionClosed { peer_id, connection_id, num_established, .. } => {
@@ -502,7 +500,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     }
                     nonces.remove(&connection_id);
                     groups.remove(&connection_id);
-                    dialed.remove(&connection_id);
+                    admission.closed(connection_id, peer_id, num_established == 0);
                     // ponytail: a scan of all watchers per closed connection; index them by
                     // connection if many devices watch at once.
                     watchers.retain(|_, list| {
@@ -609,14 +607,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id, peer_id, info,
                 })) if info.protocol_version != service.protocols.version => {
                     foreign_peers += 1;
-                    identified::drop_foreign(&mut swarm, dialed.get(&connection_id), peer_id, &info.protocol_version);
+                    identified::drop_foreign(&mut swarm, admission.dialed(&connection_id), peer_id, &info.protocol_version);
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
                 SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
                     connection_id, peer_id, info,
                 })) if info.protocols.contains(&service.protocols.kad) || info.protocols.contains(&service.protocols.search_kad) => {
-                    if !identified::add_node(&mut swarm, &service, &mut anchors, dialed.get(&connection_id), peer_id, info) {
+                    if !identified::add_node(&mut swarm, &service, &mut anchors, &mut admission, connection_id, peer_id, info) {
                         continue;
                     }
                     if turn_unannounced && turn_query.is_none() {
@@ -628,7 +626,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         search_query = swarm.behaviour_mut().kad.start_providing(key).ok();
                     }
                 }
-                SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
+                    admission.failed(&mut swarm, connection_id);
                     if matches!(error, DialError::WrongPeerId { .. }) {
                         tracing::warn!(?peer_id, %error, "outbound peer ID mismatch; connection refused");
                     }
@@ -644,7 +643,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             _ = hangup.recv() => {
                 deny_version = None;
                 reload_deny(&service, &deny, &mut deny_version);
-                state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
+                state(&replicas, &swarm, &[nonces.len(), groups.len(), admission.len()], &watchers);
             }
             _ = rejoin.tick() => {
                 if dyapp_p2p_net::known_peers(&mut swarm).is_empty() {
@@ -983,7 +982,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     refused = 0;
                 }
                 status(&service, &swarm, peers.len(), answered, failed, foreign_peers, replicas.media_holders.1, replicas.cap.take_dropped());
-                state(&replicas, &swarm, &[nonces.len(), groups.len(), dialed.len()], &watchers);
+                state(&replicas, &swarm, &[nonces.len(), groups.len(), admission.len()], &watchers);
                 (answered, failed, foreign_peers) = (0, 0, 0);
                 if service.search.is_some()
                     && swarm.behaviour().gossip.as_ref().is_some_and(|g| g.all_peers().count() < 6)

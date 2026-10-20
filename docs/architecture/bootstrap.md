@@ -96,9 +96,10 @@ addresses per peer and 64 in total, an address pending for any peer is not queue
 dial per peer at a time with its connection ID, an address dialled at most once an hour, and
 the 4096 most recently dialled addresses remembered. Only a connection of the claiming peer
 on that dial's ID proves an address; a failed or at once refused dial frees its slot, and a
-peer's queued claims go with its last connection. Using `same_ip` and these probes for
-identify, and filtering provider records, are planned; the node still admits identify listen
-addresses without that verification.
+peer's queued claims go with its last connection. The node now uses `same_ip` for identify listen
+addresses on the connected peer's exact remote IP and probes other claimed addresses with
+one-address, peer-ID-pinned dials before routing to them. Failed, stale and unrelated connections
+prove nothing. Provider-record filtering and the outbound dial guard remain planned.
 
 One libp2p request-response protocol per service, protobuf requests and replies, schemas in
 `proto/`. `proto/node.proto` defines `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`,
