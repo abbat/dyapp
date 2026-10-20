@@ -432,14 +432,26 @@ fetch reveal device count and contact interest to store nodes; no private direct
   proportional to the number of keys. `/dyapp/digest` serves these hashes and
   `/dyapp/inventory` takes an exclusive upper bound; a search peer pays for a bucket digest out
   of its sync budget as the larger of the reply and 40 B per scanned row, so a digest costs as
-  much as the inventory of the same rows. Catch-up does not use them yet: digest-based network
-  catch-up is planned.
-- **Catch-up.** A minute after start and then hourly, unless the node sheds load, it picks two
-  random search nodes of its gossip mesh for each kept topic (one if the mesh has one), so a
-  single peer that keeps a subset or withholds records leaves no silent hole, and pulls the
-  topic from each over `/dyapp/inventory`:
-  `(topic, after)` returns up to 10 000 (key, version) pairs sorted by key, and the node asks
-  again from the last key while a page comes back full. The keys it lacks or holds older it
+  much as the inventory of the same rows.
+- **Catch-up.** A minute after start and then hourly, unless the node sheds load or the previous
+  catch-up still has digest or inventory requests waiting or in flight (the tick is skipped with
+  a debug log), it picks two random search nodes of its gossip mesh for each kept topic (one if
+  the mesh has one), so a single peer that keeps a subset or withholds records leaves no silent
+  hole, and compares the topic with each. It asks `/dyapp/digest` for the 256 bucket hashes, then
+  for each differing bucket its 256 sub-bucket hashes, and pages `/dyapp/inventory` with
+  `after`/`before` over each run of adjacent differing sub-buckets. More than 64 differing
+  buckets fetch the whole topic, more than 32 runs of differing sub-buckets the whole bucket.
+  Any digest failure (unsupported, timeout, an error status, not 256 × 32 B) falls back to the
+  inventory of the whole topic or of that bucket. At most 8 digest and inventory requests are in
+  flight; asks queued for a peer are dropped when its last connection closes. A page returns up
+  to 10 000 (key, version) pairs sorted by key, and the node asks again from the last key while
+  a page comes back full; it drops keys at or past `before` and stops paging that range when it
+  drops one, for a peer that ignores the bound. Keys that change mid-way are picked up next hour
+  or by gossip. A peer in sync costs about 8 KB per topic digest, and each differing bucket
+  8 KB more plus the inventory of its differing ranges, instead of the whole topic inventory.
+  Answers are unverified as before: a false "all differ" costs at most the old full inventory, a
+  false "all equal" skips that peer for an hour. A node that keeps a partial sample differs in
+  many buckets and pays about the old cost. The keys it lacks or holds older it
   fetches with `get`, 50 keys and at most 4 requests in flight per peer, paced by the shared
   `maintenance.io_mb_per_s` budget, and stores them without the 10-minute limit. A search node
   pays for these gets and inventories out of its own budget of `maintenance.io_mb_per_s` reply
@@ -555,7 +567,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   candidate and set `refilling`. A store error never forces. Each forced step logs a warning
   with `step` = `stop_the_world` or `drop_refill`. While `refilling` is set, every query reply is
   `partial` and the next catch-up tick starts a refill round; once a round in which a peer
-  answered has no inventory or catch-up request pending and no queued key left, the flag is
+  answered an inventory or an OK digest has no digest, inventory or catch-up request pending
+  and no queued key left, the flag is
   cleared. The flag survives a restart. Incremental vacuum keeps its page budget and network
   repair keeps its traffic cap.
 - Format versions (implemented, [Storage](#storage)): each file holds its format in
@@ -868,7 +881,8 @@ The current protocol replies are:
 | `/dyapp/search` | `heartbeat(SignedRecord)`, payload `Heartbeat { time, version, pow_nonce, pow_bits, pow_day }` | `OK` refreshes the held record and is gossiped; `NOT_FOUND` no record or an older version, publish it; `RATE_LIMITED` with `retry_after` over 2 heartbeats a day; `DENIED`; `INVALID` with `server_time` for time more than 10 min off, or with `required_pow_bits` when the stored profile's difficulty is below the current threshold (no refresh or removal), or for a heartbeat proof that is missing, below `min_heartbeat_pow` or not for the current UTC day; `DENIED` also for a forged heartbeat proof; `REFUSED`; `UNSUPPORTED` |
 | `/dyapp/search` | `query(SearchQuery)` | `OK` with hits (key hash, version), the applied fields and the index version, `partial` when the `search.max_scan_rows` budget ran out or the index refills; run off the swarm loop; `RATE_LIMITED` with `retry_after` 1 when the search queue refuses it; `PUZZLE` with `puzzle_challenge` and `puzzle_bits` while the node is loaded and `puzzle` is missing, wrong or used ([Search](#search)); `UNSUPPORTED` |
 | `/dyapp/search` | `get(SearchGet)`: at most 50 key hashes | `OK` with the held records cut at 1 MiB, denied keys omitted, off the swarm loop; `INVALID` too many keys or a key not 32 bytes; `RATE_LIMITED` as for `query` or over the reply budget; `PUZZLE` as for `query`; `UNSUPPORTED` |
-| `/dyapp/inventory` | `InventoryRequest { topic, after }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after`, sorted by key; `INVALID` topic out of range or `after` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
+| `/dyapp/inventory` | `InventoryRequest { topic, after, before }` (node to node) | `OK` with up to 10 000 (key hash, version) pairs of the topic after `after` and, unless empty, before `before`, sorted by key; `INVALID` topic out of range or `after` or `before` over 32 bytes; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
+| `/dyapp/digest` | `DigestRequest { topic, bucket }` (node to node) | `OK` with 256 hashes of 32 B: the topic's buckets, or with `bucket` its sub-buckets; `INVALID` topic out of range or `bucket` over 255; `RATE_LIMITED`; `REFUSED`; `UNSUPPORTED` without the search role |
 
 - **Mailbox authorisation.** `fetch` and `ack` act on the mailbox whose address is SHA-256 of the
   signing key, so a device reaches only its own mailbox. They are signed over

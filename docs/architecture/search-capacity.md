@@ -24,7 +24,7 @@ All inputs live in one parameter block of the model and can be changed.
 | Share running search | 10 %, 50 %, 100 % |
 | Node | 2 vCPU, 4 GB RAM, 80 GB SSD, 100 Mbit/s; `search.max_bytes` = 50 GB |
 | Profile | 5 KB average, 64 KiB maximum, plus index overhead (measured) |
-| Gossip | 16 topics, D = 6, hourly inventory in batches of 10 000 |
+| Gossip | 16 topics, D = 6, hourly digest catch-up, inventory in batches of 10 000 |
 | Places | Zipf within a country: largest place ≈ 9 %; countries Zipf, largest ≈ 30 % |
 | Filter selectivity | gender and orientation ≈ 45 %, age ± 5 years ≈ 25 %, goal ≈ 40 %, rare filter (education, kids) ≈ 5–10 % |
 
@@ -43,7 +43,7 @@ per second and says so) computes for every step × activity × node count × sea
 | Disk | users × (profile + index row) | ≤ `search.max_bytes`; above it, the share of the network a node keeps |
 | Search nodes | bootstrap nodes × search share | ≥ 2 (a client publishes to 2); the report gives the DAU at which the shares reach 2–3 nodes |
 | Gossip in | (edits + heartbeats) × copies 1 / 3 / 6 | ≤ 30 % of the link (≈ 4 MB/s) at 6 copies; holding only at 3 is reported as depending on gossipsub IDONTWANT |
-| Inventory | hourly exchange in 10 000-key batches | ≤ 10 % of the link |
+| Inventory | worst case: the whole inventory hourly in 10 000-key batches (a partial sample differs in most buckets); a node in sync exchanges ≈ 8 KB per topic digest | ≤ 10 % of the link |
 | First sync | a new or long-offline node fills its index at 30 % of the link | ≤ 24 h; it answers `partial` meanwhile; the load on the peers it pulls from is reported |
 | Queries per node at peak | DAU × queries × 3 / search nodes | ≤ 50 % of the measured SQLite capacity |
 | `get` per node at peak | queries × 50 × 5 KB | ≤ 30 % of the link |

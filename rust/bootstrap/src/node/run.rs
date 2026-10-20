@@ -89,9 +89,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     ));
     let (pow_tx, mut pow_done) = tokio::sync::mpsc::unbounded_channel::<PowDone>();
     let mut pow_gossip = 0usize;
-    // Search catch-up: the topic of each inventory request, the keys still to fetch per peer,
-    // the keys of each get in flight, and when the next get may go out.
-    let mut inventory_asked: HashMap<OutboundRequestId, u32> = HashMap::new();
+    // Search catch-up: digests and inventory ranges waiting and in flight, the keys still to
+    // fetch per peer, the keys of each get in flight, and when the next get may go out.
+    let mut asks = crate::catch_up::Asks::default();
     let mut catch_up_queue: HashMap<PeerId, VecDeque<[u8; 32]>> = HashMap::new();
     let mut catch_up_asked: HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)> = HashMap::new();
     let mut catch_up_at = tokio::time::Instant::now();
@@ -131,7 +131,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let (store_tx, mut store_done) = tokio::sync::mpsc::unbounded_channel::<Finished>();
     loop {
         dispatch(&mut store_queue, &mut nonces, &service, &store_tx);
-        if inventory_asked.is_empty()
+        if asks.idle()
             && catch_up_asked.is_empty()
             && catch_up_queue.values().all(VecDeque::is_empty)
         {
@@ -391,15 +391,12 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     message: Message::Response { request_id, response },
                     ..
                 })) => {
-                    let (Some(topic), Some(index)) = (inventory_asked.remove(&request_id), &service.search) else {
+                    let (Some(range), Some(index)) = (asks.range(&request_id), &service.search) else {
                         continue;
                     };
                     refill_round.answered();
-                    let have: Vec<([u8; 32], u64)> = response
-                        .have
-                        .iter()
-                        .filter_map(|h| Some((h.key.as_slice().try_into().ok()?, h.version)))
-                        .collect();
+                    let page = response.have.iter().filter_map(|h| Some((h.key.as_slice().try_into().ok()?, h.version)));
+                    let (have, next) = crate::catch_up::on_inventory(&range, page.collect());
                     let keys: Vec<[u8; 32]> = have.iter().map(|h| h.0).collect();
                     match index.versions(&keys) {
                         Ok(local) => {
@@ -414,12 +411,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         }
                         Err(error) => tracing::error!(%error, "search catch-up failed"),
                     }
-                    if have.len() == 10_000 {
-                        let after = have.last().map(|h| h.0.to_vec()).unwrap_or_default();
-                        let request = proto::InventoryRequest { topic, after, before: Vec::new() };
-                        let next = swarm.behaviour_mut().inventory.send_request(&id, request);
-                        inventory_asked.insert(next, topic);
+                    if let Some(next) = next {
+                        asks.next_page(id, next);
                     }
+                    asks.send(&mut swarm);
                 }
                 // A catch-up get: apply what came, queue again what a reply cut at 1 MiB left out.
                 // A reply with no records ends the chunk, so keys the peer no longer has drop out.
@@ -475,7 +470,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::OutboundFailure {
                     request_id, ..
                 })) => {
-                    inventory_asked.remove(&request_id);
+                    asks.range(&request_id);
+                    asks.send(&mut swarm);
+                }
+                // Catch-up digests: ask what differs, or on failure the range the digest covered.
+                SwarmEvent::Behaviour(BehaviourEvent::Digest(event)) => {
+                    let Some(index) = &service.search else { continue };
+                    if asks.digest(&mut swarm, index, event) {
+                        refill_round.answered();
+                    }
                 }
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
                     let group = ip_group(endpoint.get_remote_address(), &service.config.limits);
@@ -491,6 +494,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     if num_established == 0 {
                         peer_groups.remove(&peer_id);
                         catch_up_queue.remove(&peer_id);
+                        asks.forget(&peer_id);
                         service.search_peer(&peer_id.to_string(), false);
                         if !dyapp_p2p_net::routed(&mut swarm, &peer_id) {
                             replicas.trust.forget(&peer_id);
@@ -910,9 +914,13 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
                     .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
             }
-            // Hourly, each kept topic's inventory from two random search peers fills what gossip missed.
+            // Hourly, each kept topic's digest from two random search peers finds what gossip missed.
             _ = catch_up.tick(), if service.search.is_some() => {
                 if service.busy(SHED_MEDIA) {
+                    continue;
+                }
+                if !asks.idle() {
+                    tracing::debug!("search catch-up still running, tick skipped");
                     continue;
                 }
                 let Some(gossip) = swarm.behaviour().gossip.as_ref() else { continue };
@@ -924,11 +932,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
                     let Ok(pick) = getrandom::u32() else { continue };
                     for peer in catch_up_peers(&peers, pick) {
-                        let request = proto::InventoryRequest { topic, after: Vec::new(), before: Vec::new() };
-                        let id = swarm.behaviour_mut().inventory.send_request(&peer, request);
-                        inventory_asked.insert(id, topic);
+                        asks.topic(peer, topic);
                     }
                 }
+                asks.send(&mut swarm);
             }
             _ = maintain.tick() => {
                 service.maintain(maintenance.vacuum_pages);
