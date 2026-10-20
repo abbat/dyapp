@@ -61,6 +61,7 @@ These are separate workflows, not part of `ci.yml`.
 
 | Workflow | Triggers | Jobs | Notes |
 |----------|----------|------|-------|
+| `batch-policy.yml` (batch-policy) | push to `main`; every PR targeting `main` | **commit-batches** | Checks every proposed non-merge commit with the base branch's checker and policy; the `main` ruleset requires this status. [Small batches](code-quality.md#small-batches). |
 | `codeql.yml` (codeql) | push to any branch, every PR; weekly Sat 00:00 UTC; manual `workflow_dispatch` | **codeql - rust / python / actions / javascript-typescript** (no build); **analyze - rust** (clippy, cargo deny) | Java/Kotlin and Swift need a build and are not analysed. In the clippy job every `cargo deny` step and pedantic clippy is `continue-on-error`; `clippy.sarif` is generated but **never uploaded**. Uses floating `stable`, not 1.99.0. |
 | `security.yml` (security) | push to any branch, every PR; weekly Sun 00:00 UTC | **audit** (`cargo audit`, prebuilt cargo-audit 0.22.2 from `taiki-e/install-action`; fails on vulnerabilities, prints unsound/unmaintained warnings); **sbom** (prebuilt cargo-sbom 0.10.0 release binary, checked by sha256; SPDX 2.3 JSON, artifact `sbom`) | Online, toolchain from `rust-toolchain.toml`; separate from the `cargo deny` step in ci-base. |
 | `reproducible.yml` (reproducible) | daily 03:17 UTC; manual `workflow_dispatch` | **release - dyappd / linux**, two fresh release builds per target, SHA-256 comparison | Pinned Rust 1.99.0 on ubuntu-24.04; reports and build logs archived. Measured Ubuntu executable size budgets also enforced. Independent from push/PR checks; [scope and diagnosis](ci-base.md#reproducible-builds). |
@@ -73,15 +74,12 @@ These are separate workflows, not part of `ci.yml`.
 
 ## Required checks
 
-Repository files cannot show branch protection. The facts are:
-
-- **Workflow failure:** any failing job above fails its workflow run.
-- **Designed as the single gate:** `required` aggregates `core`, `docker`, `linux`,
-  `apple` and `windows`, so requiring only that check would cover the whole `ci.yml` matrix. It does
-  **not** cover codeql, security or python lint.
-- **Unverified:** whether `required` (or anything else) is configured as a required
-  status check. Until someone confirms it in the repository settings, treat merge blocking as
-  **not established**.
+The `main` ruleset requires a PR, an up-to-date `commit-batches` status and rebase merge;
+it has no bypass actors and blocks edits to `batch-policy.yml`. It blocks direct pushes and
+PRs with an oversized commit lacking a `Large-Change` reason. The policy workflow is a
+separate quick check. The `required` job still aggregates `core`, `docker`, `linux`,
+`apple` and `windows`, but is not a required branch status;
+CodeQL, security and Python lint are also not required statuses.
 
 ## MSRV
 

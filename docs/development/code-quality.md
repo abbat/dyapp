@@ -102,11 +102,9 @@ support offline reproduction without querying beads from CI.
 `scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
 Every non-merge commit after `[batches].base` in `scripts/baselines.toml` must change at
 most `max_lines = 400` text lines, additions plus deletions, or carry a nonempty
-`Large-Change: <reason>` commit trailer. A pushed commit that lacks the trailer gets its
-reason in `[batches.exceptions]` (full SHA = reason) instead of a history rewrite.
-The `d571505` exception records the atomic move of the node and test client into
-`dyappd` subcommands, counted as both deletions and additions.
-Exactly 400 passes. Renames count as deletion
+`Large-Change: <reason>` commit trailer. The trailer is the only exception: rewrite an
+offending PR-branch commit before merging. The fixed baseline excludes the already
+published history; there is no growing SHA allow-list. Exactly 400 passes. Renames count as deletion
 plus addition; binary files contribute no text lines. Commits on merged branches are checked,
 but merge commits themselves are excluded, as in the commit-message check.
 
@@ -123,7 +121,14 @@ the percentage of large commits, including justified ones. The target is ≤10%;
 an observed metric, not an additional veto of a justified exception. Weekly escape-hatch
 follow-up follows [the shared practice rules](practices.md#rules-shared-by-all-practices).
 CI uploads `target/batches.json` as `commit-batches`, also on a failed check.
-The adoption baseline grandfathers older history; moving it forward weakens the check.
+The baseline grandfathers history published before server-side enforcement; moving it forward
+again weakens the check. The required `commit-batches` PR status runs the checker from the base
+branch over every proposed commit. `main` requires a PR and allows only rebase merge, so squash
+cannot turn several compliant commits into one oversized commit. The owner merges PRs carrying
+a justified `Large-Change` trailer. The local hooks provide early feedback but are optional;
+GitHub's required status and ruleset are the merge barrier. The ruleset also blocks changes
+to `.github/workflows/batch-policy.yml`; changing that trusted workflow requires an explicit
+ruleset change by the repository owner.
 
 ### Docs change with the code
 

@@ -7,24 +7,9 @@
 lines = 86.0
 
 [batches]
-# A4 adoption: only later commits are subject to the new rule.
-base = "ddb52cbe7ba4ed114eb1cc8f8c053f6639c851f1"
+# Server-side A4 enforcement starts after this already-published commit.
+base = "b2566f9c78862b7e07458426c2aa419ad2a5ec3e"
 max_lines = 400
-
-[batches.exceptions]
-# Reasons for pushed commits that lack a Large-Change trailer; history is not rewritten.
-d571505c6ea9b41a1a7a85058d6f595fd40d7c00 = "Atomic CLI consolidation: dyappd.rs and test-peer.rs moved into dyappd subcommands with tests and docs"
-3ae99aab9795a045edeb99d803f054526338891b = "New operator manual and its translation; the trailer's wrapped line broke trailer parsing"
-c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
-b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"
-57e927c8cd6ea510aa00ea4e082bca5c9d88b466 = "Atomic move of store requests off the swarm loop; node.rs reindented"
-491a1d7a03ab0dd8e4ef3bb763ee21a580525e88 = "Heartbeat proof of work with the search module splits its size budgets required"
-6e466b2515c0aa19945504d62ca3ccd76c8baea4 = "Atomic split of oversized bootstrap sources into modules; moved code"
-b61bb3ce6fb2bdee12aab9fab312f57e8cb06bce = "Atomic move of mailbox requests out of service.rs"
-bc6cee52f9930c5637f34117847045ea18762cc0 = "Token key storage, pool eviction rules and their schema migration with tests and docs"
-9f41870bd54c9c7d78fec0455766395b70a8c735 = "Envelope labels across put, replica_put and repair with the pool enforcement and docs"
-94776c519116605dd2dd43c63d28eec1489803b0 = "Signed revoke across storage, service, forwarding and repair with tests and docs"
-cadff2195a895330e55fd67efc7bf4ae9591fa21 = "Search candidate build with its tests and docs; trailer outside the final paragraph"
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.

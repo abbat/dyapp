@@ -1,7 +1,6 @@
 """Small-batch parser and real Git-history regressions."""
 import importlib.util
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -76,17 +75,10 @@ class Batches(unittest.TestCase):
         self.assertTrue(result.stdout.startswith("FAIL batches:"))
         self.assertIn("401 > 400", report["errors"][0])
         self.assertEqual(report["large_percent"], 50)
-        # A recorded exception replaces a pushed commit's missing trailer.
-        cwd = Path.cwd()
-        os.chdir(repo)
-        try:
-            excused = CHECK.inspect(
-                base, "HEAD", 400, {bad: "Pushed atomic change"})
-        finally:
-            os.chdir(cwd)
-        self.assertEqual(excused["errors"], [])
-        self.assertEqual(
-            excused["commits"][0]["reason"], "Pushed atomic change")
+        # Old violations are outside a newer baseline, with no SHA allow-list.
+        result, report = run(bad, bad)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["total_commits"], 0)
         commit("new\n" * 400, "Replace code\n\nLarge-Change: \n")
         result, report = run(bad)
         self.assertEqual(result.returncode, 1, result.stderr)

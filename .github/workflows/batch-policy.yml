@@ -1,0 +1,35 @@
+name: batch-policy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  batches:
+    name: commit-batches
+    runs-on: ubuntu-24.04
+    steps:
+      # The policy and checker come from main, not from the PR being checked.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: check
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ -n "$PR_NUMBER" ]]; then
+            git fetch origin "refs/pull/$PR_NUMBER/head"
+            base=$(git merge-base "$PR_BASE" "$PR_HEAD")
+            python3 -B scripts/check-batches.py --base "$base" --head "$PR_HEAD"
+          else
+            python3 -B scripts/check-batches.py
+          fi
