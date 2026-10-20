@@ -140,32 +140,27 @@ fn message_v1_json_remains_compatible() {
 }
 
 #[test]
-fn staged_named_binary_refuses_start_and_keygen_before_creating_an_identity() {
-    for keygen in [false, true] {
-        let dir = format!("/tmp/ai/test-network-staged-{}", uuid::Uuid::new_v4());
-        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"));
-        command
+fn named_keygen_binds_storage_and_a_public_start_is_refused() {
+    let dir = format!("/tmp/ai/test-network-named-{}", uuid::Uuid::new_v4());
+    let dyappd = |name: &str, args: &[&str]| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"))
             .env_clear()
             .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
-            .args([
-                "--storage.dir",
-                &dir,
-                "--network.name",
-                "city",
-                "--network.id-pow-bits",
-                "0",
-            ]);
-        if keygen {
-            command.arg("keygen");
-        }
-        let output = command.output().unwrap();
-        assert!(!output.status.success());
-        assert!(String::from_utf8(output.stderr)
+            .args(["--storage.dir", &dir, "--network.name", name])
+            .args(["--network.id-pow-bits", "0"])
+            .args(args)
+            .output()
             .unwrap()
-            .contains("named networks are not enabled in this build"));
-        assert!(!std::path::Path::new(&dir).join("node.key").exists());
-        assert!(!std::path::Path::new(&dir).join("node.id").exists());
-    }
+    };
+    let output = dyappd("city", &["keygen"]);
+    assert!(output.status.success(), "{output:?}");
+    let marker = std::path::Path::new(&dir).join("network");
+    assert_eq!(std::fs::read_to_string(marker).unwrap(), "city");
+    let output = dyappd("", &[]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("storage belongs to network \"city\""));
 }
 
 #[test]
