@@ -628,6 +628,11 @@ impl SearchIndex {
         storage::used(&*lock(&self.db)?)
     }
 
+    /// `storage::maintain` on the active generation; returns the free pages left.
+    pub fn maintain(&self, pages: u32) -> Result<i64> {
+        storage::maintain(&*lock(&self.db)?, pages)
+    }
+
     /// Deletes up to `BATCH` keys with the oldest heartbeats before `before`, in one short
     /// transaction so puts and heartbeats interleave.
     fn remove_batch(&self, before: i64) -> Result<usize> {

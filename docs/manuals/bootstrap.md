@@ -39,7 +39,7 @@ back. A node serves one or more roles:
 | `store` | Profiles, mailboxes and the network directory (Kademlia DHT). The base role; every other role needs it too. |
 | `media` | Media blobs: avatars and chat attachments. |
 | `turn` | Short-lived passwords for a coturn relay running next to the node ([TURN relay](#turn-relay)). Calls are not part of the first release. |
-| `search` | Profile search ([Search](../architecture/bootstrap.md#search)). On by default. |
+| `search` | Profile search ([Search](../architecture/bootstrap.md#search)). On by default, so a small network has search; it keeps an index of the whole network's profiles, up to `search.max_bytes` (50 GiB) of disk. Lower that on a small disk, or set `roles = ["store"]`. |
 
 Every write is replicated whole to five DHT points and acknowledged once two distinct nodes
 store it; media larger than 1 MiB is split into Reed-Solomon shards. Nodes repair missing
@@ -104,7 +104,9 @@ The package holds `/usr/bin/dyappd`, `/etc/dyappd.toml` (a conffile, kept on upg
 - decrypts the [sealed node key](#node-key) with `LoadCredentialEncrypted=node.key`;
 - logs to the journal with `RUST_LOG=info`; `systemctl reload dyappd` sends SIGHUP.
 
-The default port 7070 needs no privilege. Another `storage.dir` or a port below 1024 needs a
+The default port 7070 needs no privilege; any port works, seeds and clients carry it, and
+another port alone does not hide the traffic from DPI
+([why 7070](../architecture/bootstrap.md#default-port)). Another `storage.dir` or a port below 1024 needs a
 drop-in (`sudo systemctl edit dyappd`):
 
 ```ini
@@ -206,6 +208,21 @@ TPM 2.0 plus the host key in `/var/lib/systemd/credential.secret` when a TPM exi
 host key is used, which sits on the same disk: that covers a stray copy of the key file, not a
 copied volume.
 
+**Checking the TPM.** A TPM device on the host does not prove the key is bound to it; check each
+step:
+
+| Step | Command | Expected |
+|------|---------|----------|
+| 1. Device exposed | `ls -l /dev/tpmrm0` | The file exists. If not: on hardware, enable TPM 2.0 in the firmware; on a VM, enable the provider's vTPM (e.g. GCP Shielded VM, Azure Trusted Launch, AWS NitroTPM), which often needs a new VM. Containers do not get a TPM: there the key is a plain 0600 file. |
+| 2. systemd can use it | `systemd-creds has-tpm2` | `yes` and exit code 0. `partial` names the missing part (`-firmware`, `-driver`, `-system`). |
+| 3. Seal to it | `--with-key=host+tpm2` instead of `--with-key=auto` in the keygen command above | The command succeeds. Unlike `auto`, it fails instead of falling back to the host key alone. |
+| 4. The node opens it | `sudo systemctl restart dyappd`, then `sudo -u dyappd dyappd status` | `node running`. A credential bound to a TPM that changed or was cleared fails to decrypt, and the unit fails to start. |
+
+Without a TPM (step 1 or 2 fails), seal with `--with-key=host`: the key is still never stored in
+plain text, but anyone with a copy of the whole disk can open it. Use a passphrase or an
+encrypted volume (below) if that matters. A TPM reset or a move to another VM makes the sealed
+key unreadable: keep the encrypted backup copy from the next paragraph.
+
 **Keeping a copy.** A sealed key cannot move to another host. To keep a backup, encrypt a copy
 for yourself while generating, e.g. with `age`:
 
@@ -258,7 +275,8 @@ Every setting is optional. Later sources override earlier ones:
 1. the defaults in the code;
 2. the TOML file named with `--config`, else the first of `./dyappd.toml`, `~/dyappd.toml` and
    `/etc/dyappd.toml` that exists (`/etc/dyappd.toml` in the package, every key commented
-   out with its default; a test keeps that file equal to the code);
+   out with its default, [`rust/bootstrap/dyappd.toml`](../../rust/bootstrap/dyappd.toml) in
+   the repository; a test keeps that file equal to the code);
 3. environment variables `DYAPPD_<SECTION>_<KEY>`, parsed as TOML (a bare string is taken as
    is), e.g. `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` or `DYAPPD_LISTEN='["[2001:db8::7]:7070"]'`;
 4. options `--<section>.<key>` with `-` for `_`, e.g. `--limits.max-connections 500` or
@@ -285,6 +303,34 @@ than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...
 | `roles` | `["store", "search"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
 
 `listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.
+
+<a id="without-a-domain"></a>**Without a domain.** A node needs no domain of its own. A seed
+entry names the node by address or by name, and the peer ID after `/` is what proves it is your
+node; the name only finds it. Choose by how stable the address is:
+
+| Choice | Example `seeds` entry | Pros | Cons |
+|--------|-----------------------|------|------|
+| Direct IP | `192.0.2.7:7070/12D3KooW...` | No third party; nothing to renew | Every operator who lists the node edits the entry when the address changes |
+| Free dynamic DNS name | `mynode.duckdns.org:7070/12D3KooW...` | The entry survives an address change; free | A provider outage or a lost name stops new nodes from joining through this seed; an update token to protect |
+| Owned domain | `seed1.example.org:7070/12D3KooW...` | Under your control; your own DNS provider and TTL | Costs money and renewal; lost on expiry like any name |
+
+Free dynamic DNS providers, as their own pages state (October 2026; terms change, check before
+use):
+
+| Provider | Free names | IPv6 (AAAA) | Update |
+|----------|-----------|-------------|--------|
+| [Duck DNS](https://www.duckdns.org/spec.jsp) | a few `*.duckdns.org` names | Yes, given explicitly (not detected) | HTTPS GET with a token: `?domains=…&token=…&ip=…&ipv6=…` |
+| [Dynu](https://www.dynu.com/FAQ/Dynamic-DNS-Service) | 4 hostnames | Yes | Update client or HTTPS API |
+| [FreeDNS (afraid.org)](https://freedns.afraid.org/faq/) | a few subdomains of shared domains | Yes | Update URL; linked records sharing an IP update together; TTL 60 s |
+| [ClouDNS](https://www.cloudns.net/dynamic-dns/lang/en/) | 1 dynamic hostname | Yes | One update URL per A or AAAA record |
+
+Always pin the peer ID in a seed that names a third-party host: whoever holds the name or the
+account can point it anywhere, and a pin turns that into a refused dial instead of a takeover.
+Keep the update token out of shared configs; a stolen token can repoint the name, which a pin
+again turns into an outage, not an attack. List more than one seed, ideally with different
+providers or a direct IP, so one provider's outage or a lapsed name does not lock new nodes out.
+A provider sees who resolves the name and when. A node resolves a name on every dial, so a
+changed address is used after the DNS TTL, and a running node keeps its peer cache either way.
 
 ### `[storage]`
 
@@ -364,7 +410,7 @@ Details: [resource guards](../architecture/bootstrap.md#resource-guards) and
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `interval_minutes` | 60 | Minutes between runs: expired data cleanup, incremental vacuum, WAL checkpoint, `PRAGMA optimize`, peer list save, seed redial. |
-| `vacuum_pages` | 2048 | Free 4 KiB pages released per store and run; bounds the I/O of one run. |
+| `vacuum_pages` | 2048 | Free 4 KiB pages released per store and run, the search index included; bounds the I/O of one run. |
 | `io_mb_per_s` | 16 | Write budget in MiB/s shared by background store rebuilds; must be above 0. |
 
 ### `[metrics]`
@@ -657,9 +703,9 @@ rotating the secret needs both services restarted together.
 
 Expired envelopes, profiles, tombstones and attachments are deleted every hour, by the
 [retention limits](#limits). No full `VACUUM` is needed: every `maintenance.interval_minutes` the
-node returns up to `maintenance.vacuum_pages` free pages per store to the file system, truncates
-the WAL and refreshes planner statistics. The log line "store maintenance done" shows the free
-pages left; a steadily growing number means `vacuum_pages` is too small for the delete rate.
+node returns up to `maintenance.vacuum_pages` free pages per store (`profiles.db`, `messages.db`
+and the search index) to the file system, truncates the WAL and refreshes planner statistics. The
+log lines "store maintenance done" and "search index maintenance done" show the free pages left; a steadily growing number means `vacuum_pages` is too small for the delete rate.
 Background rebuilds share `maintenance.io_mb_per_s` and report "store rebuild progress".
 
 ## Backups

@@ -129,6 +129,8 @@ Peer ID and a new contact. What a node can still substitute is everything below 
 | Swapped DTLS fingerprints in call signaling, a TURN relay in the middle | Video signaling, TURN | Critical × medium | Fix: offer and answer travel only as MLS messages; TURN sees SRTP only ([Video](../architecture/video.md)) |
 | Another node answers on a peer's address | libp2p dial | High × low | Accept: TLS and Noise bind the connection to the libp2p key; a dial with a peer ID refuses any other key |
 | A hijacked DNS name, domain or seed host: a new node or client sees only the attacker's nodes (eclipse) | Seeds, DNS | Critical × medium | ⚠️ Partial: node seeds accept `host:port/<peer ID>` and refuse another key; plain seeds remain unpinned. A pinned built-in client list is out of scope for the first release; asking several seeds and cross-checking disjoint lookups are planned |
+| A free dynamic DNS name for a seed is lost, reassigned, or repointed with a stolen update token | Seeds, DNS provider | High × medium | Mitigation: the [manual](../manuals/bootstrap.md#without-a-domain) says to pin the peer ID, keep the token private and list seeds at more than one provider; a pinned seed then fails closed |
+| A DNS provider outage or a stale answer hides a seed | Seeds, DNS provider | Medium × medium | Accept: several seeds and the peer cache cover it; a stale address is a failed dial, and a pin refuses a wrong peer |
 | A fake node answers every protocol | Client to node | High × medium | Accept: it cannot forge signed or MLS data, only withhold it, which is class 8 |
 | Lookalike Peer IDs, names or domains | Contact list, links | High × medium | Out of scope here: classes 5 and 10 |
 

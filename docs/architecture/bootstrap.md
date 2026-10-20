@@ -71,6 +71,16 @@ store role's key space: `dyappd` without the store role runs it in client mode a
 protocol. The media role needs the store role and shares its key space for now. The search role
 runs its own Kademlia, `/dyapp/search-kad`, besides the main one ([Search](#search)).
 
+Role model for the first release: `roles` is an explicit list, the default `["store", "search"]`.
+`store` stays an explicit base role, refused at startup when another role lacks it: it selects
+DHT server mode and every other role uses its key space, so a node without it serves nothing, and
+an implicit store would hide what a node writes to disk. `search` stays on by default so an early
+network with a few nodes has search at all: every search node keeps the whole index (up to
+`search.max_bytes`, default 50 GiB, in `profiles-idx.db`), checks proof of work and pays the
+catch-up and inventory traffic from `maintenance.io_mb_per_s`. An operator with a small disk lowers
+`search.max_bytes` or lists `roles = ["store"]`. Whether search becomes opt-in is decided once
+search coverage is measured at real node counts; existing configs keep working either way.
+
 Kademlia gives every node an equal share of keys, and v1 does not weight it by capacity: a weak
 node refuses or evicts what exceeds its limits and the other replicas keep the data. Several
 virtual positions per node would each need a proof of work and would open a Sybil gap.
@@ -643,6 +653,17 @@ mapped yet.
   node applies within 10 seconds and logs ([Deny list](#deny-list)), `deny received` prints the
   lists other nodes shared, and `status` prints what
   the stores hold, read-only. There is no TUI and no admin HTTP endpoint; metrics go to the log.
+- <a id="default-port"></a>Default port 7070 for the first release. It came with the initial
+  tree without a recorded reason; it is kept because it binds without privilege, serves TCP and
+  QUIC on one number, and every config, seed and doc already uses it. Changing the port alone
+  does not resist DPI: a filter matches the libp2p handshake and QUIC Initial on any port
+  ([RFC 9312](https://www.rfc-editor.org/rfc/rfc9312.html),
+  [RFC 9505](https://www.rfc-editor.org/rfc/rfc9505.html)). Port 443 may pass port-based
+  filters but needs `CAP_NET_BIND_SERVICE` or a redirect, competes with a web server on the same
+  host and still shows a non-TLS/non-HTTP/3 handshake. A network that drops non-standard ports
+  is served by the operator's `listen` choice (any port works, seeds carry it). Transport
+  camouflage is research, with the client proxy in the
+  [threat model](../security/threat-model.md); it needs no new default.
 
 ## Data Model
 
@@ -1279,12 +1300,24 @@ upgrade time for existing rows), and the search index drops keys not heard from 
 at most 4096 per run; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order.
 
 **Maintenance:** every `maintenance.interval_minutes` (default 60) `dyappd` calls
-`BootstrapStore::maintain`, which, one store at a time under its lock, frees at most
-`maintenance.vacuum_pages` free pages (default 2048 = 8 MiB) with `incremental_vacuum`,
-checkpoints the WAL with `TRUNCATE` and runs `PRAGMA optimize`, then logs the free pages left.
-There is no full `VACUUM`: a large freelist shrinks over several runs, and requests to that store
-wait for one run only. Not measured yet: fragmentation under load, and whether time-bucketed
-message files beat deletes.
+`BootstrapStore::maintain` and, on a search node, `SearchIndex::maintain`; one store at a time
+under its lock, each frees at most `maintenance.vacuum_pages` free pages (default 2048 = 8 MiB)
+with `incremental_vacuum`, checkpoints the WAL with `TRUNCATE` and runs `PRAGMA optimize`, then
+logs the free pages left. There is no full `VACUUM`: a large freelist shrinks over several runs,
+and requests to that store wait for one run only. A rebuilt search index generation gets its
+statistics at the first run after the switch. Not measured yet: fragmentation under load, and
+whether time-bucketed message files beat deletes.
+
+SQLite settings for the first release; none changes without a benchmark that shows a gain:
+
+| Setting | Value | Decision |
+|---|---|---|
+| `page_size` | 4096 (SQLite default) | Kept. SQLite recommends it for most applications; rows are small (a profile, an envelope). Changing it on an existing WAL file needs `journal_mode = DELETE` and a full `VACUUM`, a rebuild of every store. 32 KiB would be benchmarked first. |
+| `encoding` | UTF-8 (SQLite default) | Kept. Already UTF-8; settable only before the first table, so an explicit pragma changes nothing. |
+| `auto_vacuum` | `INCREMENTAL` | Kept. Set before the first table; a file created without it stays `NONE`. |
+| `incremental_vacuum` | `maintenance.vacuum_pages` (2048) per store and run | Kept. A fixed 10 pages would free 40 KiB an hour, far below the delete rate. |
+| `ANALYZE` | `PRAGMA optimize` each run | Kept; the run now covers the search index, so a rebuilt generation is analysed too. |
+| `journal_mode`, `synchronous` | WAL, `NORMAL` | Kept. A crash loses at most the last commits, never the file. |
 
 `put_profile` holds a lock across read-compare-write, so two concurrent uploads for one peer cannot both win.
 

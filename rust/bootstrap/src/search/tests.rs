@@ -240,3 +240,14 @@ fn migration_from_version_zero() {
     assert_eq!(index.place_counts(), expected);
     assert!(index.created() > 0);
 }
+
+#[test]
+fn maintenance_frees_expired_pages_of_the_index() {
+    let index = index();
+    put_at(&index, "2950159", 300, 1, false);
+    assert_eq!(index.expire(i64::MAX).unwrap(), 300);
+    let free = index.maintain(1).unwrap();
+    assert!(free > 10, "{free}");
+    assert_eq!(index.maintain(10).unwrap(), free - 10);
+    assert_eq!(index.maintain(u32::MAX).unwrap(), 0);
+}

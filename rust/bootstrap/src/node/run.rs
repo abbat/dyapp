@@ -935,12 +935,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 }
             }
             _ = maintain.tick() => {
-                match service.store.maintain(maintenance.vacuum_pages) {
-                    Ok([profiles, messages]) => {
-                        tracing::info!(profiles, messages, "store maintenance done, free pages left")
-                    }
-                    Err(error) => tracing::error!(%error, "store maintenance failed"),
-                }
+                service.maintain(maintenance.vacuum_pages);
                 service.report();
                 service.rebuild_budget.report();
                 // ponytail: saved hourly, not on shutdown; a crash loses at most an hour of churn.

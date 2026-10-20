@@ -27,7 +27,7 @@
 #   "store"   profiles, mailboxes and the network directory (DHT); the base role
 #   "media"   media files (avatars, attachments), see limits.media_max_mb
 #   "turn"    passwords for a coturn relay that helps calls through NAT, see [turn]
-#   "search"  profile search, see [search]
+#   "search"  profile search, see [search]; indexes the whole network, up to search.max_bytes
 # roles = ["store", "search"]    # e.g. ["store", "search", "media"]
 
 [storage]
@@ -111,7 +111,7 @@
 
 [maintenance]
 # interval_minutes = 60               # cleanup of expired data, peer list save, seed redial
-# vacuum_pages = 2048                 # disk pages (4 KiB) released per store and run
+# vacuum_pages = 2048                 # disk pages (4 KiB) released per store and run, search index too
 # io_mb_per_s = 16                    # shared background rebuild write budget (MiB/s, > 0)
 
 [network]

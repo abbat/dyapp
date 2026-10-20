@@ -132,6 +132,17 @@ fn run_to_end(db: &Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
+/// Frees at most `pages` unused pages, checkpoints and truncates the WAL, refreshes planner
+/// statistics. Returns the free pages left.
+pub(crate) fn maintain(db: &Connection, pages: u32) -> Result<i64> {
+    // incremental_vacuum(0) would free the whole freelist in one go.
+    run_to_end(db, &format!("PRAGMA incremental_vacuum({})", pages.max(1)))?;
+    run_to_end(db, "PRAGMA wal_checkpoint(TRUNCATE)")?;
+    run_to_end(db, "PRAGMA optimize")?;
+    db.query_row("PRAGMA freelist_count", [], |row| row.get(0))
+        .map_err(storage_error)
+}
+
 /// Bytes of live data in a store: pages in use.
 pub(crate) fn used(db: &Connection) -> Result<u64> {
     let pragma = |name: &str| -> Result<u64> {
@@ -389,23 +400,13 @@ impl BootstrapStore {
             .map_err(storage_error)
     }
 
-    /// For each store: frees at most `pages` unused pages, checkpoints and truncates the WAL,
-    /// refreshes planner statistics. Holds one store's lock at a time, so a run stays short.
+    /// Runs the free `maintain` on each store, holding one store's lock at a time so a run stays short.
     /// Returns the free pages left in `profiles.db` and `messages.db`.
     pub fn maintain(&self, pages: u32) -> Result<[i64; 2]> {
-        // incremental_vacuum(0) would free the whole freelist in one go.
-        let pages = pages.max(1);
-        let mut left = [0; 2];
-        for (db, left) in [&self.profiles, &self.messages].into_iter().zip(&mut left) {
-            let db = lock(db)?;
-            run_to_end(&db, &format!("PRAGMA incremental_vacuum({pages})"))?;
-            run_to_end(&db, "PRAGMA wal_checkpoint(TRUNCATE)")?;
-            run_to_end(&db, "PRAGMA optimize")?;
-            *left = db
-                .query_row("PRAGMA freelist_count", [], |row| row.get(0))
-                .map_err(storage_error)?;
-        }
-        Ok(left)
+        Ok([
+            maintain(&*lock(&self.profiles)?, pages)?,
+            maintain(&*lock(&self.messages)?, pages)?,
+        ])
     }
 
     /// Bytes used by `profiles.db`, and bytes free on its file system.

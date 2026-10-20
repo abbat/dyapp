@@ -227,6 +227,29 @@ impl Service {
         std::array::from_fn(|i| self.refused[i].load(Ordering::Relaxed))
     }
 
+    /// Runs the stores' and the search index's maintenance, freeing at most `pages` pages
+    /// each, and logs the free pages left; called hourly.
+    pub fn maintain(&self, pages: u32) {
+        match self.store.maintain(pages) {
+            Ok([profiles, messages]) => {
+                tracing::info!(
+                    profiles,
+                    messages,
+                    "store maintenance done, free pages left"
+                )
+            }
+            Err(error) => tracing::error!(%error, "store maintenance failed"),
+        }
+        if let Some(index) = &self.search {
+            match index.maintain(pages) {
+                Ok(index) => {
+                    tracing::info!(index, "search index maintenance done, free pages left")
+                }
+                Err(error) => tracing::error!(%error, "search index maintenance failed"),
+            }
+        }
+    }
+
     /// Logs the refusals per guard since the last call; called hourly.
     pub fn report(&self) {
         let totals = self.refusals();
