@@ -6,6 +6,8 @@ pub mod codec;
 pub mod ice;
 /// Caller-side WebRTC session setup.
 pub mod session;
+/// SFrame frame encryption keyed from the MLS exporter.
+pub mod sframe;
 
 pub use codec::{CodecFormat, CodecInfo};
 pub use ice::{ICECandidate, ICEGatheringState};
@@ -22,7 +24,7 @@ pub enum VideoError {
     AnswerGenerationFailed(String),
     /// The peer connection rejected an ICE operation.
     ICEError(String),
-    /// Frame encryption failure; currently unused.
+    /// A frame that could not be encrypted or was refused on decryption.
     EncryptionError(String),
     /// Invalid session state or peer connection operation, with details.
     InvalidState(String),

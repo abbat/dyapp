@@ -61,7 +61,7 @@ defences already in place. Nodes are untrusted by design
 
 | # | Class | Impact | Likelihood | Status |
 |---|-------|--------|------------|--------|
-| 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Medium | ⚠️ Partial: MLS payloads, their sealed state and their mailbox delivery in `rust/client`; the app runtime on top of it, desktop keystores and SFrame for frames are planned ([encryption](encryption.md)) |
+| 1 | Weak cryptography: primitives, nonces, entropy, key storage | Critical | Medium | ⚠️ Partial: MLS payloads, their sealed state and their mailbox delivery in `rust/client`; SFrame for frames in `rust/video`; the app runtime on top of them, the media path and desktop keystores are planned ([encryption](encryption.md)) |
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated and node seeds can pin peer IDs; client key verification and a pinned built-in seed list are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals, padding in `rust/client`; sealed sender and relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
@@ -91,13 +91,13 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, random unchecked frame tags | Messages, video frames | Critical × certain | Fixed: the stubs are deleted; MLS is in `rust/messaging/src/mls.rs`, frame encryption is planned |
+| Stubs taken for crypto: payload passed through, `sign` returns the message, XOR key derivation, random unchecked frame tags | Messages, video frames | Critical × certain | Fixed: the stubs are deleted; MLS is in `rust/messaging/src/mls.rs`, SFrame in `rust/video/src/sframe.rs` |
 | Forged, malleable or weak-key Ed25519 signature | Any `SignedRecord` | Critical × low | Accept: `verify_strict` rejects non-canonical and small-order input; every check goes through `dyapp-identity` |
 | A signature of one kind replayed as another | Signed records; the node key signs deny lists and libp2p handshakes | High × low | Accept: one complete registry and tests enforce distinct labels ending in `\0`, prefix freedom, separation from the locked libp2p signing contexts and rejection of cross-domain verification |
 | One key serving two purposes | Identity, device, MLS and libp2p keys | High × medium | Fix: one key per purpose, listed in [keys](encryption.md#keys) |
 | MLS ciphersuite downgrade or unknown suite | KeyPackages and Welcomes from untrusted nodes | Critical × medium | Fix: only 0x0001 is accepted, nothing is negotiated |
 | A group member whose credential does not chain to the Peer ID | MLS Add, Welcome | Critical × medium | Fix: checked on every Add and Welcome; verifying the Peer ID itself is class 3 |
-| Frame nonce reuse under one key | Video frames | Critical × high with random nonces | Fix: SFrame ([RFC 9605](https://www.rfc-editor.org/rfc/rfc9605)), a counter nonce per sender key, keys from the MLS exporter |
+| Frame nonce reuse under one key | Video frames | Critical × high with random nonces | Fixed in `rust/video/src/sframe.rs`: SFrame ([RFC 9605](https://www.rfc-editor.org/rfc/rfc9605)), a counter nonce per sender key, keys from the MLS exporter |
 | Attachment key or nonce reuse, a guessable release secret | Media blobs | High × medium | Fix: a fresh random key per attachment, counter nonces, a 32-byte release secret |
 | Weak or failed randomness | Key generation, nonces, secrets | Critical × low | Accept: only the OS generator (`getrandom`), which blocks until seeded and fails closed; a cloned VM relies on the kernel's VM generation ID (Linux 6.1 on Debian 12) |
 | Identity or device key read from disk or backups | Client storage | Critical × medium | Fix: wrapped by the platform keystore, excluded from backups and cloud sync |

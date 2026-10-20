@@ -4,12 +4,12 @@
 
 > ⚠️ **Prototype, not a video call.** `rust/video` can create a WebRTC offer
 > and apply the remote answer and ICE candidates to the peer connection. It
-> cannot answer an offer, does not report its own candidates, sends no media and
-> frame encryption is a stub. See
+> cannot answer an offer, does not report its own candidates and sends no media;
+> SFrame frame encryption exists but nothing feeds it frames. See
 > [Encryption & Security Status](../security/encryption.md).
 
 Source: `rust/video/src/session.rs` (session), `ice.rs` (candidate helpers),
-`codec.rs` (codec preference helper),
+`codec.rs` (codec preference helper), `sframe.rs` (frame encryption),
 `rust/ffi/src/lib.rs` (FFI wrapper).
 
 **Transport split (target):** video uses the WebRTC stack (`webrtc` crate 0.21,
@@ -19,8 +19,7 @@ meant to use libp2p. They are separate transports; video does not run over
 libp2p.
 
 The authored session, codec and ICE APIs have source documentation enforced by
-the staged public documentation budget. The remaining video documentation debt
-is in the frame encryption prototype. Codec matching compares formats only;
+the staged public documentation budget. Codec matching compares formats only;
 hardware and open-source flags are static classifications, not capability probes.
 
 ## What exists today
@@ -38,7 +37,7 @@ hardware and open-source flags are static classifications, not capability probes
 | Callee path (accept offer, create answer) | **Not implemented**: no method sets a remote offer or creates an answer |
 | Media tracks, capture, rendering | Not implemented |
 | Signaling channel | Not implemented; bootstrap has no SDP/ICE endpoint |
-| Frame encryption | Not implemented, see [below](#frame-encryption-target-design-not-implemented) |
+| Frame encryption | `sframe::Sender` and `sframe::Receiver`, not on a media path; see [below](#frame-encryption) |
 
 ## Session states
 
@@ -129,9 +128,10 @@ There is no platform-specific default (H.264 on mobile is a target idea, not
 code), no resolution, frame rate or bitrate setting, and AV1 is only an enum
 value.
 
-## Frame Encryption (target design, not implemented)
+## Frame Encryption
 
-No code encrypts frames, and no media path exists.
+`rust/video/src/sframe.rs` implements SFrame, but no media path exists to use it; the
+algorithm and its checks are in [Encryption & Security Status](../security/encryption.md).
 
 WebRTC media is already encrypted hop-by-hop with DTLS-SRTP once a connection
 is established. The intended addition is end-to-end frame encryption on top
@@ -149,8 +149,8 @@ Raw frame
 **Frame metadata** (not encrypted): the SFrame header carries the key ID and
 counter; frame sizes and timing stay visible.
 
-**Per-call key**: derived from the MLS exporter of the chat's group
-(`Group::export_secret` in `rust/messaging/src/mls.rs`; no call path uses it yet) [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md). Offer and answer,
+**Per-call key**: the base key is `Group::export_secret(device, sframe::EXPORTER_LABEL, b"",
+sframe::BASE_KEY_BYTES)` of the chat's group in each epoch; no call path calls it yet [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md). Offer and answer,
 with their DTLS fingerprints, travel as MLS messages, so MLS authenticates the
 fingerprints [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md).
 
@@ -166,7 +166,7 @@ fingerprints [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.
 ## Security and metadata
 
 - Media: no media flows today. Target hop-by-hop protection is DTLS-SRTP;
-  end-to-end frame encryption is planned.
+  end-to-end SFrame encryption exists in `rust/video` but is not wired to media.
 - SDP and ICE candidates are not encrypted by WebRTC; they carry IP addresses
   and DTLS fingerprints. No signaling channel exists; whoever relays it will
   see peer IDs, candidate IPs and call timing. Signaling must be
@@ -188,7 +188,8 @@ Unit tests (`rust/video/src/*.rs`):
   rejected
 - ICE helper string matching and `best_candidate`
 - `CodecNegotiation` selection
-- Frame encryption stub roundtrip (not a security test)
+- SFrame: RFC 9605 header and encryption test vectors, tampering, wrong key,
+  replay window, counter uniqueness and epoch retirement
 
 Integration tests (`tests/integration_tests.rs`, one process, no network):
 `test_video_session_lifecycle` (one session, manual `mark_connected`),
@@ -203,5 +204,5 @@ No test reaches a connected state or sends media.
 - Connection state from WebRTC events instead of `mark_connected`
 - Media engine codecs, tracks, capture/render on each platform
 - STUN/TURN configuration and a signaling channel
-- End-to-end frame encryption with real AEAD and key exchange
+- SFrame on the media path, its base key exported per epoch from the chat's MLS group
 - A two-peer test in Docker that reaches `connected` and exchanges frames

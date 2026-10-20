@@ -32,7 +32,9 @@ Encrypt everything private with **MLS via the `openmls` crate**:
   AES-256-GCM (`aes-gcm` 0.10, the copy openmls' crypto provider already uses), and the key and
   hashes travel inside an MLS message.
 - **Video** takes its per-call frame key from the MLS exporter of the chat's group
-  ([ADR 0013](0013-video-calls-one-to-one.md)).
+  ([ADR 0013](0013-video-calls-one-to-one.md)): SFrame (RFC 9605) with cipher suite
+  `AES_128_GCM_SHA256_128`, the same AES-128-GCM and SHA-256 as MLS suite 0x0001, through
+  `aes-gcm` 0.10, `hkdf` 0.13 and `sha2` 0.11, the copies openmls' crypto provider already uses.
 
 ## Consequences
 
