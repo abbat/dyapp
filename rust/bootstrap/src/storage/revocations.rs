@@ -22,12 +22,14 @@ pub(super) fn messages_revocations(db: &Connection) -> rusqlite::Result<()> {
 // Statements a test checks for scans.
 pub(super) const DELETE_REVOKED: &str = "DELETE FROM `envelopes` \
      WHERE `mailbox` = ? AND `token_key` = ? AND `token_key` IS NOT NULL";
+pub(super) const DELETE_CLOSED: &str = "DELETE FROM `envelopes` WHERE `mailbox` = ?";
 pub(super) const IS_REVOKED: &str = "SELECT EXISTS (SELECT 1 FROM `revoked` \
      WHERE `mailbox` = ? AND `token_key` = ? AND `expires_at` > ?)";
 
 impl BootstrapStore {
     /// Revokes `keys` of `mailbox` until `expires_at` (a key revoked longer keeps its later
-    /// expiry), keeps `record` for repair and deletes the stored envelopes of the keys. `false`,
+    /// expiry), keeps `record` for repair and deletes the stored envelopes of the keys; an empty
+    /// key marks the mailbox closed and deletes all its envelopes. `false`,
     /// with nothing changed, when the mailbox would hold more than [`MAX_REVOKED`] keys or
     /// records.
     pub fn revoke(
@@ -85,8 +87,12 @@ impl BootstrapStore {
                 params![mailbox, key, expires_at],
             )
             .map_err(storage_error)?;
-            tx.execute(DELETE_REVOKED, params![mailbox, key])
-                .map_err(storage_error)?;
+            if key.is_empty() {
+                tx.execute(DELETE_CLOSED, [mailbox])
+            } else {
+                tx.execute(DELETE_REVOKED, params![mailbox, key])
+            }
+            .map_err(storage_error)?;
         }
         tx.execute(
             "INSERT OR IGNORE INTO `revokes` (`mailbox`, `record`, `expires_at`) VALUES (?, ?, ?)",
@@ -182,6 +188,18 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_key_deletes_every_envelope_of_the_mailbox() {
+        let store = temp_store();
+        put(&store, 1, Some(b"a"));
+        put(&store, 2, None);
+        assert!(store
+            .revoke(&[1], &record(9), &[Vec::new()], 200, 100)
+            .unwrap());
+        assert!(store.envelope_ids(&[1], 10).unwrap().is_empty());
+        assert!(store.is_revoked(&[1], b"", 199).unwrap());
+    }
+
+    #[test]
     fn revoked_keys_are_capped_per_mailbox() {
         let store = temp_store();
         let keys: Vec<Vec<u8>> = (0..MAX_REVOKED).map(|i| i.to_be_bytes().to_vec()).collect();
@@ -204,7 +222,7 @@ mod tests {
     fn revocation_statements_use_indexes() {
         let store = temp_store();
         let db = lock(&store.messages).unwrap();
-        for sql in [DELETE_REVOKED, IS_REVOKED] {
+        for sql in [DELETE_REVOKED, DELETE_CLOSED, IS_REVOKED] {
             let mut query = db.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
             let mut rows = query.raw_query();
             let mut plan = String::new();

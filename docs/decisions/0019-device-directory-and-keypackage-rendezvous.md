@@ -37,7 +37,8 @@ A package expires within 30 days. Nodes cap publications at 16 KiB each, 20 ordi
 last-resort package, and 512 KiB total per device; anonymous fetches are rate-limited by peer ID
 and IP group. A higher-version profile that removes a device makes nodes refuse its publications
 and stop serving its packages. Clients remove the device from MLS groups after learning that
-profile. The exact request, response and storage schema land with the node implementation;
+profile, and another device of the owner closes its mailbox with a `revoke` signed by the identity
+key that carries the owner binding the device signed at linking (`dyapp/device-owner/v1`). The exact request, response and storage schema land with the node implementation;
 [bootstrap.md](../architecture/bootstrap.md#device-directory-and-keypackages) defines the
 required behaviour.
 

@@ -332,10 +332,14 @@ message Ack {
 // replay only revokes the same keys again.
 message Revoke {
   bytes mailbox = 1;
-  // 1 to 64 keys, 32 bytes each.
+  // 1 to 64 keys, 32 bytes each; none when `certificate` is set.
   repeated bytes token_keys = 2;
   // Unix seconds; more than 1 hour ahead of the node's clock is DENIED.
   int64 created_at = 3;
+  // Closes the whole mailbox of a revoked device: signed by the mailbox's device key under
+  // dyapp/device-owner/v1\0 when it was linked, its payload is the identity key that signs this
+  // revoke.
+  dyapp.identity.SignedRecord owner = 4;
 }
 
 message MailboxResponse {

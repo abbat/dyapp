@@ -96,7 +96,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
 | `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
 | `/dyapp/keypackage` | store | `publish(device-signed KeyPackageRecord)`, `fetch(owner, mailbox, profile version, slot)`; node to node `replica_put` |
-| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
+| `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys, or close)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
 | `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
@@ -116,7 +116,7 @@ on an identity's data carries a signature by a key of that identity:
 |---------|-----------|-----------------|
 | `profile.publish` | owner identity key, over the record | the key in the record |
 | `mailbox.fetch`, `mailbox.ack` | the mailbox's device key, over the request and a `challenge` nonce bound to this connection | mailbox address = H(device key) |
-| `mailbox.revoke` | the mailbox's device key, over the request (no nonce: a replay revokes the same keys) | mailbox address = H(device key) |
+| `mailbox.revoke` | the mailbox's device key, over the request (no nonce: a replay revokes the same keys); to close the mailbox, the identity key the device accepted in its `owner` binding | mailbox address = H(device key), or H(the `owner` binding's signer) |
 | `mailbox.put` | a sender key, over the envelope (planned: fresh per envelope) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
@@ -657,6 +657,8 @@ Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), cipherte
            class, write_token: optional SignedRecord }
 WriteToken { mailbox, token_key, epoch: UTC day number }  // signed by the recipient device key
 Revoke { mailbox, token_keys: 1 to 64, created_at }       // signed by the recipient device key
+Revoke { mailbox, created_at, owner }                     // closes it; signed by the identity key
+owner: identity key                                       // signed by the device key at linking
 ```
 
 **Write tokens.** A recipient hands each contact a daily token, signed by its device key over
@@ -679,6 +681,19 @@ drop it silently. The node forwards a valid `revoke` verbatim as `replica_revoke
 and repair sends a mailbox's unexpired revokes, one request unit each, before its envelopes. A
 mailbox holds at most 4096 revoked keys and 4096 signed revokes (`FULL` beyond); expired ones
 free room. The node sees which token pseudonyms a mailbox blocked, not who they are.
+
+**Closing a revoked device's mailbox.** When the owner drops a lost or sold device from the
+profile, another of its devices sends a `revoke` with no token keys, signed by the identity key,
+whose `owner` is the binding the device signed when it was linked: its identity key as the
+payload, signed by the device key over `"dyapp/device-owner/v1\0" || payload`. The binding's
+signer must hash to `mailbox` and its payload must be the revoke's signer, so only the identity
+the device accepted can close it, without the lost device. A device certificate alone would not
+do: anyone can certify a public device key under their own identity. The node deletes every
+stored envelope of the mailbox and, until the same expiry as a revoke, answers its `fetch`, every
+`put` and repair `inventory` with `REFUSED`; replicas and repair carry the close like any revoke.
+A replay closes the same mailbox again. A stale sender profile can still address the closed
+mailbox; its puts are refused, and by the expiry its senders have the newer profile. The close is
+stored as a revoked empty token key, so it shares the 4096 cap.
 
 **Tokenless pool.** Each stored envelope carries two 8-byte eviction labels: `via =
 SHA-256(peer id)[..8]` of the peer that handed it in (the node's own id for a local store), and
@@ -808,7 +823,7 @@ The current protocol replies are:
 | `/dyapp/mailbox` | `fetch(SignedRecord)`, payload `Fetch` | `OK` with the oldest envelopes (at most `limit`, 100 and 1 MiB per reply) and `more`; `DENIED` |
 | `/dyapp/mailbox` | `ack(SignedRecord)`, payload `Ack` | `OK`, the listed ids are deleted, unknown ones ignored, and the ack is forwarded as `replica_ack`; `DENIED`; `INVALID` an id not 16 bytes |
 | `/dyapp/mailbox` | `replica_ack(SignedRecord)` | an `ack` another node forwards verbatim: checked like `ack` without the nonce, not forwarded again; same replies |
-| `/dyapp/mailbox` | `revoke(SignedRecord)`, payload `Revoke` | `OK`, the keys are revoked and their envelopes deleted, and the revoke is forwarded as `replica_revoke`; `DENIED` bad signature, a signer that does not own `mailbox` or over 64 keys (strike), `created_at` over 1 h ahead (no strike); `INVALID` no keys or a key not 32 bytes; `STALE` already expired; `REFUSED` a denied mailbox; `FULL` over 4096 keys or revokes ([Revocation](#mailbox-envelope)) |
+| `/dyapp/mailbox` | `revoke(SignedRecord)`, payload `Revoke` | `OK`, the keys are revoked and their envelopes deleted (with `owner`, the mailbox is closed: all envelopes deleted, fetch, put and inventory `REFUSED`), and the revoke is forwarded as `replica_revoke`; `DENIED` bad signature, a signer that does not own `mailbox` (or with `owner`: a binding not signed by the mailbox's device key or naming another identity) or over 64 keys (strike), `created_at` over 1 h ahead (no strike); `INVALID` no keys without `owner`, keys with it, or a key not 32 bytes; `STALE` already expired; `REFUSED` a denied mailbox; `FULL` over 4096 keys or revokes ([Revocation](#mailbox-envelope)) |
 | `/dyapp/mailbox` | `replica_revoke(SignedRecord)` | a `revoke` another node forwards verbatim or repair carries: checked like `revoke`, not forwarded again; same replies |
 | `/dyapp/mailbox` | `inventory(Inventory)`: mailbox, at most 10 000 ids (node to node) | `OK` with `missing`, the listed ids the node does not hold, read from stored ids without the envelopes; `DENIED` and a strike from a peer without node proof of work; `INVALID` mailbox not 32 bytes, an id not 16 or too many ids; `REFUSED` a denied mailbox; `RATE_LIMITED` from 75 % of the traffic cap |
 | `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded, with its unsigned source group from `source_groups`; an envelope with a forged, expired or revoked write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |

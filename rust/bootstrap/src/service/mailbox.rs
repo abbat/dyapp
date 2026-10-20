@@ -123,7 +123,7 @@ impl Service {
                 else {
                     return Ok(status(Status::Denied));
                 };
-                if self.listed(&mailbox) {
+                if self.listed(&mailbox) || self.closed(&mailbox)? {
                     return Ok(status(Status::Refused));
                 }
                 let limit = match fetch.limit {
@@ -183,7 +183,7 @@ impl Service {
         {
             return Ok(status(Status::Invalid));
         }
-        if self.listed(&inventory.mailbox) {
+        if self.listed(&inventory.mailbox) || self.closed(&inventory.mailbox)? {
             return Ok(status(Status::Refused));
         }
         if self.busy(SHED_MEDIA) {
@@ -339,7 +339,10 @@ impl Service {
         if signal && record.payload.len() > MAX_SIGNAL_BYTES {
             return Ok(mailbox_too_large(MAX_SIGNAL_BYTES));
         }
-        if self.listed_key(&record.public_key) || self.listed(&envelope.mailbox) {
+        if self.listed_key(&record.public_key)
+            || self.listed(&envelope.mailbox)
+            || self.closed(&envelope.mailbox)?
+        {
             return Ok(status(Status::Refused));
         }
         if source != Source::Local && !self.senders.check_limit(&hex(&record.public_key)) {
