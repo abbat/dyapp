@@ -123,11 +123,11 @@ follow-up follows [the shared practice rules](practices.md#rules-shared-by-all-p
 CI uploads `target/batches.json` as `commit-batches`, also on a failed check.
 The baseline grandfathers history published before server-side enforcement; moving it forward
 again weakens the check. The required `commit-batches` PR status runs the checker from the base
-branch over every proposed commit. `main` requires a PR and allows only rebase merge, so squash
-cannot turn several compliant commits into one oversized commit. The owner merges PRs carrying
-a justified `Large-Change` trailer. The local hooks provide early feedback but are optional;
-GitHub's required status and ruleset are the merge barrier. The owner must review changes
-to `.github/workflows/batch-policy.yml` before merging: a PR can edit its own workflow.
+branch over every proposed commit. For non-owner writers, `main` requires a PR and allows only
+rebase merge, so squash cannot turn several compliant commits into one oversized commit. Account
+`abbat` has an `always` ruleset bypass and can push directly to `main`; those commits get a
+post-push CI check, so the owner must run the local batch check before pushing. The owner also
+reviews changes to `.github/workflows/batch-policy.yml`: a PR can edit its own workflow.
 
 ### Docs change with the code
 

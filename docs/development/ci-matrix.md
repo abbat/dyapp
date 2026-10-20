@@ -74,9 +74,10 @@ These are separate workflows, not part of `ci.yml`.
 
 ## Required checks
 
-The `main` ruleset requires a PR, an up-to-date `commit-batches` status and rebase merge;
-it has no bypass actors. It blocks direct pushes and PRs with an oversized commit lacking a
-`Large-Change` reason. The policy workflow is a separate quick check. The `required` job
+The `main` ruleset requires a PR, an up-to-date `commit-batches` status and rebase merge for
+non-owner writers. Account `abbat` has an `always` bypass and can push directly to `main`;
+`commit-batches` then reports violations after the push. The policy workflow is a separate quick
+check. The `required` job
 still aggregates `core`, `docker`, `linux`, `apple` and `windows`, but is not a required
 branch status. CodeQL, security and Python lint are also not required statuses.
 
