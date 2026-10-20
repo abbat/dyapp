@@ -177,7 +177,7 @@ one payload against the sending peer's byte bucket. The byte bucket uses `bytes_
 four payload copies in the shared 75 % traffic budget before forwarding; sharded puts reserve
 ceil(bytes × (K+M)/K) minus the uploaded payload and use that same billed quota. Outbound framing is
 counted separately. Physical storage deduplicates by hash, while every owner pays its quota.
-`dyappd status` reports `media_replica_holders`, distinct confirmed holders of the most recent
+The `node status` log line reports `media_replica_holders`, distinct confirmed holders of the most recent
 media write, including late confirmations; this in-memory snapshot is not a durability census.
 Media currently shares the store DHT: all selected holders must serve media, otherwise their
 `UNSUPPORTED` replies cannot count toward confirmation. Keeps and releases are node-local;
@@ -1372,8 +1372,8 @@ guard and refused connections ([Resource guards](#resource-guards)). The same ru
 log `node state`: replica, lookup and inventory requests still pending, the largest per-connection
 map (challenge nonces, IP groups, dialed peers) against the open connections, mailbox watches and
 peers with a trust score. An idle node drains to no pending request and no entry of a closed
-connection; a count that idling does not lower is a leak. `dyappd status` prints what
-the stores hold; there are no HTTP endpoints.
+connection; a count that idling does not lower is a leak. `dyappd status` prints whether
+the node answers, what the stores hold and the metrics totals; there is no admin HTTP API.
 
 `wire_bytes` reports protobuf frame bytes since the previous status line as
 `node=in/out profile=in/out mailbox=in/out push=in/out media=in/out search=in/out inventory=in/out digest=in/out gossip=in/out other=in/out keypackage=in/out`.

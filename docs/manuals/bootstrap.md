@@ -438,9 +438,20 @@ ref as its `from` input.
 ## Status and metrics
 
 **Status.** `sudo -u dyappd dyappd status` (in Docker:
-`docker exec dyappd dyappd status`) prints the peer ID and what the stores hold: profiles,
-envelopes, media blobs and bytes, deny entries, cached peers. It opens the stores read-only and
-works while the node runs. There is no admin HTTP API.
+`docker exec dyappd dyappd status`) prints one `name value` line each, most important first:
+
+| Line | Value |
+|---|---|
+| `node` | `running` when the node answers `info` on a `listen` address (a `[::]` or `0.0.0.0` host is dialed on loopback, 15 s at most), else `stopped` |
+| `peer_id` | the node's peer ID, empty before `keygen` |
+| `profiles`, `envelopes`, `media_blobs`, `deny_entries` | records stored; `none` when that store was never created |
+| `envelope_bytes`, `media_bytes` | stored bytes; `none` likewise |
+| `cached_peers` | peers saved for the next start |
+| `uptime_seconds`, `requests`, `wire_in_bytes`, `wire_out_bytes` | seconds since the node started, then requests and payload bytes received and sent over all protocols since then, from the [metrics](#metrics) listener; `unavailable` when the node is stopped, `[metrics] port` is 0 or the listener does not answer |
+
+It exits 0 when the node runs and 3 (the LSB "not running" code) when it does not, so
+`dyappd status >/dev/null || alert` works without systemd. It opens the stores read-only, does
+not scan beyond SQLite counts and works while the node runs. There is no admin HTTP API.
 
 **Logs.** `journalctl -u dyappd` (run by hand: stderr). The node logs startup, listen addresses,
 storage errors, the hourly cleanup and maintenance; not individual requests. `RUST_LOG` sets the
@@ -449,7 +460,8 @@ level, e.g. `RUST_LOG=info` (the unit's default) or `RUST_LOG=debug`.
 connection and peer counts.
 
 **Health.** There is no HTTP health endpoint. A node is alive when it answers `/dyapp/node`
-`info` (`dyappd info`, above); the reply holds roles and limits only.
+`info` (`dyappd info`, above; `dyappd status` checks this locally); the reply holds roles and
+limits only.
 
 ### Metrics
 

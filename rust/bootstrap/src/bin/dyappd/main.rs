@@ -13,8 +13,9 @@
 //!
 //! `dyappd id`: the peer ID, then `<external address>/<peer ID>` seed entries for other nodes.
 //!
-//! `dyappd status`: what the stores hold, read-only. These subcommands run as the owner of
-//! `storage.dir`, so the node can still write the files it opens.
+//! `dyappd status`: whether the node answers, what the stores hold (read-only) and the traffic
+//! totals from the metrics listener; exits 3 when the node does not answer. These subcommands
+//! run as the owner of `storage.dir`, so the node can still write the files it opens.
 //!
 //! `dyappd info <host:port>` and the other [client] commands talk to a running node; they only
 //! read the config, for `network.name`.
@@ -32,6 +33,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod client;
 
@@ -121,7 +123,14 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
         ["id"] => print!("{}", id(&config)?),
-        ["status"] => print!("{}", status(&config)),
+        ["status"] => {
+            let running = running(&config).await;
+            print!("{}", status(&config, running));
+            if !running {
+                // The LSB status code for "not running".
+                std::process::exit(3);
+            }
+        }
         ["deny", rest @ ..] => deny(&config, rest)?,
         _ => anyhow::bail!("{USAGE}\n{}", client::USAGE),
     }
@@ -263,8 +272,54 @@ fn id(config: &NodeConfig) -> anyhow::Result<String> {
     Ok(format!("{peer_id}\n{}", seeds.collect::<String>()))
 }
 
-/// One `name value` line per count; a store not created yet shows `none`.
-fn status(config: &NodeConfig) -> String {
+/// Whether the node answers `info` on a listen address; a wildcard host is dialed on loopback.
+async fn running(config: &NodeConfig) -> bool {
+    for address in &config.listen {
+        let local = address
+            .replacen("0.0.0.0:", "127.0.0.1:", 1)
+            .replacen("[::]:", "[::1]:", 1);
+        let reply = client::run(&config.network.name, &["info", &local]).await;
+        if matches!(reply, Ok(Some(_))) {
+            return true;
+        }
+    }
+    false
+}
+
+/// `GET /metrics` from the node's loopback listener; `None` when metrics are off or it does not
+/// answer.
+fn scrape(config: &NodeConfig) -> Option<String> {
+    use std::io::{Read, Write};
+    config.metrics.addresses().iter().find_map(|address| {
+        let mut stream =
+            std::net::TcpStream::connect_timeout(address, Duration::from_secs(2)).ok()?;
+        stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
+        stream.write_all(b"GET /metrics HTTP/1.0\r\n\r\n").ok()?;
+        let mut reply = String::new();
+        stream.read_to_string(&mut reply).ok()?;
+        let (head, body) = reply.split_once("\r\n\r\n")?;
+        head.starts_with("HTTP/1.1 200").then(|| body.to_owned())
+    })
+}
+
+/// The sum of the `dyapp_<family>` samples whose labels contain `label`.
+fn total(metrics: &str, family: &str, label: &str) -> u64 {
+    let prefix = format!("dyapp_{family}");
+    metrics
+        .lines()
+        .filter_map(|line| {
+            let rest = line.strip_prefix(&prefix)?;
+            if !rest.starts_with(['{', ' ']) || !rest.contains(label) {
+                return None;
+            }
+            rest.rsplit(' ').next()?.parse::<u64>().ok()
+        })
+        .sum()
+}
+
+/// One `name value` line each: health, then store counts (a store not created yet shows
+/// `none`), then traffic since the node started (`unavailable` when stopped or metrics are off).
+fn status(config: &NodeConfig, running: bool) -> String {
     let s = &config.storage;
     let count = |path: &Path, sql: &str| {
         if !path.exists() {
@@ -276,7 +331,17 @@ fn status(config: &NodeConfig) -> String {
     };
     let media = s.media_path();
     let peer_id = std::fs::read_to_string(s.dir.join("node.id")).unwrap_or_default();
+    let metrics = running.then(|| scrape(config)).flatten();
+    let traffic = |value: &dyn Fn(&str) -> u64| {
+        metrics
+            .as_deref()
+            .map_or_else(|| "unavailable".to_string(), |m| value(m).to_string())
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
     [
+        ("node", if running { "running" } else { "stopped" }.to_string()),
         ("peer_id", peer_id.trim().to_string()),
         (
             "profiles",
@@ -314,6 +379,19 @@ fn status(config: &NodeConfig) -> String {
         (
             "cached_peers",
             node::cached_peers(&s.peers_path()).len().to_string(),
+        ),
+        (
+            "uptime_seconds",
+            traffic(&|m| now.saturating_sub(total(m, "process_start_time_seconds", ""))),
+        ),
+        ("requests", traffic(&|m| total(m, "requests_total", ""))),
+        (
+            "wire_in_bytes",
+            traffic(&|m| total(m, "wire_bytes_total", "direction=\"in\"")),
+        ),
+        (
+            "wire_out_bytes",
+            traffic(&|m| total(m, "wire_bytes_total", "direction=\"out\"")),
         ),
     ]
     .iter()

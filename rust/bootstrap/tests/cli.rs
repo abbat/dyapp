@@ -35,14 +35,23 @@ fn success(dir: &Path, args: &[&str]) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+/// `status` with no node on the listen address: exit 3.
+fn stopped_status(dir: &Path) -> String {
+    let output = command(dir, &["status", "--listen", "127.0.0.1:1"]);
+    assert_eq!(output.status.code(), Some(3), "{output:?}");
+    String::from_utf8(output.stdout).unwrap()
+}
+
 #[test]
 fn status_reports_absent_and_populated_stores_without_creating_missing_databases() {
     let dir = directory();
     std::fs::write(dir.join("node.id"), "operator-peer\n").unwrap();
     assert_eq!(
-        success(&dir, &["status"]),
-        "peer_id operator-peer\nprofiles none\nenvelopes none\nenvelope_bytes none\n\
-         media_blobs none\nmedia_bytes none\ndeny_entries none\ncached_peers 0\n"
+        stopped_status(&dir),
+        "node stopped\npeer_id operator-peer\nprofiles none\nenvelopes none\n\
+         envelope_bytes none\nmedia_blobs none\nmedia_bytes none\ndeny_entries none\n\
+         cached_peers 0\nuptime_seconds unavailable\nrequests unavailable\n\
+         wire_in_bytes unavailable\nwire_out_bytes unavailable\n"
     );
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
     assert_eq!(success(&dir, &["id"]), "operator-peer\n");
@@ -68,7 +77,7 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
     let envelope = NewEnvelope::new(&[2; 32], &[3; 16], &record, false, i64::MAX);
     store.put_envelope(&envelope, 1 << 20, None).unwrap();
     let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
-    let output = success(&dir, &["status"]);
+    let output = stopped_status(&dir);
     for expected in [
         "profiles 1".to_owned(),
         "envelopes 1".to_owned(),
@@ -104,7 +113,7 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     assert_eq!(listed.lines().count(), 1);
     assert!(listed.starts_with(&format!("{entry}\t")));
     assert!(listed.trim_end().ends_with("\toperator note"));
-    assert!(success(&dir, &["status"]).contains("deny_entries 1\n"));
+    assert!(stopped_status(&dir).contains("deny_entries 1\n"));
 
     let remote = Identity::generate();
     let peer = remote.peer_id().to_string();
@@ -140,7 +149,84 @@ fn without_config_the_working_directory_file_is_read() {
         .output()
         .unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.starts_with("peer_id from-cwd\n"), "{stdout}");
+    assert!(stdout.contains("\npeer_id from-cwd\n"), "{stdout}");
+}
+
+#[test]
+fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
+    let dir = directory();
+    let free_port = || {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+            .to_string()
+    };
+    let (listen, metrics) = (format!("127.0.0.1:{}", free_port()), free_port());
+    let options = [
+        "--network.id-pow-bits",
+        "0",
+        "--limits.min-free-mb",
+        "0",
+        "--listen",
+        &listen,
+        "--metrics.port",
+        &metrics,
+    ];
+    let status = |extra: &[&str]| command(&dir, &[&["status"], &options[..], extra].concat());
+    success(&dir, &[&["keygen"], &options[..]].concat());
+    let mut node = Command::new(env!("CARGO_BIN_EXE_dyappd"))
+        .env_clear()
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .arg("--storage.dir")
+        .arg(&dir)
+        .args(options)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut output = status(&[]);
+    for _ in 0..60 {
+        if output.status.success() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        output = status(&[]);
+    }
+    let running = String::from_utf8(output.stdout).unwrap();
+    assert!(running.starts_with("node running\n"), "{running}");
+    for name in [
+        "uptime_seconds",
+        "requests",
+        "wire_in_bytes",
+        "wire_out_bytes",
+    ] {
+        let line = running.lines().find(|l| l.starts_with(name)).unwrap();
+        assert!(line[name.len() + 1..].parse::<u64>().is_ok(), "{line}");
+    }
+    // The node answered the earlier probes, so their requests are counted.
+    assert!(!running.contains("\nrequests 0\n"), "{running}");
+
+    let output = status(&["--metrics.port", "0"]);
+    assert!(output.status.success());
+    let unmetered = String::from_utf8(output.stdout).unwrap();
+    assert!(unmetered.starts_with("node running\n"), "{unmetered}");
+    assert!(
+        unmetered.ends_with("wire_out_bytes unavailable\n"),
+        "{unmetered}"
+    );
+
+    node.kill().unwrap();
+    node.wait().unwrap();
+    let output = status(&[]);
+    assert_eq!(output.status.code(), Some(3));
+    let stopped = String::from_utf8(output.stdout).unwrap();
+    assert!(stopped.starts_with("node stopped\n"), "{stopped}");
+    assert!(
+        stopped.ends_with("wire_out_bytes unavailable\n"),
+        "{stopped}"
+    );
 }
 
 #[test]
