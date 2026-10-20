@@ -1,6 +1,7 @@
 use super::tests::{index, signed};
 use super::*;
 use dyapp_identity::Identity;
+use dyapp_p2p_net::proto::{Condition, Op};
 
 fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
     Condition {
