@@ -53,6 +53,7 @@ name = "network-surface"
 paths = [
     "rust/p2p-net/*",
     "rust/bootstrap/src/node.rs",
+    "rust/bootstrap/src/node/delivery.rs",
     "rust/bootstrap/src/service.rs",
     "rust/bootstrap/src/rate_limit.rs",
     "rust/bootstrap/src/deny.rs",

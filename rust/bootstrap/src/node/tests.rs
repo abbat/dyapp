@@ -173,7 +173,7 @@ async fn receive_repair_batch(
                         };
                         let count = batch.envelopes.len();
                         assert!((1..=50).contains(&count));
-                        assert!(request.encoded_len() <= REPAIR_BYTES + 64 * 1024);
+                        assert!(request.encoded_len() <= delivery::REPAIR_BYTES + 64 * 1024);
                         let response = service.mailbox(
                             &Peer { id: peer.to_string(), group: "g".into(), coarse: "g".into() },
                             &mut None,
