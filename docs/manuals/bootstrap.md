@@ -390,8 +390,9 @@ Open TCP and UDP on the port in the host and cloud firewalls. Check from another
 `dyappd info` ([client commands](../architecture/bootstrap.md#client-commands)):
 
 ```bash
-dyappd info /ip6/<node address>/tcp/7070   # exit 0 and "STATUS_OK" → alive
-dyappd info /ip4/<node address>/tcp/7070   # an IPv4-only node
+dyappd info node.example.org:7070   # exit 0 and "STATUS_OK" → alive
+dyappd info [2001:db8::7]:7070      # an IPv6 address goes in brackets
+dyappd info 192.0.2.7:7070          # an IPv4 address
 ```
 
 A new node answers `STATUS_FULL` to writes until it has trusted peers for
@@ -694,7 +695,7 @@ network grows, so lower it on a small disk) and 1 GiB of memory
 
 | Symptom | Check |
 |---------|-------|
-| `dyappd info` fails with a timeout or `request failed` | The node is down, the address is wrong (use `/ip6/` or `/ip4/`, not a host name) or a firewall blocks TCP/UDP 7070 |
+| `dyappd info` fails with a timeout or `request failed` | The node is down, the address is wrong (`host:port`, with an IPv6 address in brackets) or a firewall blocks TCP/UDP 7070 |
 | `dyappd info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | Writes answer `STATUS_FULL` | The node trusts no peer yet (`storage_trust_minutes` after its start), a store is at its quota, or the disk is below `min_free_mb` |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or `ReadWritePaths=` |

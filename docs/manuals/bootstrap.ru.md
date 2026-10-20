@@ -395,8 +395,9 @@ seeds = ["seed1.example.org:7070/12D3KooW...", "seed2.example.org:7070/12D3KooW.
 `dyappd info` ([клиентские команды](../architecture/bootstrap.md#client-commands)):
 
 ```bash
-dyappd info /ip6/<node address>/tcp/7070   # код 0 и "STATUS_OK" → жив
-dyappd info /ip4/<node address>/tcp/7070   # узел только с IPv4
+dyappd info node.example.org:7070   # код 0 и "STATUS_OK" → жив
+dyappd info [2001:db8::7]:7070      # адрес IPv6 — в квадратных скобках
+dyappd info 192.0.2.7:7070          # адрес IPv4
 ```
 
 Новый узел отвечает на записи `STATUS_FULL`, пока у него нет доверенных пиров в течение
@@ -707,7 +708,7 @@ sudo systemctl start dyappd
 
 | Симптом | Что проверить |
 |---------|---------------|
-| `dyappd info` падает по таймауту или с `request failed` | Узел не работает, адрес неверен (используйте `/ip6/` или `/ip4/`, а не имя хоста) или межсетевой экран блокирует TCP/UDP 7070 |
+| `dyappd info` падает по таймауту или с `request failed` | Узел не работает, адрес неверен (`хост:порт`, адрес IPv6 — в квадратных скобках) или межсетевой экран блокирует TCP/UDP 7070 |
 | `dyappd info` работает на хосте, но не отвечает извне | `listen` оставлен loopback по умолчанию; задайте `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | Записи отвечают `STATUS_FULL` | Узел ещё не доверяет ни одному пиру (`storage_trust_minutes` после запуска), хранилище достигло квоты или на диске меньше `min_free_mb` |
 | `dyappd` завершается при запуске из-за каталога | Каталог хранилища недоступен на запись пользователю узла; исправьте права или `ReadWritePaths=` |

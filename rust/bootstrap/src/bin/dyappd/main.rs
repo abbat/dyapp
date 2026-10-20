@@ -16,7 +16,7 @@
 //! `dyappd status`: what the stores hold, read-only. These subcommands run as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
 //!
-//! `dyappd info <multiaddr>` and the other [client] commands talk to a running node; they only
+//! `dyappd info <host:port>` and the other [client] commands talk to a running node; they only
 //! read the config, for `network.name`.
 
 use dyapp_bootstrap::config::{options_help, transports, Role};

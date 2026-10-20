@@ -978,28 +978,28 @@ JSON object:
 
 ```
 dyappd sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
-dyappd heartbeat <multiaddr> <secret hex> → {"status"}
-dyappd info    /ip6/::1/tcp/7070         → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
-dyappd publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
-dyappd get     <multiaddr> <peer_id hex> → {"status", "record"}
+dyappd heartbeat <addr> <secret hex> → {"status"}
+dyappd info    [::1]:7070                → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
+dyappd publish <addr> <record hex>  → {"status"} (+ "record" when stale)
+dyappd get     <addr> <peer_id hex> → {"status", "record"}
 dyappd device-key                        → {"secret", "mailbox"}
-dyappd put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
-dyappd put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
-dyappd put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
-dyappd watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
-dyappd fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
-dyappd ack     <multiaddr> <secret hex> <id hex>... → {"status"}
-dyappd closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
-dyappd replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
-dyappd flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
-dyappd media   <multiaddr> <data hex>    → {"keep", "put", "get"}
-dyappd media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
-dyappd media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
-dyappd media-keep <multiaddr> <record hex> → {"status", "data", "missing"}
-dyappd media-refresh <multiaddr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
-dyappd media-get <multiaddr> <hash hex>  → {"status", "data"}
-dyappd turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
-dyappd relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
+dyappd put     <addr> <mailbox hex> <ciphertext hex> → {"status", "id"}
+dyappd put-replicas <addr> <mailbox hex> → {"status", "id", "holders"}
+dyappd put-local <addr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
+dyappd watch   <addr> <secret hex>  → {"status", "id", "pushed"}
+dyappd fetch   <addr> <secret hex>  → {"status", "ids", "more"}
+dyappd ack     <addr> <secret hex> <id hex>... → {"status"}
+dyappd closest <addr> <key hex>     → {"peers"}   (DHT lookup through the node)
+dyappd replicate <addr> <peer_id hex> <record hex> → {"holders"}
+dyappd flood   <addr> <n>           → {"<status>": count, "failed": count}
+dyappd media   <addr> <data hex>    → {"keep", "put", "get"}
+dyappd media-owned <addr> <data hex> → media statuses + details {owner, hash, keep_record}
+dyappd media-sized <addr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
+dyappd media-keep <addr> <record hex> → {"status", "data", "missing"}
+dyappd media-refresh <addr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
+dyappd media-get <addr> <hash hex>  → {"status", "data"}
+dyappd turn    <addr>               → {"status", "username", "password", "urls", "expires"}
+dyappd relays  <addr>               → {"providers"}   (TURN relays in the DHT)
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
@@ -1015,7 +1015,9 @@ sends `n` profile gets at once on one connection. `media` has a fresh owner keep
 put the blob and get it back on one connection and prints each status; `"get"` is `"CHANGED"` if
 the blob came back different.
 
-It has no DNS transport: pass `/ip4/` or `/ip6/` addresses, without `/p2p/`.
+`<addr>` is `host:port`, the host an IP (IPv6 in brackets, e.g. `[::1]:7070`) or a DNS name;
+the client dials TCP. A multiaddr starting with `/` (e.g. `/ip6/::1/tcp/7070`) is still accepted.
+A host without a port or an unbracketed IPv6 address is refused with the expected forms.
 
 ## Erasure coding (Reed-Solomon)
 

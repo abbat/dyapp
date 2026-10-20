@@ -1,37 +1,38 @@
 //! Node protocol client: `dyappd info` for operators, the rest for scripts that have no libp2p,
 //! Ed25519 or protobuf library. Each command prints one JSON object; a reply of any status exits
-//! 0, a transport failure exits non-zero.
+//! 0, a transport failure exits non-zero. `<addr>` is `host:port` (an IP, `[IPv6]` or a DNS
+//! name) or, for other transports, a multiaddr; the client dials TCP.
 //!
 //! - `dyappd sign-profile [secret version]`: `{"peer_id", "record", "secret"}`, a signed profile;
-//! - `dyappd heartbeat <multiaddr> <secret hex>`: `{"status"}`, signed owner presence;
-//! - `dyappd info <multiaddr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
-//! - `dyappd publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
-//! - `dyappd get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
+//! - `dyappd heartbeat <addr> <secret hex>`: `{"status"}`, signed owner presence;
+//! - `dyappd info <addr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
+//! - `dyappd publish <addr> <record hex>`: `{"status"}`, plus `"record"` when stale;
+//! - `dyappd get <addr> <peer_id hex>`: `{"status", "record"}`;
 //! - `dyappd device-key`: `{"secret", "mailbox"}`, a fresh device key and its mailbox address;
-//! - `dyappd put <multiaddr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
+//! - `dyappd put <addr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
 //!   signed by a fresh sender key;
-//! - `dyappd fetch <multiaddr> <secret hex>`: `{"status", "ids", "more"}`;
-//! - `dyappd ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`;
-//! - `dyappd closest <multiaddr> <key hex>`: `{"peers"}`, the nodes a DHT lookup through the
+//! - `dyappd fetch <addr> <secret hex>`: `{"status", "ids", "more"}`;
+//! - `dyappd ack <addr> <secret hex> <id hex>...`: `{"status"}`;
+//! - `dyappd closest <addr> <key hex>`: `{"peers"}`, the nodes a DHT lookup through the
 //!   node finds closest to the key, closest first;
-//! - `dyappd replicate <multiaddr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
+//! - `dyappd replicate <addr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
 //!   of the `REPLICAS` replicas of a profile to the node closest to its replica key;
-//! - `dyappd flood <multiaddr> <n>`: the count of each status (`"failed"` for no reply) of `n`
+//! - `dyappd flood <addr> <n>`: the count of each status (`"failed"` for no reply) of `n`
 //!   profile gets sent at once on one connection;
-//! - `dyappd watch <multiaddr> <secret hex>`: `{"status", "id", "pushed"}`, fetches with
+//! - `dyappd watch <addr> <secret hex>`: `{"status", "id", "pushed"}`, fetches with
 //!   `watch`, puts an envelope to the mailbox from another connection and returns the ids the
 //!   node pushed back;
-//! - `dyappd put-replicas <multiaddr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
+//! - `dyappd put-replicas <addr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
 //!   to the node closest to each replica key of the mailbox;
-//! - `dyappd media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
+//! - `dyappd media <addr> <data hex>`: `{"keep", "put", "get"}`, the status of each
 //!   step: a fresh owner keeps the blob's hash, puts the blob and gets it back; `"get"` is
 //!   `"CHANGED"` if the blob came back different;
-//! - `dyappd media-sized <multiaddr> <bytes> <32-byte seed hex>`: the same round trip
+//! - `dyappd media-sized <addr> <bytes> <32-byte seed hex>`: the same round trip
 //!   with owner details, repeating the seed to generate a large blob without a large CLI argument;
-//! - `dyappd media-refresh <multiaddr> <record hex> <secret hex>`: signs a newer keep and
+//! - `dyappd media-refresh <addr> <record hex> <secret hex>`: signs a newer keep and
 //!   returns `{"status", "missing", "keep_record"}`;
-//! - `dyappd turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
-//! - `dyappd relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
+//! - `dyappd turn <addr>`: `{"status", "username", "password", "urls", "expires"}`;
+//! - `dyappd relays <addr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
 //! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
 //! `fetch` and `ack` ask for a challenge and sign it on one connection. Every connection speaks
@@ -614,7 +615,7 @@ async fn connect_with_key(
             ..SwarmOptions::default()
         },
     )?;
-    let addr: Multiaddr = addr.parse()?;
+    let addr = address(addr)?;
     swarm.dial(addr.clone())?;
     loop {
         match swarm.select_next_some().await {
@@ -627,6 +628,22 @@ async fn connect_with_key(
             _ => {}
         }
     }
+}
+
+/// The TCP address to dial: `host:port` with an IP, `[IPv6]:port` or a DNS name, or a multiaddr.
+fn address(addr: &str) -> anyhow::Result<Multiaddr> {
+    if addr.starts_with('/') {
+        return addr
+            .parse()
+            .with_context(|| format!("bad multiaddr {addr}"));
+    }
+    let [tcp, _] = dyapp_bootstrap::config::seed(addr).map_err(|_| {
+        anyhow!(
+            "bad address {addr}: expected host:port, e.g. node.example.org:7070, \
+             192.0.2.7:7070 or [2001:db8::7]:7070 (brackets around IPv6), or a multiaddr"
+        )
+    })?;
+    Ok(tcp)
 }
 
 async fn wait<R>(
@@ -669,4 +686,35 @@ fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&text[i..i + 2], 16).context("bad hex"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::address;
+
+    #[test]
+    fn familiar_addresses_dial_tcp() {
+        for (input, want) in [
+            ("192.0.2.7:7070", "/ip4/192.0.2.7/tcp/7070"),
+            ("[2001:db8::7]:7070", "/ip6/2001:db8::7/tcp/7070"),
+            ("node.example.org:7070", "/dns/node.example.org/tcp/7070"),
+            ("/ip6/::1/tcp/7070", "/ip6/::1/tcp/7070"),
+        ] {
+            assert_eq!(address(input).unwrap().to_string(), want, "{input}");
+        }
+    }
+
+    #[test]
+    fn ambiguous_addresses_are_refused() {
+        for bad in [
+            "node.example.org",
+            "2001:db8::7:7070",
+            "192.0.2.7",
+            "host:99999",
+            "/bad",
+        ] {
+            let error = address(bad).unwrap_err().to_string();
+            assert!(error.contains(bad), "{bad}: {error}");
+        }
+    }
 }

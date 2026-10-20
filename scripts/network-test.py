@@ -114,6 +114,8 @@ def start(bin_dir, storage, peers, processes, environments,
         # Local suite clients share loopback and outpace idle cleanup.
         env["DYAPPD_LIMITS_MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
         if not peers:
+            if loopback_v6():
+                env["DYAPPD_LISTEN"] = f'["127.0.0.1:{port}", "[::1]:{port}"]'
             env["DYAPPD_ROLES"] = '["store", "search", "media", "turn"]'
             env["DYAPPD_TURN_URLS"] = '["turn:127.0.0.1:3478"]'
             env["DYAPPD_TURN_SECRET"] = TURN_SECRET
@@ -137,6 +139,27 @@ def start(bin_dir, storage, peers, processes, environments,
             time.sleep(1)
         else:
             raise RuntimeError(f"Node did not start: {tcp}")
+    friendly_addresses(client)
+
+
+def loopback_v6():
+    """Whether this host can listen on ::1."""
+    try:
+        with socket.socket(socket.AF_INET6) as probe:
+            probe.bind(("::1", 0))
+        return True
+    except OSError:
+        return False
+
+
+def friendly_addresses(client):
+    """The client dials host:port with an IPv4, bracketed IPv6 or DNS host."""
+    forms = ["127.0.0.1:7071", "localhost:7071"]
+    if loopback_v6():
+        forms.append("[::1]:7071")
+    for addr in forms:
+        if call(client, "info", addr)["status"] != "STATUS_OK":
+            raise RuntimeError(f"info {addr} failed")
 
 
 def stop(processes, failed):
