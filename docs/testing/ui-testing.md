@@ -17,7 +17,8 @@ The shells call the Rust core for one value, a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
 identity and close; the Android, iOS and macOS UI tests and the desktop smoke also check that
-the peer ID is 64 lowercase hex characters.
+the peer ID is 64 lowercase hex characters. The Android UI test also recreates the activity and
+checks that the peer ID, unwrapped again from the stored identity key, stays the same.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|

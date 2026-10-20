@@ -164,10 +164,29 @@ pub enum CoreError {
     Failed(String),
 }
 
-/// A foreign `KeyStore` call that failed without a `CoreError`.
-impl From<uniffi::UnexpectedUniFFICallbackError> for CoreError {
+/// A failed [`KeyStore`] call. Unlike the flat `CoreError`, it can be thrown by the app.
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum WrapError {
+    /// The keystore's reason, for logs; it must not contain key material.
+    #[error("{reason}")]
+    Failed {
+        /// The keystore's reason.
+        reason: String,
+    },
+}
+
+/// The app threw something other than a `WrapError`.
+impl From<uniffi::UnexpectedUniFFICallbackError> for WrapError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
-        Self::Failed(error.reason)
+        Self::Failed {
+            reason: error.reason,
+        }
+    }
+}
+
+impl From<WrapError> for CoreError {
+    fn from(error: WrapError) -> Self {
+        Self::Failed(error.to_string())
     }
 }
 
@@ -182,9 +201,9 @@ pub fn generate_peer_id() -> String {
 #[uniffi::export(with_foreign)]
 pub trait KeyStore: Send + Sync {
     /// Encrypts a secret key; the app persists the result.
-    fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, CoreError>;
+    fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, WrapError>;
     /// Decrypts what `wrap` returned.
-    fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, CoreError>;
+    fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, WrapError>;
 }
 
 /// An Ed25519 identity or device key; its secret leaves Rust only through a [`KeyStore`].
@@ -219,7 +238,7 @@ impl IdentityKey {
     /// The secret encrypted by `store`, for the app to persist.
     pub fn wrap(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
         // ponytail: the FFI buffer that carries the secret to the app is freed, not wiped.
-        store.wrap(self.identity.secret().to_vec())
+        Ok(store.wrap(self.identity.secret().to_vec())?)
     }
 
     /// Hex SHA-256 of the public key.
@@ -280,13 +299,36 @@ mod tests {
     struct TestStore;
 
     impl KeyStore for TestStore {
-        fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+        fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, WrapError> {
             Ok(secret.iter().map(|byte| byte ^ 0x5a).collect())
         }
 
-        fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+        fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, WrapError> {
             self.wrap(wrapped)
         }
+    }
+
+    /// A keystore whose key is gone.
+    struct LostStore;
+
+    impl KeyStore for LostStore {
+        fn wrap(&self, _: Vec<u8>) -> Result<Vec<u8>, WrapError> {
+            Err(WrapError::Failed {
+                reason: "no key".to_string(),
+            })
+        }
+
+        fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, WrapError> {
+            self.wrap(wrapped)
+        }
+    }
+
+    #[test]
+    fn keystore_errors_reach_the_caller() {
+        let store: Arc<dyn KeyStore> = Arc::new(LostStore);
+        let error = IdentityKey::generate().wrap(store.clone()).unwrap_err();
+        assert_eq!(error.to_string(), "no key");
+        assert!(IdentityKey::unwrap(store, vec![0; 32]).is_err());
     }
 
     #[test]

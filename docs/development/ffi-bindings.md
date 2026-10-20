@@ -99,5 +99,5 @@ Android build does not use it.
 
 - Signed/notarized Apple release distribution; the release producer measures unsigned CI packages.
 - A drift check of the generated interface; the UI tests only call it.
-- FFI tests beyond the Android, iOS and macOS UI tests, which check the peer ID
-  from `generate_peer_id`.
+- FFI tests beyond the `dyapp-ffi` unit tests and the Android, iOS and macOS UI tests, which
+  check the peer ID the apps show.

@@ -27,10 +27,7 @@ class AppUITests {
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
         // The peer ID comes from the Rust core through the UniFFI bindings.
-        val peerId = compose.onNodeWithTag("peer-id").assertIsDisplayed()
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.Text]
-            .joinToString()
+        val peerId = shownPeerId()
         check(Regex("[0-9a-f]{64}").matches(peerId)) { "Unexpected peer ID: $peerId" }
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val ownsActiveWindow = {
@@ -48,10 +45,21 @@ class AppUITests {
         }
     }
 
+    private fun shownPeerId() = compose.onNodeWithTag("peer-id").assertIsDisplayed()
+        .fetchSemanticsNode()
+        .config[SemanticsProperties.Text]
+        .joinToString()
+
     @Test
-    fun recreationKeepsReadyScreen() {
+    fun recreationKeepsReadyScreenAndPeerId() {
+        val before = shownPeerId()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
+        // The new screen unwraps the stored key again, as a restarted app does.
+        check(shownPeerId() == before) { "Peer ID changed on recreation" }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        check(RustBridge.peerId(context) == before) { "Stored identity differs from the shown one" }
+        check(File(context.noBackupFilesDir, "identity.key").length() > 32) { "Key not wrapped" }
     }
 }

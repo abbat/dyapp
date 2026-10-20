@@ -44,7 +44,7 @@ layer cache, each image exists twice, in the buildx builder and, after `--load`,
 The apps are shells that call one core function at most:
 
 - `android/` loads `libdyapp_ffi.so` through the UniFFI Kotlin bindings and shows the peer ID
-  from `generate_peer_id`.
+  of its stored `IdentityKey`.
 - `ios/` and `macos/` link `DyappFFI.xcframework` through the UniFFI Swift bindings and show
   the peer ID from `generate_peer_id`.
 - `linux/` and `windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on

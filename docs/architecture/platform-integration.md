@@ -13,8 +13,8 @@ The exported surface, error model, ownership and threading are defined in
 generated Kotlin bindings, the iOS and macOS apps through generated Swift bindings.
 
 The code samples and directory trees below show the **target** wrapper API and
-layout. Apart from the one-call `RustBridge.kt` and `RustBridge.swift`, none of it
-exists yet.
+layout. Apart from `RustBridge.kt` with `PlatformKeyStore.kt` and the one-call
+`RustBridge.swift`, none of it exists yet.
 
 ## iOS (Swift)
 
@@ -54,7 +54,10 @@ platform/ios-swift/
 ### Setup
 
 The app build compiles `rust/ffi` per ABI and generates the Kotlin bindings; the
-app calls `uniffi.dyapp.generatePeerId()` through `RustBridge.kt`. See
+app shows the peer ID of its stored identity key through `RustBridge.kt`: the first
+start creates the key, `PlatformKeyStore.kt` wraps it with an AES-256-GCM key that
+never leaves the Android Keystore, and the blob lives in `noBackupFilesDir` (no
+backups; the wrapping key could not open a restored copy anyway). See
 [FFI bindings](../development/ffi-bindings.md#android). The sketch below is the target API.
 
 ### Integration (target sketch)

@@ -46,6 +46,8 @@ COVERED = {
         "docs/decisions/0009-message-delivery-and-storage.md",
     "94776c519116605dd2dd43c63d28eec1489803b0":
         "docs/decisions/0009-message-delivery-and-storage.md",
+    "c53624850a4face419b440802c38f5397a5e6aa1":
+        "docs/decisions/0004-identity-keys.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

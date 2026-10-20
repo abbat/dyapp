@@ -45,7 +45,7 @@ node, and there is no WebRTC signaling channel.
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers every served protocol ([bootstrap](bootstrap.md#served-protocol)), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon media (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; mailbox push, replication to five DHT points and repair |
 | Node | `rust/bootstrap/src/bin/dyappd/main.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Node client | `rust/bootstrap/src/bin/dyappd/client.rs` | prototype | `dyappd info` and the other libp2p client commands for the node protocol; used by network tests |
-| Android app | `android/` | skeleton | Shows the peer ID from `generate_peer_id` via UniFFI Kotlin bindings |
+| Android app | `android/` | skeleton | Shows the peer ID of its stored identity key, wrapped by the Android Keystore, via UniFFI Kotlin bindings |
 | iOS / macOS apps | `ios/`, `macos/` | skeleton | No Rust linkage |
 | Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
 | Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
