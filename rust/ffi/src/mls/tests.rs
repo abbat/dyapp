@@ -55,18 +55,22 @@ fn two_devices_exchange_messages_across_a_restart() {
         .unwrap();
     assert!(bob_device.load_group(b"none".to_vec()).unwrap().is_none());
 
+    // Long enough that the ciphertext never holds it by chance; two bytes did in 0.2% of runs.
+    let plaintext = b"a plaintext that must not leak!!".to_vec();
     let message = created
         .group
-        .encrypt(alice_device.clone(), b"hi".to_vec())
+        .encrypt(alice_device.clone(), plaintext.clone())
         .unwrap();
-    assert!(!message.windows(2).any(|w| w == b"hi"));
+    assert!(!message
+        .windows(plaintext.len())
+        .any(|w| w == plaintext.as_slice()));
     assert_eq!(
         bob_group
             .process(bob_device.clone(), message, profiles.clone())
             .unwrap(),
         MlsReceived::Message {
             sender: alice.peer_id(),
-            plaintext: b"hi".to_vec()
+            plaintext
         }
     );
     let mut members = bob_group.members().unwrap();
