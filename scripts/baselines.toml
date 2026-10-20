@@ -13,6 +13,7 @@ max_lines = 400
 
 [batches.exceptions]
 # Reasons for pushed commits that lack a Large-Change trailer; history is not rewritten.
+3ae99aab9795a045edeb99d803f054526338891b = "New operator manual and its translation; the trailer's wrapped line broke trailer parsing"
 c02b836c81146bdd82af6f4701ae179311ea3f33 = "Atomic missing_docs deny with the test extractions its size budgets required"
 b665f8eb6103cfae36c96750ab1b7e62216ece23 = "Search puzzle module with its tests and wiring; 3 lines over"
 57e927c8cd6ea510aa00ea4e082bca5c9d88b466 = "Atomic move of store requests off the swarm loop; node.rs reindented"
@@ -26,7 +27,7 @@ cadff2195a895330e55fd67efc7bf4ae9591fa21 = "Search candidate build with its test
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
-"dyapp-bootstrap" = 49
+"dyapp-bootstrap" = 48
 "dyapp-ffi" = 0
 "dyapp-identity" = 1
 "dyapp-messaging" = 4

@@ -117,8 +117,8 @@ step() {
             done
             ;;
         network)
-            # Two real dyappd peers on the loopback, test-peer as the client. cov-build already
-            # built both (cargo test builds a package's binaries when it has integration tests); a
+            # Real dyappd peers on the loopback; dyappd is also the client. cov-build already
+            # built it (cargo test builds a package's binaries when it has integration tests); a
             # separate `cargo build -p` would select different features and recompile crates.
             instrument
             python3 scripts/network-test.py --raw --local "$CARGO_TARGET_DIR/debug"

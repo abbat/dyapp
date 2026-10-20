@@ -773,7 +773,8 @@ async fn every_request_type() {
     let info = client.info().await;
     assert_eq!(status(info.status), Status::Ok);
     let info = info.info.unwrap();
-    assert_eq!(info.roles, [proto::Role::Store as i32]);
+    let roles = [proto::Role::Store as i32, proto::Role::Search as i32];
+    assert_eq!(info.roles, roles);
     assert_eq!(info.max_message_bytes, 100 * 1024);
 
     let identity = Identity::generate();

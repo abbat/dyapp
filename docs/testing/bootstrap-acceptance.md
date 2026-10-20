@@ -29,7 +29,7 @@ preserve runtime behavior, schema and assertions.
 | **Unit** | Module tests in process; networking tests also use real loopback sockets | `#[cfg(test)]` in `rust/bootstrap/src/*.rs`, `rust/p2p-net/src/lib.rs` | `make test` | ci-base `core` |
 | **Contract** | Golden wire/config fixtures and properties | `rust/bootstrap/tests/compatibility.rs`, `tests/properties.rs` | `make test` | ci-base `core` |
 | **Functional** | One real `node::run` on loopback TCP, libp2p clients in the test | `rust/bootstrap/tests/protocol.rs` | `make test` | ci-base `core` |
-| **E2E local** | Three `dyappd` processes on loopback, driven by `test-peer` | `scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
+| **E2E local** | Three `dyappd` processes on loopback, driven by `dyappd`'s client commands | `scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
 | **E2E Docker** | Three `dyappd` containers and a coturn relay on a Docker network | `docker/compose.network.yml`, `scripts/network-test.py` | `make test-integration` | no (local only) |
 | **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
 | **Rehearsal** | Cold start, two-holder canary, rolling upgrade from an older commit and rollback on three release `dyappd` with production defaults | `scripts/rehearsal.py` | `make rehearsal FROM=<git ref>` (`rust-check.sh rehearsal`) | manual `rehearsal.yml`, about 3 h |
@@ -205,8 +205,8 @@ Each accepted gap has a trigger that reopens it.
 5. **Time-driven behaviour** (profile expiry, hourly repair, keep expiry) stays covered by unit
    tests and aged fixture rows. A gated test mode with a controllable clock was analysed and
    deferred: no agreed check needs it, and the clock is read in many places.
-6. **Functional-layer clients**: `protocol.rs` uses in-process libp2p clients; `test-peer` is
-   exercised by the network suite. Accepted as enough.
+6. **Functional-layer clients**: `protocol.rs` uses in-process libp2p clients; `dyappd`'s client
+   commands are exercised by the network suite. Accepted as enough.
 
 ## Sign-off
 

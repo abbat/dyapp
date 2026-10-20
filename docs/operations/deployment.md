@@ -99,11 +99,11 @@ developer setup.
 
 ### Development quick start
 
-`test-peer` is the libp2p client CLI for scripts and manual checks
-([commands](../architecture/bootstrap.md#test-client)).
+`dyappd info` and the other [client commands](../architecture/bootstrap.md#client-commands) are the
+libp2p client for scripts and manual checks.
 
-**In Docker (no host Rust toolchain needed).** The network-test image builds `dyappd` and
-`test-peer` (`docker/Dockerfile.network-test`):
+**In Docker (no host Rust toolchain needed).** The network-test image builds `dyappd`
+(`docker/Dockerfile.network-test`):
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
@@ -112,23 +112,23 @@ make test-integration   # integration tests, three dyappd containers on an inter
 
 # Manual check in a throwaway, network-less container:
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
-  -e DYAPPD__STORAGE__DIR=/tmp/node dyapp:network-test bash -c '
-    export DYAPPD__NETWORK__ID_POW_BITS=8
+  -e DYAPPD_STORAGE_DIR=/tmp/node dyapp:network-test bash -c '
+    export DYAPPD_NETWORK_ID_POW_BITS=8
     target/debug/dyappd keygen
     target/debug/dyappd &
     sleep 3
-    target/debug/test-peer info /ip4/127.0.0.1/tcp/7070
+    target/debug/dyappd info /ip4/127.0.0.1/tcp/7070
     kill %1'
-# → {"max_profile_bytes":1048576,"roles":["ROLE_STORE"],"status":"STATUS_OK"}
+# → {"max_profile_bytes":1048576,"roles":["ROLE_STORE","ROLE_SEARCH"],"status":"STATUS_OK"}
 ```
 
 **With a local Rust 1.99 toolchain:**
 
 ```bash
-export DYAPPD__STORAGE__DIR=/tmp/ai/node DYAPPD__NETWORK__ID_POW_BITS=8
+export DYAPPD_STORAGE_DIR=/tmp/ai/node DYAPPD_NETWORK_ID_POW_BITS=8
 cargo run --package dyapp-bootstrap --bin dyappd -- keygen
 cargo run --package dyapp-bootstrap --bin dyappd &
-cargo run --package dyapp-bootstrap --bin test-peer -- info /ip4/127.0.0.1/tcp/7070
+cargo run --package dyapp-bootstrap --bin dyappd -- info /ip4/127.0.0.1/tcp/7070
 ```
 
 Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C compiler for the

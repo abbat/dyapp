@@ -1,6 +1,7 @@
 //! `dyappd [--config <file>] [--<section>.<key> <value>]...`: checks the config, opens the stores
-//! and runs the libp2p node. Any config problem stops the node before it opens a store or a
-//! socket. `dyappd --help` lists the options, one per config key.
+//! and runs the libp2p node. Without `--config` the first of `./dyappd.toml`, `~/dyappd.toml`
+//! and `/etc/dyappd.toml` that exists is read. Any config problem stops the node before it opens
+//! a store or a socket. `dyappd --help` lists the options, one per config key.
 //!
 //! `dyappd keygen [-] [--config <file>]`: makes the node key once (about a minute on 2 vCPU) and
 //! prints the peer ID; the node does not start without it. With `-` the key goes to stdout, for
@@ -10,8 +11,13 @@
 //! `<storage.dir>/deny.db`; a running node applies a change within 10 seconds.
 //! `dyappd deny received`: the lists other nodes shared, stored only.
 //!
-//! `dyappd status`: what the stores hold, read-only. Every subcommand runs as the owner of
+//! `dyappd id`: the peer ID, then `<external address>/<peer ID>` seed entries for other nodes.
+//!
+//! `dyappd status`: what the stores hold, read-only. These subcommands run as the owner of
 //! `storage.dir`, so the node can still write the files it opens.
+//!
+//! `dyappd info <multiaddr>` and the other [client] commands talk to a running node; they only
+//! read the config, for `network.name`.
 
 use dyapp_bootstrap::config::{options_help, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
@@ -27,20 +33,23 @@ use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-const USAGE: &str = "usage: dyappd [keygen [-] | status | deny add <entry> [note] | \
+mod client;
+
+const USAGE: &str = "usage: dyappd [keygen [-] | id | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
     let (mut file, mut options, mut command) = (None, Vec::new(), Vec::new());
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
             print!(
-                "{USAGE}\n\nOptions override the --config file and DYAPPD__ variables; a list \
-                 option is given once per item. Defaults:\n{}",
+                "{USAGE}\n{}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
+                 /etc/dyappd.toml that exists is read. Options override the config file and \
+                 DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
+                client::USAGE,
                 options_help()
             );
             return Ok(());
@@ -62,9 +71,23 @@ async fn main() -> anyhow::Result<()> {
             options.push((key, value));
         }
     }
+    // A subcommand prints its result to stdout, so its logs go to stderr.
+    if command.is_empty() {
+        tracing_subscriber::fmt::init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .init();
+    }
+    let file = file.or_else(default_file);
     let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
     for key in ignored {
         tracing::warn!("unknown config key ignored: {key}");
+    }
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
+    if let Some(output) = client::run(&config.network.name, &command).await? {
+        println!("{output}");
+        return Ok(());
     }
     config.validate()?;
     // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
@@ -76,7 +99,6 @@ async fn main() -> anyhow::Result<()> {
     }
     dyapp_p2p_net::set_id_pow_bits(config.network.id_pow_bits);
     dyapp_p2p_net::set_distinct_groups(config.network.distinct_outbound_groups);
-    let command: Vec<&str> = command.iter().map(String::as_str).collect();
     if command.first().is_some_and(|&c| c != "keygen") {
         let owner = std::fs::metadata(&config.storage.dir)?.uid();
         // SAFETY: geteuid has no preconditions.
@@ -98,18 +120,20 @@ async fn main() -> anyhow::Result<()> {
             );
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
+        ["id"] => print!("{}", id(&config)?),
         ["status"] => print!("{}", status(&config)),
         ["deny", rest @ ..] => deny(&config, rest)?,
-        _ => anyhow::bail!(USAGE),
+        _ => anyhow::bail!("{USAGE}\n{}", client::USAGE),
     }
     if !command.is_empty() {
         return Ok(());
     }
+    tracing::info!(file = ?file, "config");
     let keypair = config.node_key()?;
     config.bind_network()?;
-    let scrapes = match config.metrics.address()? {
-        Some(address) => Some(listener::bind(address).await?),
-        None => None,
+    let scrapes = match config.metrics.addresses() {
+        addresses if addresses.is_empty() => None,
+        addresses => Some(listener::bind(&addresses).await?),
     };
     let deny_signer = config
         .network
@@ -179,6 +203,16 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The first of `./dyappd.toml`, `~/dyappd.toml` and `/etc/dyappd.toml` that exists.
+fn default_file() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(|home| Path::new(&home).join("dyappd.toml"));
+    let etc = Some("/etc/dyappd.toml".into());
+    [Some(PathBuf::from("dyappd.toml")), home, etc]
+        .into_iter()
+        .flatten()
+        .find(|file| file.is_file())
+}
+
 /// `dyappd deny ...`, with `deny` stripped from `args`.
 fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
     let deny = DenyStore::open(&config.storage.deny_path())?;
@@ -217,6 +251,16 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
         _ => anyhow::bail!(USAGE),
     }
     Ok(())
+}
+
+/// The peer ID, then one `seeds` entry per `external` address for other nodes to pin this one.
+fn id(config: &NodeConfig) -> anyhow::Result<String> {
+    let path = config.storage.dir.join("node.id");
+    let peer_id = std::fs::read_to_string(&path)
+        .map_err(|e| anyhow::anyhow!("{}: {e}; run `dyappd keygen` once", path.display()))?;
+    let peer_id = peer_id.trim();
+    let seeds = config.external.iter().map(|a| format!("{a}/{peer_id}\n"));
+    Ok(format!("{peer_id}\n{}", seeds.collect::<String>()))
 }
 
 /// One `name value` line per count; a store not created yet shows `none`.

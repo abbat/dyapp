@@ -1,41 +1,42 @@
-//! Node protocol client for scripts that have no libp2p, Ed25519 or protobuf library. Each command
-//! prints one JSON object; a reply of any status exits 0, a transport failure exits non-zero.
+//! Node protocol client: `dyappd info` for operators, the rest for scripts that have no libp2p,
+//! Ed25519 or protobuf library. Each command prints one JSON object; a reply of any status exits
+//! 0, a transport failure exits non-zero.
 //!
-//! - `test-peer sign-profile [secret version]`: `{"peer_id", "record", "secret"}`, a signed profile;
-//! - `test-peer heartbeat <multiaddr> <secret hex>`: `{"status"}`, signed owner presence;
-//! - `test-peer info <multiaddr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
-//! - `test-peer publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
-//! - `test-peer get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
-//! - `test-peer device-key`: `{"secret", "mailbox"}`, a fresh device key and its mailbox address;
-//! - `test-peer put <multiaddr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
+//! - `dyappd sign-profile [secret version]`: `{"peer_id", "record", "secret"}`, a signed profile;
+//! - `dyappd heartbeat <multiaddr> <secret hex>`: `{"status"}`, signed owner presence;
+//! - `dyappd info <multiaddr>`: `{"status", "peer_id", "roles", "max_profile_bytes"}`;
+//! - `dyappd publish <multiaddr> <record hex>`: `{"status"}`, plus `"record"` when stale;
+//! - `dyappd get <multiaddr> <peer_id hex>`: `{"status", "record"}`;
+//! - `dyappd device-key`: `{"secret", "mailbox"}`, a fresh device key and its mailbox address;
+//! - `dyappd put <multiaddr> <mailbox hex> <ciphertext hex>`: `{"status", "id"}`, an envelope
 //!   signed by a fresh sender key;
-//! - `test-peer fetch <multiaddr> <secret hex>`: `{"status", "ids", "more"}`;
-//! - `test-peer ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`;
-//! - `test-peer closest <multiaddr> <key hex>`: `{"peers"}`, the nodes a DHT lookup through the
+//! - `dyappd fetch <multiaddr> <secret hex>`: `{"status", "ids", "more"}`;
+//! - `dyappd ack <multiaddr> <secret hex> <id hex>...`: `{"status"}`;
+//! - `dyappd closest <multiaddr> <key hex>`: `{"peers"}`, the nodes a DHT lookup through the
 //!   node finds closest to the key, closest first;
-//! - `test-peer replicate <multiaddr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
+//! - `dyappd replicate <multiaddr> <peer_id hex> <record hex>`: `{"holders"}`, publishes each
 //!   of the `REPLICAS` replicas of a profile to the node closest to its replica key;
-//! - `test-peer flood <multiaddr> <n>`: the count of each status (`"failed"` for no reply) of `n`
+//! - `dyappd flood <multiaddr> <n>`: the count of each status (`"failed"` for no reply) of `n`
 //!   profile gets sent at once on one connection;
-//! - `test-peer watch <multiaddr> <secret hex>`: `{"status", "id", "pushed"}`, fetches with
+//! - `dyappd watch <multiaddr> <secret hex>`: `{"status", "id", "pushed"}`, fetches with
 //!   `watch`, puts an envelope to the mailbox from another connection and returns the ids the
 //!   node pushed back;
-//! - `test-peer put-replicas <multiaddr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
+//! - `dyappd put-replicas <multiaddr> <mailbox hex>`: `{"id", "holders"}`, puts one envelope
 //!   to the node closest to each replica key of the mailbox;
-//! - `test-peer media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
+//! - `dyappd media <multiaddr> <data hex>`: `{"keep", "put", "get"}`, the status of each
 //!   step: a fresh owner keeps the blob's hash, puts the blob and gets it back; `"get"` is
 //!   `"CHANGED"` if the blob came back different;
-//! - `test-peer media-sized <multiaddr> <bytes> <32-byte seed hex>`: the same round trip
+//! - `dyappd media-sized <multiaddr> <bytes> <32-byte seed hex>`: the same round trip
 //!   with owner details, repeating the seed to generate a large blob without a large CLI argument;
-//! - `test-peer media-refresh <multiaddr> <record hex> <secret hex>`: signs a newer keep and
+//! - `dyappd media-refresh <multiaddr> <record hex> <secret hex>`: signs a newer keep and
 //!   returns `{"status", "missing", "keep_record"}`;
-//! - `test-peer turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
-//! - `test-peer relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
+//! - `dyappd turn <multiaddr>`: `{"status", "username", "password", "urls", "expires"}`;
+//! - `dyappd relays <multiaddr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
 //! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
 //! `fetch` and `ack` ask for a challenge and sign it on one connection. Every connection speaks
-//! the network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty; an
-//! invalid name is an error.
+//! the network of the config's `network.name`. These commands only read the config: they need
+//! neither the node key nor the owner of `storage.dir`.
 
 use anyhow::{anyhow, bail, Context};
 use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -57,24 +58,45 @@ use prost::Message;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let args: Vec<&str> = args.iter().map(String::as_str).collect();
-    let output = match args.as_slice() {
+pub const USAGE: &str = "client: dyappd info <addr> | turn <addr> | relays <addr> | \
+    closest <addr> <key> | sign-profile [secret version] | heartbeat <addr> <secret> | \
+    publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | \
+    put-local <addr> <mailbox> <hex> [bits] | fetch <addr> <secret> | ack <addr> <secret> <id>... | \
+    replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | \
+    put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | \
+    media-sized <addr> <bytes> <seed> | media-keep <addr> <record> | \
+    media-refresh <addr> <record> <secret> | media-get <addr> <hash>";
+
+/// The network every connection speaks, set once by `run`.
+static NETWORK: OnceLock<Arc<Protocols>> = OnceLock::new();
+
+/// Runs a client command and returns its JSON output, or `None` when `args` is not one.
+pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> {
+    let protocols = Protocols::new(network).context("network.name")?;
+    NETWORK.get_or_init(|| Arc::new(protocols));
+    let output = match args {
         ["sign-profile"] => sign_profile(&Identity::generate(), 1),
         ["sign-profile", secret, version] => {
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let secret: [u8; 32] = unhex(secret)?
+                .try_into()
+                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
             sign_profile(&Identity::from_secret(&secret), version.parse()?)
         }
         ["heartbeat", addr, secret] => {
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let secret: [u8; 32] = unhex(secret)?
+                .try_into()
+                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
             let record = Identity::from_secret(&secret).sign(
                 Domain::Heartbeat,
-                proto::Heartbeat { time: chrono::Utc::now().timestamp().unsigned_abs(), version: 0, ..Default::default() }.encode_to_vec(),
+                proto::Heartbeat {
+                    time: chrono::Utc::now().timestamp().unsigned_abs(),
+                    version: 0,
+                    ..Default::default()
+                }
+                .encode_to_vec(),
             );
             timeout(profile(addr, profile_request::Request::Heartbeat(record))).await?
         }
@@ -83,8 +105,12 @@ async fn main() -> anyhow::Result<()> {
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
         ["device-key"] => device_key(),
         ["put", addr, mailbox, ciphertext] => put(addr, mailbox, ciphertext, None).await?,
-        ["put-local", addr, mailbox, ciphertext] => put(addr, mailbox, ciphertext, Some(dyapp_p2p_net::ID_POW_BITS)).await?,
-        ["put-local", addr, mailbox, ciphertext, bits] => put(addr, mailbox, ciphertext, Some(bits.parse()?)).await?,
+        ["put-local", addr, mailbox, ciphertext] => {
+            put(addr, mailbox, ciphertext, Some(dyapp_p2p_net::ID_POW_BITS)).await?
+        }
+        ["put-local", addr, mailbox, ciphertext, bits] => {
+            put(addr, mailbox, ciphertext, Some(bits.parse()?)).await?
+        }
         ["fetch", addr, secret] => timeout(fetch(addr, secret)).await?,
         ["ack", addr, secret, ids @ ..] => timeout(ack(addr, secret, ids)).await?,
         ["closest", addr, key] => timeout(closest(addr, key)).await?,
@@ -105,9 +131,13 @@ async fn main() -> anyhow::Result<()> {
         ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
         ["media-sized", addr, size, seed] => {
             let size: usize = size.parse()?;
-            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES { bail!("blob exceeds 6 MiB"); }
+            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES {
+                bail!("blob exceeds 6 MiB");
+            }
             let seed = unhex(seed)?;
-            if seed.len() != 32 { bail!("seed must be 32 bytes"); }
+            if seed.len() != 32 {
+                bail!("seed must be 32 bytes");
+            }
             let data: Vec<_> = seed.into_iter().cycle().take(size).collect();
             timeout(media(addr, &hex(&data), true)).await?
         }
@@ -120,9 +150,16 @@ async fn main() -> anyhow::Result<()> {
             let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
             keep.version += 1;
             keep.time = chrono::Utc::now().timestamp().unsigned_abs();
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| anyhow!("secret must be 32 bytes"))?;
-            let record = Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
-            let mut response = timeout(media_call(addr, media_request::Request::Keep(record.clone()))).await?;
+            let secret: [u8; 32] = unhex(secret)?
+                .try_into()
+                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let record =
+                Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
+            let mut response = timeout(media_call(
+                addr,
+                media_request::Request::Keep(record.clone()),
+            ))
+            .await?;
             response["keep_record"] = hex(&record.encode_to_vec()).into();
             response
         }
@@ -132,10 +169,9 @@ async fn main() -> anyhow::Result<()> {
         }
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
-        _ => bail!("usage: test-peer sign-profile [secret version] | heartbeat <addr> <secret> | info <addr> | publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | put-local <addr> <mailbox> <hex> | fetch <addr> <secret> | ack <addr> <secret> <id>... | closest <addr> <key> | replicate <addr> <peer_id> <hex> | flood <addr> <n> | watch <addr> <secret> | put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | media-keep <addr> <record> | media-refresh <addr> <record> <secret> | media-get <addr> <hash> | turn <addr> | relays <addr>"),
+        _ => return Ok(None),
     };
-    println!("{output}");
-    Ok(())
+    Ok(Some(output))
 }
 
 fn sign_profile(identity: &Identity, version: u64) -> Value {
@@ -561,16 +597,6 @@ async fn mailbox_call(
     .await
 }
 
-/// The network named by `DYAPPD__NETWORK__NAME`, the public one when it is unset or empty.
-fn network() -> anyhow::Result<Protocols> {
-    let name = match std::env::var("DYAPPD__NETWORK__NAME") {
-        Ok(name) => name,
-        Err(std::env::VarError::NotPresent) => String::new(),
-        Err(e) => bail!("DYAPPD__NETWORK__NAME: {e}"),
-    };
-    Protocols::new(&name).context("DYAPPD__NETWORK__NAME")
-}
-
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
 async fn connect(addr: &str) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
     connect_with_key(addr, Keypair::generate_ed25519()).await
@@ -584,7 +610,7 @@ async fn connect_with_key(
         keypair,
         SwarmOptions {
             mode: Mode::Client,
-            protocols: Arc::new(network()?),
+            protocols: NETWORK.get().context("network not set")?.clone(),
             ..SwarmOptions::default()
         },
     )?;

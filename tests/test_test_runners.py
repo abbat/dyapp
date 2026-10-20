@@ -217,7 +217,7 @@ class Runners(unittest.TestCase):
             "network_test", ROOT / "scripts/network-test.py")
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
-        environment = {"DYAPPD__STORAGE__DIR": "/storage/7071"}
+        environment = {"DYAPPD_STORAGE_DIR": "/storage/7071"}
 
         def spawn(command, **kwargs):
             os.write(kwargs["stdout"], b"node output\n")

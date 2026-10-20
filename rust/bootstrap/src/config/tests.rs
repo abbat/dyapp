@@ -39,7 +39,7 @@ proptest! {
         let file = dir.join("config.toml");
         fs::write(&file, format!("[limits]\nrequests_per_second = {file_value}\n"))?;
         let env = if use_env {
-            vec![("DYAPPD__LIMITS__REQUESTS_PER_SECOND".into(), env_value.to_string())]
+            vec![("DYAPPD_LIMITS_REQUESTS_PER_SECOND".into(), env_value.to_string())]
         } else {
             vec![]
         };
@@ -114,12 +114,15 @@ fn file_then_env_overrides_and_unknown_keys() {
     )
     .unwrap();
     let env = [
-        ("DYAPPD__LIMITS__MESSAGE_TTL_HOURS".into(), "72".into()),
-        ("DYAPPD__STORAGE__DIR".into(), "/srv/node".into()),
+        ("DYAPPD_LIMITS_MESSAGE_TTL_HOURS".into(), "72".into()),
+        ("DYAPPD_STORAGE_DIR".into(), "/srv/node".into()),
+        ("DYAPPD_SEEDS".into(), "[\"seed.example:7070\"]".into()),
+        ("DYAPPD_LIMITS_PAST_KEY".into(), "1".into()),
         ("OTHER".into(), "x".into()),
     ];
     let (config, ignored) = NodeConfig::load(Some(&file), env, &[]).unwrap();
     assert_eq!(config.listen, ["127.0.0.1:7071"]);
+    assert_eq!(config.seeds, ["seed.example:7070"]);
     assert_eq!(config.limits.message_ttl_hours, 72);
     assert_eq!(config.limits.requests_per_second, 100);
     assert_eq!(config.storage.dir, PathBuf::from("/srv/node"));
@@ -127,12 +130,17 @@ fn file_then_env_overrides_and_unknown_keys() {
         config.storage.messages_path(),
         PathBuf::from("/srv/node/messages.db")
     );
-    assert_eq!(ignored, ["future_key"]);
+    assert_eq!(ignored, ["future_key", "limits.past_key"]);
+    // A variable name ends its section at the first `_`.
+    let defaults = toml::Value::try_from(NodeConfig::default()).unwrap();
+    for (name, value) in defaults.as_table().unwrap() {
+        assert!(!(value.is_table() && name.contains('_')), "section {name}");
+    }
 }
 
 #[test]
 fn options_override_env() {
-    let env = [("DYAPPD__LIMITS__MAX_CONNECTIONS".into(), "5".into())];
+    let env = [("DYAPPD_LIMITS_MAX_CONNECTIONS".into(), "5".into())];
     let options = [
         ("limits.max-connections", "7"),
         ("listen", "[::]:7070"),

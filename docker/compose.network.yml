@@ -25,20 +25,20 @@ x-peer: &peer
     - >-
       bash scripts/check-container-isolation.sh
       && ip=$$(getent hosts "$$HOSTNAME" | cut -d " " -f 1)
-      && export DYAPPD__EXTERNAL="[\"$$ip:7070\"]"
+      && export DYAPPD_EXTERNAL="[\"$$ip:7070\"]"
       && { test -e /tmp/node/node.key || target/debug/dyappd keygen; }
       && exec target/debug/dyappd
   environment: &env
     # The default listens on loopback only.
-    DYAPPD__LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
-    DYAPPD__STORAGE__DIR: /tmp/node
-    DYAPPD__ROLES: '["store", "media"]'
+    DYAPPD_LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
+    DYAPPD_STORAGE_DIR: /tmp/node
+    DYAPPD_ROLES: '["store", "search", "media"]'
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
-    DYAPPD__NETWORK__ID_POW_BITS: "8"
+    DYAPPD_NETWORK_ID_POW_BITS: "8"
     # Every test node shares one /16.
-    DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS: "false"
+    DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS: "false"
     # Repair and ack forwarding run seconds after the nodes meet.
-    DYAPPD__NETWORK__STORAGE_TRUST_MINUTES: "0"
+    DYAPPD_NETWORK_STORAGE_TRUST_MINUTES: "0"
   healthcheck:
     test: [CMD, python3, /workspace/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/7070]
     interval: 5s
@@ -66,14 +66,14 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__ROLES: '["store", "media", "turn"]'
-      DYAPPD__TURN__URLS: '["turn:turn:3478"]'
-      DYAPPD__TURN__SECRET: network-test-secret
+      DYAPPD_ROLES: '["store", "search", "media", "turn"]'
+      DYAPPD_TURN_URLS: '["turn:turn:3478"]'
+      DYAPPD_TURN_SECRET: network-test-secret
   bootstrap-b:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__SEEDS: '["bootstrap-a:7070"]'
+      DYAPPD_SEEDS: '["bootstrap-a:7070"]'
     # A node dials its seed once, at start.
     depends_on:
       bootstrap-a:
@@ -83,8 +83,8 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD__SEEDS: '["bootstrap-a:7070"]'
-      DYAPPD__LIMITS__REQUESTS_PER_SECOND: "5"
+      DYAPPD_SEEDS: '["bootstrap-a:7070"]'
+      DYAPPD_LIMITS_REQUESTS_PER_SECOND: "5"
     depends_on:
       bootstrap-a:
         condition: service_healthy

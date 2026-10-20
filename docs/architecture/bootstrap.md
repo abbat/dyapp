@@ -4,8 +4,8 @@
 
 A bootstrap node (`dyappd`) serves owner-signed profiles and per-device mailboxes over
 libp2p ([Served protocol](#served-protocol)), pushes new envelopes to watching devices and
-repairs mailbox, profile and media replicas node to node; an experimental [profile search](#search)
-runs as its own role, and signaling is planned.
+repairs mailbox, profile and media replicas node to node; [profile search](#search)
+runs as its own role, on by default, and signaling is planned.
 
 > ⚠️ The server stores whatever bytes clients send as envelope ciphertext; no client encrypts
 > yet. Profile writes need the owner's signature; mailbox reads and deletes need the device's.
@@ -14,7 +14,7 @@ runs as its own role, and signaling is planned.
 **Key principles:**
 - **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
-- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the experimental [search role](#search)
+- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the [search role](#search)
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network**: open, anyone may run a node, Kademlia DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md), [P2P networking](p2p-networking.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
@@ -23,7 +23,7 @@ runs as its own role, and signaling is planned.
 
 Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profile`,
 `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search` and `/dyapp/inventory`,
-the store, media and TURN roles, the experimental search role (gossipsub, `/dyapp/search-kad`,
+the store, media and TURN roles, the search role (gossipsub, `/dyapp/search-kad`,
 `profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
@@ -158,7 +158,7 @@ confirm two. At most 64 fan-outs are active, each for 10 seconds; excess or time
 `FULL`, so the client tries another key. Other holders are filled in the background after the
 reply, without a persistent queue. A profile holder with an equal or newer verified record
 counts as stored and supplies the highest confirmed stale record in a `STALE` reply.
-The app clients do not call this protocol yet; `test-peer` exercises the single-upload path.
+The app clients do not call this protocol yet; `dyappd put` exercises the single-upload path.
 
 Media keys use the blob's SHA-256. The acceptor carries a persisted signed keep or attachment
 in `MediaReplicaPut`; a receiver independently verifies it and never forwards it. A keep is
@@ -275,9 +275,6 @@ resent from the sender's retry queue.
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 
 ### Search
-
-> ⚠️ Experimental: no shipped or seed config enables the role, and the index rebuild runs only
-> on an index version bump, which no release has shipped yet.
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
@@ -901,35 +898,37 @@ then trusts it as the owner's own claim, not as fact:
   target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)). The node checks
   nothing beyond the signature: it would accept `17`.
 
-### Test client
+### Client commands
 
-`test-peer` is a libp2p client for scripts (`rust/bootstrap/src/bin/test-peer.rs`); each command
-prints one JSON object:
+`dyappd` is also a libp2p client for operators and scripts
+(`rust/bootstrap/src/bin/dyappd/client.rs`). These commands read the config only for
+`network.name`: they need neither the node key nor the owner of `storage.dir`. Each prints one
+JSON object:
 
 ```
-test-peer sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
-test-peer heartbeat <multiaddr> <secret hex> → {"status"}
-test-peer info    /ip4/127.0.0.1/tcp/7070   → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
-test-peer publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
-test-peer get     <multiaddr> <peer_id hex> → {"status", "record"}
-test-peer device-key                        → {"secret", "mailbox"}
-test-peer put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
-test-peer put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
-test-peer put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
-test-peer watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
-test-peer fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
-test-peer ack     <multiaddr> <secret hex> <id hex>... → {"status"}
-test-peer closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
-test-peer replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
-test-peer flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
-test-peer media   <multiaddr> <data hex>    → {"keep", "put", "get"}
-test-peer media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
-test-peer media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
-test-peer media-keep <multiaddr> <record hex> → {"status", "data", "missing"}
-test-peer media-refresh <multiaddr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
-test-peer media-get <multiaddr> <hash hex>  → {"status", "data"}
-test-peer turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
-test-peer relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
+dyappd sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
+dyappd heartbeat <multiaddr> <secret hex> → {"status"}
+dyappd info    /ip6/::1/tcp/7070         → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
+dyappd publish <multiaddr> <record hex>  → {"status"} (+ "record" when stale)
+dyappd get     <multiaddr> <peer_id hex> → {"status", "record"}
+dyappd device-key                        → {"secret", "mailbox"}
+dyappd put     <multiaddr> <mailbox hex> <ciphertext hex> → {"status", "id"}
+dyappd put-replicas <multiaddr> <mailbox hex> → {"status", "id", "holders"}
+dyappd put-local <multiaddr> <mailbox hex> <ciphertext hex> [node-pow-bits] → {"status", "id"} (replica_put fixture)
+dyappd watch   <multiaddr> <secret hex>  → {"status", "id", "pushed"}
+dyappd fetch   <multiaddr> <secret hex>  → {"status", "ids", "more"}
+dyappd ack     <multiaddr> <secret hex> <id hex>... → {"status"}
+dyappd closest <multiaddr> <key hex>     → {"peers"}   (DHT lookup through the node)
+dyappd replicate <multiaddr> <peer_id hex> <record hex> → {"holders"}
+dyappd flood   <multiaddr> <n>           → {"<status>": count, "failed": count}
+dyappd media   <multiaddr> <data hex>    → {"keep", "put", "get"}
+dyappd media-owned <multiaddr> <data hex> → media statuses + details {owner, hash, keep_record}
+dyappd media-sized <multiaddr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
+dyappd media-keep <multiaddr> <record hex> → {"status", "data", "missing"}
+dyappd media-refresh <multiaddr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
+dyappd media-get <multiaddr> <hash hex>  → {"status", "data"}
+dyappd turn    <multiaddr>               → {"status", "username", "password", "urls", "expires"}
+dyappd relays  <multiaddr>               → {"providers"}   (TURN relays in the DHT)
 ```
 
 `put` signs with a fresh sender key; `fetch` and `ack` get a challenge and use it on one
@@ -1218,7 +1217,8 @@ message files beat deletes.
 ## Configuration
 
 `NodeConfig` (`rust/bootstrap/src/config.rs`) is read by `dyappd`: defaults, then a TOML
-file (`--config`), then `DYAPPD__<SECTION>__<KEY>` variables, then `--<section>.<key> <value>`
+file (`--config`, else the first of `./dyappd.toml`, `~/dyappd.toml`, `/etc/dyappd.toml`),
+then `DYAPPD_<SECTION>_<KEY>` variables, then `--<section>.<key> <value>`
 options (unknown ones refused; `--help` prints them from `rust/bootstrap/dyappd.toml`, which a
 test keeps equal to the defaults). Every field has a default and
 unknown keys are logged and ignored, so configs work across upgrades and rollbacks. Keys:
@@ -1241,7 +1241,7 @@ the role); the
 example and startup checks are in [operator manual](../manuals/bootstrap.md#configuration). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). The `store`, `media`, `turn`
-and experimental `search` roles are accepted, the last three only together with `store`. On start it dials its
+and `search` roles are accepted, the last three only together with `store`. On start it dials its
 anchors, then fills the routing table from the peer cache; the seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
@@ -1358,11 +1358,12 @@ sets `storage_read_ok` to 0 and drops the size samples rather than reporting zer
 
 ### Metrics listener
 
-`[metrics] listen` turns on an HTTP/1.x listener in the node process; it is empty, and the
-listener off, by default. The address is a loopback `ip:port` such as `127.0.0.1:9464` or
-`[::1]:9464`: startup refuses any other address, a hostname or port 0, because the endpoint has
-no authentication, and fails when the address cannot be bound. The listener and the 5-minute
-storage snapshots run only when it is set; they stop with the process.
+`[metrics] port` turns on an HTTP/1.x listener in the node process; it is 0, and the listener
+off, by default. The listener binds only the loopback addresses `[::1]` and `127.0.0.1` at that
+port, because the endpoint has no authentication. An address the host cannot open, such as `[::1]`
+without IPv6, is skipped with a warning; startup fails when the port is taken on either address
+or neither opens. The listener and the 5-minute storage snapshots run only when the port is set;
+they stop with the process.
 
 It answers one request per connection and closes it. `GET /metrics` returns the families above
 with `Content-Type: text/plain; version=0.0.4; charset=utf-8`; another method on that path gets
@@ -1414,7 +1415,7 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 
 
 The network test (`scripts/network-test.py`) runs three `dyappd` instances, all with
-roles `store` and `media` (only the first also serves TURN), and drives them with `test-peer`: `info` over TCP and QUIC, publish
+roles `store`, `search` and `media` (only the first also serves TURN), and drives them with `dyappd`'s client commands: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a
 media keep, put and get; 512 KiB whole-copy and 3 MiB sharded uploads readable on all three
@@ -1439,14 +1440,14 @@ CI) repeats the suite's mailbox and media load on three release nodes for 5 minu
 the flood limit, and fails when a node's resident memory peak in the second half exceeds the first
 half's by more than 10 %.
 The Docker network compose mounts the current checkout and the dev build volume read-only;
-run `make test` first to build the current `dyappd` and `test-peer` binaries.
+run `make test` first to build the current `dyappd` binary.
 
 ## Limitations & Future
 
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Ranged media reads and assembly caching remain planned
-- The search role is experimental: a version bump does not activate a rebuilt index yet, and expiry drops at most 4096 silent keys an hour
+- Search expiry drops at most 4096 silent keys an hour
 - No audit logging
 
 Planned changes: see [Target Design](#target-design--planned).

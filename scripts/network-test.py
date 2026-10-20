@@ -1,6 +1,6 @@
 """Exercise the libp2p node protocol on three dyappd peers.
 
-`test-peer` is the client: the script has no libp2p library. Without
+`dyappd` is also the client: the script has no libp2p library. Without
 arguments the peers are the neighboring Docker containers; `--local BIN_DIR`
 starts three dyappd processes from BIN_DIR on the loopback instead and
 also stops one to check that replicas skip a departed node, checks the deny
@@ -31,7 +31,7 @@ import time
 from capture import Capture
 from memory_report import write_report
 
-CLIENT = "/workspace/target/debug/test-peer"
+CLIENT = "/workspace/target/debug/dyappd"
 FLOOD_LIMIT = 5
 # Node-ID proof of work of the test nodes, as in docker/compose.network.yml.
 POW_BITS = "8"
@@ -52,7 +52,7 @@ def call(client, *args, env=None):
                             timeout=90, env=env)
     if result.returncode:
         raise subprocess.SubprocessError(
-            f"test-peer {args[0]}: {result.stderr.strip()}")
+            f"dyappd {args[0]}: {result.stderr.strip()}")
     return json.loads(result.stdout)
 
 
@@ -73,7 +73,7 @@ def start_node(bin_dir, environment):
     """Capture every incarnation of a local node in its port's buffer."""
     if environment.get("DYAPP_VERBOSE") == "1":
         return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment)
-    port = Path(environment["DYAPPD__STORAGE__DIR"]).name
+    port = Path(environment["DYAPPD_STORAGE_DIR"]).name
     output, drain = LOGS.setdefault(port, Capture()).pipe()
     DRAINS.append(drain)
     try:
@@ -97,35 +97,35 @@ def start(bin_dir, storage, peers, processes, environments,
     lists, fetching them every maintenance minute, and with `flood` limits
     every peer to FLOOD_LIMIT requests per second.
     """
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     for port in (7071, 7072, 7073):
         tcp, quic = addresses("127.0.0.1", port)
         env = {**os.environ,
-               "DYAPPD__LISTEN": f'["127.0.0.1:{port}"]',
-               "DYAPPD__EXTERNAL": f'["127.0.0.1:{port}"]',
-               "DYAPPD__STORAGE__DIR": f"{storage}/{port}",
-               "DYAPPD__ROLES": '["store", "media"]',
-               "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
+               "DYAPPD_LISTEN": f'["127.0.0.1:{port}"]',
+               "DYAPPD_EXTERNAL": f'["127.0.0.1:{port}"]',
+               "DYAPPD_STORAGE_DIR": f"{storage}/{port}",
+               "DYAPPD_ROLES": '["store", "search", "media"]',
+               "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
                # Loopback nodes share one /16.
-               "DYAPPD__NETWORK__DISTINCT_OUTBOUND_GROUPS": "false",
+               "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
                # Repair and ack forwarding run seconds after
                # the nodes meet.
-               "DYAPPD__NETWORK__STORAGE_TRUST_MINUTES": "0"}
+               "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES": "0"}
         if not flood:
             # Plateau clients share loopback and outpace idle cleanup.
-            env["DYAPPD__LIMITS__MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
+            env["DYAPPD_LIMITS_MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
         if not peers:
-            env["DYAPPD__ROLES"] = '["store", "media", "turn"]'
-            env["DYAPPD__TURN__URLS"] = '["turn:127.0.0.1:3478"]'
-            env["DYAPPD__TURN__SECRET"] = TURN_SECRET
-            env["DYAPPD__NETWORK__SHARE_DENY_LIST"] = "true"
+            env["DYAPPD_ROLES"] = '["store", "search", "media", "turn"]'
+            env["DYAPPD_TURN_URLS"] = '["turn:127.0.0.1:3478"]'
+            env["DYAPPD_TURN_SECRET"] = TURN_SECRET
+            env["DYAPPD_NETWORK_SHARE_DENY_LIST"] = "true"
         if peers:
-            env["DYAPPD__SEEDS"] = '["127.0.0.1:7071"]'
+            env["DYAPPD_SEEDS"] = '["127.0.0.1:7071"]'
         if port == 7073 and flood:
-            env["DYAPPD__LIMITS__REQUESTS_PER_SECOND"] = str(FLOOD_LIMIT)
+            env["DYAPPD_LIMITS_REQUESTS_PER_SECOND"] = str(FLOOD_LIMIT)
         if port == 7073:
-            env["DYAPPD__NETWORK__ACCEPT_DENY_LISTS"] = "true"
-            env["DYAPPD__MAINTENANCE__INTERVAL_MINUTES"] = "1"
+            env["DYAPPD_NETWORK_ACCEPT_DENY_LISTS"] = "true"
+            env["DYAPPD_MAINTENANCE_INTERVAL_MINUTES"] = "1"
         subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
                        check=True, stdout=subprocess.DEVNULL)
         environments.append(env)
@@ -162,7 +162,7 @@ def stop(processes, failed):
 
 def local(bin_dir):
     """Run the suite against three loopback nodes with separate storage."""
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []
@@ -212,10 +212,10 @@ def named_network(client, bin_dir, storage, processes):
     storage refuses a start under another name."""
     tcp, _ = addresses("127.0.0.1", 7074)
     env = {**os.environ,
-           "DYAPPD__LISTEN": '["127.0.0.1:7074"]',
-           "DYAPPD__STORAGE__DIR": f"{storage}/7074",
-           "DYAPPD__NETWORK__ID_POW_BITS": POW_BITS,
-           "DYAPPD__NETWORK__NAME": "lab"}
+           "DYAPPD_LISTEN": '["127.0.0.1:7074"]',
+           "DYAPPD_STORAGE_DIR": f"{storage}/7074",
+           "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
+           "DYAPPD_NETWORK_NAME": "lab"}
     dyappd(bin_dir, env, "keygen")
     if (Path(storage) / "7074" / "network").read_text() != "lab":
         raise RuntimeError("keygen did not bind the storage to lab")
@@ -238,7 +238,7 @@ def named_network(client, bin_dir, storage, processes):
         raise RuntimeError("A public client reached the lab node")
     processes[-1].terminate()
     processes[-1].wait()
-    public = {k: v for k, v in env.items() if k != "DYAPPD__NETWORK__NAME"}
+    public = {k: v for k, v in env.items() if k != "DYAPPD_NETWORK_NAME"}
     result = subprocess.run([f"{bin_dir}/dyappd"], env=public,
                             capture_output=True, text=True, timeout=30)
     if result.returncode == 0 or "storage belongs to" not in result.stderr:
@@ -254,7 +254,7 @@ def plateau(bin_dir):
     The first round warms caches up. Afterwards the peak of the second half
     may exceed the peak of the first half by PLATEAU_GROWTH at most.
     """
-    client = f"{bin_dir}/test-peer"
+    client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
         peers, processes, environments = [], [], []

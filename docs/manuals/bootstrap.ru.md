@@ -38,7 +38,7 @@
 | `store` | Профили, почтовые ящики и каталог сети (Kademlia DHT). Базовая роль; она нужна и всем остальным ролям. |
 | `media` | Медиаблобы: аватары и вложения чатов. |
 | `turn` | Короткоживущие пароли для ретранслятора coturn, работающего рядом с узлом ([TURN-ретранслятор](#turn-ретранслятор)). Звонки не входят в первый выпуск. |
-| `search` | Экспериментальный поиск профилей ([Search](../architecture/bootstrap.md#search)). На публичных узлах держите выключенным. |
+| `search` | Поиск профилей ([Search](../architecture/bootstrap.md#search)). Включена по умолчанию. |
 
 Каждая запись целиком реплицируется в пять точек DHT и подтверждается, когда её сохранили два
 разных узла; медиа больше 1 МиБ разбиваются на шарды Рида — Соломона. Узлы сами восстанавливают
@@ -125,7 +125,7 @@ docker volume create dyappd
 run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
 $run dyappd:latest keygen              # один раз: около минуты на 2 vCPU
 $run -d --name dyappd --memory 1g -p 7070:7070/tcp -p 7070:7070/udp \
-    -e DYAPPD__SEEDS='["seed.example.org:7070"]' dyappd:latest
+    -e DYAPPD_SEEDS='["seed.example.org:7070"]' dyappd:latest
 docker exec dyappd dyappd deny add <entry> [note]   # применяется в течение 10 с
 docker exec dyappd dyappd status
 docker logs dyappd
@@ -136,10 +136,11 @@ docker logs dyappd
 65532 и пишет только в `/var/lib/dyappd` — свой `storage.dir` и единственный том образа, поэтому
 корень может быть только для чтения, а все capabilities сброшены. Новый именованный том получает
 владельца и режим 0700 из образа; bind mount требует `chown 65532:65532`. Образ задаёт `listen`
-равным `["[::]:7070", "0.0.0.0:7070"]`; остальные настройки — переменные `DYAPPD__`, опции
-`--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения и
-указанный через `--config`. С `--memory 1g` значение по умолчанию `limits.max_memory_mb = 768`
-сбрасывает запросы раньше предела Docker. В контейнере ключ — обычный файл 0600 в томе.
+равным `["[::]:7070", "0.0.0.0:7070"]`; остальные настройки — переменные `DYAPPD_`, опции
+`--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения в
+`/etc/dyappd.toml`: он читается без `--config`. С `--memory 1g` значение по умолчанию
+`limits.max_memory_mb = 768` сбрасывает запросы раньше предела Docker. В контейнере
+ключ — обычный файл 0600 в томе.
 
 Образ не опубликован в реестре, манифестов Kubernetes пока нет.
 
@@ -159,7 +160,7 @@ peer ID начинается с `network.id_pow_bits` нулевых бит (22 
 
 ```bash
 sudo install -d -m 0700 /etc/credstore.encrypted
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает peer ID в stderr
+sudo -u dyappd dyappd keygen - |   # печатает peer ID в stderr
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -173,7 +174,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает 
 копию, зашифруйте копию для себя при генерации, например через `age`:
 
 ```bash
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your age key> >node.key.age) |
+sudo -u dyappd dyappd keygen - | tee >(age -r <your age key> >node.key.age) |
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 ```
 
@@ -188,6 +189,16 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 - пароль: храните ключ зашифрованным (`age -p`) и перед каждым запуском расшифровывайте его в файл
   0600 на `tmpfs`, указанный в `storage.key`;
 - зашифрованный том (LUKS, открываемый Clevis/Tang или вручную) с `storage.dir`.
+
+**Peer ID.** `sudo -u dyappd dyappd id` (в Docker: `docker exec dyappd dyappd id`) печатает
+peer ID, затем по одной записи `seeds` на каждый адрес `external` — их можно сразу передать
+операторам, которые добавят этот узел в свои seeds:
+
+```text
+12D3KooW...
+[2001:db8::7]:7070/12D3KooW...
+192.0.2.7:7070/12D3KooW...
+```
 
 Что проверяют keygen и запуск:
 
@@ -209,11 +220,12 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 Каждая настройка необязательна. Поздние источники переопределяют ранние:
 
 1. значения по умолчанию в коде;
-2. TOML-файл, указанный через `--config` (`/etc/dyappd.toml` в пакете, каждый ключ закомментирован
+2. TOML-файл, указанный через `--config`, иначе первый существующий из `./dyappd.toml`,
+   `~/dyappd.toml` и `/etc/dyappd.toml` (`/etc/dyappd.toml` в пакете, каждый ключ закомментирован
    со своим значением по умолчанию; тест держит этот файл равным коду);
-3. переменные окружения `DYAPPD__<SECTION>__<KEY>`, разбираемые как TOML (голая строка берётся как
-   есть), например `DYAPPD__LIMITS__MESSAGE_TTL_HOURS=48` или
-   `DYAPPD__LISTEN='["[2001:db8::7]:7070"]'`;
+3. переменные окружения `DYAPPD_<SECTION>_<KEY>`, разбираемые как TOML (голая строка берётся как
+   есть), например `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` или
+   `DYAPPD_LISTEN='["[2001:db8::7]:7070"]'`;
 4. опции `--<section>.<key>` с `-` вместо `_`, например `--limits.max-connections 500` или
    `--storage.dir=/srv/dyappd`; опция-список задаётся по разу на элемент и заменяет список
    (`--listen '[::]:7070' --listen 0.0.0.0:7070`).
@@ -235,8 +247,8 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 |------|--------------|----------|
 | `listen` | `["[::1]:7070", "127.0.0.1:7070"]` | Адреса, на которых слушает узел. По умолчанию только loopback, так что свежая установка никого не обслуживает; обслуживающий узел задаёт `["[::]:7070", "0.0.0.0:7070"]`. Сокеты IPv6 только для IPv6, поэтому узел с двумя стеками перечисляет оба. Каждый адрес обслуживает TCP и QUIC (UDP) на своём порту. Адрес, который не открылся, записывается как `not listening` и пропускается; узел завершается, только если не открылся ни один. |
 | `external` | `[]` | Публичные адреса, объявляемые пирам, если они известны (статический адрес, проброс порта). Пусто: пиры узнают адреса прослушивания через identify, а адрес, с которого они видят узел, объявляется, когда его подтвердит AutoNAT. До тех пор узел — клиент DHT: пользуется DHT, но не обслуживает её часть. |
-| `seeds` | `[]` | Узлы для входа в сеть: `host:port` или `host:port/<peer ID>`, где host — IP или DNS-имя (например `seed.example.org:7070`, `[2001:db8::7]:7070`). Peer ID, напечатанный keygen seed-узла и хранящийся в его `node.id`, закрепляет ключ seed-узла: другой ключ отклоняется с записью в журнал уровня warn. Имя с несколькими записями A/AAAA перебирается по адресам. Без закрепления тот, кто контролирует имя или хост, контролирует первых пиров. Последующие запуски также подключаются к пирам, сохранённым в `storage.dir`, так что seeds — только способ войти. Мультиадреса libp2p отклоняются. |
-| `roles` | `["store"]` | Любые из `store`, `media`, `turn`, `search` ([Что делает узел](#что-делает-узел)). Каждая роль, кроме store, отклоняется при запуске, если `store` нет в списке. Узел без роли отвечает на её запросы `UNSUPPORTED`. |
+| `seeds` | `[]` | Узлы для входа в сеть: `host:port` или `host:port/<peer ID>`, где host — IP или DNS-имя (например `seed.example.org:7070`, `[2001:db8::7]:7070`). Peer ID, который печатает `dyappd id` seed-узла, закрепляет ключ seed-узла: другой ключ отклоняется с записью в журнал уровня warn. Имя с несколькими записями A/AAAA перебирается по адресам. Без закрепления тот, кто контролирует имя или хост, контролирует первых пиров. Последующие запуски также подключаются к пирам, сохранённым в `storage.dir`, так что seeds — только способ войти. Мультиадреса libp2p отклоняются. |
+| `roles` | `["store", "search"]` | Любые из `store`, `media`, `turn`, `search` ([Что делает узел](#что-делает-узел)). Каждая роль, кроме store, отклоняется при запуске, если `store` нет в списке. Узел без роли отвечает на её запросы `UNSUPPORTED`. |
 
 `listen` и `external` принимают IP, а не имя хоста; адрес IPv6 пишется в квадратных скобках.
 
@@ -325,7 +337,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 
 | Ключ | По умолчанию | Значение |
 |------|--------------|----------|
-| `listen` | `""` | Loopback `ip:port`, например `127.0.0.1:9464`, отдающий текст Prometheus по `GET /metrics` без аутентификации. Пусто — выключено. Принимаются только loopback-адреса, и узел не запускается, если порт занят. |
+| `port` | `0` | Порт, например `9464`, на котором `[::1]` и `127.0.0.1` отдают текст Prometheus по `GET /metrics` без аутентификации. 0 — выключено. Слушаются только эти loopback-адреса; хост без IPv6 отдаёт только `127.0.0.1`, и узел не запускается, если порт занят. |
 
 ### `[media]`
 
@@ -340,12 +352,12 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 | Ключ | По умолчанию | Значение |
 |------|--------------|----------|
 | `urls` | `[]` | URL `turn:` / `turns:` ретранслятора coturn, выдаваемые пирам, например `turn:turn.example.org:3478`. |
-| `secret` | `""` | `static-auth-secret` coturn. Задавайте как `DYAPPD__TURN__SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
+| `secret` | `""` | `static-auth-secret` coturn. Задавайте как `DYAPPD_TURN_SECRET` в `EnvironmentFile=` с режимом 0600, никогда в командной строке. |
 | `credential_minutes` | 60 | Время жизни выдаваемых паролей. |
 
 ### `[search]`
 
-Используется только экспериментальной ролью `search`. Подробнее:
+Используется только ролью `search`. Подробнее:
 [Search](../architecture/bootstrap.md#search).
 
 | Ключ | По умолчанию | Значение |
@@ -369,7 +381,7 @@ sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml | tee >(age -r <your ag
 sudoedit /etc/dyappd.toml        # как минимум: listen, seeds (или external на известном адресе)
 sudo systemctl start dyappd
 journalctl -u dyappd -f          # "listening on ..." для каждого адреса
-sudo -u dyappd dyappd status --config /etc/dyappd.toml
+sudo -u dyappd dyappd status
 ```
 
 Минимальная конфигурация обслуживающего узла:
@@ -380,11 +392,11 @@ seeds = ["seed1.example.org:7070/12D3KooW...", "seed2.example.org:7070/12D3KooW.
 ```
 
 Откройте TCP и UDP на порту в межсетевых экранах хоста и облака. Проверьте с другого хоста через
-`test-peer` (клиентский CLI из репозитория,
-[commands](../architecture/bootstrap.md#test-client)):
+`dyappd info` ([клиентские команды](../architecture/bootstrap.md#client-commands)):
 
 ```bash
-test-peer info /ip4/<node address>/tcp/7070   # код 0 и "STATUS_OK" → жив
+dyappd info /ip6/<node address>/tcp/7070   # код 0 и "STATUS_OK" → жив
+dyappd info /ip4/<node address>/tcp/7070   # узел только с IPv4
 ```
 
 Новый узел отвечает на записи `STATUS_FULL`, пока у него нет доверенных пиров в течение
@@ -406,9 +418,9 @@ test-peer info /ip4/<node address>/tcp/7070   # код 0 и "STATUS_OK" → жи
 
 1. **Холодный старт.** Сгенерируйте каждый ключ (около минуты на узел при 22 битах), перечислите
    остальные seed-узлы в `seeds` на каждом и запустите их в любом порядке; к seed-узлу,
-   стартовавшему первым, подключатся последующие. Проверьте каждый через `test-peer info`.
+   стартовавшему первым, подключатся последующие. Проверьте каждый через `dyappd info`.
 2. **Канарейка.** Через `storage_trust_minutes` опубликуйте тестовый профиль через каждый узел:
-   `test-peer publish` возвращает `STATUS_OK`, а `test-peer get` находит запись как минимум на
+   `dyappd publish` возвращает `STATUS_OK`, а `dyappd get` находит запись как минимум на
    двух узлах. Раньше этого он возвращает `STATUS_FULL`.
 3. **Поочерёдное обновление.** Для каждого узла по очереди: остановите его, сделайте
    [резервную копию](#резервные-копии) `storage.dir`, запустите новую версию, проверьте её
@@ -429,7 +441,7 @@ workflow `rehearsal.yml` выполняет ту же проверку на CI �
 
 ## Состояние и метрики
 
-**Состояние.** `sudo -u dyappd dyappd status --config /etc/dyappd.toml` (в Docker:
+**Состояние.** `sudo -u dyappd dyappd status` (в Docker:
 `docker exec dyappd dyappd status`) печатает peer ID и содержимое хранилищ: профили, конверты,
 медиаблобы и байты, записи запретов, сохранённые пиры. Команда открывает хранилища только для
 чтения и работает при запущенном узле. HTTP API администрирования нет.
@@ -441,18 +453,19 @@ workflow `rehearsal.yml` выполняет ту же проверку на CI �
 число соединений и пиров.
 
 **Работоспособность.** HTTP-эндпоинта проверки нет. Узел жив, когда отвечает на `/dyapp/node`
-`info` (`test-peer info`, выше); ответ содержит только роли и лимиты.
+`info` (`dyappd info`, выше); ответ содержит только роли и лимиты.
 
 ### Метрики
 
-Задайте `[metrics] listen = "127.0.0.1:9464"`, чтобы отдавать текст Prometheus по
+Задайте `[metrics] port = 9464`, чтобы отдавать текст Prometheus по
+`http://[::1]:9464/metrics` и, для инструментов только с IPv4, по
 `http://127.0.0.1:9464/metrics`. Сборщик на другом хосте достигает его через туннель или локальный
 агент. Семейства и ограничения слушателя:
 [metric families](../architecture/bootstrap.md#metric-families),
 [metrics listener](../architecture/bootstrap.md#metrics-listener).
 
 ```bash
-curl -s http://127.0.0.1:9464/metrics | grep '^dyapp_connected_peers'
+curl -s 'http://[::1]:9464/metrics' | grep '^dyapp_connected_peers'
 ```
 
 Как читать значения:
@@ -473,13 +486,13 @@ scrape_configs:
     scrape_interval: 60s
     scrape_timeout: 4s     # меньше 5-секундного срока слушателя
     static_configs:
-      - targets: ['127.0.0.1:9464']
+      - targets: ['[::1]:9464']
 ```
 
 **Zabbix.** Один главный элемент данных забирает страницу, а зависимые элементы вырезают из неё
 значения шагом предобработки "Prometheus pattern", так что каждый сбор — один запрос:
 
-- Главный элемент, тип "HTTP agent", URL `http://127.0.0.1:9464/metrics`, тип информации "Text",
+- Главный элемент, тип "HTTP agent", URL `http://[::1]:9464/metrics`, тип информации "Text",
   история 0. HTTP agent работает на сервере или прокси Zabbix, поэтому нужен один из них на хосте
   узла. Иначе используйте как главный элемент Zabbix agent
   `web.page.get[127.0.0.1,/metrics,9464]`; он возвращает и заголовки ответа, поэтому добавьте
@@ -531,9 +544,9 @@ format N, this dyappd knows up to M", остановите его, восста�
 или SHA-256 блоба:
 
 ```bash
-sudo -u dyappd dyappd deny add <entry> [note] --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny remove <entry> --config /etc/dyappd.toml
-sudo -u dyappd dyappd deny list --config /etc/dyappd.toml
+sudo -u dyappd dyappd deny add <entry> [note]
+sudo -u dyappd dyappd deny remove <entry>
+sudo -u dyappd dyappd deny list
 ```
 
 Работающий узел применяет изменение в течение 10 секунд или сразу по `systemctl reload dyappd`;
@@ -563,7 +576,7 @@ sudo userdel dyappd
 sudo systemctl stop dyappd
 sudo rm -rf /var/lib/dyappd/*   # storage.dir: node.key, node.id и все хранилища
 sudo rm -f /etc/credstore.encrypted/node.key   # запечатанный ключ, если используется
-sudo -u dyappd dyappd keygen - --config /etc/dyappd.toml |   # печатает новый peer ID
+sudo -u dyappd dyappd keygen - |   # печатает новый peer ID
   sudo systemd-creds encrypt --with-key=auto --name=node.key - /etc/credstore.encrypted/node.key
 sudo systemctl start dyappd
 ```
@@ -593,7 +606,7 @@ max-bps=1000000
 no-cli
 ```
 
-Передавайте `DYAPPD__TURN__SECRET` через systemd `EnvironmentFile=` с режимом 0600. Откройте порт
+Передавайте `DYAPPD_TURN_SECRET` через systemd `EnvironmentFile=` с режимом 0600. Откройте порт
 прослушивания (3478 UDP и TCP, 5349 для TLS) и диапазон портов ретрансляции
 (`min-port`/`max-port`, по умолчанию 49152–65535). При запуске узел отклоняет роль без секрета или
 с URL, который не начинается с `turn:` или `turns:`. Учётные данные истекают через
@@ -686,20 +699,21 @@ sudo systemctl start dyappd
 Не измерена: нагрузочного теста пока нет. Диск, скорость в байтах, память и соединения
 ограничены `[limits]`. При квотах по умолчанию узлу нужно около 16 ГиБ диска (`profiles_max_mb`
 1 ГиБ + `messages_max_mb` 4 ГиБ + `media_max_mb` 10 ГиБ + `min_free_mb` 512 МиБ; без роли media
-около 6 ГиБ; поисковый узел добавляет `search.max_bytes`) и 1 ГиБ памяти (`MemoryMax=1G`,
+около 6 ГиБ; роль search по умолчанию добавляет по мере роста сети до `search.max_bytes`,
+50 ГиБ, поэтому на маленьком диске уменьшите его) и 1 ГиБ памяти (`MemoryMax=1G`,
 `limits.max_memory_mb` 768). Заполненное хранилище отвечает `FULL`, а не растёт.
 
 ## Устранение неполадок
 
 | Симптом | Что проверить |
 |---------|---------------|
-| `test-peer info` падает по таймауту или с `request failed` | Узел не работает, адрес неверен (используйте `/ip4/`, а не имя хоста) или межсетевой экран блокирует TCP/UDP 7070 |
-| `test-peer info` работает на хосте, но не отвечает извне | `listen` оставлен loopback по умолчанию; задайте `listen = ["[::]:7070", "0.0.0.0:7070"]` |
+| `dyappd info` падает по таймауту или с `request failed` | Узел не работает, адрес неверен (используйте `/ip6/` или `/ip4/`, а не имя хоста) или межсетевой экран блокирует TCP/UDP 7070 |
+| `dyappd info` работает на хосте, но не отвечает извне | `listen` оставлен loopback по умолчанию; задайте `listen = ["[::]:7070", "0.0.0.0:7070"]` |
 | Записи отвечают `STATUS_FULL` | Узел ещё не доверяет ни одному пиру (`storage_trust_minutes` после запуска), хранилище достигло квоты или на диске меньше `min_free_mb` |
 | `dyappd` завершается при запуске из-за каталога | Каталог хранилища недоступен на запись пользователю узла; исправьте права или `ReadWritePaths=` |
 | `run as the owner of ...` | Запускайте команды от пользователя службы: `sudo -u dyappd dyappd ...` |
 | `dyappd` завершается с `storage belongs to ...` | `storage.dir` привязан к другому `network.name`; верните то имя или используйте новый каталог |
-| `test-peer info` не работает с узлом именованной сети | Задайте `DYAPPD__NETWORK__NAME` с именем сети узла и для `test-peer` |
+| `dyappd info` не работает с узлом именованной сети | Клиент говорит в сети `network.name` своего конфига; запустите его с конфигом узла или добавьте `--network.name <имя>` |
 | `dyappd` завершается с `has store format N, this dyappd knows up to M` | Более новый `dyappd` обновил этот файл; запустите ту версию или восстановите копию, сделанную до неё ([Обновления](#обновления)) |
 | `dyappd` завершается с `has search index format N, this dyappd knows up to M` | Более новый `dyappd` перестроил поисковый индекс; запустите ту версию или удалите названный `profiles-idx-vN.db`: догоняющая синхронизация заполнит его снова |
 | `dyappd` завершается с `search.lock: ...; another dyappd uses this search index` | Два узла делят один `storage.dir`; дайте каждому свой каталог |

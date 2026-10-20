@@ -17,6 +17,7 @@ fn command(dir: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
         .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .current_dir(dir)
         .arg("--storage.dir")
         .arg(dir)
         .args(args)
@@ -44,6 +45,12 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
          media_blobs none\nmedia_bytes none\ndeny_entries none\ncached_peers 0\n"
     );
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    assert_eq!(success(&dir, &["id"]), "operator-peer\n");
+    let (v6, v4) = ("[2001:db8::7]:7070", "192.0.2.7:7070");
+    assert_eq!(
+        success(&dir, &["id", "--external", v6, "--external", v4]),
+        "operator-peer\n[2001:db8::7]:7070/operator-peer\n192.0.2.7:7070/operator-peer\n"
+    );
 
     let store = BootstrapStore::new(dir.to_str().unwrap()).unwrap();
     let owner = Identity::generate();
@@ -117,6 +124,32 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     ] {
         assert!(!command(&dir, &args).status.success(), "{args:?}");
     }
+}
+
+#[test]
+fn without_config_the_working_directory_file_is_read() {
+    let (cwd, store) = (directory(), directory());
+    std::fs::write(store.join("node.id"), "from-cwd\n").unwrap();
+    let toml = format!("[storage]\ndir = {:?}\n", store.to_str().unwrap());
+    std::fs::write(cwd.join("dyappd.toml"), toml).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_dyappd"))
+        .env_clear()
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .current_dir(&cwd)
+        .arg("status")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.starts_with("peer_id from-cwd\n"), "{stdout}");
+}
+
+#[test]
+fn client_commands_print_json_without_a_usable_storage_dir() {
+    let dir = directory();
+    let args = ["device-key", "--storage.dir", "/nonexistent/dyappd"];
+    let reply: serde_json::Value = serde_json::from_str(&success(&dir, &args)).unwrap();
+    assert_eq!(reply["mailbox"].as_str().map(str::len), Some(64));
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
 }
 
 #[test]

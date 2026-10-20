@@ -182,9 +182,9 @@ fn invalid_config_fails() {
     assert!(!invalid(|c| c.limits.tokenless_share_pct = 100));
     assert!(invalid(|c| c.maintenance.io_mb_per_s = 0));
     assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
-    let roles = [("DYAPPD__ROLES".into(), "[\"x\"]".into())];
+    let roles = [("DYAPPD_ROLES".into(), "[\"x\"]".into())];
     assert!(NodeConfig::load(None, roles, &[]).is_err());
-    let removed = [("DYAPPD__STORAGE__MEDIA".into(), "/big/media".into())];
+    let removed = [("DYAPPD_STORAGE_MEDIA".into(), "/big/media".into())];
     assert!(NodeConfig::load(None, removed, &[]).is_err());
 }
 
@@ -214,12 +214,12 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
     };
     assert_eq!(load(vec![], vec![]), "file");
     assert_eq!(
-        load(vec![("DYAPPD__NETWORK__NAME".into(), "env".into())], vec![]),
+        load(vec![("DYAPPD_NETWORK_NAME".into(), "env".into())], vec![]),
         "env"
     );
     assert_eq!(
         load(
-            vec![("DYAPPD__NETWORK__NAME".into(), "env".into())],
+            vec![("DYAPPD_NETWORK_NAME".into(), "env".into())],
             vec![("network.name".into(), "00123".into())]
         ),
         "00123"
@@ -228,30 +228,16 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
 }
 
 #[test]
-fn metrics_listen_is_off_or_loopback() {
+fn metrics_are_off_or_on_both_loopbacks() {
     // A config from before the section loads with the listener off.
     let (config, ignored) = NodeConfig::load(None, [], &[]).unwrap();
     assert!(ignored.is_empty());
-    assert_eq!(config.metrics.address().unwrap(), None);
-    let listen = |address: &str| {
-        let options = [("metrics.listen".to_owned(), address.to_owned())];
-        let (config, _) = NodeConfig::load(None, [], &options).unwrap();
-        config.metrics.address()
-    };
-    assert_eq!(
-        listen("127.0.0.1:9464").unwrap(),
-        Some("127.0.0.1:9464".parse().unwrap())
-    );
-    assert!(listen("[::1]:9464").unwrap().is_some());
-    for refused in [
-        "0.0.0.0:9464",
-        "[::]:9464",
-        "192.0.2.1:9464",
-        "[::ffff:127.0.0.1]:9464",
-        "127.0.0.1:0",
-        "localhost:9464",
-        "127.0.0.1",
-    ] {
-        assert!(listen(refused).is_err(), "{refused}");
-    }
+    assert!(config.metrics.addresses().is_empty());
+    let options = [("metrics.port".to_owned(), "9464".to_owned())];
+    let (config, _) = NodeConfig::load(None, [], &options).unwrap();
+    let expected: Vec<SocketAddr> = vec![
+        "[::1]:9464".parse().unwrap(),
+        "127.0.0.1:9464".parse().unwrap(),
+    ];
+    assert_eq!(config.metrics.addresses(), expected);
 }

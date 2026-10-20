@@ -4,6 +4,7 @@ use super::render;
 use crate::service::Service;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::task::Poll;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -17,21 +18,43 @@ const HEAD_BYTES: usize = 8192;
 const DEADLINE: Duration = Duration::from_millis(if cfg!(test) { 300 } else { 5000 });
 const CONTENT_TYPE: &str = "text/plain; version=0.0.4; charset=utf-8";
 
-/// Opens `metrics.listen`; the node does not start without it.
-pub async fn bind(address: SocketAddr) -> anyhow::Result<TcpListener> {
-    TcpListener::bind(address)
-        .await
-        .map_err(|error| anyhow::anyhow!("metrics.listen {address}: {error}"))
+/// Opens `addresses`. An address that cannot be opened, such as `[::1]` on a host without IPv6,
+/// is skipped; the node does not start when one is taken by another process or none opens.
+pub async fn bind(addresses: &[SocketAddr]) -> anyhow::Result<Vec<TcpListener>> {
+    let mut listeners = Vec::new();
+    for &address in addresses {
+        match TcpListener::bind(address).await {
+            Ok(listener) => listeners.push(listener),
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                anyhow::bail!("metrics.port {address}: {error}")
+            }
+            Err(error) => tracing::warn!(%address, %error, "metrics not listening"),
+        }
+    }
+    anyhow::ensure!(!listeners.is_empty(), "metrics.port: no address opened");
+    Ok(listeners)
 }
 
-/// Answers scrapes until the task is dropped.
-pub async fn serve(listener: TcpListener, service: Arc<Service>) {
+/// Answers scrapes on every listener until the task is dropped.
+pub async fn serve(listeners: Vec<TcpListener>, service: Arc<Service>) {
     let slots = Arc::new(Semaphore::new(CONNECTIONS));
+    // Polled in this task, so the ports close when it is dropped.
+    let accept = || {
+        std::future::poll_fn(|cx| {
+            listeners
+                .iter()
+                .find_map(|listener| match listener.poll_accept(cx) {
+                    Poll::Ready(accepted) => Some(Poll::Ready(accepted)),
+                    Poll::Pending => None,
+                })
+                .unwrap_or(Poll::Pending)
+        })
+    };
     loop {
         let Ok(slot) = slots.clone().acquire_owned().await else {
             return;
         };
-        let stream = match listener.accept().await {
+        let stream = match accept().await {
             Ok((stream, _)) => stream,
             Err(error) => {
                 // Out of descriptors, say: pause instead of spinning.

@@ -9,8 +9,8 @@ test "$(stat -c %U /var/lib/dyappd)" = dyappd
 # keygen fast.
 as_node() {
     setpriv --reuid dyappd --regid dyappd --init-groups --no-new-privs \
-        env RUST_LOG=info DYAPPD__NETWORK__ID_POW_BITS=8 CREDENTIALS_DIRECTORY=/run/creds \
-        /usr/bin/dyappd "$@" --config /etc/dyappd.toml
+        env RUST_LOG=info DYAPPD_NETWORK_ID_POW_BITS=8 CREDENTIALS_DIRECTORY=/run/creds \
+        /usr/bin/dyappd "$@"
 }
 if as_node >/tmp/node.log 2>&1; then exit 1; fi
 grep -q "dyappd keygen" /tmp/node.log || { cat /tmp/node.log; exit 1; }
@@ -30,7 +30,7 @@ test "$(stat -c %U /proc/$!)" = root || { cat /tmp/node.log; exit 1; }
 grep -qx LimitCORE=0 /lib/systemd/system/dyappd.service
 # The running node picks up a deny entry within 10 seconds; root may not touch the stores.
 as_node deny add 203.0.113.9/24 deb test >/dev/null
-if /usr/bin/dyappd status --config /etc/dyappd.toml 2>/dev/null; then exit 1; fi
+if /usr/bin/dyappd status 2>/dev/null; then exit 1; fi
 sleep 11
 kill $! || { cat /tmp/node.log; exit 1; }
 grep -q "listening" /tmp/node.log || { cat /tmp/node.log; exit 1; }
@@ -38,6 +38,6 @@ grep -q "listening" /tmp/node.log || { cat /tmp/node.log; exit 1; }
 test "$(grep -c "deny list loaded" /tmp/node.log)" = 2 || { cat /tmp/node.log; exit 1; }
 as_node deny list | grep -q "^203.0.113.0/24	.*	deb test$"
 as_node status | grep -q "^deny_entries 1$"
-test "$(cat /var/lib/dyappd/node.id)" = "$(cat /tmp/keygen.log)"
+test "$(as_node id)" = "$(cat /tmp/keygen.log)"
 dpkg -r dyappd >/dev/null
 echo "dyappd package installs on Debian 12, runs as dyappd and removes"
