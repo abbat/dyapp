@@ -33,9 +33,7 @@ struct State {
 }
 
 fn fresh() -> [u8; 16] {
-    let mut challenge = [0; 16];
-    getrandom::fill(&mut challenge).expect("OS random source");
-    challenge
+    crate::random()
 }
 
 fn solved(challenge: &[u8], peer: &str, nonce: u64, bits: u32) -> bool {

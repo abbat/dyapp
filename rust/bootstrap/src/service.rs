@@ -168,11 +168,7 @@ impl Service {
             shared_deny: RwLock::default(),
             tripped: Default::default(),
             refused: Default::default(),
-            salt: {
-                let mut salt = [0; 32];
-                getrandom::fill(&mut salt).expect("OS random source");
-                salt
-            },
+            salt: crate::random(),
         }
     }
 

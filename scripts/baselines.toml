@@ -26,7 +26,7 @@ cadff2195a895330e55fd67efc7bf4ae9591fa21 = "Search candidate build with its test
 
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
-"dyapp-bootstrap" = 50
+"dyapp-bootstrap" = 49
 "dyapp-ffi" = 0
 "dyapp-identity" = 1
 "dyapp-messaging" = 4

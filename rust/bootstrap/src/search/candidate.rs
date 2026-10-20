@@ -110,7 +110,7 @@ fn read(db: &Connection, keys: &[[u8; 32]]) -> Result<Vec<([u8; 32], Option<Row>
             Some(Value::Integer(r)) => Some(r),
             _ => None,
         };
-        let Value::Integer(version) = columns[2] else {
+        let Some(&Value::Integer(version)) = columns.get(2) else {
             return Err(storage_error("invalid search key version"));
         };
         out.push((

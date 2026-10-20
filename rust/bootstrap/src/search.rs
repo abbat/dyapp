@@ -946,9 +946,7 @@ fn next(rows: &mut rusqlite::Rows<'_>) -> Result<Option<Head>> {
 }
 
 fn rand_bytes() -> [u8; 8] {
-    let mut bytes = [0; 8];
-    getrandom::fill(&mut bytes).expect("OS random source");
-    bytes
+    crate::random()
 }
 
 #[path = "search/counts.rs"]
