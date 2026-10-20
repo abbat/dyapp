@@ -93,6 +93,8 @@ protobuf_round_trip! {
     envelopes: Envelopes,
     challenge_request: ChallengeRequest,
     envelope: Envelope,
+    write_token: WriteToken,
+    revoke: Revoke,
     fetch: Fetch,
     ack: Ack,
     mailbox_response: MailboxResponse,
@@ -128,6 +130,7 @@ enum_round_trip! {
     role: Role,
     op: Op,
     capability: Capability,
+    envelope_class: EnvelopeClass,
 }
 
 json_round_trip! {
