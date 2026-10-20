@@ -948,3 +948,6 @@ mod wire;
 
 #[path = "protocol/search.rs"]
 mod search;
+
+#[path = "protocol/chat.rs"]
+mod chat;

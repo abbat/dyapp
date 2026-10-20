@@ -6,11 +6,15 @@ verify receipts or send messages; the service's sender label is currently `self_
 
 ## Overview
 
-Message model, in-memory queue and hybrid logical clock in `rust/messaging`. There is no network
-delivery yet: nothing sends, retries on a timer, or persists messages.
+Message model, in-memory queue and hybrid logical clock in `rust/messaging`. The queue is not
+wired to the network: it sends, retries on a timer and persists nothing.
 
-> ⚠️ Encryption and signatures are **stubs**: messages are plaintext today.
-> See [Encryption & Security Status](../security/encryption.md).
+Delivery of MLS chats lives in `rust/client` (`dyapp-client`): `Node` speaks the profile,
+KeyPackage and mailbox protocols to one bootstrap node, and `chat` sends every Welcome, commit
+and padded message as MLS bytes, one envelope per member device. Calls that change MLS state
+return the deliveries instead of sending them, and `chat::receive` returns the envelope ids to
+ack, so the client seals the state first. The app does not use it yet. See
+[Encryption & Security Status](../security/encryption.md).
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence
@@ -20,7 +24,8 @@ delivery yet: nothing sends, retries on a timer, or persists messages.
   planned
 - Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
 - E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
-  implemented in `mls.rs`, [below](#e2e-encryption-mls); not yet used by the queue or delivery
+  implemented in `mls.rs`, [below](#e2e-encryption-mls); delivered by `rust/client`, not by the
+  queue
 - Sender authenticity: MLS signs every message with the sender device's certified key
 
 ## Message Model
@@ -156,7 +161,8 @@ Planned limits (node settings): a message up to 100 KB, a mailbox up to 10 MB.
 Clients never publish their addresses in the DHT. A direct connection that already exists (for
 example during a call) may carry messages, as an optimisation only.
 
-**Target: bootstrap never sees plaintext** (not true today, see [status](../security/encryption.md)):
+**Bootstrap never sees plaintext** when the client uses `rust/client` (see
+[status](../security/encryption.md)):
 - Message encrypted before sending to bootstrap
 - Bootstrap only stores opaque blobs
 - Decryption happens only on peer

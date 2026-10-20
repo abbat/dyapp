@@ -1,7 +1,7 @@
 # Privacy & Metadata Visibility
 
-> **No privacy guarantees today.** Message crypto is stubbed, so the operator reads message
-> bodies; profiles are signed but public by design ([Encryption & Security Status](encryption.md)). This page
+> **No privacy guarantees today.** Messages sent through `rust/client` are MLS ciphertext, but
+> the app does not use it yet and metadata is visible; profiles are signed but public by design ([Encryption & Security Status](encryption.md)). This page
 > lists who can see each piece of data now, and what the target design would
 > change. Even the target design does not hide all metadata.
 
@@ -21,7 +21,7 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`.
 
 | Data | Who sees it today | Protection today | Retention today | Target protection | Residual risk even in target |
 |------|-------------------|------------------|-----------------|-------------------|------------------------------|
-| Envelope `ciphertext` | Operator, the device holding the mailbox key | None (plaintext; no client encrypts with MLS yet) | Until acked or the TTL (default 24 h; repair can extend it, see [Retention](#retention)) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB (planned) | Size bucket and timing |
+| Envelope `ciphertext` | Operator, the device holding the mailbox key | MLS ciphertext from `rust/client`; the node cannot check what other clients put | Until acked or the TTL (default 24 h; repair can extend it, see [Retention](#retention)) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB | Size bucket and timing |
 | Envelope `class` (message or signal) | Operator, mailbox replicas | None; the node needs it for the signal quota | Same as body | Same | Operator counts a mailbox's signals, not which kind |
 | Mailbox address, sender key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Sealed sender (planned): a fresh key per envelope, the sender only inside the ciphertext | Operator learns which mailbox gets mail and when, and the sender's IP; today, with the published device key, also who writes to whom |
 | Profile fields (name (planned), age, country, location, income, kids, goals, orientation, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after a newer profile publish or fresh signed heartbeat, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |

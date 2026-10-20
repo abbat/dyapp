@@ -1160,6 +1160,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "chrono",
+ "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
@@ -1187,6 +1188,21 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "dyapp-client"
+version = "0.0.1"
+dependencies = [
+ "dyapp-identity",
+ "dyapp-messaging",
+ "dyapp-p2p-net",
+ "dyapp-profile",
+ "getrandom 0.4.3",
+ "libp2p",
+ "prost",
+ "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]

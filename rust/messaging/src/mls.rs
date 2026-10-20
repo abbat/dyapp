@@ -92,6 +92,16 @@ fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, 
     verify_member(leaf.credential(), leaf.signature_key().as_slice(), profiles)
 }
 
+/// The group a protocol message is for, or `None` for anything else, such as a Welcome; the
+/// group ID travels unencrypted in every MLS message.
+pub fn group_of(message: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+    let message = MlsMessageIn::tls_deserialize_exact(message).map_err(mls)?;
+    Ok(message
+        .try_into_protocol_message()
+        .ok()
+        .map(|message| message.group_id().as_slice().to_vec()))
+}
+
 /// One device's MLS signature key and the private keys of its KeyPackages and groups, kept in
 /// memory; [`Device::seal`] and [`Device::open`] carry them across restarts.
 pub struct Device {
@@ -369,6 +379,22 @@ impl Group {
         self.group
             .members()
             .map(|member| Ok(certified(&member.credential, &member.signature_key)?.0))
+            .collect()
+    }
+
+    /// Device mailbox keys of every other member, from their certificates: where to deliver
+    /// what this device sends to the group.
+    pub fn peer_device_keys(&self) -> Result<Vec<Vec<u8>>, Error> {
+        let own = self.group.own_leaf_index();
+        self.group
+            .members()
+            .filter(|member| member.index != own)
+            .map(|member| {
+                let (_, signed) = certified(&member.credential, &member.signature_key)?;
+                Ok(DeviceCertificate::decode(signed.payload.as_slice())
+                    .map_err(|_| Error::Credential)?
+                    .device_key)
+            })
             .collect()
     }
 

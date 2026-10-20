@@ -49,6 +49,7 @@ path = "../../tests/integration_tests.rs"
 
 [dev-dependencies]
 proptest.workspace = true
+dyapp-client = { path = "../client" }
 dyapp-identity = { path = "../identity", features = ["proptest"] }
 dyapp-messaging = { path = "../messaging", features = ["proptest"] }
 dyapp-p2p-net = { path = "../p2p-net", features = ["proptest"] }

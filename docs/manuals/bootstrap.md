@@ -6,8 +6,9 @@ and through its daily operation. A Russian translation of the same revision is i
 [Bootstrap server architecture](../architecture/bootstrap.md); this manual links there where an
 option needs more than a paragraph.
 
-> ⚠️ **Not production-ready.** Message encryption is a stub: an operator and the network see
-> plaintext. The node checks Ed25519 signatures: the owner's on profiles, the sender's on
+> ⚠️ **Not production-ready.** Clients built on `rust/client` send messages only as MLS
+> ciphertext, padded to the next power of two from 1 KiB, so an operator sees envelope sizes and
+> timing but not text; the node cannot check that a client encrypts. The node checks Ed25519 signatures: the owner's on profiles, the sender's on
 > envelopes and the device's on mailbox reads. See
 > [Encryption & Security Status](../security/encryption.md) and [Privacy](../security/privacy.md).
 

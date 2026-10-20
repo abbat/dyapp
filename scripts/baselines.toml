@@ -15,6 +15,7 @@ max_lines = 400
 [panics]
 # B8: explicit Clippy panic/unwrap/expect sites, excluding test targets/generated code.
 "dyapp-bootstrap" = 48
+"dyapp-client" = 0
 "dyapp-ffi" = 0
 "dyapp-identity" = 1
 "dyapp-messaging" = 4

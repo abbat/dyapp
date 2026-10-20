@@ -4,6 +4,7 @@ members = [
     "rust/profile",
     "rust/p2p-net",
     "rust/messaging",
+    "rust/client",
     "rust/video",
     "rust/bootstrap",
     "rust/ffi",

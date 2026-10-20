@@ -1,5 +1,5 @@
-//! Native exports: identity keys and MLS encryption; messaging, profiles and video are
-//! prototypes with explicit stubs.
+//! Native exports: identity keys and MLS encryption; the message queue, profiles and video are
+//! prototypes with explicit stubs, and chat delivery (`dyapp-client`) is not exported yet.
 
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;

@@ -1,8 +1,9 @@
 # Encryption & Security Status
 
-> **Status: NOT SECURE. Profile and KeyPackage record signatures and the MLS core are
-> implemented.** No client sends messages with MLS yet and video frames are not encrypted;
-> profiles are public by design and signed, not encrypted.
+> **Status: NOT SECURE. Profile and KeyPackage record signatures, the MLS core and its
+> delivery through device mailboxes (`rust/client`) are implemented.** The app does not use the
+> delivery yet, video frames are not encrypted and metadata is not hidden; profiles are public
+> by design and signed, not encrypted.
 > Do not use this code with real user data.
 
 This page is the single source of truth for security claims. Other docs link
@@ -12,7 +13,8 @@ here instead of repeating guarantees.
 
 | Layer | Code | What it actually does |
 |-------|------|-----------------------|
-| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. `Device::seal` encrypts the whole MLS state (signature key, unused KeyPackages, groups) with ChaCha20-Poly1305 under a 32-byte key the client keeps wrapped by the platform KeyStore, and `Device::open` and `Group::load` restore it; all of it is exported over FFI as `MlsDevice`/`MlsGroup`. Storing the state, keeping the newest profile and delivery through mailboxes are the client's job |
+| Message payload | `rust/messaging/src/mls.rs` | Real in Rust: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. `Device::seal` encrypts the whole MLS state (signature key, unused KeyPackages, groups) with ChaCha20-Poly1305 under a 32-byte key the client keeps wrapped by the platform KeyStore, and `Device::open` and `Group::load` restore it; all of it is exported over FFI as `MlsDevice`/`MlsGroup`. Storing the state and keeping the newest profile are the client's job |
+| Message delivery | `rust/client` | Real in Rust, not used by the app yet: `chat::invite` fetches a KeyPackage for every device in the members' profiles and puts the Welcome in each device mailbox; `chat::message` pads the plaintext to the next power of two from 1 KiB and puts one MLS application message per member device; `chat::receive` fetches the mailbox, joins or applies each envelope and returns the ids to ack once the state is sealed. A node stores and returns only MLS bytes. A Welcome from a sender whose profile the receiver does not hold is refused and acked; write tokens are not used |
 | Video frames | — | None: SFrame with keys from the MLS exporter is planned |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
 | KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; the client checks the MLS signature, credential and lifetime when it adds the device (`Device::create_group`) |
@@ -34,7 +36,7 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 | Layer | Target property | Today |
 |-------|-----------------|-------|
 | Transport (client ↔ bootstrap, peer ↔ peer) | Confidentiality and integrity in transit | libp2p QUIC (TLS 1.3) and TCP with Noise |
-| Payload (message / frame) | Only the recipient can read; sender authenticity | MLS in `rust/messaging`, not yet used by a client; frames: none |
+| Payload (message / frame) | Only the recipient can read; sender authenticity | MLS in `rust/messaging`, delivered by `rust/client`; the app does not use it yet; frames: none |
 | Profile | Only the owner can publish or change it | Signed by the owner's identity key; a node can still withhold it or serve an older signed version |
 | Storage (bootstrap SQLite) | Operator cannot read content | None: operator reads everything |
 | Identity / API access | Only the owner can write or delete their data | Profiles: owner only. Mailboxes: only the device reads or acks; anyone may put |
@@ -44,8 +46,9 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 
 The items below describe the intended client security model. The directory and node-side
 KeyPackage checks noted above are implemented; the MLS core in
-`rust/messaging/src/mls.rs` is implemented, including its sealed state; its use in a client,
-the client's state store and SFrame remain planned.
+`rust/messaging/src/mls.rs` is implemented, including its sealed state, and so is its
+delivery through mailboxes in `rust/client`; the app runtime on top of it, the client's state
+store and SFrame remain planned.
 
 - Payload: MLS (RFC 9420) via `openmls`, ciphersuite 0x0001; one MLS group per conversation
   [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md).
