@@ -89,13 +89,13 @@ fn the_larger_country_bucket_goes_first() {
         put_at(index, "", 400, index.created() + 1, false);
         put_at(index, "2950159", 200, index.created() + 1, false);
     };
-    let probe = index();
-    fill(&probe);
-    let index = sized(probe.usage().unwrap() * 9 / 10);
+    let index = index();
     fill(&index);
+    let removed = index.evict_established(index.created() + 1).unwrap();
+    assert!(removed > 0);
     let counts = index.place_counts();
     assert_eq!(n(&counts, "2950159"), 200);
-    assert!(n(&counts, "") < 400);
+    assert_eq!(n(&counts, ""), 400 - removed as i64);
 }
 
 #[test]
