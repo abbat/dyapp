@@ -359,6 +359,76 @@ fn revoked_device_is_refused_and_removed() {
 }
 
 #[test]
+fn device_restarted_between_messages_still_decrypts() {
+    let mut p = pair();
+    let key = [3; 32];
+    let first = p.alice_group.encrypt(&p.alice_device, b"one").unwrap();
+    p.bob_group
+        .process(&p.bob_device, &first, &p.profiles)
+        .unwrap();
+
+    let sealed = p.bob_device.seal(&key).unwrap();
+    let id = p.bob_group.id().to_vec();
+    let bob_device = Device::open(&sealed, &key).unwrap();
+    assert_eq!(bob_device.certificate(), p.bob_device.certificate());
+    let mut bob_group = Group::load(&bob_device, &id).unwrap().unwrap();
+    assert!(Group::load(&bob_device, b"no such group")
+        .unwrap()
+        .is_none());
+
+    let second = p.alice_group.encrypt(&p.alice_device, b"two").unwrap();
+    assert_eq!(
+        bob_group
+            .process(&bob_device, &second, &p.profiles)
+            .unwrap(),
+        Received::Message {
+            sender: p.alice.peer_id(),
+            plaintext: b"two".to_vec()
+        }
+    );
+    let reply = bob_group.encrypt(&bob_device, b"back").unwrap();
+    assert!(p
+        .alice_group
+        .process(&p.alice_device, &reply, &p.profiles)
+        .is_ok());
+}
+
+#[test]
+fn key_package_published_before_restart_can_be_joined() {
+    let (alice, alice_device) = device();
+    let (bob, bob_device) = device();
+    let profiles = [
+        profile(&alice, &[&alice_device]),
+        profile(&bob, &[&bob_device]),
+    ];
+    let package = bob_device.key_package(false).unwrap();
+    let key = [4; 32];
+    let bob_device = Device::open(&bob_device.seal(&key).unwrap(), &key).unwrap();
+    let (_, welcome) = alice_device.create_group(&[package], &profiles).unwrap();
+    bob_device.join(&welcome, &profiles).unwrap();
+}
+
+#[test]
+fn sealed_state_is_encrypted_and_authenticated() {
+    let (_, device) = device();
+    let key = [5; 32];
+    let sealed = device.seal(&key).unwrap();
+    let public = device.signer.public();
+    assert!(!sealed.windows(public.len()).any(|w| w == public));
+    assert_ne!(sealed, device.seal(&key).unwrap());
+
+    let mut tampered = sealed.clone();
+    *tampered.last_mut().unwrap() ^= 1;
+    for (bytes, key) in [
+        (&sealed[..], [6; 32]),
+        (&tampered[..], key),
+        (&sealed[..11], key),
+    ] {
+        assert!(matches!(Device::open(bytes, &key), Err(Error::State)));
+    }
+}
+
+#[test]
 fn exported_secret_matches_across_members() {
     let p = pair();
     let ours = p

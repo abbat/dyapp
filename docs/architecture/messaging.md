@@ -98,9 +98,14 @@ a message from the hard-coded sender `"self_id"`; it does not deliver it.
 `dyapp/device-certificate/v1` label, the certified MLS key equal to the leaf's signature key, and
 the certificate listed in the owner's profile among those the caller passes (the newest it holds).
 Every call above takes those profiles, so a device dropped from the list is refused as a sender or
-new leaf, and `Group::remove_revoked` commits its removal. openmls keeps
-group state in memory, so groups and unused KeyPackages are lost on restart until the client stores
-them.
+new leaf, and `Group::remove_revoked` commits its removal.
+
+openmls keeps its state in memory. `Device::seal(key)` returns all of it (the signature key, unused
+KeyPackages and every group) as nonce ‖ ChaCha20-Poly1305 ciphertext under a 32-byte key the client
+keeps wrapped by the platform KeyStore; `Device::open(sealed, key)` restores the device and
+`Group::load(device, id)` each group. The client must store a fresh seal after every call that
+changes state and before sending its output, since an older state would reuse message keys. The
+client and its store are planned.
 
 ## Hybrid Logical Clock Ordering
 

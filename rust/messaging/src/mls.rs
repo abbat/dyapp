@@ -20,6 +20,9 @@ pub const CIPHERSUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_
 pub const KEY_PACKAGE_LIFETIME_SECONDS: u64 = 30 * 86_400;
 // openmls starts a lifetime an hour in the past for clock skew.
 const LIFETIME_MARGIN_SECONDS: u64 = 3_600;
+const STATE_NONCE_LEN: usize = 12;
+// Binds a sealed state to its purpose and format.
+const STATE_AAD: &[u8] = b"dyapp mls device state v1";
 
 /// Why an MLS operation or an incoming MLS message was rejected.
 #[derive(Debug, thiserror::Error)]
@@ -36,6 +39,9 @@ pub enum Error {
     /// The KeyPackage is valid for longer than [`KEY_PACKAGE_LIFETIME_SECONDS`].
     #[error("KeyPackage lifetime is too long")]
     Lifetime,
+    /// A sealed state is damaged or was sealed under another key.
+    #[error("sealed MLS state cannot be opened")]
+    State,
     /// The bytes are not the expected kind of MLS message.
     #[error("unexpected MLS message")]
     Unexpected,
@@ -86,9 +92,8 @@ fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, 
     verify_member(leaf.credential(), leaf.signature_key().as_slice(), profiles)
 }
 
-/// One device's MLS signature key and the private keys of its KeyPackages and groups.
-// ponytail: openmls in-memory storage, so groups and unused KeyPackages die with the process;
-// persist them with the client's local store.
+/// One device's MLS signature key and the private keys of its KeyPackages and groups, kept in
+/// memory; [`Device::seal`] and [`Device::open`] carry them across restarts.
 pub struct Device {
     provider: OpenMlsRustCrypto,
     signer: SignatureKeyPair,
@@ -112,16 +117,97 @@ impl Device {
         );
         let provider = OpenMlsRustCrypto::default();
         signer.store(provider.storage()).map_err(mls)?;
+        Ok(Self::from_parts(provider, signer, certificate))
+    }
+
+    fn from_parts(
+        provider: OpenMlsRustCrypto,
+        signer: SignatureKeyPair,
+        certificate: SignedRecord,
+    ) -> Self {
         let credential = CredentialWithKey {
             credential: BasicCredential::new(certificate.encode_to_vec()).into(),
             signature_key: signer.public().into(),
         };
-        Ok(Self {
+        Self {
             provider,
             signer,
             credential,
             certificate,
-        })
+        }
+    }
+
+    /// The whole MLS state (signature key, unused KeyPackages, every group) encrypted with
+    /// ChaCha20-Poly1305 under `key`, a random secret the app keeps wrapped by the platform
+    /// KeyStore. Persist it after every call that changes state and before sending what that
+    /// call returned: an older state would reuse its message keys.
+    pub fn seal(&self, key: &[u8; 32]) -> Result<Vec<u8>, Error> {
+        // Length-prefixed fields: the certificate, then each storage key and its value.
+        let mut state = Vec::new();
+        let mut push = |field: &[u8]| -> Result<(), Error> {
+            state.extend_from_slice(&u32::try_from(field.len()).map_err(mls)?.to_be_bytes());
+            state.extend_from_slice(field);
+            Ok(())
+        };
+        push(&self.certificate.encode_to_vec())?;
+        for (k, v) in self.provider.storage().values.read().map_err(mls)?.iter() {
+            push(k)?;
+            push(v)?;
+        }
+        let nonce: [u8; STATE_NONCE_LEN] = self.provider.rand().random_array().map_err(mls)?;
+        let ciphertext = self
+            .provider
+            .crypto()
+            .aead_encrypt(AeadType::ChaCha20Poly1305, key, &state, &nonce, STATE_AAD)
+            .map_err(mls)?;
+        Ok([nonce.as_slice(), &ciphertext].concat())
+    }
+
+    /// The device that [`Device::seal`] wrote to `sealed` under `key`.
+    pub fn open(sealed: &[u8], key: &[u8; 32]) -> Result<Self, Error> {
+        let (nonce, ciphertext) = sealed
+            .split_at_checked(STATE_NONCE_LEN)
+            .ok_or(Error::State)?;
+        let provider = OpenMlsRustCrypto::default();
+        let state = provider
+            .crypto()
+            .aead_decrypt(
+                AeadType::ChaCha20Poly1305,
+                key,
+                ciphertext,
+                nonce,
+                STATE_AAD,
+            )
+            .map_err(|_| Error::State)?;
+        let mut rest = state.as_slice();
+        let mut fields = std::iter::from_fn(|| {
+            let (length, tail) = rest.split_first_chunk::<4>()?;
+            let (field, tail) =
+                tail.split_at_checked(usize::try_from(u32::from_be_bytes(*length)).ok()?)?;
+            rest = tail;
+            Some(field.to_vec())
+        });
+        let certificate = fields.next().ok_or(Error::State)?;
+        let certificate = SignedRecord::decode(certificate.as_slice()).map_err(|_| Error::State)?;
+        {
+            let mut values = provider.storage().values.write().map_err(mls)?;
+            while let Some(k) = fields.next() {
+                values.insert(k, fields.next().ok_or(Error::State)?);
+            }
+        }
+        if !rest.is_empty() {
+            return Err(Error::State);
+        }
+        let public = DeviceCertificate::decode(certificate.payload.as_slice())
+            .map_err(|_| Error::State)?
+            .mls_signature_key;
+        let signer = SignatureKeyPair::read(
+            provider.storage(),
+            &public,
+            CIPHERSUITE.signature_algorithm(),
+        )
+        .ok_or(Error::State)?;
+        Ok(Self::from_parts(provider, signer, certificate))
     }
 
     /// The signed certificate for the owner's profile device list.
@@ -259,6 +345,12 @@ pub struct Group {
 }
 
 impl Group {
+    /// The group `id` from `device`'s state, e.g. after [`Device::open`].
+    pub fn load(device: &Device, id: &[u8]) -> Result<Option<Self>, Error> {
+        let group = MlsGroup::load(device.provider.storage(), &GroupId::from_slice(id));
+        Ok(group.map_err(mls)?.map(|group| Self { group }))
+    }
+
     /// The group ID that names the chat to every member.
     pub fn id(&self) -> &[u8] {
         self.group.group_id().as_slice()

@@ -12,7 +12,7 @@ here instead of repeating guarantees.
 
 | Layer | Code | What it actually does |
 |-------|------|-----------------------|
-| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. Group state lives in memory only; keeping the newest profile is the client's job |
+| Message payload | `rust/messaging/src/mls.rs` | Real in Rust, not wired to delivery yet: MLS (RFC 9420) via openmls 0.9, ciphersuite 0x0001 only. The identity key certifies a device's MLS signature key in a `DeviceCertificate`, which is the device's MLS basic credential; every KeyPackage, Welcome member, commit leaf and message sender must chain to a Peer ID and be listed in the owner's newest profile the client holds, so a device the owner dropped can no longer join, commit or send, and `Group::remove_revoked` removes it. A KeyPackage valid for over 30 days or with another suite, and a commit that changes group extensions, are refused. `Device::seal` encrypts the whole MLS state (signature key, unused KeyPackages, groups) with ChaCha20-Poly1305 under a 32-byte key the client keeps wrapped by the platform KeyStore, and `Device::open` and `Group::load` restore it; storing it, and keeping the newest profile, is the client's job |
 | Video frames | — | None: SFrame with keys from the MLS exporter is planned |
 | Profile signatures | `rust/identity`, `rust/profile` | Real: Ed25519 (`ed25519-dalek`, `verify_strict`) over a domain label and the payload; peer ID = hex SHA-256 of the public key; bootstrap verifies on `/dyapp/profile` `publish` and rejects older versions. Device certificates in the profile are independently signed by that identity key and checked for unique, sorted device and MLS keys |
 | KeyPackage rendezvous | `rust/bootstrap/src/service/keypackages.rs` | Node verifies the device's outer record signature and current profile certificate, bounds size and expiry, and consumes ordinary stock locally before reply. Node checks only the MLS suite header; the client checks the MLS signature, credential and lifetime when it adds the device (`Device::create_group`) |
@@ -44,8 +44,8 @@ Attackers, assets and every defence with its status: [Threat Model](threat-model
 
 The items below describe the intended client security model. The directory and node-side
 KeyPackage checks noted above are implemented; the MLS core in
-`rust/messaging/src/mls.rs` is implemented; its use in a client, MLS state storage and SFrame
-remain planned.
+`rust/messaging/src/mls.rs` is implemented, including its sealed state; its use in a client,
+the client's state store and SFrame remain planned.
 
 - Payload: MLS (RFC 9420) via `openmls`, ciphersuite 0x0001; one MLS group per conversation
   [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md).
@@ -83,7 +83,7 @@ One key per purpose; no key signs or encrypts for another.
 | Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; wrapped over FFI through the app's `KeyStore`; Android Keystore and Apple Keychain done, desktop planned |
 | Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
 | Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Planned |
-| MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Implemented in `rust/messaging`, in memory only |
+| MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Implemented in `rust/messaging`; sealed with the MLS state by `Device::seal` |
 | libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: a `systemd-creds` credential sealed to the host and its vTPM, or a 0600 key file | Node: implemented. Client: planned |
 | MLS group and SFrame keys | Messages, frames | Derived by MLS, never stored outside its state | MLS implemented in `rust/messaging`; SFrame planned |
 | Attachment key | One attachment | Inside the MLS message | Planned |

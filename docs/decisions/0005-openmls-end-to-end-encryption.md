@@ -41,5 +41,5 @@ Encrypt everything private with **MLS via the `openmls` crate**:
 - 0x0001 is not post-quantum: ciphertext recorded today can be read once X25519 falls. A hybrid
   post-quantum suite is planned once openmls ships an audited one.
 - Implemented in `rust/messaging/src/mls.rs`: credentials, the suite and KeyPackage checks,
-  groups, messages, commits and the exporter. Not implemented: storing MLS state, the client
-  that sends through mailboxes.
+  groups, messages, commits, the exporter and the sealed state (`Device::seal`/`open`). Not
+  implemented: the client that stores that state and sends through mailboxes.

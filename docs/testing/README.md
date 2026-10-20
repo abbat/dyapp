@@ -30,7 +30,8 @@ Located in `#[cfg(test)]` modules within each crate.
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
 - MessageQueue: enqueue/dequeue, pending filtering, mark/remove delivered (no TTL; `retry_failed` only in integration tests, first retry)
 - MLS: roundtrip, tampered, replayed and foreign messages, single-use Welcome, forged
-  certificates, revoked devices, suite and lifetime checks, commits, exporter
+  certificates, revoked devices, suite and lifetime checks, commits, exporter,
+  restart from sealed state, wrong key and tampered seal
 - HybridClock: wall-clock tracking, counter on a stalled or backward clock, observe, skew
   rejection, peer-ID tie-break
 
