@@ -40,6 +40,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
                 &peer("clock"),
                 ProfileRequest {
                     request: Some(profile_request::Request::Heartbeat(record.clone())),
+                    age_seconds: 0,
                 },
             )
             .unwrap();
@@ -74,6 +75,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
             &peer("clock"),
             ProfileRequest {
                 request: Some(profile_request::Request::Heartbeat(record.clone())),
+                age_seconds: 0,
             },
         )
         .unwrap();
@@ -97,6 +99,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
             &peer("clock"),
             ProfileRequest {
                 request: Some(profile_request::Request::Heartbeat(forged.clone())),
+                age_seconds: 0,
             },
         )
         .unwrap();

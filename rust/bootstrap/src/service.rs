@@ -520,6 +520,7 @@ impl Service {
             peer,
             ProfileRequest {
                 request: Some(profile_request::Request::Publish(record)),
+                age_seconds: 0,
             },
             false,
         )
@@ -577,7 +578,17 @@ impl Service {
                 } else {
                     PROFILE_SEND_BYTES
                 };
-                let response = self.publish(&record, store, max)?;
+                let mut last_seen = None;
+                if is_replica && request.age_seconds > 0 {
+                    let ttl = u64::from(self.config.limits.profile_ttl_days) * 86_400;
+                    if u64::from(request.age_seconds) >= ttl {
+                        // The owner would already have expired here: accept without storing.
+                        return Ok(reply(Status::Ok, None));
+                    }
+                    let now = chrono::Utc::now().timestamp();
+                    last_seen = Some(now - i64::from(request.age_seconds));
+                }
+                let response = self.publish(&record, store, max, last_seen)?;
                 if response.status == i32::from(Status::Denied) {
                     self.strike(peer);
                 }
@@ -646,7 +657,7 @@ impl Service {
 
     /// Verifies and stores a profile record, without per-peer limits.
     pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
-        self.publish(record, true, PROFILE_ACCEPT_BYTES)
+        self.publish(record, true, PROFILE_ACCEPT_BYTES, None)
     }
 
     fn publish(
@@ -654,6 +665,7 @@ impl Service {
         record: &SignedRecord,
         store: bool,
         max: usize,
+        last_seen: Option<i64>,
     ) -> crate::Result<ProfileResponse> {
         if record.payload.len() > max {
             return Ok(profile_too_large(max));
@@ -678,7 +690,8 @@ impl Service {
         )? {
             return Ok(reply(Status::Full, None));
         }
-        match self.store.put_profile(record) {
+        let last_seen = last_seen.unwrap_or_else(|| chrono::Utc::now().timestamp());
+        match self.store.put_profile_seen(record, last_seen) {
             Ok(_) => Ok(reply(Status::Ok, None)),
             Err(BootstrapError::Profile(dyapp_profile::Error::Stale)) => {
                 // A stale record verified, so its key is a valid 32-byte key.
@@ -725,7 +738,7 @@ pub use search_role::{run_get, run_query, search_key, Search};
 
 #[path = "service/mailbox.rs"]
 mod mailbox_role;
-pub(crate) use mailbox_role::is_signal;
+pub(crate) use mailbox_role::{is_signal, Held};
 
 #[path = "service/revoke.rs"]
 mod revoke_role;

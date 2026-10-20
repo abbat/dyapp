@@ -153,6 +153,9 @@ message ProfileRequest {
     // Node to node: returns only the stored version, for presence-driven repair.
     GetProfile inventory = 5;
   }
+  // Read only with `replica_put`: seconds since the sender last saw the owner, 0 for now. The
+  // receiver drops a replica at least one profile TTL old and otherwise ages it by this much.
+  uint32 age_seconds = 6;
 }
 
 message GetProfile {
@@ -272,6 +275,10 @@ message Envelopes {
   // Unsigned per-mailbox sender labels set by the accepting node, parallel to `envelopes`; a
   // missing one is empty. At most 8 bytes each; a longer one is read as empty.
   repeated bytes source_groups = 2;
+  // Node to node: seconds each envelope has left at the sender, parallel to `envelopes`. The
+  // receiver keeps the smaller of this and its own TTL and drops a 0; on a length mismatch, or
+  // from a node older than the field, every envelope gets the receiver's full TTL.
+  repeated uint32 remaining_seconds = 3;
 }
 
 // Asks for a nonce bound to this libp2p connection, for one fetch or ack.

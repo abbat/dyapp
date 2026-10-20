@@ -255,6 +255,7 @@ impl Node {
     ) -> Result<proto::ProfileResponse, Error> {
         let request = proto::ProfileRequest {
             request: Some(request),
+            age_seconds: 0,
         };
         self.swarm
             .behaviour_mut()

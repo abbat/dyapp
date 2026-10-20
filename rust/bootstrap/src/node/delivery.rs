@@ -35,15 +35,16 @@ pub(super) fn send_envelopes(
         Err(error) => return tracing::error!(%error, "mailbox repair failed"),
     };
     let mut bytes = 0;
-    let envelopes: Vec<(SignedRecord, Vec<u8>)> = held
+    let now = chrono::Utc::now().timestamp();
+    let envelopes: Vec<crate::service::Held> = held
         .into_iter()
-        .filter(|(id, (record, _))| {
+        .filter(|(id, (record, _, _))| {
             wanted(id)
                 && proto::Envelope::decode(record.payload.as_slice())
                     .is_ok_and(|e| !crate::service::is_signal(&e))
         })
         .map(|(_, held)| held)
-        .take_while(|(record, _)| {
+        .take_while(|(record, _, _)| {
             bytes += record.encoded_len();
             bytes <= REPAIR_BYTES
         })
@@ -54,8 +55,14 @@ pub(super) fn send_envelopes(
         }
         let request = MailboxRequest {
             request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
-                envelopes: batch.iter().map(|(record, _)| record.clone()).collect(),
-                source_groups: batch.iter().map(|(_, group)| group.clone()).collect(),
+                envelopes: batch.iter().map(|(record, _, _)| record.clone()).collect(),
+                source_groups: batch.iter().map(|(_, group, _)| group.clone()).collect(),
+                remaining_seconds: batch
+                    .iter()
+                    .map(|(_, _, expires_at)| {
+                        u32::try_from((expires_at - now).max(1)).unwrap_or(u32::MAX)
+                    })
+                    .collect(),
             })),
         };
         service.traffic.add(request.encoded_len() as u64);

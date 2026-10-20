@@ -210,13 +210,13 @@ fn tokenless_bytes(service: &Service, mailbox: &[u8]) -> usize {
         .held(mailbox)
         .unwrap()
         .values()
-        .filter(|(r, _)| {
+        .filter(|(r, _, _)| {
             proto::Envelope::decode(r.payload.as_slice())
                 .unwrap()
                 .write_token
                 .is_none()
         })
-        .map(|(r, _)| r.encoded_len())
+        .map(|(r, _, _)| r.encoded_len())
         .sum()
 }
 
@@ -296,6 +296,8 @@ fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
     let batch = proto::Envelopes {
         envelopes: spray.iter().map(sign).collect(),
         source_groups: (2..1002u64).map(|id| id.to_be_bytes().to_vec()).collect(),
+
+        remaining_seconds: Vec::new(),
     };
     let request = mailbox_request::Request::ReplicaPut(batch);
     assert_eq!(put(&service, &replica_peer("r"), request), Status::Ok);
@@ -309,6 +311,7 @@ fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
     let batch = proto::Envelopes {
         envelopes: vec![sign(&long)],
         source_groups: vec![vec![1; 9]],
+        remaining_seconds: Vec::new(),
     };
     let request = mailbox_request::Request::ReplicaPut(batch);
     assert_eq!(put(&service, &replica_peer("r"), request), Status::Ok);

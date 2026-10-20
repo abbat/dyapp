@@ -192,6 +192,7 @@ impl Client {
     async fn profile(&mut self, request: profile_request::Request) -> proto::ProfileResponse {
         let request = proto::ProfileRequest {
             request: Some(request),
+            age_seconds: 0,
         };
         self.swarm
             .behaviour_mut()

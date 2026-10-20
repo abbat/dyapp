@@ -42,7 +42,8 @@ media is different: full copies are expensive, and a node should hold no object 
   M = 4 parity, under a manifest stored at R = 5. Copies and shards carry the owner's signed
   `keep`, so receivers accept only blobs the owner listed.
 - **Repair while the owner is present, by nodes:** a fetch, a profile publish or a media `keep`
-  makes the node compare the replica holders and fill the gaps. Data of an absent owner is not
+  makes the node compare the replica holders and fill the gaps. A repaired copy keeps the
+  original expiry or owner age, so repair never extends a TTL. Data of an absent owner is not
   repaired and expires by TTL.
 - Details: [Bootstrap: Replication and repair](../architecture/bootstrap.md#replication-and-repair).
 - All stored message data is end-to-end encrypted

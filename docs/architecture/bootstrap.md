@@ -220,8 +220,10 @@ resent from the sender's retry queue.
 - **Profile.** A successful publish (including `STALE`) or owner-signed heartbeat makes the
   accepting node look up all five current replica keys and query each distinct trusted remote
   holder with `profile.inventory(identity)`. The reply carries only the stored version, or
-  `NOT_FOUND`. Missing and older holders get the owner's verified record via `replica_put`;
-  equal or newer holders get no record. Replica puts do not start another repair.
+  `NOT_FOUND`. Missing and older holders get the owner's verified record via `replica_put`,
+  with `age_seconds`, the time since the owner was last seen here; the receiver sets its
+  last-seen time that far back (a later time it already has stays) and drops a record whose age
+  reaches its `limits.profile_ttl_days`. Equal or newer holders get no record. Replica puts do not start another repair.
   A node inventories a profile at most once per rolling hour, with up to 4096 keys tracked;
   the limit is in memory and starts over after a restart. Above the cap it waits for a later visit.
 - **Media.** An accepted signed `keep` checks at most 256 hashes from a rotating per-owner
@@ -775,10 +777,12 @@ sender's identity: the sender key only proves someone signed it; puts are limite
 
 **Lifecycle:** put → stored until the device acks it or `limits.message_ttl_hours` passes
 (`dyappd` deletes expired envelopes every hour) → fetched messages first, then signals,
-oldest first in each. Exception: a node that
-receives an envelope through mailbox repair (`replica_put`) starts a new TTL for it, so while a
-device keeps watching without acking, replicas can re-seed each other and keep an envelope past
-the TTL; carrying the original expiry through repair is planned.
+oldest first in each. Repair carries the original expiry: `Envelopes.remaining_seconds`, parallel
+to `envelopes`, gives each envelope's seconds left, and the receiver stores it until `now +` that
+time, capped at its own TTL; 0 drops the envelope. A list of another length, or none from an
+older node and on the acceptor's fan-out, gives a fresh TTL, so in a mixed network an envelope can
+outlive the TTL by at most one more TTL. A re-sent envelope the node already holds keeps its
+expiry.
 
 `Envelope.class`, `ENVELOPE_CLASS_MESSAGE` (default, also any unknown value) or
 `ENVELOPE_CLASS_SIGNAL`, is the only field that tells a node a signal from a message. A signal's
@@ -920,8 +924,8 @@ The current protocol replies are:
   node. The peer, if one of the first five nodes its own
   routing table holds for a replica key is the requester and it trusts the requester, sends back
   the envelopes the inventory lacks the same way. A batch is cut at 1 MiB, the rest waits for the
-  next visit; repair bytes count towards the traffic cap. A repaired envelope gets a fresh TTL on
-  its new node. Old nodes answer both requests `UNSUPPORTED`, and repair skips them. The
+  next visit; repair bytes count towards the traffic cap. A repaired envelope keeps its original
+  expiry ([lifecycle](#mailbox-envelope)). Old nodes answer both requests `UNSUPPORTED`, and repair skips them. The
   inventory lists messages and signals, but repair sends messages only: a signal evicted at its
   quota would come back from another replica and evict the next one. In a mixed network an older
   peer still sends signals back, bounded by the 1 MiB per visit and the TTL, until it upgrades.

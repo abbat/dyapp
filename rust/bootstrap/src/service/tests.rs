@@ -59,6 +59,7 @@ fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
         request: Some(profile_request::Request::Inventory(proto::GetProfile {
             peer_id: key,
         })),
+        age_seconds: 0,
     };
     let key = dyapp_identity::key_hash(&owner.public_key()).to_vec();
     let response = s
@@ -137,12 +138,14 @@ fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
 fn publish(record: SignedRecord) -> ProfileRequest {
     ProfileRequest {
         request: Some(profile_request::Request::Publish(record)),
+        age_seconds: 0,
     }
 }
 
 pub(super) fn get(peer_id: Vec<u8>) -> ProfileRequest {
     ProfileRequest {
         request: Some(profile_request::Request::Get(proto::GetProfile { peer_id })),
+        age_seconds: 0,
     }
 }
 
@@ -214,7 +217,9 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     };
     let exact = padded_profile(&owner, &profile, PROFILE_SEND_BYTES);
     assert!(dyapp_profile::verify(&exact).is_ok());
-    let response = s.publish(&exact, false, PROFILE_SEND_BYTES - 1).unwrap();
+    let response = s
+        .publish(&exact, false, PROFILE_SEND_BYTES - 1, None)
+        .unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), (PROFILE_SEND_BYTES - 1) as u64)
@@ -237,6 +242,7 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
             &from,
             ProfileRequest {
                 request: Some(profile_request::Request::ReplicaPut(exact)),
+                age_seconds: 0,
             },
         )
         .unwrap();
@@ -262,6 +268,7 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
             &from,
             ProfileRequest {
                 request: Some(profile_request::Request::ReplicaPut(large)),
+                age_seconds: 0,
             },
         )
         .unwrap();
@@ -319,7 +326,10 @@ fn publish_get_stale_and_errors() {
         status(&service.profile(&peer("p"), get(vec![1; 5])).unwrap()),
         Status::Invalid
     );
-    let empty = ProfileRequest { request: None };
+    let empty = ProfileRequest {
+        request: None,
+        age_seconds: 0,
+    };
     assert_eq!(
         status(&service.profile(&peer("p"), empty).unwrap()),
         Status::Unsupported
@@ -351,6 +361,7 @@ fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
                         request: Some(
                             profile_request::Request::ReplicaPut(SignedRecord::default()),
                         ),
+                        age_seconds: 0,
                     },
                 )
                 .unwrap()
@@ -611,6 +622,7 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
     );
     let replica = |record| ProfileRequest {
         request: Some(profile_request::Request::ReplicaPut(record)),
+        age_seconds: 0,
     };
     assert_eq!(
         status(
@@ -677,6 +689,7 @@ fn heartbeat_keeps_the_profile_seen() {
             request: Some(profile_request::Request::Heartbeat(
                 identity.sign(Domain::Heartbeat, beat.encode_to_vec()),
             )),
+            age_seconds: 0,
         }
     };
     let send = |request| status(&service.profile(&peer("p"), request).unwrap());
@@ -738,6 +751,7 @@ fn heartbeat_keeps_the_profile_seen() {
     assert_eq!(service.store.expire_profiles(cutoff).unwrap(), 1);
 }
 
+mod expiry;
 mod keypackages;
 mod mailbox;
 mod media;

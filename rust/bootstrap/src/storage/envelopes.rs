@@ -219,28 +219,28 @@ impl BootstrapStore {
         Ok(Put::Stored)
     }
 
-    /// The first `limit` envelopes of a mailbox in fetch order, each with its source group, for
-    /// repair.
+    /// The first `limit` envelopes of a mailbox in fetch order, each with its source group and
+    /// expiry, for repair.
     pub fn held_envelopes(
         &self,
         mailbox: &[u8],
         limit: u32,
-    ) -> Result<Vec<(SignedRecord, Vec<u8>)>> {
+    ) -> Result<Vec<(SignedRecord, Vec<u8>, i64)>> {
         let db = lock(&self.messages)?;
         let mut query = db
             .prepare(
-                "SELECT `record`, `source_group` FROM `envelopes` WHERE `mailbox` = ? \
+                "SELECT `record`, `source_group`, `expires_at` FROM `envelopes` WHERE `mailbox` = ? \
                  ORDER BY `class`, `seq` LIMIT ?",
             )
             .map_err(storage_error)?;
-        let rows: Vec<(Vec<u8>, Vec<u8>)> = query
+        let rows: Vec<(Vec<u8>, Vec<u8>, i64)> = query
             .query_map(params![mailbox, limit], |row| {
-                Ok((row.get(0)?, row.get(1)?))
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             })
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         rows.into_iter()
-            .map(|(record, group)| Ok((decode(record)?, group)))
+            .map(|(record, group, expires_at)| Ok((decode(record)?, group, expires_at)))
             .collect()
     }
 

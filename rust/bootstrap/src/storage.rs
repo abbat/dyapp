@@ -314,6 +314,15 @@ impl BootstrapStore {
     /// Verifies a signed profile and stores it if it is newer than the owner's stored version.
     /// A tombstone replaces the profile and is kept so older versions cannot be re-imported.
     pub fn put_profile(&self, record: &SignedRecord) -> Result<VerifiedProfile> {
+        self.put_profile_seen(record, chrono::Utc::now().timestamp())
+    }
+
+    /// [`Self::put_profile`] with the owner last seen at `last_seen`; a later stored time stays.
+    pub fn put_profile_seen(
+        &self,
+        record: &SignedRecord,
+        last_seen: i64,
+    ) -> Result<VerifiedProfile> {
         let verified = dyapp_profile::verify(record)?;
         // The connection lock serialises the read-compare-write of profile versions.
         let db = lock(&self.profiles)?;
@@ -322,13 +331,15 @@ impl BootstrapStore {
             .transpose()?;
         verified.check_newer(current)?;
         db.execute(
+            // REPLACE gives a new rowid, moving the owner to the end of the eviction order.
             "INSERT OR REPLACE INTO `profiles` (`peer_id`, `record`, `live`, `last_seen`) \
-             VALUES (?, ?, ?, ?)",
+             VALUES (?1, ?2, ?3, MAX(?4, COALESCE((SELECT `last_seen` FROM `profiles` \
+             WHERE `peer_id` = ?1), ?4)))",
             params![
                 verified.peer_id,
                 record.encode_to_vec(),
                 !verified.profile.deleted,
-                chrono::Utc::now().timestamp()
+                last_seen
             ],
         )
         .map_err(storage_error)?;
@@ -345,6 +356,18 @@ impl BootstrapStore {
         .map_err(storage_error)?
         .map(decode)
         .transpose()
+    }
+
+    /// When the owner of `peer_id`'s stored profile was last seen.
+    pub fn profile_last_seen(&self, peer_id: &str) -> Result<Option<i64>> {
+        lock(&self.profiles)?
+            .query_row(
+                "SELECT `last_seen` FROM `profiles` WHERE `peer_id` = ?",
+                [peer_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)
     }
 
     /// The stored profile record of `peer_id`.

@@ -235,6 +235,7 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
     let (mut swarm, peer) = connect(addr).await?;
     let request = proto::ProfileRequest {
         request: Some(request),
+        age_seconds: 0,
     };
     swarm.behaviour_mut().profile.send_request(&peer, request);
     let response = wait(&mut swarm, |event| match event {
@@ -376,6 +377,7 @@ async fn replicate(addr: &str, peer_id: &str, record: &str) -> anyhow::Result<Va
     for holder in &holders {
         let request = proto::ProfileRequest {
             request: Some(profile_request::Request::Publish(record.clone())),
+            age_seconds: 0,
         };
         swarm.behaviour_mut().profile.send_request(holder, request);
         let response = wait(&mut swarm, |event| match event {
@@ -400,6 +402,7 @@ async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
             request: Some(profile_request::Request::Get(proto::GetProfile {
                 peer_id: vec![0; 32],
             })),
+            age_seconds: 0,
         };
         swarm.behaviour_mut().profile.send_request(&peer, request);
     }

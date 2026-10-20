@@ -236,6 +236,7 @@ impl Replicas {
             request: Some(proto::profile_request::Request::Inventory(
                 proto::GetProfile { peer_id: key },
             )),
+            age_seconds: 0,
         };
         if !service
             .traffic
@@ -262,8 +263,18 @@ impl Replicas {
         {
             return None;
         }
+        let key: [u8; 32] = record.public_key.as_slice().try_into().ok()?;
+        let last_seen = service
+            .store
+            .profile_last_seen(&dyapp_identity::peer_id(&key))
+            .ok()
+            .flatten();
+        let now = chrono::Utc::now().timestamp();
         let request = proto::ProfileRequest {
             request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
+            age_seconds: last_seen.map_or(0, |seen| {
+                u32::try_from((now - seen).max(0)).unwrap_or(u32::MAX)
+            }),
         };
         if self.trust.trusted(&to)
             && service
@@ -421,6 +432,7 @@ impl Replicas {
                         request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
                             envelopes: vec![record.clone()],
                             source_groups: vec![group.clone()],
+                            remaining_seconds: Vec::new(),
                         })),
                     };
                     service.traffic.add(request.encoded_len() as u64);
@@ -430,6 +442,7 @@ impl Replicas {
                 PutRecord::Profile(record) => {
                     let request = proto::ProfileRequest {
                         request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
+                        age_seconds: 0,
                     };
                     service.traffic.add(request.encoded_len() as u64);
                     let request_id = swarm.behaviour_mut().profile.send_request(&to, request);

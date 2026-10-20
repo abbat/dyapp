@@ -63,6 +63,7 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
                 request: Some(profile_request::Request::Get(proto::GetProfile {
                     peer_id: vec![0; 32],
                 })),
+                age_seconds: 0,
             },
         );
         behaviour.mailbox.send_request(

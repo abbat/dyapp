@@ -244,6 +244,7 @@ check nodes yet.
 | A search node poisons, reorders or hides results | Search | Medium × high | Fix: the client checks results and asks 2 nodes ([above](#spoofing)) and ranks results itself. Accept: a node still picks which matches it returns |
 | An accepting node sets false `source_group` labels to steer tokenless eviction | `replica_put`, repair | Low × medium | Accept: replicas file every label under the acceptor's own `via`, so it can only evict envelopes it handed in ([tokenless pool](../architecture/bootstrap.md#mailbox-envelope)) |
 | A node lies in inventory during repair | Node to node | Medium × medium | Accept: every copy is verified on its own, and only holders of a replica key can pull its envelopes |
+| A holder shortens the expiry or ages the owner of a copy it repairs | `replica_put`, repair | Low × low | Accept: only copies the receiver lacks, never past its own TTL, and the other replicas keep the right expiry |
 | A forged node-ID or profile proof of work | DHT, search | High × medium | Accept: both are checked; such a node is not routed to, such a profile is not indexed |
 | False roles or false limits in `info` and status | DHT, `/dyapp/node` | Medium × medium | Accept: the client treats `info` as a hint within compiled floors ([Downgrade](#downgrade)); a role that is not served costs the node reputation |
 | Harvesting peer and profile data | DHT, search | Medium × high | Accept: profiles are public by design and Kademlia routing tables are open; metadata is class 4 ([above](#traffic-analysis)) |

@@ -110,6 +110,7 @@ impl Service {
                     MAX_ENVELOPE_BYTES,
                     &peer.id,
                     group,
+                    None,
                 )?;
                 *strike = strikes;
                 Ok(response)
@@ -204,19 +205,28 @@ impl Service {
     /// One status for the batch: DENIED if any envelope is forged (a strike), else the first
     /// failure. ponytail: the sender rate limit applies per envelope, so a large gap of one
     /// sender fills over several repairs.
+    ///
+    /// An envelope keeps the sender's remaining time, at most this node's TTL; one with none
+    /// left is dropped. Without a remaining time for every envelope each gets the full TTL.
     fn replica_put(&self, peer: &Peer, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
         let mut worst = status(Status::Ok);
-        // ponytail: a repaired envelope gets a fresh TTL here, so replicas can re-seed an envelope a
-        // watching device never acks until the mailbox cap; carry the expiry if that matters.
+        let carried = batch.remaining_seconds.len() == batch.envelopes.len();
+        let now = chrono::Utc::now().timestamp();
         for (i, record) in batch.envelopes.iter().enumerate() {
+            let expires_at = match carried.then(|| batch.remaining_seconds[i]) {
+                Some(0) => continue,
+                Some(left) => Some(now + i64::from(left).min(self.retention() as i64)),
+                None => None,
+            };
             let group = Group::Label(batch.source_groups.get(i).map_or(&[], Vec::as_slice));
-            let put = self.put(
+            let (put, _) = self.put_inner(
                 record,
                 true,
                 Source::Replica,
                 ENVELOPE_ACCEPT_BYTES,
                 &peer.id,
                 group,
+                expires_at,
             )?;
             if worst.status == i32::from(Status::Ok) || put.status == i32::from(Status::Denied) {
                 worst = put;
@@ -231,16 +241,16 @@ impl Service {
         self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)
     }
 
-    /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, with their source groups, for
-    /// repair.
+    /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, with their source groups and
+    /// expiry, for repair.
     pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, Held>> {
         let held = self.store.held_envelopes(mailbox, MAX_INVENTORY as u32)?;
         Ok(held
             .into_iter()
-            .filter_map(|(r, group)| {
+            .filter_map(|(r, group, expires_at)| {
                 Some((
                     proto::Envelope::decode(r.payload.as_slice()).ok()?.id,
-                    (r, group),
+                    (r, group, expires_at),
                 ))
             })
             .collect())
@@ -287,10 +297,17 @@ impl Service {
         via: &str,
         group: Group,
     ) -> crate::Result<MailboxResponse> {
-        Ok(self.put_inner(record, store, source, max, via, group)?.0)
+        Ok(self
+            .put_inner(record, store, source, max, via, group, None)?
+            .0)
     }
 
-    /// [`Service::put`], and whether a DENIED answer strikes the sender.
+    /// [`Service::put`] expiring at `expires_at` (`None`: one TTL from now), and whether a DENIED
+    /// answer strikes the sender.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "put's arguments and the expiry only a replica put carries"
+    )]
     fn put_inner(
         &self,
         record: &SignedRecord,
@@ -299,6 +316,7 @@ impl Service {
         max: usize,
         via: &str,
         group: Group,
+        expires_at: Option<i64>,
     ) -> crate::Result<(MailboxResponse, bool)> {
         if record.payload.len() > max {
             return Ok((mailbox_too_large(max), true));
@@ -316,8 +334,10 @@ impl Service {
             Ok(key) => key,
             Err((answer, strike)) => return Ok((status(answer), strike)),
         };
-        self.store_put(record, &envelope, token_key, store, source, via, group)
-            .map(|response| (response, true))
+        self.store_put(
+            record, &envelope, token_key, store, source, via, group, expires_at,
+        )
+        .map(|response| (response, true))
     }
 
     /// The rest of [`Service::put`] once the token is admitted.
@@ -334,6 +354,7 @@ impl Service {
         source: Source,
         via: &str,
         group: Group,
+        expires_at: Option<i64>,
     ) -> crate::Result<MailboxResponse> {
         let signal = is_signal(envelope);
         if signal && record.payload.len() > MAX_SIGNAL_BYTES {
@@ -360,7 +381,8 @@ impl Service {
         )? {
             return Ok(status(Status::Full));
         }
-        let expires_at = chrono::Utc::now().timestamp() + self.retention() as i64;
+        let expires_at =
+            expires_at.unwrap_or_else(|| chrono::Utc::now().timestamp() + self.retention() as i64);
         let group = match group {
             Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
             Group::Label(label) if label.len() <= 8 => label.to_vec(),
@@ -442,8 +464,8 @@ pub(super) enum Source {
     Local,
 }
 
-/// A held envelope and its source group.
-pub type Held = (SignedRecord, Vec<u8>);
+/// A held envelope, its source group and its expiry.
+pub type Held = (SignedRecord, Vec<u8>, i64);
 
 /// Where the source group of an envelope comes from.
 #[derive(Clone, Copy)]
