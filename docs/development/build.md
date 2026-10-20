@@ -135,8 +135,8 @@ and runs `scripts/apple-release-in-ci.py <ios|macos>` with
 `CODE_SIGNING_ALLOWED=NO`. The producer builds configuration `Release`, packages
 the app and records bytes/hash/source/compiler in `measurement.json`, together
 with Xcode version and captured logs. The successful
-[native measurement run](https://github.com/abbat/dyapp/actions/runs/38747979532)
-calibrated the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
+[native measurement run](https://github.com/abbat/dyapp/actions/runs/39409459725)
+refreshed the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
 The producer checks the real package bytes and writes `size.json`/`size.log`
 using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
 separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets)).

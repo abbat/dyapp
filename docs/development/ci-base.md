@@ -60,8 +60,13 @@ budgets, shallow history and unavailable/non-ancestor revisions fail closed.
 Reports include measured bytes, baseline environment, growth and exception reasons.
 
 The inventory separates prepared-image and native Ubuntu release `dyappd`/Linux
-baselines. Native measurements come from the successful
-[release comparison run](https://github.com/abbat/dyapp/actions/runs/38741437870).
+baselines. Native measurements were refreshed in the
+[2026-10-20 release comparison run](https://github.com/abbat/dyapp/actions/runs/39409444833):
+both pairs matched byte-for-byte. Its `dyappd` size gate failed against the old budget after
+6.51% growth; the inventory now records the measured size. The prepared-image `dyappd` size
+was measured by local `make build` on `13a45c7`. The prepared-image Linux budget remains at
+its last measured value: the current test image's Cargo source cache is unreadable by its
+non-root runtime user, so a comparable Release build could not be made there.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as
@@ -80,13 +85,14 @@ files or unavailable provenance fail. `release-sizes.yml` schedules a native
 Windows 2022 unsigned Release EXE producer at 04:17 UTC and on manual dispatch;
 it archives `release-size-windows.json` and `artifact-size-windows.json`.
 The Windows gate uses the measured unsigned EXE baseline from the successful
-[native producer run](https://github.com/abbat/dyapp/actions/runs/38744833534),
+[native producer run](https://github.com/abbat/dyapp/actions/runs/39409459725),
 with the exact `HEAD^..HEAD` source range. Push/debug smoke CI is separate.
 Apple jobs in the same workflow request unsigned iOS device and universal macOS
 Release packages with optimized Rust core libraries. They archive measurement
 JSON, Xcode version, actual package size-gate reports and captured logs. Distinct
-unsigned device IPA and universal macOS ZIP baselines come from a successful
-native producer run ([producer details](build.md#unsigned-apple-release-packages)).
+unsigned device IPA and universal macOS ZIP baselines come from the successful
+[2026-10-20 native producer run](https://github.com/abbat/dyapp/actions/runs/39409459725)
+([producer details](build.md#unsigned-apple-release-packages)).
 
 The Android job builds the `dyapp:android-test` image, runs the
 [offline Release runner](build.md#unsigned-android-release) in it without network,
