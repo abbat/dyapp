@@ -808,3 +808,6 @@ mod chat;
 
 #[path = "protocol/replicas.rs"]
 mod replicas;
+
+#[path = "protocol/gossip.rs"]
+mod gossip;

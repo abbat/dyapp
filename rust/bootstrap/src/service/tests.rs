@@ -538,7 +538,17 @@ fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
         service.node(&unknown, info).status,
         i32::from(Status::RateLimited)
     );
-    assert_eq!(service.refusals()[6], 2);
+    // A group without its coarse group is refused as well.
+    let half = Peer {
+        id: "unknown".into(),
+        group: "g".into(),
+        coarse: String::new(),
+    };
+    assert_eq!(
+        service.node(&half, info).status,
+        i32::from(Status::RateLimited)
+    );
+    assert_eq!(service.refusals()[6], 3);
     assert!(!service.reputation.banned("unknown"));
     // The same request with a known group passes.
     assert_eq!(

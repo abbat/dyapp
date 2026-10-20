@@ -170,8 +170,8 @@ impl Service {
                 u32::try_from(l.bytes_per_second).unwrap_or(u32::MAX).max(1),
             ),
             groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
-            // Validation caps the group rate, so the product fits.
-            coarse_groups: PeerRateLimiter::new(l.ip_group_requests_per_second * 10),
+            // Saturates for an unvalidated config, such as the fuzz node's unlimited one.
+            coarse_groups: PeerRateLimiter::new(l.ip_group_requests_per_second.saturating_mul(10)),
             senders: PeerRateLimiter::new(l.sender_puts_per_second),
             reputation: Reputation::new(l.strikes_to_ban, ban),
             traffic: Traffic::new(l.bytes_per_second),

@@ -25,6 +25,7 @@ pub static IDENTITY: LazyLock<Identity> = LazyLock::new(|| Identity::from_secret
 pub static PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
     id: IDENTITY.peer_id(),
     group: "fuzz".into(),
+    coarse: "fuzz".into(),
 });
 
 /// A node in a fresh directory with the media and search roles; the limits never refuse, so
