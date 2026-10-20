@@ -167,7 +167,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   bindings the app target needs. There is no `.xcworkspace`, and the generated project is not committed.
   `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then
   `xcodebuild test` into `$RUNNER_TEMP/apple-results/<platform>.xcresult` (iOS on the first
-  available iPhone simulator, macOS on `platform=macOS`), summarizes it with `xcresulttool` and
+  available iPhone simulator, signed ad hoc because the simulator refuses an unsigned app the
+  Keychain; macOS unsigned on `platform=macOS`), summarizes it with `xcresulttool` and
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with

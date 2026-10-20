@@ -26,11 +26,17 @@ def main():
     os.environ["DYAPP_CHECK_LOG_DIR"] = str(reports / "check-output")
     derived = reports / "DerivedData"
     common = ["xcodebuild", "-project", f"{platform}/DYApp.xcodeproj",
-              "-scheme", "DYApp", "-derivedDataPath", str(derived),
-              "CODE_SIGNING_ALLOWED=NO"]
+              "-scheme", "DYApp", "-derivedDataPath", str(derived)]
+    unsigned = ["CODE_SIGNING_ALLOWED=NO"]
+    build = common + unsigned
+    # The iOS Simulator refuses an unsigned app the Keychain (OSStatus
+    # -34018); an ad-hoc signature gives it an application identifier.
+    # macOS uses the login keychain unsigned.
+    test = common + (["CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-"]
+                     if platform == "ios" else unsigned)
     run(["xcodebuild", "-version"], reports / "xcode-version.txt")
     if platform == "ios":
-        run(common + ["-destination", "generic/platform=iOS", "build"],
+        run(build + ["-destination", "generic/platform=iOS", "build"],
             reports / "device-build.log")
         devices = json.loads(subprocess.check_output(
             ["xcrun", "simctl", "list", "devices", "available", "--json"],
@@ -47,15 +53,15 @@ def main():
         destination = (f"platform=iOS Simulator,id={device['udid']},"
                        f"arch={os.uname().machine}")
     else:
-        run(common + ["-destination", "generic/platform=macOS",
-                      "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "build"],
+        run(build + ["-destination", "generic/platform=macOS",
+                     "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "build"],
             reports / "universal-build.log")
         destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
-    run(common + ["-destination", destination,
-                  "-parallel-testing-enabled", "NO",
-                  "-retry-tests-on-failure", "-test-iterations", "3",
-                  "-resultBundlePath", str(result_bundle), "test"],
+    run(test + ["-destination", destination,
+                "-parallel-testing-enabled", "NO",
+                "-retry-tests-on-failure", "-test-iterations", "3",
+                "-resultBundlePath", str(result_bundle), "test"],
         reports / "tests.log")
     summary = subprocess.check_output(
         ["xcrun", "xcresulttool", "get", "test-results", "summary",
