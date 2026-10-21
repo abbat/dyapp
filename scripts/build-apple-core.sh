@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds rust/ffi into target/apple/DyappFFI.xcframework and generates its Swift bindings into
-# target/apple/swift; both are build outputs. Needs macOS with Xcode and the Rust targets below.
+# Builds rust/ffi into build/apple/DyappFFI.xcframework and generates its Swift bindings into
+# build/apple/swift; both are build outputs. Needs macOS with Xcode and the Rust targets below.
 # ios includes simulators; ios-device omits them. Optional second argument: debug|release.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,7 +10,7 @@ if [[ ${1:-} != --raw ]]; then
         apple-core -- bash "$PWD/scripts/build-apple-core.sh" --raw "$@"
 fi
 shift
-out=target/apple
+out=build/apple
 # An unoptimised core with debuginfo is hundreds of MB per target.
 export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=14.0 MACOSX_DEPLOYMENT_TARGET=11.0
 case ${1:-all} in
@@ -41,7 +41,7 @@ host=$(rustc -vV | sed -n 's/^host: //p')
 cargo build --locked -p dyapp-ffi --target "$host"
 rm -rf "$out"
 mkdir -p "$out/headers"
-"target/$host/debug/uniffi-bindgen" generate --library "target/$host/debug/libdyapp_ffi.dylib" \
+"build/$host/debug/uniffi-bindgen" generate --library "build/$host/debug/libdyapp_ffi.dylib" \
     --language swift --out-dir "$out/swift"
 mv -f "$out/swift/dyappFFI.h" "$out/headers/"
 mv -f "$out/swift/dyappFFI.modulemap" "$out/headers/module.modulemap"
@@ -51,7 +51,7 @@ for slice in "${slices[@]}"; do
     libs=()
     for target in $(targets "$slice"); do
         cargo rustc "${cargo_profile[@]}" --locked -p dyapp-ffi --lib --crate-type staticlib --target "$target"
-        libs+=("target/$target/$profile/libdyapp_ffi.a")
+        libs+=("build/$target/$profile/libdyapp_ffi.a")
     done
     mkdir -p "$out/$slice"
     lipo -create "${libs[@]}" -output "$out/$slice/libdyapp_ffi.a"

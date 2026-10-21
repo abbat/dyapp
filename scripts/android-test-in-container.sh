@@ -6,6 +6,8 @@ export DYAPP_CHECK_LOG_DIR="/reports/$HOSTNAME/check-output"
 case "${1:?suite required}" in
     unit)
         cp -rf /app/clients/android /tmp/ai/android
+        mkdir -p /tmp/build/android
+        cp -rf /app/build/android/app /tmp/build/android/app
         cp -rf /opt/gradle-cache /tmp/ai/gradle-cache
         export GRADLE_USER_HOME=/tmp/ai/gradle-cache
         cd /tmp/ai/android
@@ -16,7 +18,7 @@ case "${1:?suite required}" in
             for crash in /tmp/ai/android/hs_err*.log; do
                 if [[ -f $crash ]]; then head -60 "$crash"; cp -f "$crash" "$report_dir/"; fi
             done
-            cp -rf app/build/test-results "$report_dir/" 2>/dev/null || true
+            cp -rf /tmp/build/android/app/test-results "$report_dir/" 2>/dev/null || true
             exit "$code"
         }
         trap save_reports EXIT
@@ -25,7 +27,7 @@ case "${1:?suite required}" in
         sh ./gradlew --offline --no-daemon tasks --all > "$report_dir/gradle-tasks.txt"
         # The Rust sources are not copied here: reuse the core and bindings from the image build.
         sh ./gradlew --offline --no-daemon --rerun-tasks -Pdyapp.prebuiltRust :app:testDebugUnitTest
-        python3 /app/scripts/check-junit-results.py app/build/test-results/testDebugUnitTest
+        python3 /app/scripts/check-junit-results.py /tmp/build/android/app/test-results/testDebugUnitTest
         ;;
     emulator)
         export ANDROID_USER_HOME=/home/appuser/.android
@@ -54,8 +56,8 @@ case "${1:?suite required}" in
             exit "$code"
         }
         trap collect_ui_reports EXIT
-        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/clients/android/app/build/outputs/apk/debug/app-debug.apk
-        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/clients/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/debug/app-debug.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
         # A freshly booted emulator may still show the lock screen or a system ANR dialog over
         # the app; AppUITests requires the app to own the active window.
         timeout 60 adb -s emulator-5554 shell settings put global hide_error_dialogs 1

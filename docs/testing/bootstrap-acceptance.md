@@ -56,7 +56,7 @@ internally to retain one owning wrapper. Invalid CLI arguments fail before DNS
 or workload setup; `--help` prints the command syntax without running a suite.
 Completed plateau observations retain timestamped per-round RSS for every node,
 all first/second-half peaks and failed nodes, the unchanged limits and duration,
-and the measured binary SHA-256 in `target/memory-plateau-<unique-id>.json`.
+and the measured binary SHA-256 in `build/memory-plateau-<unique-id>.json`.
 Set `DYAPP_MEMORY_REPORT_DIR` to another writable directory if needed. The report
 is saved before the RSS gate raises; too few rounds or an interrupted workload
 still fail and do not produce a completed observation. This evidence helps

@@ -165,9 +165,9 @@ def build_images(arguments, environment, log_file=None):
 def main():
     temporary = Path("/tmp/ai")
     temporary.mkdir(parents=True, exist_ok=True)
-    # compose.dev.yml mounts a volume at /workspace/target inside the
+    # compose.dev.yml mounts a volume at /workspace/build inside the
     # read-only checkout; Docker cannot create that mountpoint itself.
-    (Path(__file__).resolve().parents[1] / "target").mkdir(exist_ok=True)
+    (Path(__file__).resolve().parents[1] / "build").mkdir(exist_ok=True)
     arguments = sys.argv[1:]
     log_file = None
     if arguments[:1] == ["--log-file"]:

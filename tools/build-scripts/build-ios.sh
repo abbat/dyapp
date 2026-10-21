@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/target/ios-build"
+BUILD_DIR="${PROJECT_ROOT}/build/ios-build"
 FRAMEWORK_DIR="${BUILD_DIR}/frameworks"
 RUST_CRATES=("dyapp-identity" "dyapp-profile" "dyapp-p2p-net" "dyapp-messaging" "dyapp-video")
 
@@ -76,7 +76,7 @@ create_xcframework() {
   # Collect all built libraries
   local frameworks=()
   for target in "${IOS_TARGETS[@]}"; do
-    local lib_path="${PROJECT_ROOT}/target/${target}/release"
+    local lib_path="${PROJECT_ROOT}/build/${target}/release"
     if [ -d "$lib_path" ]; then
       frameworks+=("-framework" "$lib_path")
     fi
@@ -97,8 +97,8 @@ copy_headers() {
   mkdir -p "$headers_dir"
 
   # Copy generated headers (from UniFFI)
-  if [ -d "${PROJECT_ROOT}/target/uniffi-headers" ]; then
-    cp -r "${PROJECT_ROOT}/target/uniffi-headers"/* "$headers_dir/" || true
+  if [ -d "${PROJECT_ROOT}/build/uniffi-headers" ]; then
+    cp -r "${PROJECT_ROOT}/build/uniffi-headers"/* "$headers_dir/" || true
   fi
 
   echo -e "${GREEN}✓ Headers copied${NC}"

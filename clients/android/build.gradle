@@ -3,3 +3,10 @@ plugins {
     // AGP 9 compiles Kotlin itself; Compose still needs the Kotlin compiler plugin.
     id 'org.jetbrains.kotlin.plugin.compose' version '2.4.21' apply false
 }
+
+// Keep Gradle's root and app outputs beside Cargo's output in the repository build tree.
+def outputRoot = rootProject.file('../../build/android')
+layout.buildDirectory = file("$outputRoot/root")
+subprojects {
+    layout.buildDirectory = file("$outputRoot/$name")
+}

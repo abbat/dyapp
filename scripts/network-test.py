@@ -31,7 +31,7 @@ import time
 from capture import Capture
 from memory_report import write_report
 
-CLIENT = "/workspace/target/debug/dyappd"
+CLIENT = "/workspace/build/debug/dyappd"
 FLOOD_LIMIT = 5
 # Node-ID proof of work of the test nodes, as in docker/compose.network.yml.
 POW_BITS = "8"
@@ -308,7 +308,7 @@ def plateau(bin_dir):
             path, report = write_report(
                 samples, time.monotonic() - started, PLATEAU_SECONDS,
                 PLATEAU_GROWTH, Path(bin_dir) / "dyappd",
-                os.environ.get("DYAPP_MEMORY_REPORT_DIR", "target"))
+                os.environ.get("DYAPP_MEMORY_REPORT_DIR", "build"))
             print(f"Memory plateau report: {path}")
             for node in report["nodes"]:
                 print(f"Node {node['node']} RSS peak: "

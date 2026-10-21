@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/target/uniffi"
+BUILD_DIR="${PROJECT_ROOT}/build/uniffi"
 
 echo -e "${YELLOW}🔗 Generating UniFFI bindings...${NC}"
 

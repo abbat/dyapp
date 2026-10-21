@@ -21,13 +21,13 @@ jobs:
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-audit@0.22.2
-      - run: python3 scripts/run-check.py --log-dir target/check-output cargo-audit -- cargo audit
+      - run: python3 scripts/run-check.py --log-dir build/check-output cargo-audit -- cargo audit
       - name: check logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: audit-check-output
-          path: target/check-output/
+          path: build/check-output/
           if-no-files-found: ignore
 
   sbom:

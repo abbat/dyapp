@@ -65,7 +65,7 @@ package or the image yourself from a commit you trust:
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp
-make deb      # → target/deb/dyappd_<version>_<arch>.deb and a tarball, built in Debian 12
+make deb      # → build/deb/dyappd_<version>_<arch>.deb and a tarball, built in Debian 12
 make image    # → the dyappd:latest container image
 ```
 
@@ -149,7 +149,7 @@ The image is not published to a registry, and there are no Kubernetes manifests 
 ### Tarball (manual install)
 
 For a host without `apt`, or an operator who wants to see every step: `make deb` also writes
-`target/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` with the same binary (glibc 2.36 or
+`build/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` with the same binary (glibc 2.36 or
 newer), `dyappd.toml`, `LICENSE` and `dyappd.service`, the package's unit with the binary at
 `/usr/local/bin/dyappd`. It is gzip rather than xz: `tar -xzf` works everywhere and the archive
 is a few megabytes either way. `make deb` installs it this way on a clean Debian 12:

@@ -46,7 +46,7 @@ RUN cargo fetch --locked && cargo fetch --locked --manifest-path fuzz/Cargo.toml
     chmod -R a+rX /usr/local/cargo/registry
 RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
     chmod -R a+rX /opt/advisory-dbs
-RUN mkdir -p /workspace/target && chown -R 999:999 /workspace/target
+RUN mkdir -p /workspace/build && chown -R 999:999 /workspace/build
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
 USER 999:999
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

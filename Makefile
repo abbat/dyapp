@@ -4,7 +4,7 @@
 
 DOCKER = python3 scripts/docker-local.py
 DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull never dev
-CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir target/check-output
+CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir build/check-output
 
 help:
 	@echo "prepare | test | test-integration | test-all | coverage | mutants | fuzz | quality | build | deb | image | ui-test"
@@ -52,11 +52,11 @@ fmt:
 build release:
 	bash scripts/docker-test.sh build
 
-# target/deb/dyappd_<version>_<arch>.deb and dyappd-<version>-<machine>-linux-gnu.tar.gz, then a
+# build/deb/dyappd_<version>_<arch>.deb and dyappd-<version>-<machine>-linux-gnu.tar.gz, then a
 # test install of each on a clean Debian 12; the same pair for the desktop client (dyapp_...,
 # dyapp-...), installed with apt and smoke-tested under Xvfb.
 deb:
-	mkdir -p target/deb
+	mkdir -p build/deb
 	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb
 	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb-test
 	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never tarball-test

@@ -24,7 +24,7 @@ variables = dict(item.split("=", 1) for item in container["Config"]["Env"])
 run_id = variables.get("COVERAGE_RUN_ID", "")
 if len(run_id) != 32 or any(c not in "0123456789abcdef" for c in run_id):
     sys.exit("Coverage container has no valid run ID")
-source = f"{output[0]}:/workspace/target/coverage.{run_id}"
+source = f"{output[0]}:/workspace/build/coverage.{run_id}"
 destination = Path(sys.argv[1])
 destination.mkdir(parents=True, exist_ok=True)
 for extension in ("txt", "json", "lcov"):

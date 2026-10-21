@@ -93,7 +93,7 @@ def uniffiBindgen = tasks.register('uniffiBindgen', Exec) {
     onlyIf { !prebuiltRust }
     dependsOn cargoHost
     workingDir rustRoot
-    commandLine 'target/debug/uniffi-bindgen', 'generate', '--library', 'target/debug/libdyapp_ffi.so',
+    commandLine 'build/debug/uniffi-bindgen', 'generate', '--library', 'build/debug/libdyapp_ffi.so',
         '--language', 'kotlin', '--no-format', '--out-dir', "$rustOut/kotlin"
 }
 android.sourceSets.main.kotlin.srcDir("$rustOut/kotlin")

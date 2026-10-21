@@ -124,14 +124,14 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 - **Image** `dyapp:linux-test` (`docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
   WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
   the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
-  `clients/linux/target/unit-build.json` at build time. The container has no checkout mount and no
+  `build/unit-build.json` at build time. The container has no checkout mount and no
   network, and `ui-test.sh` never builds images: after changing `clients/linux/`, `clients/desktop/` or the
   Dockerfile, run `make prepare` (or `bash scripts/ui-test.sh prepare`) first, or
   `make ui-test-linux` tests the old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   It then calls `run-cargo-unit-binaries.py` runs every test binary in
-  the inventory, then `desktop-smoke.py` launches `clients/linux/target/debug/dyapp-linux` under
+  the inventory, then `desktop-smoke.py` launches `build/debug/dyapp-linux` under
   `xvfb-run` + `dbus-run-session`.
 
 ### Reports on the host
@@ -176,7 +176,7 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 - **Windows:** `cargo build` + `cargo test --manifest-path clients/windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
   `cargo test --manifest-path clients/windows/Cargo.toml --locked` and
-  `python scripts/desktop-smoke.py clients/windows/target/debug/dyapp-windows.exe` (report goes to
+  `python scripts/desktop-smoke.py build/debug/dyapp-windows.exe` (report goes to
   `%RUNNER_TEMP%` or `/reports/%HOSTNAME%`, so set `RUNNER_TEMP`).
 
 ## Not covered
@@ -191,7 +191,7 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 Linux unit/smoke stages, the standalone desktop smoke CLI and Windows Cargo
 checks use mapped concise output. Native Linux/Windows CI archives full logs
-from `target/platform-check-output`; JSON unit manifests and desktop result
+from `build/platform-check-output`; JSON unit manifests and desktop result
 files keep their existing roles. Desktop failures include only the failed app
 invocation output, so the expected `--break-ui` rejection is not mistaken for a
 regression. Prepared Rust unit binaries retain their actual failure exit code
@@ -207,16 +207,16 @@ Android unit/UI work remains enclosed by Docker capture; the emulator itself is
 a streaming service, not a finite quiet check. CI captures Compose service logs
 and copies the shared reports volume through the retained unit-test container
 using `export-ui-reports.py` (`--directory PATH` selects a different destination).
-Unique directories under `target/platform-reports`
+Unique directories under `build/platform-reports`
 retain XML/JSON, screenshots and validator logs without deleting earlier exports.
 Missing containers and empty copies fail. The `android-check-output` artifact
-contains those reports and `target/platform-check-output` raw logs.
+contains those reports and `build/platform-check-output` raw logs.
 
 - **Emulator never healthy:** software emulation boot can take many minutes; the health check
   allows ~30 min. Look at the `android-emulator` container logs.
 - **`OK (n tests)` with n < 3 rejected:** a test class was dropped or filtered; the checker requires
   the full instrumented inventory.
-- **`Empty unit suite` (Linux):** a test binary in `clients/linux/target/unit-build.json` lists no tests; rebuild the
+- **`Empty unit suite` (Linux):** a test binary in `build/unit-build.json` lists no tests; rebuild the
   image after changing tests (`ui-test.sh prepare`), since the inventory is created at image build.
 - **Stale results after code changes:** sources are copied into the images at build time; rerun
   `prepare`.

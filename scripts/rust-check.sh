@@ -10,25 +10,25 @@ instrument() {
     # Once per process: show-env sets RUSTC_WRAPPER to cargo-llvm-cov itself, and a nested
     # show-env (step coverage runs three steps) recurses through that wrapper.
     [[ -n ${CARGO_LLVM_COV_SHOW_ENV:-} ]] && return
-    export CARGO_TARGET_DIR=target/llvm-cov-target
+    export CARGO_TARGET_DIR=build/llvm-cov-target
     eval "$(cargo llvm-cov show-env --sh)"
 }
 # Practice B5: nextest retries failures (.config/nextest.toml); nextest skips doctests.
 tests() {
     cargo nextest run --workspace --all-features --locked --no-tests fail
     cargo test --workspace --all-features --locked --doc
-    python3 -B scripts/check-flaky.py --raw target/nextest/default/junit.xml
+    python3 -B scripts/check-flaky.py --raw build/nextest/default/junit.xml
 }
 check() {
     local name=$1
     shift
-    python3 -B scripts/run-check.py --log-dir "${DYAPP_CHECK_LOG_DIR:-target/check-output}" \
+    python3 -B scripts/run-check.py --log-dir "${DYAPP_CHECK_LOG_DIR:-build/check-output}" \
         "$name" -- "$@"
 }
 step() {
     case "$1" in
         quality)
-            check batches python3 -B scripts/check-batches.py --raw --report target/batches.json
+            check batches python3 -B scripts/check-batches.py --raw --report build/batches.json
             check repository python3 -B scripts/check-repository.py --raw
             check adr python3 -B scripts/check-adr.py --raw
             check triggers python3 -B scripts/triggers.py --raw
@@ -67,7 +67,7 @@ step() {
             ;;
         cov-report)
             instrument
-            local report_dir="target/coverage${COVERAGE_RUN_ID:+.$COVERAGE_RUN_ID}"
+            local report_dir="build/coverage${COVERAGE_RUN_ID:+.$COVERAGE_RUN_ID}"
             mkdir -p "$report_dir"
             cargo llvm-cov report --json --summary-only --ignore-filename-regex "$excluded" \
                 --output-path "$report_dir/coverage.json"
@@ -81,39 +81,39 @@ step() {
         coverage) step cov-build; step cov-test; step cov-report ;;
         mutants)
             # Practice B2: every mutant in Rust code changed since MUTANTS_BASE must be caught.
-            local base=${MUTANTS_BASE:-origin/main} src=target/mutants-src
+            local base=${MUTANTS_BASE:-origin/main} src=build/mutants-src
             # A push that creates a branch (zeros) or is forced (the old head is gone).
             git -c safe.directory="$PWD" cat-file -e "$base^{commit}" 2>/dev/null || base=origin/main
-            rm -rf "$src" target/mutants-tmp
-            mkdir -p "$src" target/mutants-tmp
+            rm -rf "$src" build/mutants-tmp
+            mkdir -p "$src" build/mutants-tmp
             git -c safe.directory="$PWD" diff --no-ext-diff --no-color "$base" -- '*.rs' \
-                > target/mutants.diff
+                > build/mutants.diff
             # Tracked files but .beads: ignored and beads files may be private to the host user.
             git -c safe.directory="$PWD" ls-files -z -- ':!.beads' |
                 tar --null --ignore-failed-read -T - -cf - | tar -xf - -C "$src"
-            TMPDIR=$PWD/target/mutants-tmp cargo mutants --dir "$src" --output target \
-                --in-diff target/mutants.diff
+            TMPDIR=$PWD/build/mutants-tmp cargo mutants --dir "$src" --output target \
+                --in-diff build/mutants.diff
             ;;
         fuzz)
             # Practice B4: each target (FUZZ_TARGETS, default all) for FUZZ_SECONDS on fuzz/corpus.
             # libFuzzer runs the corpus first, so a saved crash is a regression test. New inputs go
-            # to target/fuzz-corpus, crashes to target/fuzz-artifacts.
+            # to build/fuzz-corpus, crashes to build/fuzz-artifacts.
             local seconds=${FUZZ_SECONDS:-60} target host
             # cargo-fuzz defaults to the triple it was built for: musl for install-action's binary.
             host=$(rustc -vV | sed -n 's/^host: //p')
             cd fuzz
             # The targets' node stores live here, off the small /tmp of the dev container.
-            rm -rf ../target/fuzz-tmp
-            mkdir -p ../target/fuzz-tmp
-            export TMPDIR=$PWD/../target/fuzz-tmp
-            cargo fuzz build -s none --target "$host" --target-dir ../target/fuzz
+            rm -rf ../build/fuzz-tmp
+            mkdir -p ../build/fuzz-tmp
+            export TMPDIR=$PWD/../build/fuzz-tmp
+            cargo fuzz build -s none --target "$host" --target-dir ../build/fuzz
             for target in ${FUZZ_TARGETS:-$(cargo fuzz list)}; do
-                mkdir -p "../target/fuzz-corpus/$target" "../target/fuzz-artifacts/$target"
+                mkdir -p "../build/fuzz-corpus/$target" "../build/fuzz-artifacts/$target"
                 # The binary itself: `cargo fuzz run` writes into the read-only fuzz/artifacts.
-                "../target/fuzz/$host/release/$target" \
-                    "../target/fuzz-corpus/$target" "corpus/$target" \
+                "../build/fuzz/$host/release/$target" \
+                    "../build/fuzz-corpus/$target" "corpus/$target" \
                     -max_total_time="$seconds" -rss_limit_mb=4096 \
-                    -artifact_prefix="../target/fuzz-artifacts/$target/"
+                    -artifact_prefix="../build/fuzz-artifacts/$target/"
             done
             ;;
         network)
@@ -126,12 +126,12 @@ step() {
         memory)
             # Release binaries, as deployed: resident memory must level off under repeated load.
             cargo build --release -p dyapp-bootstrap --bins --locked
-            python3 scripts/network-test.py --raw --plateau "${CARGO_TARGET_DIR:-target}/release"
+            python3 scripts/network-test.py --raw --plateau "${CARGO_TARGET_DIR:-build}/release"
             ;;
         rehearsal)
             # Release binaries of REHEARSAL_FROM (a commit before a store-format step) and of
             # this tree, upgraded with production defaults; about three storage trust periods.
-            local old=/tmp/ai/rehearsal-old target=${CARGO_TARGET_DIR:-$PWD/target}
+            local old=/tmp/ai/rehearsal-old target=${CARGO_TARGET_DIR:-$PWD/build}
             cargo build --release -p dyapp-bootstrap --bins --locked
             rm -rf "$old" && mkdir -p "$old"
             git -c safe.directory="$PWD" archive "${REHEARSAL_FROM:?git ref required}" |

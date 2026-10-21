@@ -114,10 +114,10 @@ make test-integration   # integration tests, three dyappd containers on an inter
 docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
   -e DYAPPD_STORAGE_DIR=/tmp/node dyapp:network-test bash -c '
     export DYAPPD_NETWORK_ID_POW_BITS=8
-    target/debug/dyappd keygen
-    target/debug/dyappd &
+    build/debug/dyappd keygen
+    build/debug/dyappd &
     sleep 3
-    target/debug/dyappd info [::1]:7070
+    build/debug/dyappd info [::1]:7070
     kill %1'
 # → {"max_profile_bytes":1048576,"roles":["ROLE_STORE","ROLE_SEARCH"],"status":"STATUS_OK"}
 ```

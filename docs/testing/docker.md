@@ -24,10 +24,10 @@ docker run --rm dyapp:dev cargo test --workspace --verbose
 
 ```bash
 # Build optimized release binary
-docker run --rm -v $(pwd)/target:/app/target dyapp:dev \
+docker run --rm -v $(pwd)/build:/app/build dyapp:dev \
   cargo build --release --workspace
 
-# Binaries will be in ./target/release/
+# Binaries will be in ./build/release/
 ```
 
 ### Code Quality Checks
@@ -151,7 +151,7 @@ Share files between host and container:
 docker run --rm -v $(pwd):/app:ro dyapp:dev cargo test
 
 # Mount target directory for caching builds
-docker run --rm -v $(pwd)/target:/app/target dyapp:dev cargo build --release
+docker run --rm -v $(pwd)/build:/app/build dyapp:dev cargo build --release
 
 # Mount for development (read-write)
 docker run --rm -v $(pwd):/app dyapp:dev bash
@@ -218,7 +218,7 @@ sockets to make the check pass.
 ## Troubleshooting
 
 The network-test image builds the current Rust tree in a fresh `/build-src` directory while
-writing binaries to `/workspace/target`. This prevents renamed binary targets left in the
+writing binaries to `/workspace/build`. This prevents renamed binary targets left in the
 prepared base image from appearing alongside current sources during Cargo discovery.
 The loopback and Compose network fixtures explicitly set `search.min_profile_pow_bits = 0`
 because the test client's `sign-profile` command emits zero-difficulty records. Production
@@ -363,7 +363,7 @@ test:
     - cargo test --workspace --lib --quiet
   cache:
     paths:
-      - target/
+      - build/
 ```
 
 ## References

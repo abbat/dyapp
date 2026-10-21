@@ -7,7 +7,7 @@
 
 ```sh
 make prepare  # один раз: образы Docker
-make deb      # → target/deb/dyapp_<version>_<arch>.deb и dyapp-<version>-<machine>-linux-gnu.tar.gz
+make deb      # → build/deb/dyapp_<version>_<arch>.deb и dyapp-<version>-<machine>-linux-gnu.tar.gz
 ```
 
 Оба собираются в Debian 12, поэтому работают в Debian 12 и более новых системах с glibc 2.36 и

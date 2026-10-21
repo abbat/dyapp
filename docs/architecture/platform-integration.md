@@ -20,7 +20,7 @@ it exists yet.
 
 ### Setup
 
-`scripts/build-apple-core.sh` builds `target/apple/DyappFFI.xcframework` and the
+`scripts/build-apple-core.sh` builds `build/apple/DyappFFI.xcframework` and the
 Swift bindings; the app shows the peer ID of its stored identity key through
 `RustBridge.swift`: the first start creates the key, `PlatformKeyStore.swift` wraps it with
 CryptoKit AES-256-GCM under a random key kept in the Keychain
@@ -48,7 +48,7 @@ platform/ios-swift/
 ├── Sources/
 │   └── DYappClient.swift       # Thin wrapper
 └── Frameworks/
-    └── DyappFFI.xcframework    # built today in target/apple
+    └── DyappFFI.xcframework    # built today in build/apple
 ```
 
 **No UIKit/SwiftUI in the wrapper** — view controllers call client methods.

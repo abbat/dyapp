@@ -42,14 +42,14 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: commit-batches
-          path: target/batches.json
+          path: build/batches.json
           if-no-files-found: error
       - name: panic budget report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: panic-budgets
-          path: target/panics.json
+          path: build/panics.json
           if-no-files-found: warn
 
   core:
@@ -68,7 +68,7 @@ jobs:
           tool: cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-nextest@0.9.148
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: ". -> target/llvm-cov-target"
+          workspaces: ". -> build/llvm-cov-target"
       # One instrumented build serves the tests, the network peers and the coverage report.
       - name: build
         run: bash scripts/rust-check.sh cov-build
@@ -84,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-workspace-coverage
-          path: target/coverage/coverage.*
+          path: build/coverage/coverage.*
           if-no-files-found: error
       - name: deny
         run: bash scripts/rust-check.sh security
@@ -124,9 +124,9 @@ jobs:
         with:
           name: mutants-diff
           path: |
-            target/mutants.diff
-            target/mutants.out/*.txt
-            target/mutants.out/outcomes.json
+            build/mutants.diff
+            build/mutants.out/*.txt
+            build/mutants.out/outcomes.json
           if-no-files-found: warn
 
   fuzz:
@@ -144,7 +144,7 @@ jobs:
           tool: cargo-fuzz@0.13.2
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: "fuzz -> ../target/fuzz"
+          workspaces: "fuzz -> ../build/fuzz"
       # 60 seconds per target, the saved corpus first.
       - name: fuzz
         run: bash scripts/rust-check.sh fuzz
@@ -154,6 +154,6 @@ jobs:
         with:
           name: fuzz-crashes
           path: |
-            target/fuzz-artifacts/
+            build/fuzz-artifacts/
             /tmp/ai/rust-check-output/*.log
           if-no-files-found: warn

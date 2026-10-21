@@ -30,11 +30,12 @@ RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 
 FROM android-tools
 WORKDIR /app
-RUN mkdir -p /opt/gradle-cache /reports /avd && chown 999:999 /app /opt/gradle-cache /reports /avd
+RUN mkdir -p /opt/gradle-cache /reports /avd /app/build && chown 999:999 /app /app/build /opt/gradle-cache /reports /avd
 ENV HOME=/home/appuser
 USER 999:999
 RUN cargo install cargo-ndk --version 4.1.2 --locked
 COPY --chown=999:999 Cargo.toml Cargo.lock ./
+COPY --chown=999:999 .cargo .cargo
 COPY --chown=999:999 proto proto
 COPY --chown=999:999 rust rust
 COPY --chown=999:999 clients clients
@@ -45,6 +46,6 @@ RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clie
 # Release runner: its release Rust core is not built here and the packages are discarded.
 RUN cd clients/android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
     ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
-    rm -rf app/build/outputs/apk/release app/build/outputs/bundle/release
+    rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release
 COPY scripts scripts
 CMD ["bash", "/app/scripts/android-test-in-container.sh", "unit"]

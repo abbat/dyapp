@@ -14,6 +14,7 @@ automatically. This page holds the details. **The user's own instructions (globa
 | `clients/android/` | Gradle app (Kotlin). Does not link the Rust core. |
 | `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |
 | `clients/linux/`, `clients/windows/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`. |
+| `build/` | Ignored local output for Cargo, Gradle (`build/android/`), packages, reports and generated bindings. `.cargo/config.toml` sets Cargo's default target directory; `CARGO_TARGET_DIR` can override it. |
 | `proto/`, `tools/` | Protobuf schemas; arch-lint, codegen and helper tooling. |
 | `docker/` | Test-image Dockerfiles and `compose.{dev,network,ui}.yml` (project name `dyapp`, build context is the repo root; `.dockerignore` stays at the root). |
 | `scripts/` | Check scripts behind every Makefile target and CI job (`rust-check.sh`, `linux-test.sh`, `ci-setup.sh` for CI runners). |

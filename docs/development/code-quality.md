@@ -26,7 +26,7 @@ anchor, then `DETAILS` with selected diagnostics and a raw-log pointer.
 formats; repository validation checks its schema, regular expressions and links.
 
 The parser keeps a bounded first/tail copy in memory; every run also retains
-full captured output under `target/check-output/` with a unique filename.
+full captured output under `build/check-output/` with a unique filename.
 Use `--log-dir <writable-path>` before the check ID to select another directory.
 Unrecognized failure output still yields the original nonzero exit status and
 a raw-log pointer. Logs are not automatically removed.
@@ -120,7 +120,7 @@ reproduces a range. Its JSON report lists each commit's count and exception reas
 the percentage of large commits, including justified ones. The target is ≤10%; this is
 an observed metric, not an additional veto of a justified exception. Weekly escape-hatch
 follow-up follows [the shared practice rules](practices.md#rules-shared-by-all-practices).
-CI uploads `target/batches.json` as `commit-batches`, also on a failed check.
+CI uploads `build/batches.json` as `commit-batches`, also on a failed check.
 The baseline grandfathers history published before server-side enforcement; moving it forward
 again weakens the check. The required `commit-batches` PR status runs the checker from the base
 branch over every proposed commit. For non-owner writers, `main` requires a PR and allows only
@@ -223,7 +223,7 @@ Repeated diagnostics for the same package/lint/source span count once.
 stay at zero; other crates, including p2p-net, initially ratchet their existing
 sites. Growth fails; shrinking requires lowering the budget in the same commit.
 A missing package/budget or failed/incomplete Clippy run fails rather than
-reporting zero. Details are saved in `target/panics.json` (CI artifact
+reporting zero. Details are saved in `build/panics.json` (CI artifact
 `panic-budgets` when this check ran). Platform crates outside the workspace are
 not covered. These three lints do not prove runtime panic freedom: indexing,
 assertions, allocation failure and transitive dependency panics are outside this check.

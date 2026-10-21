@@ -22,9 +22,9 @@ class PanicBudgets(unittest.TestCase):
     def test_duplicates_dependencies_and_generated_code(self):
         metadata = {"packages": [{"id": "ffi", "name": "dyapp-ffi"}],
                     "workspace_members": ["ffi"],
-                    "target_directory": str(ROOT / "target")}
+                    "target_directory": str(ROOT / "build")}
         rows = [message(), message(), message(package="dependency"),
-                message("target/debug/build/generated.rs"),
+                message("build/debug/build/generated.rs"),
                 {"reason": "build-finished", "success": True}]
         counts, locations, excluded = CHECK.count(metadata, rows)
         self.assertEqual(counts, {"dyapp-ffi": 1})
@@ -35,7 +35,7 @@ class PanicBudgets(unittest.TestCase):
     def test_incomplete_or_failed_clippy_is_not_zero(self):
         metadata = {"packages": [{"id": "ffi", "name": "dyapp-ffi"}],
                     "workspace_members": ["ffi"],
-                    "target_directory": str(ROOT / "target")}
+                    "target_directory": str(ROOT / "build")}
         for rows in [[], [{"reason": "build-finished", "success": False}]]:
             with self.assertRaisesRegex(ValueError, "successful Clippy"):
                 CHECK.count(metadata, rows)

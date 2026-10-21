@@ -180,7 +180,7 @@ def main():
         sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log-dir", type=Path,
-                        default=ROOT / "target" / "check-output")
+                        default=ROOT / "build" / "check-output")
     parser.add_argument("check")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()

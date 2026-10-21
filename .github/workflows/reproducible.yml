@@ -26,7 +26,7 @@ jobs:
             binary: dyapp-linux
             budget: linux-ubuntu24-x86_64-release
     env:
-      DYAPP_CHECK_LOG_DIR: target/release-check-output
+      DYAPP_CHECK_LOG_DIR: build/release-check-output
       CARGO_BUILD_JOBS: "4"
       CMAKE_BUILD_PARALLEL_LEVEL: "4"
       MAKEFLAGS: "-j4"
@@ -54,14 +54,14 @@ jobs:
           from pathlib import Path
           import subprocess
           target = os.environ["TARGET"]
-          data = json.loads(Path(f"target/reproducible-{target}.json").read_text())
+          data = json.loads(Path(f"build/reproducible-{target}.json").read_text())
           binary = Path(data["builds"][0]["directory"]) / "release" / os.environ["BINARY"]
           base = subprocess.check_output(["git", "rev-parse", "HEAD^"], text=True).strip()
           head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           subprocess.run([
               "python3", "-B", "scripts/check-artifact-size.py",
               os.environ["BUDGET"], str(binary), "--base", base, "--head", head,
-              "--report", f"target/artifact-size-{target}.json",
+              "--report", f"build/artifact-size-{target}.json",
           ], check=True)
           PY
       - name: evidence
@@ -70,8 +70,8 @@ jobs:
         with:
           name: reproducible-${{ matrix.target }}
           path: |
-            target/release-check-output/
-            target/reproducible-*.json
-            target/artifact-size-*.json
-            target/reproducible/**/build-*.log
+            build/release-check-output/
+            build/reproducible-*.json
+            build/artifact-size-*.json
+            build/reproducible/**/build-*.log
           if-no-files-found: error

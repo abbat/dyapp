@@ -3,7 +3,7 @@
 
 # One report path for every build: under cargo llvm-cov the target dir alone does not decide it.
 [store]
-dir = "target/nextest"
+dir = "build/nextest"
 
 [profile.default]
 retries = 2

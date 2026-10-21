@@ -92,7 +92,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=TARGETS)
     parser.add_argument("--target-root", type=Path,
-                        default=ROOT / "target" / "reproducible")
+                        default=ROOT / "build" / "reproducible")
     parser.add_argument("--report", type=Path)
     parser.add_argument("--revision", help="Git SHA supplied by the host")
     parser.add_argument("--source-date-epoch", help="Host commit time")
@@ -106,7 +106,7 @@ def main():
     report = build_pair(args.target, args.target_root.resolve(),
                         args.revision, args.source_date_epoch)
     destination = args.report or (
-        ROOT / "target" / f"reproducible-{args.target}.json")
+        ROOT / "build" / f"reproducible-{args.target}.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, indent=2) + "\n")
     if report["errors"]:

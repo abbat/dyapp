@@ -175,8 +175,8 @@ documentation does not promise that a PR is blocked. See
 Practice B5. `scripts/rust-check.sh` steps `test` and `cov-test` run the workspace tests with
 cargo-nextest 0.9.148 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`), then the doctests
 with `cargo test --doc`, which nextest does not run. `.config/nextest.toml` retries a failed test
-twice and writes a JUnit report to `target/nextest/default/junit.xml` (`[store]`, so the coverage
-build in `target/llvm-cov-target` writes it there too). A test that fails all
+twice and writes a JUnit report to `build/nextest/default/junit.xml` (`[store]`, so the coverage
+build in `build/llvm-cov-target` writes it there too). A test that fails all
 three attempts fails the step. XCUITest and Android UI tests retry the same way; see
 [ui-testing.md](ui-testing.md#what-is-tested).
 
@@ -265,8 +265,8 @@ pushes have no target yet (planned).
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
 and `.github/workflows/fuzz.yml` for an hour per target every night. libFuzzer first runs every
-input in `fuzz/corpus/<target>/`, then mutates them; new inputs go to `target/fuzz-corpus/` and a
-crash to `target/fuzz-artifacts/<target>/`, with the panic in the log.
+input in `fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
+crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
 
 **Corpus.** `fuzz/corpus/` holds the inputs, minimized with libFuzzer's `-merge=1`; it is marked
 binary in `.gitattributes`, so it has no diffs and no line count. To take in the inputs of a
@@ -335,7 +335,7 @@ JaCoCo/Kover or `test:coverage` script is wired into any gate. Any UI coverage p
 
 ### Saved report
 
-None is kept in the repository. Reports go to `target/coverage[.<run id>]/`. A local Docker run
+None is kept in the repository. Reports go to `build/coverage[.<run id>]/`. A local Docker run
 writes them into the `workspace-cache` volume, and `scripts/export-coverage.py` copies them out.
 When splitting inline Rust unit tests, keep their previously measured coverage:
 `cargo-llvm-cov` excludes files named `tests.rs` or `*_tests.rs` by default.

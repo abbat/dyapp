@@ -13,12 +13,13 @@ ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
 RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
 WORKDIR /app
 COPY Cargo.toml ./
+COPY .cargo .cargo
 COPY rust rust
 COPY proto proto
 COPY clients clients
-RUN cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
+RUN mkdir -p /app/build && cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
     cargo build --manifest-path clients/linux/Cargo.toml --locked && \
-    cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/clients/linux/target/unit-build.json
+    cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/build/unit-build.json
 COPY scripts scripts
 RUN mkdir -p /reports && chown 999:999 /reports
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true

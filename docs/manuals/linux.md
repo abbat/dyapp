@@ -7,7 +7,7 @@ it starts, renders and closes. Profiles, search and chats in the window are plan
 
 ```sh
 make prepare  # once: the Docker images
-make deb      # → target/deb/dyapp_<version>_<arch>.deb and dyapp-<version>-<machine>-linux-gnu.tar.gz
+make deb      # → build/deb/dyapp_<version>_<arch>.deb and dyapp-<version>-<machine>-linux-gnu.tar.gz
 ```
 
 Both are built in Debian 12, so they run on Debian 12 and newer systems with glibc 2.36 or later.

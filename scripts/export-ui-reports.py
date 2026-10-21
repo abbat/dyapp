@@ -30,7 +30,7 @@ if __name__ == "__main__":
     wrap("ui-reports")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", type=Path,
-                        default=ROOT / "target/platform-reports")
+                        default=ROOT / "build/platform-reports")
     args = parser.parse_args()
     try:
         export(args.directory)

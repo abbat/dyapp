@@ -69,13 +69,13 @@ class ExportChecks(unittest.TestCase):
                 raw = run(script, ["--raw", *args])
                 self.assertEqual(raw.returncode, 0)
                 self.assertEqual(raw.stdout, "")
-            coverage_source = ("abcdef123456:/workspace/target/coverage."
+            coverage_source = ("abcdef123456:/workspace/build/coverage."
                                f'{"a" * 32}/coverage.json')
             self.assertEqual((root / "coverage/coverage.json").read_text(),
                              coverage_source)
             self.assertEqual(
                 (root / "android/app-debug.apk").read_text(),
-                "abcdef123456:/app/clients/android/app/build/outputs/apk/"
+                "abcdef123456:/app/build/android/app/outputs/apk/"
                 "debug/app-debug.apk")
             self.assertTrue(json.loads(calls.read_text().splitlines()[0]))
 

@@ -65,7 +65,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    args.report = args.report or Path("target") / "panics.json"
+    args.report = args.report or Path("build") / "panics.json"
     result = {"errors": []}
     try:
         metadata = json.loads(subprocess.check_output(

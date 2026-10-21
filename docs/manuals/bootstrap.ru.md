@@ -66,7 +66,7 @@ Sigstore, SLSA build provenance и SBOM, которые проверяются `
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp
-make deb      # → target/deb/dyappd_<version>_<arch>.deb и архив tar, собираются в Debian 12
+make deb      # → build/deb/dyappd_<version>_<arch>.deb и архив tar, собираются в Debian 12
 make image    # → образ контейнера dyappd:latest
 ```
 
@@ -152,7 +152,7 @@ docker logs dyappd
 ### Архив tar (ручная установка)
 
 Для хоста без `apt` или оператора, который хочет видеть каждый шаг: `make deb` также пишет
-`target/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` с тем же бинарником (glibc 2.36 или
+`build/deb/dyappd-<version>-<machine>-linux-gnu.tar.gz` с тем же бинарником (glibc 2.36 или
 новее), `dyappd.toml`, `LICENSE` и `dyappd.service` — юнитом пакета с бинарником в
 `/usr/local/bin/dyappd`. Это gzip, а не xz: `tar -xzf` есть везде, а архив в любом случае весит
 несколько мегабайт. `make deb` устанавливает его так в чистый Debian 12:

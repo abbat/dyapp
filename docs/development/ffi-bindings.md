@@ -27,8 +27,8 @@ does not produce the cdylib.
 
 ```bash
 cargo build --locked -p dyapp-ffi
-target/debug/uniffi-bindgen generate \
-    --library target/debug/libdyapp_ffi.so --language kotlin --no-format --out-dir <dir>
+build/debug/uniffi-bindgen generate \
+    --library build/debug/libdyapp_ffi.so --language kotlin --no-format --out-dir <dir>
 ```
 
 Kotlin output is one file, `uniffi/dyapp/dyapp.kt` (package `uniffi.dyapp`). It
@@ -38,7 +38,7 @@ on Android) and throws `CoreException` for a failed call.
 ## Android
 
 `clients/android/app/build.gradle` wires both steps into the app build; outputs land in
-`clients/android/app/build/rust`:
+`build/android/app/rust`:
 
 | Task | Runs | Output |
 |------|------|--------|
@@ -57,19 +57,19 @@ build; the Docker unit-test run uses it because it has no Rust sources.
 `scripts/build-apple-core.sh [ios|ios-device|macos|all] [debug|release]` runs
 on macOS with Xcode. The defaults remain `all debug`; `ios-device` builds only
 the device slice. `release` optimizes the target static libraries while the host
-binding generator stays in the dev profile. Outputs land in `target/apple`:
+binding generator stays in the dev profile. Outputs land in `build/apple`:
 
 | Step | Runs | Output |
 |------|------|--------|
 | Bindings | `cargo build --locked -p dyapp-ffi --target <host>`, then `uniffi-bindgen generate --library …/libdyapp_ffi.dylib --language swift` | `swift/dyapp.swift`; `headers/dyappFFI.h` and `headers/module.modulemap` (module `dyappFFI`) |
-| Static libraries | `cargo rustc <profile flags> --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `target/<t>/<debug-or-release>/libdyapp_ffi.a` |
+| Static libraries | `cargo rustc <profile flags> --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `build/<t>/<debug-or-release>/libdyapp_ffi.a` |
 | Slices | `lipo` merges the architectures of one platform: `ios` = `aarch64-apple-ios`; `ios-simulator` = `aarch64-apple-ios-sim` + `x86_64-apple-ios`; `macos` = `aarch64-apple-darwin` + `x86_64-apple-darwin` | `<slice>/libdyapp_ffi.a` |
 | XCFramework | `xcodebuild -create-xcframework` with one `-library`/`-headers` pair per slice | `DyappFFI.xcframework` |
 
 The default libraries are unoptimised dev builds without debuginfo; `release`
 uses the workspace release profile. Both target iOS 14 and macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
 deployment targets. `clients/ios/project.yml` and `clients/macos/project.yml` compile
-`target/apple/swift/dyapp.swift` into the app and link the XCFramework without
+`build/apple/swift/dyapp.swift` into the app and link the XCFramework without
 embedding it, so run the script before XcodeGen. There is no Xcode build phase:
 Xcode resolves an XCFramework before any script phase could build it.
 

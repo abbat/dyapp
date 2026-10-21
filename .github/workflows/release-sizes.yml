@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  DYAPP_CHECK_LOG_DIR: target/release-check-output
+  DYAPP_CHECK_LOG_DIR: build/release-check-output
 
 jobs:
   windows:
@@ -26,13 +26,13 @@ jobs:
           toolchain: '1.99.0'
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: "windows -> target"
+          workspaces: ". -> build"
       - name: build and measure
         shell: pwsh
         run: |
-          python scripts/run-check.py --log-dir target/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
+          python scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/report-artifact-size.py windows-2022-x86_64-release clients/windows/target/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report target/release-size-windows.json
+          python scripts/report-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report build/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: size budget
         shell: pwsh
@@ -41,21 +41,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $head = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check-artifact-size.py windows-2022-x86_64-release clients/windows/target/release/dyapp-windows.exe --base $base --head $head --report target/artifact-size-windows.json
+          python scripts/check-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --base $base --head $head --report build/artifact-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: portable zip
         shell: pwsh
         run: |
-          python scripts/package-windows-zip.py clients/windows/target/release/dyapp-windows.exe target/windows-zip
+          python scripts/package-windows-zip.py build/release/dyapp-windows.exe build/windows-zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Expand-Archive -Path target/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
+          Expand-Archive -Path build/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
           $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
           python scripts/desktop-smoke.py $exe.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-zip
-          path: target/windows-zip/
+          path: build/windows-zip/
           if-no-files-found: error
       - name: evidence
         if: always()
@@ -63,9 +63,9 @@ jobs:
         with:
           name: release-size-windows
           path: |
-            target/release-check-output/
-            target/release-size-windows.json
-            target/artifact-size-windows.json
+            build/release-check-output/
+            build/release-size-windows.json
+            build/artifact-size-windows.json
           if-no-files-found: error
 
   android:
@@ -88,25 +88,25 @@ jobs:
       - name: build and measure
         run: |
           python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build android-unit-test
-          mkdir -p target/android-release && chmod 777 target/android-release
+          mkdir -p build/android-release && chmod 777 build/android-release
           docker run --rm --network none --user 999:999 \
             -e DYAPP_CHECK_LOG_DIR=/reports/check-output \
-            -v "$PWD/target/android-release:/reports" \
+            -v "$PWD/build/android-release:/reports" \
             dyapp:android-test bash /app/scripts/build-android-release.sh /reports
           for package in apk:app-release-unsigned.apk aab:app-release.aab; do
             kind=${package%%:*}
             python3 scripts/report-artifact-size.py "android-$kind-release-unsigned" \
-              "target/android-release/${package#*:}" \
+              "build/android-release/${package#*:}" \
               --environment "$ANDROID_ENVIRONMENT; unsigned ${kind^^}" \
-              --report "target/release-size-android-$kind.json"
+              --report "build/release-size-android-$kind.json"
           done
       - name: size budget
         run: |
           for package in apk:app-release-unsigned.apk aab:app-release.aab; do
             kind=${package%%:*}
             python3 scripts/check-artifact-size.py "android-$kind-release-unsigned" \
-              "target/android-release/${package#*:}" --base "$(git rev-parse HEAD^)" \
-              --head "$(git rev-parse HEAD)" --report "target/artifact-size-android-$kind.json"
+              "build/android-release/${package#*:}" --base "$(git rev-parse HEAD^)" \
+              --head "$(git rev-parse HEAD)" --report "build/artifact-size-android-$kind.json"
           done
       - name: evidence
         if: always()
@@ -114,11 +114,11 @@ jobs:
         with:
           name: release-size-android
           path: |
-            target/android-release/check-output/
-            target/android-release/*.json
-            target/android-release/build.log
-            target/release-size-android-*.json
-            target/artifact-size-android-*.json
+            build/android-release/check-output/
+            build/android-release/*.json
+            build/android-release/build.log
+            build/release-size-android-*.json
+            build/artifact-size-android-*.json
           if-no-files-found: error
 
   apple:
@@ -162,7 +162,7 @@ jobs:
         with:
           name: release-size-${{ matrix.platform }}
           path: |
-            target/release-check-output/
+            build/release-check-output/
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.json
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.txt
             ${{ runner.temp }}/release-${{ matrix.platform }}/*.log

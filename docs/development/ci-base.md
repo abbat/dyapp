@@ -13,7 +13,7 @@
 
 Release check CLIs print one concise result and retain complete frontend logs.
 Both `reproducible.yml` and `release-sizes.yml` select
-`target/release-check-output` and include it in their evidence artifacts, along
+`build/release-check-output` and include it in their evidence artifacts, along
 with the existing JSON measurements and build logs. Add `--raw` to a release
 checker for its direct diagnostic output; report-file consumers do not need it.
 
@@ -23,7 +23,7 @@ nonempty output SHA-256 hashes. It disables incremental builds and compiler
 wrappers, remaps source and target paths, and fixes `SOURCE_DATE_EPOCH` to the
 source commit time. The toolchain, source revision, lockfile hash, build logs and
 executable hashes and byte counts are recorded in
-`target/reproducible-<target>.json`. Native nightly reports provide measured
+`build/reproducible-<target>.json`. Native nightly reports provide measured
 size evidence for that producer; they do not reuse the prepared-image budgets.
 
 Run inside the prepared development image for `dyappd`, or the prepared Linux
@@ -33,7 +33,7 @@ together; obtain both values from the mounted checkout on the host. Linux releas
 builds also need a writable source copy: Tauri generates schema files beside its
 manifest. Put that copy outside another Cargo workspace (for example `/build/`),
 and ensure the image's Cargo registry sources are readable by the build user.
-Each invocation retains both build trees and logs in `target/reproducible/`;
+Each invocation retains both build trees and logs in `build/reproducible/`;
 allow room for two complete release builds. On failure inspect the reported log
 or compare the two executables; do not accept an absent output or reuse one
 Cargo build directory for both runs. Compiler caches are intentionally bypassed.
@@ -191,7 +191,7 @@ minutes.
 
 The workspace is compiled **once**, with coverage instrumentation. The `cov-*` steps and
 `network` re-derive the same environment from `cargo llvm-cov show-env`, with target dir
-`target/llvm-cov-target`, which is also the directory rust-cache keeps. `cov-build` builds with
+`build/llvm-cov-target`, which is also the directory rust-cache keeps. `cov-build` builds with
 `cargo test --no-run`, which has the same unit graph as `cargo test`, so the test step rebuilds
 nothing.
 
@@ -199,7 +199,7 @@ nothing.
 |------|----------------------|--------------|
 | build | `cov-build` | `cargo llvm-cov clean --workspace`; `cargo test --workspace --all-features --locked --no-run` |
 | tests | `cov-test` | `cargo nextest run` and `cargo test --doc` on that build; [flaky tests](../testing/README.md#flaky-tests) |
-| coverage | `cov-report` | `cargo llvm-cov report` → `target/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` with `COVERAGE_BASE` = the PR base or `github.event.before` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
+| coverage | `cov-report` | `cargo llvm-cov report` → `build/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` with `COVERAGE_BASE` = the PR base or `github.event.before` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
 | deny | `security` | `cargo deny --locked check advisories bans licenses sources`; it fetches the advisory DB at run time |
 | network | `network` | reuses `dyapp-bootstrap`'s `dyappd`, also the client, from the build step (`cargo test` builds it for the bootstrap integration tests). `network-test.py --local` then starts three `dyappd` processes on TCP and QUIC `127.0.0.1:7071`–`:7073`, each with its own storage and its listen addresses as external (`DYAPPD_LISTEN`, `DYAPPD_EXTERNAL`, `DYAPPD_STORAGE_DIR`); the second and third use the first as seed, the third allows 5 requests per second. Through the client commands it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, checks that the stores are independent, the mailbox round trip and that a watching fetch gets the next envelope pushed; then that a DHT lookup through the third node finds all three, that every replica holder serves the profile, that an ack on one mailbox replica node clears the envelope on all of them, that an envelope put to one replica node reaches another after a watching fetch there, that a flood of 15 gets on the third node gets the burst answered and the rest `RATE_LIMITED`, and, after stopping the second node, that new replicas skip it. It also checks the deny list (a listed mailbox and IP group refused after SIGHUP, the first node's shared list received by the third), that restarted nodes keep their peer ID and that SIGHUP's `node state` line shows nothing pending once the nodes idle |
@@ -227,7 +227,7 @@ base or `github.event.before` (`origin/main` when that commit is absent): every 
 ### `fuzz` → **fuzz**
 
 Practice B4 ([fuzzing](../testing/README.md#fuzzing)). This job runs on ubuntu-24.04 with a
-30-minute timeout. Setup installs cargo-fuzz 0.13.2; rust-cache keeps `target/fuzz`. Step `fuzz`
+30-minute timeout. Setup installs cargo-fuzz 0.13.2; rust-cache keeps `build/fuzz`. Step `fuzz`
 runs `rust-check.sh fuzz`: every target for 60 seconds, its saved corpus first. On failure the
 artifact **`fuzz-crashes`** keeps the crash inputs and the raw check logs. The nightly hour per target is `fuzz.yml`
 ([ci-matrix.md](ci-matrix.md#other-workflows)).

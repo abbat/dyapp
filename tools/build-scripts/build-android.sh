@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/target/android-build"
+BUILD_DIR="${PROJECT_ROOT}/build/android-build"
 ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-}"
 RUST_CRATES=("dyapp-identity" "dyapp-profile" "dyapp-p2p-net" "dyapp-messaging" "dyapp-video")
 
@@ -126,7 +126,7 @@ preBuild.dependsOn buildRustLibraries
 // Copy built libraries to jniLibs
 afterEvaluate {
     preBuild.doLast {
-        def rustBuildDir = file('target/android-build/gradle/jniLibs')
+        def rustBuildDir = file('build/android-build/gradle/jniLibs')
         if (rustBuildDir.exists()) {
             def jniDir = file("${android.sourceSets.main.jniLibs.srcDirs[0]}")
             copy {
@@ -155,7 +155,7 @@ project(dyapp_jni)
 add_library(dyapp_core SHARED IMPORTED)
 
 # Target architecture
-set(RUST_TARGET_DIR ${CMAKE_SOURCE_DIR}/target/android-build/gradle/jniLibs/${ANDROID_ABI})
+set(RUST_TARGET_DIR ${CMAKE_SOURCE_DIR}/build/android-build/gradle/jniLibs/${ANDROID_ABI})
 
 set_target_properties(dyapp_core PROPERTIES
     IMPORTED_LOCATION ${RUST_TARGET_DIR}/libdyapp_core.so

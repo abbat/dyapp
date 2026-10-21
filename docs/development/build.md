@@ -46,8 +46,8 @@ module. There is no web frontend in the repository.
 | Prerequisites | Exits if `rustup` or `xcodebuild` is missing |
 | Targets | **Installs** `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios` with `rustup target add` if missing |
 | Build | `cargo build -p <crate> --target <t> --release --lib` for `dyapp-identity`, `-profile`, `-p2p-net`, `-messaging`, `-video` |
-| Headers | Copies `target/uniffi-headers/*` if that directory exists. Nothing creates it |
-| Modulemap | Writes `target/ios-build/frameworks/Modules/module.modulemap` for `DYAppCore`, with umbrella header `DYAppCore.h`, which does not exist |
+| Headers | Copies `build/uniffi-headers/*` if that directory exists. Nothing creates it |
+| Modulemap | Writes `build/ios-build/frameworks/Modules/module.modulemap` for `DYAppCore`, with umbrella header `DYAppCore.h`, which does not exist |
 | XCFramework | **Placeholder**: prints "requires manual Xcode setup" followed by "✓ XCFramework created". Nothing is created |
 
 These four crates have no `crate-type`, so they build only as **rlib**, which
@@ -60,8 +60,8 @@ is not built. The final "✅ iOS build complete!" is printed regardless.
 |------|--------------|
 | Prerequisites | Exits if `rustup` is missing or `ANDROID_NDK_HOME` is unset; **runs `cargo install cargo-ndk`** if it is missing |
 | Targets | **Installs** `aarch64-linux-android`, `armv7-linux-androideabi` if missing |
-| Build | `cargo ndk -t <triple> -o target/android-build/lib -- build -p <same four crates> --release --lib` |
-| Organize | Copies `*.so` from `target/android-build/lib/<triple>/` to `target/android-build/gradle/jniLibs/<abi>/` |
+| Build | `cargo ndk -t <triple> -o build/android-build/lib -- build -p <same four crates> --release --lib` |
+| Organize | Copies `*.so` from `build/android-build/lib/<triple>/` to `build/android-build/gradle/jniLibs/<abi>/` |
 | Writes into the repo | `clients/android/build-rust.gradle` and `clients/android/CMakeLists.txt`. Neither is tracked, and `clients/android/app` does not apply either |
 | Verify | Exits 1 with "No libraries found" when `jniLibs` has no `.so` |
 
@@ -85,9 +85,9 @@ The `dyapp:android-test` image carries the source and a writable Gradle cache, s
 the runner works in a throwaway container without network:
 
 ```bash
-mkdir -p target/android-release && chmod 777 target/android-release
+mkdir -p build/android-release && chmod 777 build/android-release
 docker run --rm --network none --user 999:999 \
-  -v "$PWD/target/android-release:/reports" \
+  -v "$PWD/build/android-release:/reports" \
   dyapp:android-test bash /app/scripts/build-android-release.sh /reports
 ```
 

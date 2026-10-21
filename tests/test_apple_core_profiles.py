@@ -22,7 +22,7 @@ if tool == "rustc":
 elif tool == "cargo":
     target = args[args.index("--target") + 1]
     profile = "release" if "--release" in args else "debug"
-    folder = Path("target") / target / profile
+    folder = Path("build") / target / profile
     folder.mkdir(parents=True, exist_ok=True)
     if args[0] == "build":
         bindgen = folder / "uniffi-bindgen"
