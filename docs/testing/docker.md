@@ -222,7 +222,9 @@ writing binaries to `/workspace/target`. This prevents renamed binary targets le
 prepared base image from appearing alongside current sources during Cargo discovery.
 The loopback and Compose network fixtures explicitly set `search.min_profile_pow_bits = 0`
 because the test client's `sign-profile` command emits zero-difficulty records. Production
-nodes retain the default threshold of 11 bits.
+nodes retain the default threshold of 11 bits. The real-TCP protocol tests additionally
+exercise nonzero proof thresholds on store-only and mixed-role nodes, including replica admission,
+confirmed-proof caching, rejected forgeries and connection survival after rate limiting.
 
 Quiet stage failures, shell aggregates, the operator image test and build
 preflight failures use `FAIL`/`FIX`/`DETAILS`. Shell aggregates accept `--raw`

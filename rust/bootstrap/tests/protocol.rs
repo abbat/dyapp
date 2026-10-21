@@ -4,6 +4,8 @@
 mod address_admission;
 #[path = "protocol/keypackages.rs"]
 mod keypackages;
+#[path = "protocol/profile_pow.rs"]
+mod profile_pow;
 
 use dyapp_bootstrap::config::{Limits, Role};
 use dyapp_bootstrap::search::SearchIndex;
@@ -39,6 +41,17 @@ async fn start_config(change: impl FnOnce(&mut NodeConfig)) -> Multiaddr {
 async fn start_config_with_wire(
     change: impl FnOnce(&mut NodeConfig),
 ) -> (Multiaddr, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
+    let (address, wire, _) = start_config_with_service(change).await;
+    (address, wire)
+}
+
+async fn start_config_with_service(
+    change: impl FnOnce(&mut NodeConfig),
+) -> (
+    Multiaddr,
+    std::sync::Arc<dyapp_p2p_net::WireBytes>,
+    std::sync::Arc<Service>,
+) {
     start_config_in_protocols(
         change,
         std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
@@ -49,7 +62,11 @@ async fn start_config_with_wire(
 async fn start_config_in_protocols(
     change: impl FnOnce(&mut NodeConfig),
     protocols: std::sync::Arc<dyapp_p2p_net::Protocols>,
-) -> (Multiaddr, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
+) -> (
+    Multiaddr,
+    std::sync::Arc<dyapp_p2p_net::WireBytes>,
+    std::sync::Arc<Service>,
+) {
     let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
@@ -88,8 +105,13 @@ async fn start_config_in_protocols(
         }
     };
     let wire = service.wire.clone();
-    tokio::spawn(node::run(swarm, std::sync::Arc::new(service)));
-    (addr.with(libp2p::multiaddr::Protocol::P2p(peer)), wire)
+    let service = std::sync::Arc::new(service);
+    tokio::spawn(node::run(swarm, service.clone()));
+    (
+        addr.with(libp2p::multiaddr::Protocol::P2p(peer)),
+        wire,
+        service,
+    )
 }
 
 /// A typed client on one connection, so mailbox challenges stay valid between calls.

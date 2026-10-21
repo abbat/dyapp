@@ -31,7 +31,7 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
             version: server_protocols.version.clone(),
             ..dyapp_p2p_net::Protocols::new(client_name).unwrap()
         });
-        let (address, wire) = start_config_in_protocols(
+        let (address, wire, _) = start_config_in_protocols(
             |c| {
                 c.roles = vec![Role::Store, Role::Media, Role::Search];
                 c.limits.requests_per_second = 1000;
@@ -158,7 +158,7 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
 #[tokio::test]
 async fn peers_of_another_network_are_dropped_after_identify() {
     let city = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("city").unwrap());
-    let (address, _) = start_config_in_protocols(|c| c.network.name = "city".into(), city).await;
+    let (address, _, _) = start_config_in_protocols(|c| c.network.name = "city".into(), city).await;
     let mut client = Client::connect(&address).await; // the public network
     let id = client.server;
     client.swarm.behaviour_mut().node.send_request(
@@ -193,7 +193,7 @@ async fn peers_of_another_network_are_dropped_after_identify() {
 #[tokio::test]
 async fn named_node_serves_profile_search_and_configured_gossip_topics() {
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("node-test").unwrap());
-    let (address, wire) = start_config_in_protocols(
+    let (address, wire, _) = start_config_in_protocols(
         |c| {
             c.roles = vec![Role::Store, Role::Search];
             c.search.min_profile_pow_bits = 0;

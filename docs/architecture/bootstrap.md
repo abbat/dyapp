@@ -299,8 +299,9 @@ resent from the sender's retry queue.
   1 pass, 1 lane) starts with `pow_bits` zero bits. It does not depend on the profile's content,
   so it is computed once, about 30 s at 11 bits on a phone. The client computes it in the
   background, keeps the last tried nonce to resume after the app is suspended, and publishes to
-  search only when it is done; messaging works before that. A profile without a valid proof
-  counts as 0 bits: store nodes keep it, gossip does not relay it, search does not index it.
+  store and search only when it is done; messaging works before that. Both roles reject a
+  profile below their shared minimum or with a forged proof. Only zero-minimum test networks
+  accept a zero-difficulty profile.
 - Deletion is a signed tombstone kept for the TTL
   ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
 
@@ -832,6 +833,11 @@ is within 10 minutes of the node clock and newer than the stored `last_seen`. He
 media requests and mailbox requests do not refresh profile liveness. The client is
 meant to send a heartbeat to the profile's replicas at most once a day, at a random time rather
 than on app open, so `last_seen` does not track app use (planned; no client yet).
+Store admission checks every positive proof on client publish and node-to-node replica put.
+Confirmed (key, nonce) proofs are cached across profile versions; a changed nonce is checked
+again, while a failed proof is never cached. Local holders store only admitted records. Busy
+proof workers answer `RATE_LIMITED` without striking the sender. Tombstones follow the same
+proof rule; heartbeats change liveness only as described above.
 Full field table: [Privacy & Metadata Visibility](../security/privacy.md).
 
 ## Served protocol
