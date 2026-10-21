@@ -61,7 +61,8 @@ SHA-256 of the device public key (32 bytes each).
 
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
   "role not served". A search node also reports `search_fields` (the `Profile` field numbers it
-  filters on) and `max_search_profile_bytes`.
+  filters on) and `max_search_profile_bytes`. Every store node reports the shared
+  `search.min_profile_pow_bits` in `min_profile_pow`; enforcing it on store writes is planned.
 - **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)`, `heartbeat(SignedRecord)` and
   node-to-node `replica_put(SignedRecord)` and `inventory(peer_id)` → stored version or
   `STATUS_NOT_FOUND`, without the record. Publish fans out to the five DHT holders and waits for

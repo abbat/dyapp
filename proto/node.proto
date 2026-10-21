@@ -98,7 +98,7 @@ message NodeInfo {
   uint64 max_message_bytes = 3;
   uint64 max_mailbox_bytes = 4;
   uint64 max_media_bytes = 5;
-  // Minimum proof-of-work difficulty of a profile key, in leading zero bits.
+  // Shared store/search profile proof-of-work minimum in leading zero bits; 0 without store.
   uint32 min_profile_pow = 6;
   uint64 retention_seconds = 7;
   // Profile field numbers a search node filters on; empty without the search role.

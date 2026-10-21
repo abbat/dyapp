@@ -183,8 +183,8 @@ pub struct Search {
     pub max_scan_rows: u32,
     /// Gossip topics (0..16) this node keeps; empty = all.
     pub topics: Vec<u32>,
-    /// Leading zero bits of the Argon2id proof of work a profile needs to be indexed; at most
-    /// 20, reported in `info`.
+    /// Shared store/search minimum for a profile's Argon2id proof of work; at most 20,
+    /// reported in `info` by every store node.
     pub min_profile_pow_bits: u32,
     /// Leading zero bits of the daily Argon2id proof a heartbeat needs; 0 = none, at most 16,
     /// reported in `info`.
@@ -764,6 +764,11 @@ impl NodeConfig {
                 anyhow::bail!("role turn needs role store");
             }
             self.turn.validate()?;
+        }
+        // Store-only nodes also advertise this policy. Other search settings remain
+        // irrelevant when search is disabled.
+        if self.roles.contains(&Role::Store) && self.search.min_profile_pow_bits > 20 {
+            anyhow::bail!("search.min_profile_pow_bits must be at most 20");
         }
         if self.roles.contains(&Role::Search) {
             // As with turn: a client-mode node serves no protocol.

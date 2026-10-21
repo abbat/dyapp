@@ -88,7 +88,7 @@
 # ban_minutes = 10                    # how long a ban lasts
 
 [search]
-# Used by the search role.
+# Search indexing settings; min_profile_pow_bits is shared by store and search roles.
 # max_profile_bytes = 65536           # client record send limit; 1..65536; network accepts 65536
 # max_bytes = 53687091200             # profiles-idx.db size; above it the largest place sheds keys
 # newcomer_days = 30                  # days a key counts as a newcomer; 1..365
@@ -97,7 +97,7 @@
 # puzzle_wait_ms = 100                # median queue wait that turns the client puzzle on; > 0
 # max_puzzle_bits = 20                # puzzle difficulty ceiling; 12..32
 # topics = []                         # gossip topics (0..15) kept; empty = all 16; public: empty
-# min_profile_pow_bits = 11           # Argon2id proof of work a profile needs to be indexed; 0..20
+# min_profile_pow_bits = 11           # shared store/search profile Argon2id minimum; 0..20
 # min_heartbeat_pow_bits = 8         # daily Argon2id proof a heartbeat needs; 0 = none, 0..16
 
 [media]

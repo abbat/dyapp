@@ -38,6 +38,27 @@ fn search_limits_are_checked() {
 }
 
 #[test]
+fn store_profile_pow_minimum_is_validated_without_search() {
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    config.roles = vec![Role::Store];
+    assert_eq!(config.search.min_profile_pow_bits, 11);
+    config.search.max_scan_rows = 0; // Search-only checks remain inactive.
+    for bits in [0, 20] {
+        config.search.min_profile_pow_bits = bits;
+        assert!(config.validate().is_ok());
+    }
+    config.search.min_profile_pow_bits = 21;
+    assert!(config
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("search.min_profile_pow_bits"));
+    config.roles.push(Role::Search);
+    assert!(config.validate().is_err());
+}
+
+#[test]
 fn incoming_group_and_coarse_settings_validate_boundaries() {
     let mut config = NodeConfig::default();
     config.storage.dir = temp_dir();

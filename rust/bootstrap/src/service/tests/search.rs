@@ -144,8 +144,12 @@ fn search_publish_query_get() {
         service().info().capabilities,
         [i32::from(proto::Capability::ProfileHeartbeat)]
     );
-    assert_eq!(service().info().min_profile_pow, 0);
-    assert!(service().info().search_fields.is_empty());
+    let mut store_only = service();
+    store_only.config.roles = vec![Role::Store];
+    assert_eq!(store_only.info().min_profile_pow, 11);
+    store_only.config.search.min_profile_pow_bits = 0;
+    assert_eq!(store_only.info().min_profile_pow, 0);
+    assert!(store_only.info().search_fields.is_empty());
 }
 
 /// The key of the one profile aged `age`.

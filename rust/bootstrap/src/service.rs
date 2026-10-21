@@ -463,7 +463,7 @@ impl Service {
             } else {
                 0
             },
-            min_profile_pow: if search {
+            min_profile_pow: if store {
                 self.config.search.min_profile_pow_bits
             } else {
                 0

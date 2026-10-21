@@ -452,7 +452,7 @@ Used by the `search` role only. Details: [Search](../architecture/bootstrap.md#s
 | `puzzle_wait_ms` | 100 | Median queue wait, in ms, above which queries need a client hash puzzle; at least 1. |
 | `max_puzzle_bits` | 20 | Puzzle difficulty ceiling, 12..32. |
 | `topics` | `[]` | Gossip topics 0..15 kept; empty keeps all 16. A subset is refused on the public network. |
-| `min_profile_pow_bits` | 11 | Argon2id proof of work a profile needs to be indexed; 0..20. |
+| `min_profile_pow_bits` | 11 | Shared store/search Argon2id profile minimum, 0..20. All store nodes advertise it; search enforces it now, store admission enforcement is planned. Set 0 explicitly on every node of a private test network if needed. |
 | `min_heartbeat_pow_bits` | 8 | Daily Argon2id proof a heartbeat needs; 0 = none, 0..16. |
 
 ## First start
