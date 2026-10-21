@@ -99,8 +99,8 @@ sizes ([producer details](build.md#unsigned-apple-release-packages)).
 The Android job builds the `dyapp:android-test` image, runs the
 [offline Release runner](build.md#unsigned-android-release) in it without network,
 and gates the verified unsigned APK and AAB against baselines measured in the same
-image. The APK baseline comes from the same 2026-10-20 run on `9e6c832`, after the MLS core
-grew it by about 17%. It archives the build log, `packages.json`,
+image. The APK and AAB baselines come from the same 2026-10-20 run on `9e6c832`, after the MLS core
+grew them by about 17% and 19%, respectively. It archives the build log, `packages.json`,
 `release-size-android-<kind>.json` and `artifact-size-android-<kind>.json`.
 
 Auxiliary Python lint, dependency audit, advisory Rust analysis and Windows
