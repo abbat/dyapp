@@ -141,10 +141,13 @@ Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub
 `tools/arch-lint`), Gradle (`clients/android`) and the Dockerfiles in
 `tests/docker/` and `tools/docker/`. It waits 7 days after a release, groups minor and
 patch updates into one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Cargo ignores
-libc 0.2.190 (`nix` fails to build for iOS against it) and argon2 0.6+ (it needs blake2 0.11,
-while snow in libp2p noise still pins 0.10, a duplicate `cargo deny` rejects). Vulnerability
-alerts and Dependabot security updates are enabled in the repository settings; security PRs skip
-the schedule and the wait.
+libc 0.2.190 (`nix` fails to build for iOS against it), argon2 0.6+ (it needs blake2 0.11,
+while snow in libp2p noise still pins 0.10), and aes-gcm 0.11+ (snow and webrtc still require
+RustCrypto 0.10); the latter two introduce duplicates rejected by `cargo deny`. Review these
+temporary ignores when the upstream dependencies move. Dependabot also applies these version
+ignores to security-update PRs for the excluded versions. Vulnerability alerts and Dependabot
+security updates are enabled in the repository settings; eligible security PRs skip the schedule
+and the wait.
 
 ### `quality` → **quality**
 

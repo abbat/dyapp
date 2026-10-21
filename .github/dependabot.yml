@@ -27,6 +27,10 @@ updates:
       # argon2 0.6 needs blake2 0.11; snow (libp2p noise) still pins 0.10.
       - dependency-name: argon2
         update-types: [version-update:semver-major, version-update:semver-minor]
+      # aes-gcm 0.11 adds RustCrypto versions alongside 0.10 still required by snow and webrtc;
+      # cargo-deny rejects the new duplicates. Revisit when those dependencies move.
+      - dependency-name: aes-gcm
+        versions: [">=0.11.0"]
     groups:
       # libp2p crates must move together, majors included.
       libp2p:
