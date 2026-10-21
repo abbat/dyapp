@@ -106,6 +106,8 @@ def start(bin_dir, storage, peers, processes, environments,
                "DYAPPD_STORAGE_DIR": f"{storage}/{port}",
                "DYAPPD_ROLES": '["store", "search", "media"]',
                "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
+               # The test client signs zero-difficulty profiles.
+               "DYAPPD_SEARCH_MIN_PROFILE_POW_BITS": "0",
                # Loopback nodes share one /16.
                "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
                "DYAPPD_NETWORK_GUARD_DIALS": "false",

@@ -35,6 +35,8 @@ x-peer: &peer
     DYAPPD_ROLES: '["store", "search", "media"]'
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
     DYAPPD_NETWORK_ID_POW_BITS: "8"
+    # The test client signs zero-difficulty profiles.
+    DYAPPD_SEARCH_MIN_PROFILE_POW_BITS: "0"
     # Every test node shares one /16.
     DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS: "false"
     DYAPPD_NETWORK_GUARD_DIALS: "false"

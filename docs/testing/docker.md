@@ -220,6 +220,9 @@ sockets to make the check pass.
 The network-test image builds the current Rust tree in a fresh `/build-src` directory while
 writing binaries to `/workspace/target`. This prevents renamed binary targets left in the
 prepared base image from appearing alongside current sources during Cargo discovery.
+The loopback and Compose network fixtures explicitly set `search.min_profile_pow_bits = 0`
+because the test client's `sign-profile` command emits zero-difficulty records. Production
+nodes retain the default threshold of 11 bits.
 
 Quiet stage failures, shell aggregates, the operator image test and build
 preflight failures use `FAIL`/`FIX`/`DETAILS`. Shell aggregates accept `--raw`
