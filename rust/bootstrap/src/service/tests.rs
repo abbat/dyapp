@@ -12,18 +12,19 @@ fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
     let mut mailbox = MailboxResponse::decode(legacy.as_slice()).unwrap();
     let mut media = MediaResponse::decode(legacy.as_slice()).unwrap();
     let mut search = SearchResponse::decode(legacy.as_slice()).unwrap();
-    assert_eq!(profile.max_bytes, 0);
+    assert_eq!((profile.max_bytes, profile.required_pow_bits), (0, 0));
     assert_eq!(mailbox.max_bytes, 0);
     assert_eq!(media.max_bytes, 0);
     assert_eq!((search.max_bytes, search.required_pow_bits), (0, 0));
 
     profile.max_bytes = 100;
+    profile.required_pow_bits = 11;
     mailbox.max_bytes = 100;
     media.max_bytes = 100;
     search.max_bytes = 100;
     search.required_pow_bits = 11;
     let wire = |fields: &[u8]| [legacy.as_slice(), fields].concat();
-    assert_eq!(profile.encode_to_vec(), wire(&[0x20, 100]));
+    assert_eq!(profile.encode_to_vec(), wire(&[0x20, 100, 0x30, 11]));
     assert_eq!(mailbox.encode_to_vec(), wire(&[0x30, 100]));
     assert_eq!(media.encode_to_vec(), wire(&[0x28, 100]));
     assert_eq!(search.encode_to_vec(), wire(&[0x40, 100, 0x48, 11]));
@@ -131,6 +132,7 @@ fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
+    config.search.min_profile_pow_bits = 0;
     change(&mut config.limits);
     Service::new(BootstrapStore::new(&dir).unwrap(), config)
 }
@@ -218,7 +220,7 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     let exact = padded_profile(&owner, &profile, PROFILE_SEND_BYTES);
     assert!(dyapp_profile::verify(&exact).is_ok());
     let response = s
-        .publish(&exact, false, PROFILE_SEND_BYTES - 1, None)
+        .publish(&exact, false, PROFILE_SEND_BYTES - 1, None, &|_| None)
         .unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
@@ -276,6 +278,83 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), PROFILE_ACCEPT_BYTES as u64)
     );
+}
+
+#[test]
+fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
+    let mut s = service();
+    s.config.search.min_profile_pow_bits = 2;
+    let owner = Identity::generate();
+    let weak = Profile {
+        version: 1,
+        ..Default::default()
+    }
+    .sign(&owner);
+    let from = peer("pow-client");
+    let weak_reply = s.profile(&from, publish(weak));
+    let weak_reply = weak_reply.unwrap();
+    assert_eq!(
+        (status(&weak_reply), weak_reply.required_pow_bits),
+        (Status::Invalid, 2)
+    );
+
+    let mut profile = Profile {
+        version: 1,
+        ..Default::default()
+    };
+    profile.pow_nonce = dyapp_profile::solve(&owner.public_key(), 2, 0, 100_000).unwrap();
+    profile.pow_bits = 2;
+    let proven = profile.sign(&owner);
+    assert_eq!(
+        status(&s.store_profile(&proven).unwrap()),
+        Status::RateLimited
+    );
+    assert_eq!(
+        status(&s.profile(&from, publish(proven.clone())).unwrap()),
+        Status::RateLimited
+    );
+    let ok = |check: &PowCheck| Some(s.pow.check(check));
+    assert_eq!(
+        status(
+            &s.prepare_profile_with_pow(&from, proven.clone(), &ok)
+                .unwrap()
+        ),
+        Status::Ok
+    );
+    assert_eq!(s.pow.totals(), (1, 0));
+    assert_eq!(status(&s.store_profile(&proven).unwrap()), Status::Ok);
+    assert_eq!(
+        status(&s.profile(&from, publish(proven.clone())).unwrap()),
+        Status::Stale
+    );
+    assert_eq!(s.pow.totals(), (1, 0));
+
+    let mut forged_profile = profile;
+    forged_profile.pow_nonce = (0..)
+        .find(|nonce| dyapp_profile::pow_leading_bits(&owner.public_key(), *nonce) < 2)
+        .unwrap();
+    forged_profile.version = 2;
+    let forged = forged_profile.sign(&owner);
+    assert_eq!(
+        status(
+            &s.profile_with_pow(&from, publish(forged.clone()), &|_| None)
+                .unwrap()
+        ),
+        Status::RateLimited
+    );
+    assert_eq!(
+        status(&s.profile_with_pow(&from, publish(forged), &ok).unwrap()),
+        Status::Denied
+    );
+    assert_eq!(s.pow.totals(), (2, 1));
+
+    s.config.search.min_profile_pow_bits = 0;
+    let zero = Profile {
+        version: 3,
+        ..Default::default()
+    }
+    .sign(&owner);
+    assert_eq!(status(&s.store_profile(&zero).unwrap()), Status::Ok);
 }
 
 #[test]

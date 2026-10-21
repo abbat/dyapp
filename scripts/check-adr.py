@@ -58,6 +58,9 @@ COVERED = {
     # but omitted its trailer.
     "9f1c05dffa91c7fb252b14db39c04d99cc774e1f":
         "docs/decisions/0009-message-delivery-and-storage.md",
+    # Published NodeInfo hint follows ADR 0016; the trailer was omitted.
+    "30b26c5e3642722eb7c4056b797bce1f110b5c56":
+        "docs/decisions/0016-protocol-evolution.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

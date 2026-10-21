@@ -507,7 +507,18 @@ impl Service {
     /// `peer` is the key for rate limiting and strikes. A storage failure is an
     /// error: the caller drops the request and the client tries another node.
     pub fn profile(&self, peer: &Peer, request: ProfileRequest) -> crate::Result<ProfileResponse> {
-        self.profile_inner(peer, request, true)
+        self.profile_inner(peer, request, true, &|_| None)
+    }
+
+    /// Handles a network request in a blocking store worker. The callback may run Argon2
+    /// after admission, but must never be passed from the swarm loop.
+    pub(crate) fn profile_with_pow(
+        &self,
+        peer: &Peer,
+        request: ProfileRequest,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
+    ) -> crate::Result<ProfileResponse> {
+        self.profile_inner(peer, request, true, check_pow)
     }
 
     /// Admits and checks a profile publish from `peer` without storing it.
@@ -516,6 +527,16 @@ impl Service {
         peer: &Peer,
         record: SignedRecord,
     ) -> crate::Result<ProfileResponse> {
+        self.prepare_profile_with_pow(peer, record, &|_| None)
+    }
+
+    /// Checks a client publish in a blocking store worker before replica fan-out.
+    pub(crate) fn prepare_profile_with_pow(
+        &self,
+        peer: &Peer,
+        record: SignedRecord,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
+    ) -> crate::Result<ProfileResponse> {
         self.profile_inner(
             peer,
             ProfileRequest {
@@ -523,6 +544,7 @@ impl Service {
                 age_seconds: 0,
             },
             false,
+            check_pow,
         )
     }
 
@@ -531,6 +553,7 @@ impl Service {
         peer: &Peer,
         request: ProfileRequest,
         store: bool,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
     ) -> crate::Result<ProfileResponse> {
         if !self.config.roles.contains(&Role::Store) {
             return Ok(reply(Status::Unsupported, None));
@@ -588,7 +611,7 @@ impl Service {
                     let now = chrono::Utc::now().timestamp();
                     last_seen = Some(now - i64::from(request.age_seconds));
                 }
-                let response = self.publish(&record, store, max, last_seen)?;
+                let response = self.publish(&record, store, max, last_seen, check_pow)?;
                 if response.status == i32::from(Status::Denied) {
                     self.strike(peer);
                 }
@@ -657,7 +680,7 @@ impl Service {
 
     /// Verifies and stores a profile record, without per-peer limits.
     pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
-        self.publish(record, true, PROFILE_ACCEPT_BYTES, None)
+        self.publish(record, true, PROFILE_ACCEPT_BYTES, None, &|_| None)
     }
 
     fn publish(
@@ -666,6 +689,7 @@ impl Service {
         store: bool,
         max: usize,
         last_seen: Option<i64>,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
     ) -> crate::Result<ProfileResponse> {
         if record.payload.len() > max {
             return Ok(profile_too_large(max));
@@ -673,10 +697,35 @@ impl Service {
         if self.listed_key(&record.public_key) {
             return Ok(reply(Status::Refused, None));
         }
-        match dyapp_profile::verify(record) {
-            Ok(_) => {}
+        let verified = match dyapp_profile::verify(record) {
+            Ok(verified) => verified,
             Err(dyapp_profile::Error::Signature(_)) => return Ok(reply(Status::Denied, None)),
             Err(_) => return Ok(reply(Status::Invalid, None)),
+        };
+        let profile = &verified.profile;
+        let minimum = self.config.search.min_profile_pow_bits;
+        if profile.pow_bits < minimum {
+            return Ok(ProfileResponse {
+                required_pow_bits: minimum,
+                ..reply(Status::Invalid, None)
+            });
+        }
+        // Zero difficulty needs no hash. Every positive claim must be checked, even on a
+        // zero-minimum test network, or a forged claim could enter a store.
+        if profile.pow_bits > 0 {
+            let check = PowCheck {
+                key: record.public_key.as_slice().try_into().unwrap_or_default(),
+                nonce: profile.pow_nonce,
+                bits: profile.pow_bits,
+                day: None,
+            };
+            if !self.pow.confirmed(&check) {
+                match check_pow(&check) {
+                    Some(true) => {}
+                    Some(false) => return Ok(reply(Status::Denied, None)),
+                    None => return Ok(reply(Status::RateLimited, None)),
+                }
+            }
         }
         if !store {
             return Ok(reply(Status::Ok, None));

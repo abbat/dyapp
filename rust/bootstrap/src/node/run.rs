@@ -173,16 +173,21 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     message: Message::Request { request, channel, .. },
                 })) => {
                     let from = peer(&swarm, &service, id, connection_id);
+                    let permits = pow_permits.clone();
                     enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
+                        let check_pow = |check: &crate::pow::PowCheck| {
+                            let _permit = permits.clone().try_acquire_owned().ok()?;
+                            Some(service.pow.check(check))
+                        };
                         if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
-                            let result = service.prepare_profile(&from, record.clone());
+                            let result = service.prepare_profile_with_pow(&from, record.clone(), &check_pow);
                             return StoreDone::ProfilePublish(channel, record.clone(), result);
                         }
                         let heartbeat = match &request.request {
                             Some(proto::profile_request::Request::Heartbeat(record)) => Some(record.public_key.clone()),
                             _ => None,
                         };
-                        let result = service.profile(&from, request);
+                        let result = service.profile_with_pow(&from, request, &check_pow);
                         let ok = matches!(&result, Ok(response) if response.status == i32::from(Status::Ok));
                         // An accepted heartbeat repairs the stored profile's replicas.
                         let stored = heartbeat.filter(|_| ok).and_then(|key| {

@@ -191,6 +191,8 @@ message ProfileResponse {
   uint64 max_bytes = 4;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
   uint64 server_time = 5;
+  // INVALID for a weak profile proof: required leading zero bits; 0 otherwise.
+  uint32 required_pow_bits = 6;
 }
 
 // ---- /dyapp/keypackage: store role ----

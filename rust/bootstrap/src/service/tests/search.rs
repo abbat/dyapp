@@ -146,6 +146,7 @@ fn search_publish_query_get() {
     );
     let mut store_only = service();
     store_only.config.roles = vec![Role::Store];
+    store_only.config.search.min_profile_pow_bits = 11;
     assert_eq!(store_only.info().min_profile_pow, 11);
     store_only.config.search.min_profile_pow_bits = 0;
     assert_eq!(store_only.info().min_profile_pow, 0);

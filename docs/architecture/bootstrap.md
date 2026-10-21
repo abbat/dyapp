@@ -388,7 +388,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
 - **Proof of work.** Store and search share `search.min_profile_pow_bits` (public default 11,
   at most 20), advertised by every store node in `info.min_profile_pow`. A private test network
   may explicitly set it to 0 on all nodes; changing `network.name` alone does not lower it.
-  Search already indexes and relays only profiles whose `pow_bits` reach that minimum; a lower
+  Store and search admit only profiles whose `pow_bits` reach that minimum; a lower
   claim is `INVALID` with `required_pow_bits` and no strike. The claim is checked with
   Argon2id (above, [Profiles](#profiles)) off the swarm loop on its own permits (half the cores,
   at least two), so checks cannot starve queries: a client publish or heartbeat that finds them
@@ -398,8 +398,11 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `DENIED` on publish and rejected in gossip, both a strike against the sending peer. Only
   confirmed (key, nonce, bits) triples are cached, so Argon2id runs once per key and a forger
   cannot fill the cache. A tombstone keeps the proof fields, so it is checked like the profile.
-  Store admission does not yet check this advertised minimum; that check is planned. Search
-  heartbeats also check the difficulty of the stored profile:
+  Store client and replica writes share the bounded proof workers; a busy worker returns
+  `RATE_LIMITED` without a strike. A local holder accepts only a cached proof and returns
+  `RATE_LIMITED` on a cache miss, so Argon2 never runs on the swarm loop. Zero-bit proofs need no
+  hash on a zero-minimum test network; positive claims are still checked. Search heartbeats also
+  check the difficulty of the stored profile:
   below the current minimum they return `INVALID` with `required_pow_bits`, without changing
   heartbeat time or daily counters; gossip ignores them without a strike. Raising the minimum
   does not purge indexed profiles, so their last accepted heartbeat leaves the usual retention
@@ -872,10 +875,10 @@ The current protocol replies are:
 
 | Protocol | Request | Reply |
 |----------|---------|-------|
-| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, store role; store admission check planned), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `mailbox_pool_bytes` (`limits.mailbox_pool_kb` in bytes), `require_write_tokens` (`limits.require_write_tokens`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
+| `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, enforced by store and search), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `mailbox_pool_bytes` (`limits.mailbox_pool_kb` in bytes), `require_write_tokens` (`limits.require_write_tokens`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
-| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature; `INVALID` bad key or content; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
+| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature or forged PoW (strike); `INVALID` bad key or content, or weak PoW with `required_pow_bits`; `RATE_LIMITED` when proof workers are busy; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
 | `/dyapp/profile` | `replica_put(SignedRecord)` (node to node) | stores and verifies like publish, never forwards; costs one request unit; same validation replies |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |

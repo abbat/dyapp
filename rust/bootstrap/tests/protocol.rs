@@ -54,6 +54,7 @@ async fn start_config_in_protocols(
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
+    config.search.min_profile_pow_bits = 0;
     change(&mut config);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
@@ -416,6 +417,49 @@ async fn rejection_limits_survive_node_dispatch_over_tcp() {
         (Status::Invalid, 0)
     );
     assert_eq!(status(client.info().await.status), Status::Ok);
+}
+
+#[tokio::test]
+async fn store_profile_pow_is_checked_on_network_publish() {
+    let address = start_config(|c| {
+        c.search.min_profile_pow_bits = 2;
+        c.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut client = Client::connect(&address).await;
+    let owner = Identity::generate();
+    let weak = Profile {
+        version: 1,
+        ..Default::default()
+    }
+    .sign(&owner);
+    let response = client
+        .profile(profile_request::Request::Publish(weak))
+        .await;
+    assert_eq!(
+        (status(response.status), response.required_pow_bits),
+        (Status::Invalid, 2)
+    );
+
+    let mut profile = Profile {
+        version: 1,
+        ..Default::default()
+    };
+    profile.pow_bits = 2;
+    profile.pow_nonce = dyapp_profile::solve(&owner.public_key(), 2, 0, 100_000).unwrap();
+    let response = client
+        .profile(profile_request::Request::Publish(profile.sign(&owner)))
+        .await;
+    assert_eq!(status(response.status), Status::Ok);
+
+    profile.version = 2;
+    profile.pow_nonce = (0..)
+        .find(|nonce| dyapp_profile::pow_leading_bits(&owner.public_key(), *nonce) < 2)
+        .unwrap();
+    let response = client
+        .profile(profile_request::Request::Publish(profile.sign(&owner)))
+        .await;
+    assert_eq!(status(response.status), Status::Denied);
 }
 
 fn status(value: i32) -> Status {

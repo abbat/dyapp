@@ -62,7 +62,7 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/node`**: `info` returns the node's roles and limits; zero means "no such limit" or
   "role not served". A search node also reports `search_fields` (the `Profile` field numbers it
   filters on) and `max_search_profile_bytes`. Every store node reports the shared
-  `search.min_profile_pow_bits` in `min_profile_pow`; enforcing it on store writes is planned.
+  `search.min_profile_pow_bits` in `min_profile_pow` and enforces it on profile writes.
 - **`/dyapp/profile`**: `publish(SignedRecord)`, `get(peer_id)`, `heartbeat(SignedRecord)` and
   node-to-node `replica_put(SignedRecord)` and `inventory(peer_id)` → stored version or
   `STATUS_NOT_FOUND`, without the record. Publish fans out to the five DHT holders and waits for
@@ -147,6 +147,7 @@ The response schemas reserve additive hints for limits checked by the receiving 
 | Message | Field | Tag |
 |---------|-------|-----|
 | `ProfileResponse` | `max_bytes` | 4 |
+| `ProfileResponse` | `required_pow_bits` | 6 |
 | `MailboxResponse` | `max_bytes` | 6 |
 | `MediaResponse` | `max_bytes` | 5 |
 | `SearchResponse` | `max_bytes` | 8 |
@@ -159,8 +160,9 @@ nodes. Mailbox replies now report the exact checked signed-envelope payload boun
 puts, local stores and repair batches; a batch ending in `DENIED` keeps that priority and clears
 the size hint. Profile client publish, replica put and local stores also report their checked
 payload bound; send and accept constants are separate and both 1 MiB today.
-Search publication reports its local encoded-record size bound and, for insufficient profile
-PoW only, the required difficulty. Gossip and catch-up use a separate fixed 64 KiB accept bound.
+Store and search publication report the required difficulty only for insufficient profile PoW.
+Search publication also reports its local encoded-record size bound. Gossip and catch-up use a
+separate fixed 64 KiB accept bound.
 Media service rejections report the checked blob or signed-record bound: 6 MiB for client
 uploads, 1 MiB for replica data and Keep/Attach authorizations. Node upload dispatch preserves
 the upload hint; shard manifest validation retains its existing `INVALID` result.
@@ -225,7 +227,7 @@ and whether older nodes can read records written under the new rule. Apply this 
 |-------|----------------------|------------------------|
 | 1. Profile composition | Existing fields work; displaying a new attribute needs a client release. | Add typed fields with permanent tags and safe defaults, not a generic attribute map. Nodes retain unknown fields in signed bytes. `Profile::encode_preserving(original)` retains unknown top-level fields and untouched nested `Photo` bytes during an edit; callers must use its result when signing an edited profile. Ordinary `encode_to_vec()` and `sign()` still discard unknown fields. Reserve retired tags. |
 | 2. Size limits | Existing-sized records work; a lower send limit can reject an old client's write until it handles `max_bytes` and retries. | Separate client-send, network-accept and wire bounds; report the exact checked object size. Follow the [two-release raise/lower rule](bootstrap.md#limits-and-abuse). The node sends hints today; client validation exists, but client retry is planned. A raised limit does not make an old client send larger records automatically. |
-| 3. PoW difficulty | Existing proof works while it meets the node minimum; a higher minimum can reject an old client until it recomputes. | Report `required_pow_bits` only for insufficient difficulty, not malformed content or clock failures. Search publish and heartbeat send the hint today; client recomputation is planned. Never accept an untrusted hint outside the client's compiled bound. |
+| 3. PoW difficulty | Existing proof works while it meets the node minimum; a higher minimum can reject an old client until it recomputes. | Report `required_pow_bits` only for insufficient difficulty, not malformed content or clock failures. Store and search publish, and search heartbeat, send the hint today; client recomputation is planned. Never accept an untrusted hint outside the client's compiled bound. |
 | 4. Media replication | Changing the node's replica count needs no client release: the client uploads once. | Readers must retain old layouts. Current node readers require exactly K+4 shard hashes, so variable parity needs a node reader release before new writers. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB; this is planned. Neither layout change is safe merely because a manifest lists hashes. |
 
 Clients treat hints as untrusted ([ADR 0016](../decisions/0016-protocol-evolution.md)): zero

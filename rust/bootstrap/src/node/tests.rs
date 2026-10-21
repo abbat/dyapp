@@ -342,6 +342,7 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     let dir = format!("/tmp/ai/test-replica-cap-{}", uuid::Uuid::new_v4());
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
+    config.search.min_profile_pow_bits = 0;
     let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
