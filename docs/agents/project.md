@@ -11,9 +11,9 @@ automatically. This page holds the details. **The user's own instructions (globa
 | `rust/` | Cargo workspace (`Cargo.toml` at the root): `bootstrap`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`. Toolchain pinned to 1.99.0 in `rust-toolchain.toml`. |
 | `rust/bootstrap/src/bin/` | `dyappd`: the libp2p node; `dyappd/client.rs` holds its client commands (`dyappd info`, ...) used by network tests. |
 | `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Its bindings are **not** consumed by any app yet. |
-| `android/` | Gradle app (Kotlin). Does not link the Rust core. |
-| `ios/`, `macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |
-| `linux/`, `windows/` | Separate Tauri crates (excluded from the workspace) serving `desktop/ui`. |
+| `clients/android/` | Gradle app (Kotlin). Does not link the Rust core. |
+| `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |
+| `clients/linux/`, `clients/windows/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`. |
 | `proto/`, `tools/` | Protobuf schemas; arch-lint, codegen and helper tooling. |
 | `docker/` | Test-image Dockerfiles and `compose.{dev,network,ui}.yml` (project name `dyapp`, build context is the repo root; `.dockerignore` stays at the root). |
 | `scripts/` | Check scripts behind every Makefile target and CI job (`rust-check.sh`, `linux-test.sh`, `ci-setup.sh` for CI runners). |

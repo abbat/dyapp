@@ -14,7 +14,7 @@ import zipfile
 def main():
     exe, out = Path(sys.argv[1]), Path(sys.argv[2])
     root = Path(__file__).resolve().parent.parent
-    manifest = (root / "windows" / "Cargo.toml").read_text()
+    manifest = (root / "clients" / "windows" / "Cargo.toml").read_text()
     version = re.search(r'^version = "(.*)"', manifest, re.M).group(1)
     name = f"dyapp-{version}-x86_64-windows"
     out.mkdir(parents=True, exist_ok=True)

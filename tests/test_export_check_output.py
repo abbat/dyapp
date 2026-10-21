@@ -75,7 +75,7 @@ class ExportChecks(unittest.TestCase):
                              coverage_source)
             self.assertEqual(
                 (root / "android/app-debug.apk").read_text(),
-                "abcdef123456:/app/android/app/build/outputs/apk/"
+                "abcdef123456:/app/clients/android/app/build/outputs/apk/"
                 "debug/app-debug.apk")
             self.assertTrue(json.loads(calls.read_text().splitlines()[0]))
 

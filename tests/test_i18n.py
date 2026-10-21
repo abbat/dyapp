@@ -17,29 +17,32 @@ class I18n(unittest.TestCase):
         texts = {
             CHECK.CATALOGUES["apple"]: APPLE,
             CHECK.CATALOGUES["desktop"]: '{"app.name": "DYApp"}',
-            "android/app/src/main/kotlin/A.kt":
+            "clients/android/app/src/main/kotlin/A.kt":
                 'Text("Ready")\nText(stringResource(R.string.x))\n',
-            "android/app/src/test/kotlin/T.kt": 'Text("test only")\n',
-            "ios/DYApp/ContentView.swift":
+            "clients/android/app/src/test/kotlin/T.kt": 'Text("test only")\n',
+            "clients/ios/DYApp/ContentView.swift":
                 'Text("status.ready")\nText("Ready")\nText(peerId)\n',
-            "desktop/ui/index.html":
+            "clients/desktop/ui/index.html":
                 '<title data-i18n="app.name"></title><style>p{}</style>'
                 '<p data-i18n="gone"></p><b>Hi</b><script>x()</script>',
         }
         self.assertEqual(CHECK.i18n_errors(texts), [
-            ("android/app/src/main/kotlin/A.kt: Text with a literal; "
+            ("clients/android/app/src/main/kotlin/A.kt: Text with a literal; "
              "use stringResource"),
-            "desktop/ui/index.html: literal text 'Hi'; use data-i18n",
-            ("desktop/ui/index.html: data-i18n key 'gone' not in "
-             "desktop/ui/i18n/en.json"),
-            ("ios/DYApp/ContentView.swift: Text key 'Ready' not in "
-             "ios/DYApp/Localizable.xcstrings"),
+            "clients/desktop/ui/index.html: literal text 'Hi'; use data-i18n",
+            ("clients/desktop/ui/index.html: data-i18n key 'gone' not in "
+             "clients/desktop/ui/i18n/en.json"),
+            ("clients/ios/DYApp/ContentView.swift: Text key 'Ready' not in "
+             "clients/ios/DYApp/Localizable.xcstrings"),
         ])
 
     def test_repository_ui_strings_come_from_catalogues(self):
-        names = [*CHECK.CATALOGUES.values(),
-                 "android/app/src/main/kotlin/com/dyapp/MainActivity.kt",
-                 "ios/DYApp/ContentView.swift", "desktop/ui/index.html"]
+        names = [
+            *CHECK.CATALOGUES.values(),
+            "clients/android/app/src/main/kotlin/com/dyapp/MainActivity.kt",
+            "clients/ios/DYApp/ContentView.swift",
+            "clients/desktop/ui/index.html",
+        ]
         texts = {name: (ROOT / name).read_text() for name in names}
         self.assertEqual(CHECK.i18n_errors(texts), [])
 

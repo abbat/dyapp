@@ -1,12 +1,12 @@
 [package]
-name = "dyapp-linux"
+name = "dyapp-windows"
 version = "0.0.1"
 edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
 tauri = { version = "=2.12.2", features = [] }
-dyapp-identity = { path = "../rust/identity" }
+dyapp-identity = { path = "../../rust/identity" }
 
 [build-dependencies]
 tauri-build = { version = "=2.7.2", features = [] }

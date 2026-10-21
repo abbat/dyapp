@@ -136,7 +136,7 @@ class DesktopOutput(unittest.TestCase):
             (scripts / "linux-test.sh").write_text(
                 (ROOT / "scripts/linux-test.sh").read_text())
             (scripts / "run-cargo-unit-binaries.py").write_text("")
-            target = root / "linux/target"
+            target = root / "clients/linux/target"
             target.mkdir(parents=True)
             (target / "unit-build.json").write_text("")
             xvfb = root / "xvfb-run"

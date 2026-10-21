@@ -13,7 +13,7 @@ For what each party can observe, see [Privacy and Metadata Visibility](../securi
 ```text
  Platform apps (skeletons; each calls the core for a peer ID)
  ┌──────────────┬───────────────┬──────────────┬──────────────────────────┐
- │ android/     │ ios/, macos/  │ desktop/     │ linux/, windows/          │
+ │ clients/android/     │ clients/ios/, clients/macos/  │ clients/desktop/     │ clients/linux/, clients/windows/          │
  │ Kotlin       │ Swift         │ Tauri shell  │ Tauri apps (excluded from │
  │ RustBridge.kt│ RustBridge    │              │ the Cargo workspace)      │
  │ (UniFFI,     │ .swift (UniFFI│              │                           │
@@ -45,10 +45,10 @@ node, and there is no WebRTC signaling channel.
 | Bootstrap server | `rust/bootstrap/src/service.rs`, `storage.rs` | library prototype | Answers every served protocol ([bootstrap](bootstrap.md#served-protocol)), SQLite storage, rate limiter (`rate_limit.rs`), Reed-Solomon media (`replication.rs`); profiles must be signed by their owner, mailbox reads by the device; mailbox push, replication to five DHT points and repair |
 | Node | `rust/bootstrap/src/bin/dyappd/main.rs`, `node.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; runs the libp2p node and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Node client | `rust/bootstrap/src/bin/dyappd/client.rs` | prototype | `dyappd info` and the other libp2p client commands for the node protocol; used by network tests |
-| Android app | `android/` | skeleton | Shows the peer ID of its stored identity key, wrapped by the Android Keystore, via UniFFI Kotlin bindings |
-| iOS / macOS apps | `ios/`, `macos/` | skeleton | Shows the peer ID of its stored identity key, wrapped by a Keychain key, via UniFFI Swift bindings |
-| Desktop | `desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
-| Linux / Windows | `linux/`, `windows/` | skeleton | Tauri projects outside the Cargo workspace |
+| Android app | `clients/android/` | skeleton | Shows the peer ID of its stored identity key, wrapped by the Android Keystore, via UniFFI Kotlin bindings |
+| iOS / macOS apps | `clients/ios/`, `clients/macos/` | skeleton | Shows the peer ID of its stored identity key, wrapped by a Keychain key, via UniFFI Swift bindings |
+| Desktop | `clients/desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
+| Linux / Windows | `clients/linux/`, `clients/windows/` | skeleton | Tauri projects outside the Cargo workspace |
 | Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` defines every served node protocol; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:

@@ -25,7 +25,7 @@ def main():
     reports.mkdir(parents=True, exist_ok=True)
     os.environ["DYAPP_CHECK_LOG_DIR"] = str(reports / "check-output")
     derived = reports / "DerivedData"
-    common = ["xcodebuild", "-project", f"{platform}/DYApp.xcodeproj",
+    common = ["xcodebuild", "-project", f"clients/{platform}/DYApp.xcodeproj",
               "-scheme", "DYApp", "-derivedDataPath", str(derived)]
     unsigned = ["CODE_SIGNING_ALLOWED=NO"]
     build = common + unsigned

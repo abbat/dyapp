@@ -165,8 +165,8 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Shell lint | `shellcheck scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
-| Swift lint | `swiftlint lint --strict --quiet --no-cache ios macos` |
-| Kotlin lint | detekt CLI: `--config detekt.yml --input android --build-upon-default-config` |
+| Swift lint | `swiftlint lint --strict --quiet --no-cache clients/ios clients/macos` |
+| Kotlin lint | detekt CLI: `--config detekt.yml --input clients/android --build-upon-default-config` |
 | Format | `cargo fmt --all -- --check` |
 | Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |
 | Lint | `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings` (it type-checks everything, tests included, so there is no separate `cargo check`); `missing_docs` is denied ([B9](code-quality.md#public-api-documentation)) |
@@ -208,8 +208,8 @@ nothing.
 `make build`.
 
 **Scope:** every Cargo step uses `--workspace`, which covers all 7 crates (`bootstrap`,
-`ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `linux/` and
-`windows/` are separate manifests and are not part of this pipeline.
+`ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `clients/linux/` and
+`clients/windows/` are separate manifests and are not part of this pipeline.
 
 **Freshness:** in CI, `deny` fetches the current advisory DB. The local dev image instead uses
 the snapshot taken when the image was built, offline with `--frozen`. `cargo audit` also

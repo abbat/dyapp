@@ -37,9 +37,9 @@ for service in services:
         str(destination / service),
     ], check=True)
     application = {
-        "linux-test": "/app/linux/target/debug/dyapp-linux",
+        "linux-test": "/app/clients/linux/target/debug/dyapp-linux",
         "android-emulator-test":
-            "/app/android/app/build/outputs/apk/debug/app-debug.apk",
+            "/app/clients/android/app/build/outputs/apk/debug/app-debug.apk",
     }.get(service)
     if application:
         subprocess.run([

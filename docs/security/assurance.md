@@ -27,7 +27,7 @@ Contributors are also at 0. The registered Best Practices badge scores 2 and bra
 protection scores 4. Improving these checks requires maintainer decisions.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
-An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `linux/`, `windows/`) lists the
+An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `clients/linux/`, `clients/windows/`) lists the
 advisories that do not apply there, each with its reason (no fixed version reachable, a code path
 the project never takes). cargo-deny keeps its own list in `deny.toml`.
 Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same

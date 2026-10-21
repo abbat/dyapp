@@ -243,7 +243,7 @@ a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `id
 `unsafe_code = "forbid"` applies to every crate except two:
 
 - workspace members via `[workspace.lints.rust]` in the root `Cargo.toml` and `[lints] workspace =
-  true`; `linux/`, `windows/`, `tools/arch-lint` and `fuzz/` set it in their own `[lints.rust]`;
+  true`; `clients/linux/`, `clients/windows/`, `tools/arch-lint` and `fuzz/` set it in their own `[lints.rust]`;
 - `rust/bootstrap` (libc calls) and `rust/ffi` (uniffi generates `#[no_mangle]`) instead deny
   `clippy::undocumented_unsafe_blocks`: each `unsafe` block needs a `// SAFETY:` comment stating
   the invariant that makes it sound.

@@ -40,7 +40,7 @@ check_prerequisites() {
 generate_swift_bindings() {
   echo -e "${YELLOW}📱 Generating Swift bindings...${NC}"
 
-  local swift_out="${PROJECT_ROOT}/ios/Generated/DYAppCore"
+  local swift_out="${PROJECT_ROOT}/clients/ios/Generated/DYAppCore"
   mkdir -p "$swift_out"
 
   cd "${PROJECT_ROOT}"
@@ -62,7 +62,7 @@ generate_swift_bindings() {
 generate_kotlin_bindings() {
   echo -e "${YELLOW}🤖 Generating Kotlin bindings...${NC}"
 
-  local kotlin_out="${PROJECT_ROOT}/android/app/src/main/kotlin/generated"
+  local kotlin_out="${PROJECT_ROOT}/clients/android/app/src/main/kotlin/generated"
   mkdir -p "$kotlin_out"
 
   cd "${PROJECT_ROOT}"
@@ -118,11 +118,11 @@ EOF
 create_gradle_task() {
   echo -e "${YELLOW}🔧 Creating Gradle uniffi task...${NC}"
 
-  local gradle_file="${PROJECT_ROOT}/android/build-uniffi.gradle"
+  local gradle_file="${PROJECT_ROOT}/clients/android/build-uniffi.gradle"
 
   cat > "$gradle_file" <<'EOF'
 // Gradle task for UniFFI Kotlin bindings
-// Include in android/app/build.gradle:
+// Include in clients/android/app/build.gradle:
 // apply from: '../build-uniffi.gradle'
 
 task generateUniFFIBindings {
@@ -257,7 +257,7 @@ try {
 
 ### Android
 
-Add to `android/app/build.gradle`:
+Add to `clients/android/app/build.gradle`:
 
 ```gradle
 apply from: '../build-uniffi.gradle'

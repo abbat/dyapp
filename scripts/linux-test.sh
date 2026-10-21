@@ -9,8 +9,8 @@ if [[ ${1:-} != --raw ]]; then
         linux-test -- bash "$0" --raw "$@"
 fi
 shift
-manifest="$root/linux/Cargo.toml"
-units="$root/linux/target/unit-build.json"
+manifest="$root/clients/linux/Cargo.toml"
+units="$root/clients/linux/target/unit-build.json"
 if [[ ! -f $units ]]; then
     cargo build --manifest-path "$manifest" --locked
     cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"
@@ -19,4 +19,4 @@ mkdir -p /tmp/ai
 python3 "$root/scripts/run-cargo-unit-binaries.py" "$units"
 export DYAPP_XVFB_DIAGNOSTICS=1
 exec xvfb-run -a -e /dev/stderr -s '-screen 0 1024x768x24' dbus-run-session -- \
-    python3 "$root/scripts/desktop-smoke.py" "$root/linux/target/debug/dyapp-linux"
+    python3 "$root/scripts/desktop-smoke.py" "$root/clients/linux/target/debug/dyapp-linux"

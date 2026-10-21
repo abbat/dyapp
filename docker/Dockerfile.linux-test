@@ -15,11 +15,10 @@ WORKDIR /app
 COPY Cargo.toml ./
 COPY rust rust
 COPY proto proto
-COPY linux linux
-COPY desktop desktop
-RUN cargo fetch --locked --manifest-path linux/Cargo.toml && \
-    cargo build --manifest-path linux/Cargo.toml --locked && \
-    cargo test --manifest-path linux/Cargo.toml --locked --no-run --message-format=json > /app/linux/target/unit-build.json
+COPY clients clients
+RUN cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
+    cargo build --manifest-path clients/linux/Cargo.toml --locked && \
+    cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/clients/linux/target/unit-build.json
 COPY scripts scripts
 RUN mkdir -p /reports && chown 999:999 /reports
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true

@@ -19,12 +19,12 @@ You need a Mac with Xcode 16, Rust 1.99 (`rustup`) and [XcodeGen](https://github
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-ios
 bash scripts/build-apple-core.sh ios-device release
-xcodegen generate --spec ios/project.yml --project ios
+xcodegen generate --spec clients/ios/project.yml --project clients/ios
 ```
 
 ## Install on your own iPhone
 
-The simplest path is Xcode: open `ios/DYApp.xcodeproj`, select the `DYApp` target, and in
+The simplest path is Xcode: open `clients/ios/DYApp.xcodeproj`, select the `DYApp` target, and in
 "Signing & Capabilities":
 
 - turn on "Automatically manage signing" and pick your team. A free Apple ID works too; its
@@ -41,7 +41,7 @@ A paid Apple Developer Program member can archive the app and export it for the 
 registered in their account ([Apple: distributing to registered devices](https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices)):
 
 ```sh
-xcodebuild -project ios/DYApp.xcodeproj -scheme DYApp -configuration Release \
+xcodebuild -project clients/ios/DYApp.xcodeproj -scheme DYApp -configuration Release \
     -destination generic/platform=iOS -archivePath build/DYApp.xcarchive \
     -allowProvisioningUpdates CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Automatic \
     DEVELOPMENT_TEAM=<TEAMID> PRODUCT_BUNDLE_IDENTIFIER=com.<you>.dyapp archive

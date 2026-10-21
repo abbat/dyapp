@@ -113,7 +113,7 @@ jobs:
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
-          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "${{ matrix.platform }}/project.yml" --project "${{ matrix.platform }}"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "clients/${{ matrix.platform }}/project.yml" --project "clients/${{ matrix.platform }}"
       - name: test
         env:
           APP_PLATFORM: ${{ matrix.platform }}
@@ -141,20 +141,20 @@ jobs:
       - name: build and unit tests
         shell: pwsh
         run: |
-          python scripts/run-check.py --log-dir target/platform-check-output rust-build -- cargo build --manifest-path windows/Cargo.toml --locked
+          python scripts/run-check.py --log-dir target/platform-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/run-check.py --log-dir target/platform-check-output rust-test -- cargo test --manifest-path windows/Cargo.toml --locked
+          python scripts/run-check.py --log-dir target/platform-check-output rust-test -- cargo test --manifest-path clients/windows/Cargo.toml --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: smoke
         shell: pwsh
-        run: python scripts/desktop-smoke.py windows/target/debug/dyapp-windows.exe
+        run: python scripts/desktop-smoke.py clients/windows/target/debug/dyapp-windows.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: windows-app-and-ui
           path: |
             target/platform-check-output/
-            windows/target/debug/dyapp-windows.exe
+            clients/windows/target/debug/dyapp-windows.exe
             ${{ runner.temp }}/desktop-ui-results.json
           if-no-files-found: error
 

@@ -43,8 +43,8 @@ step() {
             check shellcheck shellcheck scripts/*.sh
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             check flake8 python3 -m flake8 scripts tools tests
-            check swiftlint swiftlint lint --strict --quiet --no-cache ios macos
-            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android \
+            check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
+            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input clients/android \
                 --excludes '**/build/**' --build-upon-default-config
             check rustfmt cargo fmt --all -- --check
             check cargo-shear cargo shear

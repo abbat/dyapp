@@ -17,7 +17,7 @@ reports=${1:?usage: build-android-release.sh REPORT_DIRECTORY}
 mkdir -p "$reports"
 reports=$(cd "$reports" && pwd)
 export CARGO_NET_OFFLINE=true CARGO_INCREMENTAL=0 CARGO_TARGET_DIR="$root/target"
-cd "$root/android"
+cd "$root/clients/android"
 if sh ./gradlew --offline --no-daemon :app:assembleRelease :app:bundleRelease \
     > "$reports/build.log" 2>&1; then
     apk=app/build/outputs/apk/release/app-release-unsigned.apk

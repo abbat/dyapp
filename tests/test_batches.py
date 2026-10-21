@@ -17,8 +17,8 @@ SPEC.loader.exec_module(CHECK)
 
 class Batches(unittest.TestCase):
     def test_numstat_exclusions_and_unusual_names(self):
-        names = ["Cargo.lock", "linux/Cargo.lock", "yarn.lock",
-                 "android/gradle.lockfile", "package-lock.json",
+        names = ["Cargo.lock", "clients/linux/Cargo.lock", "yarn.lock",
+                 "clients/android/gradle.lockfile", "package-lock.json",
                  "npm-shrinkwrap.json", "tests/a.snap",
                  "tests/snapshots/a.txt", "tests/__snapshots__/a.js",
                  "generated/a.rs", "src/generated/a.rs", "dyapp.uniffi.rs"]

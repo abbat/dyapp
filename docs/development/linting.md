@@ -22,7 +22,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
-| Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `ios macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
+| Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml` | yes | — | enforced; not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
@@ -66,7 +66,7 @@ project.
 
 ## Swift (`.swiftlint.yml`)
 
-The quality step runs `swiftlint lint --strict --quiet --no-cache ios macos` (the source tree is
+The quality step runs `swiftlint lint --strict --quiet --no-cache clients/ios clients/macos` (the source tree is
 read-only in the container, so no cache): every warning fails. The binary is the static Linux
 build of SwiftLint 0.65.1 (`swiftlint-static` from `swiftlint_linux_amd64.zip`, sha256-checked),
 so no Swift toolchain is needed. Without SourceKit
@@ -91,7 +91,7 @@ config sets:
 ## Kotlin (`detekt.yml`)
 
 The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
-`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input android
+`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input clients/android
 --build-upon-default-config`. Any finding fails. `--build-upon-default-config` keeps every
 default setting `detekt.yml` does not override. The Gradle build applies no detekt plugin, so
 `./gradlew detekt` does not exist. What the config sets: `CyclomaticComplexMethod` threshold 10,

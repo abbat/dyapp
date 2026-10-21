@@ -1,7 +1,7 @@
 # UI Testing: Practical Guide
 
 > **Status:** derived from `scripts/ui-test.sh`, `docker/compose.ui.yml`, `docker/Dockerfile.android-test`,
-> `docker/Dockerfile.linux-test`, `scripts/*-test-*`, `ios|macos/project.yml` and the test sources on
+> `docker/Dockerfile.linux-test`, `scripts/*-test-*`, `clients/{ios,macos}/project.yml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not
 > from logs. For the target contract see [empty-app-contract.md](../platforms/empty-app-contract.md);
 > for the CI jobs see [ci-matrix.md](../development/ci-matrix.md).
@@ -12,7 +12,7 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 
 ## What is tested
 
-The UI suites test the **platform shells** (`android/`, `ios/`, `macos/`, `linux/`, `windows/`).
+The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
 The shells call the Rust core for one value, a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
 exercises messaging, matching or video. The tests check launch, render of a ready screen, app
@@ -24,8 +24,8 @@ iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 4 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×1, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 2 cargo tests (`desktop/main.rs`, `linux/tests/integration_tests.rs`) | 3 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | same 2 cargo tests (`windows/` includes `desktop/` and `linux/tests`) | same 3 smoke cases | same |
+| Linux | Docker (local + CI) | 2 cargo tests (`clients/desktop/main.rs`, `clients/linux/tests/integration_tests.rs`) | 3 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | same 2 cargo tests (`clients/windows/` includes `clients/desktop/` and `clients/linux/tests`) | same 3 smoke cases | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 4 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 1 XCTest | 4 XCUITest | `check-apple-results.py` (≥3) |
 
@@ -65,13 +65,13 @@ on a pseudo-locale:
 | Shell | Catalogue | Pseudo-locale test |
 |-------|-----------|--------------------|
 | Android | `res/values/strings.xml`, read with `stringResource`; plurals go in `<plurals>` | `pseudoLocalesEnabled` in the debug build; `PseudoLocaleTests` renders the start screen with an en-XA context and expects its accented strings |
-| iOS, macOS | `ios/DYApp/Localizable.xcstrings` (String Catalog, shared by both projects); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
-| Linux, Windows | `desktop/ui/i18n/en.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
+| iOS, macOS | `clients/ios/DYApp/Localizable.xcstrings` (String Catalog, shared by both projects); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
+| Linux, Windows | `clients/desktop/ui/i18n/en.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
 
 The tests themselves compare against the catalogue (Android, desktop) or the English text (Apple).
-`check-repository.py` fails on a Compose `Text("…")` literal under `android/app/src/main`, on a
+`check-repository.py` fails on a Compose `Text("…")` literal under `clients/android/app/src/main`, on a
 SwiftUI `Text("key")` whose key is not in the String Catalog, and on visible text in
-`desktop/ui/*.html` outside `<script>`/`<style>` or a `data-i18n` key missing from `en.json`.
+`clients/desktop/ui/*.html` outside `<script>`/`<style>` or a `data-i18n` key missing from `en.json`.
 Strings that are data, such as the peer ID, are not catalogued. Only English exists; other
 languages are planned.
 
@@ -100,7 +100,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 
 - **Image** `dyapp:android-test` (`docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
   Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0,
-  system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `android/` (its own
+  system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `clients/android/` (its own
   `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 999, pre-builds `:app:assembleDebug`,
   `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin`. No Rust `.so` or generated
   bindings are copied (there are none to copy).
@@ -123,15 +123,15 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 
 - **Image** `dyapp:linux-test` (`docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
   WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
-  the Tauri 2 app from `linux/` (+ `desktop/`) and writes the test-binary inventory
-  `linux/target/unit-build.json` at build time. The container has no checkout mount and no
-  network, and `ui-test.sh` never builds images: after changing `linux/`, `desktop/` or the
+  the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
+  `clients/linux/target/unit-build.json` at build time. The container has no checkout mount and no
+  network, and `ui-test.sh` never builds images: after changing `clients/linux/`, `clients/desktop/` or the
   Dockerfile, run `make prepare` (or `bash scripts/ui-test.sh prepare`) first, or
   `make ui-test-linux` tests the old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   It then calls `run-cargo-unit-binaries.py` runs every test binary in
-  the inventory, then `desktop-smoke.py` launches `linux/target/debug/dyapp-linux` under
+  the inventory, then `desktop-smoke.py` launches `clients/linux/target/debug/dyapp-linux` under
   `xvfb-run` + `dbus-run-session`.
 
 ### Reports on the host
@@ -173,10 +173,10 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
-- **Windows:** `cargo build` + `cargo test --manifest-path windows/Cargo.toml`, then
+- **Windows:** `cargo build` + `cargo test --manifest-path clients/windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
-  `cargo test --manifest-path windows/Cargo.toml --locked` and
-  `python scripts/desktop-smoke.py windows/target/debug/dyapp-windows.exe` (report goes to
+  `cargo test --manifest-path clients/windows/Cargo.toml --locked` and
+  `python scripts/desktop-smoke.py clients/windows/target/debug/dyapp-windows.exe` (report goes to
   `%RUNNER_TEMP%` or `/reports/%HOSTNAME%`, so set `RUNNER_TEMP`).
 
 ## Not covered
@@ -216,7 +216,7 @@ contains those reports and `target/platform-check-output` raw logs.
   allows ~30 min. Look at the `android-emulator` container logs.
 - **`OK (n tests)` with n < 3 rejected:** a test class was dropped or filtered; the checker requires
   the full instrumented inventory.
-- **`Empty unit suite` (Linux):** a test binary in `linux/target/unit-build.json` lists no tests; rebuild the
+- **`Empty unit suite` (Linux):** a test binary in `clients/linux/target/unit-build.json` lists no tests; rebuild the
   image after changing tests (`ui-test.sh prepare`), since the inventory is created at image build.
 - **Stale results after code changes:** sources are copied into the images at build time; rerun
   `prepare`.

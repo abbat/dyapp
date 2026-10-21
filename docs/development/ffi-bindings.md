@@ -37,8 +37,8 @@ on Android) and throws `CoreException` for a failed call.
 
 ## Android
 
-`android/app/build.gradle` wires both steps into the app build; outputs land in
-`android/app/build/rust`:
+`clients/android/app/build.gradle` wires both steps into the app build; outputs land in
+`clients/android/app/build/rust`:
 
 | Task | Runs | Output |
 |------|------|--------|
@@ -68,7 +68,7 @@ binding generator stays in the dev profile. Outputs land in `target/apple`:
 
 The default libraries are unoptimised dev builds without debuginfo; `release`
 uses the workspace release profile. Both target iOS 14 and macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
-deployment targets. `ios/project.yml` and `macos/project.yml` compile
+deployment targets. `clients/ios/project.yml` and `clients/macos/project.yml` compile
 `target/apple/swift/dyapp.swift` into the app and link the XCFramework without
 embedding it, so run the script before XcodeGen. There is no Xcode build phase:
 Xcode resolves an XCFramework before any script phase could build it.
@@ -85,7 +85,7 @@ contract).
 
 - calls `cargo run --bin uniffi-bindgen generate src/ffi.rs` (wrong input),
   catches the failure, prints a warning and continues;
-- overwrites `tools/xcode-uniffi-build.sh`, `android/build-uniffi.gradle` and a
+- overwrites `tools/xcode-uniffi-build.sh`, `clients/android/build-uniffi.gradle` and a
   root `UNIFFI_SETUP.md` with templates that build the nonexistent package
   `dyapp-core` and describe a nonexistent `src/ffi.rs` API with UniFFI 0.25;
 - prints `✓ Verification OK` and `✅ UniFFI binding setup complete!` without

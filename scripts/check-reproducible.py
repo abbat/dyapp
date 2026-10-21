@@ -11,7 +11,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {
     "dyappd": ("Cargo.toml", "dyappd", "Cargo.lock"),
-    "linux": ("linux/Cargo.toml", "dyapp-linux", "linux/Cargo.lock"),
+    "linux": ("clients/linux/Cargo.toml", "dyapp-linux",
+              "clients/linux/Cargo.lock"),
 }
 
 

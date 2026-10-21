@@ -19,7 +19,7 @@ RUN yes | sdkmanager --licenses >/dev/null
 RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
     'ndk;29.0.14206865'
 ENV ANDROID_NDK_HOME=/opt/android-sdk/ndk/29.0.14206865
-# The app build compiles the Rust core (see android/app/build.gradle); the build user owns the
+# The app build compiles the Rust core (see clients/android/app/build.gradle); the build user owns the
 # cargo home so it can fetch crates.
 COPY --from=rust /usr/local/rustup /usr/local/rustup
 COPY --from=rust --chown=999:999 /usr/local/cargo /usr/local/cargo
@@ -37,13 +37,13 @@ RUN cargo install cargo-ndk --version 4.1.2 --locked
 COPY --chown=999:999 Cargo.toml Cargo.lock ./
 COPY --chown=999:999 proto proto
 COPY --chown=999:999 rust rust
-COPY --chown=999:999 android android
-RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+COPY --chown=999:999 clients clients
+RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 999 so the outputs need no recursive chown (a copy-up layer doubles the image size).
 # Compile and populate all runtime dependencies online; do not run tests in the build.
 # The Release tasks only cache their Gradle dependencies (Release lint included) for the offline
 # Release runner: its release Rust core is not built here and the packages are discarded.
-RUN cd android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
+RUN cd clients/android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
     ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
     rm -rf app/build/outputs/apk/release app/build/outputs/bundle/release
 COPY scripts scripts

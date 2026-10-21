@@ -28,7 +28,7 @@ def main():
         run(["xcodebuild", "-version"], reports / "xcode-version.txt")
         derived = reports / "DerivedData"
         command = [
-            "xcodebuild", "-project", f"{args.target}/DYApp.xcodeproj",
+            "xcodebuild", "-project", f"clients/{args.target}/DYApp.xcodeproj",
             "-scheme", "DYApp", "-configuration", "Release",
             "-derivedDataPath", str(derived), "CODE_SIGNING_ALLOWED=NO",
             "ONLY_ACTIVE_ARCH=NO"]

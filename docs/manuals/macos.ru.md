@@ -25,8 +25,8 @@ UI-тесты. Скачанным Mac его не откроет. Участни
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 bash scripts/build-apple-core.sh macos release
-xcodegen generate --spec macos/project.yml --project macos
-xcodebuild -project macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
+xcodegen generate --spec clients/macos/project.yml --project clients/macos
+xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
     -destination generic/platform=macOS -derivedDataPath build \
     CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO ARCHS="arm64 x86_64" build
 ```

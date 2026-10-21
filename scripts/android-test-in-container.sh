@@ -5,7 +5,7 @@ mkdir -p /tmp/ai
 export DYAPP_CHECK_LOG_DIR="/reports/$HOSTNAME/check-output"
 case "${1:?suite required}" in
     unit)
-        cp -rf /app/android /tmp/ai/android
+        cp -rf /app/clients/android /tmp/ai/android
         cp -rf /opt/gradle-cache /tmp/ai/gradle-cache
         export GRADLE_USER_HOME=/tmp/ai/gradle-cache
         cd /tmp/ai/android
@@ -54,8 +54,8 @@ case "${1:?suite required}" in
             exit "$code"
         }
         trap collect_ui_reports EXIT
-        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/android/app/build/outputs/apk/debug/app-debug.apk
-        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/clients/android/app/build/outputs/apk/debug/app-debug.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/clients/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
         # A freshly booted emulator may still show the lock screen or a system ANR dialog over
         # the app; AppUITests requires the app to own the active window.
         timeout 60 adb -s emulator-5554 shell settings put global hide_error_dialogs 1

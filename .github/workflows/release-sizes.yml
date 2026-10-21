@@ -30,9 +30,9 @@ jobs:
       - name: build and measure
         shell: pwsh
         run: |
-          python scripts/run-check.py --log-dir target/release-check-output rust-build -- cargo build --manifest-path windows/Cargo.toml --release --locked
+          python scripts/run-check.py --log-dir target/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/report-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report target/release-size-windows.json
+          python scripts/report-artifact-size.py windows-2022-x86_64-release clients/windows/target/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report target/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: size budget
         shell: pwsh
@@ -41,12 +41,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $head = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check-artifact-size.py windows-2022-x86_64-release windows/target/release/dyapp-windows.exe --base $base --head $head --report target/artifact-size-windows.json
+          python scripts/check-artifact-size.py windows-2022-x86_64-release clients/windows/target/release/dyapp-windows.exe --base $base --head $head --report target/artifact-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: portable zip
         shell: pwsh
         run: |
-          python scripts/package-windows-zip.py windows/target/release/dyapp-windows.exe target/windows-zip
+          python scripts/package-windows-zip.py clients/windows/target/release/dyapp-windows.exe target/windows-zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Expand-Archive -Path target/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
           $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
@@ -153,7 +153,7 @@ jobs:
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
-          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "${{ matrix.platform }}/project.yml" --project "${{ matrix.platform }}"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "clients/${{ matrix.platform }}/project.yml" --project "clients/${{ matrix.platform }}"
       - name: build and measure
         run: python3 -B scripts/apple-release-in-ci.py "${{ matrix.platform }}"
       - name: evidence

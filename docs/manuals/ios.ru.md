@@ -20,12 +20,12 @@
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-ios
 bash scripts/build-apple-core.sh ios-device release
-xcodegen generate --spec ios/project.yml --project ios
+xcodegen generate --spec clients/ios/project.yml --project clients/ios
 ```
 
 ## Установка на свой iPhone
 
-Проще всего через Xcode: откройте `ios/DYApp.xcodeproj`, выберите цель `DYApp` и в «Signing &
+Проще всего через Xcode: откройте `clients/ios/DYApp.xcodeproj`, выберите цель `DYApp` и в «Signing &
 Capabilities»:
 
 - включите «Automatically manage signing» и выберите свою команду. Подходит и бесплатный Apple
@@ -43,7 +43,7 @@ Settings» поставьте `Yes` для цели `DYApp`. Подключит�
 ([Apple: раздача на зарегистрированные устройства](https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices)):
 
 ```sh
-xcodebuild -project ios/DYApp.xcodeproj -scheme DYApp -configuration Release \
+xcodebuild -project clients/ios/DYApp.xcodeproj -scheme DYApp -configuration Release \
     -destination generic/platform=iOS -archivePath build/DYApp.xcarchive \
     -allowProvisioningUpdates CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Automatic \
     DEVELOPMENT_TEAM=<TEAMID> PRODUCT_BUNDLE_IDENTIFIER=com.<you>.dyapp archive

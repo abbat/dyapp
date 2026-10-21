@@ -20,9 +20,9 @@
 |------|-------|--------|
 | Rust toolchain | `1.99.0` (pinned), components `rustfmt`, `clippy` | `rust-toolchain.toml` |
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
-| Swift | language mode 5 (`SWIFT_VERSION`) | `ios/project.yml`, `macos/project.yml` |
+| Swift | language mode 5 (`SWIFT_VERSION`) | `clients/ios/project.yml`, `clients/macos/project.yml` |
 | iOS / macOS minimum | iOS 14, macOS 11 | same |
-| Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `android/app/build.gradle` |
+| Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `clients/android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |
 
 Run every script from any directory: each resolves the repository root from
@@ -62,7 +62,7 @@ is not built. The final "✅ iOS build complete!" is printed regardless.
 | Targets | **Installs** `aarch64-linux-android`, `armv7-linux-androideabi` if missing |
 | Build | `cargo ndk -t <triple> -o target/android-build/lib -- build -p <same four crates> --release --lib` |
 | Organize | Copies `*.so` from `target/android-build/lib/<triple>/` to `target/android-build/gradle/jniLibs/<abi>/` |
-| Writes into the repo | `android/build-rust.gradle` and `android/CMakeLists.txt`. Neither is tracked, and `android/app` does not apply either |
+| Writes into the repo | `clients/android/build-rust.gradle` and `clients/android/CMakeLists.txt`. Neither is tracked, and `clients/android/app` does not apply either |
 | Verify | Exits 1 with "No libraries found" when `jniLibs` has no `.so` |
 
 The four crates are rlib-only, so there are no `.so` files to copy, and
@@ -154,7 +154,7 @@ Not implemented. This is the order in which the gaps block each other:
    XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); explicit Release
    core/package production is measured and size-gated in native CI.
    Signing, notarization and App Store distribution remain planned.
-3. **Android:** done in `android/app/build.gradle` (`cargo ndk` for arm64-v8a and
+3. **Android:** done in `clients/android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
    packages unsigned APK/AAB, measured and size-gated in scheduled CI. Release signing
    and store distribution remain planned.

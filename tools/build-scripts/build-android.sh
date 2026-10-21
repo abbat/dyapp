@@ -105,11 +105,11 @@ organize_libraries() {
 generate_gradle_integration() {
   echo -e "${YELLOW}🔧 Generating Gradle integration...${NC}"
 
-  local build_gradle_path="${PROJECT_ROOT}/android/build-rust.gradle"
+  local build_gradle_path="${PROJECT_ROOT}/clients/android/build-rust.gradle"
 
   cat > "$build_gradle_path" <<'EOF'
 // Gradle build configuration for Rust FFI libraries
-// Include this file in your android/app/build.gradle:
+// Include this file in your clients/android/app/build.gradle:
 // apply from: '../build-rust.gradle'
 
 task buildRustLibraries {
@@ -145,7 +145,7 @@ EOF
 generate_cmake() {
   echo -e "${YELLOW}📝 Generating CMakeLists.txt...${NC}"
 
-  local cmake_path="${PROJECT_ROOT}/android/CMakeLists.txt"
+  local cmake_path="${PROJECT_ROOT}/clients/android/CMakeLists.txt"
 
   cat > "$cmake_path" <<'EOF'
 cmake_minimum_required(VERSION 3.6)
@@ -214,7 +214,7 @@ main() {
   echo "Output: $BUILD_DIR/gradle/jniLibs"
   echo ""
   echo "To integrate with Gradle:"
-  echo "  1. Add to android/app/build.gradle:"
+  echo "  1. Add to clients/android/app/build.gradle:"
   echo "     apply from: '../build-rust.gradle'"
   echo "  2. Build: ./gradlew build"
 }

@@ -53,9 +53,9 @@ PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
 ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
 # Practice D1: visible UI strings live in the platform catalogues.
-CATALOGUES = {"android": "android/app/src/main/res/values/strings.xml",
-              "apple": "ios/DYApp/Localizable.xcstrings",
-              "desktop": "desktop/ui/i18n/en.json"}
+CATALOGUES = {"android": "clients/android/app/src/main/res/values/strings.xml",
+              "apple": "clients/ios/DYApp/Localizable.xcstrings",
+              "desktop": "clients/desktop/ui/i18n/en.json"}
 KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
 SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
@@ -295,15 +295,16 @@ def i18n_errors(texts):
     desktop = json.loads(texts.get(CATALOGUES["desktop"], "{}"))
     for name, text in sorted(texts.items()):
         path = PurePosixPath(name)
-        if name.startswith("android/app/src/main/") and path.suffix == ".kt":
+        if path.suffix == ".kt" and name.startswith(
+                "clients/android/app/src/main/"):
             errors += [f"{name}: Text with a literal; use stringResource"
                        for _ in KOTLIN_LITERAL.finditer(text)]
-        elif name.startswith(("ios/DYApp/", "macos/src/")) \
+        elif name.startswith(("clients/ios/DYApp/", "clients/macos/src/")) \
                 and path.suffix == ".swift":
             errors += [f"{name}: Text key {key!r} not in "
                        f"{CATALOGUES['apple']}"
                        for key in SWIFT_TEXT.findall(text) if key not in apple]
-        elif name.startswith("desktop/ui/") and path.suffix == ".html":
+        elif name.startswith("clients/desktop/ui/") and path.suffix == ".html":
             visible = _Visible()
             visible.feed(text)
             errors += [f"{name}: literal text {data!r}; use data-i18n"
