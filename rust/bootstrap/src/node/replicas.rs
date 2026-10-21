@@ -66,11 +66,29 @@ impl Replicas {
                 }
             }
         }
-        if service.traffic.second() >= SHED_MEDIA || self.media_repairs.len() >= 4 {
+        if let Some((_, answer)) = self
+            .start_media_repair(swarm, service, record, now)
+            .and_then(|id| self.media_repairs.get_mut(&id))
+        {
+            *answer = Some((reply, response));
+            self.finish_puts(swarm, service, now);
+        } else {
             service.traffic.add(response.encoded_len() as u64);
             let _ = swarm.behaviour_mut().media.send_response(reply, response);
-            return;
         }
+    }
+
+    pub(super) fn start_media_repair(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        record: SignedRecord,
+        now: Instant,
+    ) -> Option<u64> {
+        if service.traffic.second() >= SHED_MEDIA || self.media_repairs.len() >= 4 {
+            return None;
+        }
+        let keep = proto::MediaKeep::decode(record.payload.as_slice()).ok()?;
         let owner =
             dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
         let allowed: Vec<_> = keep
@@ -81,17 +99,13 @@ impl Replicas {
             .collect();
         let hashes = self.media_repaired.select(owner, &allowed, now);
         if hashes.is_empty() {
-            service.traffic.add(response.encoded_len() as u64);
-            let _ = swarm.behaviour_mut().media.send_response(reply, response);
-            return;
+            return None;
         }
         let mut repair = match MediaRepair::new(service, record, hashes, now) {
             Ok(repair) => repair,
             Err(error) => {
                 tracing::error!(%error, "media repair initialization failed");
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm.behaviour_mut().media.send_response(reply, response);
-                return;
+                return None;
             }
         };
         let id = self.next_put;
@@ -112,8 +126,8 @@ impl Replicas {
                 }
             }
         }
-        self.media_repairs.insert(id, (repair, reply, response));
-        self.finish_puts(swarm, service, now);
+        self.media_repairs.insert(id, (repair, None));
+        Some(id)
     }
 
     pub(super) fn media_inventory(
@@ -163,9 +177,9 @@ impl Replicas {
         swarm: &mut Swarm<Behaviour>,
         service: &Service,
         now: Instant,
-    ) {
+    ) -> Vec<(u64, bool)> {
         let mut done = Vec::new();
-        for (id, (repair, _, _)) in &mut self.media_repairs {
+        for (id, (repair, _)) in &mut self.media_repairs {
             if now < repair.deadline {
                 repair.advance(service, *swarm.local_peer_id());
                 for (peer, job) in repair.queued() {
@@ -177,18 +191,26 @@ impl Replicas {
                 done.push(*id);
             }
         }
+        let mut finished = Vec::with_capacity(done.len());
         for id in done {
-            let (repair, reply, mut response) = self.media_repairs.remove(&id).unwrap();
+            let (repair, mut answer) = self.media_repairs.remove(&id).unwrap();
+            let mut complete = true;
             for (hash, missing) in repair.results() {
                 let missing = missing || service.listed(hash);
+                complete &= !missing;
                 self.media_repaired.finish(hash, missing);
-                response.missing.retain(|h| h.as_slice() != hash);
-                if missing {
-                    response.missing.push(hash.to_vec());
+                if let Some((_, response)) = &mut answer {
+                    response.missing.retain(|h| h.as_slice() != hash);
+                    if missing {
+                        response.missing.push(hash.to_vec());
+                    }
                 }
             }
-            service.traffic.add(response.encoded_len() as u64);
-            let _ = swarm.behaviour_mut().media.send_response(reply, response);
+            if let Some((reply, response)) = answer {
+                service.traffic.add(response.encoded_len() as u64);
+                let _ = swarm.behaviour_mut().media.send_response(reply, response);
+            }
+            finished.push((id, complete));
         }
         for (id, lookup) in &self.lookups {
             if matches!(lookup, Lookup::MediaRepair(repair, _, _) if !self.media_repairs.contains_key(repair))
@@ -199,6 +221,7 @@ impl Replicas {
             }
         }
         self.lookups.retain(|_, l| !matches!(l, Lookup::MediaRepair(id, _, _) if !self.media_repairs.contains_key(id)));
+        finished
     }
 
     pub(super) fn repair_profile(
@@ -571,7 +594,7 @@ impl Replicas {
         self.lookups
             .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) | Lookup::ShardPut(id, _) if !self.puts.contains_key(id)));
         self.finish_reads(swarm, service, now);
-        self.finish_media_repairs(swarm, service, now);
+        let _ = self.finish_media_repairs(swarm, service, now);
         self.drain_media(swarm, service);
     }
 
@@ -622,7 +645,7 @@ impl Replicas {
                 MediaJob::Repair(id, job) => self
                     .media_repairs
                     .get(&id)
-                    .is_some_and(|(r, _, _)| r.has_job(job)),
+                    .is_some_and(|(r, _)| r.has_job(job)),
             };
             if !live {
                 continue;
@@ -642,7 +665,7 @@ impl Replicas {
                 let Some((mut request, reserve)) = self
                     .media_repairs
                     .get(&id)
-                    .and_then(|(r, _, _)| r.request(job_id))
+                    .and_then(|(r, _)| r.request(job_id))
                 else {
                     continue;
                 };
@@ -653,7 +676,7 @@ impl Replicas {
                     matches!(r, proto::media_request::Request::Have(have) if have.items.is_empty())
                         || listed_media_request(service, r)
                 }) {
-                    if let Some((repair, _, _)) = self.media_repairs.get_mut(&id) {
+                    if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
                         repair.response(job_id, None);
                     }
                     continue;
@@ -681,7 +704,7 @@ impl Replicas {
                     } else {
                         None
                     };
-                    if let Some((repair, _, _)) = self.media_repairs.get_mut(&id) {
+                    if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
                         repair.response(job_id, response);
                     }
                 } else {

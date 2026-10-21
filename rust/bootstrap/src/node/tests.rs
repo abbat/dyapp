@@ -68,6 +68,44 @@ mod deny_media;
 mod groups;
 
 #[tokio::test]
+async fn background_media_repair_holds_no_channel() {
+    let dir = format!(
+        "/tmp/ai/test-background-media-repair-{}",
+        uuid::Uuid::new_v4()
+    );
+    let mut config = crate::NodeConfig::default();
+    config.storage.dir = dir.clone().into();
+    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+    service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
+    let mut swarm = swarm(
+        Keypair::generate_ed25519(),
+        &service.config.limits,
+        &service.config.roles,
+    )
+    .unwrap();
+    let owner = dyapp_identity::Identity::generate();
+    let hash = dyapp_identity::sha256(b"unavailable blob").to_vec();
+    let keep = proto::MediaKeep {
+        version: 1,
+        hashes: vec![hash.clone()],
+        time: chrono::Utc::now().timestamp().unsigned_abs(),
+    };
+    let record = owner.sign(dyapp_identity::Domain::MediaKeep, keep.encode_to_vec());
+    let mut replicas = Replicas::default();
+    let now = Instant::now();
+    let id = replicas
+        .start_media_repair(&mut swarm, &service, record, now)
+        .expect("background repair starts");
+    assert!(replicas.media_repairs[&id].1.is_none());
+    assert_eq!(
+        replicas.finish_media_repairs(&mut swarm, &service, now + crate::media_repair::TIMEOUT),
+        vec![(id, false)],
+    );
+    assert!(!replicas.media_repairs.contains_key(&id));
+    assert_eq!(replicas.media_repaired.result(&hash, now), Some(true));
+}
+
+#[tokio::test]
 async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
     let dir = format!("/tmp/ai/test-media-cap-{}", uuid::Uuid::new_v4());
     let mut config = crate::NodeConfig::default();

@@ -226,11 +226,13 @@ resent from the sender's retry queue.
   reaches its `limits.profile_ttl_days`. Equal or newer holders get no record. Replica puts do not start another repair.
   A node inventories a profile at most once per rolling hour, with up to 4096 keys tracked;
   the limit is in memory and starts over after a restart. Above the cap it waits for a later visit.
-- **Media.** An accepted signed `keep` checks at most 256 hashes from a rotating per-owner
-  cursor. The node looks up the current blob and shard keys, groups their `MediaPart` entries
-  by holder and sends one `have` batch per distinct holder. An absent index names a whole
-  copy or manifest; a present index names a shard. Replies partition allowed entries into
-  present/missing and include bounded manifests and whole-copy availability.
+- **Media.** The repair engine can run without a client response channel; an accepted signed
+  `keep` attaches one to receive the final missing list. Either way, a repair checks at most 256
+  hashes from a rotating per-owner cursor. The node looks up the current blob and shard keys,
+  groups their `MediaPart` entries by holder and sends one `have` batch per distinct holder.
+  An absent index names a whole copy or manifest; a present index names a shard. Replies
+  partition allowed entries into present/missing and include bounded manifests and whole-copy
+  availability.
   A receiver answers only a trusted peer its routing table puts among the five nearest peers
   of a blob/shard replica key; other entries are omitted, not reported as present.
   The repairer uses its verified local data or fetches available whole copies or valid shards.

@@ -588,6 +588,8 @@ impl ReplicaCap {
     }
 }
 
+type MediaRepairAnswer = (ResponseChannel<proto::MediaResponse>, proto::MediaResponse);
+
 /// Node-to-node replication, ack forwarding and repair.
 #[derive(Default)]
 struct Replicas {
@@ -602,14 +604,7 @@ struct Replicas {
     shard_puts: HashMap<OutboundRequestId, (u64, usize)>,
     shard_gets: HashMap<OutboundRequestId, (u64, usize)>,
     media_reads: HashMap<u64, MediaRead>,
-    media_repairs: HashMap<
-        u64,
-        (
-            MediaRepair,
-            libp2p::request_response::ResponseChannel<proto::MediaResponse>,
-            proto::MediaResponse,
-        ),
-    >,
+    media_repairs: HashMap<u64, (MediaRepair, Option<MediaRepairAnswer>)>,
     media_repaired: MediaRepairSchedule,
     media_repair_requests: HashMap<OutboundRequestId, (u64, usize, u64)>,
     media_queue: std::collections::VecDeque<(PeerId, MediaJob)>,

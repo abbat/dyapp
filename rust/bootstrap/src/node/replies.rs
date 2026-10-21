@@ -15,7 +15,7 @@ impl Replicas {
         let lookup = self.lookups.remove(&id);
         if result.is_err() {
             if let Some(Lookup::MediaRepair(repair, blob, index)) = &lookup {
-                if let Some((r, _, _)) = self.media_repairs.get_mut(repair) {
+                if let Some((r, _)) = self.media_repairs.get_mut(repair) {
                     r.holder(*blob, *index, None);
                 }
                 self.finish_puts(swarm, service, Instant::now());
@@ -46,7 +46,7 @@ impl Replicas {
                 match lookup {
                     Lookup::MediaRepair(repair, blob, index) => {
                         let trusted = to == *swarm.local_peer_id() || self.trust.trusted(&to);
-                        if let Some((r, _, _)) = self.media_repairs.get_mut(&repair) {
+                        if let Some((r, _)) = self.media_repairs.get_mut(&repair) {
                             r.holder(blob, index, trusted.then_some(to));
                         }
                         self.finish_puts(swarm, service, Instant::now());
@@ -203,7 +203,7 @@ impl Replicas {
             service
                 .traffic
                 .add((response.encoded_len() as u64).saturating_sub(reserve));
-            if let Some((repair, _, _)) = self.media_repairs.get_mut(&repair) {
+            if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
                 repair.response(job, Some(response));
             }
             self.trust.add(id, 1);
@@ -252,7 +252,7 @@ impl Replicas {
             self.trust.add(peer, -1);
         }
         if let Some((repair, job, _)) = self.media_repair_requests.remove(&request_id) {
-            if let Some((repair, _, _)) = self.media_repairs.get_mut(&repair) {
+            if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
                 repair.response(job, None);
             }
         }
