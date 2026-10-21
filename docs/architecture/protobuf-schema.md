@@ -217,14 +217,15 @@ disconnect policy remains planned.
 - **Packages are part of the type name**: `dyapp.profile.Profile` and any other `Profile` are
   unrelated types on the wire.
 
-Use this checklist for each change class:
+For each proposed change, identify which side owns the value, whether an older client still works,
+and whether older nodes can read records written under the new rule. Apply this checklist:
 
-| Class | Compatibility checks |
-|-------|----------------------|
-| 1. Profile composition | Add fields with permanent tags and safe defaults; preserve signed payload bytes, including unknown fields. A new attribute still needs client UI support. Editing/re-encoding while retaining unknown fields remains planned. |
-| 2. Size limits | Check the exact object unit (payload, encoded signed record or blob); keep client-send separate from network acceptance and wire framing; report the checked bound in `max_bytes`. Follow the [two-release raise/lower rule](bootstrap.md#limits-and-abuse). |
-| 3. PoW difficulty | Report `required_pow_bits` only for an insufficient advertised difficulty; malformed content, signature failures and clock failures have different meanings. Search publish and heartbeat report it today; background client recomputation remains planned. |
-| 4. Media replication | The node chooses replication and layout; clients upload once. Keep old manifests readable when changing R or parity. Current readers require exactly K+4 hashes, so flexible parity is planned. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB, then readers before writers. |
+| Class | Older-client verdict | Rule and current limit |
+|-------|----------------------|------------------------|
+| 1. Profile composition | Existing fields work; displaying a new attribute needs a client release. | Add typed fields with permanent tags and safe defaults, not a generic attribute map. Nodes retain unknown fields in signed bytes, but an older client editing and re-encoding a profile can erase them; unknown-field-preserving edits are planned. Reserve retired tags. |
+| 2. Size limits | Existing-sized records work; a lower send limit can reject an old client's write until it handles `max_bytes` and retries. | Separate client-send, network-accept and wire bounds; report the exact checked object size. Follow the [two-release raise/lower rule](bootstrap.md#limits-and-abuse). The node sends hints today; client validation exists, but client retry is planned. A raised limit does not make an old client send larger records automatically. |
+| 3. PoW difficulty | Existing proof works while it meets the node minimum; a higher minimum can reject an old client until it recomputes. | Report `required_pow_bits` only for insufficient difficulty, not malformed content or clock failures. Search publish and heartbeat send the hint today; client recomputation is planned. Never accept an untrusted hint outside the client's compiled bound. |
+| 4. Media replication | Changing the node's replica count needs no client release: the client uploads once. | Readers must retain old layouts. Current node readers require exactly K+4 shard hashes, so variable parity needs a node reader release before new writers. Changing the 1 MiB K unit first needs an additive `shard_size` field defaulting to 1 MiB; this is planned. Neither layout change is safe merely because a manifest lists hashes. |
 
 Clients treat hints as untrusted ([ADR 0016](../decisions/0016-protocol-evolution.md)): zero
 means absent, including older nodes. `dyapp_p2p_net::hints::Limits::with_hints` keeps the
