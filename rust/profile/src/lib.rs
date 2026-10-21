@@ -64,6 +64,34 @@ impl Profile {
         identity.sign(Domain::Profile, self.encode_to_vec())
     }
 
+    /// Re-encodes an edited profile without discarding fields this client does not know.
+    /// Untouched photos retain their original bytes, including unknown nested fields.
+    pub fn encode_preserving(&self, original: &[u8]) -> Result<Vec<u8>, Error> {
+        let previous = Self::decode(original).map_err(|_| Error::Decode)?;
+        let known: HashSet<u32> = fields(&previous.encode_to_vec())?
+            .into_iter()
+            .map(|(tag, _)| tag)
+            .collect();
+        let keep_photos = self.photos == previous.photos;
+        let mut encoded = Vec::new();
+        for (tag, span) in fields(original)? {
+            if !known.contains(&tag) || (keep_photos && tag == 21) {
+                encoded.extend_from_slice(&original[span]);
+            }
+        }
+        let edited = self.encode_to_vec();
+        if keep_photos {
+            for (tag, span) in fields(&edited)? {
+                if tag != 21 {
+                    encoded.extend_from_slice(&edited[span]);
+                }
+            }
+        } else {
+            encoded.extend_from_slice(&edited);
+        }
+        Ok(encoded)
+    }
+
     fn validate(&self, owner_key: &[u8]) -> Result<(), Error> {
         if self.version == 0 {
             return Err(Error::Invalid("version must start at 1"));
@@ -236,6 +264,54 @@ pub fn stored_version(record: &SignedRecord) -> Result<u64, Error> {
         .map_err(|_| Error::Decode)
 }
 
+// Return each complete protobuf field span so unknown fields can be copied unchanged.
+fn fields(bytes: &[u8]) -> Result<Vec<(u32, std::ops::Range<usize>)>, Error> {
+    fn varint(bytes: &[u8], cursor: &mut usize) -> Result<u64, Error> {
+        let mut value = 0_u64;
+        for index in 0..10 {
+            let byte = *bytes.get(*cursor).ok_or(Error::Decode)?;
+            *cursor += 1;
+            if index == 9 && byte > 1 {
+                return Err(Error::Decode);
+            }
+            value |= u64::from(byte & 0x7f) << (index * 7);
+            if byte & 0x80 == 0 {
+                return Ok(value);
+            }
+        }
+        Err(Error::Decode)
+    }
+
+    let mut cursor = 0;
+    let mut spans = Vec::new();
+    while cursor < bytes.len() {
+        let start = cursor;
+        let key = varint(bytes, &mut cursor)?;
+        let tag = u32::try_from(key >> 3).map_err(|_| Error::Decode)?;
+        if tag == 0 || tag >= 1 << 29 {
+            return Err(Error::Decode);
+        }
+        match key & 7 {
+            0 => {
+                varint(bytes, &mut cursor)?;
+            }
+            1 => cursor = cursor.checked_add(8).ok_or(Error::Decode)?,
+            2 => {
+                let len =
+                    usize::try_from(varint(bytes, &mut cursor)?).map_err(|_| Error::Decode)?;
+                cursor = cursor.checked_add(len).ok_or(Error::Decode)?;
+            }
+            5 => cursor = cursor.checked_add(4).ok_or(Error::Decode)?,
+            _ => return Err(Error::Decode),
+        }
+        if cursor > bytes.len() {
+            return Err(Error::Decode);
+        }
+        spans.push((tag, start..cursor));
+    }
+    Ok(spans)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +327,70 @@ mod tests {
             interests: vec!["hiking".into()],
             ..Profile::default()
         }
+    }
+
+    #[test]
+    fn edited_profile_keeps_unknown_top_level_fields() {
+        let mut original = sample(1).encode_to_vec();
+        let unknown_varint = [0xa0, 0x06, 0x07]; // tag 100
+        let unknown_bytes = [0xaa, 0x06, 0x02, 0xde, 0xad]; // tag 101
+        original.extend_from_slice(&unknown_varint);
+        original.extend_from_slice(&unknown_bytes);
+
+        let mut edited = Profile::decode(original.as_slice()).unwrap();
+        edited.age = 35;
+        let output = edited.encode_preserving(&original).unwrap();
+        assert!(output
+            .windows(unknown_varint.len())
+            .any(|w| w == unknown_varint));
+        assert!(output
+            .windows(unknown_bytes.len())
+            .any(|w| w == unknown_bytes));
+        assert_eq!(Profile::decode(output.as_slice()).unwrap().age, 35);
+        assert_eq!(
+            sample(2)
+                .encode_preserving(&sample(1).encode_to_vec())
+                .unwrap(),
+            sample(2).encode_to_vec()
+        );
+    }
+
+    #[test]
+    fn edited_profile_keeps_untouched_photo_bytes() {
+        let photo = Photo {
+            full: vec![vec![1; 32]],
+            thumbnail: vec![2; 32],
+        };
+        let mut nested = photo.encode_to_vec();
+        nested.extend_from_slice(&[0xa0, 0x06, 0x07]); // unknown tag 100
+        let mut original = sample(1).encode_to_vec();
+        original.extend_from_slice(&[0xaa, 0x01, nested.len() as u8]); // tag 21
+        original.extend_from_slice(&nested);
+
+        let mut edited = Profile::decode(original.as_slice()).unwrap();
+        edited.age = 35;
+        let output = edited.encode_preserving(&original).unwrap();
+        assert!(output.windows(nested.len()).any(|w| w == nested));
+        assert_eq!(Profile::decode(output.as_slice()).unwrap().age, 35);
+
+        edited.photos = vec![Photo {
+            thumbnail: vec![3; 32],
+            ..photo
+        }];
+        let output = edited.encode_preserving(&original).unwrap();
+        assert!(!output.windows(nested.len()).any(|w| w == nested));
+        assert_eq!(
+            Profile::decode(output.as_slice()).unwrap().photos,
+            edited.photos
+        );
+    }
+
+    #[test]
+    fn malformed_original_profile_cannot_be_preserved() {
+        assert_eq!(
+            Profile::default().encode_preserving(&[0xff]),
+            Err(Error::Decode)
+        );
     }
 
     #[test]
