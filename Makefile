@@ -2,9 +2,10 @@
 
 .SILENT:
 
-DOCKER = python3 scripts/docker-local.py
-DEV = $(DOCKER) -f docker/compose.dev.yml --profile test run --no-deps --pull never dev
-CHECK = $(DEV) python3 -B scripts/run-check.py --log-dir build/check-output
+DOCKER = python3 tools/scripts/docker-local.py
+TEST_COMPOSE = $(DOCKER) -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml
+DEV = $(TEST_COMPOSE) --profile test run --no-deps --pull never dev
+CHECK = $(DEV) python3 -B tools/scripts/run-check.py --log-dir build/check-output
 
 help:
 	@echo "prepare | test | test-integration | test-all | coverage | mutants | fuzz | quality | build | deb | image | ui-test"
@@ -12,63 +13,64 @@ help:
 install: prepare
 
 prepare:
-	bash scripts/docker-test.sh prepare
-	bash scripts/ui-test.sh prepare
-	bash scripts/docker-test.sh network-prepare
-	$(DOCKER) -f docker/compose.dev.yml --profile deb build deb
+	bash tests/scripts/docker-test.sh prepare
+	$(DOCKER) -f tools/docker/compose.dev.yml --profile base build linux-base
+	bash tests/scripts/ui-test.sh prepare
+	bash tests/scripts/docker-test.sh network-prepare
+	$(DOCKER) -f tools/docker/compose.dev.yml --profile deb build deb
 
 test:
-	bash scripts/docker-test.sh test
+	bash tests/scripts/docker-test.sh test
 
 test-integration:
 	$(CHECK) rust-test -- cargo test -p dyapp-bootstrap --test integration_tests --all-features --locked --offline
-	bash scripts/docker-test.sh network
-	$(DEV) bash scripts/rust-check.sh memory
+	bash tests/scripts/docker-test.sh network
+	$(DEV) bash tests/scripts/rust-check.sh memory
 
 # First-deployment rehearsal with production defaults, upgrading from FROM (a git ref); ~3 h.
 rehearsal:
-	$(DEV) env REHEARSAL_FROM=$(FROM) bash scripts/rust-check.sh rehearsal
+	$(DEV) env REHEARSAL_FROM=$(FROM) bash tests/scripts/rust-check.sh rehearsal
 
 test-all:
-	bash scripts/docker-test.sh all
+	bash tests/scripts/docker-test.sh all
 
 coverage coverage-check:
-	bash scripts/docker-test.sh coverage
+	bash tests/scripts/docker-test.sh coverage
 
 # Practice B2: every mutant in Rust code changed since origin/main is caught.
 mutants:
-	$(DEV) bash scripts/rust-check.sh mutants
+	$(DEV) bash tests/scripts/rust-check.sh mutants
 
 # Practice B4: every fuzz target for FUZZ_SECONDS (default 60).
 fuzz:
-	$(DEV) env FUZZ_SECONDS=$${FUZZ_SECONDS:-60} bash scripts/rust-check.sh fuzz
+	$(DEV) env FUZZ_SECONDS=$${FUZZ_SECONDS:-60} bash tests/scripts/rust-check.sh fuzz
 
 quality lint check:
-	bash scripts/check-quality.sh
+	bash tests/scripts/check-quality.sh
 
 fmt:
 	$(CHECK) rustfmt -- cargo fmt --all -- --check
 
 build release:
-	bash scripts/docker-test.sh build
+	python3 tools/scripts/run-check.py --log-dir build/check-output rust-build -- $(DOCKER) -f tools/docker/compose.dev.yml --profile build run --no-deps --pull never build
 
 # build/deb/dyappd_<version>_<arch>.deb and dyappd-<version>-<machine>-linux-gnu.tar.gz, then a
 # test install of each on a clean Debian 12; the same pair for the desktop client (dyapp_...,
 # dyapp-...), installed with apt and smoke-tested under Xvfb.
 deb:
 	mkdir -p build/deb
-	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb
-	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb-test
-	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never tarball-test
-	$(DOCKER) -f docker/compose.dev.yml --profile deb run --rm --no-deps --pull never client-deb-test
+	DYAPP_UID=$$(id -u) DYAPP_GID=$$(id -g) $(DOCKER) -f tools/docker/compose.dev.yml --profile deb run --rm --no-deps --pull never deb
+	$(TEST_COMPOSE) --profile deb run --rm --no-deps --pull never deb-test
+	$(TEST_COMPOSE) --profile deb run --rm --no-deps --pull never tarball-test
+	$(TEST_COMPOSE) --profile deb run --rm --no-deps --pull never client-deb-test
 
 # dyappd:latest, then a run with a read-only root, no capabilities and one volume.
 image:
-	$(DOCKER) -f docker/compose.dev.yml --profile image build dyappd
-	bash scripts/image-test.sh
+	$(DOCKER) -f tools/docker/compose.dev.yml --profile image build dyappd
+	bash tests/scripts/image-test.sh
 
 security audit deny:
-	bash scripts/docker-test.sh security
+	bash tests/scripts/docker-test.sh security
 
 msrv:
 	$(CHECK) rust-build -- cargo check --workspace --all-features --all-targets --locked --offline
@@ -81,16 +83,16 @@ pre-commit: quality
 pre-push: test-all
 
 ui-test:
-	bash scripts/ui-test.sh all
+	bash tests/scripts/ui-test.sh all
 
 ui-test-android:
-	bash scripts/ui-test.sh android
+	bash tests/scripts/ui-test.sh android
 
 ui-test-android-emulator:
-	bash scripts/ui-test.sh android-emulator
+	bash tests/scripts/ui-test.sh android-emulator
 
 ui-test-linux:
-	bash scripts/ui-test.sh linux
+	bash tests/scripts/ui-test.sh linux
 
 ui-test-shell:
-	bash scripts/ui-test.sh shell android
+	bash tests/scripts/ui-test.sh shell android

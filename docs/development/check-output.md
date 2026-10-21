@@ -7,7 +7,7 @@ diagnostics still fail and retain their raw evidence. Nested mapped failures
 produce one frame. Signals and mandatory cleanup failures remain failures.
 
 The authoritative ID, parser and documentation-anchor map is
-`scripts/check-output.json`; repository validation checks it. The tables below
+`tools/scripts/check-output.json`; repository validation checks it. The tables below
 identify entry points and data consumers without maintaining a second map.
 
 ## Make and shell entry points
@@ -41,7 +41,7 @@ in particular, package-test containers copy only their self-contained script.
 
 ## Standalone check frontends
 
-All names below are under `scripts/`. Default validation mode is concise;
+Check scripts below are under `tests/scripts/`; shared runners and release scripts are under `tools/scripts/`. Default validation mode is concise;
 explicit `--raw` retains direct output. Help is direct and read-only where offered.
 Shell aggregate raw mode uses the first argument.
 

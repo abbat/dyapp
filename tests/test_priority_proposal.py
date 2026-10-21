@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "priority_proposal", ROOT / "scripts/priority-proposal.py")
+    "priority_proposal", ROOT / "tools/scripts/priority-proposal.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 NOW = "2026-10-15T12:00:00+00:00"

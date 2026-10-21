@@ -25,7 +25,7 @@ class FinalChecks(unittest.TestCase):
             for index, data in enumerate(cases):
                 result = subprocess.run(
                     [sys.executable,
-                     str(ROOT / "scripts/check-ci-results.py")],
+                     str(ROOT / "tests/scripts/check-ci-results.py")],
                     capture_output=True, text=True, check=False,
                     env=dict(os.environ, RESULTS=json.dumps(data),
                              DYAPP_CHECK_LOG_DIR=directory))
@@ -42,7 +42,7 @@ class FinalChecks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             status, control = root / "status", root / "docker.sock"
-            script_source = ROOT / "scripts/check-container-isolation.sh"
+            script_source = ROOT / "tests/scripts/check-container-isolation.sh"
             source = script_source.read_text()
             # The actual checker reads controlled OS facts; production gets
             # no environment override or test-only bypass.
@@ -80,7 +80,7 @@ class FinalChecks(unittest.TestCase):
             self.assertEqual(bad.returncode, 1)
             self.assertIn("Runtime must not be root", bad.stdout)
             policies = json.loads(
-                (ROOT / "scripts/check-output.json").read_text())
+                (ROOT / "tools/scripts/check-output.json").read_text())
             self.assertIn(
                 f'FIX: {policies["container-isolation"]["fix"]}\n', bad.stdout)
             for capabilities, privileges in [(1, 1), (0, 0)]:
@@ -93,9 +93,9 @@ class FinalChecks(unittest.TestCase):
 
     def test_network_android_args_fail_before_setup(self):
         commands = [
-            [sys.executable, str(ROOT / "scripts/network-test.py"),
+            [sys.executable, str(ROOT / "tests/scripts/network-test.py"),
              "--invalid"],
-            ["bash", str(ROOT / "scripts/build-android-release.sh")],
+            ["bash", str(ROOT / "tools/scripts/build-android-release.sh")],
         ]
         with tempfile.TemporaryDirectory() as directory:
             for command in commands:
@@ -113,7 +113,7 @@ class FinalChecks(unittest.TestCase):
                        "bytes([101,114,114,111,114,58,32,226,152,131,10])); "
                        "raise SystemExit(23)")
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/run-check.py"),
+                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
                  "--log-dir", directory, "cargo", "--", sys.executable,
                  "-c", program], capture_output=True, text=True, check=False,
                 env=dict(os.environ, PYTHONIOENCODING="ascii"))
@@ -132,7 +132,7 @@ class FinalChecks(unittest.TestCase):
                      "DETAILS:\nactual-failing-item\n")
             with tempfile.TemporaryDirectory() as directory:
                 result = subprocess.run(
-                    [sys.executable, str(ROOT / "scripts/run-check.py"),
+                    [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
                      "--log-dir", directory, "docker", "--", sys.executable,
                      "-c", f"print({frame!r}); raise SystemExit(23)"],
                     capture_output=True, text=True, check=False)
@@ -158,7 +158,7 @@ class FinalChecks(unittest.TestCase):
             "* Try:\n> Run with --stacktrace option.\nBUILD FAILED in 12s\n")
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/run-check.py"),
+                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
                  "--log-dir", directory, "docker", "--", sys.executable,
                  "-c", f"print({failure!r}); raise SystemExit(7)"],
                 capture_output=True, text=True, check=False)

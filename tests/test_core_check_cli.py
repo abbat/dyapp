@@ -17,7 +17,8 @@ class CoreCheckCLI(unittest.TestCase):
     def run_cli(self, name, arguments, directory):
         environment = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(directory))
         return subprocess.run(
-            [sys.executable, "-B", str(ROOT / "scripts" / name), *arguments],
+            [sys.executable, "-B", str(ROOT / "tests/scripts" / name),
+             *arguments],
             cwd=ROOT, env=environment, text=True, capture_output=True)
 
     def test_batch_default_raw_json_and_failure(self):
@@ -57,7 +58,7 @@ class CoreCheckCLI(unittest.TestCase):
                      "triggers.py", "check-panics.py"):
             with self.subTest(name=name):
                 spec = importlib.util.spec_from_file_location(
-                    "quiet_import", ROOT / "scripts" / name)
+                    "quiet_import", ROOT / "tests/scripts" / name)
                 module = importlib.util.module_from_spec(spec)
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with redirect_stdout(stdout), redirect_stderr(stderr):

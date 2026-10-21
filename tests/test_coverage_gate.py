@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "coverage_gate", ROOT / "scripts/check_coverage.py")
+    "coverage_gate", ROOT / "tests/scripts/check_coverage.py")
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
 

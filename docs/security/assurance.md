@@ -13,8 +13,8 @@ each push to `main` and on demand:
   verifies this job before it accepts the result, so it has no `run` steps and uses only approved
   actions.
 - job **scorecard - score** runs Scorecard again with JSON output, and
-  `scripts/check-scorecard.py` fails when the aggregate score is below `[scorecard] score` in
-  `scripts/baselines.toml`. Below the target of 7.0 it lists the checks that lose points; at
+  `tests/scripts/check-scorecard.py` fails when the aggregate score is below `[scorecard] score` in
+  `tests/scripts/baselines.toml`. Below the target of 7.0 it lists the checks that lose points; at
   0.5 above the baseline it asks to raise the baseline. Artifact **`scorecard`** keeps the JSON.
 
 The first run (2026-10-19, before `SECURITY.md`) scored 5.9. With `SECURITY.md`,
@@ -27,7 +27,7 @@ Contributors are also at 0. The registered Best Practices badge scores 2 and bra
 protection scores 4. Improving these checks requires maintainer decisions.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
-An `osv-scanner.toml` next to each `Cargo.lock` (root, `fuzz/`, `clients/linux/`, `clients/windows/`) lists the
+An `osv-scanner.toml` next to each `Cargo.lock` (root, `tests/fuzz/`, `clients/linux/`, `clients/windows/`) lists the
 advisories that do not apply there, each with its reason (no fixed version reachable, a code path
 the project never takes). cargo-deny keeps its own list in `deny.toml`.
 Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same
@@ -77,15 +77,15 @@ repository security advisory; a vulnerable dependency becomes a Dependabot alert
 
 **Fix-time SLO.** An alert or advisory is open from its creation until it is fixed, dismissed,
 closed or published: at most 48 hours when critical, 7 days when high. Medium and low ones follow
-the normal flow. `scripts/vulnerability-slo.py` measures it locally (the CI token cannot read
+the normal flow. `tests/scripts/vulnerability-slo.py` measures it locally (the CI token cannot read
 Dependabot alerts); it needs a `gh` token with security-events access:
 
 ```bash
-python3 -B scripts/vulnerability-slo.py   # JSON summary; exit 1 lists each breach
+python3 -B tests/scripts/vulnerability-slo.py   # JSON summary; exit 1 lists each breach
 ```
 
 It also fails when a published or closed repository advisory has no test that names its GHSA or
-CVE id (`git grep` over `tests/`, `rust/*/tests`, `rust/*/src` and `fuzz/`). Run it with the
+CVE id (`git grep` over `tests/`, `rust/*/tests`, `rust/*/src` and `tests/fuzz/`). Run it with the
 weekly [flow report](../development/flow-metrics.md). Every alert and advisory is also an A8
 trigger: the flow report expects a [postmortem](../development/flow-metrics.md#postmortems-a8)
 bead within 48 hours, and an SLO breach belongs in it. The fix itself follows the normal flow.

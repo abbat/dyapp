@@ -5,7 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "triggers", ROOT / "scripts/triggers.py")
+    "triggers", ROOT / "tests/scripts/triggers.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -47,9 +47,10 @@ class Triggers(unittest.TestCase):
     def test_path_and_line_rules(self):
         files = {"rust/bootstrap/src/storage.rs":
                  ["conn.execute(\"CREATE TABLE IF NOT EXISTS `deny`\")"],
-                 "scripts/triggers.toml": [], "rust/identity/src/lib.rs": []}
+                 "tests/scripts/triggers.toml": [],
+                 "rust/identity/src/lib.rs": []}
         self.assertEqual(CHECK.fired(TRIGGERS, files), [
-            "checks: scripts/triggers.toml",
+            "checks: tests/scripts/triggers.toml",
             "identity: rust/identity/src/lib.rs",
             "storage-migration: rust/bootstrap/src/storage.rs",
         ])
@@ -61,8 +62,8 @@ class Triggers(unittest.TestCase):
                          ["x: clippy.toml"])
 
     def test_list_covers_itself(self):
-        self.assertIn("checks: scripts/triggers.toml", CHECK.fired(
-            TRIGGERS, {"scripts/triggers.toml": []}))
+        self.assertIn("checks: tests/scripts/triggers.toml", CHECK.fired(
+            TRIGGERS, {"tests/scripts/triggers.toml": []}))
 
 
 if __name__ == "__main__":

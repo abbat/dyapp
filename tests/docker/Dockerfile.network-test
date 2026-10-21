@@ -1,0 +1,17 @@
+FROM dyapp:dev-prepared
+USER root
+# coturn for the TURN relay of the network test.
+RUN apt-get update && apt-get install -y --no-install-recommends coturn \
+    && rm -rf /var/lib/apt/lists/*
+# Build from a fresh tree: COPY over the prepared image can retain renamed bin targets.
+COPY Cargo.toml Cargo.lock /build-src/
+COPY proto /build-src/proto
+COPY rust /build-src/rust
+COPY tools/scripts /workspace/tools/scripts
+COPY tests/scripts /workspace/tests/scripts
+RUN mkdir -p /reports && chown 999:999 /reports
+USER 999:999
+ENV CXXFLAGS=-g0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_BUILD_JOBS=4 \
+    CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 RAYON_NUM_THREADS=4
+RUN CARGO_TARGET_DIR=/workspace/build cargo build --manifest-path /build-src/Cargo.toml --locked --offline -p dyapp-bootstrap --bin dyappd
+CMD ["python3", "/workspace/tests/scripts/network-test.py"]

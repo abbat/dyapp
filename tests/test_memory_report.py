@@ -11,11 +11,11 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests/scripts"))
 from memory_report import write_report  # noqa: E402
 
 SPEC = importlib.util.spec_from_file_location(
-    "network_memory", ROOT / "scripts/network-test.py")
+    "network_memory", ROOT / "tests/scripts/network-test.py")
 NETWORK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NETWORK)
 

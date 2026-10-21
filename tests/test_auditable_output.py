@@ -17,7 +17,7 @@ class Auditable(unittest.TestCase):
             root = Path(directory)
             script = root / "check.py"
             script.write_bytes(
-                (ROOT / "scripts/check-auditable.py").read_bytes())
+                (ROOT / "tools/scripts/check-auditable.py").read_bytes())
             lock = root / "packages.toml"
             lock.write_text(
                 '[[package]]\nname="dyapp-bootstrap"\nversion="0.0.1"\n')
@@ -49,7 +49,7 @@ class Auditable(unittest.TestCase):
             self.assertEqual(legacy.returncode, 0, legacy.stderr)
             self.assertIn("1 packages in the embedded", legacy.stdout)
             policy = json.loads(
-                (ROOT / "scripts/check-output.json").read_text())
+                (ROOT / "tools/scripts/check-output.json").read_text())
             for bad in [Path("/bin/true"),
                         binary("unknown", [dict(package, version="9")]),
                         binary("missing-bootstrap", [])]:

@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "repository_round_trips", ROOT / "scripts/check-repository.py")
+    "repository_round_trips", ROOT / "tests/scripts/check-repository.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 SERDE = "#[derive(Debug, Serialize, Deserialize)]\npub struct Stored {}\n"

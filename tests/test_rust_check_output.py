@@ -21,7 +21,7 @@ class RustOutput(unittest.TestCase):
             subprocess.run(
                 ["rustc", "--test", str(source), "-o", str(binary)],
                 check=True, capture_output=True)
-            prefix = [sys.executable, str(ROOT / "scripts/run-check.py"),
+            prefix = [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
                       "--log-dir", str(root), "rust-test", "--", str(binary)]
             failed = subprocess.run(
                 prefix, capture_output=True, text=True, check=False)
@@ -49,7 +49,7 @@ class RustOutput(unittest.TestCase):
             cargo.chmod(0o755)
             env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
                        DYAPP_CHECK_LOG_DIR=str(root / "logs"))
-            command = ["bash", str(ROOT / "scripts/rust-check.sh")]
+            command = ["bash", str(ROOT / "tests/scripts/rust-check.sh")]
             default = subprocess.run(
                 command + ["test"], capture_output=True, text=True,
                 env=env, check=False)
@@ -69,7 +69,7 @@ class RustOutput(unittest.TestCase):
                   "thread bad panicked at src/lib.rs:2:5\\n")
         with tempfile.TemporaryDirectory() as directory:
             failed = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/run-check.py"),
+                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
                  "--log-dir", directory, "rust-test", "--",
                  "sh", "-c", f"printf '{output}'; exit 100"],
                 capture_output=True, text=True, check=False)

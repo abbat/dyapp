@@ -8,7 +8,7 @@ Run code quality checks and tests in isolated Docker containers.
 
 ```bash
 # Build Docker image for testing
-docker build -f docker/Dockerfile.dev -t dyapp:dev .
+docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 
 # Run all unit tests
 docker run --rm dyapp:dev cargo test --workspace --lib --quiet
@@ -49,19 +49,19 @@ docker run --rm dyapp:dev cargo deny check advisories bans licenses sources
 
 ```bash
 # Run tests (default)
-docker-compose -f docker/compose.dev.yml run --rm --profile test dev
+docker compose -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile test run --rm dev
 
 # Build release binary
-docker-compose -f docker/compose.dev.yml run --rm --profile build build
+docker compose -f tools/docker/compose.dev.yml --profile build run --rm build
 
 # Quality checks
-docker-compose -f docker/compose.dev.yml run --rm --profile quality quality
+docker compose -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile quality run --rm quality
 
 # Code coverage
-docker-compose -f docker/compose.dev.yml run --rm --profile coverage coverage
+docker compose -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile coverage run --rm coverage
 
 # Security checks
-docker-compose -f docker/compose.dev.yml run --rm --profile security security
+docker compose -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile security run --rm security
 ```
 
 ## Using the Helper Script
@@ -74,35 +74,33 @@ Set `DYAPP_VERBOSE=1` for live output. Interactive shells stream automatically. 
 `--log-file`.
 
 ```bash
-./scripts/docker-test.sh --help
+./tests/scripts/docker-test.sh --help
 ```
 
 ### Available Commands
 
 ```bash
 # Run tests
-./scripts/docker-test.sh test
+./tests/scripts/docker-test.sh test
 
 # Build release binary
-./scripts/docker-test.sh build
+make build
 
 # Quality checks
-./scripts/docker-test.sh quality
+./tests/scripts/docker-test.sh quality
 
 # Code coverage
-./scripts/docker-test.sh coverage
+./tests/scripts/docker-test.sh coverage
 
 # Security checks
-./scripts/docker-test.sh security
+./tests/scripts/docker-test.sh security
 
 # Run all checks
-./scripts/docker-test.sh all
+./tests/scripts/docker-test.sh all
 
 # Interactive shell
-./scripts/docker-test.sh shell
+./tests/scripts/docker-test.sh shell
 
-# Clean up
-./scripts/docker-test.sh clean
 ```
 
 ## Examples
@@ -139,7 +137,7 @@ docker run --rm dyapp:dev \
 
 ```bash
 # Generate coverage report and apply the line coverage ratchet (cargo-llvm-cov)
-bash scripts/docker-test.sh coverage   # or: make coverage
+bash tests/scripts/docker-test.sh coverage   # or: make coverage
 ```
 
 ## Volume Mounts
@@ -177,7 +175,7 @@ docker run --rm -e CARGO_INCREMENTAL=0 dyapp:dev cargo build
 
 ```bash
 # Enable Docker BuildKit (faster layer caching)
-DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile.dev -t dyapp:dev .
+DOCKER_BUILDKIT=1 docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ```
 
 ### Cache Cargo Registry
@@ -268,7 +266,7 @@ docker run --rm dyapp:dev cargo test
 
 **Fix:** Make sure Docker image was built:
 ```bash
-docker build -f docker/Dockerfile.dev -t dyapp:dev .
+docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ```
 
 ### Issue: Tests timeout
@@ -311,7 +309,7 @@ docker run --rm -v $(pwd):/app dyapp:dev cargo test
 
 ### Add More Tools
 
-Edit `docker/Dockerfile.dev` to install additional tools:
+Edit `tools/docker/Dockerfile.dev` to install additional tools:
 
 ```dockerfile
 RUN apt-get update && apt-get install -y \
@@ -348,7 +346,7 @@ jobs:
       - uses: docker/setup-buildx-action@v2
       - uses: docker/build-push-action@v4
         with:
-          file: ./docker/Dockerfile.dev
+          file: ./tools/docker/Dockerfile.dev
           tags: dyapp:ci
           load: true
       - run: docker run --rm dyapp:ci cargo test --workspace

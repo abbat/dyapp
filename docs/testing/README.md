@@ -103,7 +103,7 @@ Every `message` and `enum` in `proto/*.proto` and every Rust type deriving both 
 survive a JSON round trip (compared by `Debug`). Values come from `proptest_derive::Arbitrary`,
 which the `proptest` feature of identity, profile, p2p-net, messaging and video derives; only the
 bootstrap dev-dependencies enable it, so release builds do not contain it.
-`scripts/check-repository.py` (`make quality`) fails when a type has no property line
+`tests/scripts/check-repository.py` (`make quality`) fails when a type has no property line
 (`name: Type` inside a round-trip macro). The operator-written `rust/bootstrap/src/config.rs`
 types are exempt; the configuration tests above cover them.
 
@@ -172,16 +172,16 @@ documentation does not promise that a PR is blocked. See
 
 ## Flaky tests
 
-Practice B5. `scripts/rust-check.sh` steps `test` and `cov-test` run the workspace tests with
-cargo-nextest 0.9.148 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`), then the doctests
+Practice B5. `tests/scripts/rust-check.sh` steps `test` and `cov-test` run the workspace tests with
+cargo-nextest 0.9.148 (pinned in `tools/docker/Dockerfile.dev` and `ci-base.yml`), then the doctests
 with `cargo test --doc`, which nextest does not run. `.config/nextest.toml` retries a failed test
 twice and writes a JUnit report to `build/nextest/default/junit.xml` (`[store]`, so the coverage
 build in `build/llvm-cov-target` writes it there too). A test that fails all
 three attempts fails the step. XCUITest and Android UI tests retry the same way; see
 [ui-testing.md](ui-testing.md#what-is-tested).
 
-A test that passes only on a retry is flaky. `scripts/check-flaky.py` reads the report and fails
-the step when a flaky test is not in `[flaky]` of `scripts/baselines.toml`, or when an entry
+A test that passes only on a retry is flaky. `tests/scripts/check-flaky.py` reads the report and fails
+the step when a flaky test is not in `[flaky]` of `tests/scripts/baselines.toml`, or when an entry
 there is older than 7 days. The CI failure becomes a bead through the
 [CI report import](../agents/beads.md#ci-failures). Quarantine the test with its JUnit
 `classname name` (XCUITest: `suite name`; Android UI: `class method`) and the day it was found,
@@ -197,7 +197,7 @@ Python suite in `make quality`, even when the test no longer flakes.
 
 ## Mutation testing
 
-Practice B2, with cargo-mutants 27.1.0 (pinned in `docker/Dockerfile.dev`, `ci-base.yml` and
+Practice B2, with cargo-mutants 27.1.0 (pinned in `tools/docker/Dockerfile.dev`, `ci-base.yml` and
 `mutants.yml`; settings in `.cargo/mutants.toml`). A mutant is a small change to the code, such as
 `<` turned into `<=` or a function body replaced by a default value; a test should then fail.
 
@@ -223,22 +223,22 @@ then needs a regular dependency on the `mutants` crate. `check-repository.py` re
 attribute without a reason.
 
 **Full run, weekly.** `.github/workflows/mutants.yml` (Sundays 05:23 UTC, or manually) tests all
-mutants in 16 shards, two at a time each, and `scripts/check-mutants.py` adds up their
+mutants in 16 shards, two at a time each, and `tests/scripts/check-mutants.py` adds up their
 `outcomes.json`. The score is caught and timed-out mutants over all viable ones; it must not drop
-below `[mutants] score` in `scripts/baselines.toml`, and the job asks to raise the value when the
+below `[mutants] score` in `tests/scripts/baselines.toml`, and the job asks to raise the value when the
 score is 0.5 points above it. The first full run (2026-10-19) scored 72.2%: 614 of 2205 viable
 mutants were missed, most of them in `node.rs`, `service.rs` and the client now in `bin/dyappd/client.rs`.
 
 ## Fuzzing
 
-Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `docker/Dockerfile.dev`,
-`ci-base.yml` and `fuzz.yml`). `fuzz/` is its own Cargo workspace with its own `Cargo.lock`; it
+Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/Dockerfile.dev`,
+`ci-base.yml` and `fuzz.yml`). `tests/fuzz/` is its own Cargo workspace with its own `Cargo.lock`; it
 builds on the pinned stable toolchain because the targets run without a sanitizer (`-s none`):
 safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions are on), hangs and
 memory blow-ups still fail.
 
 Each target feeds one request handler of a bootstrap node, the code that parses what any peer
-sends. `fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
+sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
 with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter.
 
 | Target | Handler | Input |
@@ -260,22 +260,22 @@ pushes have no target yet (planned).
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
 `rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for
-`SERVICE.<name>(` in `fuzz/fuzz_targets/`.
+`SERVICE.<name>(` in `tests/fuzz/fuzz_targets/`.
 
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
 and `.github/workflows/fuzz.yml` for an hour per target every night. libFuzzer first runs every
-input in `fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
+input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
 crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
 
-**Corpus.** `fuzz/corpus/` holds the inputs, minimized with libFuzzer's `-merge=1`; it is marked
+**Corpus.** `tests/fuzz/corpus/` holds the inputs, minimized with libFuzzer's `-merge=1`; it is marked
 binary in `.gitattributes`, so it has no diffs and no line count. To take in the inputs of a
 nightly run (artifact `fuzz-<target>`), merge them into the target's directory with
 `cargo fuzz run -s none <target> corpus/<target> <new inputs> -- -merge=1` and commit.
 
 **Crashes.** A crash fails the step; the CI failure becomes a bead through the
 [CI report import](../agents/beads.md#ci-failures). Fix it, then copy the crash input
-(`crash-<sha1>`) into `fuzz/corpus/<target>/`: from then on every run replays it first, which makes
+(`crash-<sha1>`) into `tests/fuzz/corpus/<target>/`: from then on every run replays it first, which makes
 it the regression test.
 
 ## Coverage Policy
@@ -291,10 +291,10 @@ This is the single source of truth for coverage numbers; other docs link here.
 
 | Item | Value |
 |------|-------|
-| Tool | cargo-llvm-cov 0.9.1 (pinned in `docker/Dockerfile.dev` and `ci-base.yml`). `scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run the [tests](#flaky-tests) on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
+| Tool | cargo-llvm-cov 0.9.1 (pinned in `tools/docker/Dockerfile.dev` and `ci-base.yml`). `tests/scripts/rust-check.sh` steps `cov-build`, `cov-test` and `cov-report` make one instrumented build (`cargo llvm-cov show-env`), run the [tests](#flaky-tests) on it, then `cargo llvm-cov report`. Step `coverage` runs all three. |
 | Metric | **Lines** (`data[0].totals.lines` of the LLVM JSON export). Regions, functions and branches are reported but not gated. |
 | Aggregation | One number for the **whole workspace**. There is **no per-crate threshold**. |
-| Threshold | Ratchet (practice B1): the total must not drop below `[coverage] lines` in `scripts/baselines.toml` (86.6%). When the total exceeds it by 0.5 points or more, the check prints the value to raise it to; raise it in the same change. Lowering it weakens the gate; it was lowered once, from 87.8%, when bootstrap's inline test modules moved to separate `tests.rs` and `tests/` files, which cargo-llvm-cov leaves out of the report, so their covered lines left the total. |
+| Threshold | Ratchet (practice B1): the total must not drop below `[coverage] lines` in `tests/scripts/baselines.toml` (86.6%). When the total exceeds it by 0.5 points or more, the check prints the value to raise it to; raise it in the same change. Lowering it weakens the gate; it was lowered once, from 87.8%, when bootstrap's inline test modules moved to separate `tests.rs` and `tests/` files, which cargo-llvm-cov leaves out of the report, so their covered lines left the total. |
 | Changed lines | At least **80%** (`MIN_DIFF`) of the instrumented Rust lines changed since `COVERAGE_BASE` must be covered: the working tree is diffed (`git diff -U0`) against it and matched with `coverage.lcov`. CI sets the PR base or the pushed-over commit; locally, for a new branch and after a forced push (the pushed-over commit is gone) it is `origin/main`. On failure the first 50 uncovered `path:line` are printed. |
 | Scope check | Fails with "Partial workspace coverage" unless files from all 7 crates appear: bootstrap, ffi, identity, messaging, p2p-net, profile, video |
 | Exclusions | `--ignore-filename-regex '/registry/\|/dyapp[.]uniffi[.]rs$'` — dependency sources and the generated UniFFI scaffolding. Hand-written `lib.rs` files are **not** excluded. |
@@ -306,9 +306,9 @@ This is the single source of truth for coverage numbers; other docs link here.
 |-------------|-----------------|-------|
 | GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `rust-check.sh cov-report` on the runner after `cov-build` and `cov-test`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
-| `bash scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
+| `bash tests/scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
 | pre-commit `pre-push` stage | Yes | Runs `docker-test.sh all`; skipped by `git push --no-verify` or if hooks are not installed |
-| `bash scripts/check-quality.sh --coverage` | Yes | Delegates to `docker-test.sh coverage` |
+| `bash tests/scripts/check-quality.sh --coverage` | Yes | Delegates to `docker-test.sh coverage` |
 
 Whether the CI check is **required for merge** depends on branch protection, which is not in the
 repository and has not been verified.
@@ -336,7 +336,7 @@ JaCoCo/Kover or `test:coverage` script is wired into any gate. Any UI coverage p
 ### Saved report
 
 None is kept in the repository. Reports go to `build/coverage[.<run id>]/`. A local Docker run
-writes them into the `workspace-cache` volume, and `scripts/export-coverage.py` copies them out.
+writes them into the `workspace-cache` volume, and `tests/scripts/export-coverage.py` copies them out.
 When splitting inline Rust unit tests, keep their previously measured coverage:
 `cargo-llvm-cov` excludes files named `tests.rs` or `*_tests.rs` by default.
 Use ordinary module filenames for these moves; do not change the coverage filter

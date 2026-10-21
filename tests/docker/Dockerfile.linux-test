@@ -1,0 +1,9 @@
+FROM dyapp:linux-base
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11
+RUN cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/build/unit-build.json
+COPY tools/scripts tools/scripts
+COPY tests/scripts tests/scripts
+RUN mkdir -p /reports && chown 999:999 /reports
+USER 999:999
+CMD ["bash", "/app/tests/scripts/linux-test.sh"]

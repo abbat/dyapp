@@ -12,7 +12,7 @@ UI-тесты. Скачанным Mac его не откроет. Участни
 ## Откуда берётся ZIP
 
 Плановый workflow `release-sizes` собирает Release на `macos-15` с `CODE_SIGNING_ALLOWED=NO`,
-проверяет бандл (`scripts/package-apple-release.py`: обе архитектуры, исполняемый файл, структура)
+проверяет бандл (`tools/scripts/package-apple-release.py`: обе архитектуры, исполняемый файл, структура)
 и сохраняет ZIP как артефакт `apple-macos-unsigned`. Готовые файлы в релизах с контрольной суммой
 и происхождением запланированы.
 
@@ -24,7 +24,7 @@ UI-тесты. Скачанным Mac его не откроет. Участни
 ```sh
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-bash scripts/build-apple-core.sh macos release
+bash tools/scripts/build-apple-core.sh macos release
 xcodegen generate --spec clients/macos/project.yml --project clients/macos
 xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
     -destination generic/platform=macOS -derivedDataPath build \

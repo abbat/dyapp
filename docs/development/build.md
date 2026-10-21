@@ -7,7 +7,7 @@
 > what each script actually does; the packaging that is missing is in
 > [FFI bindings](ffi-bindings.md). The apps do not use these scripts: the Android Gradle
 > build compiles the core itself ([FFI bindings → Android](ffi-bindings.md#android)), and the
-> iOS and macOS apps link the XCFramework from `scripts/build-apple-core.sh`
+> iOS and macOS apps link the XCFramework from `tools/scripts/build-apple-core.sh`
 > ([FFI bindings → Apple](ffi-bindings.md#apple)).
 >
 > Everything below is read from the script sources. The scripts were **not
@@ -27,6 +27,16 @@
 
 Run every script from any directory: each resolves the repository root from
 its own path and builds there.
+
+## Local build and packaging
+
+`make build` runs `tools/scripts/build-rust.sh` in the shared development image.
+`make deb` runs `tools/scripts/build-deb.sh` in the Debian 12 packaging image,
+then runs package-install tests from `tests/scripts/`.
+`tools/docker/Dockerfile.linux-base` holds the shared Linux client build
+requirements. `tests/docker/Dockerfile.linux-test` adds Xvfb and test binaries;
+the packaging image uses the shared base without test-only packages.
+`make prepare` builds the base before the Linux test and packaging images.
 
 ## What each script does
 
@@ -88,7 +98,7 @@ the runner works in a throwaway container without network:
 mkdir -p build/android-release && chmod 777 build/android-release
 docker run --rm --network none --user 999:999 \
   -v "$PWD/build/android-release:/reports" \
-  dyapp:android-test bash /app/scripts/build-android-release.sh /reports
+  dyapp:android-test bash /app/tools/scripts/build-android-release.sh /reports
 ```
 
 The image build caches the Release Gradle dependencies, Release lint included, by
@@ -114,7 +124,7 @@ argument preserves direct build diagnostics and the remaining scope/profile
 arguments. Native release CI archives its raw frontend log alongside package
 measurements and Xcode logs.
 
-`scripts/package-apple-release.py <ios|macos> <DYApp.app> <new-archive>`
+`tools/scripts/package-apple-release.py <ios|macos> <DYApp.app> <new-archive>`
 verifies bundle structure and packages an app in approved native Apple CI. Its CLI
 uses `xcrun lipo` and requires `GITHUB_ACTIONS=true`; pure packaging tests run in
 Docker with fixture architecture lists. iOS requires platform `iphoneos` and
@@ -131,7 +141,7 @@ architecture and filesystem layout.
 `release-sizes.yml` requests native macOS-15 Release builds for device iOS arm64
 and universal macOS arm64/x86_64. It calls `build-apple-core.sh` with `release`
 (`ios-device` omits simulator libraries), generates the existing Xcode projects,
-and runs `scripts/apple-release-in-ci.py <ios|macos>` with
+and runs `tools/scripts/apple-release-in-ci.py <ios|macos>` with
 `CODE_SIGNING_ALLOWED=NO`. The producer builds configuration `Release`, packages
 the app and records bytes/hash/source/compiler in `measurement.json`, together
 with Xcode version and captured logs. The successful
@@ -150,7 +160,7 @@ signing and notarization are not done: the [macOS](../manuals/macos.md) and
 Not implemented. This is the order in which the gaps block each other:
 
 1. Build `dyapp-ffi` instead of the four internal crates.
-2. **iOS and macOS:** done in `scripts/build-apple-core.sh` (Swift bindings and an
+2. **iOS and macOS:** done in `tools/scripts/build-apple-core.sh` (Swift bindings and an
    XCFramework, see [FFI bindings → Apple](ffi-bindings.md#apple)); explicit Release
    core/package production is measured and size-gated in native CI.
    Signing, notarization and App Store distribution remain planned.

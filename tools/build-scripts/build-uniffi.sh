@@ -317,8 +317,6 @@ EOF
 verify_bindings() {
   echo -e "${YELLOW}🔍 Verifying bindings...${NC}"
 
-  local errors=0
-
   # Note: Actual verification happens after Xcode/Gradle builds
   echo "  ℹ️  Full verification happens during platform builds"
   echo "  ℹ️  Swift: Check Xcode build output"

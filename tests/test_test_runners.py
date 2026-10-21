@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tools/scripts"))
 
 from capture import Capture  # noqa: E402
 
@@ -57,7 +57,7 @@ class Runners(unittest.TestCase):
             )
             docker.chmod(0o755)
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts" / script), command],
+                ["bash", str(ROOT / "tests/scripts" / script), command],
                 env={**os.environ, "PATH": f"{directory}:{os.environ['PATH']}",
                      "CALL_LOG": str(log), "FAIL_SERVICE": failing_service,
                      "DYAPP_VERBOSE": verbose},
@@ -74,7 +74,7 @@ class Runners(unittest.TestCase):
                 self.assertNotIn("inventory passed", result.stdout)
 
     def test_dev_failure_propagates(self):
-        for command, service in (("test", "dev"), ("build", "build"),
+        for command, service in (("test", "dev"),
                                  ("quality", "quality"),
                                  ("coverage", "coverage"),
                                  ("security", "security")):
@@ -128,7 +128,7 @@ class Runners(unittest.TestCase):
 
     def test_cleanup_failure_and_interrupt_preserve_status_and_output(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         for run_status, stop_status, expected in ((0, 19, 19), (23, 19, 23),
@@ -156,7 +156,7 @@ class Runners(unittest.TestCase):
 
     def test_log_file_gets_a_full_copy(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         Path("/tmp/ai").mkdir(exist_ok=True)
@@ -171,7 +171,7 @@ class Runners(unittest.TestCase):
 
     def test_nested_failure_keeps_details_without_cleanup_progress(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         command = [sys.executable, "-c",
@@ -190,7 +190,7 @@ class Runners(unittest.TestCase):
 
     def test_unknown_large_failure_retains_full_log_and_signal_status(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         with tempfile.TemporaryDirectory() as directory:
@@ -214,7 +214,7 @@ class Runners(unittest.TestCase):
 
     def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
         spec = importlib.util.spec_from_file_location(
-            "network_test", ROOT / "scripts/network-test.py")
+            "network_test", ROOT / "tests/scripts/network-test.py")
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
         environment = {"DYAPPD_STORAGE_DIR": "/storage/7071"}
@@ -237,7 +237,7 @@ class Runners(unittest.TestCase):
 
     def test_local_node_failure_prints_retained_diagnostics(self):
         spec = importlib.util.spec_from_file_location(
-            "network_test", ROOT / "scripts/network-test.py")
+            "network_test", ROOT / "tests/scripts/network-test.py")
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
 
@@ -278,7 +278,8 @@ class Runners(unittest.TestCase):
                 **os.environ, "PATH": f"{directory}:{os.environ['PATH']}",
                 "CALL_LOG": str(log),
             }
-            arguments = ["python3", str(ROOT / "scripts/docker-local.py"),
+            arguments = ["python3",
+                         str(ROOT / "tools/scripts/docker-local.py"),
                          "run", "dev"]
             first = subprocess.Popen(arguments, env=environment)
             second = subprocess.Popen(arguments, env=environment)
@@ -289,7 +290,7 @@ class Runners(unittest.TestCase):
 
     def test_image_builds_have_cpu_quota_and_stop_on_failure(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         services = {
@@ -342,7 +343,7 @@ class Runners(unittest.TestCase):
 
     def test_ci_cache_uses_buildkit_except_on_local_base_images(self):
         spec = importlib.util.spec_from_file_location(
-            "docker_local", ROOT / "scripts/docker-local.py")
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         with tempfile.TemporaryDirectory() as directory:
@@ -367,7 +368,7 @@ class Runners(unittest.TestCase):
 
     def test_windows_ui_report_does_not_require_container_hostname(self):
         spec = importlib.util.spec_from_file_location(
-            "desktop_smoke", ROOT / "scripts/desktop-smoke.py")
+            "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py")
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
         Path("/tmp/ai").mkdir(exist_ok=True)
@@ -388,7 +389,7 @@ class Runners(unittest.TestCase):
 
     def test_desktop_timeout_kills_helpers_holding_stdout(self):
         spec = importlib.util.spec_from_file_location(
-            "desktop_smoke", ROOT / "scripts/desktop-smoke.py")
+            "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py")
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
         # The second helper leaves the process group, like a bwrap sandbox.

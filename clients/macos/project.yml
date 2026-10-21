@@ -19,7 +19,7 @@ targets:
               ../ios/DYApp/PlatformKeyStore.swift,
               ../ios/DYApp/Localizable.xcstrings, ../../build/apple/swift/dyapp.swift]
     dependencies:
-      # Built by scripts/build-apple-core.sh before XcodeGen runs.
+      # Built by tools/scripts/build-apple-core.sh before XcodeGen runs.
       - framework: ../../build/apple/DyappFFI.xcframework
         embed: false
     settings:

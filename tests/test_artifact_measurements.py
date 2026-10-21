@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "artifact_measurement", ROOT / "scripts/report-artifact-size.py")
+    "artifact_measurement", ROOT / "tools/scripts/report-artifact-size.py")
 REPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPORT)
 

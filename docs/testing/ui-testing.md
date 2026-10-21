@@ -1,7 +1,7 @@
 # UI Testing: Practical Guide
 
-> **Status:** derived from `scripts/ui-test.sh`, `docker/compose.ui.yml`, `docker/Dockerfile.android-test`,
-> `docker/Dockerfile.linux-test`, `scripts/*-test-*`, `clients/{ios,macos}/project.yml` and the test sources on
+> **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
+> `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/{ios,macos}/project.yml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not
 > from logs. For the target contract see [empty-app-contract.md](../platforms/empty-app-contract.md);
 > for the CI jobs see [ci-matrix.md](../development/ci-matrix.md).
@@ -80,12 +80,12 @@ languages are planned.
 Requires Docker with Compose. All commands run from the repository root.
 
 ```bash
-bash scripts/ui-test.sh prepare           # build images (online; also run by make prepare)
-bash scripts/ui-test.sh android           # = make ui-test-android
-bash scripts/ui-test.sh android-emulator  # = make ui-test-android-emulator
-bash scripts/ui-test.sh linux             # = make ui-test-linux
-bash scripts/ui-test.sh all               # = make ui-test; the three above in order
-bash scripts/ui-test.sh shell [android|linux]   # = make ui-test-shell (android)
+bash tests/scripts/ui-test.sh prepare           # build images (online; also run by make prepare)
+bash tests/scripts/ui-test.sh android           # = make ui-test-android
+bash tests/scripts/ui-test.sh android-emulator  # = make ui-test-android-emulator
+bash tests/scripts/ui-test.sh linux             # = make ui-test-linux
+bash tests/scripts/ui-test.sh all               # = make ui-test; the three above in order
+bash tests/scripts/ui-test.sh shell [android|linux]   # = make ui-test-shell (android)
 ```
 
 `all` ends with "Local Docker UI inventory passed; Apple/Windows native CI is required
@@ -98,7 +98,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 
 ### Android
 
-- **Image** `dyapp:android-test` (`docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
+- **Image** `dyapp:android-test` (`tests/docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
   Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0,
   system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `clients/android/` (its own
   `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 999, pre-builds `:app:assembleDebug`,
@@ -110,23 +110,23 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `android-emulator` being healthy:
   - `android-emulator` creates the AVD on the `android-avd` volume (the emulator wants ~7.4G free
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
-    (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
+    (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `tests/docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it
     also captures `failure.png` and `window.txt`; `logcat.txt` is always captured.
   - The emulator container is started as a dependency; stop it afterwards with
-    `docker compose -f docker/compose.ui.yml --profile all down` (after exporting reports).
+    `docker compose -f tests/docker/compose.ui.yml --profile all down` (after exporting reports).
 
 ### Linux
 
-- **Image** `dyapp:linux-test` (`docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
+- **Image** `dyapp:linux-test` (`tests/docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
   WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
   the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
   `build/unit-build.json` at build time. The container has no checkout mount and no
   network, and `ui-test.sh` never builds images: after changing `clients/linux/`, `clients/desktop/` or the
-  Dockerfile, run `make prepare` (or `bash scripts/ui-test.sh prepare`) first, or
+  Dockerfile, run `make prepare` (or `bash tests/scripts/ui-test.sh prepare`) first, or
   `make ui-test-linux` tests the old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
@@ -141,8 +141,8 @@ host directory. `ui-test.sh` does not pass `--rm`, so the last containers remain
 exported:
 
 ```bash
-python3 scripts/export-ui-results.py android <dir>   # android-unit-test + android-emulator-test
-python3 scripts/export-ui-results.py linux   <dir>   # linux-test
+python3 tests/scripts/export-ui-results.py android <dir>   # android-unit-test + android-emulator-test
+python3 tests/scripts/export-ui-results.py linux   <dir>   # linux-test
 ```
 
 The exporter prints `OK ui-export` or mapped failure details. `--raw` keeps
@@ -163,7 +163,7 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 - **iOS / macOS:** XcodeGen 2.46.0 generates `<platform>/DYApp.xcodeproj` from
   `<platform>/project.yml` (targets `DYApp`, `DYAppTests`, `DYAppUITests`; scheme
-  `DYApp`) after `scripts/build-apple-core.sh <platform>` has built the XCFramework and Swift
+  `DYApp`) after `tools/scripts/build-apple-core.sh <platform>` has built the XCFramework and Swift
   bindings the app target needs. There is no `.xcworkspace`, and the generated project is not committed.
   `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then
   `xcodebuild test` into `$RUNNER_TEMP/apple-results/<platform>.xcresult` (iOS on the first
@@ -171,12 +171,12 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   Keychain; macOS unsigned on `platform=macOS`), summarizes it with `xcresulttool` and
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
-  command. On a Mac you can run `scripts/build-apple-core.sh`, generate the project with
+  command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
 - **Windows:** `cargo build` + `cargo test --manifest-path clients/windows/Cargo.toml`, then
   `desktop-smoke.py` on the exe; artifact `windows-app-and-ui`. Locally on Windows:
   `cargo test --manifest-path clients/windows/Cargo.toml --locked` and
-  `python scripts/desktop-smoke.py build/debug/dyapp-windows.exe` (report goes to
+  `python tests/scripts/desktop-smoke.py build/debug/dyapp-windows.exe` (report goes to
   `%RUNNER_TEMP%` or `/reports/%HOSTNAME%`, so set `RUNNER_TEMP`).
 
 ## Not covered

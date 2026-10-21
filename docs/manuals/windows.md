@@ -7,7 +7,7 @@ planned.
 ## Build
 
 The scheduled `release-sizes` workflow builds the release EXE on `windows-2022`, packs it with
-`scripts/package-windows-zip.py` into `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` and
+`tools/scripts/package-windows-zip.py` into `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` and
 `LICENSE` in one folder), extracts that ZIP and opens and closes the window. The ZIP is the run's
 `windows-zip` artifact. Published release downloads are planned.
 

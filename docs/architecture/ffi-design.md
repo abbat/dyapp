@@ -2,7 +2,7 @@
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
-> generated during the Android build, Swift bindings by `scripts/build-apple-core.sh`
+> generated during the Android build, Swift bindings by `tools/scripts/build-apple-core.sh`
 > ([FFI bindings](../development/ffi-bindings.md)).
 
 ## Which source is the contract

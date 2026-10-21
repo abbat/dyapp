@@ -28,7 +28,8 @@ class DesktopOutput(unittest.TestCase):
             for broken in ("0", "1"):
                 reports = root / broken
                 result = subprocess.run(
-                    [sys.executable, str(ROOT / "scripts/desktop-smoke.py"),
+                    [sys.executable,
+                     str(ROOT / "tests/scripts/desktop-smoke.py"),
                      str(app)], capture_output=True, text=True, check=False,
                     env=dict(os.environ, RUNNER_TEMP=str(reports),
                              DYAPP_CHECK_LOG_DIR=str(root / "logs"),
@@ -67,7 +68,7 @@ class DesktopOutput(unittest.TestCase):
                 "executable": str(binary)}) + "\n")
             result = subprocess.run(
                 [sys.executable,
-                 str(ROOT / "scripts/run-cargo-unit-binaries.py"),
+                 str(ROOT / "tests/scripts/run-cargo-unit-binaries.py"),
                  str(inventory)], capture_output=True, text=True, check=False,
                 env=dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs")))
             self.assertEqual(result.returncode, 101, result.stdout)
@@ -82,7 +83,7 @@ class DesktopOutput(unittest.TestCase):
                 "executable": str(listing)}) + "\n")
             bad_list = subprocess.run(
                 [sys.executable,
-                 str(ROOT / "scripts/run-cargo-unit-binaries.py"),
+                 str(ROOT / "tests/scripts/run-cargo-unit-binaries.py"),
                  str(inventory)], capture_output=True, text=True, check=False,
                 env=dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs")))
             self.assertEqual(bad_list.returncode, 37)
@@ -91,7 +92,7 @@ class DesktopOutput(unittest.TestCase):
             inventory.write_text("")
             empty = subprocess.run(
                 [sys.executable,
-                 str(ROOT / "scripts/run-cargo-unit-binaries.py"),
+                 str(ROOT / "tests/scripts/run-cargo-unit-binaries.py"),
                  str(inventory)], capture_output=True, text=True, check=False,
                 env=dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs")))
             self.assertNotEqual(empty.returncode, 0)
@@ -110,7 +111,7 @@ class DesktopOutput(unittest.TestCase):
                 "print('UI_SMOKE_PASS')\n")
             app.chmod(0o755)
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/desktop-smoke.py"),
+                [sys.executable, str(ROOT / "tests/scripts/desktop-smoke.py"),
                  str(app)], capture_output=True, text=True, check=False,
                 env=dict(os.environ, RUNNER_TEMP=str(root),
                          DYAPP_CHECK_LOG_DIR=str(root / "logs"),
@@ -131,10 +132,10 @@ class DesktopOutput(unittest.TestCase):
     def test_xvfb_startup_error_reaches_linux_runner_and_still_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            scripts = root / "scripts"
-            scripts.mkdir()
+            scripts = root / "tests/scripts"
+            scripts.mkdir(parents=True)
             (scripts / "linux-test.sh").write_text(
-                (ROOT / "scripts/linux-test.sh").read_text())
+                (ROOT / "tests/scripts/linux-test.sh").read_text())
             (scripts / "run-cargo-unit-binaries.py").write_text("")
             target = root / "build"
             target.mkdir(parents=True)

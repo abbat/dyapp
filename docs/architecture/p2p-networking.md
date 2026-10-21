@@ -192,7 +192,7 @@ replaced; a directory with data but no marker belongs to the public network
 ([bootstrap](bootstrap.md#storage-network)). `dyappd` checks the marker after loading the node
 key and before opening any store. `dyappd info` and the other client commands speak the
 network of their config's `network.name` and fail on an invalid name.
-`scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the
+`tests/scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the
 same name is served, a public client is not, and a public start on its storage is refused.
 After identify a node disconnects a peer whose `protocol_version` differs from its own and adds
 it to no DHT and no anchor list ([ADR 0017](../decisions/0017-network-names.md)): `warn` with

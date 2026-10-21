@@ -38,8 +38,9 @@ class Preflight(unittest.TestCase):
                            DYAPP_CHECK_LOG_DIR=str(logs))
                 before = calls.read_text() if calls.exists() else ""
                 result = subprocess.run(
-                    [sys.executable, str(ROOT / "scripts/docker-local.py"),
-                     *args], env=env, capture_output=True, text=True,
+                    [sys.executable,
+                     str(ROOT / "tools/scripts/docker-local.py"), *args],
+                    env=env, capture_output=True, text=True,
                     check=False)
                 self.assertEqual(result.returncode, expected, result.stdout)
                 self.assertTrue(result.stdout.startswith(
@@ -63,7 +64,7 @@ class Preflight(unittest.TestCase):
             docker.chmod(0o755)
             logs = root / "logs"
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/docker-local.py"),
+                [sys.executable, str(ROOT / "tools/scripts/docker-local.py"),
                  "build"], capture_output=True, text=True, check=False,
                 env=dict(os.environ, PATH=str(root),
                          DYAPP_CHECK_LOG_DIR=str(logs)))
@@ -83,7 +84,7 @@ class Preflight(unittest.TestCase):
             docker.write_text("#!/bin/sh\nprintf '%s\\n' \"$CONFIG\"\n")
             docker.chmod(0o755)
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts/docker-local.py"),
+                [sys.executable, str(ROOT / "tools/scripts/docker-local.py"),
                  "build", "app"], capture_output=True, text=True, check=False,
                 env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
                          CONFIG=json.dumps(config),

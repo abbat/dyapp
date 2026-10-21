@@ -27,19 +27,19 @@ jobs:
         with:
           persist-credentials: false
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-fuzz@0.13.2
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: "fuzz -> ../build/fuzz"
+          workspaces: "tests/fuzz -> ../../build/fuzz"
       - name: fuzz
         env:
           FUZZ_TARGETS: ${{ matrix.target }}
           FUZZ_SECONDS: "3600"
-        run: bash scripts/rust-check.sh fuzz
-      # New inputs, to merge into fuzz/corpus by hand (docs/testing/README.md#fuzzing).
+        run: bash tests/scripts/rust-check.sh fuzz
+      # New inputs, to merge into tests/fuzz/corpus by hand (docs/testing/README.md#fuzzing).
       - name: corpus and crashes
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

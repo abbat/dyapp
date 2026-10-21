@@ -53,7 +53,7 @@ class AppleCoreProfiles(unittest.TestCase):
                     scripts = root / "scripts"
                     scripts.mkdir()
                     script = scripts / "build-apple-core.sh"
-                    original = ROOT / "scripts/build-apple-core.sh"
+                    original = ROOT / "tools/scripts/build-apple-core.sh"
                     shutil.copyfile(original, script)
                     tools = root / "fake-tools"
                     tools.mkdir()

@@ -43,7 +43,8 @@ class ExportChecks(unittest.TestCase):
 
             def run(script, args, mode="good"):
                 return subprocess.run(
-                    [sys.executable, str(ROOT / "scripts" / script), *args],
+                    [sys.executable, str(ROOT / "tests/scripts" / script),
+                     *args],
                     env=dict(env, MODE=mode), capture_output=True, text=True)
 
             for script, name, args in [
@@ -83,7 +84,8 @@ class ExportChecks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             def run(*args):
                 return subprocess.run(
-                    [sys.executable, str(ROOT / "scripts/search-model.py"),
+                    [sys.executable,
+                     str(ROOT / "tests/scripts/search-model.py"),
                      *args], capture_output=True, text=True,
                     env=dict(os.environ, DYAPP_CHECK_LOG_DIR=directory))
 

@@ -1,0 +1,10 @@
+# Debian 12 with the shared Linux build toolchain and the crates the dev image fetched:
+# a binary built here runs on Debian 12.
+FROM dyapp:dev-prepared AS crates
+FROM dyapp:linux-base
+# Release builds embed their dependency list (cargo auditable build).
+USER root
+RUN CARGO_NET_OFFLINE=false cargo install --locked cargo-auditable --version 0.7.6
+USER 999:999
+COPY --from=crates /usr/local/cargo/registry /usr/local/cargo/registry
+WORKDIR /workspace

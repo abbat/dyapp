@@ -36,7 +36,7 @@ jobs:
         run: pip install --require-hashes --no-deps -r .github/requirements-lint.txt
 
       - name: run
-        run: python3 scripts/run-check.py --log-dir build/check-output flake8 -- flake8 .
+        run: python3 tools/scripts/run-check.py --log-dir build/check-output flake8 -- flake8 .
         continue-on-error: false
 
       - name: check logs

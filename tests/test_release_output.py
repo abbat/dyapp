@@ -23,7 +23,9 @@ CHECKS = {
 class ReleaseOutput(unittest.TestCase):
     def run_check(self, root, script, arguments):
         return subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / script), *arguments],
+            [sys.executable, str(ROOT / (
+                "tests/scripts" if script == "check-reproducible.py"
+                else "tools/scripts") / script), *arguments],
             capture_output=True, text=True, check=False,
             env=dict(os.environ, GITHUB_ACTIONS="false",
                      DYAPP_CHECK_LOG_DIR=str(root / "logs")))

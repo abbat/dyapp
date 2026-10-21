@@ -28,7 +28,7 @@ Notes on the generated code:
   serialization. Decode the payload of a `SignedRecord`, but store and forward the original bytes.
 
 Swift and Kotlin get no protobuf code: the apps talk to the core through UniFFI types, so
-protobuf stays inside the Rust crates. The `protobuf-compiler` package in `docker/Dockerfile.dev`
+protobuf stays inside the Rust crates. The `protobuf-compiler` package in `tools/docker/Dockerfile.dev`
 is not used by the build.
 
 Schema contents and evolution rules: [Protobuf schema](../architecture/protobuf-schema.md).

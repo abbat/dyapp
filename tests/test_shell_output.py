@@ -40,7 +40,7 @@ class ShellOutput(unittest.TestCase):
             cases = [(0, 0, 0), (0, 19, 19), (23, 19, 23)]
             for primary, cleanup, expected in cases:
                 result = subprocess.run(
-                    ["bash", str(ROOT / "scripts/image-test.sh")],
+                    ["bash", str(ROOT / "tests/scripts/image-test.sh")],
                     capture_output=True, text=True, check=False,
                     env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
                              DYAPP_VERBOSE="0", DYAPP_CHECK_LOG_DIR=str(root),
@@ -58,7 +58,7 @@ class ShellOutput(unittest.TestCase):
         for args, status in [(["--help"], 0), (["invalid"], 2),
                              (["shell", "invalid"], 2)]:
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/ui-test.sh"), *args],
+                ["bash", str(ROOT / "tests/scripts/ui-test.sh"), *args],
                 capture_output=True, text=True, check=False,
                 env=dict(os.environ, DYAPP_KVM="1", DYAPP_VERBOSE="0"))
             self.assertEqual(result.returncode, status, result.stdout)

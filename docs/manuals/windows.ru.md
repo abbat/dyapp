@@ -7,7 +7,7 @@
 ## Сборка
 
 Плановый workflow `release-sizes` собирает release-EXE на `windows-2022`, упаковывает его
-скриптом `scripts/package-windows-zip.py` в `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` и
+скриптом `tools/scripts/package-windows-zip.py` в `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` и
 `LICENSE` в одной папке), распаковывает этот ZIP, открывает и закрывает окно. ZIP — артефакт
 `windows-zip` этого запуска. Готовые файлы в релизах запланированы.
 

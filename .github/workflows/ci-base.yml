@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 
-# The jobs run on the runner itself; scripts/rust-check.sh holds the commands that the dev
+# The jobs run on the runner itself; tests/scripts/rust-check.sh holds the commands that the dev
 # Docker image runs locally.
 env:
   CARGO_INCREMENTAL: "0"
@@ -26,10 +26,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0 # commit-message lint and gitleaks read the history
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: check
-        run: bash scripts/rust-check.sh quality
+        run: bash tests/scripts/rust-check.sh quality
       - name: raw check logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -62,7 +62,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0 # changed-line coverage diffs against the push or PR base
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-nextest@0.9.148
@@ -71,14 +71,14 @@ jobs:
           workspaces: ". -> build/llvm-cov-target"
       # One instrumented build serves the tests, the network peers and the coverage report.
       - name: build
-        run: bash scripts/rust-check.sh cov-build
+        run: bash tests/scripts/rust-check.sh cov-build
       - name: tests
-        run: bash scripts/rust-check.sh cov-test
+        run: bash tests/scripts/rust-check.sh cov-test
       - name: coverage
         env:
           # Empty for workflow_dispatch: check_coverage.py then uses origin/main.
           COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash scripts/rust-check.sh cov-report
+        run: bash tests/scripts/rust-check.sh cov-report
       - name: coverage upload
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -87,9 +87,9 @@ jobs:
           path: build/coverage/coverage.*
           if-no-files-found: error
       - name: deny
-        run: bash scripts/rust-check.sh security
+        run: bash tests/scripts/rust-check.sh security
       - name: network
-        run: bash scripts/rust-check.sh network
+        run: bash tests/scripts/rust-check.sh network
       - name: raw check logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -108,7 +108,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0 # the mutants come from the diff against the push or PR base
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-mutants@27.1.0
@@ -117,7 +117,7 @@ jobs:
         env:
           # Empty for workflow_dispatch: rust-check.sh then uses origin/main.
           MUTANTS_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash scripts/rust-check.sh mutants
+        run: bash tests/scripts/rust-check.sh mutants
       - name: outcomes
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -138,7 +138,7 @@ jobs:
         with:
           persist-credentials: false
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-fuzz@0.13.2
@@ -147,7 +147,7 @@ jobs:
           workspaces: "fuzz -> ../build/fuzz"
       # 60 seconds per target, the saved corpus first.
       - name: fuzz
-        run: bash scripts/rust-check.sh fuzz
+        run: bash tests/scripts/rust-check.sh fuzz
       - name: crashes
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

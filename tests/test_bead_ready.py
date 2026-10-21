@@ -5,7 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "bead_ready", ROOT / "scripts/bead-ready.py")
+    "bead_ready", ROOT / "tools/scripts/bead-ready.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 READY = {"id": "x-1", "issue_type": "task", "description": "Fix the parser.",

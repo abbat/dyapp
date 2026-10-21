@@ -26,9 +26,9 @@ Practice A1. Before claiming a task, feature or bug bead, check that it is ready
 through the same script:
 
 ```bash
-python3 -B scripts/bead-ready.py --claim <id>   # check, then bd update <id> --claim
-python3 -B scripts/bead-ready.py <id>...        # check only
-python3 -B scripts/bead-ready.py --in-progress  # every claimed bead
+python3 -B tools/scripts/bead-ready.py --claim <id>   # check, then bd update <id> --claim
+python3 -B tools/scripts/bead-ready.py <id>...        # check only
+python3 -B tools/scripts/bead-ready.py --in-progress  # every claimed bead
 ```
 
 A bead is ready when it has:
@@ -68,13 +68,13 @@ inherited by every bead under the quorum epic.
 
 ## CI failures
 
-`scripts/ci-report-import.py` (run on the host; it needs an authenticated `gh`) turns failing CI
+`tools/scripts/ci-report-import.py` (run on the host; it needs an authenticated `gh`) turns failing CI
 jobs into beads. CI itself never touches beads.
 
 ```bash
-python3 scripts/ci-report-import.py             # latest completed run of each workflow on main
-python3 scripts/ci-report-import.py RUN-ID ...  # specific runs
-python3 scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip, change nothing
+python3 tools/scripts/ci-report-import.py             # latest completed run of each workflow on main
+python3 tools/scripts/ci-report-import.py RUN-ID ...  # specific runs
+python3 tools/scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip, change nothing
 ```
 
 - One bead per failing job, keyed by the external ref `ci:<workflow>/<job>`, type `bug`,
@@ -88,7 +88,7 @@ python3 scripts/ci-report-import.py --dry-run   # print create/note/reopen/skip,
 
 ## Priority proposals
 
-A11 uses the local read-only `scripts/priority-proposal.py`; run it at least every
+A11 uses the local read-only `tools/scripts/priority-proposal.py`; run it at least every
 14 days. It ranks non-closed delivery epics by WSJF = cost of delay / job size,
 ties by bead ID, and never changes priorities or dependency readiness.
 Use `--practices-first` for the maintainer's current policy: epics labelled
@@ -98,9 +98,9 @@ changing policy requires a new approval. A saved proposal is never reordered
 in place; `--proposal ... --practices-first` rejects an incompatible policy.
 
 ```bash
-python3 -B scripts/priority-proposal.py --practices-first \
+python3 -B tools/scripts/priority-proposal.py --practices-first \
   --report /tmp/ai/priorities.json
-python3 -B scripts/priority-proposal.py --proposal /tmp/ai/priorities.json \
+python3 -B tools/scripts/priority-proposal.py --proposal /tmp/ai/priorities.json \
   --approval /tmp/ai/priority-approval.json --check
 ```
 
@@ -126,7 +126,7 @@ JSON for offline reproduction. Keep these files outside tracked/public files.
 ```bash
 bd ready -n 10                       # open, unblocked work
 bd show <id>                         # details
-python3 -B scripts/bead-ready.py --claim <id>  # check readiness, then claim
+python3 -B tools/scripts/bead-ready.py --claim <id>  # check readiness, then claim
 bd create "Title" -t task -p 2 --parent <epic-id>
 bd dep add <blocked-id> <blocker-id> # <blocked-id> depends on <blocker-id>
 bd close <id> --reason "what was done"

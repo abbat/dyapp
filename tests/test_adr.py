@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "check_adr", ROOT / "scripts/check-adr.py")
+    "check_adr", ROOT / "tests/scripts/check-adr.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 CRATE = '[package]\nname = "x"\n\n[dependencies]\nserde = "1"\n'

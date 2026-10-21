@@ -1,0 +1,107 @@
+name: dyapp
+
+x-build: &build
+  context: ../..
+  dockerfile: tools/docker/Dockerfile.dev
+
+x-runtime: &runtime
+  image: dyapp:dev-prepared
+  user: "999:999"
+  cpus: ${DYAPP_CPUS:-4}
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  network_mode: none
+  read_only: true
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+  volumes:
+    - ../..:/workspace:ro
+    - workspace-cache:/workspace/build
+  environment: &environment
+    HOME: /home/appuser
+    RUSTUP_TOOLCHAIN: "1.99.0"
+    CARGO_NET_OFFLINE: "true"
+    CARGO_INCREMENTAL: "0"
+    CARGO_BUILD_JOBS: "${DYAPP_CPUS:-4}"
+    CMAKE_BUILD_PARALLEL_LEVEL: "${DYAPP_CPUS:-4}"
+    MAKEFLAGS: "-j${DYAPP_CPUS:-4}"
+    RAYON_NUM_THREADS: "${DYAPP_CPUS:-4}"
+    CXXFLAGS: "-g0"
+    CARGO_PROFILE_DEV_DEBUG: "0"
+    RUST_BACKTRACE: "1"
+    DYAPP_VERBOSE: "${DYAPP_VERBOSE:-0}"
+  working_dir: /workspace
+
+services:
+  dev:
+    <<: *runtime
+    build: *build
+    entrypoint: &rust-command [bash, tools/scripts/rust-command-in-container.sh]
+    command: bash tests/scripts/rust-check.sh test
+    profiles: [test]
+  quality:
+    <<: *runtime
+    build: *build
+    entrypoint: *rust-command
+    command: bash tests/scripts/rust-check.sh quality
+    profiles: [quality]
+  workflow-lint:
+    <<: *runtime
+    image: rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+    command: []
+    profiles: [quality]
+  coverage:
+    <<: *runtime
+    environment:
+      <<: *environment
+      COVERAGE_RUN_ID: ${COVERAGE_RUN_ID:-}
+    build: *build
+    entrypoint: *rust-command
+    command: bash tests/scripts/rust-check.sh coverage
+    profiles: [coverage]
+  security:
+    <<: *runtime
+    build: *build
+    entrypoint: *rust-command
+    command: bash tests/scripts/rust-check.sh security
+    profiles: [security]
+  # The release binary on Debian 12, written to the host's build/deb as the calling user.
+  deb-test:
+    image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    cpus: ${DYAPP_CPUS:-4}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    volumes:
+      - ../../build/deb:/deb:ro
+      - ../../tests/scripts/deb-test.sh:/deb-test.sh:ro
+    command: [bash, /deb-test.sh]
+    profiles: [deb]
+  # A clean Debian 12 with network, so apt pulls the desktop client's WebKitGTK Depends.
+  client-deb-test:
+    image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    cpus: ${DYAPP_CPUS:-4}
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ../../build/deb:/deb:ro
+      - ../../tests/scripts:/tests/scripts:ro
+    command: [bash, /tests/scripts/client-deb-test.sh]
+    profiles: [deb]
+  # The same clean Debian 12 for the manual tarball installation.
+  tarball-test:
+    image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    cpus: ${DYAPP_CPUS:-4}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    volumes:
+      - ../../build/deb:/deb:ro
+      - ../../tests/scripts/tarball-test.sh:/tarball-test.sh:ro
+    command: [bash, /tarball-test.sh]
+    profiles: [deb]
+
+volumes:
+  workspace-cache:

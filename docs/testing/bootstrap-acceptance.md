@@ -29,11 +29,11 @@ preserve runtime behavior, schema and assertions.
 | **Unit** | Module tests in process; networking tests also use real loopback sockets | `#[cfg(test)]` in `rust/bootstrap/src/*.rs`, `rust/p2p-net/src/lib.rs` | `make test` | ci-base `core` |
 | **Contract** | Golden wire/config fixtures and properties | `rust/bootstrap/tests/compatibility.rs`, `tests/properties.rs` | `make test` | ci-base `core` |
 | **Functional** | One real `node::run` on loopback TCP, libp2p clients in the test | `rust/bootstrap/tests/protocol.rs` | `make test` | ci-base `core` |
-| **E2E local** | Three `dyappd` processes on loopback, driven by `dyappd`'s client commands | `scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
-| **E2E Docker** | Three `dyappd` containers and a coturn relay on a Docker network | `docker/compose.network.yml`, `scripts/network-test.py` | `make test-integration` | no (local only) |
-| **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
-| **Rehearsal** | Cold start, two-holder canary, rolling upgrade from an older commit and rollback on three release `dyappd` with production defaults | `scripts/rehearsal.py` | `make rehearsal FROM=<git ref>` (`rust-check.sh rehearsal`) | manual `rehearsal.yml`, about 3 h |
-| **Package** | The `.deb` and the tarball installed on Debian 12, node started as its user | `scripts/deb-test.sh`, `scripts/tarball-test.sh` | `make deb` | no (local only) |
+| **E2E local** | Three `dyappd` processes on loopback, driven by `dyappd`'s client commands | `tests/scripts/network-test.py --local` | `rust-check.sh network` (no Make target) | ci-base `network` |
+| **E2E Docker** | Three `dyappd` containers and a coturn relay on a Docker network | `tests/docker/compose.network.yml`, `tests/scripts/network-test.py` | `make test-integration` | no (local only) |
+| **Memory plateau** | The suite's mailbox and media load repeated on three release `dyappd` for 5 minutes | `tests/scripts/network-test.py --plateau` | `make test-integration` (`rust-check.sh memory`) | no (local only) |
+| **Rehearsal** | Cold start, two-holder canary, rolling upgrade from an older commit and rollback on three release `dyappd` with production defaults | `tests/scripts/rehearsal.py` | `make rehearsal FROM=<git ref>` (`rust-check.sh rehearsal`) | manual `rehearsal.yml`, about 3 h |
+| **Package** | The `.deb` and the tarball installed on Debian 12, node started as its user | `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` | `make deb` | no (local only) |
 
 The functional suite keeps shared node/client fixtures in `protocol.rs`.
 Its child modules under `tests/protocol/` group namespace isolation and service
@@ -66,7 +66,7 @@ records an observed gate failure and the remaining attribution questions.
 On failure, open the retained raw log named by `DETAILS` to identify the failed
 protocol assertion or RSS sample, then use the corresponding coverage-map row
 to find its implementation. Reproduce with the command in the Layers table;
-`bash scripts/rust-check.sh --raw network` (or `memory`) keeps direct diagnostic
+`bash tests/scripts/rust-check.sh --raw network` (or `memory`) keeps direct diagnostic
 output. Fix the underlying assertion or growth before rerunning; do not relax
 connection limits or the plateau tolerance to make a regression pass.
 

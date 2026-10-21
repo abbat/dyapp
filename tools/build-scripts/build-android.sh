@@ -14,7 +14,6 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build/android-build"
 ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-}"
-RUST_CRATES=("dyapp-identity" "dyapp-profile" "dyapp-p2p-net" "dyapp-messaging" "dyapp-video")
 
 # Android targets (ABI mapping)
 declare -A ANDROID_TARGETS=(
@@ -176,7 +175,7 @@ verify_build() {
     local abi="${ANDROID_TARGETS[$target]}"
     local lib_dir="${BUILD_DIR}/gradle/jniLibs/${abi}"
     if [ -d "$lib_dir" ] && ls "$lib_dir"/*.so &> /dev/null; then
-      echo "  ✓ $abi: $(ls -1 "$lib_dir"/*.so | wc -l) libraries"
+      echo "  ✓ $abi: $(find "$lib_dir" -maxdepth 1 -type f -name '*.so' -printf '.' | wc -c) libraries"
       found=true
     fi
   done

@@ -9,7 +9,7 @@ members = [
     "rust/bootstrap",
     "rust/ffi",
 ]
-exclude = ["fuzz", "clients/linux", "clients/windows"]
+exclude = ["tests/fuzz", "clients/linux", "clients/windows"]
 resolver = "2"
 
 # Practice C5: no unsafe outside rust/bootstrap and rust/ffi (docs/development/code-quality.md).

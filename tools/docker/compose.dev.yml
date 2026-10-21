@@ -1,0 +1,75 @@
+name: dyapp
+
+x-build: &build
+  context: ../..
+  dockerfile: tools/docker/Dockerfile.dev
+
+x-runtime: &runtime
+  image: dyapp:dev-prepared
+  user: "999:999"
+  cpus: ${DYAPP_CPUS:-4}
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  network_mode: none
+  read_only: true
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+  volumes:
+    - ../..:/workspace:ro
+    - workspace-cache:/workspace/build
+  environment: &environment
+    HOME: /home/appuser
+    RUSTUP_TOOLCHAIN: "1.99.0"
+    CARGO_NET_OFFLINE: "true"
+    CARGO_INCREMENTAL: "0"
+    CARGO_BUILD_JOBS: "${DYAPP_CPUS:-4}"
+    CMAKE_BUILD_PARALLEL_LEVEL: "${DYAPP_CPUS:-4}"
+    MAKEFLAGS: "-j${DYAPP_CPUS:-4}"
+    RAYON_NUM_THREADS: "${DYAPP_CPUS:-4}"
+    CXXFLAGS: "-g0"
+    CARGO_PROFILE_DEV_DEBUG: "0"
+    RUST_BACKTRACE: "1"
+    DYAPP_VERBOSE: "${DYAPP_VERBOSE:-0}"
+  working_dir: /workspace
+
+services:
+  linux-base:
+    image: dyapp:linux-base
+    build:
+      context: ../..
+      dockerfile: tools/docker/Dockerfile.linux-base
+    profiles: [base]
+  build:
+    <<: *runtime
+    build: *build
+    entrypoint: &rust-command [bash, tools/scripts/rust-command-in-container.sh]
+    command: bash tools/scripts/build-rust.sh
+    profiles: [build]
+  deb:
+    <<: *runtime
+    image: dyapp:deb
+    build:
+      context: ../..
+      dockerfile: tools/docker/Dockerfile.deb
+    user: "${DYAPP_UID:-1000}:${DYAPP_GID:-1000}"
+    tmpfs:
+      - /tmp:rw,exec,nosuid,nodev,mode=1777
+    volumes:
+      - ../..:/workspace:ro
+      - ../../build/deb:/workspace/build
+    environment:
+      <<: *environment
+      HOME: /tmp
+    entrypoint: *rust-command
+    command: bash tools/scripts/build-deb.sh
+    profiles: [deb]
+  # The dyappd container image for operators (tools/docker/Dockerfile.dyappd).
+  dyappd:
+    image: dyappd:latest
+    build:
+      context: ../..
+      dockerfile: tools/docker/Dockerfile.dyappd
+    profiles: [image]
+volumes:
+  workspace-cache:

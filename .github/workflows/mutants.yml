@@ -1,7 +1,7 @@
 name: mutants
 
 # Practice B2: the full cargo-mutants run, sharded; the mutation score must not drop below
-# [mutants] score in scripts/baselines.toml. Pushes check only the changed code (ci-base.yml).
+# [mutants] score in tests/scripts/baselines.toml. Pushes check only the changed code (ci-base.yml).
 on:
   schedule:
     - cron: "23 5 * * 0"
@@ -30,7 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: setup
-        run: bash scripts/ci-setup.sh rust
+        run: bash tools/scripts/ci-setup.sh rust
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-mutants@27.1.0
@@ -68,4 +68,4 @@ jobs:
           pattern: mutants-*
           path: build/mutants
       - name: score
-        run: python3 -B scripts/check-mutants.py build/mutants/*/outcomes.json
+        run: python3 -B tests/scripts/check-mutants.py build/mutants/*/outcomes.json

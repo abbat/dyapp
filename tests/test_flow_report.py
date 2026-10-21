@@ -12,7 +12,7 @@ from test_flow_metrics import FLOW, snapshot
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "flow_report", ROOT / "scripts/flow-report.py")
+    "flow_report", ROOT / "tools/scripts/flow-report.py")
 CLI = importlib.util.module_from_spec(SPEC)
 with patch.dict(sys.modules, {"flow_metrics": FLOW}):
     SPEC.loader.exec_module(CLI)

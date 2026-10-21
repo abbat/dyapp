@@ -207,7 +207,7 @@ Before pushing or merging, run the local read-only gate over the exact delivery
 range from the current upstream base to the reviewed head:
 
 ```bash
-python3 -B scripts/quorum-check.py --base <base> --head HEAD --quorum <Q> \
+python3 -B tests/scripts/quorum-check.py --base <base> --head HEAD --quorum <Q> \
   --report /tmp/ai/quorum-delivery.json
 ```
 

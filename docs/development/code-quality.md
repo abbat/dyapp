@@ -9,20 +9,20 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `scripts/check-quality.sh`) | `scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make quality` (= `lint`, `check`, `tests/scripts/check-quality.sh`) | `tests/scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
-| `make coverage` (= `scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
+| `make coverage` (= `tests/scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
 | `make doc` | `cargo doc --workspace --no-deps` |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
 ### Check output
 
-`python3 -B scripts/run-check.py <check-id> -- <command> ...` provides the
+`python3 -B tools/scripts/run-check.py <check-id> -- <command> ...` provides the
 shared quiet contract. Success prints only `OK <check-id>`. Failure preserves
 the exit status (including signals) and prints `FAIL`, a `FIX` documentation
 anchor, then `DETAILS` with selected diagnostics and a raw-log pointer.
-`scripts/check-output.json` maps IDs to owning documentation and diagnostic
+`tools/scripts/check-output.json` maps IDs to owning documentation and diagnostic
 formats; repository validation checks its schema, regular expressions and links.
 
 The parser keeps a bounded first/tail copy in memory; every run also retains
@@ -66,7 +66,7 @@ consumers and internal stage ownership.
 
 ### Commit messages
 
-`scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice A3 of
+`tests/scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice A3 of
 [practices.md](practices.md) on every non-merge commit after a baseline commit (`BASELINE` in the
 script; older history is grandfathered):
 
@@ -85,7 +85,7 @@ fails the check.
 
 ### Flow metrics
 
-`scripts/flow_metrics.py` provides deterministic A7 calculations over local snapshots.
+`tools/scripts/flow_metrics.py` provides deterministic A7 calculations over local snapshots.
 It measures seven-day UTC cohorts: created-to-closed lead hours (nearest-rank p50/p85),
 closed leaf-work throughput, current WIP by assignee (the agent identity), canonical
 `ci.yml` main red intervals and recovery hours, revert and escape-hatch shares,
@@ -99,8 +99,8 @@ support offline reproduction without querying beads from CI.
 
 ### Small batches
 
-`scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
-Every non-merge commit after `[batches].base` in `scripts/baselines.toml` must change at
+`tests/scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
+Every non-merge commit after `[batches].base` in `tests/scripts/baselines.toml` must change at
 most `max_lines = 400` text lines, additions plus deletions, or carry a nonempty
 `Large-Change: <reason>` commit trailer. The trailer is the only exception: rewrite an
 offending PR-branch commit before merging. The fixed baseline excludes the already
@@ -115,7 +115,7 @@ Other generated files must be added to the explicit exclusion policy before they
 
 The script requires complete history and an ancestor baseline; missing history fails.
 It checks committed history, so run it after committing and before pushing.
-`python3 -B scripts/check-batches.py --base <commit> --head HEAD --report <path>`
+`python3 -B tests/scripts/check-batches.py --base <commit> --head HEAD --report <path>`
 reproduces a range. Its JSON report lists each commit's count and exception reason and
 the percentage of large commits, including justified ones. The target is ≤10%; this is
 an observed metric, not an additional veto of a justified exception. Weekly escape-hatch
@@ -131,7 +131,7 @@ reviews changes to `.github/workflows/batch-policy.yml`: a PR can edit its own w
 
 ### Docs change with the code
 
-`scripts/docs-sync.py` (in `make quality` and CI `quality`) enforces practice A2: every non-merge
+`tests/scripts/docs-sync.py` (in `make quality` and CI `quality`) enforces practice A2: every non-merge
 commit after its `BASELINE` that changes an interface line also changes a file under `docs/`.
 Interface lines (`RULES` in the script, a heuristic):
 
@@ -148,17 +148,17 @@ fix a failing commit with `git commit --amend` or a rebase.
 
 ### Size budgets
 
-`scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice B6: a tracked
+`tests/scripts/check-repository.py` (in `make quality` and CI `quality`) enforces practice B6: a tracked
 source file (`SOURCE` suffixes in the script: Rust, Python, shell, Kotlin, Swift, TypeScript,
 JavaScript, protobuf) has at most `[size] max_lines` (1000) lines. `[size.files]` of
-`scripts/baselines.toml` is empty: every file is within the limit. A file listed there would keep
+`tests/scripts/baselines.toml` is empty: every file is within the limit. A file listed there would keep
 its line count as a budget that fails when it grows and also when it shrinks, so the budget is
 lowered in the same change (or the entry dropped once the file is within the limit). Adding an
 entry, raising a budget or raising `max_lines` weakens the check.
 
 ### Trigger list
 
-`scripts/triggers.toml` is the machine-readable list of practice A6a of
+`tests/scripts/triggers.toml` is the machine-readable list of practice A6a of
 [practices.md](practices.md): changes that need extra review. Each trigger has fnmatch `paths`
 (`*` also matches `/`) and, optionally, a `lines` regex; then it fires only when an added or
 removed line of a matching file matches. The triggers are:
@@ -173,13 +173,13 @@ removed line of a matching file matches. The triggers are:
   replication and configuration;
 - `checks`: workflows, scripts, tests, Docker images, lint and deny configurations, and this list.
 
-`python3 scripts/triggers.py` (in `make quality` and CI `quality`) fails when a glob matches no
+`python3 tests/scripts/triggers.py` (in `make quality` and CI `quality`) fails when a glob matches no
 tracked file, so a moved or deleted path cannot silently drop out of the list. With `git diff`
 arguments it also prints the triggers a change fires, one `trigger: path` per line:
 
 ```sh
-python3 scripts/triggers.py origin/main...HEAD   # a branch
-python3 scripts/triggers.py --cached             # staged changes
+python3 tests/scripts/triggers.py origin/main...HEAD   # a branch
+python3 tests/scripts/triggers.py --cached             # staged changes
 ```
 
 The detector only reports; the review a fired trigger requires (a quorum, a threat model update)
@@ -190,8 +190,8 @@ list fires `checks` itself.
 
 `.pre-commit-config.yaml` defines two local hooks:
 
-- `pre-commit` stage: `bash scripts/check-quality.sh` (= `make quality`)
-- `pre-push` stage: `bash scripts/docker-test.sh all`
+- `pre-commit` stage: `bash tests/scripts/check-quality.sh` (= `make quality`)
+- `pre-push` stage: `bash tests/scripts/docker-test.sh all`
 
 There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
 
@@ -212,14 +212,14 @@ A local `#[allow]` states its lasting reason, in `reason = "..."` or in the comm
 
 ### Explicit panic budgets
 
-Practice B8 runs `scripts/check-panics.py` in `make quality` and CI after the
+Practice B8 runs `tests/scripts/check-panics.py` in `make quality` and CI after the
 normal Clippy gate. It checks all-feature workspace libraries, binaries and their
 build scripts, excluding test targets, dependencies and generated files under
 Cargo's target directory. Clippy `unwrap_used`, `expect_used` and `panic` use
 `--force-warn`, so an `allow` attribute cannot hide a counted site.
 Repeated diagnostics for the same package/lint/source span count once.
 
-`[panics]` in `scripts/baselines.toml` records each crate's budget. FFI must
+`[panics]` in `tests/scripts/baselines.toml` records each crate's budget. FFI must
 stay at zero; other crates, including p2p-net, initially ratchet their existing
 sites. Growth fails; shrinking requires lowering the budget in the same commit.
 A missing package/budget or failed/incomplete Clippy run fails rather than
@@ -243,12 +243,12 @@ a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `id
 `unsafe_code = "forbid"` applies to every crate except two:
 
 - workspace members via `[workspace.lints.rust]` in the root `Cargo.toml` and `[lints] workspace =
-  true`; `clients/linux/`, `clients/windows/`, `tools/arch-lint` and `fuzz/` set it in their own `[lints.rust]`;
+  true`; `clients/linux/`, `clients/windows/`, `tools/arch-lint` and `tests/fuzz/` set it in their own `[lints.rust]`;
 - `rust/bootstrap` (libc calls) and `rust/ffi` (uniffi generates `#[no_mangle]`) instead deny
   `clippy::undocumented_unsafe_blocks`: each `unsafe` block needs a `// SAFETY:` comment stating
   the invariant that makes it sound.
 
-`scripts/check-repository.py` fails when a crate's `Cargo.toml` lacks its policy, so a new crate
+`tests/scripts/check-repository.py` fails when a crate's `Cargo.toml` lacks its policy, so a new crate
 cannot skip it. Adding `unsafe` code is a change trigger (see [Trigger list](#trigger-list)).
 
 Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
@@ -321,7 +321,7 @@ placeholders; their replacement remains tracked separately under the
 
 Threshold, metric, gate locations and the (non-enforced) per-crate targets are defined once in
 [Coverage policy](../testing/README.md#coverage-policy): the workspace line total never drops
-below the baseline in `scripts/baselines.toml`, lines changed since the base are ≥80% covered, and
+below the baseline in `tests/scripts/baselines.toml`, lines changed since the base are ≥80% covered, and
 there is no per-crate gate. `make coverage` writes `coverage.json`, `coverage.lcov` and
 `coverage.txt` (per-file table); find uncovered files there and add tests for the missing
 branches.

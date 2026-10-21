@@ -20,7 +20,7 @@ it exists yet.
 
 ### Setup
 
-`scripts/build-apple-core.sh` builds `build/apple/DyappFFI.xcframework` and the
+`tools/scripts/build-apple-core.sh` builds `build/apple/DyappFFI.xcframework` and the
 Swift bindings; the app shows the peer ID of its stored identity key through
 `RustBridge.swift`: the first start creates the key, `PlatformKeyStore.swift` wraps it with
 CryptoKit AES-256-GCM under a random key kept in the Keychain

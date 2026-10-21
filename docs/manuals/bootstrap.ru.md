@@ -78,7 +78,7 @@ make image    # → образ контейнера dyappd:latest
 
 **Список зависимостей в бинарнике.** Обе сборки используют `cargo auditable build`: бинарник несёт
 имена и версии своих crate в виде сжатого zlib JSON в ELF-секции `.dep-v0`, которую `strip`
-сохраняет. `scripts/check-auditable.py` проверяет, что список называет `dyapp-bootstrap` и совпадает
+сохраняет. `tools/scripts/check-auditable.py` проверяет, что список называет `dyapp-bootstrap` и совпадает
 с `Cargo.lock`. Чтобы проверить установленный бинарник по RustSec, выполните
 `cargo audit bin /usr/bin/dyappd` (cargo-audit) или извлеките список через `rust-audit-info`.
 Список называет скомпилированные crate; это не SPDX SBOM, и он ничего не говорит о том, достижим
@@ -136,7 +136,7 @@ docker exec dyappd dyappd status
 docker logs dyappd
 ```
 
-`docker/Dockerfile.dyappd` копирует release-бинарник вместе с библиотеками glibc, с которыми он
+`tools/docker/Dockerfile.dyappd` копирует release-бинарник вместе с библиотеками glibc, с которыми он
 связан, на пустую основу: без оболочки, без менеджера пакетов, без `/etc`. Узел работает с UID
 65532 и пишет только в `/var/lib/dyappd` — свой `storage.dir` и единственный том образа, поэтому
 корень может быть только для чтения, а все capabilities сброшены. Новый именованный том получает
@@ -529,7 +529,7 @@ dyappd info 192.0.2.7:7070          # адрес IPv4
 
 `make rehearsal FROM=<git ref>` выполняет эти шаги на трёх loopback-узлах (127.1.0.1, 127.2.0.1 и
 127.3.0.1, три группы /16) с release-сборками ref и рабочего дерева, где ref — коммит до смены
-формата хранилища; это занимает около трёх периодов доверия (`scripts/rehearsal.py`). Ручной
+формата хранилища; это занимает около трёх периодов доверия (`tests/scripts/rehearsal.py`). Ручной
 workflow `rehearsal.yml` выполняет ту же проверку на CI с ref во входе `from`.
 
 ## Состояние и метрики

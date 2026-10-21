@@ -64,24 +64,24 @@ jobs:
         components: clippy
 
     # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
-    # (scripts/rust-check.sh); here a finding must not stop the SARIF upload.
+    # (tests/scripts/rust-check.sh); here a finding must not stop the SARIF upload.
     - name: install cargo-deny
       run: cargo install cargo-deny
 
     - name: clippy
-      run: python3 scripts/run-check.py --log-dir build/check-output clippy -- cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
+      run: python3 tools/scripts/run-check.py --log-dir build/check-output clippy -- cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
       continue-on-error: true
 
     - name: vulnerable dependencies
-      run: python3 scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check advisories
+      run: python3 tools/scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check advisories
       continue-on-error: true
 
     - name: license compliance
-      run: python3 scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check licenses
+      run: python3 tools/scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check licenses
       continue-on-error: true
 
     - name: dependency duplicates
-      run: python3 scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check duplicates
+      run: python3 tools/scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check duplicates
       continue-on-error: true
 
     - name: unsafe code usage
@@ -93,7 +93,7 @@ jobs:
 
     - name: sarif
       if: always()
-      run: python3 scripts/clippy-to-sarif.py clippy.json > clippy.sarif
+      run: python3 tests/scripts/clippy-to-sarif.py clippy.json > clippy.sarif
 
     - name: check logs
       if: always()

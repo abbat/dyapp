@@ -8,12 +8,12 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts/check-mutants.py"
+SCRIPT = ROOT / "tests/scripts/check-mutants.py"
 SPEC = importlib.util.spec_from_file_location("check_mutants", SCRIPT)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 SPEC = importlib.util.spec_from_file_location(
-    "repository_skips", ROOT / "scripts/check-repository.py")
+    "repository_skips", ROOT / "tests/scripts/check-repository.py")
 REPOSITORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPOSITORY)
 
@@ -34,7 +34,8 @@ class Mutants(unittest.TestCase):
     def test_score_below_the_baseline_fails(self):
         with self.assertRaisesRegex(ValueError, "80.0% < baseline 80.5%"):
             CHECK.check([shard(8, 0, 2)], 80.5)
-        self.assertIn("Raise [mutants] score in scripts/baselines.toml to "
+        self.assertIn("Raise [mutants] score in "
+                      "tests/scripts/baselines.toml to "
                       "80.0", CHECK.check([shard(8, 0, 2)], 79.5))
 
     def test_cli_reads_shards_and_the_repository_baseline(self):

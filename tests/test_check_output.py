@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class CheckOutput(unittest.TestCase):
     def run_check(self, directory, name, command):
         return subprocess.run(
-            [sys.executable, "-B", str(ROOT / "scripts/run-check.py"),
+            [sys.executable, "-B", str(ROOT / "tools/scripts/run-check.py"),
              "--log-dir", str(directory), name, "--", *command],
             cwd=ROOT, text=True, capture_output=True, check=False)
 
@@ -33,7 +33,7 @@ class CheckOutput(unittest.TestCase):
             bad.write_text("bad =\n")
             commands = {
                 "junit": [sys.executable, str(
-                    ROOT / "scripts/check-junit-results.py"),
+                    ROOT / "tests/scripts/check-junit-results.py"),
                     "--raw", str(root)],
                 "flake8": [sys.executable, "-m", "flake8", str(bad)],
             }

@@ -285,7 +285,7 @@ resent from the sender's retry queue.
   4.0, see `NOTICE`) in `rust/bootstrap/data/places.bin`, about 190 KB: one block per country
   with its sorted IDs as LEB128 deltas. A lookup skips to the country's block and decodes it,
   at most a few tens of thousands of IDs. A release refreshes the file with
-  `scripts/geonames-places.py`. The search index stores a place outside the set, or an empty
+  `tools/scripts/geonames-places.py`. The search index stores a place outside the set, or an empty
   one, as `""`: such a profile is found by its country only.
 - Planned: an optional public `name`, and one rule for every profile string: NFC, no control,
   format (bidi, zero-width) or private-use characters, a character limit per string and a count
@@ -1584,7 +1584,7 @@ Integration tests (`tests/integration_tests.rs`, in-process, no network):
 - Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
 
-The network test (`scripts/network-test.py`) runs three `dyappd` instances, all with
+The network test (`tests/scripts/network-test.py`) runs three `dyappd` instances, all with
 roles `store`, `search` and `media` (only the first also serves TURN), and drives them with `dyappd`'s client commands: `info` over TCP and QUIC, publish
 over TCP and get over QUIC with identical bytes, `STALE` on replay; a mailbox put over TCP and
 fetch over QUIC, a stranger's key reads nothing, ack empties it, a watching fetch gets a push; a

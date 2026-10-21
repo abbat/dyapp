@@ -14,7 +14,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: cargo
-    directories: [/, /linux, /windows, /tools/arch-lint]
+    directories: [/, /clients/linux, /clients/windows, /tests/fuzz, /tools/arch-lint]
     schedule:
       interval: weekly
     cooldown:
@@ -35,7 +35,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: gradle
-    directory: /android
+    directory: /clients/android
     schedule:
       interval: weekly
     cooldown:
@@ -45,7 +45,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: docker
-    directory: /docker
+    directories: [/tools/docker, /tests/docker]
     schedule:
       interval: weekly
     cooldown:

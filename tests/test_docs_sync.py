@@ -5,7 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "docs_sync", ROOT / "scripts/docs-sync.py")
+    "docs_sync", ROOT / "tests/scripts/docs-sync.py")
 SYNC = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SYNC)
 

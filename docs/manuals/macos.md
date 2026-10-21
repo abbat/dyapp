@@ -12,7 +12,7 @@ a copy from the same tag; that signed copy is theirs, not an upstream release.
 ## Where the ZIP comes from
 
 The scheduled `release-sizes` workflow builds Release on `macos-15` with
-`CODE_SIGNING_ALLOWED=NO`, checks the bundle (`scripts/package-apple-release.py`: both
+`CODE_SIGNING_ALLOWED=NO`, checks the bundle (`tools/scripts/package-apple-release.py`: both
 architectures, executable, layout) and keeps the ZIP as the run's `apple-macos-unsigned` artifact.
 Published release downloads with checksum and provenance are planned.
 
@@ -24,7 +24,7 @@ You need a Mac with Xcode 16, Rust 1.99 (`rustup`) and [XcodeGen](https://github
 ```sh
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-bash scripts/build-apple-core.sh macos release
+bash tools/scripts/build-apple-core.sh macos release
 xcodegen generate --spec clients/macos/project.yml --project clients/macos
 xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
     -destination generic/platform=macOS -derivedDataPath build \

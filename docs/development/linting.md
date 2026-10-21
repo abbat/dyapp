@@ -13,12 +13,12 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
 | GitHub Actions security | zizmor (offline audits) | `.github/zizmor.yml` | yes | — | enforced |
-| Shell | ShellCheck on `scripts/*.sh` | none (defaults) | yes | — | enforced |
+| Shell | ShellCheck on `tests/scripts/*.sh`, `tools/scripts/*.sh`, `tools/build-scripts/*.sh` | none (defaults) | yes | — | enforced |
 | Secrets | gitleaks on the git history | `.gitleaksignore` | yes | — | enforced |
-| Commit messages, tracker IDs | `scripts/check-repository.py` ([rules](code-quality.md#commit-messages)) | `BASELINE` in the script | yes | — | enforced after the baseline commit |
-| Source file size | `scripts/check-repository.py` ([rules](code-quality.md#size-budgets)) | `[size]` in `scripts/baselines.toml` | yes | — | 1000 lines; older files budgeted |
-| Trigger list | `scripts/triggers.py` ([rules](code-quality.md#trigger-list)) | `scripts/triggers.toml` | yes | — | enforced: every glob matches a tracked file |
-| Docs with the code | `scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits after the baseline |
+| Commit messages, tracker IDs | `tests/scripts/check-repository.py` ([rules](code-quality.md#commit-messages)) | `BASELINE` in the script | yes | — | enforced after the baseline commit |
+| Source file size | `tests/scripts/check-repository.py` ([rules](code-quality.md#size-budgets)) | `[size]` in `tests/scripts/baselines.toml` | yes | — | 1000 lines; older files budgeted |
+| Trigger list | `tests/scripts/triggers.py` ([rules](code-quality.md#trigger-list)) | `tests/scripts/triggers.toml` | yes | — | enforced: every glob matches a tracked file |
+| Docs with the code | `tests/scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits after the baseline |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
@@ -26,8 +26,8 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml` | yes | — | enforced; not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
-The quality checks are `scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
-`make check`, `scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`; the `pre-commit` hook would too, but it
+The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
+`make check`, `tests/scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`; the `pre-commit` hook would too, but it
 does not run today, see [code-quality.md](code-quality.md#git-hooks).
 
 ## Rust

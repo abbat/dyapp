@@ -14,10 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class NativeOutput(unittest.TestCase):
     def test_apple_cli_guards_keep_status_without_executing_native_tools(self):
         commands = [
-            ([sys.executable, "scripts/apple-test-in-ci.py"],
+            ([sys.executable, "tests/scripts/apple-test-in-ci.py"],
              1, "apple-tests"),
-            (["bash", "scripts/apple-test-in-ci.sh"], 2, "apple-tests"),
-            (["bash", "scripts/build-apple-core.sh", "invalid"],
+            (["bash", "tests/scripts/apple-test-in-ci.sh"], 2, "apple-tests"),
+            (["bash", "tools/scripts/build-apple-core.sh", "invalid"],
              2, "apple-core"),
         ]
         with tempfile.TemporaryDirectory() as directory:
@@ -34,7 +34,7 @@ class NativeOutput(unittest.TestCase):
 
     def test_export_keeps_distinct_evidence_and_rejects_empty(self):
         spec = importlib.util.spec_from_file_location(
-            "ui_export", ROOT / "scripts/export-ui-reports.py")
+            "ui_export", ROOT / "tests/scripts/export-ui-reports.py")
         exporter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(exporter)
         with tempfile.TemporaryDirectory() as directory:

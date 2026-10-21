@@ -5,7 +5,7 @@ exports, errors, ownership, threading, security — is defined only in
 [FFI Contract](../architecture/ffi-design.md); this page does not repeat it.
 
 > **Status:** the Android app generates Kotlin bindings and builds the core for
-> each ABI during its Gradle build; `scripts/build-apple-core.sh` generates Swift
+> each ABI during its Gradle build; `tools/scripts/build-apple-core.sh` generates Swift
 > bindings and an XCFramework for iOS and macOS. Generated files are build outputs
 > and are never committed.
 
@@ -48,13 +48,13 @@ on Android) and throws `CoreException` for a failed call.
 Both run before `preDebugBuild`/`preReleaseBuild`. They need Rust 1.99.0 with the
 `aarch64-linux-android` and `x86_64-linux-android` targets, `cargo-ndk` 4.1.2,
 the NDK (`ANDROID_NDK_HOME`, r29 `29.0.14206865`) and a host C toolchain;
-`docker/Dockerfile.android-test` installs all of them. The property
+`tests/docker/Dockerfile.android-test` installs all of them. The property
 `-Pdyapp.prebuiltRust` skips both tasks and reuses `build/rust` from an earlier
 build; the Docker unit-test run uses it because it has no Rust sources.
 
 ## Apple
 
-`scripts/build-apple-core.sh [ios|ios-device|macos|all] [debug|release]` runs
+`tools/scripts/build-apple-core.sh [ios|ios-device|macos|all] [debug|release]` runs
 on macOS with Xcode. The defaults remain `all debug`; `ios-device` builds only
 the device slice. `release` optimizes the target static libraries while the host
 binding generator stays in the dev profile. Outputs land in `build/apple`:

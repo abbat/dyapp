@@ -77,7 +77,7 @@ image has no shell. Both need only Docker on the build host.
 
 **Dependency list in the binary.** Both builds use `cargo auditable build`: the binary carries
 its crate names and versions as zlib-compressed JSON in the ELF section `.dep-v0`, which `strip`
-keeps. `scripts/check-auditable.py` checks that the list names `dyapp-bootstrap` and matches
+keeps. `tools/scripts/check-auditable.py` checks that the list names `dyapp-bootstrap` and matches
 `Cargo.lock`. To check an installed binary against RustSec, run `cargo audit bin /usr/bin/dyappd`
 (cargo-audit) or extract the list with `rust-audit-info`. The list names the crates compiled in;
 it is not an SPDX SBOM and says nothing about whether an advisory's code is reachable.
@@ -134,7 +134,7 @@ docker exec dyappd dyappd status
 docker logs dyappd
 ```
 
-`docker/Dockerfile.dyappd` copies the release binary with the glibc libraries it links onto an
+`tools/docker/Dockerfile.dyappd` copies the release binary with the glibc libraries it links onto an
 empty base: no shell, no package manager, no `/etc`. The node runs as UID 65532 and writes only
 `/var/lib/dyappd`, its `storage.dir` and the image's one volume, so the root can be read-only and
 every capability dropped. A new named volume takes the owner and mode 0700 from the image; a
@@ -518,7 +518,7 @@ period. The peers of a restarted node keep trusting it while it stays in their r
 `make rehearsal FROM=<git ref>` runs these steps on three loopback nodes (127.1.0.1, 127.2.0.1
 and 127.3.0.1, three /16 groups) with release builds of the ref and of the working tree, the ref
 being a commit before a store-format step; it takes about three trust periods
-(`scripts/rehearsal.py`). The manual `rehearsal.yml` workflow runs the same check on CI with the
+(`tests/scripts/rehearsal.py`). The manual `rehearsal.yml` workflow runs the same check on CI with the
 ref as its `from` input.
 
 ## Status and metrics

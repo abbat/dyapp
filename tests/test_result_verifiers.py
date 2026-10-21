@@ -10,7 +10,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "apple_results", ROOT / "scripts/check-apple-results.py")
+    "apple_results", ROOT / "tests/scripts/check-apple-results.py")
 APPLE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(APPLE)
 
@@ -44,7 +44,7 @@ class Reports(unittest.TestCase):
                 path.write_text(contents)
             argument = directory if junit else str(path)
             return subprocess.run(
-                ["python3", str(ROOT / "scripts" / script), argument],
+                ["python3", str(ROOT / "tests/scripts" / script), argument],
                 capture_output=True, text=True, check=False)
 
     def test_cli_defaults_raw_and_retained_logs(self):
@@ -72,7 +72,7 @@ class Reports(unittest.TestCase):
                 path = root / ("TEST-app.xml" if junit else "report.txt")
                 path.write_text(contents)
                 argument = str(root if junit else path)
-                command = ["python3", str(ROOT / "scripts" / script)]
+                command = ["python3", str(ROOT / "tests/scripts" / script)]
                 result = subprocess.run(
                     command + [argument], capture_output=True, text=True,
                     env=env, check=False)

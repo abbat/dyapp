@@ -1,7 +1,7 @@
 //! Generated invariants complement fixed boundaries and historical wire fixtures.
 //!
 //! Practice B3: every wire and storage type has a `decode(encode(x)) == x` property below;
-//! `scripts/check-repository.py` fails when a protobuf or serde type is missing.
+//! `tests/scripts/check-repository.py` fails when a protobuf or serde type is missing.
 use dyapp_bootstrap::replication::ReplicationFragment;
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_messaging::{Message, MessageStatus, Timestamp};

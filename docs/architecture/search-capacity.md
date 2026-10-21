@@ -34,7 +34,7 @@ Query classes: **place only**; **typical** (place + gender + age, ≈ 11 % of th
 
 ## Model
 
-`scripts/search-model.py` (stdlib only, runs in seconds; `--bench <json>` takes the measured
+`tests/scripts/search-model.py` (stdlib only, runs in seconds; `--bench <json>` takes the measured
 bytes per row, query capacity and `partial` share, otherwise it uses 300 B per row and 500 queries
 per second and says so) computes for every step × activity × node count × search share:
 
@@ -69,7 +69,7 @@ legacy diagnostics). The default capacity tables remain a report data mode.
 
 ## SQLite measurement
 
-`scripts/search-bench.py --rows 100000 --rows 1000000 --rows 2500000 --dir <db dir> --out
+`tests/scripts/search-bench.py --rows 100000 --rows 1000000 --rows 2500000 --dir <db dir> --out
 <json>` (stdlib `sqlite3`) runs once by hand in the dev container limited to
 `--cpus 2 --memory 4g`, within 10 minutes and at most 10 GB of disk; past the budget it writes the
 sizes done so far with `partial_run`. `<db dir>` must hold ≈ 1.5 GB, more than the container's
@@ -194,7 +194,7 @@ honest newcomers, the catch-up grace window, and fast or distributed puzzle solv
 
 #### Defence model and self-check
 
-Run `python3 -I scripts/search-model.py` (assertions always run first), or add
+Run `python3 -I tests/scripts/search-model.py` (assertions always run first), or add
 `--self-check` for assertions only. The old adversary table is a counterfactual without
 the implemented defences, retaining its original 5 ms/hash assumption.
 

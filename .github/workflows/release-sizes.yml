@@ -30,9 +30,9 @@ jobs:
       - name: build and measure
         shell: pwsh
         run: |
-          python scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
+          python tools/scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/report-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report build/release-size-windows.json
+          python tools/scripts/report-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report build/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: size budget
         shell: pwsh
@@ -41,16 +41,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $head = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --base $base --head $head --report build/artifact-size-windows.json
+          python tools/scripts/check-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --base $base --head $head --report build/artifact-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: portable zip
         shell: pwsh
         run: |
-          python scripts/package-windows-zip.py build/release/dyapp-windows.exe build/windows-zip
+          python tools/scripts/package-windows-zip.py build/release/dyapp-windows.exe build/windows-zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Expand-Archive -Path build/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
           $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
-          python scripts/desktop-smoke.py $exe.FullName
+          python tests/scripts/desktop-smoke.py $exe.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -87,15 +87,15 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - name: build and measure
         run: |
-          python3 scripts/docker-local.py -f docker/compose.ui.yml --profile all build android-unit-test
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-unit-test
           mkdir -p build/android-release && chmod 777 build/android-release
           docker run --rm --network none --user 999:999 \
             -e DYAPP_CHECK_LOG_DIR=/reports/check-output \
             -v "$PWD/build/android-release:/reports" \
-            dyapp:android-test bash /app/scripts/build-android-release.sh /reports
+            dyapp:android-test bash /app/tools/scripts/build-android-release.sh /reports
           for package in apk:app-release-unsigned.apk aab:app-release.aab; do
             kind=${package%%:*}
-            python3 scripts/report-artifact-size.py "android-$kind-release-unsigned" \
+            python3 tools/scripts/report-artifact-size.py "android-$kind-release-unsigned" \
               "build/android-release/${package#*:}" \
               --environment "$ANDROID_ENVIRONMENT; unsigned ${kind^^}" \
               --report "build/release-size-android-$kind.json"
@@ -104,7 +104,7 @@ jobs:
         run: |
           for package in apk:app-release-unsigned.apk aab:app-release.aab; do
             kind=${package%%:*}
-            python3 scripts/check-artifact-size.py "android-$kind-release-unsigned" \
+            python3 tools/scripts/check-artifact-size.py "android-$kind-release-unsigned" \
               "build/android-release/${package#*:}" --base "$(git rev-parse HEAD^)" \
               --head "$(git rev-parse HEAD)" --report "build/artifact-size-android-$kind.json"
           done
@@ -148,14 +148,14 @@ jobs:
         with:
           key: release-${{ matrix.platform }}
       - name: release core
-        run: bash scripts/build-apple-core.sh "${{ matrix.core }}" release
+        run: bash tools/scripts/build-apple-core.sh "${{ matrix.core }}" release
       - name: prepare xcode
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "clients/${{ matrix.platform }}/project.yml" --project "clients/${{ matrix.platform }}"
       - name: build and measure
-        run: python3 -B scripts/apple-release-in-ci.py "${{ matrix.platform }}"
+        run: python3 -B tools/scripts/apple-release-in-ci.py "${{ matrix.platform }}"
       - name: evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

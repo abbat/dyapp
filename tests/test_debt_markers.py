@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "repository_debt", ROOT / "scripts/check-repository.py")
+    "repository_debt", ROOT / "tests/scripts/check-repository.py")
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 MARKERS = ("TO" + "DO", "FIX" + "ME")

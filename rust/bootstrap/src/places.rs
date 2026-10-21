@@ -3,7 +3,7 @@
 //!
 //! The data is one block per country, sorted: the country code (2 bytes), the body length
 //! (LEB128) and the body, the sorted IDs as LEB128 deltas (written by
-//! `scripts/geonames-places.py`).
+//! `tools/scripts/geonames-places.py`).
 
 static PLACES: &[u8] = include_bytes!("../data/places.bin");
 

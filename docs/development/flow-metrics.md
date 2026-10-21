@@ -6,10 +6,10 @@ and the existing local `bd` database. CI runs its regression tests in
 `make quality`; CI never reads or writes beads. No schedule is installed.
 
 ```bash
-python3 -B scripts/flow-report.py \
+python3 -B tools/scripts/flow-report.py \
   --snapshot-out /tmp/ai/weekly-flow-snapshot.json \
   --report /tmp/ai/weekly-flow-report.json
-python3 -B scripts/flow-report.py \
+python3 -B tools/scripts/flow-report.py \
   --snapshot /tmp/ai/weekly-flow-snapshot.json \
   --report /tmp/ai/weekly-flow-replay.json
 ```
@@ -30,7 +30,7 @@ A weekly report cannot catch a main-red interval before it passes 24 hours, so
 check canonical main daily:
 
 ```bash
-python3 -B scripts/flow-report.py --health --report /tmp/ai/main-health.json
+python3 -B tools/scripts/flow-report.py --health --report /tmp/ai/main-health.json
 ```
 
 It collects only workflow runs (no beads, commits or alerts) and applies the
@@ -43,7 +43,7 @@ Exit 0: green. `--snapshot` and `--snapshot-out` work as for the weekly report.
 
 Nothing is scheduled and nothing is sent. To run it daily, a maintainer can add
 a user cron entry for a dedicated clone on `main`, such as
-`17 7 * * * cd ~/dyapp-health && git pull -q --ff-only && python3 -B scripts/flow-report.py --health`,
+`17 7 * * * cd ~/dyapp-health && git pull -q --ff-only && python3 -B tools/scripts/flow-report.py --health`,
 or a systemd user timer, and act on a nonzero exit; a red over 24 hours also
 needs the A8 postmortem below.
 

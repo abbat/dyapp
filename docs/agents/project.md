@@ -15,33 +15,33 @@ automatically. This page holds the details. **The user's own instructions (globa
 | `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |
 | `clients/linux/`, `clients/windows/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`. |
 | `build/` | Ignored local output for Cargo, Gradle (`build/android/`), packages, reports and generated bindings. `.cargo/config.toml` sets Cargo's default target directory; `CARGO_TARGET_DIR` can override it. |
-| `proto/`, `tools/` | Protobuf schemas; arch-lint, codegen and helper tooling. |
-| `docker/` | Test-image Dockerfiles and `compose.{dev,network,ui}.yml` (project name `dyapp`, build context is the repo root; `.dockerignore` stays at the root). |
-| `scripts/` | Check scripts behind every Makefile target and CI job (`rust-check.sh`, `linux-test.sh`, `ci-setup.sh` for CI runners). |
+| `proto/` | Protobuf schemas. |
+| `tools/` | Shared build, packaging and release scripts and images. `tools/docker/Dockerfile.linux-base` is the Debian 12 client build base for tests and `.deb` packages. |
+| `tests/` | Check scripts, test-only Compose definitions and images, and fuzz targets and corpus. Run test services with both the shared and test Compose files. |
 | `.agents/skills/` | Project skills shared by every agent (Codex, OpenCode); `.claude/skills/` symlinks to them for Claude Code. Edit the copy here, not a global one. |
 
 Architecture: [overview](../architecture/overview.md), [FFI design](../architecture/ffi-design.md).
 
 ## Commands
 
-Locally everything runs in Docker through `scripts/`; nothing needs a host Rust toolchain. CI runs
-the same `scripts/rust-check.sh` and `scripts/linux-test.sh` directly on the runner after
-`scripts/ci-setup.sh` (Android still uses Docker). Run
+Locally everything runs in Docker through `tools/scripts/` and `tests/scripts/`; nothing needs a host Rust toolchain. CI runs
+the same `tests/scripts/rust-check.sh` and `tests/scripts/linux-test.sh` directly on the runner after
+`tools/scripts/ci-setup.sh` (Android still uses Docker). Run
 `make prepare` once to build the images (it needs network access and is the only target that
 pulls anything).
 
 | Goal | Command | Runs |
 |------|---------|------|
-| Unit tests | `make test` | `scripts/docker-test.sh test` |
+| Unit tests | `make test` | `tests/scripts/docker-test.sh test` |
 | Integration | `make test-integration` | bootstrap `integration_tests` + network compose + `rust-check.sh memory` (5-minute RSS plateau) |
-| First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `scripts/rehearsal.py`, see [operator manual](../manuals/bootstrap.md#first-deployment) |
-| Everything (pre-push) | `make test-all` | `scripts/docker-test.sh all` |
-| Debian 12 package | `make deb` | `scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `scripts/deb-test.sh`, `scripts/tarball-test.sh` and `scripts/client-deb-test.sh` on bookworm-slim |
-| Container image | `make image` | builds `dyappd:latest` (`docker/Dockerfile.dyappd`), then `scripts/image-test.sh` |
+| First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `tests/scripts/rehearsal.py`, see [operator manual](../manuals/bootstrap.md#first-deployment) |
+| Everything (pre-push) | `make test-all` | `tests/scripts/docker-test.sh all` |
+| Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim |
+| Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
 | fmt check | `make fmt` | `cargo fmt --all -- --check` |
-| Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `scripts/check-quality.sh` |
-| Coverage ratchet (lines, scripts/baselines.toml) | `make coverage` | `scripts/docker-test.sh coverage` |
-| Security | `make security` (= `audit`, `deny`) | `scripts/docker-test.sh security` |
+| Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
+| Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
+| Security | `make security` (= `audit`, `deny`) | `tests/scripts/docker-test.sh security` |
 | MSRV / type check | `make msrv` | `cargo check --workspace --all-features --all-targets` |
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
@@ -51,7 +51,7 @@ There are no other targets (no `ui-test-all`, no npm). Details: [testing](../tes
 
 ## Local check output
 
-The shared wrapper, `scripts/run-check.py <check-id> -- <command> ...`,
+The shared wrapper, `tools/scripts/run-check.py <check-id> -- <command> ...`,
 prints `OK` or `FAIL`/`FIX`/`DETAILS` and keeps raw logs separately. Its check map
 and documentation anchors are validated; [contract and rollout](../development/code-quality.md#check-output).
 Core Python checks have concise defaults and explicit `--raw` compatibility;
@@ -66,7 +66,7 @@ streams the existing underlying stages. Help and valid interactive shells keep
 their direct output. Image-test cleanup preserves an original failure; failed
 mandatory cleanup also fails an otherwise successful check.
 
-Use the Make targets above for quiet successful checks. `scripts/docker-local.py` captures
+Use the Make targets above for quiet successful checks. `tools/scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
 and the last 256 KiB, with a `[... N bytes truncated ...]` marker between them.
 Full logs are retained under `DYAPP_CHECK_LOG_DIR` (default `/tmp/ai/check-output`),
@@ -86,7 +86,7 @@ Long stages have no live progress in quiet mode; use verbose mode.
 Image builds use the same capture behavior. Rust build/test/coverage/network/memory
 stages use the shared runner in Docker and native CI. Failed Rust tests retain
 their failure blocks without earlier passing-test progress; coverage numbers
-remain in the JSON/LCOV/text reports. `bash scripts/rust-check.sh --raw STAGE`
+remain in the JSON/LCOV/text reports. `bash tests/scripts/rust-check.sh --raw STAGE`
 selects the previous direct-tool output for diagnosis or an existing data consumer.
 Other commands that invoke tools directly keep their existing output.
 
@@ -120,6 +120,6 @@ capture per port across restarts. Raw failure evidence includes node-port header
 - Update `docs/` in the same commit as the code: a new feature, a behaviour fix, or a changed
   command, config or interface must leave the affected pages describing what the code actually
   does (planned parts marked as planned, outdated statements deleted, `docs/README.md` index and
-  relative links/anchors updated). `scripts/check-repository.py` (in `make quality`) fails on a
+  relative links/anchors updated). `tests/scripts/check-repository.py` (in `make quality`) fails on a
   broken relative link or anchor, a file under `docs/` that no link chain from `docs/README.md`
   reaches, and an `AGENTS.md` longer than 80 lines.

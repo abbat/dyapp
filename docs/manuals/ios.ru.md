@@ -19,7 +19,7 @@
 ```sh
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-ios
-bash scripts/build-apple-core.sh ios-device release
+bash tools/scripts/build-apple-core.sh ios-device release
 xcodegen generate --spec clients/ios/project.yml --project clients/ios
 ```
 

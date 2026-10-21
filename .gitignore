@@ -23,6 +23,6 @@ __pycache__/
 *.pb.kt
 
 # cargo-fuzz
-fuzz/target/
-fuzz/artifacts/
-fuzz/coverage/
+tests/fuzz/target/
+tests/fuzz/artifacts/
+tests/fuzz/coverage/

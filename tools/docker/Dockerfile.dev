@@ -1,0 +1,52 @@
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49
+ENV RUSTUP_TOOLCHAIN=1.99.0 CARGO_BUILD_JOBS=4 \
+    CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 RAYON_NUM_THREADS=4 \
+    CXXFLAGS=-g0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential pkg-config protobuf-compiler libssl-dev \
+    python3-flake8 python3-yaml python3-pyflakes shellcheck openjdk-21-jre-headless unzip
+# Official actionlint 1.7.12.
+COPY --from=rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 /usr/local/bin/actionlint /usr/local/bin/actionlint
+# Official gitleaks 8.30.1.
+COPY --from=zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f /usr/bin/gitleaks /usr/local/bin/gitleaks
+# typos 1.50.3, taplo 0.10.0, cargo-shear 1.14.0, SwiftLint 0.65.1, detekt 1.23.8 and zizmor 1.30.1 release
+# binaries, the same checksums as tools/scripts/ci-setup.sh.
+RUN curl -fsSL -o /tmp/typos.tgz https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-unknown-linux-musl.tar.gz && \
+    curl -fsSL -o /tmp/taplo.gz https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz && \
+    curl -fsSL -o /tmp/shear.tgz https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-unknown-linux-musl.tar.gz && \
+    curl -fsSL -o /tmp/swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip && \
+    curl -fsSL -o /tmp/zizmor.tgz https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz && \
+    curl -fsSL -o /usr/local/lib/detekt-cli.jar https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar && \
+    printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  /tmp/typos.tgz' \
+        '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156  /tmp/taplo.gz' \
+        '9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e  /tmp/shear.tgz' \
+        'caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d  /tmp/swiftlint.zip' \
+        'e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a  /tmp/zizmor.tgz' \
+        '2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1  /usr/local/lib/detekt-cli.jar' | sha256sum -c - && \
+    tar -xzf /tmp/typos.tgz -C /usr/local/bin ./typos && \
+    tar -xzf /tmp/shear.tgz -C /usr/local/bin cargo-shear && \
+    tar -xzf /tmp/zizmor.tgz -C /usr/local/bin zizmor && \
+    gunzip -c /tmp/taplo.gz > /usr/local/bin/taplo && \
+    unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint && \
+    chmod 755 /usr/local/bin/typos /usr/local/bin/taplo /usr/local/bin/cargo-shear /usr/local/bin/swiftlint \
+        /usr/local/bin/zizmor && \
+    chmod 644 /usr/local/lib/detekt-cli.jar && \
+    rm -f /tmp/typos.tgz /tmp/taplo.gz /tmp/shear.tgz /tmp/swiftlint.zip /tmp/zizmor.tgz
+RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
+RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \
+    cargo install --locked cargo-deny --version 0.20.2 && \
+    cargo install --locked cargo-nextest --version 0.9.148 && \
+    cargo install --locked cargo-mutants --version 27.1.0 && \
+    cargo install --locked cargo-fuzz --version 0.13.2
+RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
+WORKDIR /workspace
+COPY . .
+# Dependency preparation is online; all runtime test commands are offline.
+RUN cargo fetch --locked && cargo fetch --locked --manifest-path tests/fuzz/Cargo.toml && \
+    chmod -R a+rX /usr/local/cargo/registry
+RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
+    chmod -R a+rX /opt/advisory-dbs
+RUN mkdir -p /workspace/build && chown -R 999:999 /workspace/build
+ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
+USER 999:999
+CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

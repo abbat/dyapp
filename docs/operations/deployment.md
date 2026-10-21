@@ -103,7 +103,7 @@ developer setup.
 libp2p client for scripts and manual checks.
 
 **In Docker (no host Rust toolchain needed).** The network-test image builds `dyappd`
-(`docker/Dockerfile.network-test`):
+(`tests/docker/Dockerfile.network-test`):
 
 ```bash
 make prepare            # builds the dev, UI-test and network-test images
