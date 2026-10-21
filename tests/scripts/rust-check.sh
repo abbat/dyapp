@@ -105,8 +105,8 @@ step() {
             rm -rf ../../build/fuzz-tmp
             mkdir -p ../../build/fuzz-tmp
             export TMPDIR=$PWD/../../build/fuzz-tmp
-            cargo fuzz build -s none --target "$host" --target-dir ../../build/fuzz
-            for target in ${FUZZ_TARGETS:-$(cargo fuzz list)}; do
+            cargo fuzz build --fuzz-dir . -s none --target "$host" --target-dir ../../build/fuzz
+            for target in ${FUZZ_TARGETS:-$(cargo fuzz list --fuzz-dir .)}; do
                 mkdir -p "../../build/fuzz-corpus/$target" "../../build/fuzz-artifacts/$target"
                 # The binary itself: `cargo fuzz run` writes into the read-only tests/fuzz/artifacts.
                 "../../build/fuzz/$host/release/$target" \

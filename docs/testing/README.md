@@ -265,14 +265,16 @@ pushes have no target yet (planned).
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
 and `.github/workflows/fuzz.yml` for an hour per target every night. Both workflows cache the
-`tests/fuzz` Cargo workspace against `build/fuzz`. libFuzzer first runs every
+`tests/fuzz` Cargo workspace against `build/fuzz`. The script passes `--fuzz-dir .` from
+`tests/fuzz/` so cargo-fuzz opens that workspace. libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
 crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
 
 **Corpus.** `tests/fuzz/corpus/` holds the inputs, minimized with libFuzzer's `-merge=1`; it is marked
 binary in `.gitattributes`, so it has no diffs and no line count. To take in the inputs of a
 nightly run (artifact `fuzz-<target>`), merge them into the target's directory with
-`cargo fuzz run -s none <target> corpus/<target> <new inputs> -- -merge=1` and commit.
+`cargo fuzz run --fuzz-dir . -s none <target> corpus/<target> <new inputs> -- -merge=1`
+from `tests/fuzz/` and commit.
 
 **Crashes.** A crash fails the step; the CI failure becomes a bead through the
 [CI report import](../agents/beads.md#ci-failures). Fix it, then copy the crash input
