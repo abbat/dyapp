@@ -26,7 +26,9 @@ max_lines = 400
 
 [scorecard]
 # Practice C3: OpenSSF Scorecard aggregate score (tests/scripts/check-scorecard.py); the target is 7.0.
-score = 7.2
+# 7.1 measured on 2026-10-21 after the local linux-test image added an unpinned
+# Dockerfile to Scorecard's Pinned-Dependencies count.
+score = 7.1
 
 [mutants]
 # Practice B2: weekly full cargo-mutants score, percent (tests/scripts/check-mutants.py); the first

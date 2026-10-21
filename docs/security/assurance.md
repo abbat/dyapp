@@ -21,7 +21,9 @@ The first run (2026-10-19, before `SECURITY.md`) scored 5.9. With `SECURITY.md`,
 digest-pinned images, hash-pinned flake8 and the OSV exceptions it rose to 6.8.
 The 2026-10-20 run on `fd8c98b` measured 7.3. CI-Tests scores only merged pull requests among
 the recent commits; once the last one left that window the check became inconclusive and dropped
-out of the average, so the baseline is 7.2. The target of 7.0 is met.
+out of the average. After the local `tests/docker/Dockerfile.linux-test` was added, Scorecard
+counted one more unpinned local base image and the score fell from 7.2 to 7.1. The baseline is
+7.1; the target of 7.0 is met.
 Maintained remains at 0 while the repository is younger than 90 days; Code-Review and
 Contributors are also at 0. The registered Best Practices badge scores 2 and branch
 protection scores 4. Improving these checks requires maintainer decisions.

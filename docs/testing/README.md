@@ -264,7 +264,8 @@ pushes have no target yet (planned).
 
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
-and `.github/workflows/fuzz.yml` for an hour per target every night. libFuzzer first runs every
+and `.github/workflows/fuzz.yml` for an hour per target every night. Both workflows cache the
+`tests/fuzz` Cargo workspace against `build/fuzz`. libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
 crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
 

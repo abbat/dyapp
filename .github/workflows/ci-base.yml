@@ -144,7 +144,7 @@ jobs:
           tool: cargo-fuzz@0.13.2
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: "fuzz -> ../build/fuzz"
+          workspaces: "tests/fuzz -> ../../build/fuzz"
       # 60 seconds per target, the saved corpus first.
       - name: fuzz
         run: bash tests/scripts/rust-check.sh fuzz
