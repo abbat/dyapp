@@ -655,8 +655,8 @@ The operator may refuse service to any user through a deny list (implemented, se
 [Deny list](#deny-list)) on their own node only. Nodes can exchange signed lists, with separate
 switches to share and to accept, both off by default; a node only stores received lists and acts
 on none of them. The exchange is not part of the first release.
-Illegal media are removed by listing the blob hash; erasure-coded shards of a listed blob are not
-mapped yet.
+Listing a media blob hash removes its local whole copy, manifest and erasure-coded shards on
+reload; the node refuses new puts and reads of that hash.
 
 ### Operating a node
 
@@ -971,8 +971,11 @@ The current protocol replies are:
   mailbox, on its fetch and on its media `keep` and `put`. `REFUSED` is no strike, so the client
   moves to another replica; one node's list removes no one from the network. Acks are still
   served, and a `get` of a listed owner's blob already stored is still answered (blobs are not
-  indexed by owner on read); a listed blob hash gets `REFUSED` on `get` and `put`, and its file
-  stays until no keep or attachment holds it.
+  indexed by owner on read). Listing a blob hash purges its local whole copy, manifest and shards
+  on reload, while keeping keep and attachment rows as missing; `get`, `shard_get`, `put`,
+  `shard_put` and replica puts of that hash return `REFUSED`. Repair skips listed hashes, and
+  `dyappd status` reports the cumulative `purged_blobs` count. Removing the entry does not
+  restore the data; a permitted owner may upload it again.
 - <a id="deny-list-exchange"></a>**Deny-list exchange** (not part of the first release; both
   switches stay off). With `network.share_deny_list` on, a
   `/dyapp/node` `deny_list` request gets the entries (no notes), sorted, cut at 20 000 so they fit

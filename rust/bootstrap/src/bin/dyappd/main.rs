@@ -378,6 +378,10 @@ fn status(config: &NodeConfig, running: bool) -> String {
             ),
         ),
         (
+            "purged_blobs",
+            count(&media, "SELECT `count` FROM `purges` WHERE `id` = 1"),
+        ),
+        (
             "deny_entries",
             count(&s.deny_path(), "SELECT count(*) FROM `deny`"),
         ),

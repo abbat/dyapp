@@ -267,7 +267,8 @@ impl Service {
         if !manifest.accepts(put.index as usize, &put.data) {
             return Ok(media_status(Status::Invalid));
         }
-        let response = self.store_media(replica)?;
+        let deny = self.deny.read().unwrap_or_else(PoisonError::into_inner);
+        let response = self.store_media_with_deny(replica, &deny)?;
         if response.status != i32::from(Status::Ok) {
             return Ok(response);
         }
@@ -293,6 +294,9 @@ impl Service {
         manifest: &proto::MediaManifest,
         shards: &[(usize, Vec<u8>)],
     ) -> crate::Result<MediaResponse> {
+        if self.listed(&manifest.hash) {
+            return Ok(media_status(Status::Refused));
+        }
         let media = self.media.as_ref().unwrap();
         if let Some(data) = media.get(&manifest.hash)? {
             if dyapp_identity::sha256(&data).as_slice() == manifest.hash {
@@ -317,6 +321,9 @@ impl Service {
 
     /// Charges reading and assembling a sharded blob to `peer`; false when refused.
     pub fn prepare_media_read(&self, peer: &Peer, manifest: &proto::MediaManifest) -> bool {
+        if self.listed(&manifest.hash) {
+            return false;
+        }
         let Some(k) = manifest.data_shards() else {
             return false;
         };
@@ -388,6 +395,15 @@ impl Service {
 
     /// Independently verifies the authorization and checks against the latest local keep.
     pub fn store_media(&self, replica: &proto::MediaReplicaPut) -> crate::Result<MediaResponse> {
+        let deny = self.deny.read().unwrap_or_else(PoisonError::into_inner);
+        self.store_media_with_deny(replica, &deny)
+    }
+
+    fn store_media_with_deny(
+        &self,
+        replica: &proto::MediaReplicaPut,
+        deny: &HashSet<String>,
+    ) -> crate::Result<MediaResponse> {
         use proto::media_replica_put::Authorization;
         let Some(media) = &self.media else {
             return Ok(media_status(Status::Unsupported));
@@ -426,7 +442,7 @@ impl Service {
                 {
                     return Ok(media_clock_invalid(now));
                 }
-                if self.listed(&owner) || self.listed(&hash) {
+                if deny.contains(&hex(&owner)) || deny.contains(&hex(&hash)) {
                     return Ok(media_status(Status::Refused));
                 }
                 if !keep.hashes.iter().any(|h| h.as_slice() == hash) {
@@ -460,7 +476,7 @@ impl Service {
                 if attach.created > now.saturating_add(CLOCK_SKEW) || expires <= now {
                     return Ok(media_clock_invalid(now));
                 }
-                if self.listed(&owner) || self.listed(&hash) {
+                if deny.contains(&hex(&owner)) || deny.contains(&hex(&hash)) {
                     return Ok(media_status(Status::Refused));
                 }
                 if !attach.hashes.iter().any(|h| h.as_slice() == hash) {

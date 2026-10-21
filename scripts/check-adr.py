@@ -54,6 +54,10 @@ COVERED = {
         "docs/decisions/0004-identity-keys.md",
     "54eb2882330b20efdaef431ef5f1ae7ec8459c77":
         "docs/decisions/0016-protocol-evolution.md",
+    # This published wire change updated ADR 0009 in the same commit,
+    # but omitted its trailer.
+    "9f1c05dffa91c7fb252b14db39c04d99cc774e1f":
+        "docs/decisions/0009-message-delivery-and-storage.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

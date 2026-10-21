@@ -64,6 +64,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
     assert_eq!(service.wire.take().0, [[0; 2]; 11]);
 }
 
+mod deny_media;
 mod groups;
 
 #[tokio::test]

@@ -2,6 +2,28 @@
 
 use super::*;
 
+pub(super) fn listed_media_request(
+    service: &Service,
+    request: &proto::media_request::Request,
+) -> bool {
+    use proto::media_request::Request;
+    match request {
+        Request::Get(get) => service.listed(&get.hash),
+        Request::ShardGet(get) => service.listed(&get.hash),
+        Request::ReplicaPut(replica) => replica.manifest.as_ref().map_or_else(
+            || service.listed(&dyapp_identity::sha256(&replica.data)),
+            |manifest| service.listed(&manifest.hash),
+        ),
+        Request::ShardPut(put) => put.replica.as_ref().is_some_and(|replica| {
+            replica
+                .manifest
+                .as_ref()
+                .is_some_and(|manifest| service.listed(&manifest.hash))
+        }),
+        _ => false,
+    }
+}
+
 impl Replicas {
     /// Entries that wait for a reply, a lookup or a queue slot; each leaves on its answer, failure
     /// or timeout, so an idle node holds none.
@@ -34,6 +56,9 @@ impl Replicas {
     ) {
         let keep = proto::MediaKeep::decode(record.payload.as_slice()).unwrap();
         for hash in &keep.hashes {
+            if service.listed(hash) {
+                continue;
+            }
             if let Some(missing) = self.media_repaired.result(hash, now) {
                 response.missing.retain(|h| h != hash);
                 if missing {
@@ -48,7 +73,13 @@ impl Replicas {
         }
         let owner =
             dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
-        let hashes = self.media_repaired.select(owner, &keep.hashes, now);
+        let allowed: Vec<_> = keep
+            .hashes
+            .iter()
+            .filter(|h| !service.listed(h))
+            .cloned()
+            .collect();
+        let hashes = self.media_repaired.select(owner, &allowed, now);
         if hashes.is_empty() {
             service.traffic.add(response.encoded_len() as u64);
             let _ = swarm.behaviour_mut().media.send_response(reply, response);
@@ -149,6 +180,7 @@ impl Replicas {
         for id in done {
             let (repair, reply, mut response) = self.media_repairs.remove(&id).unwrap();
             for (hash, missing) in repair.results() {
+                let missing = missing || service.listed(hash);
                 self.media_repaired.finish(hash, missing);
                 response.missing.retain(|h| h.as_slice() != hash);
                 if missing {
@@ -607,13 +639,25 @@ impl Replicas {
                 continue;
             }
             if let MediaJob::Repair(id, job_id) = job {
-                let Some((request, reserve)) = self
+                let Some((mut request, reserve)) = self
                     .media_repairs
                     .get(&id)
                     .and_then(|(r, _, _)| r.request(job_id))
                 else {
                     continue;
                 };
+                if let Some(proto::media_request::Request::Have(have)) = &mut request.request {
+                    have.items.retain(|part| !service.listed(&part.hash));
+                }
+                if request.request.as_ref().is_none_or(|r| {
+                    matches!(r, proto::media_request::Request::Have(have) if have.items.is_empty())
+                        || listed_media_request(service, r)
+                }) {
+                    if let Some((repair, _, _)) = self.media_repairs.get_mut(&id) {
+                        repair.response(job_id, None);
+                    }
+                    continue;
+                }
                 let local = to == *swarm.local_peer_id();
                 let allowed = local
                     || (service
@@ -686,7 +730,7 @@ impl Replicas {
                     })
                 }
             };
-            if !self.cap.allow_media(&to, &request) {
+            if listed_media_request(service, &request) || !self.cap.allow_media(&to, &request) {
                 continue;
             }
             let prepaid = match &request {

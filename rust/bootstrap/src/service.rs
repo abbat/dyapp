@@ -343,7 +343,7 @@ impl Service {
 
     /// Whether the deny list names `address` (an identity's peer ID, a mailbox address or a
     /// media blob hash).
-    fn listed(&self, address: &[u8]) -> bool {
+    pub(crate) fn listed(&self, address: &[u8]) -> bool {
         self.deny
             .read()
             .unwrap_or_else(PoisonError::into_inner)

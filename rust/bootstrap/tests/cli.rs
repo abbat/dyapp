@@ -49,7 +49,7 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
     assert_eq!(
         stopped_status(&dir),
         "node stopped\npeer_id operator-peer\nprofiles none\nenvelopes none\n\
-         envelope_bytes none\nmedia_blobs none\nmedia_bytes none\ndeny_entries none\n\
+         envelope_bytes none\nmedia_blobs none\nmedia_bytes none\npurged_blobs none\ndeny_entries none\n\
          cached_peers 0\nuptime_seconds unavailable\nrequests unavailable\n\
          wire_in_bytes unavailable\nwire_out_bytes unavailable\n"
     );
@@ -84,6 +84,7 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
         format!("envelope_bytes {}", record.encoded_len()),
         "media_blobs 0".to_owned(),
         "media_bytes 0".to_owned(),
+        "purged_blobs 0".to_owned(),
         "deny_entries none".to_owned(),
     ] {
         assert!(output.lines().any(|line| line == expected), "{output}");

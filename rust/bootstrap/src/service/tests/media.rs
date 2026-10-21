@@ -256,6 +256,45 @@ fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
 }
 
 #[test]
+fn deny_list_refuses_replica_and_shard_restoration() {
+    let s = media_service(|_| {});
+    let owner = Identity::generate();
+    let whole = media_replica(&owner, b"blocked whole".to_vec(), 1);
+    let hash = dyapp_identity::sha256(&whole.data);
+    assert_eq!(s.store_media(&whole).unwrap().status, i32::from(Status::Ok));
+    let data = vec![7; (1 << 20) + 1];
+    let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
+    let mut sharded = media_replica(&owner, data, 2);
+    sharded.data.clear();
+    sharded.manifest = Some(manifest.clone());
+    let shard = proto::MediaShardPut {
+        replica: Some(sharded.clone()),
+        index: 0,
+        data: shards[0].clone(),
+    };
+    assert_eq!(s.store_shard(&shard).unwrap().status, i32::from(Status::Ok));
+    for hash in [hash.as_slice(), manifest.hash.as_slice()] {
+        s.deny.write().unwrap().insert(hex(hash));
+    }
+    assert_eq!(
+        s.store_media(&whole).unwrap().status,
+        i32::from(Status::Refused)
+    );
+    assert_eq!(
+        s.store_media(&sharded).unwrap().status,
+        i32::from(Status::Refused)
+    );
+    assert_eq!(
+        s.store_shard(&shard).unwrap().status,
+        i32::from(Status::Refused)
+    );
+    assert_eq!(
+        s.assemble_media(&manifest, &[]).unwrap().status,
+        i32::from(Status::Refused)
+    );
+}
+
+#[test]
 fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
     let mut s = media_service(|l| l.bytes_per_second = 10_000);
     let owner = Identity::generate();

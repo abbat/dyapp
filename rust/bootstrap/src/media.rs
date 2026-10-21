@@ -94,7 +94,7 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
 }
 
 /// `media.db` format steps.
-const MEDIA_STEPS: &[Step] = &[media_replicas];
+const MEDIA_STEPS: &[Step] = &[media_replicas, media_purge_stats];
 
 /// Owner `last_seen` (rows stored before it count as seen now), attachment `created`, the
 /// signed records, blob `cost`, and the manifest and shard tables of erasure-coded replicas.
@@ -116,6 +116,12 @@ fn media_replicas(db: &Connection) -> rusqlite::Result<()> {
          `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
          CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
          CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);",
+    )
+}
+
+fn media_purge_stats(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `count` INTEGER NOT NULL);\n         INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);",
     )
 }
 
@@ -473,6 +479,48 @@ impl MediaStore {
             }
         }
         Ok(removed)
+    }
+
+    /// Removes a deny-listed blob's local payload while preserving keep and attachment rows.
+    /// Returns whether stored content or storage metadata was present.
+    pub fn purge(&self, hash: &[u8]) -> Result<bool> {
+        let mut db = lock(&self.db)?;
+        let stored: bool = db
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM `blobs` WHERE `hash` = ?1 AND `size` IS NOT NULL) \
+                 OR EXISTS (SELECT 1 FROM `manifests` WHERE `hash` = ?1) \
+                 OR EXISTS (SELECT 1 FROM `shards` WHERE `hash` = ?1)",
+                [hash],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        let path = self.path(hash);
+        let file = path.try_exists().map_err(storage_error)?;
+        if file {
+            fs::remove_file(path).map_err(storage_error)?;
+        }
+        let tx = db.transaction().map_err(storage_error)?;
+        tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [hash])
+            .map_err(storage_error)?;
+        tx.execute("DELETE FROM `manifests` WHERE `hash` = ?", [hash])
+            .map_err(storage_error)?;
+        tx.execute(
+            "UPDATE `blobs` SET `size` = NULL, `cost` = NULL WHERE `hash` = ?",
+            [hash],
+        )
+        .map_err(storage_error)?;
+        if stored || file {
+            tx.execute(
+                "UPDATE `purges` SET `count` = `count` + 1 WHERE `id` = 1",
+                [],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)?;
+        if stored || file {
+            tracing::info!(hash = %hex(hash), "deny-listed media purged");
+        }
+        Ok(stored || file)
     }
 
     fn remove(&self, hashes: Vec<Vec<u8>>) -> Result<()> {

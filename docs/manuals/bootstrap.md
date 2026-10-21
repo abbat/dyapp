@@ -531,6 +531,7 @@ ref as its `from` input.
 | `node` | `running` when the node answers `info` on a `listen` address (a `[::]` or `0.0.0.0` host is dialed on loopback, 15 s at most), else `stopped` |
 | `peer_id` | the node's peer ID, empty before `keygen` |
 | `profiles`, `envelopes`, `media_blobs`, `deny_entries` | records stored; `none` when that store was never created |
+| `purged_blobs` | cumulative local media blobs purged by the deny list; `none` before the media store exists |
 | `envelope_bytes`, `media_bytes` | stored bytes; `none` likewise |
 | `cached_peers` | peers saved for the next start |
 | `uptime_seconds`, `requests`, `wire_in_bytes`, `wire_out_bytes` | seconds since the node started, then requests and payload bytes received and sent over all protocols since then, from the [metrics](#metrics) listener; `unavailable` when the node is stopped, `[metrics] port` is 0 or the listener does not answer |
@@ -642,7 +643,10 @@ sudo -u dyappd dyappd deny list
 
 The running node applies a change within 10 seconds, or at once on `systemctl reload dyappd`;
 denied peers get `STATUS_REFUSED` here and use other nodes. An IP group is given with the node's
-prefix, e.g. `198.51.100.0/24`. The list is local to the node and kept in `deny.db`. Deny-list
+prefix, e.g. `198.51.100.0/24`. Listing a blob hash removes its local whole copy, manifest
+and shards on reload; keep and attachment records remain but report it missing. The node logs the
+hash and increments `purged_blobs` in `dyappd status`. Removing the entry does not restore the
+blob; its owner may upload it again. The list is local to the node and kept in `deny.db`. Deny-list
 exchange between nodes (`share_deny_list`, `accept_deny_lists`) is not part of the first release:
 a shared list tells other operators what you refuse, and received lists are only stored, to be
 reviewed with `dyappd deny received`. Details: [deny list](../architecture/bootstrap.md#deny-list).

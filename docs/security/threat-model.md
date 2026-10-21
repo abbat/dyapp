@@ -74,7 +74,7 @@ defences already in place. Nodes are untrusted by design
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
-| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, technical abuse response only (accepted residual risk); a purge of listed blobs and an operator guide are planned ([below](#illegal-content-and-legal-pressure)) |
+| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list and local purge of listed blobs, technical abuse response only (accepted residual risk); an operator guide is planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks; a client-side profile rollback check is planned ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ✅ Rated: checked identify and provider addresses, a dial guard, replica caps and TURN deny ranges; the rest accepted ([below](#reflection-through-an-honest-node)) |
@@ -391,7 +391,7 @@ hashes; received lists are only stored and applied by hand; envelopes are to be 
 encrypted, so an operator can act on a named hash or key, never on content it cannot read.
 Nothing scans content.
 
-Abuse response is technical only: the deny list, the purge of listed blobs (planned), rate limits
+Abuse response is technical only: the deny list, local purge of listed blobs, rate limits
 and the operator runbooks ([access control](../manuals/bootstrap.md#deny-list)). The
 project has no legal procedure, no abuse desk and no appeal, for its own nodes or for third-party
 operators; each operator answers for their own node. The maintainer accepted this residual risk
