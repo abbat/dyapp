@@ -1,9 +1,10 @@
 //! Client network core: one libp2p connection to a node and the profile, KeyPackage and mailbox
 //! requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
-//! [`attachment`] encrypts their attachments.
+//! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner.
 
 pub mod attachment;
 pub mod chat;
+pub mod profiles;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, key_package_request, mailbox_request, profile_request, Status};
@@ -52,6 +53,9 @@ pub enum Error {
     /// An attachment could not be sealed, or its blob failed a check.
     #[error("attachment: {0}")]
     Attachment(&'static str),
+    /// A profile older than one already seen for its owner.
+    #[error("profile version below the one held")]
+    Rollback,
 }
 
 /// One fetched envelope: the id to ack and the MLS bytes.

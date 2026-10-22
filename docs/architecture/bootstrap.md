@@ -318,7 +318,8 @@ identity-signed `DeviceCertificate` containing the 32-byte Ed25519 device public
 strictly increasing version make the entire list authoritative. A device's mailbox is
 SHA-256(device public key). A KeyPackage's MLS leaf signature key must equal the certified MLS
 key. A sender fetches at least two profile replicas, retains the highest version seen for each
-contact, and refuses a lower version or a device absent from that directory. If the directory is
+contact, and refuses a lower version or a device absent from that directory (`rust/client`:
+`profiles::newest` over the replicas, `profiles::Profiles::accept`). If the directory is
 unavailable, first contact waits; no guessed mailbox or stale package is used.
 
 `/dyapp/keypackage` on store nodes accepts a device-signed publication and an unauthenticated

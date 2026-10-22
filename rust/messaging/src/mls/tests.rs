@@ -249,6 +249,26 @@ fn key_package_with_another_suite_or_long_lifetime_is_rejected() {
 }
 
 #[test]
+fn expired_key_package_is_rejected() {
+    let (alice, alice_device) = device();
+    let (bob, bob_device) = device();
+    let profiles = [
+        profile(&alice, &[&alice_device]),
+        profile(&bob, &[&bob_device]),
+    ];
+    // Two big-endian u64 seconds: valid from 1 to 2 after the epoch, long expired.
+    let mut bytes = [0u8; 16];
+    bytes[7] = 1;
+    bytes[15] = 2;
+    let expired = Lifetime::tls_deserialize_exact(bytes.as_slice()).unwrap();
+    let package = bob_device.key_package_for(expired, false).unwrap();
+    assert!(matches!(
+        alice_device.create_group(&[package], &profiles),
+        Err(Error::Mls(_))
+    ));
+}
+
+#[test]
 fn commit_adding_an_uncertified_member_is_refused() {
     let mut p = pair();
     let (identity, mut mallory) = device();

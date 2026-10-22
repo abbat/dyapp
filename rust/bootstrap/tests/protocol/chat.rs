@@ -1,5 +1,6 @@
 use super::*;
 use dyapp_client::chat::{self, Event};
+use dyapp_client::profiles;
 use dyapp_messaging::mls::Device;
 
 /// One person with one device: identity, device mailbox key, MLS state and node connection.
@@ -216,6 +217,42 @@ async fn a_stranger_s_welcome_is_refused_and_acked() {
         "{events:?}"
     );
     assert_eq!(ids.len(), 1);
+}
+
+#[tokio::test]
+async fn the_client_takes_the_newest_replica_profile_and_refuses_a_rollback() {
+    let mut nodes = Vec::new();
+    for _ in 0..2 {
+        let address = start_config(|config| {
+            config.roles = vec![Role::Store];
+            config.limits.requests_per_second = 1000;
+            config.limits.min_free_mb = 0;
+        })
+        .await;
+        nodes.push(Person::device(&address, Identity::generate(), 1).await.node);
+    }
+    let owner = Identity::generate();
+    for (node, version) in nodes.iter_mut().zip([3, 5]) {
+        let profile = Profile {
+            version,
+            ..Default::default()
+        };
+        node.publish_profile(profile.sign(&owner)).await.unwrap();
+    }
+
+    let newest = profiles::newest(&mut nodes, &owner.peer_id())
+        .await
+        .unwrap();
+    assert_eq!(newest.profile.version, 5);
+    let mut held = profiles::Profiles::default();
+    held.accept(newest).unwrap();
+    let older = nodes[0].get_profile(&owner.peer_id()).await.unwrap();
+    assert_eq!(older.profile.version, 3);
+    assert!(matches!(
+        held.accept(older),
+        Err(dyapp_client::Error::Rollback)
+    ));
+    assert_eq!(held.get(&owner.peer_id()).unwrap().profile.version, 5);
 }
 
 #[tokio::test]
