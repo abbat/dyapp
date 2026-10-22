@@ -354,7 +354,7 @@ impl Device {
 }
 
 /// What an incoming group message carried.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Received {
     /// An application message and the Peer ID of the member who sent it.
     Message {
@@ -365,6 +365,16 @@ pub enum Received {
     },
     /// A commit, checked and applied: the group is in its next epoch.
     Commit,
+}
+
+/// Leaves out the text and the sender.
+impl std::fmt::Debug for Received {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Message { .. } => f.debug_struct("Message").finish_non_exhaustive(),
+            Self::Commit => f.write_str("Commit"),
+        }
+    }
 }
 
 /// One MLS group: a chat between the devices of its members.

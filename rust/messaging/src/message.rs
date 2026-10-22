@@ -22,7 +22,7 @@ pub enum MessageStatus {
 
 /// Message record that retains plaintext even when encrypted fields are attached.
 #[cfg_attr(feature = "proptest", derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Message {
     /// Caller-supplied message identifier.
     pub id: String,
@@ -43,6 +43,17 @@ pub struct Message {
     pub encrypted_payload: Option<Vec<u8>>,
     /// Attached signature bytes; this type does not verify them.
     pub signature: Option<Vec<u8>>,
+}
+
+/// Leaves out the text and both parties.
+impl std::fmt::Debug for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Message")
+            .field("id", &self.id)
+            .field("timestamp", &self.timestamp)
+            .field("status", &self.status)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Message {
@@ -115,6 +126,27 @@ impl Message {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_shows_no_text_or_parties() {
+        let msg = Message::new(
+            "msg1".to_string(),
+            "alice".to_string(),
+            "bob".to_string(),
+            "secret text".to_string(),
+            1.into(),
+        );
+        let debug = format!("{msg:?}");
+        assert!(debug.contains("msg1"), "{debug}");
+        for hidden in ["alice", "bob", "secret"] {
+            assert!(!debug.contains(hidden), "{debug}");
+        }
+        let received = crate::mls::Received::Message {
+            sender: "alice".into(),
+            plaintext: b"secret".to_vec(),
+        };
+        assert_eq!(format!("{received:?}"), "Message { .. }");
+    }
 
     #[test]
     fn test_message_creation() {

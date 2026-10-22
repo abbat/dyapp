@@ -20,7 +20,7 @@ pub const MIN_PADDED_BYTES: usize = 1024;
 const LENGTH_BYTES: usize = 4;
 
 /// MLS bytes for one device mailbox.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Delivery {
     /// The recipient device's mailbox address.
     pub mailbox: Vec<u8>,
@@ -28,8 +28,17 @@ pub struct Delivery {
     pub mls: Vec<u8>,
 }
 
+/// Shows the size only: the mailbox address names a contact.
+impl std::fmt::Debug for Delivery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Delivery")
+            .field("mls_len", &self.mls.len())
+            .finish_non_exhaustive()
+    }
+}
+
 /// What a fetched envelope carried.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Event {
     /// This device joined the group with this ID.
     Joined(Vec<u8>),
@@ -49,6 +58,22 @@ pub enum Event {
     Gap(Vec<u8>),
     /// The envelope was refused and acked: no group took it.
     Refused(String),
+}
+
+/// Leaves out a message's text and sender, so a logged event says nothing about the chat.
+impl std::fmt::Debug for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Joined(group) => f.debug_tuple("Joined").field(group).finish(),
+            Self::Message { group, .. } => f
+                .debug_struct("Message")
+                .field("group", group)
+                .finish_non_exhaustive(),
+            Self::Commit(group) => f.debug_tuple("Commit").field(group).finish(),
+            Self::Gap(group) => f.debug_tuple("Gap").field(group).finish(),
+            Self::Refused(reason) => f.debug_tuple("Refused").field(reason).finish(),
+        }
+    }
 }
 
 /// Publishes `count` single-use KeyPackages of `device` (its MLS state) under the device mailbox
@@ -271,7 +296,22 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{pad, unpad, MIN_PADDED_BYTES};
+    use super::{pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
+
+    #[test]
+    fn debug_shows_no_text_sender_or_mailbox() {
+        let event = Event::Message {
+            group: vec![1],
+            sender: "peer-of-bob".into(),
+            plaintext: b"secret text".to_vec(),
+        };
+        assert_eq!(format!("{event:?}"), "Message { group: [1], .. }");
+        let delivery = Delivery {
+            mailbox: vec![0xab; 32],
+            mls: vec![0; 3],
+        };
+        assert_eq!(format!("{delivery:?}"), "Delivery { mls_len: 3, .. }");
+    }
 
     #[test]
     fn padding_hides_length_up_to_a_power_of_two() {

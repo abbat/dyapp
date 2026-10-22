@@ -348,6 +348,9 @@ workspace target, rejecting the executable `todo!()` macro.
 
 Track deferred implementation in local beads; retain factual limitations in
 source and owning docs. Moving a marker does not complete its implementation.
+The messaging encryption/signature/key-derivation APIs still contain explicit
+placeholders; their replacement remains tracked separately under the
+[MLS design](../decisions/0005-openmls-end-to-end-encryption.md).
 
 ## Hidden Unicode
 
@@ -366,9 +369,6 @@ identifiers are covered by rustc and clippy (`confusable_idents`, `mixed_script_
 `allowBackup="false"` and `dataExtractionRules`, or that exports any component other than the
 launcher activity. The rules in `res/xml/data_extraction_rules.xml` exclude every domain from
 cloud backup and device transfer. `tests/test_android_manifest.py` covers the check.
-The messaging encryption/signature/key-derivation APIs still contain explicit
-placeholders; their replacement remains tracked separately under the
-[MLS design](../decisions/0005-openmls-end-to-end-encryption.md).
 
 ## Coverage
 
@@ -389,6 +389,11 @@ branches.
 - There are no benchmarks (`criterion` is not a dependency and there are no `benches/`).
 - Compare secrets (keys, MACs, release secrets) in constant time with `subtle::ConstantTimeEq`,
   never `==`; public values such as nonces, hashes and signatures may use `==`.
+- Client code (Rust core, FFI and apps) never logs message content, keys or contacts'
+  identifiers (peer IDs, mailbox addresses). Types that hold them print none of it in `Debug`
+  (`Identity`, `Attachment`, `Event`, `Delivery`, `Received`, `MlsReceived`, `Message`), with a
+  test each. The clients have no logger and no crash reporting; one added later logs warnings and
+  errors only in release builds.
 - Apps show data from peers (profile text, names, messages) as plain text: no markdown, HTML,
   autolinks or WebView, and no URL scheme or deep link built from it.
 - <a id="sql"></a>**SQLite statements.** Quote every table, column, index and alias name with

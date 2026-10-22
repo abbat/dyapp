@@ -109,3 +109,12 @@ fn profile_device(record: &[u8]) -> Vec<u8> {
     let record = SignedRecord::decode(record).unwrap();
     Profile::decode(record.payload.as_slice()).unwrap().devices[0].encode_to_vec()
 }
+
+#[test]
+fn received_debug_shows_no_text_or_sender() {
+    let received = MlsReceived::Message {
+        sender: "alice".into(),
+        plaintext: b"secret".to_vec(),
+    };
+    assert_eq!(format!("{received:?}"), "Message { .. }");
+}
