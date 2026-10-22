@@ -52,6 +52,7 @@ it are entry points that tools discover by path (see
 
 ### Operations
 - [Deployment](operations/deployment.md)
+- [Abuse reports and legal requests](operations/abuse-and-legal-requests.md)
 - [Bootstrap node operator manual](manuals/bootstrap.md) ([Russian](manuals/bootstrap.ru.md))
 - [Linux desktop client](manuals/linux.md) ([Russian](manuals/linux.ru.md))
 - [Windows desktop client](manuals/windows.md) ([Russian](manuals/windows.ru.md))

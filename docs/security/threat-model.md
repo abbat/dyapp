@@ -74,7 +74,7 @@ defences already in place. Nodes are untrusted by design
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
-| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list and local purge of listed blobs, technical abuse response only (accepted residual risk); an operator guide is planned ([below](#illegal-content-and-legal-pressure)) |
+| 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, local purge of listed blobs and an operator guide, technical abuse response only (accepted residual risk) ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks, and a client-side profile rollback check in `rust/client` ([below](#data-tampering)) |
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection and backup exclusion; private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ✅ Rated: checked identify and provider addresses, a dial guard, replica caps and TURN deny ranges; the rest accepted ([below](#reflection-through-an-honest-node)) |
@@ -317,7 +317,7 @@ no security policy and no private channel for vulnerability reports.
 | A fake release or a fake download page | GitHub, lookalike domains, stores | High × medium | Fix: signed builds for every platform (class 2) and the official names page with key fingerprints ([above](#homoglyphs-and-unicode-tricks)) |
 | A fake "official" seed or node list | Websites, chats | Medium × medium | Accept: seeds are pinned to peer IDs and the built-in list is empty; once public seeds exist, the official names page lists them |
 | Fake support channels ask users for keys or codes | Social networks, chats | Medium × medium | Fix: the official names page lists the support channels and says that the project never asks for keys, codes or backups |
-| Forged abuse reports push an operator to deny-list a user | Email to operators | Medium × medium | Accept: one node's refusal; the user goes to other nodes. Fix: the deployment guide tells operators to check a report before acting and never to apply received lists unread |
+| Forged abuse reports push an operator to deny-list a user | Email to operators | Medium × medium | Accept: one node's refusal; the user goes to other nodes. In place: the [operator page](../operations/abuse-and-legal-requests.md#checking-a-report-before-acting) tells operators to check a report before acting and never to apply received lists unread |
 | One operator's deny list censors users on other nodes | Deny-list exchange | Medium × medium | Accept: each operator denies on their own node only ([access control](../manuals/bootstrap.md#deny-list)); exchange is off in the first release and received lists are never applied automatically ([exchange](../architecture/bootstrap.md#deny-list-exchange)) |
 | A user wrongly denied has no one to appeal to | Operators | Medium × medium | Accept: abuse response is technical only, see [below](#illegal-content-and-legal-pressure) |
 | Someone posing as a maintainer asks an operator for node keys or logs | Email, chats | High × low | Fix: the security policy says that maintainers never ask for keys or logs; the deployment guide links it |
@@ -395,7 +395,8 @@ encrypted, so an operator can act on a named hash or key, never on content it ca
 Nothing scans content.
 
 Abuse response is technical only: the deny list, local purge of listed blobs, rate limits
-and the operator runbooks ([access control](../manuals/bootstrap.md#deny-list)). The
+and the operator runbooks ([access control](../manuals/bootstrap.md#deny-list),
+[abuse reports and legal requests](../operations/abuse-and-legal-requests.md)). The
 project has no legal procedure, no abuse desk and no appeal, for its own nodes or for third-party
 operators; each operator answers for their own node. The maintainer accepted this residual risk
 for the first release: a wrongly denied user moves to other nodes, and a complaint the operator
@@ -406,7 +407,7 @@ cannot verify technically has no channel in the project ([out of scope](#out-of-
 | Illegal media put on a chosen node to expose its operator (a blob is ground until its hash lands there) | `/dyapp/media` `put`, `shard_put` | High × medium | Fix: listing a blob hash deletes the stored copy, its manifest and its shards at once, refuses `shard_put`, `shard_get` and replica puts of it, and repair never restores it. Accept: the node holds it until the operator lists it |
 | Replication spreads a listed blob to honest nodes | Replica puts, repair | Medium × medium | Fix: the same purge on each node that lists it. Accept: each operator lists it on their own; received lists stay manual, so one node cannot censor through another |
 | Illegal photo in a public profile | Profile media | High × medium | Accept: the operator lists the blob hash or the owner's key |
-| A lawful-access or takedown request asks what the node holds | Operator | High × medium | Fix: an operator page says what the node stores and for how long, what it never has (IP logs, readable envelopes), how to take a blob or a key down and how to answer a request |
+| A lawful-access or takedown request asks what the node holds | Operator | High × medium | In place: the [operator page](../operations/abuse-and-legal-requests.md) says what the node stores and for how long, what it never has (IP logs, readable envelopes), how to take a blob or a key down and how to answer a request |
 | False copyright or abuse complaints used to censor a user | Operator | Medium × medium | Accept: one node's list removes no one; the client moves to another replica after `REFUSED` |
 | Content scanning demanded on the client or the node | Law, operator | High × low | Out of scope: it breaks end-to-end encryption; an operator acts on a named hash or key only |
 | Seeds and nodes in one jurisdiction, all pressured at once | Seeds, hosting | High × medium | Accept: the network starts with two seeds and a node's location cannot be checked, so there is no jurisdiction rule; spreading seeds over distant address ranges is a recommendation, not a guarantee |

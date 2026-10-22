@@ -95,6 +95,9 @@ security) is described in the
 ([Russian](../manuals/bootstrap.ru.md)). This page keeps the network-level view and the
 developer setup.
 
+Operators answering an abuse report or a lawful-access request: [Abuse reports and legal
+requests](abuse-and-legal-requests.md).
+
 ## Development
 
 ### Development quick start
