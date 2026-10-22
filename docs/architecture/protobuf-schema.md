@@ -47,7 +47,8 @@ signed version wins); `deleted` marks a tombstone with every other field except 
 `pow_bits` empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
 key (see [Proof of work](bootstrap.md#search)); missing means 0 bits. Tag 5 held
 coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
-full image as ordered blobs plus one small `thumbnail` blob for lists and search results. See
+full image as ordered blobs plus one `thumbnail` blob for lists and search results: a JPEG,
+long side at most 320 px, at most 24 KiB, and a client refuses a larger one without decoding it. See
 the [bootstrap signed profile](bootstrap.md#signed-profile). `devices` (field 24) contains
 at most 64 identity-signed, mailbox-sorted `DeviceCertificate` records; each binds a distinct
 32-byte device key and MLS signature key with a positive generation. Duplicate device or MLS

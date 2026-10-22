@@ -48,6 +48,9 @@ or returns constants.
 | | method | `create_group(key_packages, profiles) -> Result<MlsNewGroup, CoreError>`, `join(welcome, profiles)`, `load_group(id) -> Result<Option<MlsGroup>, CoreError>` | `profiles` are encoded signed profiles, the newest the app holds for every member's owner, verified in Rust. |
 | `MlsNewGroup` | Record | `group: MlsGroup`, `welcome: Vec<u8>` | The new group and the Welcome for the added devices. |
 | `MlsGroup` | Object | `id()`, `members()`, `encrypt(device, plaintext)`, `process(device, message, profiles) -> Result<MlsReceived, CoreError>`, `remove_revoked(device, profiles)`, `export_secret(device, label, context, length)` | One group; each call takes its `MlsDevice`. `MlsReceived` is `Message { sender, plaintext }` or `Commit`. |
+| `make_preview` | function | `(rgba: Vec<u8>, width: u32, height: u32, max_bytes: u32) -> Result<Vec<u8>, CoreError>` | JPEG preview of pixels the app decoded: long side ≤ 320 px, quality 80 down to 40 until it fits `max_bytes` (capped at 24 KiB), then 160 px; no metadata. Fails when nothing fits. |
+| `check_preview` | function | `(bytes: Vec<u8>) -> Result<Rgba, CoreError>` | Decodes a preview or thumbnail from another user after size and header checks, under decoder limits; a decoder panic becomes `CoreError`. `Rgba` is `{ width, height, pixels }`. |
+| `set_network_metered` | function | `(metered: bool)` | The app reports whether its network is metered; metered until it does. Chat auto-download will read it. |
 | `ProfileService` | Object | `new()` | Stub. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
@@ -133,6 +136,8 @@ depends on the native side not using a handle after freeing it.
 
 `cargo test -p dyapp-ffi` wraps and unwraps an `IdentityKey` through a test `KeyStore` and
 checks that keystore errors reach the caller; two `MlsDevice`s exchange a message across a
-sealed restart, and a wrong state key or a malformed profile fails. The Android UI test (`AppUITests.kt`) checks
+sealed restart, and a wrong state key or a malformed profile fails. Preview tests size a
+4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus and 10 000 seeded
+mutations of a valid preview without a panic. The Android UI test (`AppUITests.kt`) checks
 that the stored identity keeps its peer ID when the activity is recreated; the iOS and macOS
 UI tests (`LaunchTests.swift`) check that it survives an app relaunch.

@@ -193,6 +193,7 @@ which lets bidi overrides and invisible characters through.
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | A clone: a new key with someone's photos, fields and name | Search, profile links | High × high | Accept: a contact is shown as unverified until the safety number or QR code is compared; reports are class 14 |
+| A preview that does not match the original (bait) | Chat previews, profile thumbnails | Medium × medium | Accept: no worse than sending the image itself; a stranger's original downloads only on a tap |
 | A clone lists the same photo blob hashes | Profile photos | Medium × high | Accept: an exact-hash check is defeated by re-encoding; the unverified mark is the defence |
 | A lookalike name: homoglyphs, invisible characters, bidi overrides | Profile strings | High × high | Fix: an optional public `name`; every profile string is NFC and refuses control, format (bidi, zero-width) and private-use characters, checked by the node on publish and by the client on input and display |
 | A public name passes for an identity | Contacts, chats | High × high | Fix: a local name the user gives a contact replaces the public one; a public name is always shown with the verified or unverified mark |
@@ -469,6 +470,7 @@ by the hex hash of their content; no node code runs a command; peer-supplied tex
 | Log injection: newlines or ANSI escapes in logged values | `tracing` | Low × low | Accept: logs carry peer ids, addresses and error kinds, not peer text; `tracing-subscriber` escapes ANSI sequences in fields |
 | Command injection | Packaging scripts, systemd unit, Makefile | High × low | Accept: no node code runs a command and the scripts take no network input |
 | Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML, autolinks or WebView, and register no URL schemes ([code quality](../development/code-quality.md)) |
+| A malicious preview or profile thumbnail exploits or crashes the image decoder | Chat previews, `Photo.thumbnail` | High × medium | Fix (core done, no client calls it yet): `check_preview` refuses over 24 KiB, a non-JPEG or a frame header over 320 × 320 before decoding, holds the pure-Rust decoder to `image::Limits` and turns a panic into an error (`rust/ffi`, `preview.rs`) |
 | Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | Fix: every profile string gets a character limit and the text rule planned in [Spoofing](#spoofing); `interests` gets a count limit. Today only `place` is checked |
 
 ### Downgrade

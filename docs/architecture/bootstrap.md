@@ -280,9 +280,10 @@ resent from the sender's retry queue.
 - Payload at most 1 MiB today, a node send/accept value reported in `info`
   ([Limits and abuse](#limits-and-abuse)). Media are separate blobs; the profile only links to
   them by content hash.
-- Each photo in `photos` is the full image (one or more blobs) plus a separate small thumbnail
-  blob, stored whole. Lists and search results load only thumbnails; the full image loads when a
-  profile is opened (implemented in the schema and checks; no client yet).
+- Each photo in `photos` is the full image (one or more blobs) plus a separate thumbnail blob,
+  stored whole: a JPEG, long side at most 320 px, at most 24 KiB (`make_preview` and
+  `check_preview` in `rust/ffi`). Lists and search results load only thumbnails; the full image
+  loads when a profile is opened (implemented in the schema and checks; no client yet).
 - Location is `place`, the decimal GeoNames ID of a city or district, never coordinates
   ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 - **Canonical places.** The node embeds the GeoNames cities1000 set (about 171k places, CC BY

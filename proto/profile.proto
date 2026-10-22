@@ -58,6 +58,7 @@ message DeviceCertificate {
 message Photo {
   // The full image in order, split into blobs no larger than the node's `max_media_bytes`.
   repeated bytes full = 1;
-  // One small blob, stored whole.
+  // One small blob, stored whole: a JPEG, long side at most 320 px, at most 24 KiB, made and
+  // checked by `make_preview` and `check_preview` in `rust/ffi`.
   bytes thumbnail = 2;
 }
