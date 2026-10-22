@@ -43,6 +43,8 @@ WORKDIR /workspace
 COPY . .
 # Dependency preparation is online; all runtime test commands are offline.
 RUN cargo fetch --locked && cargo fetch --locked --manifest-path tests/fuzz/Cargo.toml && \
+    cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
+    cargo fetch --locked --manifest-path clients/windows/Cargo.toml && \
     chmod -R a+rX /usr/local/cargo/registry
 RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
     chmod -R a+rX /opt/advisory-dbs

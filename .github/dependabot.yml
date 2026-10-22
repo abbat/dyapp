@@ -8,7 +8,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 14
     groups:
       actions:
         patterns: ["*"]
@@ -18,7 +18,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 14
     open-pull-requests-limit: 5
     ignore:
       # nix 0.31 does not build for iOS against libc 0.2.190.
@@ -43,7 +43,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 14
     groups:
       gradle:
         update-types: [minor, patch]
@@ -53,7 +53,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 14
     groups:
       docker:
         update-types: [minor, patch]

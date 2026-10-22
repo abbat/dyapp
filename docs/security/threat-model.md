@@ -143,7 +143,7 @@ checked by SHA-256, and an SPDX SBOM per CI run.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| A malicious or hijacked crate version, a typosquat, a `build.rs` or proc macro that runs at build time | Cargo dependencies | Critical × medium | Fix: no version younger than 14 days, enforced by a `make quality` check against the crates.io index and a 14-day Dependabot cooldown (today 7); a new dependency is reviewed by hand |
+| A malicious or hijacked crate version, a typosquat, a `build.rs` or proc macro that runs at build time | Cargo dependencies | Critical × medium | In place: no crates.io version younger than 14 days, enforced by `make quality` ([dependency age](../development/code-quality.md#dependency-age)) and a 14-day Dependabot cooldown; a new dependency is reviewed by hand |
 | A malicious Gradle artifact | Android dependencies | Critical × medium | Fix: Gradle dependency verification (`verification-metadata.xml` with SHA-256) |
 | An unpinned tool pulled in CI: `cargo install cargo-deny` in CodeQL, `pip install flake8`, xcodegen without a checksum, `dtolnay/rust-toolchain` at a branch, `debian:bookworm-slim` by tag | CI workflows, test Dockerfiles | High × medium | Fix: pinned versions with `--locked`, checksums and digests |
 | A pull request poisons the GitHub Actions build cache read by `main` | Docker builds with the GHA cache | High × medium | Fix: only pushes to `main` write the cache, pull requests read it; every workflow sets `permissions` at the top |

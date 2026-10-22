@@ -139,7 +139,7 @@ the token to `contents: read`.
 Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub Actions, Cargo
 (the root workspace, `clients/linux`, `clients/windows`, `tests/fuzz`,
 `tools/arch-lint`), Gradle (`clients/android`) and the Dockerfiles in
-`tests/docker/` and `tools/docker/`. It waits 7 days after a release, groups minor and
+`tests/docker/` and `tools/docker/`. It waits 14 days after a release ([dependency age](code-quality.md#dependency-age)), groups minor and
 patch updates into one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Cargo ignores
 libc 0.2.190 (`nix` fails to build for iOS against it), argon2 0.6+ (it needs blake2 0.11,
 while snow in libp2p noise still pins 0.10), and aes-gcm 0.11+ (snow and webrtc still require
@@ -152,13 +152,14 @@ and the wait.
 ### `quality` → **quality**
 
 This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checkout
-(`fetch-depth: 0`). After setup it runs
+(`fetch-depth: 0`). After setup and a `cargo fetch` of every tracked `Cargo.lock` it runs
 `rust-check.sh quality`, which runs these checks in order:
 
 | Check | Command |
 |-------|---------|
 | Small batches | `tests/scripts/check-batches.py`: [A4](code-quality.md#small-batches), at most 400 changed text lines per commit or a justified `Large-Change:` trailer; JSON counts and exception reasons uploaded as `commit-batches`, including on failure |
 | Repository rules | `tests/scripts/check-repository.py`: whitespace, conflict markers, valid JSON/YAML, every workflow sets top-level `permissions:`, relative Markdown links and their anchors resolve, every file under `docs/` is reachable by links from `docs/README.md`, `AGENTS.md` at most 80 lines, [size budgets](code-quality.md#size-budgets), no tracker IDs, [commit messages](code-quality.md#commit-messages) |
+| Dependency age | `tests/scripts/check-dependency-age.py`: no crates.io version younger than 14 days in a tracked `Cargo.lock` ([dependency age](code-quality.md#dependency-age)) |
 | Trigger list | `tests/scripts/triggers.py`: every glob of the [trigger list](code-quality.md#trigger-list) matches a tracked file |
 | Docs with the code | `tests/scripts/docs-sync.py`: commits after its baseline that change a config key, CLI flag, public API or Make target also change `docs/` ([rules](code-quality.md#docs-change-with-the-code)) |
 | Workflow lint | `actionlint` |

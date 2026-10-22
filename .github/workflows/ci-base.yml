@@ -28,6 +28,9 @@ jobs:
       - name: setup
         run: bash tools/scripts/ci-setup.sh rust
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # check-dependency-age.py reads publish times from the registry index cache.
+      - name: fetch
+        run: for lock in $(git ls-files '*Cargo.lock'); do cargo fetch --locked --manifest-path "$(dirname "$lock")/Cargo.toml"; done
       - name: check
         run: bash tests/scripts/rust-check.sh quality
       - name: raw check logs

@@ -322,6 +322,19 @@ databases baked into the dev image. In the CI `core / build` step `deny` it fetc
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
 
+### Dependency age
+
+A hijacked crate is usually found and yanked within days, so no crates.io version younger than
+14 days may enter a tracked `Cargo.lock`. `tests/scripts/check-dependency-age.py` runs in
+`make quality` and reads each version's `pubtime` from the registry index cache: the dev image
+and the CI `fetch` step run `cargo fetch` for every lockfile. A version missing from the cache
+fails; rebuild the dev image. A version recorded before crates.io kept `pubtime` counts as old.
+Dependabot waits the same 14 days (`cooldown` in `.github/dependabot.yml`).
+
+To take a younger version, for example a security fix, add `(crate, version): (date, reason)` to
+`EXCEPTIONS` in the script. An exception older than 14 days fails the check: by then the
+version is old enough, so delete the entry.
+
 ## Source debt markers
 
 B7 is enforced by `check-repository.py` in `make quality` and CI. Uppercase
