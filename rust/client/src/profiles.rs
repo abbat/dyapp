@@ -12,7 +12,8 @@ pub struct Profiles(Vec<VerifiedProfile>);
 
 impl Profiles {
     /// Keeps `profile` if it is newer than the one held for its owner. An equal version keeps the
-    /// held one; a lower version is refused with [`Error::Rollback`].
+    /// held one; a lower version is refused with [`Error::Rollback`], and any newer version after
+    /// a tombstone with [`Error::Deleted`].
     pub fn accept(&mut self, profile: VerifiedProfile) -> Result<&VerifiedProfile, Error> {
         let Some(index) = self
             .0
@@ -27,6 +28,9 @@ impl Profiles {
             return Err(Error::Rollback);
         }
         if profile.profile.version > held.profile.version {
+            if held.profile.deleted {
+                return Err(Error::Deleted);
+            }
             *held = profile;
         }
         Ok(held)
@@ -102,5 +106,19 @@ mod tests {
         );
         assert_eq!(profiles.get(&alice.peer_id()).unwrap().profile.version, 5);
         assert_eq!(profiles.all().len(), 2);
+    }
+
+    #[test]
+    fn a_tombstone_is_final() {
+        let alice = Identity::generate();
+        let mut profiles = Profiles::default();
+        profiles.accept(signed(&alice, 3)).unwrap();
+        let tombstone = dyapp_profile::verify(&Profile::tombstone(4, 0, 0).sign(&alice)).unwrap();
+        assert!(profiles.accept(tombstone).unwrap().profile.deleted);
+        assert!(matches!(
+            profiles.accept(signed(&alice, 5)),
+            Err(Error::Deleted)
+        ));
+        assert!(profiles.get(&alice.peer_id()).unwrap().profile.deleted);
     }
 }

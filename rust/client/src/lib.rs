@@ -56,6 +56,9 @@ pub enum Error {
     /// A profile older than one already seen for its owner.
     #[error("profile version below the one held")]
     Rollback,
+    /// A profile after its owner's tombstone; a deletion is final.
+    #[error("profile deleted")]
+    Deleted,
 }
 
 /// One fetched envelope: the id to ack and the MLS bytes.
