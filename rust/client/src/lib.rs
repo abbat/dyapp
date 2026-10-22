@@ -242,6 +242,32 @@ impl Node {
         ok(response.status)
     }
 
+    /// Closes the mailbox of a device that the owner `identity` dropped from its profile, so
+    /// nodes delete its envelopes and refuse its fetch and puts. `owner` is the binding the
+    /// device signed at linking ([`owner_binding`]).
+    pub async fn close_mailbox(
+        &mut self,
+        identity: &Identity,
+        owner: SignedRecord,
+    ) -> Result<(), Error> {
+        let device_key: [u8; 32] = owner
+            .public_key
+            .as_slice()
+            .try_into()
+            .map_err(|_| Error::Reply("bad device key"))?;
+        let revoke = proto::Revoke {
+            mailbox: mailbox(&device_key).to_vec(),
+            token_keys: Vec::new(),
+            created_at: i64::try_from(now()).unwrap_or(i64::MAX),
+            owner: Some(owner),
+        };
+        let record = identity.sign(Domain::MailboxRevoke, revoke.encode_to_vec());
+        let response = self
+            .mailbox(mailbox_request::Request::Revoke(record))
+            .await?;
+        ok(response.status)
+    }
+
     async fn challenge(&mut self) -> Result<Vec<u8>, Error> {
         let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
         let response = self.mailbox(challenge).await?;
@@ -330,6 +356,13 @@ impl Node {
 /// The mailbox address of a device mailbox key.
 pub fn mailbox(device_key: &[u8; 32]) -> [u8; 32] {
     dyapp_identity::key_hash(device_key)
+}
+
+/// The binding a device signs with its mailbox key `device_key` when it is linked: it accepts
+/// the identity key `identity` as the owner that may later close its mailbox. Keep it on another
+/// device of the owner, which sends it with [`Node::close_mailbox`].
+pub fn owner_binding(device_key: &Identity, identity: &[u8; 32]) -> SignedRecord {
+    device_key.sign(Domain::DeviceOwner, identity.to_vec())
 }
 
 async fn timeout<R>(request: impl Future<Output = Result<R, Error>>) -> Result<R, Error> {

@@ -55,5 +55,6 @@ required behaviour.
   Clients never roll back a version they have seen; removal cannot erase an already delivered
   message or a compromised device's local history.
 - The profile directory field, certificate validation and node KeyPackage service are
-  implemented. Client publication, MLS validation, refill, first-contact delivery and group
-  revocation remain planned; their tasks must verify race handling and multi-device delivery.
+  implemented, and `rust/client` publishes KeyPackages, validates MLS members and revokes a
+  device (group removal and the mailbox close). Refill and the apps' linking and wipe remain
+  planned; their tasks must verify race handling and multi-device delivery.

@@ -122,6 +122,12 @@ pub fn to_members(group: &Group, commit: &[u8]) -> Result<Vec<Delivery>, Error> 
         .collect()
 }
 
+/// Whether the owner's newest profile `owner` no longer lists `device`: the device was revoked
+/// and must wipe its keys and MLS state.
+pub fn revoked(device: &Device, owner: &VerifiedProfile) -> bool {
+    !owner.profile.devices.contains(device.certificate())
+}
+
 /// Puts each delivery in its mailbox.
 pub async fn send(node: &mut Node, deliveries: &[Delivery]) -> Result<(), Error> {
     for delivery in deliveries {

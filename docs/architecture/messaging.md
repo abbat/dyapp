@@ -105,10 +105,10 @@ the certificate listed in the owner's profile among those the caller passes (the
 Every call above takes those profiles, so a device dropped from the list is refused as a sender or
 new leaf, and `Group::remove_revoked` commits its removal. The owner's other device also closes
 the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
-signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it. Signing
-the binding at linking, sending the close and wiping the keys on the
-revoked device itself once it sees a profile without its own certificate are planned with the
-client runtime.
+signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
+`dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and
+`chat::revoked` tells a device that its owner's newest profile no longer lists it, so it wipes its
+keys and MLS state. The linking screen and the wipe itself are planned with the client apps.
 
 openmls keeps its state in memory. `Device::seal(key)` returns all of it (the signature key, unused
 KeyPackages and every group) as nonce ‖ ChaCha20-Poly1305 ciphertext under a 32-byte key the client
