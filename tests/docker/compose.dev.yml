@@ -6,7 +6,7 @@ x-build: &build
 
 x-runtime: &runtime
   image: dyapp:dev-prepared
-  user: "999:999"
+  user: "1000:1000"
   cpus: ${DYAPP_CPUS:-4}
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -14,7 +14,7 @@ x-runtime: &runtime
   read_only: true
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
-    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+    - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
   volumes:
     - ../..:/workspace:ro
     - workspace-cache:/workspace/build
@@ -87,6 +87,7 @@ services:
     volumes:
       - ../../build/deb:/deb:ro
       - ../../tests/scripts:/tests/scripts:ro
+      - ../../tools/scripts:/tools/scripts:ro
     command: [bash, /tests/scripts/client-deb-test.sh]
     profiles: [deb]
   # The same clean Debian 12 for the manual tarball installation.

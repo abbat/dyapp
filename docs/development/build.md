@@ -96,7 +96,7 @@ the runner works in a throwaway container without network:
 
 ```bash
 mkdir -p build/android-release && chmod 777 build/android-release
-docker run --rm --network none --user 999:999 \
+docker run --rm --network none --user 1000:1000 \
   -v "$PWD/build/android-release:/reports" \
   dyapp:android-test bash /app/tools/scripts/build-android-release.sh /reports
 ```

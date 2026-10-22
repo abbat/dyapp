@@ -9,7 +9,7 @@ ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo RUSTUP_TOOLCHAIN=1.99.0 \
     CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 \
     RAYON_NUM_THREADS=4
-RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
+RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g 1000 appuser
 WORKDIR /app
 COPY Cargo.toml ./
 COPY .cargo .cargo

@@ -2,7 +2,7 @@ name: dyapp
 
 x-runtime: &runtime
   image: dyapp:network-test
-  user: "999:999"
+  user: "1000:1000"
   cpus: 1
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -14,7 +14,7 @@ x-runtime: &runtime
     - workspace-cache:/workspace/build:ro
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
-    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+    - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
 
 # The container address is announced as external, so Kademlia serves the DHT without fixed IPs.
 x-peer: &peer

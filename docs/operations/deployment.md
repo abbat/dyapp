@@ -111,7 +111,7 @@ make test-integration   # integration tests, three dyappd containers on an inter
                         # and a 5-minute memory plateau on release binaries
 
 # Manual check in a throwaway, network-less container:
-docker run --rm --network none --user 999:999 --tmpfs /tmp:rw,exec,mode=1777 \
+docker run --rm --network none --user 1000:1000 --tmpfs /tmp:rw,exec,mode=1777 \
   -e DYAPPD_STORAGE_DIR=/tmp/node dyapp:network-test bash -c '
     export DYAPPD_NETWORK_ID_POW_BITS=8
     build/debug/dyappd keygen

@@ -38,7 +38,7 @@ RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \
     cargo install --locked cargo-nextest --version 0.9.148 && \
     cargo install --locked cargo-mutants --version 27.1.0 && \
     cargo install --locked cargo-fuzz --version 0.13.2
-RUN groupadd -g 999 appuser && useradd -m -u 999 -g 999 appuser
+RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g 1000 appuser
 WORKDIR /workspace
 COPY . .
 # Dependency preparation is online; all runtime test commands are offline.
@@ -46,7 +46,7 @@ RUN cargo fetch --locked && cargo fetch --locked --manifest-path tests/fuzz/Carg
     chmod -R a+rX /usr/local/cargo/registry
 RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
     chmod -R a+rX /opt/advisory-dbs
-RUN mkdir -p /workspace/build && chown -R 999:999 /workspace/build
+RUN mkdir -p /workspace/build && chown -R 1000:1000 /workspace/build
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
-USER 999:999
+USER 1000:1000
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

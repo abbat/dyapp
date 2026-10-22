@@ -56,7 +56,7 @@ class FinalChecks(unittest.TestCase):
                 "#!/bin/sh\nprintf '%s\\n' \"$DYAPP_FIXTURE_UID\"\n")
             identity.chmod(0o755)
 
-            def run(uid="999", args=()):
+            def run(uid="1000", args=()):
                 return subprocess.run(
                     ["bash", str(script), *args],
                     capture_output=True, text=True,

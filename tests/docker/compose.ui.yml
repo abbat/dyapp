@@ -1,7 +1,7 @@
 name: dyapp
 
 x-runtime: &runtime
-  user: "999:999"
+  user: "1000:1000"
   cpus: ${DYAPP_CPUS:-4}
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -10,7 +10,7 @@ x-runtime: &runtime
     - ui-reports:/reports
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
-    - /home/appuser:rw,nosuid,nodev,uid=999,gid=999,mode=0700
+    - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
 
 services:
   android-emulator:
