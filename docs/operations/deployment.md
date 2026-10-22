@@ -12,6 +12,9 @@ dyapp is **fully distributed** — each participant runs their own client. No ce
 
 ### Model 1: Completely Decentralized (No Bootstrap)
 
+Planned: clients do not run a libp2p node yet, so today every client goes through bootstrap
+nodes (Model 2).
+
 ```
 Device A (iOS)
   ├─ P2P client
@@ -37,8 +40,7 @@ Message relay: P2P direct or gossip via other peers
 
 **Pros:**
 - Zero infrastructure cost
-- Maximum privacy
-- No trust assumptions
+- No operator holds profiles or mailboxes; peers still see each other's IP addresses
 
 **Cons:**
 - Slower peer discovery (DHT bootstrap takes time)

@@ -89,8 +89,8 @@ One key per purpose; no key signs or encrypts for another.
 
 | Key | Signs or encrypts | Stored | Status |
 |-----|-------------------|--------|--------|
-| Identity (Ed25519) | Profile, device list | Client, wrapped by the platform keystore | Generated in `rust/identity`; wrapped over FFI through the app's `KeyStore`; Android Keystore and Apple Keychain done, desktop planned |
-| Device (Ed25519) | Mailbox fetch and ack, media keep and attach; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
+| Identity (Ed25519) | Profile, device list, media keep and attach | Client, wrapped by the platform keystore | Generated in `rust/identity`; wrapped over FFI through the app's `KeyStore`; Android Keystore and Apple Keychain done, desktop planned |
+| Device (Ed25519) | Mailbox fetch, ack and revoke, write tokens; its hash is the mailbox address | Client, wrapped like the identity key | Planned |
 | Envelope (Ed25519) | One envelope (sealed sender): the node sees no published key | Not stored, fresh per envelope | Implemented in `rust/client` (`Node::put`) |
 | MLS signature (Ed25519) | MLS leaf credentials only, separate from the device key | Client, with the MLS state | Implemented in `rust/messaging`; sealed with the MLS state by `Device::seal` |
 | libp2p (Ed25519) | TLS and Noise handshakes; on a node also deny lists, under their own label | Client: per device. Node: a `systemd-creds` credential sealed to the host and its vTPM, or a 0600 key file | Node: implemented. Client: planned |

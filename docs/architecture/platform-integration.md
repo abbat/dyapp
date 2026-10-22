@@ -2,7 +2,7 @@
 
 ## Overview
 
-All platforms use **UniFFI-generated FFI bindings** from the Rust core. Each platform has a **minimal wrapper** with zero business logic — all real work happens in Rust.
+Android and the Apple apps use **UniFFI-generated FFI bindings** from the Rust core; the Tauri desktop apps are Rust and need no bindings. Each platform has a **minimal wrapper** with zero business logic — all real work happens in Rust.
 
 **Key principle:** Platform code = UI + event handling only. Business logic stays in Rust.
 
@@ -112,55 +112,17 @@ let client = DYappClient()
 // All state lives in Rust client
 ```
 
-## Windows (C#/.NET)
+## Windows and Linux (Tauri)
 
-Planned future platform. Would use:
-- **C FFI boundary** (C header + .NET P/Invoke)
-- **.NET wrappers** for WPF/MAUI
-- **Same business logic** in Rust
-
-## Linux (C)
-
-### Setup
-
-`cargo build -p dyapp-ffi --release` builds `libdyapp_ffi.so`, but
-UniFFI has no C generator: a C consumer needs a separate `extern "C"` layer,
-which does not exist.
-
-### Integration (target sketch)
-
-`libdyapp_ffi` exports only UniFFI-internal symbols, so a C API needs a
-separate `extern "C"` layer.
-
-```c
-#include "dyapp.h"
-
-DYappClient* client = dyapp_client_new();
-
-// Send message
-const char* msg_id = dyapp_send_message(client, "peer_id", "Hello!");
-
-// Clean up
-dyapp_string_free(msg_id);
-dyapp_client_free(client);
-```
-
-### Structure
-
-```
-platform/linux-c/
-├── dyapp.h                   # C header
-├── dyapp.c                   # Thin wrapper
-└── CMakeLists.txt                  # Build
-```
-
-**No GTK/Qt in the wrapper** — GUI frameworks call C functions.
+`clients/windows/` and `clients/linux/` are Tauri 2 apps with a bundled static HTML page
+([empty-app contract](../platforms/empty-app-contract.md)). Being Rust, they can link the core
+crates directly, with no FFI layer and no C or .NET wrapper; neither calls the core yet.
 
 ## Validation: What Stays in Platform Code
 
 ### ✅ Allowed in platform wrapper
 
-- UI layout & rendering (SwiftUI, Jetpack Compose, WPF)
+- UI layout & rendering (SwiftUI, Jetpack Compose, Tauri HTML)
 - Event handling (button taps, text input)
 - Platform-specific permissions (camera, microphone, contacts)
 - Local file access
