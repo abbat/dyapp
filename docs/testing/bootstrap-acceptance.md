@@ -83,7 +83,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Same bytes over TCP and QUIC (publish TCP, get QUIC) | E2E | `network-test.py::suite` | exists |
 | Undecodable or oversized request closes only its stream; the node answers the next client | Functional | `protocol.rs::bad_input_fails_only_its_request` | exists |
 | Unknown or empty request variant → `UNSUPPORTED` | Functional | `protocol.rs::bad_input_fails_only_its_request` | exists |
-| Role not served (media, TURN) → `UNSUPPORTED` | E2E | `network-test.py::media`, `::turn` | exists |
+| Role not served (media, TURN) → `UNSUPPORTED` | E2E | `network_checks.py::media`, `::turn` | exists |
 | v1 message, signed profile, config and deny diagnostics stay byte-compatible | Contract | `compatibility.rs` | exists |
 | **Mixed versions:** an older released `dyappd` answers a newer request with `UNSUPPORTED` and keeps serving | E2E | — | deferred: [Decisions](#decisions) |
 
@@ -93,10 +93,10 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 |-----------|-------|------|--------|
 | Version order, `STALE` with the stored record, forged payload, tombstone | Unit, E2E | `storage.rs::signed_profile_versions_and_tombstone`, `service/tests.rs::publish_get_stale_and_errors`, `network-test.py::suite` | exists |
 | Profile expires after the owner was last seen; heartbeat keeps it | Unit | `storage.rs::profiles_expire_after_the_owner_was_last_seen`, `service/tests.rs::heartbeat_keeps_the_profile_seen` | exists |
-| Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network-test.py::mailbox` | exists |
+| Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network_checks.py::mailbox` | exists |
 | Challenge is bound to its connection | Functional | `protocol.rs::challenge_is_bound_to_its_connection` | exists |
 | Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol/clock.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service/clock.rs` | exists |
-| Watching fetch gets a push | E2E | `network-test.py::mailbox` | exists |
+| Watching fetch gets a push | E2E | `network_checks.py::mailbox` | exists |
 
 The clock checks cover node replies. Client signing-time correction using a median from
 three distinct nodes remains planned.
@@ -111,7 +111,7 @@ assertion changes.
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
 | DHT routing finds every node through a seed | E2E | `network-test.py::network` | exists |
-| Profile and mailbox replicas land on the DHT holders; ack forwarding | E2E | `network-test.py::replicate`, `::acked_everywhere` | exists |
+| Profile and mailbox replicas land on the DHT holders; ack forwarding | E2E | `network_checks.py::replicate`, `::acked_everywhere` | exists |
 | Without a second holder, profile and mailbox puts answer `FULL` | E2E | `network-test.py::local` | exists |
 | A holder offline during a newer publish is repaired by heartbeat | E2E | `network-test.py::profile_repair` | exists |
 | Churn: replicas skip a stopped node | E2E | `network-test.py::network` (churn) | exists |
@@ -121,7 +121,7 @@ assertion changes.
 
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
-| Keep, put, get; whole copy and Reed–Solomon shards on all holders | Unit, E2E | `service/tests/media.rs::media_*`, `network-test.py::media_spread` | exists |
+| Keep, put, get; whole copy and Reed–Solomon shards on all holders | Unit, E2E | `service/tests/media.rs::media_*`, `network_checks.py::media_spread` | exists |
 | 3 MiB sharded blob readable after losing a node with ≤ 4 shards | E2E | `network-test.py::network` (churn) | exists |
 | Deleted copy or shard restored by repair | E2E | `network-test.py::media_repair` | exists |
 | Expiry, keep refresh and startup cleanup | Unit, E2E | `media.rs::*expire*`, `network-test.py::media_retention` | exists |
@@ -132,8 +132,8 @@ assertion changes.
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
 | TURN node announces itself as a relay provider in the DHT | E2E | `network-test.py::network` | exists |
-| Credentials follow coturn's `use-auth-secret` scheme | E2E | `network-test.py::turn` | exists |
-| coturn allocates with the node's credentials and refuses a wrong password | E2E Docker | `network-test.py::turn` (`relay=True`) | exists, local only: [Decisions](#decisions) |
+| Credentials follow coturn's `use-auth-secret` scheme | E2E | `network_checks.py::turn` | exists |
+| coturn allocates with the node's credentials and refuses a wrong password | E2E Docker | `network_checks.py::turn` (`relay=True`) | exists, local only: [Decisions](#decisions) |
 
 ### Search
 
