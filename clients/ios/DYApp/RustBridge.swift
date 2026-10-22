@@ -15,16 +15,23 @@ enum RustBridge {
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         ).appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.dyapp")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        var file = directory.appendingPathComponent("identity.key")
+        try excludeFromBackup(directory)
+        let file = directory.appendingPathComponent("identity.key")
         if FileManager.default.fileExists(atPath: file.path) {
             let wrapped = try Data(contentsOf: file)
             return try IdentityKey.unwrap(store: PlatformKeyStore.shared, wrapped: wrapped)
         }
         let key = IdentityKey.generate()
         try key.wrap(store: PlatformKeyStore.shared).write(to: file, options: .atomic)
+        return key
+    }
+
+    /// Everything the app keeps (keys, database, MLS state) lives under `directory`; excluding
+    /// the folder keeps it out of iCloud and Time Machine backups.
+    private static func excludeFromBackup(_ directory: URL) throws {
+        var directory = directory
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
-        try file.setResourceValues(values)
-        return key
+        try directory.setResourceValues(values)
     }
 }

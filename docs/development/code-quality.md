@@ -359,6 +359,13 @@ text lives in string catalogues, and neither SwiftLint without SourceKit nor det
 identifiers for lookalike letters. Cyrillic, CJK and emoji stay allowed elsewhere. Rust
 identifiers are covered by rustc and clippy (`confusable_idents`, `mixed_script_confusables`).
 `tests/test_unicode.py` covers the check.
+
+## Android manifest
+
+`check-repository.py` refuses a tracked `AndroidManifest.xml` whose application does not set
+`allowBackup="false"` and `dataExtractionRules`, or that exports any component other than the
+launcher activity. The rules in `res/xml/data_extraction_rules.xml` exclude every domain from
+cloud backup and device transfer. `tests/test_android_manifest.py` covers the check.
 The messaging encryption/signature/key-derivation APIs still contain explicit
 placeholders; their replacement remains tracked separately under the
 [MLS design](../decisions/0005-openmls-end-to-end-encryption.md).

@@ -7,6 +7,7 @@ import re
 import subprocess
 import tomllib
 import unicodedata
+from xml.etree import ElementTree
 from urllib.parse import unquote
 
 import yaml
@@ -283,6 +284,28 @@ def unicode_errors(names, texts):
     return errors
 
 
+def manifest_errors(name, text):
+    """Android: no backup or device transfer, and nothing exported but the
+    launcher activity."""
+    android = "{http://schemas.android.com/apk/res/android}"
+    app = ElementTree.fromstring(text).find("application")
+    if app is None:
+        return []
+    errors = []
+    if app.get(android + "allowBackup") != "false":
+        errors.append(f"{name}: allowBackup is not false")
+    if not app.get(android + "dataExtractionRules"):
+        errors.append(f"{name}: no dataExtractionRules")
+    for component in app:
+        launcher = "android.intent.category.LAUNCHER" in {
+            category.get(android + "name")
+            for category in component.iter("category")}
+        if component.get(android + "exported") == "true" and not launcher:
+            errors.append(f"{name}: {component.get(android + 'name')} "
+                          "is exported")
+    return errors
+
+
 def round_trip_errors(texts):
     """Wire and storage types without a property in PROPERTIES."""
     tested = set(PROPERTY.findall(texts.get(PROPERTIES, "")))
@@ -416,6 +439,10 @@ def main():
                 raise ValueError(f"No top-level permissions: {name}")
         elif path.suffix == ".md":
             documents[name] = text
+        elif path.name == "AndroidManifest.xml":
+            errors = manifest_errors(name, text)
+            if errors:
+                raise ValueError("\n".join(errors))
         elif path.name == "Cargo.toml" and "[package]" in text:
             # Practice C5: unsafe is forbidden outside the UNSAFE allow-list.
             policy = UNSAFE.get(name, FORBID)

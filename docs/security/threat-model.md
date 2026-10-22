@@ -76,7 +76,7 @@ defences already in place. Nodes are untrusted by design
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list and local purge of listed blobs, technical abuse response only (accepted residual risk); an operator guide is planned ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks, and a client-side profile rollback check in `rust/client` ([below](#data-tampering)) |
-| 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection; backup exclusion, private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
+| 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection and backup exclusion; private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ✅ Rated: checked identify and provider addresses, a dial guard, replica caps and TURN deny ranges; the rest accepted ([below](#reflection-through-an-honest-node)) |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
 | 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
@@ -327,20 +327,21 @@ no security policy and no private channel for vulnerability reports.
 
 ### Client-side exposure
 
-Class 16 in detail. In place: none on the client yet. The Android manifest still sets
-`allowBackup="true"`. Keys are to be wrapped by the platform keystore, device-only and outside
-backups ([encryption](encryption.md)); the local database and MLS state rely on platform data
-protection. A compromised OS, root and accessibility malware are out of scope.
+Class 16 in detail. In place: app data is excluded from OS backups and device transfer, and the
+Android app exports only its launcher activity (the manifest is checked in CI). Keys are wrapped
+by the platform keystore, device-only and outside backups ([encryption](encryption.md)); the local
+database and MLS state rely on platform data protection.
+A compromised OS, root and accessibility malware are out of scope.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Android auto-backup or iCloud copies the database and MLS state to the cloud | OS backups | High × high | Fix: `allowBackup="false"` and data extraction rules that exclude everything; iOS marks app data as excluded from backup; keys are device-only (planned key storage) |
+| Android auto-backup or iCloud copies the database and MLS state to the cloud | OS backups | High × high | In place: `allowBackup="false"` and data extraction rules that exclude everything from cloud backup and device transfer; iOS and macOS mark the app folder as excluded from backup; keys are device-only |
 | Lock-screen notifications show the sender and the text | Notifications | Medium × high | Fix: by default a notification says only "New message"; a setting shows the name or the text. Android private visibility, iOS hidden previews |
 | Screenshots or the recent-apps thumbnail show chats | OS screenshots, app switcher | Medium × medium | Fix: the app-switcher thumbnail is always blurred; a setting, off by default, blocks screenshots (`FLAG_SECURE`) |
 | Other apps read copied keys or safety numbers | Clipboard | Medium × low | Fix: keys and safety numbers are copied marked as sensitive and cleared after 60 seconds. Accept: ordinary copied text |
 | Logs or crash reports carry content, keys or contacts | Logs, crash reporters | High × medium | Fix: client logs never carry message content, keys or contacts' identifiers; release builds log warnings and errors only; no third-party crash reporting |
 | The local database is read from a device without disk encryption | Desktop files | High × low | Accept: platform data protection on phones, disk encryption on desktops; flash may keep deleted data |
-| Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | Fix: no exported components and no files readable by other apps (checked in CI). Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
+| Another app with ordinary permissions reads app files or calls its components | Android, desktop | High × low | In place: no exported component but the launcher activity (checked in CI); files readable by other apps are impossible from API 24 and the app needs API 31. Accept on desktop: other processes of the same user, keys stay in Secret Service or DPAPI |
 | A lost or sold device keeps access to the account | Device loss | High × medium | Fix: another device of the owner revokes it: it leaves the signed device list, contacts remove it from MLS groups (`Group::remove_revoked`) and an identity-signed `revoke` closes its mailbox on the nodes (node and `rust/client` flow implemented; the linking screen and the wipe in the apps are planned). Accept: history stored on a stolen unlocked device; app lock (planned) narrows it |
 | A compromised OS reads everything | Root, malware | High × low | Out of scope |
 
