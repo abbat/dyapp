@@ -3,3 +3,4 @@
 29eae31dde7a1dc1564d4a1f1080c93428ae0672:rust/bootstrap/src/service.rs:generic-api-key:1307
 # The crate name "libcrux-secrets" in a dependency list.
 a2c931fa6340d96af1b16ef97915c20d9041b30a:Cargo.lock:generic-api-key:2652
+64f65d011e8b6602194c28f732639f9b8deaa7e0:tests/fuzz/Cargo.lock:generic-api-key:2440

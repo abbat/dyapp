@@ -38,6 +38,8 @@ COVERED = {
         "docs/decisions/0016-protocol-evolution.md",
     "491a1d7a03ab0dd8e4ef3bb763ee21a580525e88":
         "docs/decisions/0016-protocol-evolution.md",
+    "64f65d011e8b6602194c28f732639f9b8deaa7e0":
+        "docs/decisions/0013-video-calls-one-to-one.md",
     "ea10ace72a43d1ef28acc5a3558d66efa3cb4818":
         "docs/decisions/0015-sqlite-node-storage.md",
     "6715ab5de96764ca489818ac6ef2e89e9be927cc":
