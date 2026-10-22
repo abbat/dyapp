@@ -7,7 +7,8 @@
 //! store the device state ([`Device::seal`]) first, then [`send`] it. Likewise [`receive`]
 //! returns the envelope ids to [`Node::ack`] once the new state is stored.
 
-use crate::{mailbox, Error, Node};
+use crate::scores::Scores;
+use crate::{mailbox, Envelope, Error, Node};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{self, Device, Group, Received};
 use dyapp_profile::{DeviceCertificate, VerifiedProfile};
@@ -43,6 +44,9 @@ pub enum Event {
     },
     /// A commit moved the group with this ID to its next epoch.
     Commit(Vec<u8>),
+    /// A message from a later epoch of the group with this ID: a commit is missing, maybe hidden
+    /// by the node. The envelope stays in the mailbox; run [`cross_check`].
+    Gap(Vec<u8>),
     /// The envelope was refused and acked: no group took it.
     Refused(String),
 }
@@ -148,10 +152,51 @@ pub async fn receive(
     profiles: &[VerifiedProfile],
 ) -> Result<(Vec<Event>, Vec<Vec<u8>>), Error> {
     let (envelopes, _more) = node.fetch(device_key).await?;
+    Ok(apply_all(device, groups, envelopes, profiles))
+}
+
+/// [`receive`] from the union of the mailbox at `first` and at `second`, a node of another
+/// replica key: call it on [`Event::Gap`] and once a day. An envelope only `second` holds counts
+/// against `first` in `scores` when `first` returned its whole mailbox. Ack the ids at both.
+pub async fn cross_check(
+    scores: &mut Scores,
+    first: &mut Node,
+    second: &mut Node,
+    device_key: &Identity,
+    device: &Device,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) -> Result<(Vec<Event>, Vec<Vec<u8>>), Error> {
+    let (mut envelopes, more) = first.fetch(device_key).await?;
+    let (others, _) = second.fetch(device_key).await?;
+    let held = envelopes.len();
+    for envelope in others {
+        if !envelopes.iter().any(|known| known.id == envelope.id) {
+            envelopes.push(envelope);
+        }
+    }
+    if envelopes.len() > held && !more {
+        scores.fault(first.peer(), crate::now());
+    }
+    // Welcomes first, then by epoch, an epoch's messages before the commit that ends it.
+    envelopes.sort_by_key(|envelope| mls::epoch_of(&envelope.ciphertext).ok().flatten());
+    Ok(apply_all(device, groups, envelopes, profiles))
+}
+
+fn apply_all(
+    device: &Device,
+    groups: &mut Vec<Group>,
+    envelopes: Vec<Envelope>,
+    profiles: &[VerifiedProfile],
+) -> (Vec<Event>, Vec<Vec<u8>>) {
     let mut events = Vec::new();
     let mut handled = Vec::new();
     for envelope in envelopes {
         let event = match apply(device, groups, &envelope.ciphertext, profiles) {
+            Ok(Some(Event::Gap(group))) => {
+                events.push(Event::Gap(group));
+                continue;
+            }
             Ok(Some(event)) => event,
             Ok(None) => continue,
             // ponytail: a refused envelope is dropped; keep it for a retry once a profile can
@@ -161,7 +206,7 @@ pub async fn receive(
         events.push(event);
         handled.push(envelope.id);
     }
-    Ok((events, handled))
+    (events, handled)
 }
 
 fn apply(
@@ -179,6 +224,9 @@ fn apply(
     let Some(group) = groups.iter_mut().find(|group| group.id() == id) else {
         return Ok(None);
     };
+    if mls::epoch_of(bytes)?.is_some_and(|(epoch, _)| epoch > group.epoch()) {
+        return Ok(Some(Event::Gap(id)));
+    }
     Ok(Some(match group.process(device, bytes, profiles)? {
         Received::Message { sender, plaintext } => Event::Message {
             group: id,

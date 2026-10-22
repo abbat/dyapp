@@ -312,18 +312,24 @@ fn certified_commit_advances_the_epoch() {
         .group
         .merge_pending_commit(&p.alice_device.provider)
         .unwrap();
+    let commit = commit.to_bytes().unwrap();
+    let epoch = p.bob_group.epoch();
+    assert_eq!(epoch_of(&commit).unwrap(), Some((epoch, true)));
+    let welcome = welcome.to_bytes().unwrap();
+    assert_eq!(epoch_of(&welcome).unwrap(), None);
+    let mut carol_group = carol_device.join(&welcome, &p.profiles).unwrap();
+    assert_eq!(carol_group.members().unwrap().len(), 3);
+    let sealed = carol_group.encrypt(&carol_device, b"hey").unwrap();
+    // Bob sees a message from an epoch ahead of his: he missed the commit.
+    assert_eq!(epoch_of(&sealed).unwrap(), Some((epoch + 1, false)));
+
     assert_eq!(
         p.bob_group
-            .process(&p.bob_device, &commit.to_bytes().unwrap(), &p.profiles)
+            .process(&p.bob_device, &commit, &p.profiles)
             .unwrap(),
         Received::Commit
     );
-    let mut carol_group = carol_device
-        .join(&welcome.to_bytes().unwrap(), &p.profiles)
-        .unwrap();
-    assert_eq!(carol_group.members().unwrap().len(), 3);
-
-    let sealed = carol_group.encrypt(&carol_device, b"hey").unwrap();
+    assert_eq!(p.bob_group.epoch(), epoch + 1);
     assert!(p
         .bob_group
         .process(&p.bob_device, &sealed, &p.profiles)

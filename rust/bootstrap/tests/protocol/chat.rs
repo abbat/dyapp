@@ -409,3 +409,116 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         .process(&lost.device, &sent[0].mls, &profiles)
         .is_err());
 }
+
+#[tokio::test]
+async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
+    let mut addresses = Vec::new();
+    for _ in 0..2 {
+        addresses.push(
+            start_config(|config| {
+                config.roles = vec![Role::Store];
+                config.limits.requests_per_second = 1000;
+                config.limits.min_free_mb = 0;
+            })
+            .await,
+        );
+    }
+    let mut alice = Person::new(&addresses[0]).await;
+    let mut bob = Person::new(&addresses[0]).await;
+    let mut carol = Person::new(&addresses[0]).await;
+    for person in [&mut bob, &mut carol] {
+        let owner = person.identity.peer_id();
+        chat::publish_key_packages(
+            &mut person.node,
+            &person.device_key,
+            &person.device,
+            &owner,
+            1,
+        )
+        .await
+        .unwrap();
+    }
+    let mut profiles = Vec::new();
+    for owner in [&alice, &bob, &carol].map(|person| person.identity.peer_id()) {
+        profiles.push(alice.node.get_profile(&owner).await.unwrap());
+    }
+    let alice_mailbox = alice.mailbox();
+    let (mut group, welcome) =
+        chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+            .await
+            .unwrap();
+    chat::send(&mut alice.node, &welcome).await.unwrap();
+    let mut bob_groups = Vec::new();
+    let (events, ids) = chat::receive(
+        &mut bob.node,
+        &bob.device_key,
+        &bob.device,
+        &mut bob_groups,
+        &profiles,
+    )
+    .await
+    .unwrap();
+    assert_eq!(events, vec![Event::Joined(group.id().to_vec())]);
+    bob.node.ack(&bob.device_key, ids).await.unwrap();
+
+    // Alice drops Carol; the first node hides the commit, which only the second one holds.
+    let commit = group
+        .remove_revoked(&alice.device, &profiles[..2])
+        .unwrap()
+        .unwrap();
+    let mut second = Person::device(&addresses[1], Identity::generate(), 1)
+        .await
+        .node;
+    chat::send(&mut second, &chat::to_members(&group, &commit).unwrap())
+        .await
+        .unwrap();
+    let sent = chat::message(&mut group, &alice.device, b"carol is gone").unwrap();
+    chat::send(&mut alice.node, &sent).await.unwrap();
+
+    let (events, ids) = chat::receive(
+        &mut bob.node,
+        &bob.device_key,
+        &bob.device,
+        &mut bob_groups,
+        &profiles,
+    )
+    .await
+    .unwrap();
+    assert_eq!(events, vec![Event::Gap(group.id().to_vec())]);
+    assert!(ids.is_empty());
+
+    let mut scores = dyapp_client::scores::Scores::default();
+    let (events, ids) = chat::cross_check(
+        &mut scores,
+        &mut bob.node,
+        &mut second,
+        &bob.device_key,
+        &bob.device,
+        &mut bob_groups,
+        &profiles,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        events,
+        vec![
+            Event::Commit(group.id().to_vec()),
+            Event::Message {
+                group: group.id().to_vec(),
+                sender: alice.identity.peer_id(),
+                plaintext: b"carol is gone".to_vec(),
+            },
+        ]
+    );
+    assert_eq!(bob_groups[0].members().unwrap().len(), 2);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    assert_eq!(scores.penalty(bob.node.peer(), now), 1);
+    assert_eq!(scores.penalty(second.peer(), now), 0);
+    bob.node.ack(&bob.device_key, ids.clone()).await.unwrap();
+    second.ack(&bob.device_key, ids).await.unwrap();
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert!(second.fetch(&bob.device_key).await.unwrap().0.is_empty());
+}

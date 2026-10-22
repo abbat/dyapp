@@ -156,6 +156,17 @@ is no transport in `rust/messaging`, and nothing wires the queue to it. Decision
    message, and the device drops duplicates by message id. The sender removes the message from
    its retry queue.
 
+A node can hide part of a mailbox from its owner, so `dyapp_client::chat` checks it at a second
+replica. Every MLS message names its epoch in the clear (`mls::epoch_of`); one from a later epoch
+than the device's group (`Group::epoch`) means a commit is missing, so `chat::receive` reports
+`Event::Gap` and leaves the envelope in the mailbox. On a gap, and once a day, the client calls
+`chat::cross_check` with the node it fetched from and a node of another replica key: it applies
+the union of both mailboxes, Welcomes first, then by epoch with each epoch's messages before its
+commit, and returns the ids to ack at both. An envelope only the second node holds counts as a
+fault of the first in the client's [node scores](bootstrap.md#replication-and-repair), unless the
+first said more envelopes were waiting. Calling it daily is up to the app, planned with the
+client store.
+
 Planned limits (node settings): a message up to 100 KB, a mailbox up to 10 MB.
 
 Clients never publish their addresses in the DHT. A direct connection that already exists (for

@@ -102,6 +102,16 @@ pub fn group_of(message: &[u8]) -> Result<Option<Vec<u8>>, Error> {
         .map(|message| message.group_id().as_slice().to_vec()))
 }
 
+/// The epoch a protocol message was sent in and whether it is a commit or proposal rather than
+/// an application message, or `None` for anything else; both travel unencrypted.
+pub fn epoch_of(message: &[u8]) -> Result<Option<(u64, bool)>, Error> {
+    let message = MlsMessageIn::tls_deserialize_exact(message).map_err(mls)?;
+    Ok(message
+        .try_into_protocol_message()
+        .ok()
+        .map(|message| (message.epoch().as_u64(), message.is_handshake_message())))
+}
+
 /// One device's MLS signature key and the private keys of its KeyPackages and groups, kept in
 /// memory; [`Device::seal`] and [`Device::open`] carry them across restarts.
 pub struct Device {
@@ -372,6 +382,11 @@ impl Group {
     /// The group ID that names the chat to every member.
     pub fn id(&self) -> &[u8] {
         self.group.group_id().as_slice()
+    }
+
+    /// The current epoch: one more for every commit applied.
+    pub fn epoch(&self) -> u64 {
+        self.group.epoch().as_u64()
     }
 
     /// Peer IDs of all members' identities, one per device, in leaf order, revoked ones included.

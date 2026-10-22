@@ -232,13 +232,13 @@ Class 8 in detail. In place on nodes: replicas at R = 5 points with repair
 ([replication](../architecture/bootstrap.md#replication-and-repair)), node-ID proof of work,
 disjoint lookups and IP-group limits ([routing defences](../architecture/p2p-networking.md)),
 local reputation and storage trust, and the profile proof of work. Every record is signed or
-encrypted end to end, so a node can withhold or delay data but not forge it. Clients do not
-check nodes yet.
+encrypted end to end, so a node can withhold or delay data but not forge it. In `rust/client`,
+clients score the nodes they use and cross-check their mailbox at a second replica.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | The accepting node drops an envelope or claims two holders it does not have | `mailbox.put` | High × high | Fix: the recipient answers with a delivery receipt inside MLS; without it in time the sender's retry queue resends through another replica key and the node loses client reputation |
-| A node hides part of a mailbox from its owner | `mailbox.fetch` | High × high | Fix: the client fetches from one node and also from another replica key on an MLS gap and once a day |
+| A node hides part of a mailbox from its owner | `mailbox.fetch` | High × high | In place in `rust/client`: `chat::cross_check` fetches from one node and from a node of another replica key on an MLS gap and once a day, and an envelope only the second holds counts against the first ([messaging](../architecture/messaging.md#mailbox-delivery--planned)). Fix: the app calling it on that schedule is planned with the client store |
 | A node refuses one user | put, fetch, get | High × medium | Fix: the client moves to another replica key ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) |
 | A node serves an older signed profile | `profile.get` | High × medium | Fix: the client keeps the newest version seen and asks several replicas ([above](#mitm-and-key-verification)) |
 | A search node poisons, reorders or hides results | Search | Medium × high | Fix: the client checks results and asks 2 nodes ([above](#spoofing)) and ranks results itself. Accept: a node still picks which matches it returns |
