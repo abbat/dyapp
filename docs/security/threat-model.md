@@ -70,7 +70,7 @@ defences already in place. Nodes are untrusted by design
 | 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps, per-group connection limits, a search fair queue and puzzle; write tokens, a TURN quota per IP group and fuzzing are planned ([below](#denial-of-service)) |
-| 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints; a repository Unicode check and official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
+| 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints and a repository Unicode check; official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
@@ -286,16 +286,18 @@ Volumetric floods below libp2p stay out of scope ([below](#out-of-scope)).
 ### Homoglyphs and Unicode tricks
 
 Class 10 in detail. In place: rustc refuses bidi control characters in Rust code, and
-`clippy -D warnings` turns `confusable_idents` and `mixed_script_confusables` into errors. Other
-languages, configs, docs and file names are not checked. Lookalike names in profiles are
+`clippy -D warnings` turns `confusable_idents` and `mixed_script_confusables` into errors.
+`check-repository.py` refuses format and private-use characters in every tracked file, non-ASCII
+paths and non-ASCII Swift and Kotlin sources
+([code quality](../development/code-quality.md#hidden-unicode)). Lookalike names in profiles are
 class 5 ([above](#spoofing)).
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| Trojan Source: bidi overrides or invisible characters in Dart, Kotlin, Swift, Python, shell, YAML or docs | Pull requests, dependencies | High × medium | Fix: `make quality` and CI refuse Unicode format (bidi, zero-width) and private-use characters in every tracked text file |
+| Trojan Source: bidi overrides or invisible characters in Dart, Kotlin, Swift, Python, shell, YAML or docs | Pull requests, dependencies | High × medium | In place: `make quality` and CI refuse Unicode format (bidi, zero-width) and private-use characters in every tracked text file |
 | Confusable identifiers in Rust | Pull requests | High × low | Accept: refused by the Rust lints above |
-| Confusable identifiers in other languages | Pull requests | Medium × low | Fix: the same check, plus the language linters' rules where they exist. Accept: Cyrillic and emoji stay allowed in strings and docs |
-| Lookalike file names and paths (Cyrillic letters, invisible characters) | Pull requests | Medium × medium | Fix: the same check refuses non-ASCII paths |
+| Confusable identifiers in other languages | Pull requests | Medium × low | In place: the same check keeps Swift and Kotlin sources ASCII only; there are no Dart sources yet. Accept: Cyrillic and emoji stay allowed in strings and docs |
+| Lookalike file names and paths (Cyrillic letters, invisible characters) | Pull requests | Medium × medium | In place: the same check refuses non-ASCII paths |
 | Typosquatted crates, pub or Gradle packages | Dependencies | High × medium | Out of scope here: class 2 ([above](#supply-chain)) |
 | A lookalike commit author | Git history | Medium × low | Fix: signed commits on a protected `main` ([above](#ai-agents-and-developer-tooling)) |
 | A lookalike repository, organisation, domain or store listing ships a fake app | GitHub, DNS, app stores | High × medium | Fix: one page lists the official names (repository, application ID, signing key fingerprints, domain); before the first public release the domain, its obvious lookalikes, the store IDs and the crate and pub names are reserved; releases are signed (class 2) |

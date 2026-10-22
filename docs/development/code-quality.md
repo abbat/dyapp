@@ -348,6 +348,17 @@ workspace target, rejecting the executable `todo!()` macro.
 
 Track deferred implementation in local beads; retain factual limitations in
 source and owning docs. Moving a marker does not complete its implementation.
+
+## Hidden Unicode
+
+`check-repository.py` also refuses, with file and line, Unicode format characters (category Cf:
+bidi overrides and isolates, zero-width characters) and private-use characters (Co) in every
+tracked text file, and any tracked path with a non-ASCII character. A zero-width joiner between
+two symbols (an emoji sequence) is allowed. Swift and Kotlin sources must be ASCII only: their UI
+text lives in string catalogues, and neither SwiftLint without SourceKit nor detekt can check
+identifiers for lookalike letters. Cyrillic, CJK and emoji stay allowed elsewhere. Rust
+identifiers are covered by rustc and clippy (`confusable_idents`, `mixed_script_confusables`).
+`tests/test_unicode.py` covers the check.
 The messaging encryption/signature/key-derivation APIs still contain explicit
 placeholders; their replacement remains tracked separately under the
 [MLS design](../decisions/0005-openmls-end-to-end-encryption.md).

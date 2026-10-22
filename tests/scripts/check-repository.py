@@ -6,6 +6,7 @@ import posixpath
 import re
 import subprocess
 import tomllib
+import unicodedata
 from urllib.parse import unquote
 
 import yaml
@@ -253,6 +254,35 @@ def debt_errors(texts):
             for match in DEBT.finditer(line)]
 
 
+def unicode_errors(names, texts):
+    """Format (Cf: bidi, zero-width) and private-use (Co) characters, and
+    non-ASCII paths: Trojan Source and lookalike file names."""
+    errors = [f"{name}: non-ASCII path" for name in names
+              if not name.isascii()]
+    for name, text in sorted(texts.items()):
+        if text.isascii():
+            continue
+        # UI text lives in string catalogues; SwiftLint and detekt cannot
+        # check identifiers for lookalike letters on Linux.
+        ascii_only = name.endswith((".swift", ".kt", ".kts"))
+        for number, line in enumerate(text.splitlines(), 1):
+            for column, char in enumerate(line):
+                if ascii_only and not char.isascii():
+                    errors.append(f"{name}:{number}: U+{ord(char):04X} "
+                                  "in ASCII-only source")
+                    continue
+                category = unicodedata.category(char)
+                if category not in ("Cf", "Co"):
+                    continue
+                # An emoji ZWJ sequence joins two pictographs.
+                if char == "\u200d" and 0 < column < len(line) - 1 and \
+                        unicodedata.category(line[column + 1]) == "So":
+                    continue
+                errors.append(f"{name}:{number}: U+{ord(char):04X} "
+                              f"({category}) character")
+    return errors
+
+
 def round_trip_errors(texts):
     """Wire and storage types without a property in PROPERTIES."""
     tested = set(PROPERTY.findall(texts.get(PROPERTIES, "")))
@@ -398,6 +428,9 @@ def main():
     errors = debt_errors(texts)
     if errors:
         raise ValueError("Source debt markers:\n" + "\n".join(errors))
+    errors = unicode_errors(names, texts)
+    if errors:
+        raise ValueError("Hidden or non-ASCII Unicode:\n" + "\n".join(errors))
     allowed = NOT_TRACKER | {
         crate for name, text in texts.items()
         if name.endswith("Cargo.toml") for crate in CRATE.findall(text)}
@@ -439,7 +472,8 @@ def main():
     if errors:
         raise ValueError(f"Size budgets ([size] in baselines.toml):\n{errors}")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
-          "workflows set top-level permissions, crates follow the unsafe "
+          "workflows set top-level permissions, no format or private-use "
+          "characters, ASCII paths, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
           "properties, network handlers have fuzz targets, UI strings "
           "come from catalogues, "
