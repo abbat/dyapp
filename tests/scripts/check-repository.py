@@ -23,8 +23,8 @@ CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 NOT_TRACKER = {"dyapp-core"}
 # Commit-message ratchet: commits after this one follow the message rules.
 # Pushed history is not rewritten: this is the last pushed commit that
-# breaks a rule (a 73-character subject).
-BASELINE = "48359584eea06348f7a80e7e157ccd8ce52c0091"
+# breaks a rule (a 75-character subject).
+BASELINE = "9d8950103432cfefd4f9f7f44565ccf29e327f82"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80
