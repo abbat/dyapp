@@ -130,16 +130,9 @@ wire type or every old release. Generated properties complement them by covering
 No snapshot CLI is needed for these three fixtures. Consider a framework only if fixture
 volume makes manual review and loading costly.
 
-### 5. Fuzz Testing (Future)
+### 5. Fuzz Testing
 
-```bash
-cargo +nightly fuzz run fuzz_message_parsing
-```
-
-Will fuzzer-test:
-- Protobuf deserialization
-- SDP parsing
-- ICE candidate parsing
+See [Fuzzing](#fuzzing).
 
 ## CI/CD Pipeline
 
@@ -237,9 +230,10 @@ builds on the pinned stable toolchain because the targets run without a sanitize
 safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions are on), hangs and
 memory blow-ups still fail.
 
-Each target feeds one request handler of a bootstrap node, the code that parses what any peer
+Most targets feed one request handler of a bootstrap node, the code that parses what any peer
 sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
-with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter.
+with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter. The
+last three feed what a client reads from other people.
 
 | Target | Handler | Input |
 |--------|---------|-------|
@@ -251,12 +245,16 @@ with no request, byte or ban limits, so inputs reach the parsers instead of the 
 | `inventory` | `Service::search_inventory` | `InventoryRequest` (`/dyapp/inventory`), from a search peer |
 | `digest` | `Service::search_digest` | `DigestRequest` (`/dyapp/digest`), from a search peer |
 | `gossip` | `Service::search_gossip` | gossip bytes |
+| `mls` | `mls::group_of`, `Device::create_group`, `Device::join`, `Group::process` | a KeyPackage, Welcome or group message, by the first byte |
+| `sframe` | `sframe::Receiver::decrypt` | an SFrame video frame; the first byte is the metadata length |
+| `sdp` | `RTCSessionDescription::answer`, `unmarshal_candidate` (rtc) | a call peer's SDP answer or ICE candidate |
 
 The first input byte decides whether the signed records in the request are signed again by a fixed
 key; its low bits pick the signature domain. A random signature never verifies, so without this the
 payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
-stop at the nonce, which each input cannot know. Responses that a node reads as a client, mailbox
-pushes have no target yet (planned).
+stop at the nonce, which each input cannot know. A random MLS signature never verifies either,
+so `mls` reaches the TLS decoders and signature checks but not the content behind them.
+Responses that a node reads as a client, mailbox pushes have no target yet (planned).
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
 `rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for

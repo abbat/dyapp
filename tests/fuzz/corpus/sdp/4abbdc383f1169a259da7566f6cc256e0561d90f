@@ -1,0 +1,13 @@
+v=0
+o=- 1 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BU
+a=ice-ufrag:abcd
+a=i:AADD:EE:FF
+a=setup:active
+a=mid:0
+a=sendrecv
+a=rtcp-mux
+a=rtpmap:96 VP8/90000
+aÜandidate:1 1 udp 2 192.0.2.1 50000 typ host

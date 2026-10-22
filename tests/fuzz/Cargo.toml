@@ -13,8 +13,12 @@ libfuzzer-sys = "0.4.13"
 prost = "0.14"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-identity = { path = "../../rust/identity" }
+dyapp-messaging = { path = "../../rust/messaging" }
 dyapp-p2p-net = { path = "../../rust/p2p-net" }
 dyapp-profile = { path = "../../rust/profile" }
+dyapp-video = { path = "../../rust/video" }
+# The SDP and ICE parsers behind dyapp-video's webrtc; keep in step with rust/video.
+rtc = { version = "0.21", default-features = false }
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -77,6 +81,27 @@ bench = false
 [[bin]]
 name = "gossip"
 path = "fuzz_targets/gossip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mls"
+path = "fuzz_targets/mls.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sframe"
+path = "fuzz_targets/sframe.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sdp"
+path = "fuzz_targets/sdp.rs"
 test = false
 doc = false
 bench = false

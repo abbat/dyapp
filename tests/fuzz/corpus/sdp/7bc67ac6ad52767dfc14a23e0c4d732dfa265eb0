@@ -1,0 +1,14 @@
+v=0
+o=- 1 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 1=m=.0
+a=icme-ufrag:abcd
+a=ice-pwd:abcdefghij
+a=rtAp-'7:88:99:AA:BB:CC:D:EE:FF
+a=setup:active
+a=mid:0
+a=sea=icme-ufrag:abcd
+a=ice-pwd:j
+0
+a=candst

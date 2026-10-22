@@ -1,0 +1,7 @@
+v=0
+o=- 0 2 IN IP4 12·.0.0:i.1
+s=-
+t=0 0
+a=E 0
+m=video 9 VPIN IP6 96
+c

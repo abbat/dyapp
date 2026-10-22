@@ -1,0 +1,12 @@
+v=0
+o=- 1 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=gro}p:BUNDLE 0
+m=video 9 UDP/TLS/RTVPF 96
+c=IN IP4 0.0.0.0
+a=icdbcijklmnopqrstufwx
+a=66:77:88A:BB:CC:DD:EE:FF
+a=setup:active
+a=mÀid:5candidate:ð.2
+a=p:96 VP.1

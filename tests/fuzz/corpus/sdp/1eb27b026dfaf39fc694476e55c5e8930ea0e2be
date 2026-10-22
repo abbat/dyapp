@@ -1,0 +1,8 @@
+v=0
+o=- 1 3 IN IP4 127.0.0i.1
+s=-
+t=0 0
+a=gsoup:BUN
+m=video 9 UDP/TLS/RTP/SAVPF -ufrag:abcd[a 0
+m=video 9 UDP/TLS/RTP/SAVPF 8v=0
+o=-*Åndite:_ 2 e 1:1

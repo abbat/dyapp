@@ -1,0 +1,6 @@
+v=0
+o=- 1 2 IN IP4 120.0.1
+s=-
+t=5 0
+
+m=video 9 UDP/ÿ/S/RTP/SAVÐF 96 hos*t
