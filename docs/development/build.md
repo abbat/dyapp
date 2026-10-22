@@ -85,6 +85,28 @@ The four crates are rlib-only, so there are no `.so` files to copy, and
 Fails to generate bindings and still reports success. See
 [FFI bindings](ffi-bindings.md#toolsbuild-scriptsbuild-uniffish).
 
+## Gradle dependency verification
+
+`clients/android/gradle/verification-metadata.xml` lists the SHA-256 of every Gradle artifact and
+metadata file the Android build resolves: plugins, libraries, lint and test dependencies. Gradle
+refuses an artifact that is missing from the file or whose checksum differs, so a tampered or
+unexpected artifact fails the `dyapp:android-test` image build. Signatures are not checked.
+
+Dependabot does not update the file, so a Gradle update PR fails the Android build until the file is
+regenerated on its branch. Delete the file, run the image build's tasks online in the current image
+with an empty Gradle cache (a cached artifact skips the BOMs and parent POMs that a fresh download
+reads) and the branch's `clients/android` mounted, then review the changed entries in the diff:
+
+```bash
+rm clients/android/gradle/verification-metadata.xml
+docker run --rm --user 1000:1000 -e GRADLE_USER_HOME=/tmp/gradle \
+  -v "$PWD/clients/android:/app/clients/android" \
+  dyapp:android-test bash -c 'cd clients/android && ./gradlew --no-daemon \
+  --write-verification-metadata sha256 :app:assembleDebug :app:assembleDebugAndroidTest \
+  :app:compileDebugUnitTestKotlin :app:testDebugUnitTest :app:assembleRelease :app:bundleRelease \
+  -x cargoNdkRelease -x cargoNdkDebug -x cargoHost -x uniffiBindgen'
+```
+
 ## Unsigned Android Release
 
 `build-android-release.sh` also wraps argument/startup failures with mapped

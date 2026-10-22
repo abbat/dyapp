@@ -145,7 +145,8 @@ libc 0.2.190 (`nix` fails to build for iOS against it), argon2 0.6+ (it needs bl
 while snow in libp2p noise still pins 0.10), and aes-gcm 0.11+ (snow and webrtc still require
 RustCrypto 0.10); the latter two introduce duplicates rejected by `cargo deny`. Review these
 temporary ignores when the upstream dependencies move. Dependabot also applies these version
-ignores to security-update PRs for the excluded versions. Vulnerability alerts and Dependabot
+ignores to security-update PRs for the excluded versions. A Gradle PR needs its
+[verification metadata](build.md#gradle-dependency-verification) regenerated. Vulnerability alerts and Dependabot
 security updates are enabled in the repository settings; eligible security PRs skip the schedule
 and the wait.
 

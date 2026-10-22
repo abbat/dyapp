@@ -138,13 +138,13 @@ Peer ID and a new contact. What a node can still substitute is everything below 
 
 Class 2 in detail. In place: `Cargo.lock` with `--locked` builds, `cargo deny` (crates.io only, no
 git sources, yanked crates refused, OpenSSL banned), `cargo audit` weekly and on every change,
-GitHub Actions and Docker build images pinned by digest, downloaded tools and the Gradle wrapper
+GitHub Actions and Docker build images pinned by digest, downloaded tools, the Gradle wrapper and Gradle artifacts
 checked by SHA-256, and an SPDX SBOM per CI run.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | A malicious or hijacked crate version, a typosquat, a `build.rs` or proc macro that runs at build time | Cargo dependencies | Critical × medium | In place: no crates.io version younger than 14 days, enforced by `make quality` ([dependency age](../development/code-quality.md#dependency-age)) and a 14-day Dependabot cooldown; a new dependency is reviewed by hand |
-| A malicious Gradle artifact | Android dependencies | Critical × medium | Fix: Gradle dependency verification (`verification-metadata.xml` with SHA-256) |
+| A malicious Gradle artifact | Android dependencies | Critical × medium | In place: Gradle dependency verification, SHA-256 for every artifact ([build](../development/build.md#gradle-dependency-verification)) |
 | An unpinned tool pulled in CI: `cargo install cargo-deny` in CodeQL, `pip install flake8`, xcodegen without a checksum, `dtolnay/rust-toolchain` at a branch, `debian:bookworm-slim` by tag | CI workflows, test Dockerfiles | High × medium | Fix: pinned versions with `--locked`, checksums and digests |
 | A pull request poisons the GitHub Actions build cache read by `main` | Docker builds with the GHA cache | High × medium | Fix: only pushes to `main` write the cache, pull requests read it; every workflow sets `permissions` at the top |
 | A tampered Debian package from the mirror | apt in build images | Medium × low | Accept: Debian repositories are signed; versions are not pinned |
