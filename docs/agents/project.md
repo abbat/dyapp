@@ -100,6 +100,9 @@ capture per port across restarts. Raw failure evidence includes node-port header
 - The FFI layer is unfinished: no platform app calls Rust. Do not document or test as if it did.
 - Docs must describe what the code does now; mark plans as plans.
 - Code changes need an agreed scope; a docs task does not authorise code fixes.
+- Production Rust has a fixed `unwrap`/`expect`/`panic!` budget per crate. Return `Result` for
+  anything a peer or user controls; an `allow` does not hide a counted site
+  ([explicit panic budgets](../development/code-quality.md#explicit-panic-budgets)).
 
 ## Rules for agents
 

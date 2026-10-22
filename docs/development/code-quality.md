@@ -228,6 +228,28 @@ reporting zero. Details are saved in `build/panics.json` (CI artifact
 not covered. These three lints do not prove runtime panic freedom: indexing,
 assertions, allocation failure and transitive dependency panics are outside this check.
 
+The budget is the barrier, not `deny`: an `allow` cannot hide a counted site, so a new
+production `unwrap`/`expect` fails `make quality` unless one is removed in the same commit.
+Unit tests (`#[cfg(test)]`), integration tests, fuzz targets and generated protobuf modules
+are not counted. The counted sites, inventoried on 2026-10-23, fall into these groups. None
+is reachable by peer input, which `tests/fuzz` also exercises:
+
+- **Validated input.** A record or manifest the service has already accepted: a verified
+  signature implies a 32-byte key, an accepted mailbox put decodes, and a stored manifest has
+  `data_shards()` (bootstrap `node/replicas.rs`, `node.rs`, `media_repair.rs`,
+  `service/media.rs`).
+- **State-machine invariants.** An entry looked up right after it was inserted or checked
+  (`node/replicas.rs`, `search/find.rs`, `search/generation.rs`).
+- **Poisoned locks.** `lock().unwrap()` re-raises a panic that already happened on another
+  thread (`rate_limit.rs`, `maintenance.rs`, messaging `hlc.rs`).
+- **Constants and startup.** Nonzero or in-range constants, valid Argon2, HMAC and
+  gossipsub parameters, and a missing OS random source, where failing closed is the intended
+  behaviour (`config.rs`, `lib.rs`, `secret.rs`, identity, profile, p2p-net).
+- **Wall clock before 1970.** `SystemTime::duration_since(UNIX_EPOCH)` (messaging, video).
+
+New code returns `Result` for anything a peer or user controls. A new invariant replaces a
+removed site, or raises the budget with the reason in review.
+
 ### Public API documentation
 
 Practice B9: `missing_docs = "deny"` is set in `[workspace.lints.rust]` of the root
