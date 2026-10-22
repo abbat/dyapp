@@ -361,10 +361,17 @@ class Runners(unittest.TestCase):
                                  return_value=0) as invoke:
                 self.assertEqual(runner.build_images(
                     ["build"], {"DYAPP_BUILD_CACHE": "gha"}), 0)
-        remote, local = (call.args[0] for call in invoke.call_args_list)
+                self.assertEqual(runner.build_images(
+                    ["build"], {"DYAPP_BUILD_CACHE": "gha",
+                                "GITHUB_EVENT_NAME": "pull_request"}), 0)
+        remote, local, pull, _ = (call.args[0]
+                                  for call in invoke.call_args_list)
         self.assertEqual(remote[:3], ["docker", "buildx", "build"])
         self.assertIn("type=gha,scope=test-remote", remote)
+        self.assertIn("--cache-to", remote)
         self.assertEqual(local[:2], ["docker", "build"])
+        self.assertIn("--cache-from", pull)
+        self.assertNotIn("--cache-to", pull)
 
     def test_windows_ui_report_does_not_require_container_hostname(self):
         spec = importlib.util.spec_from_file_location(

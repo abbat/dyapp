@@ -58,7 +58,7 @@ jobs:
         persist-credentials: false
 
     - name: toolchain
-      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
       with:
         toolchain: stable
         components: clippy
@@ -66,7 +66,9 @@ jobs:
     # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
     # (tests/scripts/rust-check.sh); here a finding must not stop the SARIF upload.
     - name: install cargo-deny
-      run: cargo install cargo-deny
+      uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      with:
+        tool: cargo-deny@0.20.2
 
     - name: clippy
       run: python3 tools/scripts/run-check.py --log-dir build/check-output clippy -- cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic

@@ -139,8 +139,10 @@ def build_images(arguments, environment, log_file=None):
         if cache and "FROM dyapp:" not in dockerfile.read_text():
             scope = service["image"].replace(":", "-")
             command = ["docker", "buildx", "build", "--load",
-                       "--cache-from", f"type={cache},scope={scope}",
-                       "--cache-to", f"type={cache},scope={scope}"]
+                       "--cache-from", f"type={cache},scope={scope}"]
+            # A pull request reads the cache but never writes it.
+            if environment.get("GITHUB_EVENT_NAME") != "pull_request":
+                command += ["--cache-to", f"type={cache},scope={scope}"]
             buildkit = "1"
         else:
             command = ["docker", "build", "--cpu-period", "100000",
