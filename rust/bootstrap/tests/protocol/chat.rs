@@ -240,10 +240,18 @@ async fn the_client_takes_the_newest_replica_profile_and_refuses_a_rollback() {
         node.publish_profile(profile.sign(&owner)).await.unwrap();
     }
 
-    let newest = profiles::newest(&mut nodes, &owner.peer_id())
+    let mut scores = dyapp_client::scores::Scores::default();
+    let newest = profiles::newest(&mut scores, &mut nodes, &owner.peer_id())
         .await
         .unwrap();
     assert_eq!(newest.profile.version, 5);
+    // The node that served version 3 loses score.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    assert_eq!(scores.penalty(nodes[0].peer(), now), 1);
+    assert_eq!(scores.penalty(nodes[1].peer(), now), 0);
     let mut held = profiles::Profiles::default();
     held.accept(newest).unwrap();
     let older = nodes[0].get_profile(&owner.peer_id()).await.unwrap();

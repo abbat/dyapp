@@ -162,7 +162,11 @@ replica *i* on the nodes closest to H(key ‖ i); media above the node's thresho
 erasure-coded into K = ⌈size / 1 MiB⌉ data shards + M = 4 parity shards, up to 6 MiB.
 Smaller blobs use whole copies ([Erasure coding](#erasure-coding-reed-solomon)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
-SHA-256). A client sends one put to the holder of key 0, falling back to keys 1–4 on failure.
+SHA-256). A client sends one put to the holder of one replica key and falls back to the others on
+any failure. It keeps local scores of nodes (`rust/client` `scores`): a refusal, a timeout,
+invalid data or an older profile than another replica adds one to a node's penalty, which halves
+every day, and `scores::first` tries the lowest penalty first. A node's own `info` and status are
+hints only and never raise its score. The scores live in memory until the app stores client state.
 The acceptor verifies and bills profile/mailbox writes five token-bucket units, runs a full DHT lookup of every
 replica key, stores locally only when it holds a key, and sends a signed `replica_put` to each
 other distinct holder. Receivers verify records independently and never forward replica puts.
@@ -320,7 +324,7 @@ SHA-256(device public key). A KeyPackage's MLS leaf signature key must equal the
 key. A sender fetches at least two profile replicas, retains the highest version seen for each
 contact, and refuses a lower version, any version after a tombstone, or a device absent from
 that directory (`rust/client`: `profiles::newest` over the replicas, `profiles::Profiles::accept`).
-Lowering the score of a node that served a lower version is planned. If the directory is
+A node that served a lower version loses score ([client scores](#replication-and-repair)). If the directory is
 unavailable, first contact waits; no guessed mailbox or stale package is used.
 
 `/dyapp/keypackage` on store nodes accepts a device-signed publication and an unauthenticated

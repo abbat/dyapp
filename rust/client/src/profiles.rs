@@ -1,8 +1,10 @@
 //! The newest profile the client holds for each owner. A node can serve an older signed profile
 //! that still lists a removed device; [`Profiles::accept`] refuses any version below one already
-//! seen, and [`newest`] asks several replicas and keeps the highest valid version. The app stores
+//! seen, and [`newest`] asks several replicas, keeps the highest valid version and scores the nodes
+//! that served a lower one. The app stores
 //! the held profiles so the guard survives a restart.
 
+use crate::scores::{self, Scores};
 use crate::{Error, Node};
 use dyapp_profile::VerifiedProfile;
 
@@ -48,24 +50,39 @@ impl Profiles {
 }
 
 /// The highest valid version of `peer_id`'s profile among `nodes`, e.g. its replicas; fails
-/// only if none of them returns one.
-pub async fn newest(nodes: &mut [Node], peer_id: &str) -> Result<VerifiedProfile, Error> {
-    let mut best: Option<VerifiedProfile> = None;
+/// only if none of them returns one. A node that fails or serves a lower version loses score.
+pub async fn newest(
+    scores: &mut Scores,
+    nodes: &mut [Node],
+    peer_id: &str,
+) -> Result<VerifiedProfile, Error> {
+    let now = crate::now();
+    let mut served = Vec::new();
     let mut last = Error::Status(dyapp_p2p_net::proto::Status::NotFound);
     for node in nodes {
         match node.get_profile(peer_id).await {
-            Ok(profile) => {
-                if best
-                    .as_ref()
-                    .is_none_or(|held| profile.profile.version > held.profile.version)
-                {
-                    best = Some(profile);
+            Ok(profile) => served.push((node.peer(), profile)),
+            Err(error) => {
+                if scores::faulty(&error) {
+                    scores.fault(node.peer(), now);
                 }
+                last = error;
             }
-            Err(error) => last = error,
         }
     }
-    best.ok_or(last)
+    let Some(best) = served.iter().map(|(_, held)| held.profile.version).max() else {
+        return Err(last);
+    };
+    for (peer, held) in &served {
+        if held.profile.version < best {
+            scores.fault(*peer, now);
+        }
+    }
+    served
+        .into_iter()
+        .map(|(_, held)| held)
+        .find(|held| held.profile.version == best)
+        .ok_or(last)
 }
 
 #[cfg(test)]

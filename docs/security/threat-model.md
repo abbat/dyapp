@@ -250,7 +250,7 @@ check nodes yet.
 | Harvesting peer and profile data | DHT, search | Medium × high | Accept: profiles are public by design and Kademlia routing tables are open; metadata is class 4 ([above](#traffic-analysis)) |
 | Colluding or Sybil nodes take every replica of a key | DHT | High × medium | Accept: [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) makes a targeted eclipse costly, not impossible |
 | A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish (planned) |
-| A client keeps using nodes that failed it | Client | Medium × high | Fix: the client keeps local scores of nodes (refusals, invalid data, missing receipts, timeouts) and prefers good ones |
+| A client keeps using nodes that failed it | Client | Medium × high | In place: `rust/client` `scores` counts refusals, timeouts, invalid data and older profiles per node, halves the penalty daily and tries the lowest penalty first, falling back across replica keys ([replication](../architecture/bootstrap.md#replication-and-repair)); missing receipts count once delivery receipts exist |
 
 ### Denial of service
 

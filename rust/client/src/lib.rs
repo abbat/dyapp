@@ -1,10 +1,12 @@
 //! Client network core: one libp2p connection to a node and the profile, KeyPackage and mailbox
 //! requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
-//! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner.
+//! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
+//! [`scores`] ranks nodes by the faults the client saw.
 
 pub mod attachment;
 pub mod chat;
 pub mod profiles;
+pub mod scores;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, key_package_request, mailbox_request, profile_request, Status};
@@ -106,6 +108,11 @@ impl Node {
         })
         .await
         .map(|peer| Self { swarm, peer })
+    }
+
+    /// The node's Peer ID, the key of its [`scores::Scores`] entry.
+    pub fn peer(&self) -> PeerId {
+        self.peer
     }
 
     /// Publishes a signed profile.
