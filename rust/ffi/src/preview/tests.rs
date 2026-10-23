@@ -56,6 +56,16 @@ fn sof(jpeg: &[u8]) -> (usize, usize) {
 }
 
 #[test]
+fn decoded_pixels_must_match_frame() {
+    assert!(rgba_pixels(&[1, 2], &PixelFormat::RGB24, 1).is_err());
+    assert!(rgba_pixels(&[7, 8], &PixelFormat::L8, 1).is_err());
+    assert_eq!(
+        rgba_pixels(&[1, 2, 3], &PixelFormat::RGB24, 1).unwrap(),
+        vec![1, 2, 3, 255]
+    );
+}
+
+#[test]
 fn malformed_jpeg_does_not_panic_in_decoder() {
     let bytes = include_bytes!(
         "../../../../tests/fuzz/corpus/preview/b31fdd103ccba5f493ba6602325173fdcbca3eb1"

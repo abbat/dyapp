@@ -148,25 +148,29 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
         return Err(failed("JPEG frame changed during decoding"));
     }
     let pixels = usize::from(info.width) * usize::from(info.height);
+    Ok(Rgba {
+        width: u32::from(info.width),
+        height: u32::from(info.height),
+        pixels: rgba_pixels(&decoded, &info.pixel_format, pixels)?,
+    })
+}
+
+fn rgba_pixels(decoded: &[u8], format: &PixelFormat, pixels: usize) -> Result<Vec<u8>, CoreError> {
     let mut rgba = Vec::with_capacity(pixels * 4);
-    match info.pixel_format {
+    match format {
         PixelFormat::RGB24 if decoded.len() == pixels * 3 => {
             for rgb in decoded.as_chunks::<3>().0 {
                 rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
             }
         }
         PixelFormat::L8 if decoded.len() == pixels => {
-            for value in decoded {
+            for &value in decoded {
                 rgba.extend_from_slice(&[value, value, value, 255]);
             }
         }
         _ => return Err(failed("unsupported preview pixel format")),
     }
-    Ok(Rgba {
-        width: u32::from(info.width),
-        height: u32::from(info.height),
-        pixels: rgba,
-    })
+    Ok(rgba)
 }
 
 /// The platform reports whether the current network is metered (mobile, roaming, a hotspot or a
