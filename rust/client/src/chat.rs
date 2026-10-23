@@ -301,7 +301,60 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
+    use super::{apply_all, message, pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
+    use crate::Envelope;
+    use dyapp_identity::Identity;
+    use dyapp_messaging::mls::Device;
+    use dyapp_profile::{Profile, VerifiedProfile};
+
+    fn person() -> (Identity, Device, VerifiedProfile) {
+        let identity = Identity::generate();
+        let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
+        let profile = Profile {
+            version: 1,
+            devices: vec![device.certificate().clone()],
+            ..Default::default()
+        }
+        .sign(&identity);
+        (identity, device, dyapp_profile::verify(&profile).unwrap())
+    }
+
+    fn envelope(id: u8, ciphertext: Vec<u8>) -> Envelope {
+        Envelope {
+            id: vec![id],
+            sender_key: Vec::new(),
+            ciphertext,
+        }
+    }
+
+    #[test]
+    fn applies_a_welcome_then_a_message_and_acks_both() {
+        let (alice_identity, alice, alice_profile) = person();
+        let (_, bob, bob_profile) = person();
+        let profiles = [alice_profile, bob_profile];
+        let package = bob.key_package(false).unwrap();
+        let (mut group, welcome) = alice.create_group(&[package], &profiles).unwrap();
+        let mut groups = Vec::new();
+        let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(1, welcome)], &profiles);
+        assert!(events == [Event::Joined(group.id().to_vec())]);
+        assert_eq!(acked, [vec![1]]);
+        let sent = message(&mut group, &alice, b"hi").unwrap();
+        let (events, acked) = apply_all(
+            &bob,
+            &mut groups,
+            vec![envelope(2, sent[0].mls.clone())],
+            &profiles,
+        );
+        assert!(
+            events
+                == [Event::Message {
+                    group: group.id().to_vec(),
+                    sender: alice_identity.peer_id(),
+                    plaintext: b"hi".to_vec(),
+                }]
+        );
+        assert_eq!(acked, [vec![2]]);
+    }
 
     #[test]
     fn debug_shows_no_text_sender_or_mailbox() {

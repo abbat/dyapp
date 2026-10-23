@@ -1041,6 +1041,7 @@ dependencies = [
  "openmls",
  "openmls_basic_credential",
  "openmls_rust_crypto",
+ "openmls_traits",
  "prost",
  "serde",
  "thiserror 2.0.21",
