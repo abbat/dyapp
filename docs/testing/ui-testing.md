@@ -46,12 +46,12 @@ hidden-ready rejection. The restart in each mode must report the same 64-charact
 print `UI_SMOKE_PASS:<peer-id>` and exit 0; failures print `UI_SMOKE_FAIL:`
 with the failed UI check or error before exiting 1.
 The Debian client package smoke installs and unlocks GNOME Keyring inside a
-fresh D-Bus/Xvfb session for each tested binary (installed DEB and tarball).
-Both binaries run the full system and file storage checks. Separate sessions
-avoid carrying Secret Service or webview state from the first binary into the
-second. Without a running Secret Service the application correctly disables
-that choice, making the system-mode smoke fail rather than silently falling
-back to file storage.
+fresh D-Bus/Xvfb session and distinct test user for each binary (installed DEB
+and tarball). Both binaries run the full system and file storage checks. A
+separate home is needed because GNOME Keyring persists the first binary's
+`primary` identity across D-Bus sessions. Without a running Secret Service the
+application correctly disables that choice, making the system-mode smoke fail
+rather than silently falling back to file storage.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
 letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to

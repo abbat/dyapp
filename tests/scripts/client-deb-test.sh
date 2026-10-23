@@ -30,11 +30,14 @@ PY
 cd /tmp
 tar -xzf /deb/dyapp-*-linux-gnu.tar.gz
 test "$(ls dyapp-*-linux-gnu)" = "$(printf 'LICENSE\ndyapp\ndyapp.desktop\ndyapp.png')"
-useradd -m tester
-for app in /usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp; do
-    runuser -u tester -- env HOME=/home/tester RUNNER_TEMP=/tmp/reports \
+apps=(/usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp)
+users=(tester-deb tester-tarball)
+for index in "${!apps[@]}"; do
+    useradd -m "${users[index]}"
+    runuser -u "${users[index]}" -- env \
+        HOME="/home/${users[index]}" RUNNER_TEMP="/tmp/reports-${users[index]}" \
         DYAPP_XVFB_DIAGNOSTICS=1 \
         xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
-        bash /tests/scripts/client-deb-test.sh --session "$app"
+        bash /tests/scripts/client-deb-test.sh --session "${apps[index]}"
 done
 echo "dyapp client .deb and tarball install on Debian 12, launch and close"
