@@ -340,8 +340,9 @@ fails; rebuild the dev image. A version recorded before crates.io kept `pubtime`
 Dependabot waits the same 14 days (`cooldown` in `.github/dependabot.yml`).
 
 To take a younger version, for example a security fix, add `(crate, version): (date, reason)` to
-`EXCEPTIONS` in the script. An exception older than 14 days fails the check: by then the
-version is old enough, so delete the entry.
+`EXCEPTIONS` in the script. The `ctutils 0.4.4` exception, added on 2026-10-23 for
+`RUSTSEC-2026-0385`, allows the fixed version immediately. An exception older than 14 days
+fails the check: by then the version is old enough, so remove the entry.
 
 ## Source debt markers
 
