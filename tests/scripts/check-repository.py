@@ -23,10 +23,10 @@ BEAD = re.compile(r"\bdyapp-[a-z0-9]{3,4}(?:\.\d+)*(?![\w-])")
 CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 # Names that are not crates: the stale package name in build-uniffi.sh.
 NOT_TRACKER = {"dyapp-core"}
-# Commit-message ratchet: commits after this one follow the message rules.
-# Pushed history is not rewritten: this is the last pushed commit that
-# breaks a rule (a 75-character subject).
-BASELINE = "9d8950103432cfefd4f9f7f44565ccf29e327f82"
+# Commit-message ratchet: commits after this published cutoff follow the rules.
+# Moved on 2026-10-23 because 834083c was pushed with a lowercase subject;
+# published history is not rewritten.
+BASELINE = "834083cda0db08f32aec6682289ba729ecaead74"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80
