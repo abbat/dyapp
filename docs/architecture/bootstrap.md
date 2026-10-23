@@ -1146,7 +1146,8 @@ piece by piece and resumes after a break; without `len` it is the whole get. A b
 shards is kept as `<media dir>/cache/<hash>` for `limits.media_cache_minutes` (default 10) after
 its last read, so later pieces read that file instead of assembling again. The cache counts towards
 `media_max_mb` and is evicted first; the hourly cleanup deletes expired entries, and a deny-list
-purge deletes the blob's entry. Piece bytes count towards the traffic cap like a get; an assembly
+purge deletes the blob's entry. An invalid media file path returns a storage error instead of
+panicking during the file write. Piece bytes count towards the traffic cap like a get; an assembly
 reserves its shard bytes plus the piece. `dyappd media-get` fetches 1 MiB pieces, retries a
 rate-limited piece from its offset and checks the hash once it has all pieces.
 
