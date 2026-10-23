@@ -12,6 +12,8 @@ mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
+mod strip;
+pub use strip::strip_metadata;
 
 // Public FFI interface for Swift/Kotlin
 // Minimal surface: peer operations, key management, message/video

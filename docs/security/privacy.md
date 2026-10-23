@@ -80,7 +80,9 @@ not "safe" data. The target design therefore needs:
 - a warning before publishing that replicated data cannot be reliably withdrawn
   ([ADR 0011](../decisions/0011-best-effort-deletion.md));
 - documentation that peer ID + IP + age + location can deanonymize a user;
-- photo metadata (EXIF, GPS, device) stripped on the client before any upload;
+- photo metadata (EXIF, GPS, device) stripped on the client before any upload: `strip_metadata` in the core
+  (see [FFI design](../architecture/ffi-design.md)); the app setting, on by default, and the call before
+  upload are not wired yet;
 - a heartbeat at most once a day at a random time, so `last_seen` does not track app use;
 - push notifications (not designed) that only wake the app, with no sender or content.
 
