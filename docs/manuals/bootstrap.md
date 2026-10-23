@@ -278,7 +278,8 @@ What keygen and startup check:
   same key/ID check without opening a store or listener and prints the verified peer ID. Use
   `--storage.key=<temporary-key-file>` when restoring an external or decrypted backup key;
   run as the copy's owner with the original `network.id_pow_bits` setting. This command checks
-  identity only; the backup verifier and SQLite checks are still planned.
+  identity only; the backup inventory verifier exists, while SQLite restore
+  checks are still planned.
 - A key file must be readable only by its owner: startup refuses group or other permission bits
   with a `chmod 600` hint and never changes the mode itself; 0400 also loads. A systemd
   credential is not checked: systemd makes it readable to the service user only.

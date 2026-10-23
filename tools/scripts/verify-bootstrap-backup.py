@@ -234,9 +234,13 @@ def parse_and_hash(root):
 
 
 def check_inventory(root, expected_count, expected_dirs):
+    def fail_walk(error):
+        raise error
+
     found = 0
     actual_dirs = set()
-    for directory, dirs, files in os.walk(root, followlinks=False):
+    for directory, dirs, files in os.walk(root, followlinks=False,
+                                          onerror=fail_walk):
         parent = Path(directory).relative_to(root)
         for name in dirs:
             relative = (parent / name).as_posix()

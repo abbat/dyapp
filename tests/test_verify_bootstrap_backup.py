@@ -69,8 +69,38 @@ class VerifyBootstrapBackup(unittest.TestCase):
             VERIFY.verify(self.snapshot)
         (self.snapshot / "storage/extra").unlink()
         file.unlink()
+        with self.assertRaises(FileNotFoundError):
+            VERIFY.verify(self.snapshot)
         file.symlink_to(self.source / "profiles.db")
         with self.assertRaises(OSError):
+            VERIFY.verify(self.snapshot)
+
+    def test_external_and_age_key_modes(self):
+        for mode in ("external", "age"):
+            with self.subTest(mode=mode):
+                self.snapshot = self.source.parent / mode
+                self.create(mode)
+                self.assertEqual(VERIFY.verify(self.snapshot)[0], "peer-id")
+                self.change_manifest(lambda lines: lines.pop(1))
+                with self.assertRaisesRegex(ValueError, "recovery key"):
+                    VERIFY.verify(self.snapshot)
+
+    def test_missing_empty_directory(self):
+        self.create()
+        (self.snapshot / "recovery").rmdir()
+        with self.assertRaisesRegex(ValueError, "missing directories"):
+            VERIFY.verify(self.snapshot)
+
+    def test_oversized_and_wrongly_typed_header(self):
+        self.create()
+        manifest = self.snapshot / "manifest.jsonl"
+        original = manifest.read_text()
+        manifest.write_bytes(b"x" * (BACKUP.MAX_RECORD + 1) + b"\n")
+        with self.assertRaisesRegex(ValueError, "oversized manifest record"):
+            VERIFY.verify(self.snapshot)
+        manifest.write_text(original)
+        self.change_manifest(lambda lines: lines[0].update(absent=[42]))
+        with self.assertRaisesRegex(ValueError, "absent-store list"):
             VERIFY.verify(self.snapshot)
 
     def test_malformed_duplicate_and_traversal(self):
