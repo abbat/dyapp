@@ -49,11 +49,13 @@ occur in both the root and `tests/fuzz/Cargo.lock`; at the time, only the root
 `osv-scanner.toml` covered them. The other nine GHSA IDs match Maven artifacts listed in
 `clients/android/gradle/verification-metadata.xml`; that directory had no
 `osv-scanner.toml`. The four fuzz exceptions were added after confirming the same dependency
-paths and reasons as the root lockfile. The nine Android findings still need a decision: Gradle
-resolves vulnerable build-tool versions of commons-lang3, jose4j, Bouncy Castle and jdom2,
-while old httpclient and Kotlin plugin versions remain only in verification metadata. None of
-the nine packages appears in `:app:dependencies --configuration debugRuntimeClasspath`; build
-tooling still has exposure. [OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
+paths and reasons as the root lockfile. The nine Android findings were traced to the Gradle build classpath and verification
+metadata; none appears in `:app:dependencies --configuration debugRuntimeClasspath`. The root
+`settings.gradle` now substitutes fixed versions of commons-lang3, jose4j, Bouncy Castle and
+jdom2 before resolution, as well as the already selected fixed httpclient and Kotlin plugin
+versions. The old verification entries were removed and new artifact checksums recorded.
+The Android CI build and next Scorecard run must confirm that no affected versions remain.
+[OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
 scopes exceptions to a scan source's directory; [supported manifests](https://github.com/google/osv-scanner/blob/main/docs/supported_languages_and_lockfiles.md)
 include Cargo locks and Gradle verification metadata.
 The new `RUSTSEC-2026-0385` for `ctutils 0.4.3` was addressed by updating both affected Cargo
