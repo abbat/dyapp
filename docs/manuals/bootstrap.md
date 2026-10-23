@@ -791,6 +791,48 @@ node first.
 | `profiles-idx.db` or `profiles-idx-vN.db`, `search.lock` | No: the search index is disposable and refilled by catch-up. |
 | `peers`, `anchors` | No: the peer cache, rebuilt from the network. |
 
+### Verified pre-update snapshot (planned)
+
+The simple tar command below is a manual copy, not a verified recovery point.
+Before unattended updates, the backup tool must make a stopped-node snapshot in
+a new, private directory with `storage/`, `recovery/` and `manifest.jsonl`.
+The first JSON Lines record contains schema `1`, the saved peer ID and network,
+the key mode (`inline`, `external` or `age`), and an explicit list of absent
+optional stores. Following records, sorted by relative path, contain the byte
+size and SHA-256 of every regular file. Version 1 accepts at most 1 million
+files, a 256 MiB manifest, 4 KiB per record and 1 KiB per path, processed as
+a stream; larger snapshots need a later format. Reject duplicate, absolute,
+parent-traversal and unlisted paths, symlinks and other special files. Hashes
+detect accidental damage; they do not authenticate a backup an attacker can
+rewrite. Keep the whole snapshot encrypted or off the cloud provider.
+
+`storage/` must hold `node.id`, `network`, `profiles.db` and `messages.db`.
+Include `media.db`, `deny.db` and every regular file under `data/` when present;
+record absence explicitly. Copy any existing `*.db-wal` or `*.db-journal` with
+its database: after an interrupted shutdown they can hold recovery state.
+`*.db-shm`, search indexes, locks and peer caches can be rebuilt. A hot
+rollback journal blocks automatic update until recovery is checked in an
+isolated copy. [SQLite's WAL guidance](https://www.sqlite.org/wal.html#the_wal_file)
+and [journal guidance](https://www.sqlite.org/howtocorrupt.html#_deleting_a_hot_journal)
+explain why the sidecars cannot be silently dropped.
+
+For an inline key, include `storage/node.key`; for an external `storage.key`,
+include a private `recovery/node.key` copy. A systemd-sealed credential is
+bound to its host or TPM and is **not** portable recovery evidence: include an
+independently encrypted `recovery/node.key.age` copy and require the operator
+to decrypt it to a temporary private file for the restore probe. Refuse an
+unattended update if that copy or decryption proof is unavailable. Preserve
+the node's configuration separately, especially its network name, ID proof of
+work difficulty, roles and external key setting.
+
+The future probe extracts into a separate stopped directory, verifies every
+hash and expected absence, checks each SQLite database and asks `dyappd` to
+prove that the recovered key matches `node.id`. It never opens or replaces live
+storage. Keep the pre-update snapshot until the new version is accepted. A
+restore discards writes made after the snapshot; record that window and do not
+roll an upgraded SQLite store back in place. Implementation and fault tests are
+tracked in the backup recovery beads.
+
 A `traffic` file left by an older version is no longer read and can be deleted. Example with the
 package layout:
 
