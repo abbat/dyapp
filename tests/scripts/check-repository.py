@@ -25,9 +25,9 @@ CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 # Names that are not crates: the stale package name in build-uniffi.sh.
 NOT_TRACKER = {"dyapp-core"}
 # Commit-message ratchet: commits after this published cutoff follow the rules.
-# Moved on 2026-10-23 because 834083c was pushed with a lowercase subject;
-# published history is not rewritten.
-BASELINE = "834083cda0db08f32aec6682289ba729ecaead74"
+# Moved on 2026-10-23 after a lowercase subject reached main; the local
+# commit-msg hook now checks new messages before Git records them.
+BASELINE = "abcabf4ae222083c6373022ba019234392dde333"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80
@@ -233,7 +233,8 @@ def message_file_errors(path):
     names = subprocess.check_output(
         ["git", "ls-files", "--", "*Cargo.toml"], text=True).splitlines()
     allowed = NOT_TRACKER | {
-        crate for name in names for crate in CRATE.findall(Path(name).read_text())}
+        crate for name in names
+        for crate in CRATE.findall(Path(name).read_text())}
     return message_errors(Path(path).read_text(), allowed)
 
 
