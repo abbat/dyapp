@@ -192,7 +192,7 @@ assertion changes.
 | Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; updater integration planned |
 | Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Python unit | `test_verify_bootstrap_backup.py` | exists |
 | SQLite restore probe copies DB/WAL to a disposable directory, rejects hot journals and corrupt stores without changing the snapshot | Python unit | `test_probe_bootstrap_sqlite.py` | exists |
-| Restore preflight checks key against saved peer ID on a separate copy and decrypts age recovery evidence; absent/wrong key fails closed | Python unit, Rust CLI | `test_probe_bootstrap_backup.py`, `probe_key_checks_a_stopped_copy_without_changing_files` | exists; updater integration planned |
+| Restore preflight checks key against saved peer ID on a separate copy, decrypts age recovery evidence and restores committed WAL data; absent/wrong key or corrupt file fails closed | Python unit, Rust CLI | `test_probe_bootstrap_backup.py`, `probe_key_checks_a_stopped_copy_without_changing_files` | exists; updater integration planned |
 | Update preflight refuses a missing/unverified backup and migrated-store rollback is rehearsed without touching live storage | Fault test | Update preflight and migration recovery fixtures | planned |
 
 ## Decisions

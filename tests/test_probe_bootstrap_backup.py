@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -107,6 +108,51 @@ class ProbeBootstrapBackup(unittest.TestCase):
         (self.source / "profiles.db").write_bytes(b"corrupt")
         self.create("inline")
         with self.assertRaises(sqlite3.DatabaseError):
+            self.probe()
+
+    def test_wal_restore_preserves_data_and_source(self):
+        db = sqlite3.connect(self.source / "profiles.db")
+        self.addCleanup(db.close)
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("INSERT INTO records VALUES (42)")
+        db.commit()
+        self.create("inline")
+        wal = self.snapshot / "storage/profiles.db-wal"
+        self.assertTrue(wal.exists())
+        source_bytes = {p.name: p.read_bytes() for p in self.source.iterdir()
+                        if p.is_file()}
+        store = self.snapshot / "storage"
+        snapshot_bytes = {p.name: p.read_bytes()
+                          for p in store.iterdir()
+                          if p.is_file()}
+        self.assertEqual(self.probe(), "peer-id")
+        restored = self.source.parent / "restored"
+        restored.mkdir()
+        for name in ("profiles.db", "profiles.db-wal"):
+            shutil.copy2(self.snapshot / "storage" / name, restored / name)
+        with sqlite3.connect(restored / "profiles.db") as copy:
+            value = copy.execute("SELECT id FROM records").fetchone()
+        self.assertEqual(value, (42,))
+        self.assertEqual(source_bytes, {p.name: p.read_bytes()
+                                        for p in self.source.iterdir()
+                                        if p.is_file()})
+        self.assertEqual(snapshot_bytes, {p.name: p.read_bytes()
+                                          for p in store.iterdir()
+                                          if p.is_file()})
+
+    def test_missing_recovery_evidence_and_changed_byte_fail(self):
+        with self.assertRaisesRegex(ValueError, "portable recovery key"):
+            BACKUP.snapshot(self.source, self.snapshot, "age", None)
+        self.assertFalse(self.snapshot.exists())
+        self.create("age")
+        (self.snapshot / "recovery/node.key.age").unlink()
+        with self.assertRaises(FileNotFoundError):
+            self.probe(age_identity=self.age_identity, age_binary=self.age)
+        self.snapshot = self.source.parent / "changed"
+        (self.source / "node.key").write_bytes(b"good-key")
+        self.create("inline")
+        (self.snapshot / "storage/messages.db").write_bytes(b"damaged")
+        with self.assertRaisesRegex(ValueError, "size mismatch"):
             self.probe()
 
 
