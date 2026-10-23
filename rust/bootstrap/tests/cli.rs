@@ -174,6 +174,51 @@ fn operator_diagnostics_follow_locale_without_changing_status_fields() {
 }
 
 #[test]
+fn client_argument_errors_follow_locale() {
+    let dir = directory();
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["sign-profile", "00", "1"],
+            "secret must be 32 bytes",
+            "секрет должен быть длиной 32 байта",
+        ),
+        (
+            &["sign-profile", "0", "1"],
+            "odd-length hex",
+            "нечётная длина шестнадцатеричной строки",
+        ),
+        (
+            &["sign-profile", "zz", "1"],
+            "bad hex",
+            "неверная шестнадцатеричная строка",
+        ),
+        (
+            &["media-sized", "invalid", "6291457", "00"],
+            "blob exceeds 6 MiB",
+            "размер файла превышает 6 МиБ",
+        ),
+        (
+            &["media-sized", "invalid", "1", "00"],
+            "seed must be 32 bytes",
+            "начальное значение должно быть длиной 32 байта",
+        ),
+        (
+            &["info", "invalid"],
+            "bad address invalid",
+            "неверный адрес invalid",
+        ),
+    ];
+    for &(args, english, russian) in cases {
+        let en = String::from_utf8(command_locale(&dir, args, "C").stderr).unwrap();
+        let ru = String::from_utf8(command_locale(&dir, args, "ru_RU.UTF-8").stderr).unwrap();
+        assert!(en.contains(english), "{args:?}: {en}");
+        assert!(ru.contains(russian), "{args:?}: {ru}");
+    }
+    let en = String::from_utf8(command_locale(&dir, &["info", "invalid"], "C").stderr).unwrap();
+    assert!(en.contains("node.example.org:33445"));
+}
+
+#[test]
 fn without_config_the_working_directory_file_is_read() {
     let (cwd, store) = (directory(), directory());
     std::fs::write(store.join("node.id"), "from-cwd\n").unwrap();

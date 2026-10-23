@@ -124,7 +124,8 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
   The CLI test uses isolated temporary storage and clears inherited configuration/backtrace
   settings. Dynamic paths, timestamps and incidental messages are not snapshotted.
 - Real-binary CLI tests check Russian and English operator diagnostics and deny-list confirmations,
-  while the `status` field names and values remain stable across locales.
+  while the `status` field names and values remain stable across locales. Client argument tests
+  also check translated errors and the current default port in address guidance.
 
 `make test` runs these checks. Review fixture diffs as changes to an external contract;
 never auto-update a baseline just to make a failed check pass. For an intentional format

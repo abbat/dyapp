@@ -39,6 +39,7 @@
 //! the network of the config's `network.name`. These commands only read the config: they need
 //! neither the node key nor the owner of `storage.dir`.
 
+use super::message;
 use anyhow::{anyhow, bail, Context};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
@@ -89,15 +90,21 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
     let output = match args {
         ["sign-profile"] => sign_profile(&Identity::generate(), 1),
         ["sign-profile", secret, version] => {
-            let secret: [u8; 32] = unhex(secret)?
-                .try_into()
-                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
+                anyhow!(message(
+                    "secret must be 32 bytes",
+                    "секрет должен быть длиной 32 байта"
+                ))
+            })?;
             sign_profile(&Identity::from_secret(&secret), version.parse()?)
         }
         ["heartbeat", addr, secret] => {
-            let secret: [u8; 32] = unhex(secret)?
-                .try_into()
-                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
+                anyhow!(message(
+                    "secret must be 32 bytes",
+                    "секрет должен быть длиной 32 байта"
+                ))
+            })?;
             let record = Identity::from_secret(&secret).sign(
                 Domain::Heartbeat,
                 proto::Heartbeat {
@@ -127,25 +134,31 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
         ["replicate", addr, peer_id, record] => {
             tokio::time::timeout(Duration::from_secs(60), replicate(addr, peer_id, record))
                 .await
-                .context("no reply in 60 s")??
+                .context(message("no reply in 60 s", "нет ответа за 60 с"))??
         }
         ["flood", addr, n] => timeout(flood(addr, n.parse()?)).await?,
         ["watch", addr, secret] => timeout(watch(addr, secret)).await?,
         ["put-replicas", addr, mailbox] => {
             tokio::time::timeout(Duration::from_secs(60), put_replicas(addr, mailbox))
                 .await
-                .context("no reply in 60 s")??
+                .context(message("no reply in 60 s", "нет ответа за 60 с"))??
         }
         ["media", addr, data] => timeout(media(addr, data, false)).await?,
         ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
         ["media-sized", addr, size, seed] => {
             let size: usize = size.parse()?;
             if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES {
-                bail!("blob exceeds 6 MiB");
+                bail!(message(
+                    "blob exceeds 6 MiB",
+                    "размер файла превышает 6 МиБ"
+                ));
             }
             let seed = unhex(seed)?;
             if seed.len() != 32 {
-                bail!("seed must be 32 bytes");
+                bail!(message(
+                    "seed must be 32 bytes",
+                    "начальное значение должно быть длиной 32 байта"
+                ));
             }
             let data: Vec<_> = seed.into_iter().cycle().take(size).collect();
             timeout(media(addr, &hex(&data), true)).await?
@@ -159,9 +172,12 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
             let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
             keep.version += 1;
             keep.time = chrono::Utc::now().timestamp().unsigned_abs();
-            let secret: [u8; 32] = unhex(secret)?
-                .try_into()
-                .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
+                anyhow!(message(
+                    "secret must be 32 bytes",
+                    "секрет должен быть длиной 32 байта"
+                ))
+            })?;
             let record =
                 Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
             let mut response = timeout(media_call(
@@ -193,7 +209,7 @@ fn sign_profile(identity: &Identity, version: u64) -> Value {
 async fn timeout(request: impl Future<Output = anyhow::Result<Value>>) -> anyhow::Result<Value> {
     tokio::time::timeout(Duration::from_secs(15), request)
         .await
-        .context("no reply in 15 s")?
+        .context(message("no reply in 15 s", "нет ответа за 15 с"))?
 }
 
 async fn info(addr: &str) -> anyhow::Result<Value> {
@@ -335,7 +351,10 @@ async fn media_get(addr: &str, hash: Vec<u8>) -> anyhow::Result<Value> {
         }
         anyhow::ensure!(
             !response.data.is_empty() || data.len() as u64 >= response.total_size,
-            "empty piece before the end"
+            message(
+                "empty piece before the end",
+                "пустой фрагмент до конца файла"
+            )
         );
         data.extend(response.data);
         // A node without ranged gets answers the whole blob with no total size.
@@ -405,7 +424,7 @@ async fn relays(addr: &str) -> anyhow::Result<Value> {
             }
             Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) => Ok(providers),
             Ok(_) => Ok(Default::default()),
-            Err(error) => Err(anyhow!("providers: {error}")),
+            Err(error) => Err(anyhow!("{}: {error}", message("providers", "провайдеры"))),
         }),
         _ => None,
     })
@@ -447,7 +466,10 @@ async fn replicate(addr: &str, peer_id: &str, record: &str) -> anyhow::Result<Va
             return Ok(json!({ "holders": holders }));
         }
     }
-    bail!("no replica accepted the profile")
+    bail!(message(
+        "no replica accepted the profile",
+        "ни одна реплика не приняла профиль"
+    ))
 }
 
 async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
@@ -476,7 +498,10 @@ async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
 
 async fn closest_to(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<PeerId> {
     let peers = lookup(swarm, key).await?;
-    peers.first().copied().context("lookup found no node")
+    peers
+        .first()
+        .copied()
+        .context(message("lookup found no node", "поиск не нашёл узел"))
 }
 
 /// The nodes that answered a lookup of `key`, closest first; their addresses stay known to
@@ -487,7 +512,7 @@ async fn lookup(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<Ve
         BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
             result: kad::QueryResult::GetClosestPeers(result),
             ..
-        }) => Some(result.map_err(|error| anyhow!("lookup: {error}"))),
+        }) => Some(result.map_err(|error| anyhow!("{}: {error}", message("lookup", "поиск")))),
         _ => None,
     })
     .await?;
@@ -508,7 +533,8 @@ fn device_key() -> Value {
 /// An envelope with a random id, signed by a fresh sender key.
 fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, SignedRecord)> {
     let mut id = [0u8; 16];
-    getrandom::fill(&mut id).map_err(|e| anyhow!("random id: {e}"))?;
+    getrandom::fill(&mut id)
+        .map_err(|e| anyhow!("{}: {e}", message("random id", "случайный ID")))?;
     let envelope = proto::Envelope {
         id: id.to_vec(),
         mailbox,
@@ -527,7 +553,13 @@ async fn put(
 ) -> anyhow::Result<Value> {
     let (id, record) = envelope(unhex(mailbox)?, unhex(ciphertext)?)?;
     let keypair = if let Some(bits) = replica_pow {
-        anyhow::ensure!(bits <= 32, "node-ID PoW must be at most 32 bits");
+        anyhow::ensure!(
+            bits <= 32,
+            message(
+                "node-ID PoW must be at most 32 bits",
+                "PoW ID узла: не более 32 бит"
+            )
+        );
         tokio::task::spawn_blocking(move || dyapp_p2p_net::generate_pow_keypair(bits)).await?
     } else {
         Keypair::generate_ed25519()
@@ -567,7 +599,10 @@ async fn put_replicas(addr: &str, mailbox: &str) -> anyhow::Result<Value> {
             return Ok(json!({ "status": "STATUS_OK", "id": hex(&id), "holders": holders }));
         }
     }
-    bail!("no replica accepted the envelope")
+    bail!(message(
+        "no replica accepted the envelope",
+        "ни одна реплика не приняла конверт"
+    ))
 }
 
 async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
@@ -631,9 +666,12 @@ async fn challenged(
     addr: &str,
     secret: &str,
 ) -> anyhow::Result<(Swarm<Behaviour>, PeerId, Identity, Vec<u8>)> {
-    let secret: [u8; 32] = unhex(secret)?
-        .try_into()
-        .map_err(|_| anyhow!("secret must be 32 bytes"))?;
+    let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
+        anyhow!(message(
+            "secret must be 32 bytes",
+            "секрет должен быть длиной 32 байта"
+        ))
+    })?;
     let (mut swarm, peer) = connect(addr).await?;
     let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
     let response = mailbox_call(&mut swarm, peer, challenge).await?;
@@ -669,7 +707,10 @@ async fn connect_with_key(
         keypair,
         SwarmOptions {
             mode: Mode::Client,
-            protocols: NETWORK.get().context("network not set")?.clone(),
+            protocols: NETWORK
+                .get()
+                .context(message("network not set", "сеть не настроена"))?
+                .clone(),
             ..SwarmOptions::default()
         },
     )?;
@@ -682,7 +723,9 @@ async fn connect_with_key(
                 swarm.behaviour_mut().kad.add_address(&peer_id, addr);
                 return Ok((swarm, peer_id));
             }
-            SwarmEvent::OutgoingConnectionError { error, .. } => bail!("dial {addr}: {error}"),
+            SwarmEvent::OutgoingConnectionError { error, .. } => {
+                bail!("{} {addr}: {error}", message("dial", "соединение"))
+            }
             _ => {}
         }
     }
@@ -693,12 +736,16 @@ fn address(addr: &str) -> anyhow::Result<Multiaddr> {
     if addr.starts_with('/') {
         return addr
             .parse()
-            .with_context(|| format!("bad multiaddr {addr}"));
+            .with_context(|| format!("{} {addr}", message("bad multiaddr", "неверный multiaddr")));
     }
     let [tcp, _] = dyapp_bootstrap::config::seed(addr).map_err(|_| {
         anyhow!(
-            "bad address {addr}: expected host:port, e.g. node.example.org:7070, \
-             192.0.2.7:7070 or [2001:db8::7]:7070 (brackets around IPv6), or a multiaddr"
+            "{} {addr}: {}",
+            message("bad address", "неверный адрес"),
+            message(
+                "expected host:port, e.g. node.example.org:33445, 192.0.2.7:33445 or [2001:db8::7]:33445 (brackets around IPv6), or a multiaddr",
+                "ожидается host:port, например node.example.org:33445, 192.0.2.7:33445 или [2001:db8::7]:33445 (IPv6 в скобках), либо multiaddr"
+            )
         )
     })?;
     Ok(tcp)
@@ -723,7 +770,10 @@ fn reply<Req, Resp>(event: Event<Req, Resp>) -> Option<anyhow::Result<Resp>> {
             message: RrMessage::Response { response, .. },
             ..
         } => Some(Ok(response)),
-        Event::OutboundFailure { error, .. } => Some(Err(anyhow!("request failed: {error}"))),
+        Event::OutboundFailure { error, .. } => Some(Err(anyhow!(
+            "{}: {error}",
+            message("request failed", "запрос не выполнен")
+        ))),
         _ => None,
     }
 }
@@ -738,11 +788,17 @@ fn hex(bytes: &[u8]) -> String {
 
 fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
     if !text.len().is_multiple_of(2) {
-        bail!("odd-length hex");
+        bail!(message(
+            "odd-length hex",
+            "нечётная длина шестнадцатеричной строки"
+        ));
     }
     (0..text.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).context("bad hex"))
+        .map(|i| {
+            u8::from_str_radix(&text[i..i + 2], 16)
+                .context(message("bad hex", "неверная шестнадцатеричная строка"))
+        })
         .collect()
 }
 

@@ -543,7 +543,8 @@ ref as its `from` input.
 `docker exec dyappd dyappd status`) prints one `name value` line each, most important first.
 Field names and the `running`, `stopped`, `none`, and `unavailable` values are stable across
 locales because scripts parse them. With a Russian locale, operator errors and `deny add/remove`
-confirmations are translated.
+confirmations are translated. Client command argument and connection errors are translated too;
+protocol status values in JSON stay unchanged. Invalid-address guidance uses the default port 33445.
 
 | Line | Value |
 |---|---|
