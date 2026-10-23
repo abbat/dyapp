@@ -51,7 +51,7 @@ EXCEPTIONS = {
     ("tauri-build", "2.7.2"): ("2026-10-23", LOCKED),
     ("tauri-codegen", "2.7.2"): ("2026-10-23", LOCKED),
     ("tauri-macros", "2.7.2"): ("2026-10-23", LOCKED),
-    ("tokio", "1.54.0"): ("2026-10-23", LOCKED),
+    ("tokio", "1.54.1"): ("2026-10-23", "fixes RUSTSEC-2026-0384"),
     ("tokio-util", "0.7.20"): ("2026-10-23", LOCKED),
 }
 
