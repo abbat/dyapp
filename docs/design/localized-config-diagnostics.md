@@ -1,6 +1,6 @@
 # Configuration diagnostics for Russian operators
 
-Status: design; implementation is pending.
+Status: design; source-excerpt redaction is implemented, Russian guidance is pending.
 
 ## Decision
 
@@ -29,9 +29,10 @@ Machine-readable status fields, option names and persisted data do not change.
 
 ## Evidence and risk
 
-`NodeConfig::load` currently interpolates the raw TOML and OS errors into
-`config <path>: ...`; deserialization uses `config: ...`. In a real-binary check,
-a malformed table showed the path, line, column, source excerpt and cause; a bad
+Before source-excerpt redaction, `NodeConfig::load` interpolated raw TOML and OS
+errors into `config <path>: ...`; deserialization still uses `config: ...`. In a
+real-binary check, a malformed table showed the path, line, column, source
+excerpt and cause; a bad
 type showed its rejected string and key path; a missing file showed the path and
 OS error number. All three outputs were English under both `C` and
 `ru_RU.UTF-8`.
@@ -53,8 +54,8 @@ text can contain the rejected value.
 
 ## Verification and follow-up
 
-First remove raw TOML source excerpts for both locales and add a real-binary
-canary test. Then implement the Russian stage guidance. Test malformed TOML,
+Raw TOML source excerpts are removed for both locales and covered by a real-binary
+canary test. Next implement the Russian stage guidance. Test malformed TOML,
 wrong types, missing files and denied reads in both locales. Assert that the
 path and available line/column or key path survive, the canary never reaches
 stderr, and the English diagnostics remain stable except for required secret

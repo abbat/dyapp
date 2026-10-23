@@ -385,7 +385,7 @@ keeps its LAN, Docker and VPN addresses.
 | Learn a node's roles from its protocol list and `NodeInfo` | Identify protocols, `node.info` | Low × high | Accept: clients need roles and limits to choose nodes |
 | Map the network from Kademlia replies | `FIND_NODE` | Low × high | Accept: routing needs it; Sybil limits are in [Hostile node](#hostile-node) |
 | Probe internals through error replies | Request errors | Low × medium | Accept: replies carry status codes only, no paths or internal messages |
-| Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers |
+| Read logs or status output | Node host | Medium × low | Accept: local to the operator; logs carry no peer or key identifiers. Malformed TOML diagnostics no longer echo source lines that may contain `turn.secret` |
 | Scrape the metrics endpoint | Metrics | Medium × medium | Fix: implemented; the listener is off by default, binds only `[::1]` and `127.0.0.1`, has no authentication beyond that, bounds connections, head size and time, and carries no peer or key identifiers ([metrics listener](../architecture/bootstrap.md#metrics-listener)). Accept: any local user of the host can read the counters |
 | An attack or a failing node goes unnoticed | Operator | Medium × high | Fix: Prometheus metrics on an opt-in loopback listener ([metrics](../architecture/bootstrap.md#metric-families)); alerts are the operator's scraper's job ([monitoring](../manuals/bootstrap.md#status-and-metrics)) |
 | Fingerprint a node by response timing | Any request | Low × low | See [Side channels and timing](#side-channels-and-timing) |

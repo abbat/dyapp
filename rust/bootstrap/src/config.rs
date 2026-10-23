@@ -109,6 +109,29 @@ fn toml_value(text: &str) -> toml::Value {
         .unwrap_or_else(|| toml::Value::String(text.to_owned()))
 }
 
+fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error) -> anyhow::Error {
+    let location = error
+        .span()
+        .map(|span| {
+            let prefix = &source.as_bytes()[..span.start.min(source.len())];
+            let line = prefix.iter().filter(|&&byte| byte == b'\n').count() + 1;
+            let column = prefix
+                .iter()
+                .rev()
+                .take_while(|&&byte| byte != b'\n')
+                .count()
+                + 1;
+            format!(" at line {line}, column {column}")
+        })
+        .unwrap_or_default();
+    // Display includes the source line, which can hold turn.secret.
+    anyhow::anyhow!(
+        "config {}: TOML parse error{location}: {}",
+        path.display(),
+        error.message()
+    )
+}
+
 /// Sets `path` in `table`, creating the sections on the way; `name` labels errors.
 fn set(
     table: &mut toml::Table,
@@ -744,10 +767,13 @@ impl NodeConfig {
         options: &[(String, String)],
     ) -> anyhow::Result<(Self, Vec<String>)> {
         let mut table = match file {
-            Some(path) => fs::read_to_string(path)
-                .map_err(|e| anyhow::anyhow!("config {}: {e}", path.display()))?
-                .parse::<toml::Table>()
-                .map_err(|e| anyhow::anyhow!("config {}: {e}", path.display()))?,
+            Some(path) => {
+                let source = fs::read_to_string(path)
+                    .map_err(|e| anyhow::anyhow!("config {}: {e}", path.display()))?;
+                source
+                    .parse::<toml::Table>()
+                    .map_err(|e| safe_toml_error(path, &source, &e))?
+            }
             None => toml::Table::new(),
         };
         let defaults = toml::Value::try_from(Self::default())?;

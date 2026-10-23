@@ -480,6 +480,28 @@ fn network_marker_errors_follow_locale_without_rewriting_marker() {
 }
 
 #[test]
+fn malformed_toml_never_echoes_secret_values() {
+    let dir = directory();
+    let config = dir.join("bad.toml");
+    std::fs::write(&config, "[turn]\nsecret = \"CANARY_SECRET_VALUE\" ???\n").unwrap();
+    for locale in ["C", "ru_RU.UTF-8"] {
+        let output = command_locale(
+            &dir,
+            &["status", "--config", config.to_str().unwrap()],
+            locale,
+        );
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(config.to_str().unwrap()), "{error}");
+        assert!(
+            error.contains("TOML parse error at line 2, column"),
+            "{error}"
+        );
+        assert!(!error.contains("CANARY_SECRET_VALUE"), "{error}");
+    }
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);
