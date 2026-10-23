@@ -23,9 +23,9 @@ The 2026-10-20 run on `fd8c98b` measured 7.3. CI-Tests scores only merged pull r
 the recent commits; once the last one left that window the check became inconclusive and dropped
 out of the average. After the local `tests/docker/Dockerfile.linux-test` was added, Scorecard
 counted one more unpinned local base image and the score fell from 7.2 to 7.1.
-The 2026-10-23 run scored 6.5: the Vulnerabilities check found 13 OSV advisories and scored 0.
-The 7.1 baseline and 7.0 target are currently unmet; the scan-source mismatch below explains
-why earlier reviews and root-level exceptions did not clear these findings.
+An early 2026-10-23 run scored 6.5: Vulnerabilities found 13 OSV advisories and scored 0.
+After the Android dependency fixes, [the main run](https://github.com/abbat/dyapp/actions/runs/39944202407)
+scored 7.3; Vulnerabilities scored 10 with zero findings. The 7.1 baseline and 7.0 target are met.
 Maintained remains at 0 while the repository is younger than 90 days; Code-Review and
 Contributors are also at 0. The registered Best Practices badge scores 2 and branch
 protection scores 4. Improving these checks requires maintainer decisions.
@@ -54,12 +54,13 @@ metadata; none appears in `:app:dependencies --configuration debugRuntimeClasspa
 `settings.gradle` now substitutes fixed versions of commons-lang3, jose4j, Bouncy Castle and
 jdom2 before resolution, as well as the already selected fixed httpclient and Kotlin plugin
 versions. The old verification entries were removed and new artifact checksums recorded.
-The Android CI build and next Scorecard run must confirm that no affected versions remain.
+Android CI passed, and the next main Scorecard run reported zero vulnerabilities without new
+exceptions. Its score artifact is in the linked run above.
 [OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
 scopes exceptions to a scan source's directory; [supported manifests](https://github.com/google/osv-scanner/blob/main/docs/supported_languages_and_lockfiles.md)
 include Cargo locks and Gradle verification metadata.
 The new `RUSTSEC-2026-0385` for `ctutils 0.4.3` was addressed by updating both affected Cargo
-locks to the fixed `0.4.4`. Re-run the scans to verify the outcomes.
+locks to the fixed `0.4.4`; the main Scorecard run above confirmed zero findings.
 
 For another low Scorecard Vulnerabilities score, download the run's `scorecard` artifact,
 map every advisory ID to **all** scanned manifests, and check the `osv-scanner.toml` beside
