@@ -91,8 +91,9 @@ Fails to generate bindings and still reports success. See
 metadata file the Android build resolves: plugins, libraries, lint and test dependencies. Gradle
 refuses an artifact that is missing from the file or whose checksum differs, so a tampered or
 unexpected artifact fails the `dyapp:android-test` image build. Signatures are not checked.
-The root `settings.gradle` substitutes fixed versions for vulnerable AGP build-classpath
-transitives before Gradle reads their metadata. Its substitutions and this checksum inventory
+The root `settings.gradle` substitutes fixed versions for vulnerable AGP build-classpath and
+project configurations, including the separate release lint tool, before Gradle reads their
+metadata. Its substitutions and this checksum inventory
 must change together. The 2026-10-23 update replaced commons-lang3, jose4j, Bouncy Castle and
 jdom2, and removed old httpclient and Kotlin plugin entries. Check `buildEnvironment`, Android
 tests and Scorecard after any substitution change; these packages are not in the app runtime.
