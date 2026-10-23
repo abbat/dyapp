@@ -9,10 +9,16 @@ use std::time::{Duration, Instant};
 /// Buckets kept before idle ones are dropped: bounds the map against rotating peer IDs.
 const MAX_BUCKETS: usize = 10_000;
 
-/// A request-rate bucket per key (peer ID, IP group or sender key), dropping idle ones past
-/// `MAX_BUCKETS`.
+/// Buckets per key with the last time idle ones were dropped.
+type Buckets = (
+    HashMap<String, (DefaultDirectRateLimiter, Instant)>,
+    Instant,
+);
+
+/// A request-rate bucket per key (peer ID, IP group or sender key), dropping idle ones once a
+/// second and at `MAX_BUCKETS`.
 pub struct PeerRateLimiter {
-    limiters: Arc<RwLock<HashMap<String, (DefaultDirectRateLimiter, Instant)>>>,
+    limiters: Arc<RwLock<Buckets>>,
     messages_per_second: u32,
 }
 
@@ -20,7 +26,7 @@ impl PeerRateLimiter {
     /// Allows `messages_per_second` units per key; zero panics on first use.
     pub fn new(messages_per_second: u32) -> Self {
         Self {
-            limiters: Arc::new(RwLock::new(HashMap::new())),
+            limiters: Arc::new(RwLock::new((HashMap::new(), Instant::now()))),
             messages_per_second,
         }
     }
@@ -35,12 +41,16 @@ impl PeerRateLimiter {
         let Some(units) = NonZeroU32::new(units) else {
             return false;
         };
-        let mut limiters = self.limiters.write().unwrap();
+        let mut guard = self.limiters.write().unwrap();
+        let (limiters, pruned) = &mut *guard;
 
         let now = Instant::now();
-        if limiters.len() >= MAX_BUCKETS {
+        let second = Duration::from_secs(1);
+        // Not only at the cap: one-off keys (fresh peer IDs) would hold the map at its high water.
+        if limiters.len() >= MAX_BUCKETS || now - *pruned >= second {
             // A bucket unused for a second has refilled: dropping it changes nothing.
-            limiters.retain(|_, (_, seen)| now - *seen < Duration::from_secs(1));
+            limiters.retain(|_, (_, seen)| now - *seen < second);
+            *pruned = now;
         }
         let (limiter, seen) = limiters.entry(peer_id.to_string()).or_insert_with(|| {
             let quota = Quota::per_second(NonZeroU32::new(self.messages_per_second).unwrap());
@@ -52,7 +62,7 @@ impl PeerRateLimiter {
 
     /// Keys with a bucket.
     pub fn get_active_peers(&self) -> usize {
-        self.limiters.read().unwrap().len()
+        self.limiters.read().unwrap().0.len()
     }
 }
 
@@ -262,6 +272,21 @@ mod tests {
             limiter.check_limit(&peer.to_string());
         }
         assert!(!limiter.check_limit("busy"), "an active bucket was reset");
+        std::thread::sleep(Duration::from_millis(1100));
+        limiter.check_limit("new");
+        assert_eq!(limiter.get_active_peers(), 1);
+    }
+
+    #[test]
+    fn idle_buckets_are_dropped_after_a_second_below_the_cap() {
+        let limiter = PeerRateLimiter::new(1);
+        for peer in 0..3 {
+            limiter.check_limit(&peer.to_string());
+        }
+        assert!(
+            !limiter.check_limit("0"),
+            "the bucket was dropped within a second"
+        );
         std::thread::sleep(Duration::from_millis(1100));
         limiter.check_limit("new");
         assert_eq!(limiter.get_active_peers(), 1);

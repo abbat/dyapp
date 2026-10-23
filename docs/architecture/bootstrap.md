@@ -1217,8 +1217,8 @@ Scope and limits:
 - libp2p keys and sender keys are free to generate; the IP-group bucket bounds what a client
   gains by rotating them. A relayed connection gets the relay's group. There is no Sybil
   resistance beyond that.
-- Once a map holds 10 000 buckets, buckets idle for a second (refilled, so dropping them changes
-  nothing) are removed before a new one is added.
+- Buckets idle for a second (refilled, so dropping them changes nothing) are removed once a
+  second, and before a new one is added once a map holds 10 000 buckets.
 
 **Replica eligibility.** Mailbox, profile and media `replica_put`, media `shard_put` and mailbox
 `inventory` require a valid transport peer ID meeting this node's `network.id_pow_bits`; a
