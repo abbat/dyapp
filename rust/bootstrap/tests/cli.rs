@@ -268,6 +268,35 @@ fn client_commands_print_json_without_a_usable_storage_dir() {
 }
 
 #[test]
+fn help_uses_the_message_locale_without_changing_commands() {
+    let dir = directory();
+    let help = |lc_all: &str, lc_messages: &str| {
+        let output = Command::new(env!("CARGO_BIN_EXE_dyappd"))
+            .env_clear()
+            .env("LC_ALL", lc_all)
+            .env("LC_MESSAGES", lc_messages)
+            .env("LANG", "C")
+            .current_dir(&dir)
+            .arg("--help")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        String::from_utf8(output.stdout).unwrap()
+    };
+    let ru = help("ru_RU.UTF-8", "C");
+    assert!(ru.contains("использование: dyappd"));
+    assert!(ru.contains("клиент: dyappd info <адрес>"));
+    assert!(ru.contains("Значения по умолчанию:"));
+    assert!(ru.contains("--storage.dir"));
+    assert!(help("", "ru_RU.UTF-8").contains("использование: dyappd"));
+    let en = help("C", "ru_RU.UTF-8");
+    assert!(en.contains("usage: dyappd"));
+    assert!(en.contains("client: dyappd info <addr>"));
+    assert!(!en.contains("использование:"));
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);

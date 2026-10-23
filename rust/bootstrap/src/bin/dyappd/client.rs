@@ -70,6 +70,14 @@ pub const USAGE: &str = "client: dyappd info <addr> | turn <addr> | relays <addr
     put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | \
     media-sized <addr> <bytes> <seed> | media-keep <addr> <record> | \
     media-refresh <addr> <record> <secret> | media-get <addr> <hash>";
+pub const USAGE_RU: &str = "клиент: dyappd info <адрес> | turn <адрес> | relays <адрес> | \
+    closest <адрес> <ключ> | sign-profile [секрет версия] | heartbeat <адрес> <секрет> | \
+    publish <адрес> <hex> | get <адрес> <peer_id> | device-key | put <адрес> <ящик> <hex> | \
+    put-local <адрес> <ящик> <hex> [биты] | fetch <адрес> <секрет> | ack <адрес> <секрет> <id>... | \
+    replicate <адрес> <peer_id> <hex> | flood <адрес> <число> | watch <адрес> <секрет> | \
+    put-replicas <адрес> <ящик> | media <адрес> <hex> | media-owned <адрес> <hex> | \
+    media-sized <адрес> <байты> <начальное_значение> | media-keep <адрес> <запись> | \
+    media-refresh <адрес> <запись> <секрет> | media-get <адрес> <хеш>";
 
 /// The network every connection speaks, set once by `run`.
 static NETWORK: OnceLock<Arc<Protocols>> = OnceLock::new();

@@ -40,6 +40,25 @@ mod client;
 const USAGE: &str = "usage: dyappd [keygen [-] | id | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
+const USAGE_RU: &str =
+    "использование: dyappd [keygen [-] | id | status | deny add <запись> [примечание] | \
+                     deny remove <запись> | deny list | deny received] [--config <файл>] \
+                     [--<параметр> <значение>]...";
+
+fn russian_locale() -> bool {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .into_iter()
+        .find_map(|key| std::env::var(key).ok().filter(|value| !value.is_empty()))
+        .is_some_and(|locale| locale.split(['_', '.', '@']).next() == Some("ru"))
+}
+
+fn usage() -> (&'static str, &'static str) {
+    if russian_locale() {
+        (USAGE_RU, client::USAGE_RU)
+    } else {
+        (USAGE, client::USAGE)
+    }
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -47,13 +66,23 @@ async fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
-            print!(
-                "{USAGE}\n{}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
-                 /etc/dyappd.toml that exists is read. Options override the config file and \
-                 DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
-                client::USAGE,
-                options_help()
-            );
+            let (usage, client_usage) = usage();
+            if russian_locale() {
+                print!(
+                    "{usage}\n{client_usage}\n\nБез --config читается первый существующий файл: \
+                     ./dyappd.toml, ~/dyappd.toml или /etc/dyappd.toml. Параметры командной строки \
+                     переопределяют файл и переменные DYAPPD_; для каждого элемента списка укажите \
+                     параметр отдельно. Значения по умолчанию:\n{}",
+                    options_help()
+                );
+            } else {
+                print!(
+                    "{usage}\n{client_usage}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
+                     /etc/dyappd.toml that exists is read. Options override the config file and \
+                     DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
+                    options_help()
+                );
+            }
             return Ok(());
         }
         let Some(option) = arg.strip_prefix("--") else {
@@ -64,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
             Some((key, value)) => (key.to_owned(), value.to_owned()),
             None => match args.next() {
                 Some(value) => (option.to_owned(), value),
-                None => anyhow::bail!("--{option} needs a value\n{USAGE}"),
+                None => anyhow::bail!("--{option} needs a value\n{}", usage().0),
             },
         };
         if key == "config" {
@@ -133,7 +162,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         ["deny", rest @ ..] => deny(&config, rest)?,
-        _ => anyhow::bail!("{USAGE}\n{}", client::USAGE),
+        _ => {
+            let (usage, client_usage) = usage();
+            anyhow::bail!("{usage}\n{client_usage}")
+        }
     }
     if !command.is_empty() {
         return Ok(());
@@ -262,7 +294,7 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
                 }
             }
         }
-        _ => anyhow::bail!(USAGE),
+        _ => anyhow::bail!(usage().0),
     }
     Ok(())
 }
