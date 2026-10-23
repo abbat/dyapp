@@ -45,13 +45,19 @@ Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
 **2026-10-23 Scorecard investigation.** The 13 Vulnerabilities findings remained after
 reviewing the GitHub alerts because Scorecard runs its own OSV scan. Four Rust advisories
 (`RUSTSEC-2026-0374`, `RUSTSEC-2026-0330`, `RUSTSEC-2026-0331`, `RUSTSEC-2026-0173`)
-occur in both the root and `tests/fuzz/Cargo.lock`; the root `osv-scanner.toml` covers them,
-but `tests/fuzz/osv-scanner.toml` does not. The other nine GHSA IDs match Maven artifacts
-listed in `clients/android/gradle/verification-metadata.xml`; that directory has no
-`osv-scanner.toml`. This is a manifest-to-exception coverage gap, not evidence that the
-prior reviews were undone. [OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
+occur in both the root and `tests/fuzz/Cargo.lock`; at the time, only the root
+`osv-scanner.toml` covered them. The other nine GHSA IDs match Maven artifacts listed in
+`clients/android/gradle/verification-metadata.xml`; that directory had no
+`osv-scanner.toml`. The four fuzz exceptions were added after confirming the same dependency
+paths and reasons as the root lockfile. The nine Android findings still need a decision: Gradle
+resolves vulnerable build-tool versions of commons-lang3, jose4j, Bouncy Castle and jdom2,
+while old httpclient and Kotlin plugin versions remain only in verification metadata. None of
+the nine packages appears in `:app:dependencies --configuration debugRuntimeClasspath`; build
+tooling still has exposure. [OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
 scopes exceptions to a scan source's directory; [supported manifests](https://github.com/google/osv-scanner/blob/main/docs/supported_languages_and_lockfiles.md)
 include Cargo locks and Gradle verification metadata.
+The new `RUSTSEC-2026-0385` for `ctutils 0.4.3` was addressed by updating both affected Cargo
+locks to the fixed `0.4.4`. Re-run the scans to verify the outcomes.
 
 For another low Scorecard Vulnerabilities score, download the run's `scorecard` artifact,
 map every advisory ID to **all** scanned manifests, and check the `osv-scanner.toml` beside

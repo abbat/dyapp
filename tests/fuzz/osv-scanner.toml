@@ -9,3 +9,19 @@ reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0374"
+reason = "basic-toml is archived, no fix: a build-time parser of askama templates via uniffi (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0173"
+reason = "proc-macro-error2 is unmaintained, no fix: a compile-time proc macro via openmls -> hpke-rs -> libcrux -> hax-lib (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0330"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0331"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
