@@ -58,10 +58,20 @@ A single node keeps the only copy, so a network needs several.
 
 ## Getting dyappd
 
-Releases are not published or signed yet. Planned: every artifact carries a Sigstore keyless
-signature, SLSA build provenance and an SBOM, checked with `gh attestation verify` before
-install ([supply chain](../security/threat-model.md#supply-chain)). Until then, build the
-package or the image yourself from a commit you trust:
+A `vX.Y.Z` tag publishes the package, the tarball, an SPDX SBOM and `SHA256SUMS` to GitHub
+Releases of `abbat/dyapp`, and the image as `ghcr.io/abbat/dyappd:X.Y.Z`
+([ADR 0020](../decisions/0020-dyappd-release-channels.md)). Each file and the image carry a
+Sigstore-signed SLSA build provenance attestation; check it before installing
+([supply chain](../security/threat-model.md#supply-chain)):
+
+```bash
+sha256sum -c SHA256SUMS
+gh attestation verify dyappd_X.Y.Z_amd64.deb --repo abbat/dyapp
+gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
+```
+
+No release is published yet. Until then, or to check a release, build the package or the image
+yourself from a commit you trust:
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp

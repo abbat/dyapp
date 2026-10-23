@@ -59,10 +59,20 @@
 
 ## Где взять dyappd
 
-Выпуски пока не публикуются и не подписываются. Запланировано: каждый артефакт несёт keyless-подпись
-Sigstore, SLSA build provenance и SBOM, которые проверяются `gh attestation verify` перед
-установкой ([supply chain](../security/threat-model.md#supply-chain)). До тех пор соберите пакет
-или образ сами из коммита, которому доверяете:
+Тег `vX.Y.Z` публикует пакет, архив tar, SPDX SBOM и `SHA256SUMS` в GitHub Releases
+`abbat/dyapp`, а образ — как `ghcr.io/abbat/dyappd:X.Y.Z`
+([ADR 0020](../decisions/0020-dyappd-release-channels.md)). Каждый файл и образ несут подписанную
+Sigstore аттестацию SLSA build provenance; проверьте её перед установкой
+([supply chain](../security/threat-model.md#supply-chain)):
+
+```bash
+sha256sum -c SHA256SUMS
+gh attestation verify dyappd_X.Y.Z_amd64.deb --repo abbat/dyapp
+gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
+```
+
+Выпусков пока нет. До тех пор, или чтобы проверить выпуск, соберите пакет или образ сами из
+коммита, которому доверяете:
 
 ```bash
 git clone https://github.com/abbat/dyapp && cd dyapp
