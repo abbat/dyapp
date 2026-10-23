@@ -99,7 +99,8 @@ developer setup.
 
 ### Getting a release
 
-A `vX.Y.Z` tag publishes `dyappd` and a tested Linux desktop client DEB from CI
+A `vX.Y.Z` tag publishes `dyappd`, a tested Linux desktop client DEB and a
+smoke-tested Windows portable ZIP from CI
 ([ADR 0020](../decisions/0020-dyappd-release-channels.md)); no release is published yet,
 so until the first tag, build from a tagged commit with `make deb`.
 
@@ -107,6 +108,7 @@ so until the first tag, build from a tagged commit with `make deb`.
 |----------|-------|
 | Debian 12 package `dyappd_X.Y.Z_amd64.deb` | GitHub Releases of `abbat/dyapp` |
 | Linux desktop package `dyapp_X.Y.Z_amd64.deb` | Same GitHub Release, after package-install and UI smoke tests |
+| Windows portable ZIP `dyapp-X.Y.Z-x86_64-windows.zip` | Same release, after native Windows UI smoke |
 | Tarball `dyappd-X.Y.Z-x86_64-linux-gnu.tar.gz` | GitHub Releases |
 | SPDX SBOM `dyappd-X.Y.Z.spdx.json` and `SHA256SUMS` | GitHub Releases |
 | Container image | `ghcr.io/abbat/dyappd:X.Y.Z` |
@@ -118,6 +120,7 @@ attestation from this repository's `release.yml`:
 sha256sum -c SHA256SUMS
 gh attestation verify dyappd_X.Y.Z_amd64.deb --repo abbat/dyapp
 gh attestation verify dyapp_X.Y.Z_amd64.deb --repo abbat/dyapp
+gh attestation verify dyapp-X.Y.Z-x86_64-windows.zip --repo abbat/dyapp
 gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
 ```
 

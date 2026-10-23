@@ -67,9 +67,47 @@ jobs:
           path: build/release-check-output/
           if-no-files-found: ignore
 
+  windows:
+    name: release - windows
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: '1.99.0'
+      - name: build and smoke portable ZIP
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            $version = (Select-String '^version = "(.*)"' clients/windows/Cargo.toml).Matches.Groups[1].Value
+            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw 'Windows client version differs from tag' }
+          }
+          python tools/scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/scripts/package-windows-zip.py build/release/dyapp-windows.exe build/windows-zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Expand-Archive -Path build/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable
+          $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
+          python tests/scripts/desktop-smoke.py $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-release-zip
+          path: build/windows-zip/*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-release-check-output
+          path: build/release-check-output/
+          if-no-files-found: ignore
+
   publish:
     name: release - publish
-    needs: build
+    needs: [build, windows]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -87,6 +125,14 @@ jobs:
           path: build
       - name: verify checksums
         run: cd build/release && sha256sum -c SHA256SUMS
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-release-zip
+          path: build/release
+      - name: include Windows ZIP in checksums
+        run: |
+          test -f "build/release/dyapp-${GITHUB_REF_NAME#v}-x86_64-windows.zip"
+          (cd build/release && sha256sum -- dyapp* > SHA256SUMS)
       - name: push image
         id: image
         env:
@@ -110,4 +156,4 @@ jobs:
       - name: release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd and Linux desktop client $GITHUB_REF_NAME. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
+        run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd, Linux and Windows desktop clients $GITHUB_REF_NAME. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
