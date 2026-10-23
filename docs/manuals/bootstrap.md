@@ -721,6 +721,11 @@ credentials from relaying into the operator's own network or to cloud metadata; 
 single addresses or `a-b` ranges here, not CIDR. Relaying to public addresses stays possible,
 bounded by the quotas.
 
+Size the quotas from the relay's uplink. `max-bps` caps each session in bytes per second (1000000
+is about 8 Mbit/s); `user-quota` caps the concurrent allocations of one username, that is one
+credential of one peer; `total-quota` caps all allocations, so set it to about the uplink divided
+by `max-bps`. The example fits a 1 Gbit/s uplink with headroom.
+
 Give the node the secret as a file through `turn.secret_file` (or `DYAPPD_TURN_SECRET` in a
 systemd `EnvironmentFile=` with mode 0600). Open the
 listening port (3478 UDP and TCP, 5349 for TLS) and the relay port range (`min-port`/`max-port`,

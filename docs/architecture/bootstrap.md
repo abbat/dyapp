@@ -1019,7 +1019,8 @@ The current protocol replies are:
   `store`) hands out credentials for the coturn relay its operator runs, in coturn's
   `use-auth-secret` scheme: username `<expires>:<peer id>`, password base64(HMAC-SHA1(`turn.secret`,
   username)), valid `turn.credential_minutes` (default 60), with the `turn:`/`turns:` URLs from
-  `turn.urls`. The request is rate-limited like a profile get. Once its routing table has a peer the
+  `turn.urls`; the [manual](../manuals/bootstrap.md#turn-relay) has a coturn example with its quotas.
+  The request is rate-limited like a profile get. Once its routing table has a peer the
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
   12 hours. Clients find relays with `get_providers` on that key; using them for call ICE is
   planned.
