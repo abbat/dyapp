@@ -63,6 +63,9 @@ COVERED = {
     # Published NodeInfo hint follows ADR 0016; the trailer was omitted.
     "30b26c5e3642722eb7c4056b797bce1f110b5c56":
         "docs/decisions/0016-protocol-evolution.md",
+    # The preview decoder dependency was committed before ADR 0002 was updated.
+    "f7b6c8b7e2b40a4ad3176370da76e0526dba4615":
+        "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
