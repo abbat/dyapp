@@ -5,8 +5,8 @@
 use crate::CoreError;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{self, FilterType};
-use image::{ImageFormat, ImageReader, Limits, Rgb, RgbImage};
-use std::io::Cursor;
+use image::{Rgb, RgbImage};
+use jpeg_decoder::{Decoder, PixelFormat};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Longest side of a preview, in pixels.
@@ -98,7 +98,8 @@ pub fn check_preview(bytes: Vec<u8>) -> Result<Rgba, CoreError> {
     if width == 0 || height == 0 || width > MAX_SIDE || height > MAX_SIDE {
         return Err(failed("preview over 320 x 320"));
     }
-    std::panic::catch_unwind(|| decode(&bytes)).unwrap_or_else(|_| Err(failed("decoder panic")))
+    std::panic::catch_unwind(|| decode(&bytes, width, height))
+        .unwrap_or_else(|_| Err(failed("decoder panic")))
 }
 
 /// Width and height from the only frame header (SOF) before the first scan.
@@ -136,21 +137,35 @@ fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
     size.ok_or_else(|| failed("no SOF before the scan"))
 }
 
-fn decode(bytes: &[u8]) -> Result<Rgba, CoreError> {
-    let mut limits = Limits::default();
-    limits.max_image_width = Some(MAX_SIDE);
-    limits.max_image_height = Some(MAX_SIDE);
-    limits.max_alloc = Some(MAX_ALLOC);
-    let mut reader = ImageReader::with_format(Cursor::new(bytes), ImageFormat::Jpeg);
-    reader.limits(limits);
-    let image = reader
+fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
+    let mut decoder = Decoder::new(bytes);
+    decoder.set_max_decoding_buffer_size(MAX_ALLOC as usize);
+    let decoded = decoder
         .decode()
-        .map_err(|e| CoreError::Failed(e.to_string()))?
-        .to_rgba8();
+        .map_err(|e| CoreError::Failed(e.to_string()))?;
+    let info = decoder.info().ok_or_else(|| failed("missing JPEG frame"))?;
+    if u32::from(info.width) != width || u32::from(info.height) != height {
+        return Err(failed("JPEG frame changed during decoding"));
+    }
+    let pixels = usize::from(info.width) * usize::from(info.height);
+    let mut rgba = Vec::with_capacity(pixels * 4);
+    match info.pixel_format {
+        PixelFormat::RGB24 if decoded.len() == pixels * 3 => {
+            for rgb in decoded.chunks_exact(3) {
+                rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+            }
+        }
+        PixelFormat::L8 if decoded.len() == pixels => {
+            for value in decoded {
+                rgba.extend_from_slice(&[value, value, value, 255]);
+            }
+        }
+        _ => return Err(failed("unsupported preview pixel format")),
+    }
     Ok(Rgba {
-        width: image.width(),
-        height: image.height(),
-        pixels: image.into_raw(),
+        width: u32::from(info.width),
+        height: u32::from(info.height),
+        pixels: rgba,
     })
 }
 

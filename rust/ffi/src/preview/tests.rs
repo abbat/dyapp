@@ -56,6 +56,15 @@ fn sof(jpeg: &[u8]) -> (usize, usize) {
 }
 
 #[test]
+fn malformed_jpeg_does_not_panic_in_decoder() {
+    let bytes = include_bytes!(
+        "../../../../tests/fuzz/corpus/preview/b31fdd103ccba5f493ba6602325173fdcbca3eb1"
+    );
+    let (width, height) = frame_size(bytes).unwrap();
+    assert!(std::panic::catch_unwind(|| decode(bytes, width, height)).is_ok());
+}
+
+#[test]
 fn photo_becomes_320_px_within_24_kib() {
     let jpeg = preview(4000, 3000);
     assert!(jpeg.len() <= MAX_BYTES as usize, "{} bytes", jpeg.len());
