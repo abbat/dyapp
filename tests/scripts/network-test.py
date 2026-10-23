@@ -192,7 +192,7 @@ def local(bin_dir):
                 return peers[1][0]
 
             suite(peers, client, churn, relay=False,
-                  reports=Path(storage) / "reports")
+                  reports=Path(storage) / "reports", storage=storage)
             drained(processes, (0, 2))
             sharer = call(client, "info", peers[0][0])["peer_id"]
             shared_deny(bin_dir, environments[2], sharer, denied)
@@ -477,6 +477,26 @@ def profile_repair(client, bin_dir, peers, processes, environments):
     print("Profile repair: restarted holder receives the newer version")
 
 
+def media_cache(client, storage, peer, blob_hash):
+    """A later get uses the cache after this node loses its shard metadata."""
+    target = Path(storage) / "7072"
+    hash_bytes = bytes.fromhex(blob_hash)
+    with sqlite3.connect(target / "media.db") as db:
+        cached = db.execute("SELECT `size` FROM `cache` WHERE `hash` = ?",
+                            (hash_bytes,)).fetchone()
+        shards = db.execute("SELECT COUNT(*) FROM `shards` WHERE `hash` = ?",
+                            (hash_bytes,)).fetchone()[0]
+        if cached != (3 * 1024 * 1024,) or shards == 0:
+            raise RuntimeError("Sharded media was not assembled and cached")
+        db.execute("DELETE FROM `shards` WHERE `hash` = ?", (hash_bytes,))
+        db.execute("DELETE FROM `manifests` WHERE `hash` = ?", (hash_bytes,))
+    stored = call(client, "media-get", peer, blob_hash)
+    if stored["status"] != "STATUS_OK" or hashlib.sha256(
+            bytes.fromhex(stored["data"])).hexdigest() != blob_hash:
+        raise RuntimeError("Cached media unreadable after losing local shards")
+    print("Media cache: later pieces survive loss of local shard metadata")
+
+
 def media_repair(client, bin_dir, storage, peers):
     """Remove only temporary fixture copies/shards and repair them by keep."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
@@ -625,7 +645,7 @@ def main():
           relay=True)
 
 
-def suite(peers, client, churn=None, relay=False, reports=None):
+def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
     cases = []
     for index, (tcp, quic) in enumerate(peers):
         for addr in (tcp, quic):
@@ -666,7 +686,7 @@ def suite(peers, client, churn=None, relay=False, reports=None):
                       "holder_placement": True, "mailbox": True,
                       "media": media(client, tcp, quic),
                       "turn": turn(client, tcp, relay)})
-    cases.append(network(peers, client, churn))
+    cases.append(network(peers, client, churn, storage))
     reports = reports or Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
@@ -678,7 +698,7 @@ def suite(peers, client, churn=None, relay=False, reports=None):
           f"{churned} passed")
 
 
-def network(peers, client, churn):
+def network(peers, client, churn, storage):
     """Routing, replication, ack forwarding, the rate limit and churn."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry, limited = peers[0][0], peers[-1][0]
@@ -702,6 +722,8 @@ def network(peers, client, churn):
         raise RuntimeError(f"TURN relays in the DHT: {relays}")
     media_spread(client, entry, peers, ids)
     sharded_hash = media_spread(client, entry, peers, ids, 3 * 1024 * 1024)
+    if storage:
+        media_cache(client, storage, peers[1][0], sharded_hash)
     holders = replicate(client, entry, ids)
     # 15 requests stay within the 16 concurrent streams a node accepts on
     # one connection; more are dropped unanswered.

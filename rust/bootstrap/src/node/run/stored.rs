@@ -297,3 +297,32 @@ pub(super) fn expire(service: &Service) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hourly_expiry_drops_idle_assembled_media_only() {
+        let dir = format!("/tmp/ai/test-hourly-media-cache-{}", uuid::Uuid::new_v4());
+        let mut config = crate::NodeConfig::default();
+        config.storage.dir = dir.clone().into();
+        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+        service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
+        let media = service.media.as_ref().unwrap();
+        let now = chrono::Utc::now().timestamp();
+        let idle = i64::from(service.config.limits.media_cache_minutes) * 60;
+        let old = [1; 32];
+        let recent = [2; 32];
+        media.cache(&old, b"old", now - idle - 60).unwrap();
+        media.cache(&recent, b"recent", now).unwrap();
+
+        expire(&service);
+
+        assert_eq!(media.cached(&old, now).unwrap(), None);
+        assert_eq!(
+            media.cached(&recent, now).unwrap(),
+            Some(b"recent".to_vec())
+        );
+    }
+}

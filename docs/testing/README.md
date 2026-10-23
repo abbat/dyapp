@@ -61,8 +61,11 @@ Multi-peer scenario testing:
 - **Video session**: offer/answer, ICE gathering, codec negotiation
 - **Reputation**: peer tracking, trust scoring
 - **Bootstrap**: replication fault tolerance; the node protocol end to end is in
-  `rust/bootstrap/tests/protocol.rs` ([bootstrap](../architecture/bootstrap.md#testing))
-  and the acceptance list in [bootstrap-acceptance.md](bootstrap-acceptance.md)
+  `rust/bootstrap/tests/protocol.rs` and the three-node
+  `tests/scripts/network-test.py`. Its local Docker run checks that later ranged reads use the
+  assembled media cache after the holder loses its shard metadata. See
+  [bootstrap testing](../architecture/bootstrap.md#testing) and the
+  [acceptance list](bootstrap-acceptance.md).
 - **Rate limiting**: per-peer governors, active peer tracking
 - **Hybrid logical clock**: causality preservation and the same order on every peer
 - **Codec negotiation**: agreement algorithm with remote offers

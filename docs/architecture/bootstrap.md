@@ -1614,7 +1614,10 @@ media keep, put and get; 512 KiB whole-copy and 3 MiB sharded uploads readable o
 selected holders over TCP and QUIC; the local run loses a node holding at most four shard
 indices and reads the 3 MiB blob from both survivors; placement on DHT holders; single-upload profile and mailbox replication onto all three nodes, ack forwarding,
 repair and the rate limit. CI runs it with `--local`, which also stops a node and checks replicas skip it.
-The local run deletes a temporary whole-copy file and a shard row on a reachable holder,
+The local run checks the assembled cache of a 3 MiB blob, removes the temporary holder's
+shard and manifest rows, then reads the blob again to verify later ranged pieces use the cache.
+An hourly expiry unit test verifies idle cache entries are removed while recent ones remain.
+The local run also deletes a temporary whole-copy file and a shard row on a reachable holder,
 refreshes keep on another node and verifies both are restored. It also ages media fixture rows,
 refreshes one keep through its signed protocol request,
 then restarts the media node: startup cleanup removes the expired owner's blob while the
