@@ -43,6 +43,32 @@ and `ios` for the first release. `method` is `package`, `store`, or
 `build-from-source`; unknown methods fail closed. The example entry does not
 claim a Linux client release already exists. Feed data
 contains no arbitrary URL, release-note HTML, script or executable command.
+
+### Offline feed generator checkpoint
+
+`tools/scripts/build-update-feed.py` turns a CI-verified inventory and optional
+prior feed into schema 1 stable JSON on stdout. It checks structure, not
+signatures or Pages. Release CI must verify published tags, asset digests,
+attestations and source builds, fetch the prior feed from its fixed origin,
+then deploy and smoke-test Pages. Client checks stay off until then.
+
+The inventory has `schema: 1` and bounded `releases`. Each release has `tag`,
+40-hex `commit`, `draft`, `prerelease`, `assets`, `attestations`, `source_builds`
+and `targets`. An asset has `name`, `state: "uploaded"`, `sha256`; an attestation
+repeats its name and digest. A source build has `target` and the release
+`commit`. A target claim has `method` and, for `package`, an `asset`. Linux
+requires `dyapp_<version>_amd64.deb`; Windows requires
+`dyapp-<version>-x86_64-windows.zip`, uploaded with matching attestation.
+`build-from-source` accepts only macOS and iOS with same-commit source-build
+records. These records are CI assertions, not proof supplied by the JSON.
+`store`, Android packages and unsigned Apple packages fail closed pending an
+installable artifact or pinned store destination policy.
+
+Versions are compared numerically; server-only tags preserve platform entries.
+Draft/prerelease client claims, duplicate tags, missing or failed assets,
+absent attestations, invalid versions, same-version rewrites and rollback fail
+generation. A malformed prior feed is rejected, never silently reset.
+
 The client constructs the release page from the fixed repository and validated
 tag: `https://github.com/abbat/dyapp/releases/tag/vX.Y.Z`. A store destination,
 when applicable, is separately pinned in the app and enabled only after its

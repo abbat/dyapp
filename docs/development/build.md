@@ -38,6 +38,17 @@ requirements. `tests/docker/Dockerfile.linux-test` adds Xvfb and test binaries;
 the packaging image uses the shared base without test-only packages.
 `make prepare` builds the base before the Linux test and packaging images.
 
+## Client update feed generator
+
+`python3 tools/scripts/build-update-feed.py INVENTORY.json [PREVIOUS.json]`
+prints a deterministic schema 1 stable feed. The inventory is trusted release-CI
+input, and the optional previous feed must already come from the fixed trusted
+origin. The script checks structure, asset names and digests, supported methods,
+version order and rollback; it does not fetch releases, verify attestations or
+publish Pages. See [client updates](../design/client-updates.md#offline-feed-generator-checkpoint)
+for the inventory contract and current platform limits. Release-CI integration
+is still planned.
+
 ## What each script does
 
 ### `build-all.sh`
