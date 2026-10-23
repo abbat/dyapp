@@ -801,8 +801,9 @@ The simple tar command below is a manual copy, not a verified recovery point.
 The repository's [offline snapshot writer](../../tools/scripts/backup-bootstrap.py)
 now produces the file inventory and manifest for rehearsal. Stop the node
 before using it; it does not verify that the node is stopped or that the result
-can be restored. The independent verifier and automatic update gate are still
-planned. The full backup process for unattended updates must make a
+can be restored. The [independent verifier](../../tools/scripts/verify-bootstrap-backup.py)
+checks the manifest, hashes and exact inventory, but does not probe SQLite or
+the key; the automatic update gate is still planned. The full process must make a
 stopped-node snapshot in a new, private directory with `storage/`, `recovery/`
 and `manifest.jsonl`. From a repository checkout, after stopping the node, a
 rehearsal with a plain inline key is:
@@ -810,13 +811,14 @@ rehearsal with a plain inline key is:
 ```bash
 sudo python3 tools/scripts/backup-bootstrap.py /var/lib/dyappd \
   /root/dyappd-backup-v1 --key-mode inline
+sudo python3 tools/scripts/verify-bootstrap-backup.py /root/dyappd-backup-v1
 ```
 
 For an external plain key or an `age`-encrypted key copy, choose `external`
 or `age` and add `--recovery-key <path>`; the writer copies that file without
 decrypting it. The destination must not exist and remains incomplete without
 `manifest.jsonl` if copying fails. Do not use the resulting snapshot as an
-unattended update gate until the independent verifier is implemented.
+unattended update gate until SQLite recovery and key restoration are checked.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent

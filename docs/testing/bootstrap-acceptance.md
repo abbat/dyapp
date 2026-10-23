@@ -190,7 +190,7 @@ assertion changes.
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |
 | Config precedence file < env < CLI; unknown keys fail; node key bound to the data | Unit, Property | `config.rs` | exists |
 | Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; restore verification planned |
-| Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Offline fixture | Backup verifier fixture | planned |
+| Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Python unit | `test_verify_bootstrap_backup.py` | exists; SQLite/key probe planned |
 | Restore probe checks SQLite and key against the saved peer ID on a separate copy; absent portable key evidence fails closed | Offline fixture | Restore probe fixture | planned |
 | Update preflight refuses a missing/unverified backup and migrated-store rollback is rehearsed without touching live storage | Fault test | Update preflight and migration recovery fixtures | planned |
 
