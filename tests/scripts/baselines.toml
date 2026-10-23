@@ -8,9 +8,9 @@
 lines = 88.4
 
 [batches]
-# Server-side A4 enforcement starts after this already-published commit.
-# Moved past ad3e3ac (499 lines of a pure module move), pushed without its Large-Change trailer.
-base = "ad3e3acefc03f55106293f0255f63af925f35c0a"
+# Published-history cutoff. Moved on 2026-10-23 after c0cd328 (485 lines) reached main
+# without a Large-Change trailer; no published history was rewritten.
+base = "834083cda0db08f32aec6682289ba729ecaead74"
 max_lines = 400
 
 [panics]

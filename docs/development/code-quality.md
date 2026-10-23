@@ -121,13 +121,16 @@ the percentage of large commits, including justified ones. The target is ≤10%;
 an observed metric, not an additional veto of a justified exception. Weekly escape-hatch
 follow-up follows [the shared practice rules](practices.md#rules-shared-by-all-practices).
 CI uploads `build/batches.json` as `commit-batches`, also on a failed check.
-The baseline grandfathers history published before server-side enforcement; moving it forward
-again weakens the check. The required `commit-batches` PR status runs the checker from the base
-branch over every proposed commit. For non-owner writers, `main` requires a PR and allows only
-rebase merge, so squash cannot turn several compliant commits into one oversized commit. Account
-`abbat` has an `always` ruleset bypass and can push directly to `main`; those commits get a
-post-push CI check, so the owner must run the local batch check before pushing. The owner also
-reviews changes to `.github/workflows/batch-policy.yml`: a PR can edit its own workflow.
+The published-history baseline was moved to `834083c` on 2026-10-23 after `c0cd328` reached
+`main` with 485 counted lines and no trailer. This one-time cutoff preserves the published
+history but stops checking commits through that point; moving it again would further weaken
+the check. The required `commit-batches` PR status runs the checker from the base branch over
+every proposed commit. For non-owner writers, `main` requires a PR and allows only rebase merge,
+so squash cannot turn several compliant commits into one oversized commit. Account `abbat` has
+an `always` ruleset bypass and can push directly to `main`; those commits get a post-push CI
+check. A pre-update gate for owner pushes is planned. Until it exists, run the local batch check
+before pushing. The owner also reviews changes to `.github/workflows/batch-policy.yml`: a PR
+can edit its own workflow.
 
 ### Docs change with the code
 
