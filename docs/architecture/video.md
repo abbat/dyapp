@@ -30,11 +30,12 @@ hardware and open-source flags are static classifications, not capability probes
 | `create_offer()` | Calls `create_offer` + `set_local_description`, returns the SDP with one video media section |
 | `mark_offer_sent()` | Manual state change; the caller says the offer was delivered |
 | `receive_answer(sdp)` | Parses the SDP as an answer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
-| `add_ice_candidate(c)` | Stores a remote candidate; once the answer is set, also passes it to the peer connection (`ICEError` if rejected). Allowed in any state |
+| `set_remote_offer(sdp)` | Callee side: parses the SDP as an offer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
+| `create_answer()` | Calls `create_answer` + `set_local_description` on the applied offer, returns the answer SDP; the transceiver from `new()` takes the offer's video section |
+| `add_ice_candidate(c)` | Stores a remote candidate; once the remote offer or answer is set, also passes it to the peer connection (`ICEError` if rejected). Allowed in any state |
 | `get_ice_candidates()` | Returns the candidates added above (remote ones), not locally gathered ones; local `on_ice_candidate` events are ignored |
 | `mark_connected()` | Manual state change from **any** state; not driven by an ICE/DTLS connection event |
 | `close()` | Closes the peer connection, state → `Closed` |
-| Callee path (accept offer, create answer) | **Not implemented**: no method sets a remote offer or creates an answer |
 | Media tracks, capture, rendering | Not implemented |
 | Signaling channel | Not implemented; bootstrap has no SDP/ICE endpoint |
 | Frame encryption | `sframe::Sender` and `sframe::Receiver`, not on a media path; see [below](#frame-encryption) |
@@ -42,18 +43,20 @@ hardware and open-source flags are static classifications, not capability probes
 ## Session states
 
 `SessionState` = `Idle`, `OfferCreated`, `OfferSent`, `AnswerReceived`,
-`Connected`, `Failed`, `Closed`.
+`OfferReceived`, `AnswerCreated`, `Connected`, `Failed`, `Closed`.
 
 | From | Call | To | Error |
 |------|------|----|-------|
 | `Idle` | `create_offer()` | `OfferCreated` | any other state → `InvalidState("Offer already created")`; WebRTC failure → `OfferGenerationFailed` / `InvalidState` |
 | `OfferCreated` | `mark_offer_sent()` | `OfferSent` | any other state → `InvalidState("Offer not created")` |
 | `OfferSent` | `receive_answer(sdp)` | `AnswerReceived` | any other state → `InvalidState("Offer not sent yet")`; SDP that does not parse or is rejected by the peer connection → `InvalidState`, state unchanged |
+| `Idle` | `set_remote_offer(sdp)` | `OfferReceived` | any other state → `InvalidState("Offer already created or received")`; SDP that does not parse or is rejected → `InvalidState`, state unchanged |
+| `OfferReceived` | `create_answer()` | `AnswerCreated` | any other state → `InvalidState("Offer not received")`; WebRTC failure → `AnswerGenerationFailed` / `InvalidState` |
 | any | `mark_connected()` | `Connected` | never fails |
 | any | `close()` | `Closed` | peer connection close error → `InvalidState` |
 
-`Failed` is never set by the code. `AnswerGenerationFailed` and
-`EncryptionError` exist in `VideoError` but are never returned.
+`Failed` is never set by the code. `EncryptionError` exists in `VideoError` but
+is never returned.
 
 ## Call setup
 
@@ -75,21 +78,23 @@ Caller app                    VideoSession                Callee
 `receive_answer` takes the callee's **answer** to the offer this session
 created, never the caller's own offer.
 
-### Callee (planned, no API)
+### Callee
 
 ```
-Callee app                    VideoSession (planned)
-  | receive offer via signaling
-  | set_remote_offer(offer) ──▶ set_remote_description(offer)   (planned)
-  | create_answer() ──────────▶ create_answer + set_local_description (planned)
-  |◀──────── answer SDP
+Callee app                    VideoSession
+  | [receive offer: no signaling channel exists]
+  | set_remote_offer(offer) ──▶ | set_remote_description    |
+  |                            | state = OfferReceived     |
+  | create_answer() ─────────▶ | set_local_description     |
+  |◀──────── answer SDP ────── | state = AnswerCreated     |
   | [deliver answer to caller]
 ```
 
 ### ICE
 
 Remote candidates reach the peer connection: `add_ice_candidate` applies them
-once the answer is set, and `receive_answer` applies those that came earlier.
+once the remote offer or answer is set, and `set_remote_offer` or
+`receive_answer` applies those that came earlier.
 
 Planned: each side handles `on_ice_candidate` and sends local candidates over
 signaling (or waits for gathering to finish and sends the full SDP). The

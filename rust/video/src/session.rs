@@ -20,6 +20,10 @@ pub enum SessionState {
     OfferSent,
     /// The remote answer has been applied.
     AnswerReceived,
+    /// A remote offer has been applied.
+    OfferReceived,
+    /// A local answer to the remote offer has been created.
+    AnswerCreated,
     /// The caller marked the session connected.
     Connected,
     /// Reserved failure state; currently never assigned.
@@ -50,7 +54,7 @@ async fn new_peer_connection() -> webrtc::error::Result<impl PeerConnection> {
         .await
 }
 
-/// Caller-side WebRTC offer, answer and remote candidate handling.
+/// WebRTC offer and answer for either side of a call, and remote candidate handling.
 /// Local candidate events and media transmission are not exposed.
 pub struct VideoSession {
     id: String,
@@ -151,17 +155,69 @@ impl VideoSession {
 
         *self.remote_sdp.write().await = Some(sdp);
         *self.state.write().await = SessionState::AnswerReceived;
+        self.apply_stored_candidates().await
+    }
 
-        // Candidates that arrived before the answer were only stored.
+    /// Callee side: applies a remote offer, then queued candidates; requires the idle state.
+    /// Candidate application can fail after the offer and state have been stored.
+    pub async fn set_remote_offer(&self, sdp: String) -> Result<()> {
+        if *self.state.read().await != SessionState::Idle {
+            return Err(VideoError::InvalidState(
+                "Offer already created or received".to_string(),
+            ));
+        }
+
+        let offer = RTCSessionDescription::offer(sdp.clone())
+            .map_err(|e| VideoError::InvalidState(format!("Invalid offer: {}", e)))?;
+        self.peer_connection
+            .set_remote_description(offer)
+            .await
+            .map_err(|e| {
+                VideoError::InvalidState(format!("Failed to set remote description: {}", e))
+            })?;
+
+        *self.remote_sdp.write().await = Some(sdp);
+        *self.state.write().await = SessionState::OfferReceived;
+        self.apply_stored_candidates().await
+    }
+
+    /// Creates and applies the local answer to the remote offer; requires `OfferReceived`.
+    pub async fn create_answer(&self) -> Result<String> {
+        if *self.state.read().await != SessionState::OfferReceived {
+            return Err(VideoError::InvalidState("Offer not received".to_string()));
+        }
+
+        let pc = &self.peer_connection;
+        let answer = pc
+            .create_answer(None)
+            .await
+            .map_err(|e| VideoError::AnswerGenerationFailed(e.to_string()))?;
+        pc.set_local_description(answer).await.map_err(|e| {
+            VideoError::InvalidState(format!("Failed to set local description: {}", e))
+        })?;
+        let sdp = pc
+            .local_description()
+            .await
+            .ok_or(VideoError::AnswerGenerationFailed(
+                "No local description".to_string(),
+            ))?
+            .sdp;
+
+        *self.local_sdp.write().await = Some(sdp.clone());
+        *self.state.write().await = SessionState::AnswerCreated;
+        Ok(sdp)
+    }
+
+    /// Candidates that arrived before the remote description were only stored.
+    async fn apply_stored_candidates(&self) -> Result<()> {
         for candidate in self.ice_candidates.read().await.iter() {
             self.apply_ice_candidate(candidate).await?;
         }
-
         Ok(())
     }
 
-    /// Stores a remote candidate and hands it to the peer connection once the answer is set;
-    /// earlier candidates are applied by `receive_answer`.
+    /// Stores a remote candidate and hands it to the peer connection once the remote description
+    /// is set; earlier candidates are applied by `receive_answer` or `set_remote_offer`.
     pub async fn add_ice_candidate(&self, candidate: ICECandidate) -> Result<()> {
         let mut candidates = self.ice_candidates.write().await;
         if self.remote_sdp.read().await.is_some() {
@@ -319,6 +375,52 @@ mod tests {
             .expect("answer applied");
         assert_eq!(session.state().await, SessionState::AnswerReceived);
         assert_eq!(*session.remote_sdp.read().await, Some(answer));
+    }
+
+    #[tokio::test]
+    async fn test_callee_answers_an_offer() {
+        let caller = VideoSession::new().await.expect("caller");
+        let callee = VideoSession::new().await.expect("callee");
+        assert!(callee.create_answer().await.is_err());
+
+        let candidate = ICECandidate::new(
+            "candidate:1 1 udp 2130706431 127.0.0.1 50000 typ host".to_string(),
+            None,
+            Some(0),
+        );
+        callee.add_ice_candidate(candidate).await.expect("stored");
+        let offer = caller.create_offer().await.expect("offer");
+        callee
+            .set_remote_offer(offer.clone())
+            .await
+            .expect("offer applied");
+        assert_eq!(callee.state().await, SessionState::OfferReceived);
+        assert_eq!(*callee.remote_sdp.read().await, Some(offer.clone()));
+        assert!(callee.set_remote_offer(offer).await.is_err());
+
+        let answer = callee.create_answer().await.expect("answer");
+        assert!(answer.contains("m=video"));
+        assert_eq!(callee.state().await, SessionState::AnswerCreated);
+        assert_eq!(*callee.local_sdp.read().await, Some(answer.clone()));
+        assert!(callee.create_answer().await.is_err());
+
+        caller.mark_offer_sent().await.expect("sent");
+        caller.receive_answer(answer).await.expect("answer applied");
+        assert_eq!(caller.state().await, SessionState::AnswerReceived);
+    }
+
+    #[tokio::test]
+    async fn test_set_remote_offer_rejects_invalid_sdp_and_a_caller() {
+        let session = VideoSession::new().await.expect("Failed to create session");
+        assert!(session
+            .set_remote_offer("fake-sdp".to_string())
+            .await
+            .is_err());
+        assert_eq!(session.state().await, SessionState::Idle);
+
+        let offer = session.create_offer().await.expect("offer");
+        assert!(session.set_remote_offer(offer).await.is_err());
+        assert_eq!(session.state().await, SessionState::OfferCreated);
     }
 
     #[tokio::test]

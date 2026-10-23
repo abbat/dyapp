@@ -86,22 +86,41 @@ impl VideoSession {
     /// Initializes the inner session if absent and returns its SDP offer.
     pub fn create_offer(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
-            let mut session_guard = self.inner.write().await;
-            if session_guard.is_none() {
-                *session_guard = Some(
-                    RustVideoSession::new()
-                        .await
-                        .map_err(|error| CoreError::Failed(error.to_string()))?,
-                );
-            }
+            self.initialized()
+                .await?
+                .as_ref()
+                .ok_or_else(|| CoreError::Failed("Failed to create session".to_string()))?
+                .create_offer()
+                .await
+                .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+        })
+    }
 
+    /// Callee side: initializes the inner session if absent and applies the caller's SDP offer,
+    /// then queued ICE candidates.
+    pub fn set_remote_offer(&self, sdp: String) -> Result<(), CoreError> {
+        self.runtime.block_on(async {
+            self.initialized()
+                .await?
+                .as_ref()
+                .ok_or_else(|| CoreError::Failed("Failed to create session".to_string()))?
+                .set_remote_offer(sdp)
+                .await
+                .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+        })
+    }
+
+    /// Returns the SDP answer to the offer applied by `set_remote_offer`.
+    pub fn create_answer(&self) -> Result<String, CoreError> {
+        self.runtime.block_on(async {
+            let session_guard = self.inner.read().await;
             if let Some(session) = session_guard.as_ref() {
                 session
-                    .create_offer()
+                    .create_answer()
                     .await
                     .map_err(|e| CoreError::Failed(format!("{:?}", e)))
             } else {
-                Err(CoreError::Failed("Failed to create session".to_string()))
+                Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
     }
@@ -161,6 +180,23 @@ impl VideoSession {
                 Err(CoreError::Failed("Session not initialized".to_string()))
             }
         })
+    }
+}
+
+impl VideoSession {
+    /// The inner session, created on first use.
+    async fn initialized(
+        &self,
+    ) -> Result<tokio::sync::RwLockWriteGuard<'_, Option<RustVideoSession>>, CoreError> {
+        let mut session_guard = self.inner.write().await;
+        if session_guard.is_none() {
+            *session_guard = Some(
+                RustVideoSession::new()
+                    .await
+                    .map_err(|error| CoreError::Failed(error.to_string()))?,
+            );
+        }
+        Ok(session_guard)
     }
 }
 
@@ -344,6 +380,20 @@ mod tests {
         let opened = IdentityKey::unwrap(store, wrapped).unwrap();
         assert_eq!(opened.peer_id(), key.peer_id());
         assert_eq!(opened.public_key(), key.public_key());
+    }
+
+    #[test]
+    fn video_sessions_exchange_an_offer_and_an_answer() {
+        let caller = VideoSession::new().unwrap();
+        let callee = VideoSession::new().unwrap();
+        assert!(callee.create_answer().is_err());
+        callee
+            .set_remote_offer(caller.create_offer().unwrap())
+            .unwrap();
+        let answer = callee.create_answer().unwrap();
+        caller.mark_offer_sent().unwrap();
+        caller.receive_answer(answer).unwrap();
+        assert!(callee.set_remote_offer("v=0".to_string()).is_err());
     }
 
     #[test]

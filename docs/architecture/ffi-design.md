@@ -32,10 +32,12 @@ or returns constants.
 | `MessageService` | Object | `new()` | Stub. |
 | | method | `send_message(peer_id: String, text: String) -> Result<String, CoreError>` | **Stub.** Drops `text`, returns `"Message queued to <peer_id>"`. Nothing is queued, encrypted or sent. |
 | | method | `queue_size() -> i32` | Stub, always `0`. |
-| `VideoSession` | Object | `new() -> Result<Self, CoreError>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer`. |
+| `VideoSession` | Object | `new() -> Result<Self, CoreError>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer` or `set_remote_offer`. |
 | | method | `create_offer() -> Result<String, CoreError>` | Creates the inner session on first call, returns an SDP offer. |
 | | method | `mark_offer_sent() -> Result<(), CoreError>` | OfferCreated → OfferSent. |
 | | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Parses and applies the remote answer, then applies stored remote ICE candidates (see [video](video.md)). |
+| | method | `set_remote_offer(sdp: String) -> Result<(), CoreError>` | Callee side: applies the caller's offer, then stored remote ICE candidates; Idle → OfferReceived. |
+| | method | `create_answer() -> Result<String, CoreError>` | The SDP answer to that offer; OfferReceived → AnswerCreated. |
 | | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
 | | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |
 | `KeyStore` | foreign trait | `wrap(secret: Vec<u8>)`, `unwrap(wrapped: Vec<u8>)`, both `-> Result<Vec<u8>, WrapError>` | Implemented by the app over its platform keystore; encrypts with a key that never leaves it. |
@@ -57,8 +59,8 @@ or returns constants.
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
 | `UserProfile` | Record | `user_id: String`, `age: i32`, `verified: bool` | Copied by value. |
 
-Not exported: `start`/`stop` video, `add_ice_candidate`, `mark_connected`, any
-callee/`create_answer` path, sync, discovery, search, or app lifecycle functions.
+Not exported: `start`/`stop` video, `add_ice_candidate`, `mark_connected`, sync, discovery,
+search, or app lifecycle functions.
 
 ### Native symbols
 
