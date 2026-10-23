@@ -124,11 +124,12 @@ impl Service {
                     MAX_ATTACHMENTS,
                     &record,
                 )? {
-                    Some(missing) => MediaResponse {
+                    Attached::Missing(missing) => MediaResponse {
                         missing,
                         ..media_status(Status::Ok)
                     },
-                    None => media_status(Status::Full),
+                    Attached::Full => media_status(Status::Full),
+                    Attached::Released => media_status(Status::Refused),
                 }
             }
             Some(media_request::Request::Release(release)) => {
@@ -482,11 +483,16 @@ impl Service {
                 if !attach.hashes.iter().any(|h| h.as_slice() == hash) {
                     return Ok(media_status(Status::NotFound));
                 }
-                if media
-                    .attach_signed(&hex(&owner), &attach, expires, MAX_ATTACHMENTS, record)?
-                    .is_none()
-                {
-                    return Ok(media_status(Status::Full));
+                match media.attach_signed(
+                    &hex(&owner),
+                    &attach,
+                    expires,
+                    MAX_ATTACHMENTS,
+                    record,
+                )? {
+                    Attached::Missing(_) => {}
+                    Attached::Full => return Ok(media_status(Status::Full)),
+                    Attached::Released => return Ok(media_status(Status::Refused)),
                 }
                 owner
             }

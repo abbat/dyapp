@@ -79,7 +79,7 @@ defences already in place. Nodes are untrusted by design
 | 16 | Client-side exposure: backups, notifications, logs | High | Medium | ⚠️ Partial: platform data protection and backup exclusion; private notifications, log rules and device revocation are planned ([below](#client-side-exposure)) |
 | 17 | Reflection: an honest node sends traffic to a third party | Medium | Medium | ✅ Rated: checked identify and provider addresses, a dial guard, replica caps and TURN deny ranges; the rest accepted ([below](#reflection-through-an-honest-node)) |
 | 18 | Injection: SQL, paths, logs, commands, rendering | High | Low | ⚠️ Partial: bound SQL parameters, hash-named files, plain-text rendering; profile string limits planned ([below](#injection)) |
-| 19 | Replay | Medium | Low | ⚠️ Partial: connection-bound nonces, versions and the 10-minute window; refusing a replayed released attachment is planned ([below](#replay)) |
+| 19 | Replay | Medium | Low | ✅ Rated: connection-bound nonces, versions, the 10-minute window and refused released attachments; the rest accepted ([below](#replay)) |
 | 20 | Downgrade and weak-parameter negotiation | High | Low | ✅ Implemented: nothing is negotiated; announced limits are hints within compiled floors ([below](#downgrade)) |
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |

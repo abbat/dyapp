@@ -31,6 +31,17 @@ pub enum Put {
     Invalid,
 }
 
+/// The outcome of an attach.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Attached {
+    /// Stored; the hashes not stored yet.
+    Missing(Vec<Vec<u8>>),
+    /// The owner already has the maximum of other attachments.
+    Full,
+    /// The release hash was released and the attachment has not expired yet.
+    Released,
+}
+
 /// Media blob files and their ownership database.
 pub struct MediaStore {
     dir: PathBuf,
@@ -97,7 +108,7 @@ const KEEPS_AFTER: &str = "SELECT `owner`, `record` FROM `owners` \
      WHERE `owner` > ? AND `record` IS NOT NULL ORDER BY `owner` LIMIT ?";
 
 /// `media.db` format steps.
-const MEDIA_STEPS: &[Step] = &[media_replicas, media_purge_stats];
+const MEDIA_STEPS: &[Step] = &[media_replicas, media_purge_stats, media_releases];
 
 /// Owner `last_seen` (rows stored before it count as seen now), attachment `created`, the
 /// signed records, blob `cost`, and the manifest and shard tables of erasure-coded replicas.
@@ -125,6 +136,15 @@ fn media_replicas(db: &Connection) -> rusqlite::Result<()> {
 fn media_purge_stats(db: &Connection) -> rusqlite::Result<()> {
     db.execute_batch(
         "CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `count` INTEGER NOT NULL);\n         INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);",
+    )
+}
+
+/// Release hashes of released attachments, kept until the attachments' expiry.
+fn media_releases(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS `released` (`release` BLOB PRIMARY KEY, `expires` INTEGER NOT NULL)
+             WITHOUT ROWID;
+         CREATE INDEX IF NOT EXISTS `released_expires` ON `released` (`expires`);",
     )
 }
 
@@ -265,8 +285,7 @@ impl MediaStore {
     }
 
     /// Lists `hashes` for `owner` in the attachment released by the secret hashing to `release`,
-    /// until `expires` (Unix seconds). Returns the hashes not stored yet, or `None` if the owner
-    /// already has `max` other attachments.
+    /// until `expires` (Unix seconds).
     pub fn attach(
         &self,
         owner: &str,
@@ -275,7 +294,7 @@ impl MediaStore {
         expires: u64,
         created: u64,
         max: usize,
-    ) -> Result<Option<Vec<Vec<u8>>>> {
+    ) -> Result<Attached> {
         self.attach_record(owner, release, hashes, (expires, created), max, None)
     }
 
@@ -287,7 +306,7 @@ impl MediaStore {
         expires: u64,
         max: usize,
         record: &SignedRecord,
-    ) -> Result<Option<Vec<Vec<u8>>>> {
+    ) -> Result<Attached> {
         self.attach_record(
             owner,
             &attach.release,
@@ -306,12 +325,22 @@ impl MediaStore {
         (expires, created): (u64, u64),
         max: usize,
         record: Option<&SignedRecord>,
-    ) -> Result<Option<Vec<Vec<u8>>>> {
+    ) -> Result<Attached> {
         let slot = format!("r:{}:{owner}", hex(release));
         let expires = i64::try_from(expires).map_err(storage_error)?;
         let created = i64::try_from(created).map_err(storage_error)?;
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
+        let released: bool = tx
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM `released` WHERE `release` = ?)",
+                [release],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if released {
+            return Ok(Attached::Released);
+        }
         let others: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM `attachments` WHERE `owner` = ? AND `slot` != ?",
@@ -320,7 +349,7 @@ impl MediaStore {
             )
             .map_err(storage_error)?;
         if others.unsigned_abs() >= max as u64 {
-            return Ok(None);
+            return Ok(Attached::Full);
         }
         // ponytail: a replayed attach renews the expiry, at most to its `created` + retention.
         tx.execute(
@@ -344,7 +373,7 @@ impl MediaStore {
         .map_err(storage_error)?;
         let missing = list(&tx, &slot, hashes)?;
         tx.commit().map_err(storage_error)?;
-        Ok(Some(missing))
+        Ok(Attached::Missing(missing))
     }
 
     /// A stored keep is authoritative even when a replica carries an older signed list.
@@ -413,23 +442,41 @@ impl MediaStore {
         .transpose()
     }
 
-    /// Drops the attachments released by `secret`; false if there were none.
+    /// Drops the attachments released by `secret` and refuses their release hash until they
+    /// would have expired; false if there were none.
     pub fn release(&self, secret: &[u8]) -> Result<bool> {
         let release = dyapp_identity::sha256(secret);
-        Ok(self.drop_attachments("`release` = ?", release.as_slice())? > 0)
+        Ok(self.drop_attachments(
+            "`release` = ?",
+            "INSERT OR REPLACE INTO `released` SELECT `release`, MAX(`expires`) FROM `attachments`
+             WHERE `release` = ?1 GROUP BY `release`",
+            release.as_slice(),
+        )? > 0)
     }
 
-    /// Drops the attachments expired at `now` (Unix seconds); returns how many.
+    /// Drops the attachments and release records expired at `now` (Unix seconds); returns how
+    /// many attachments.
     pub fn expire(&self, now: u64) -> Result<usize> {
-        self.drop_attachments("`expires` <= ?", i64::try_from(now).map_err(storage_error)?)
+        self.drop_attachments(
+            "`expires` <= ?",
+            "DELETE FROM `released` WHERE `expires` <= ?1",
+            i64::try_from(now).map_err(storage_error)?,
+        )
     }
 
-    fn drop_attachments(&self, which: &'static str, param: impl rusqlite::ToSql) -> Result<usize> {
+    /// Runs `first` with `param`, then drops the attachments matching `which`.
+    fn drop_attachments(
+        &self,
+        which: &'static str,
+        first: &'static str,
+        param: impl rusqlite::ToSql,
+    ) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
+        tx.execute(first, [&param]).map_err(storage_error)?;
         let slots: Vec<String> = tx
             .prepare(&format!("SELECT `slot` FROM `attachments` WHERE {which}"))
-            .and_then(|mut q| q.query_map([param], |row| row.get(0))?.collect())
+            .and_then(|mut q| q.query_map([&param], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
         let orphans = Self::drop_lists(&tx, &slots, true)?;
         tx.commit().map_err(storage_error)?;

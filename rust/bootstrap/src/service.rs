@@ -8,7 +8,7 @@ use crate::replication::MediaManifestExt;
 use crate::{
     config::{Role, Turn},
     maintenance::RebuildBudget,
-    media::{MediaStore, Put},
+    media::{Attached, MediaStore, Put},
     pow::PowCheck,
     rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
     search::{SearchIndex, SEARCH_FIELDS},

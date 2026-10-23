@@ -211,7 +211,8 @@ The `node status` log line reports `media_replica_holders`, distinct confirmed h
 media write, including late confirmations; this in-memory snapshot is not a durability census.
 Media currently shares the store DHT: all selected holders must serve media, otherwise their
 `UNSUPPORTED` replies cannot count toward confirmation. Keeps and releases are node-local;
-release each holder separately. A successful keep starts media repair; list forwarding without
+release each holder separately. A holder keeps a released attachment's release hash until the
+attachment's expiry and answers an `attach`, replica put or repair carrying it with `REFUSED`. A successful keep starts media repair; list forwarding without
 missing data remains planned, so refresh keeps on their holders.
 
 Repair is driven by the owner's presence; mailbox, profile and media repair are implemented.
@@ -1332,6 +1333,7 @@ media.db     owners(owner PK, version, last_seen, record BLOB)
              blobs(owner, hash, size, cost, PK (owner, hash))
              manifests(hash PK, record BLOB)
              shards(hash, idx, data BLOB, PK (hash, idx))
+             released(release PK, expires), index expires: release hashes refused until expires
              record: signed keep/attachment (nullable on legacy rows), or manifest protobuf
              cost: billed ownership bytes; legacy NULL means size × 5
              shards.data: at most 1 MiB per index; physical usage sums shards and manifests
@@ -1361,7 +1363,8 @@ the service calls it after each stored tokenless envelope.
 Each file has one connection behind a mutex. `storage::open` keeps the format version in
 `PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
 `profiles.db` 1 adds `last_seen`, `media.db` 1 adds the owner `last_seen`, the attachment
-`created`, the signed `record` columns, `cost` and the replica tables; `messages.db` 1 adds the
+`created`, the signed `record` columns, `cost` and the replica tables, `media.db` 2 the purge
+counter, `media.db` 3 the `released` table; `messages.db` 1 adds the
 envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`,
 `messages.db` 2 the `token_key`, `via` and `source_group` columns, their partial indexes, the
 tokenless counter tables and triggers, counting existing rows as tokenless, `messages.db` 3 the

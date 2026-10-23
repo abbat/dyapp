@@ -16,7 +16,7 @@ All of it lives in `storage.dir` (`/var/lib/dyappd` in the package,
 | Profiles (`profiles.db`) | Public, owner-signed profiles: peer ID, the fields the owner filled in, photo hashes | 30 days (`limits.profile_ttl_days`) after the owner's last publish or signed heartbeat, tombstone included |
 | Search index (`profiles-idx.db`) | A copy of the network's profiles, with the search role | Rebuilt from profiles; disposable |
 | Mailbox envelopes and signals (`messages.db`) | Mailbox address, sender key, put time, size and an opaque body (MLS ciphertext when the client uses `rust/client`) | Until the device acks or 24 hours pass (`limits.message_ttl_hours`); mailbox repair can give a copy a new TTL |
-| Media (`media.db`, `data/`) | Avatars and chat attachments as whole blobs or Reed-Solomon shards, named by SHA-256 | Avatars while the owner's keep list holds them and the owner stays live; attachments until released or 168 hours (`limits.attachment_retention_hours`) |
+| Media (`media.db`, `data/`) | Avatars and chat attachments as whole blobs or Reed-Solomon shards, named by SHA-256 | Avatars while the owner's keep list holds them and the owner stays live; attachments until released or 168 hours (`limits.attachment_retention_hours`); after a release, its 32-byte release hash until that expiry |
 | Deny list (`deny.db`) | Your entries with their notes and times | Until you remove them |
 | Peer cache (`peers`, `anchors`) | Addresses of other nodes | Rebuilt from the network |
 

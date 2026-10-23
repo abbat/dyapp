@@ -245,6 +245,11 @@ fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
     // Releasing the attachment leaves the independently kept copy alive.
     assert!(s.media.as_ref().unwrap().release(b"release").unwrap());
     assert_eq!(result(&s, &replica), Status::Ok);
+    assert_eq!(
+        result(&s, &attachment),
+        Status::Refused,
+        "a released attachment is not restored"
+    );
     let expired = proto::MediaAttach {
         created: 1,
         ..attach
@@ -648,6 +653,8 @@ fn media_keep_put_get() {
         Status::NotFound
     );
     assert_eq!(call_as(&service, "q", release(&secret)).0, Status::Ok);
+    assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::NotFound);
+    assert_eq!(call_as(&service, "q", attach(now)).0, Status::Refused);
     assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::NotFound);
     assert_eq!(
         call_as(&service, "q", get(&hash)).0,

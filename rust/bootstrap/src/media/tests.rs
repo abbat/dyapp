@@ -95,7 +95,7 @@ fn expiry_keeps_shared_and_attached_blobs_and_honours_refresh() {
         media
             .attach("sender", &release, hashes, 1000, 1, 10)
             .unwrap(),
-        Some(vec![])
+        Attached::Missing(vec![])
     );
     assert_eq!(media.expire_owners(150).unwrap(), 2);
     assert_eq!(media.get(&hash).unwrap(), Some(data));
@@ -180,16 +180,16 @@ fn attach_put_release_and_expire() {
     let ha1 = std::slice::from_ref(&ha);
     assert_eq!(
         media.attach("alice", &r1, ha1, 100, 1, 1).unwrap(),
-        Some(vec![ha.clone()])
+        Attached::Missing(vec![ha.clone()])
     );
     assert_eq!(
         media.attach("alice", &r2, ha1, 100, 1, 1).unwrap(),
-        None,
+        Attached::Full,
         "max"
     );
     assert_eq!(
         media.attach("alice", &r1, ha1, 100, 1, 1).unwrap(),
-        Some(vec![ha.clone()])
+        Attached::Missing(vec![ha.clone()])
     );
     assert_eq!(media.put("bob", &a, 1000).unwrap(), Put::NotListed);
     assert_eq!(media.put("alice", &a, 1000).unwrap(), Put::Stored);
@@ -210,13 +210,40 @@ fn attach_put_release_and_expire() {
     let hb1 = std::slice::from_ref(&hb);
     assert_eq!(
         media.attach("alice", &r2, hb1, 50, 2, 1).unwrap(),
-        Some(vec![])
+        Attached::Missing(vec![])
     );
     assert_eq!(media.put("alice", &b, 1000).unwrap(), Put::Stored);
     assert_eq!(media.expire(49).unwrap(), 0);
     assert_eq!(media.expire(50).unwrap(), 1);
     assert_eq!(media.get(&hb).unwrap(), Some(b));
     assert!(!media.release(s2).unwrap());
+}
+
+#[test]
+fn a_released_attachment_is_refused_until_its_expiry() {
+    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let media = MediaStore::open(&dir).unwrap();
+    let data = vec![1u8; 100];
+    let hashes = [dyapp_identity::sha256(&data).to_vec()];
+    let release = dyapp_identity::sha256(b"secret");
+    let attach = || {
+        media
+            .attach("alice", &release, &hashes, 100, 1, 10)
+            .unwrap()
+    };
+    assert_eq!(attach(), Attached::Missing(hashes.to_vec()));
+    assert_eq!(media.put("alice", &data, 1000).unwrap(), Put::Stored);
+    assert!(media.release(b"secret").unwrap());
+
+    assert_eq!(attach(), Attached::Released);
+    assert_eq!(media.put("alice", &data, 1000).unwrap(), Put::NotListed);
+    assert_eq!(media.get(&hashes[0]).unwrap(), None);
+    assert!(!media.release(b"secret").unwrap());
+    assert_eq!(media.expire(99).unwrap(), 0);
+    assert_eq!(attach(), Attached::Released);
+    // At the attachment's expiry the release record goes too.
+    media.expire(100).unwrap();
+    assert_eq!(attach(), Attached::Missing(hashes.to_vec()));
 }
 
 #[test]
