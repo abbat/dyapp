@@ -398,6 +398,7 @@ fn help_uses_the_message_locale_without_changing_commands() {
             .env("LC_ALL", lc_all)
             .env("LC_MESSAGES", lc_messages)
             .env("LANG", "C")
+            .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
             .current_dir(&dir)
             .arg("--help")
             .output()

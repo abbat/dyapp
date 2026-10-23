@@ -1,13 +1,12 @@
 repos:
   - repo: local
     hooks:
-      - id: docker-quality
-        name: Docker quality (read-only, full workspace)
-        entry: bash tests/scripts/check-quality.sh
+      - id: fast-staged-checks
+        name: Fast staged checks
+        entry: python3 -B tests/scripts/check-fast-precommit.py
         language: system
         pass_filenames: false
         always_run: true
-        require_serial: true
         stages: [pre-commit]
       - id: commit-message
         name: Commit message policy
@@ -19,11 +18,3 @@ repos:
         entry: python3 -B tests/scripts/check-batches.py --staged --message-file
         language: system
         stages: [commit-msg]
-      - id: docker-test
-        name: Docker full local inventory
-        entry: bash tests/scripts/docker-test.sh all
-        language: system
-        pass_filenames: false
-        always_run: true
-        require_serial: true
-        stages: [pre-push]

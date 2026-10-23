@@ -195,21 +195,20 @@ list fires `checks` itself.
 
 ### Git hooks
 
-`.pre-commit-config.yaml` defines four local hooks:
+`.pre-commit-config.yaml` defines fast local hooks:
 
-- `pre-commit` stage: `bash tests/scripts/check-quality.sh` (= `make quality`)
-- `commit-msg` stage: `check-repository.py --message-file` checks the proposed message, and `check-batches.py --staged --message-file` checks the staged line count and any `Large-Change` reason before a commit exists
-- `pre-push` stage: `bash tests/scripts/docker-test.sh all`
+- `pre-commit` stage: `check-fast-precommit.py` checks staged whitespace and that Rust integration-test subprocesses using `.env_clear()` forward `LLVM_PROFILE_FILE` for coverage. It reads staged blobs, not unstaged edits.
+- `commit-msg` stage: `check-repository.py --message-file` checks the proposed message, and `check-batches.py --staged --message-file` checks the staged line count and any `Large-Change` reason before a commit exists.
 
-There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
-
-Install them with `pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push`.
-It refuses to install while `core.hooksPath` is set (check with `git config core.hooksPath`). In the
-maintainer checkout, `core.hooksPath` points to `.beads/hooks`: its `commit-msg` hook checks the
-proposed message and staged batch size; its `pre-push` hook checks committed history on a direct push to `main`.
-Both print a link to this page on failure. Git hooks can be bypassed with `--no-verify`; server-side
-enforcement remains planned. Run `make quality` yourself before committing when the `pre-commit`
-package cannot install its hooks.
+Install with `pre-commit install --hook-type pre-commit --hook-type commit-msg` when
+`core.hooksPath` is unset. In the maintainer checkout, `core.hooksPath` points to
+`.beads/hooks`: its `pre-commit` hook runs the same fast staged check before Beads,
+its `commit-msg` hook checks the proposed message and batch size, and its `pre-push`
+hook checks committed history on a direct push to `main`.
+Full Docker quality, tests, coverage, rustfmt and platform checks run in CI; use
+`make quality` or `make test-all` explicitly when local results are needed. Git
+hooks can be bypassed with `--no-verify`; server-side batch enforcement remains
+planned.
 
 ## Rust lints
 

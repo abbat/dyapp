@@ -322,11 +322,18 @@ This is the single source of truth for coverage numbers; other docs link here.
 | GitHub Actions: `ci.yml` → `ci-base.yml`, step "coverage" | Yes | Runs `rust-check.sh cov-report` on the runner after `cov-build` and `cov-test`; reports uploaded as artifact `rust-workspace-coverage`. No codecov. |
 | `make coverage` / `make coverage-check` | Yes | Same `docker-test.sh coverage` |
 | `bash tests/scripts/docker-test.sh all`, `make test-all`, `make pre-push` | Yes | `all` includes coverage |
-| pre-commit `pre-push` stage | Yes | Runs `docker-test.sh all`; skipped by `git push --no-verify` or if hooks are not installed |
 | `bash tests/scripts/check-quality.sh --coverage` | Yes | Delegates to `docker-test.sh coverage` |
 
 Whether the CI check is **required for merge** depends on branch protection, which is not in the
 repository and has not been verified.
+
+### Coverage subprocesses
+
+Rust integration tests that call `.env_clear()` on a child process must forward
+`LLVM_PROFILE_FILE` from the test runner. Otherwise the instrumented child writes
+`.profraw` files into its working directory and can break tests that assert that
+directory stays empty. The fast pre-commit check catches this pattern in staged
+Rust integration tests; CI still runs the instrumented test suite.
 
 ### Per-crate targets (not enforced)
 
