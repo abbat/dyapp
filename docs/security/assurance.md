@@ -24,22 +24,40 @@ the recent commits; once the last one left that window the check became inconclu
 out of the average. After the local `tests/docker/Dockerfile.linux-test` was added, Scorecard
 counted one more unpinned local base image and the score fell from 7.2 to 7.1.
 The 2026-10-23 run scored 6.5: the Vulnerabilities check found 13 OSV advisories and scored 0.
-The 7.1 baseline and 7.0 target are currently unmet; the exceptions below record the reviewed
-cases, while the remaining dependency findings need resolution.
+The 7.1 baseline and 7.0 target are currently unmet; the scan-source mismatch below explains
+why earlier reviews and root-level exceptions did not clear these findings.
 Maintained remains at 0 while the repository is younger than 90 days; Code-Review and
 Contributors are also at 0. The registered Best Practices badge scores 2 and branch
 protection scores 4. Improving these checks requires maintainer decisions.
 
-**Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over the lockfiles.
-An `osv-scanner.toml` next to each `Cargo.lock` (root, `tests/fuzz/`, `clients/linux/`, `clients/windows/`) lists the
-advisories that do not apply there, each with its reason (no fixed version reachable, a code path
-the project never takes). cargo-deny keeps its own list in `deny.toml`.
+**Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over supported manifests.
+OSV-Scanner reads `osv-scanner.toml` from the scanned manifest's directory; a root exception
+therefore does not cover a child directory. Each reviewed exception needs a reason tied to its
+scan source (no fixed version reachable, a code path the project never takes). cargo-deny keeps
+its own list in `deny.toml`.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.
 Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same
 Dockerfile; those findings are dismissed in code scanning as false positives, and so is the
 Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
+
+**2026-10-23 Scorecard investigation.** The 13 Vulnerabilities findings remained after
+reviewing the GitHub alerts because Scorecard runs its own OSV scan. Four Rust advisories
+(`RUSTSEC-2026-0374`, `RUSTSEC-2026-0330`, `RUSTSEC-2026-0331`, `RUSTSEC-2026-0173`)
+occur in both the root and `tests/fuzz/Cargo.lock`; the root `osv-scanner.toml` covers them,
+but `tests/fuzz/osv-scanner.toml` does not. The other nine GHSA IDs match Maven artifacts
+listed in `clients/android/gradle/verification-metadata.xml`; that directory has no
+`osv-scanner.toml`. This is a manifest-to-exception coverage gap, not evidence that the
+prior reviews were undone. [OSV-Scanner configuration](https://github.com/google/osv-scanner/blob/main/docs/configuration.md)
+scopes exceptions to a scan source's directory; [supported manifests](https://github.com/google/osv-scanner/blob/main/docs/supported_languages_and_lockfiles.md)
+include Cargo locks and Gradle verification metadata.
+
+For another low Scorecard Vulnerabilities score, download the run's `scorecard` artifact,
+map every advisory ID to **all** scanned manifests, and check the `osv-scanner.toml` beside
+each one. Upgrade or remove affected dependencies where possible; add a reasoned local
+exception only after reviewing reachability and available fixes. Re-run Scorecard and confirm
+the IDs disappear. Dismissing a GitHub alert alone does not change this scan.
 
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
 is registered and currently at InProgress level. The maintainer keeps its answers current at
