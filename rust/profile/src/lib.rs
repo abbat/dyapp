@@ -99,6 +99,9 @@ impl Profile {
         if self.deleted && *self != Self::tombstone(self.version, self.pow_nonce, self.pow_bits) {
             return Err(Error::Invalid("tombstone carries data"));
         }
+        if (1..18).contains(&self.age) {
+            return Err(Error::Invalid("age under 18"));
+        }
         if !self.country.is_empty()
             && !(self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))
         {
@@ -554,6 +557,17 @@ mod tests {
         assert!(verify(&place.sign(&owner)).is_err());
 
         assert!(verify(&sample(0).sign(&owner)).is_err());
+
+        let mut age = sample(1);
+        for (years, ok) in [(0, true), (1, false), (17, false), (18, true)] {
+            age.age = years;
+            assert_eq!(verify(&age.sign(&owner)).is_ok(), ok, "age {years}");
+        }
+
+        let mut gender = sample(1);
+        gender.gender = "woman".into();
+        let verified = verify(&gender.sign(&owner)).unwrap();
+        assert_eq!(verified.profile.gender, "woman");
 
         let photo = Photo {
             full: vec![vec![1; 32], vec![2; 32]],

@@ -11,6 +11,7 @@ message Profile {
   uint64 version = 1;
   // Tombstone: every other field except the proof of work is empty.
   bool deleted = 2;
+  // Self-declared and unverified; 1 to 17 is rejected.
   uint32 age = 3;
   // ISO 3166-1 alpha-2 code; income is compared only within one country.
   string country = 4;
@@ -41,6 +42,8 @@ message Profile {
   uint32 pow_bits = 23;
   // Current identity-certified devices, sorted by SHA-256 of the device key; at most 64.
   repeated dyapp.identity.SignedRecord devices = 24;
+  // Free text, like `orientation`.
+  string gender = 25;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

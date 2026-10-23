@@ -42,7 +42,8 @@ as received, so a node keeps fields it does not understand.
 
 Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, unset
-optionals and an age of 0 mean "not published". `version` orders updates (the highest validly
+optionals and an age of 0 mean "not published"; `age` is self-declared and unverified, and 1 to 17
+is rejected. `gender` is free text like `orientation`. `version` orders updates (the highest validly
 signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and
 `pow_bits` empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
 key (see [Proof of work](bootstrap.md#search)); missing means 0 bits. Tag 5 held
