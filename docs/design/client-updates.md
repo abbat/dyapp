@@ -53,8 +53,12 @@ version client assets, missing SHA-256 digests and invalid package sizes. The
 commit argument must come from a separately resolved, checked-out tag; GitHub's
 `target_commitish` can be a branch and is not tag proof. Candidate output has no
 trusted `releases` or `targets` fields and cannot be passed to the feed generator
-as verification evidence. Download, digest and attestation checks are the next
-checkpoint before constructing that trusted inventory.
+as verification evidence. `tools/scripts/verify-release-packages.py TAG` now
+fetches the published response itself, resolves the tag against the checked-out
+commit, downloads exact candidates, checks actual size and SHA-256, and requires
+`gh attestation verify` to pin repository, release workflow, tag ref and commit.
+Only then does it emit a trusted inventory for the feed generator. The tag
+workflow has not yet wired this script or published a feed.
 
 ### Offline feed generator checkpoint
 

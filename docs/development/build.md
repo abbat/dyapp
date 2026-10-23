@@ -51,6 +51,13 @@ be resolved independently from the tag; the adapter does not verify package
 bytes or provenance. Its output is deliberately incompatible with the trusted
 inventory accepted by the generator below.
 
+`python3 tools/scripts/verify-release-packages.py TAG` runs from the checked-out
+tag with GitHub CLI authentication. It fetches release metadata and exact
+client packages, verifies downloaded bytes against GitHub's digest and requires
+a build attestation pinned to the repository, release workflow, tag and commit.
+Only its output can become the trusted inventory below. Release-CI wiring is
+planned; running this locally requires a published tag and matching checkout.
+
 `python3 tools/scripts/build-update-feed.py INVENTORY.json [PREVIOUS.json]`
 prints a deterministic schema 1 stable feed. The inventory is trusted release-CI
 input, and the optional previous feed must already come from the fixed trusted
