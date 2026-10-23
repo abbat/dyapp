@@ -12,6 +12,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4.13"
 prost = "0.14"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
+dyapp-ffi = { path = "../../rust/ffi" }
 dyapp-identity = { path = "../../rust/identity" }
 dyapp-messaging = { path = "../../rust/messaging" }
 dyapp-p2p-net = { path = "../../rust/p2p-net" }
@@ -102,6 +103,13 @@ bench = false
 [[bin]]
 name = "sdp"
 path = "fuzz_targets/sdp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "preview"
+path = "fuzz_targets/preview.rs"
 test = false
 doc = false
 bench = false

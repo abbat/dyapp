@@ -233,7 +233,7 @@ memory blow-ups still fail.
 Most targets feed one request handler of a bootstrap node, the code that parses what any peer
 sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
 with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter. The
-last three feed what a client reads from other people.
+last four feed what a client reads from other people.
 
 | Target | Handler | Input |
 |--------|---------|-------|
@@ -248,6 +248,7 @@ last three feed what a client reads from other people.
 | `mls` | `mls::group_of`, `Device::create_group`, `Device::join`, `Group::process` | a KeyPackage, Welcome or group message, by the first byte |
 | `sframe` | `sframe::Receiver::decrypt` | an SFrame video frame; the first byte is the metadata length |
 | `sdp` | `RTCSessionDescription::answer`, `unmarshal_candidate` (rtc) | a call peer's SDP answer or ICE candidate |
+| `preview` | `dyapp_ffi::check_preview` | a preview or profile thumbnail; the seeds are small JPEGs |
 
 The first input byte decides whether the signed records in the request are signed again by a fixed
 key; its low bits pick the signature domain. A random signature never verifies, so without this the
