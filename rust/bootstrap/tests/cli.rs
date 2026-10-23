@@ -441,6 +441,28 @@ fn validation_errors_follow_locale_without_changing_option_names() {
 }
 
 #[test]
+fn key_errors_follow_locale_without_replacing_node_data() {
+    let dir = directory();
+    std::fs::write(dir.join("node.id"), "existing-node").unwrap();
+    for (locale, expected) in [
+        ("C", "exists: a new key is a new node"),
+        (
+            "ru_RU.UTF-8",
+            "уже существует: новый ключ создаёт новый узел",
+        ),
+    ] {
+        let output = command_locale(&dir, &["keygen"], locale);
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(expected), "{error}");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("node.id")).unwrap(),
+            "existing-node"
+        );
+    }
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);

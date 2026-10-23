@@ -126,8 +126,8 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
 - Real-binary CLI tests check Russian and English operator diagnostics and deny-list confirmations,
   while the `status` field names and values remain stable across locales. Client argument tests
   also check translated errors and the current default port in address guidance. Config-loading
-  tests cover localized option, seed, TURN, removed-key and startup validation guidance with
-  stable English diagnostics.
+  tests cover localized option, seed, TURN, removed-key, startup validation and node-key guidance
+  with stable English diagnostics and without replacing existing node data.
 
 `make test` runs these checks. Review fixture diffs as changes to an external contract;
 never auto-update a baseline just to make a failed check pass. For an intentional format

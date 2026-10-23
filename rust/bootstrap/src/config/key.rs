@@ -12,14 +12,22 @@ impl NodeConfig {
         let id_path = self.storage.dir.join("node.id");
         if let Some(file) = [&key_path, &id_path].into_iter().find(|s| s.exists()) {
             anyhow::bail!(
-                "{} exists: a new key is a new node, delete the data to start from scratch",
-                file.display()
+                "{} {}",
+                file.display(),
+                message(
+                    "exists: a new key is a new node, delete the data to start from scratch",
+                    "уже существует: новый ключ создаёт новый узел; для начала с нуля удалите данные"
+                )
             );
         }
         if self.has_data()? {
             anyhow::bail!(
-                "{} holds node data: a new key is a new node, delete the data to start from scratch",
-                self.storage.dir.display()
+                "{} {}",
+                self.storage.dir.display(),
+                message(
+                    "holds node data: a new key is a new node, delete the data to start from scratch",
+                    "содержит данные узла: новый ключ создаёт новый узел; для начала с нуля удалите данные"
+                )
             );
         }
         self.bind_network()?;
@@ -60,8 +68,12 @@ impl NodeConfig {
             let mut file = match File::open(&key_path) {
                 Ok(file) => file,
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
-                    "{} is missing: run `dyappd keygen` once and keep the key safe",
-                    key_path.display()
+                    "{} {}",
+                    key_path.display(),
+                    message(
+                        "is missing: run `dyappd keygen` once and keep the key safe",
+                        "не найден: один раз выполните `dyappd keygen` и сохраните ключ в надёжном месте"
+                    )
                 ),
                 Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
             };
@@ -71,8 +83,12 @@ impl NodeConfig {
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
             if check_mode && metadata.mode() & 0o077 != 0 {
                 anyhow::bail!(
-                    "{} has group/other permissions: use chmod 600 before starting",
-                    key_path.display()
+                    "{} {}",
+                    key_path.display(),
+                    message(
+                        "has group/other permissions: use chmod 600 before starting",
+                        "доступен группе или другим пользователям: перед запуском выполните chmod 600"
+                    )
                 );
             }
             // Read into one fixed allocation: growing a Vec could leave freed secret copies.
@@ -85,7 +101,14 @@ impl NodeConfig {
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
                 != 0
             {
-                anyhow::bail!("{} grew while reading; retry startup", key_path.display());
+                anyhow::bail!(
+                    "{} {}",
+                    key_path.display(),
+                    message(
+                        "grew while reading; retry startup",
+                        "изменился во время чтения; повторите запуск"
+                    )
+                );
             }
             Keypair::from_protobuf_encoding(&bytes)
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
@@ -93,9 +116,17 @@ impl NodeConfig {
         let peer_id = keypair.public().to_peer_id();
         if !dyapp_p2p_net::id_has_pow(&peer_id, self.network.id_pow_bits) {
             anyhow::bail!(
-                "{} lacks the node-ID proof of work of {} bits: make a new node with `dyappd keygen`",
+                "{} {} {} {}",
                 key_path.display(),
-                self.network.id_pow_bits
+                message(
+                    "lacks the node-ID proof of work of",
+                    "не содержит доказательства работы идентификатора узла сложностью"
+                ),
+                self.network.id_pow_bits,
+                message(
+                    "bits: make a new node with `dyappd keygen`",
+                    "бит: создайте новый узел через `dyappd keygen`"
+                )
             );
         }
         let stored: PeerId = fs::read_to_string(&id_path)
@@ -105,10 +136,14 @@ impl NodeConfig {
             .map_err(|e| anyhow::anyhow!("{}: {e}", id_path.display()))?;
         if stored != peer_id {
             anyhow::bail!(
-                "{} does not match the data in {} (node {stored}): \
-                 a new key is a new node, delete the data to start from scratch",
+                "{} {} {} (node {stored}): {}",
                 key_path.display(),
-                self.storage.dir.display()
+                message("does not match the data in", "не соответствует данным в"),
+                self.storage.dir.display(),
+                message(
+                    "a new key is a new node, delete the data to start from scratch",
+                    "новый ключ создаёт новый узел; для начала с нуля удалите данные"
+                )
             );
         }
         Ok(keypair)
