@@ -20,7 +20,9 @@
 //! `dyappd info <host:port>` and the other [client] commands talk to a running node; they only
 //! read the config, for `network.name`.
 
-use dyapp_bootstrap::config::{options_help, options_help_russian, transports, Role};
+use dyapp_bootstrap::config::{
+    message, options_help, options_help_russian, russian_locale, transports, Role,
+};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::metrics::{self, listener};
@@ -45,26 +47,11 @@ const USAGE_RU: &str =
                      deny remove <запись> | deny list | deny received] [--config <файл>] \
                      [--<параметр> <значение>]...";
 
-fn russian_locale() -> bool {
-    ["LC_ALL", "LC_MESSAGES", "LANG"]
-        .into_iter()
-        .find_map(|key| std::env::var(key).ok().filter(|value| !value.is_empty()))
-        .is_some_and(|locale| locale.split(['_', '.', '@']).next() == Some("ru"))
-}
-
 fn usage() -> (&'static str, &'static str) {
     if russian_locale() {
         (USAGE_RU, client::USAGE_RU)
     } else {
         (USAGE, client::USAGE)
-    }
-}
-
-fn message(english: &'static str, russian: &'static str) -> &'static str {
-    if russian_locale() {
-        russian
-    } else {
-        english
     }
 }
 

@@ -18,6 +18,23 @@ use zeroize::Zeroizing;
 /// `DYAPPD_<KEY>` for a top-level key. Section names have no `_`, so the first one ends it.
 pub const ENV_PREFIX: &str = "DYAPPD_";
 
+/// Whether the process message locale requests Russian operator text.
+pub fn russian_locale() -> bool {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .into_iter()
+        .find_map(|key| std::env::var(key).ok().filter(|value| !value.is_empty()))
+        .is_some_and(|locale| locale.split(['_', '.', '@']).next() == Some("ru"))
+}
+
+/// Keep diagnostics stable for English while translating operator-facing text.
+pub fn message(english: &'static str, russian: &'static str) -> &'static str {
+    if russian_locale() {
+        russian
+    } else {
+        english
+    }
+}
+
 /// The packaged `/etc/dyappd.toml`: every key commented out with its default and a description.
 pub const REFERENCE: &str = include_str!("../dyappd.toml");
 
@@ -106,7 +123,12 @@ fn set(
             .entry(section.clone())
             .or_insert_with(|| toml::Value::Table(toml::Table::new()))
             .as_table_mut()
-            .ok_or_else(|| anyhow::anyhow!("{name}: {section} is not a section"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "{name}: {section} {}",
+                    message("is not a section", "не является разделом")
+                )
+            })?;
     }
     node.insert(last.clone(), value);
     Ok(())
@@ -116,7 +138,12 @@ fn set(
 pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     let socket: SocketAddr = address.parse().map_err(|_| {
         anyhow::anyhow!(
-            "bad address {address}: expected host:port, e.g. [::]:33445 or 0.0.0.0:33445"
+            "{} {address}: {}",
+            message("bad address", "неверный адрес"),
+            message(
+                "expected host:port, e.g. [::]:33445 or 0.0.0.0:33445",
+                "ожидается host:port, например [::]:33445 или 0.0.0.0:33445"
+            )
         )
     })?;
     let ip = Multiaddr::from(socket.ip());
@@ -130,7 +157,14 @@ pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
 pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     if let Some((host, peer)) = address.split_once('/') {
         let peer: PeerId = peer.parse().map_err(|_| {
-            anyhow::anyhow!("bad seed {address}: invalid peer ID; expected host:port/<peer ID>")
+            anyhow::anyhow!(
+                "{} {address}: {}",
+                message("bad seed", "неверный seed"),
+                message(
+                    "invalid peer ID; expected host:port/<peer ID>",
+                    "неверный peer ID; ожидается host:port/<peer ID>"
+                )
+            )
         })?;
         return Ok(seed(host)?.map(|address| address.with(Protocol::P2p(peer))));
     }
@@ -143,8 +177,12 @@ pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
         .and_then(|(host, port)| Some((host, port.parse::<u16>().ok()?)))
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "bad seed {address}: expected host:port, e.g. seed.example.org:33445 or \
-                 [2001:db8::7]:33445"
+                "{} {address}: {}",
+                message("bad seed", "неверный seed"),
+                message(
+                    "expected host:port, e.g. seed.example.org:33445 or [2001:db8::7]:33445",
+                    "ожидается host:port, например seed.example.org:33445 или [2001:db8::7]:33445"
+                )
             )
         })?;
     let dns = Multiaddr::empty().with(Protocol::Dns(host.into()));
@@ -673,15 +711,25 @@ impl NodeConfig {
             return Ok(());
         }
         if !self.turn.secret.expose().is_empty() {
-            anyhow::bail!("turn.secret and turn.secret_file are both set");
+            anyhow::bail!(message(
+                "turn.secret and turn.secret_file are both set",
+                "одновременно заданы turn.secret и turn.secret_file"
+            ));
         }
-        let text = Zeroizing::new(
-            fs::read_to_string(path)
-                .map_err(|e| anyhow::anyhow!("turn.secret_file {}: {e}", path.display()))?,
-        );
+        let text = Zeroizing::new(fs::read_to_string(path).map_err(|e| {
+            anyhow::anyhow!(
+                "{} {}: {e}",
+                message("turn.secret_file", "файл секрета TURN"),
+                path.display()
+            )
+        })?);
         let secret = text.strip_suffix('\n').unwrap_or(&text);
         if secret.is_empty() {
-            anyhow::bail!("turn.secret_file {}: empty", path.display());
+            anyhow::bail!(
+                "turn.secret_file {}: {}",
+                path.display(),
+                message("empty", "пустой")
+            );
         }
         self.turn.secret = secret.into();
         Ok(())
@@ -725,7 +773,13 @@ impl NodeConfig {
                 .iter()
                 .try_fold(&defaults, |node, key| node.get(key.as_str()))
                 .filter(|node| !node.is_table())
-                .ok_or_else(|| anyhow::anyhow!("unknown option --{option}, see dyappd --help"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "{} --{option}, {}",
+                        message("unknown option", "неизвестный параметр"),
+                        message("see dyappd --help", "см. dyappd --help")
+                    )
+                })?;
             // Text options are never parsed: a secret of digits stays a string.
             let value = match default {
                 toml::Value::String(_) | toml::Value::Array(_) => toml::Value::String(text.clone()),
@@ -749,7 +803,13 @@ impl NodeConfig {
         if let Some(key) = ignored.iter().find(|key| {
             ["storage.profiles", "storage.messages", "storage.media"].contains(&key.as_str())
         }) {
-            anyhow::bail!("{key} is removed: move the store into storage.dir and drop the key");
+            anyhow::bail!(
+                "{key} {}",
+                message(
+                    "is removed: move the store into storage.dir and drop the key",
+                    "удалён: перенесите хранилище в storage.dir и уберите этот ключ"
+                )
+            );
         }
         Ok((config, ignored))
     }

@@ -219,6 +219,46 @@ fn client_argument_errors_follow_locale() {
 }
 
 #[test]
+fn project_authored_config_errors_follow_locale() {
+    let dir = directory();
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["--missing.option", "1"],
+            "unknown option --missing.option",
+            "неизвестный параметр --missing.option",
+        ),
+        (
+            &["--listen", "invalid"],
+            "bad address invalid",
+            "неверный адрес invalid",
+        ),
+        (
+            &["--seeds", "invalid"],
+            "bad seed invalid",
+            "неверный seed invalid",
+        ),
+        (
+            &["--turn.secret", "secret", "--turn.secret-file", "unused"],
+            "turn.secret and turn.secret_file are both set",
+            "одновременно заданы turn.secret и turn.secret_file",
+        ),
+    ];
+    for &(args, english, russian) in cases {
+        let en = String::from_utf8(command_locale(&dir, args, "C").stderr).unwrap();
+        let ru = String::from_utf8(command_locale(&dir, args, "ru_RU.UTF-8").stderr).unwrap();
+        assert!(en.contains(english), "{args:?}: {en}");
+        assert!(ru.contains(russian), "{args:?}: {ru}");
+    }
+    let config = dir.join("removed.toml");
+    std::fs::write(&config, "[storage]\nprofiles = \"old.db\"\n").unwrap();
+    let args = ["--config", config.to_str().unwrap(), "status"];
+    let en = String::from_utf8(command_locale(&dir, &args, "C").stderr).unwrap();
+    let ru = String::from_utf8(command_locale(&dir, &args, "ru_RU.UTF-8").stderr).unwrap();
+    assert!(en.contains("storage.profiles is removed"), "{en}");
+    assert!(ru.contains("storage.profiles удалён"), "{ru}");
+}
+
+#[test]
 fn without_config_the_working_directory_file_is_read() {
     let (cwd, store) = (directory(), directory());
     std::fs::write(store.join("node.id"), "from-cwd\n").unwrap();
