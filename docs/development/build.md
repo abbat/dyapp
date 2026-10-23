@@ -34,8 +34,9 @@ its own path and builds there.
 `make deb` runs `tools/scripts/build-deb.sh` in the Debian 12 packaging image,
 then runs package-install tests from `tests/scripts/`. The clean Debian
 client package test starts a real D-Bus Secret Service in separate Xvfb sessions
-and user homes for the DEB and tarball binaries, so both system and file identity
-storage are exercised without reusing the first binary's saved key. On a
+and user homes for the DEB and tarball binaries, with each user's check log in
+its own writable report directory. Both system and file identity storage are
+exercised without reusing the first binary's saved key. On a
 version tag, the release workflow checks that the Linux client version matches
 the tag. It collects `dyapp_X.Y.Z_amd64.deb`, includes it in `SHA256SUMS`,
 attests its provenance and publishes it with the server package. A Windows

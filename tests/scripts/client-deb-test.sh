@@ -36,6 +36,7 @@ for index in "${!apps[@]}"; do
     useradd -m "${users[index]}"
     runuser -u "${users[index]}" -- env \
         HOME="/home/${users[index]}" RUNNER_TEMP="/tmp/reports-${users[index]}" \
+        DYAPP_CHECK_LOG_DIR="/tmp/reports-${users[index]}/check-output" \
         DYAPP_XVFB_DIAGNOSTICS=1 \
         xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
         bash /tests/scripts/client-deb-test.sh --session "${apps[index]}"
