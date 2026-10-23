@@ -124,10 +124,23 @@ gh attestation verify dyapp-X.Y.Z-x86_64-windows.zip --repo abbat/dyapp
 gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
 ```
 
-The tagged release workflow also verifies published client packages and stages
-a `stable-update-feed` workflow artifact. It is not yet deployed to Pages, so
-clients must not treat the proposed feed URL as live. Staging accepts a missing
-prior feed only for the initial `v0.0.1` tag; later failures stop the workflow.
+The tagged release workflow verifies published client packages, stages a
+`stable-update-feed` workflow artifact, then packages only the verified JSON
+at `updates/v1/stable.json` for the dependent `release - Pages` job. Tagged
+release workflows are serialized through deployment, so a later tag checks
+the feed from the previous completed release. Any verification, staging or
+Pages failure fails the release workflow; a failure before deployment leaves
+the previous verified feed in place. A missing prior feed is accepted only for
+the initial `v0.0.1` tag.
+
+Pages is not enabled yet. The `github-pages` environment already permits only
+selected release tags (`v*.*.*`), not arbitrary branches. Before the first
+release, set the repository Pages source to **GitHub Actions**. Then run the
+first tagged release and verify
+`https://abbat.github.io/dyapp/updates/v1/stable.json` over HTTPS, checking
+its schema, content and cache behaviour. Until this live setup and smoke test
+succeed, clients must treat the proposed URL as unavailable. See
+[client updates](../design/client-updates.md) for the trust and rollback rules.
 
 Operators answering an abuse report or a lawful-access request: [Abuse reports and legal
 requests](abuse-and-legal-requests.md).

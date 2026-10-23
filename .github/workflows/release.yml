@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# Serialize tagged publications through Pages deployment. A later tag must read
+# the feed produced by the previous completed deployment before it can advance it.
+concurrency:
+  group: ${{ github.event_name == 'push' && 'client-update-feed' || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: release - build
@@ -172,3 +178,26 @@ jobs:
           name: stable-update-feed
           path: build/update-feed/stable.json
           if-no-files-found: error
+      - name: prepare Pages artifact
+        run: |
+          mkdir -p build/pages/updates/v1
+          cp build/update-feed/stable.json build/pages/updates/v1/stable.json
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/pages
+
+  pages:
+    name: release - Pages
+    needs: publish
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        id: deployment

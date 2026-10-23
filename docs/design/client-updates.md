@@ -1,7 +1,8 @@
 # Client update discovery and notifications
 
-Status: design complete; implementation and live publisher verification are pending.
-No client currently checks for updates. The current release workflow publishes `dyappd` only.
+Status: client checks and live Pages verification are pending.
+No client currently checks for updates. The tagged release workflow packages
+`dyappd`, Linux and Windows clients, and stages a verified client update feed.
 
 ## Goal and boundary
 
@@ -58,11 +59,15 @@ fetches the published response itself, resolves the tag against the checked-out
 commit, downloads exact candidates, checks actual size and SHA-256, and requires
 `gh attestation verify` to pin repository, release workflow, tag ref and commit.
 Only then does it emit a trusted inventory for the feed generator. The tag
-workflow now stages `stable-update-feed` only after release publication and
-verification; Pages deployment is separate and not live yet. It reads the prior
-feed from the fixed HTTPS URL without redirects, with a 64 KiB limit. A 404 is
-accepted only for the initial `v0.0.1` tag; later missing or malformed prior
-feeds fail the release workflow. Server-only tags keep prior client targets.
+workflow stages `stable-update-feed` only after release publication and
+verification. It packages the feed at `updates/v1/stable.json` for a dependent
+Pages deployment job, which is not live until the Pages source is configured.
+The `github-pages` environment already restricts deployment to release tags.
+The workflow serializes tagged releases through Pages deployment so the next
+tag reads the last deployed feed. It reads the
+prior feed from the fixed HTTPS URL without redirects, with a 64 KiB limit.
+A 404 is accepted only for the initial `v0.0.1` tag; later missing or malformed
+prior feeds fail the release workflow. Server-only tags keep prior client targets.
 
 ### Offline feed generator checkpoint
 
@@ -194,8 +199,8 @@ unsigned build an installable update.
 
 | Target | Current publication evidence | First valid destination |
 |---|---|---|
-| `linux-x86_64` | `make deb` builds client `.deb` and tarball, but `release.yml` does not upload them. | `package` only after the exact client assets and provenance join GitHub Releases; open the fixed release page and show verification instructions. |
-| `windows-x86_64` | `release-sizes` produces a portable unsigned ZIP as a workflow artifact, not a release asset. | `package` after that ZIP and checksum/provenance join GitHub Releases; warn that code signing is still pending. |
+| `linux-x86_64` | Tagged `release.yml` collects the installed and UI-smoked client `.deb` with provenance; no release tag exists yet. | `package` after the exact client asset and provenance join GitHub Releases; open the fixed release page and show verification instructions. |
+| `windows-x86_64` | Tagged `release.yml` collects a portable unsigned ZIP after native Windows UI smoke; no release tag exists yet. | `package` after that ZIP and checksum/provenance join GitHub Releases; warn that code signing is still pending. |
 | `macos-universal` | CI produces an unsigned, unnotarized ZIP; there is no Developer ID. | `build-from-source` with the macOS manual until a signed/notarized distribution exists; never imply the ZIP opens as downloaded. |
 | `android` | App ID is `com.dyapp`; release signing and a store listing are pending. | `package` for a verified, consistently signed APK, `store` only after a real listing, or `build-from-source` with explicit non-upgrade caveat for developer builds. |
 | `ios` | The CI IPA is unsigned and cannot be installed as published; no Apple Developer Program account exists. | `build-from-source` with the iOS self-signing manual. `store` requires an actual approved listing. |
@@ -217,10 +222,15 @@ them done.
 | GitHub Releases REST API | Existing release data, no separate publisher | Unauthenticated requests share a 60/hour/IP quota; latest-release ordering is not numeric version ordering; platform filtering and pagination complicate each client |
 | App-store-only notices | Stores own listing and delivery on mobile | Does not cover Linux/Windows and cannot provide one version contract across clients |
 
-The current [`release.yml`](../../.github/workflows/release.yml) collects only
-`dyappd` files despite `make deb` also building Linux client packages.
-[ADR 0020](../decisions/0020-dyappd-release-channels.md) plans client artifacts on
-the shared release tag; publishing them and the feed are implementation work.
+The tagged [`release.yml`](../../.github/workflows/release.yml) collects tested
+Linux and Windows client packages with `dyappd` files. It prepares a Pages
+artifact only after release publication, exact package verification, and feed
+validation. The Pages job depends on that step, has only `pages: write` and
+`id-token: write`, and names the `github-pages` environment. A failed gate
+prevents a new Pages deployment, leaving the last verified deployment in place.
+The `github-pages` environment allows only `v*.*.*` tags. The repository has
+no Pages site yet; configure Pages for GitHub Actions and perform the live
+HTTPS smoke before enabling client checks ([deployment guide](../operations/deployment.md)).
 GitHub documents [Pages workflow permissions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages),
 [release API ordering](https://docs.github.com/en/rest/releases/releases) and
 [REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
