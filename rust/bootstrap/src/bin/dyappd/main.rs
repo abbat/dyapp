@@ -60,6 +60,14 @@ fn usage() -> (&'static str, &'static str) {
     }
 }
 
+fn message(english: &'static str, russian: &'static str) -> &'static str {
+    if russian_locale() {
+        russian
+    } else {
+        english
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let (mut file, mut options, mut command) = (None, Vec::new(), Vec::new());
@@ -93,7 +101,11 @@ async fn main() -> anyhow::Result<()> {
             Some((key, value)) => (key.to_owned(), value.to_owned()),
             None => match args.next() {
                 Some(value) => (option.to_owned(), value),
-                None => anyhow::bail!("--{option} needs a value\n{}", usage().0),
+                None => anyhow::bail!(
+                    "--{option} {}\n{}",
+                    message("needs a value", "требует значения"),
+                    usage().0
+                ),
             },
         };
         if key == "config" {
@@ -136,7 +148,8 @@ async fn main() -> anyhow::Result<()> {
         // SAFETY: geteuid has no preconditions.
         if owner != unsafe { libc::geteuid() } {
             anyhow::bail!(
-                "run as the owner of {} (sudo -u dyappd dyappd ...)",
+                "{} {} (sudo -u dyappd dyappd ...)",
+                message("run as the owner of", "запустите от имени владельца"),
                 config.storage.dir.display()
             );
         }
@@ -148,7 +161,11 @@ async fn main() -> anyhow::Result<()> {
             let mut stdout = std::io::stdout().lock();
             anyhow::ensure!(
                 !stdout.is_terminal(),
-                "keygen -: pipe the key into systemd-creds or a file, not a terminal"
+                "keygen -: {}",
+                message(
+                    "pipe the key into systemd-creds or a file, not a terminal",
+                    "передайте ключ в systemd-creds или файл, а не в терминал"
+                )
             );
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
@@ -264,19 +281,39 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
     let deny = DenyStore::open(&config.storage.deny_path())?;
     let entry = |entry: &str| {
         normalize(entry, &config.limits).ok_or_else(|| {
-            anyhow::anyhow!("{entry}: not a peer ID, a SHA-256 or an IP group of the node's prefix")
+            anyhow::anyhow!(
+                "{entry}: {}",
+                message(
+                    "not a peer ID, a SHA-256 or an IP group of the node's prefix",
+                    "не peer ID, SHA-256 или группа IP с настроенным префиксом"
+                )
+            )
         })
     };
     match args {
         ["add", e, note @ ..] => {
             let e = entry(e)?;
             let added = deny.add(&e, &note.join(" "))?;
-            println!("{e} {}", if added { "added" } else { "already listed" });
+            println!(
+                "{e} {}",
+                if added {
+                    message("added", "добавлено")
+                } else {
+                    message("already listed", "уже в списке")
+                }
+            );
         }
         ["remove", e] => {
             let e = entry(e)?;
             let removed = deny.remove(&e)?;
-            println!("{e} {}", if removed { "removed" } else { "not listed" });
+            println!(
+                "{e} {}",
+                if removed {
+                    message("removed", "удалено")
+                } else {
+                    message("not listed", "нет в списке")
+                }
+            );
         }
         ["list"] => {
             for (e, note, added) in deny.list()? {
@@ -302,8 +339,16 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
 /// The peer ID, then one `seeds` entry per `external` address for other nodes to pin this one.
 fn id(config: &NodeConfig) -> anyhow::Result<String> {
     let path = config.storage.dir.join("node.id");
-    let peer_id = std::fs::read_to_string(&path)
-        .map_err(|e| anyhow::anyhow!("{}: {e}; run `dyappd keygen` once", path.display()))?;
+    let peer_id = std::fs::read_to_string(&path).map_err(|e| {
+        anyhow::anyhow!(
+            "{}: {e}; {}",
+            path.display(),
+            message(
+                "run `dyappd keygen` once",
+                "один раз запустите `dyappd keygen`"
+            )
+        )
+    })?;
     let peer_id = peer_id.trim();
     let seeds = config.external.iter().map(|a| format!("{a}/{peer_id}\n"));
     Ok(format!("{peer_id}\n{}", seeds.collect::<String>()))

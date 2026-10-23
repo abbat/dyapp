@@ -540,7 +540,10 @@ ref as its `from` input.
 ## Status and metrics
 
 **Status.** `sudo -u dyappd dyappd status` (in Docker:
-`docker exec dyappd dyappd status`) prints one `name value` line each, most important first:
+`docker exec dyappd dyappd status`) prints one `name value` line each, most important first.
+Field names and the `running`, `stopped`, `none`, and `unavailable` values are stable across
+locales because scripts parse them. With a Russian locale, operator errors and `deny add/remove`
+confirmations are translated.
 
 | Line | Value |
 |---|---|

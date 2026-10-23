@@ -14,8 +14,13 @@ fn directory() -> PathBuf {
 }
 
 fn command(dir: &Path, args: &[&str]) -> Output {
+    command_locale(dir, args, "C")
+}
+
+fn command_locale(dir: &Path, args: &[&str], locale: &str) -> Output {
     Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
+        .env("LC_ALL", locale)
         .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
         .current_dir(dir)
         .arg("--storage.dir")
@@ -134,6 +139,38 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     ] {
         assert!(!command(&dir, &args).status.success(), "{args:?}");
     }
+}
+
+#[test]
+fn operator_diagnostics_follow_locale_without_changing_status_fields() {
+    let dir = directory();
+    let run = |args: &[&str]| command_locale(&dir, args, "ru_RU.UTF-8");
+    let stderr = |output: Output| String::from_utf8(output.stderr).unwrap();
+    assert!(stderr(run(&["--listen"])).contains("--listen требует значения"));
+    assert!(stderr(run(&["unknown-command"])).contains("использование: dyappd"));
+    assert!(stderr(run(&["id"])).contains("один раз запустите `dyappd keygen`"));
+    assert!(stderr(run(&["deny", "add", "invalid"])).contains("не peer ID, SHA-256"));
+    let entry = "192.0.2.0/24";
+    assert_eq!(
+        String::from_utf8(run(&["deny", "add", entry]).stdout).unwrap(),
+        format!("{entry} добавлено\n")
+    );
+    assert_eq!(
+        String::from_utf8(run(&["deny", "add", entry]).stdout).unwrap(),
+        format!("{entry} уже в списке\n")
+    );
+    assert_eq!(
+        String::from_utf8(run(&["deny", "remove", entry]).stdout).unwrap(),
+        format!("{entry} удалено\n")
+    );
+    assert_eq!(
+        String::from_utf8(run(&["deny", "remove", entry]).stdout).unwrap(),
+        format!("{entry} нет в списке\n")
+    );
+    let status = String::from_utf8(run(&["status", "--listen", "127.0.0.1:1"]).stdout).unwrap();
+    assert!(status.contains("node stopped\n"));
+    assert!(status.contains("deny_entries 0\n"));
+    assert!(stderr(command(&dir, &["--listen"])).contains("--listen needs a value"));
 }
 
 #[test]
