@@ -103,8 +103,9 @@ support offline reproduction without querying beads from CI.
 `tests/scripts/check-batches.py` (first in `make quality` and CI `quality`) enforces A4.
 Every non-merge commit after `[batches].base` in `tests/scripts/baselines.toml` must change at
 most `max_lines = 400` text lines, additions plus deletions, or carry a nonempty
-`Large-Change: <reason>` commit trailer. The trailer is the only exception: rewrite an
-offending PR-branch commit before merging. The fixed baseline excludes the already
+`Large-Change: <reason>` in the final commit metadata paragraphs. It may be separated
+from `Co-Authored-By` by a blank line; the reason must be nonempty. Split an oversized
+commit or give its reason before creating it. The fixed baseline excludes the already
 published history; there is no growing SHA allow-list. Exactly 400 passes. Renames count as deletion
 plus addition; binary files contribute no text lines. Commits on merged branches are checked,
 but merge commits themselves are excluded, as in the commit-message check.
@@ -115,7 +116,9 @@ path component), and generated code (`*.uniffi.rs` or a `generated/` path compon
 Other generated files must be added to the explicit exclusion policy before they are exempt.
 
 The script requires complete history and an ancestor baseline; missing history fails.
-It checks committed history, so run it after committing and before pushing.
+The `commit-msg` hook checks staged lines against the proposed message before the commit;
+`make quality` and the `pre-push` hook also check committed history. Run the history check
+before pushing if hooks are unavailable.
 `python3 -B tests/scripts/check-batches.py --base <commit> --head HEAD --report <path>`
 reproduces a range. Its JSON report lists each commit's count and exception reason and
 the percentage of large commits, including justified ones. The target is ≤10%; this is
@@ -192,10 +195,10 @@ list fires `checks` itself.
 
 ### Git hooks
 
-`.pre-commit-config.yaml` defines three local hooks:
+`.pre-commit-config.yaml` defines four local hooks:
 
 - `pre-commit` stage: `bash tests/scripts/check-quality.sh` (= `make quality`)
-- `commit-msg` stage: `python3 -B tests/scripts/check-repository.py --message-file` checks the proposed message against the repository's history rules before a commit exists
+- `commit-msg` stage: `check-repository.py --message-file` checks the proposed message, and `check-batches.py --staged --message-file` checks the staged line count and any `Large-Change` reason before a commit exists
 - `pre-push` stage: `bash tests/scripts/docker-test.sh all`
 
 There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
@@ -203,7 +206,7 @@ There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
 Install them with `pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push`.
 It refuses to install while `core.hooksPath` is set (check with `git config core.hooksPath`). In the
 maintainer checkout, `core.hooksPath` points to `.beads/hooks`: its `commit-msg` hook checks the
-proposed message and its `pre-push` hook runs the fast batch checker on a direct push to `main`.
+proposed message and staged batch size; its `pre-push` hook checks committed history on a direct push to `main`.
 Both print a link to this page on failure. Git hooks can be bypassed with `--no-verify`; server-side
 enforcement remains planned. Run `make quality` yourself before committing when the `pre-commit`
 package cannot install its hooks.

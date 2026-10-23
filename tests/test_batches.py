@@ -29,6 +29,18 @@ class Batches(unittest.TestCase):
         self.assertFalse(CHECK.excluded("src/lock.rs"))
         self.assertFalse(CHECK.excluded("docs/snapshots.md"))
 
+    def test_large_change_reason_in_final_metadata(self):
+        message = ("Change code\n\nDetails.\n\n"
+                   "Large-Change: Keep platform changes together\n\n"
+                   "Co-Authored-By: Codex <noreply@openai.com>\n")
+        self.assertEqual(CHECK.large_change_reason(message),
+                         "Keep platform changes together")
+        message = ("Change code\n\nLarge-Change: \n\n"
+                   "Co-Authored-By: Codex <noreply@openai.com>")
+        self.assertEqual(CHECK.large_change_reason(message), "")
+        self.assertEqual(CHECK.large_change_reason(
+            "Change code\n\nLarge-Change: Apparent reason\n\nMore prose."), "")
+
     def test_shallow_history_fails(self):
         with patch.object(CHECK, "git", return_value=b"true\n"):
             with self.assertRaisesRegex(ValueError, "full-history"):
@@ -90,6 +102,25 @@ class Batches(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(report["large_commits"], 1)
         self.assertIn("atomic fixture", report["commits"][0]["reason"])
+        # Commit-msg preflight checks staged lines before a commit exists.
+        (repo / "code.txt").write_text("new\n" * 401)
+        git("add", "code.txt")
+        message_file = repo / "message.txt"
+        message_file.write_text("Change code\n")
+        preflight = subprocess.run(
+            [sys.executable, "-B", str(SCRIPT), "--staged",
+             "--message-file", str(message_file)],
+            cwd=repo, capture_output=True, text=True)
+        self.assertEqual(preflight.returncode, 1)
+        self.assertIn("402 > 400", preflight.stdout)
+        message_file.write_text("Change code\n\n"
+                                "Large-Change: Keep fixture together\n\n"
+                                "Co-Authored-By: Codex <noreply@openai.com>\n")
+        preflight = subprocess.run(
+            [sys.executable, "-B", str(SCRIPT), "--staged",
+             "--message-file", str(message_file)],
+            cwd=repo, capture_output=True, text=True)
+        self.assertEqual(preflight.returncode, 0, preflight.stdout)
         result, report = run(exact, exact)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(report["total_commits"], 0)

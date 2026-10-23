@@ -1,6 +1,7 @@
 """Practice A4: count changed text lines per non-merge commit."""
 import argparse
 import json
+import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import tomllib
@@ -33,6 +34,33 @@ def changed_lines(stats):
     return total
 
 
+def large_change_reason(message):
+    """Accept final metadata lines, even across blank lines."""
+    for paragraph in reversed(re.split(r"\n[ \t]*\n", message.strip())):
+        fields = []
+        for line in paragraph.splitlines():
+            match = re.fullmatch(r"([A-Za-z][A-Za-z-]*):[ \t]*(.*)", line)
+            if not match:
+                return ""
+            fields.append(match.groups())
+        for key, value in fields:
+            if key == "Large-Change" and value.strip():
+                return value.strip()
+    return ""
+
+
+def staged(message_file, limit):
+    lines = changed_lines(git(
+        "diff", "--cached", "--numstat", "-z", "--no-renames",
+        "--no-ext-diff", "--no-textconv"))
+    reason = large_change_reason(message_file.read_text())
+    errors = []
+    if lines > limit and not reason:
+        errors.append(f"staged: {lines} > {limit} changed lines; "
+                      "split the commit or add Large-Change: <reason>")
+    return {"staged_lines": lines, "reason": reason, "errors": errors}
+
+
 def inspect(base, head, limit):
     # Missing/divergent baselines and incomplete history must fail, not skip.
     if git("rev-parse", "--is-shallow-repository").strip() != b"false":
@@ -46,9 +74,8 @@ def inspect(base, head, limit):
         lines = changed_lines(git(
             "diff-tree", "--root", "--no-commit-id", "-r", "--numstat",
             "-z", "--no-renames", "--no-ext-diff", "--no-textconv", sha))
-        reason = git(
-            "show", "-s", "--format=%(trailers:key=Large-Change,valueonly)",
-            sha).decode().strip()
+        message = git("show", "-s", "--format=%B", sha).decode()
+        reason = large_change_reason(message)
         large = lines > limit
         commits.append({"commit": sha, "lines": lines, "large": large,
                         "reason": reason})
@@ -70,8 +97,15 @@ def main():
     parser.add_argument("--base", default=policy["base"])
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--staged", action="store_true")
+    parser.add_argument("--message-file", type=Path)
     args = parser.parse_args()
-    report = inspect(args.base, args.head, policy["max_lines"])
+    if args.staged:
+        if not args.message_file:
+            parser.error("--staged requires --message-file")
+        report = staged(args.message_file, policy["max_lines"])
+    else:
+        report = inspect(args.base, args.head, policy["max_lines"])
     text = json.dumps(report, indent=2) + "\n"
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
