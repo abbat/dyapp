@@ -44,7 +44,9 @@ class ProbeBootstrapSqlite(unittest.TestCase):
         self.snapshot_now()
         before = {p.relative_to(self.snapshot): p.read_bytes()
                   for p in self.snapshot.rglob("*") if p.is_file()}
-        self.assertEqual(PROBE.probe(self.snapshot), ("peer-id", 2))
+        header, keys, count = PROBE.probe(self.snapshot)
+        self.assertEqual((header["peer_id"], count), ("peer-id", 2))
+        self.assertIn("storage/node.key", keys)
         after = {p.relative_to(self.snapshot): p.read_bytes()
                  for p in self.snapshot.rglob("*") if p.is_file()}
         self.assertEqual(after, before)
@@ -56,7 +58,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
             self.snapshot_now()
             wal = self.snapshot / "storage/profiles.db-wal"
             self.assertTrue(wal.exists())
-            self.assertEqual(PROBE.probe(self.snapshot), ("peer-id", 2))
+            self.assertEqual(PROBE.probe(self.snapshot)[2], 2)
 
     def test_corrupt_database_and_hot_journal_fail(self):
         (self.source / "profiles.db").write_bytes(b"corrupt")

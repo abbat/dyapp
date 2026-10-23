@@ -189,10 +189,10 @@ assertion changes.
 | Store format steps run once; a newer file is refused | Unit | `storage.rs::store_format_steps_run_once_and_a_newer_file_is_refused` | exists |
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |
 | Config precedence file < env < CLI; unknown keys fail; node key bound to the data | Unit, Property | `config.rs` | exists |
-| Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; restore verification planned |
-| Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Python unit | `test_verify_bootstrap_backup.py` | exists; SQLite/key probe planned |
-| SQLite restore probe copies DB/WAL to a disposable directory, rejects hot journals and corrupt stores without changing the snapshot | Python unit | `test_probe_bootstrap_sqlite.py` | exists; key probe planned |
-| Restore probe checks key against the saved peer ID on a separate copy; absent portable key evidence fails closed | Offline fixture | Key probe fixture | planned |
+| Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; updater integration planned |
+| Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Python unit | `test_verify_bootstrap_backup.py` | exists |
+| SQLite restore probe copies DB/WAL to a disposable directory, rejects hot journals and corrupt stores without changing the snapshot | Python unit | `test_probe_bootstrap_sqlite.py` | exists |
+| Restore preflight checks key against saved peer ID on a separate copy and decrypts age recovery evidence; absent/wrong key fails closed | Python unit, Rust CLI | `test_probe_bootstrap_backup.py`, `probe_key_checks_a_stopped_copy_without_changing_files` | exists; updater integration planned |
 | Update preflight refuses a missing/unverified backup and migrated-store rollback is rehearsed without touching live storage | Fault test | Update preflight and migration recovery fixtures | planned |
 
 ## Decisions

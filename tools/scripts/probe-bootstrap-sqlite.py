@@ -46,7 +46,7 @@ def probe(snapshot):
     root = snapshot.resolve(strict=True)
     if not root.is_dir():
         raise ValueError("snapshot is not a directory")
-    header, count, dirs, records = VERIFY.parse_and_hash(root)
+    header, count, dirs, records, keys = VERIFY.parse_and_hash(root)
     VERIFY.check_inventory(root, count, dirs)
     if header["hot_journal"]:
         raise ValueError("hot rollback journal blocks automatic preflight")
@@ -59,7 +59,7 @@ def probe(snapshot):
                      if Path(record["path"]).name in VERIFY.BACKUP.DATABASES]
         for path in databases:
             check_database(scratch / path)
-    return header["peer_id"], len(databases)
+    return header, keys, len(databases)
 
 
 def main():
@@ -67,10 +67,10 @@ def main():
     parser.add_argument("snapshot", type=Path)
     args = parser.parse_args()
     try:
-        peer_id, count = probe(args.snapshot)
+        header, _, count = probe(args.snapshot)
     except (OSError, sqlite3.Error, UnicodeError, ValueError) as error:
         parser.exit(1, f"SQLite backup probe failed: {error}\n")
-    print(f"SQLite databases verified: {count}; peer ID: {peer_id}")
+    print(f"SQLite databases verified: {count}; peer ID: {header['peer_id']}")
 
 
 if __name__ == "__main__":

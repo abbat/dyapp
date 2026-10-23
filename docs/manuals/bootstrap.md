@@ -813,16 +813,26 @@ sudo python3 tools/scripts/backup-bootstrap.py /var/lib/dyappd \
   /root/dyappd-backup-v1 --key-mode inline
 sudo python3 tools/scripts/verify-bootstrap-backup.py /root/dyappd-backup-v1
 sudo python3 tools/scripts/probe-bootstrap-sqlite.py /root/dyappd-backup-v1
+sudo python3 tools/scripts/probe-bootstrap-backup.py /root/dyappd-backup-v1 \
+  --dyappd /usr/bin/dyappd --id-pow-bits 22
 ```
 
 For an external plain key or an `age`-encrypted key copy, choose `external`
 or `age` and add `--recovery-key <path>`; the writer copies that file without
 decrypting it. The destination must not exist and remains incomplete without
 `manifest.jsonl` if copying fails. Do not use the resulting snapshot as an
-unattended update gate until key restoration is checked. The SQLite probe first
+unattended update gate until the separate updater enforces this preflight. The
+SQLite probe first
 verifies the manifest and inventory, refuses hot rollback journals, then copies
 DB/WAL files to a private temporary directory and runs `integrity_check(1)`
 there. It does not open the source snapshot with SQLite.
+The full preflight then copies the saved markers and key into another private
+temporary directory and runs `dyappd probe-key` with an empty config and the
+original `network.id_pow_bits` value. For `external`, it uses the saved
+`recovery/node.key`; for `age`, pass `--age-identity <private-key-file>` and
+`--age-binary <age-executable>`. It decrypts the verified `recovery/node.key.age` copy into
+scratch before probing, and fails if `age` or the identity is unavailable. The
+preflight never opens or changes the source snapshot with SQLite.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent
@@ -848,18 +858,17 @@ For an inline key, include `storage/node.key`; for an external `storage.key`,
 include a private `recovery/node.key` copy. A systemd-sealed credential is
 bound to its host or TPM and is **not** portable recovery evidence: include an
 independently encrypted `recovery/node.key.age` copy and require the operator
-to decrypt it to a temporary private file for the restore probe. Refuse an
+to provide its age identity to the restore probe, which decrypts only in scratch. Refuse an
 unattended update if that copy or decryption proof is unavailable. Preserve
 the node's configuration separately, especially its network name, ID proof of
 work difficulty, roles and external key setting.
 
-The future probe extracts into a separate stopped directory, verifies every
-hash and expected absence, checks each SQLite database and asks `dyappd` to
-prove that the recovered key matches `node.id`. It never opens or replaces live
-storage. Keep the pre-update snapshot until the new version is accepted. A
+The preflight checks each SQLite database and asks `dyappd` to prove that the
+recovered key matches `node.id`. It never opens or replaces live storage. The
+unattended updater and fault tests remain planned. Keep the pre-update snapshot
+until the new version is accepted. A
 restore discards writes made after the snapshot; record that window and do not
-roll an upgraded SQLite store back in place. Implementation and fault tests are
-tracked in the backup recovery beads.
+roll an upgraded SQLite store back in place. Fault tests are tracked separately.
 
 A `traffic` file left by an older version is no longer read and can be deleted. Example with the
 package layout:
