@@ -30,7 +30,11 @@ impl NodeConfig {
                     // Another start or keygen bound it first: its marker wins.
                     Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => read_marker(&path)?
                         .ok_or_else(|| {
-                            anyhow::anyhow!("{}: vanished while binding", path.display())
+                            anyhow::anyhow!(
+                                "{}: {}",
+                                path.display(),
+                                message("vanished while binding", "исчез во время привязки сети")
+                            )
                         })?,
                     Err(e) => anyhow::bail!("{}: {e}", path.display()),
                 }
@@ -38,10 +42,16 @@ impl NodeConfig {
         };
         if stored != self.network.name {
             let owner = if stored.is_empty() {
-                "the public network".to_owned()
+                message("the public network", "публичной сети").to_owned()
             } else {
-                format!("network {stored:?}")
+                format!("{} {stored:?}", message("network", "сети"))
             };
+            if russian_locale() {
+                anyhow::bail!(
+                    "хранилище принадлежит {owner}, а network.name равно {:?}; укажите новый storage.dir",
+                    self.network.name
+                );
+            }
             anyhow::bail!(
                 "storage belongs to {owner}, network.name is {:?}; use a new storage.dir",
                 self.network.name
@@ -86,11 +96,17 @@ fn read_marker(path: &Path) -> anyhow::Result<Option<String>> {
         .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     anyhow::ensure!(
         bytes.len() as u64 <= MAX_MARKER,
-        "{}: longer than a network name",
-        path.display()
+        "{}: {}",
+        path.display(),
+        message("longer than a network name", "имя сети слишком длинное")
     );
-    let name = String::from_utf8(bytes)
-        .map_err(|_| anyhow::anyhow!("{}: not a network name", path.display()))?;
+    let name = String::from_utf8(bytes).map_err(|_| {
+        anyhow::anyhow!(
+            "{}: {}",
+            path.display(),
+            message("not a network name", "неверное имя сети")
+        )
+    })?;
     dyapp_p2p_net::Protocols::new(&name).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     Ok(Some(name))
 }
