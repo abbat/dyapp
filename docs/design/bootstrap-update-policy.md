@@ -2,8 +2,8 @@
 
 Status: analysis complete; [ADR 0023](../decisions/0023-bootstrap-node-update-policy.md)
 approves an opt-in unattended updater before v0.0.1. The
-[update-channel proposal](bootstrap-update-channel.md) awaits a separate maintainer
-decision. No updater is implemented or enabled yet.
+[TUF update channel](../decisions/0024-bootstrap-update-channel.md) has a separate
+accepted decision. No updater is implemented or enabled yet.
 
 ## Decision to make
 

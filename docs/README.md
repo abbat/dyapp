@@ -28,7 +28,7 @@ it are entry points that tools discover by path (see
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX
 - [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [accepted policy](decisions/0023-bootstrap-node-update-policy.md)
-- [Bootstrap update channel proposal](design/bootstrap-update-channel.md): signing boundary, key custody and anti-rollback options awaiting approval
+- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): signing boundary, key custody and anti-rollback options; [accepted channel](decisions/0024-bootstrap-update-channel.md)
 
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV

@@ -1,8 +1,10 @@
-# Bootstrap update channel and key custody: proposal
+# Bootstrap update channel and key custody: analysis
 
-**Status:** draft for maintainer decision. No channel, signing keys or updater exist.
-This narrows [ADR 0023](../decisions/0023-bootstrap-node-update-policy.md);
-it does not change its release gate.
+**Status:** channel and signer model accepted in
+[ADR 0024](../decisions/0024-bootstrap-update-channel.md). No signing keys,
+metadata publisher or updater exist. This narrows
+[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) without changing
+its release gate.
 
 ## Boundary and choice
 
@@ -14,7 +16,7 @@ hold signing or package-installation keys.
 
 | Channel | Benefit | Cost and remaining risk |
 |---|---|---|
-| **Recommended: TUF metadata with offline target approval** | Established root, targets, snapshot and timestamp roles, expiry, version and key rotation rules; a release-CI compromise alone cannot approve a new digest. | A metadata publisher, key custody and an audited verifier are substantial new operations. An offline approver still needs to validate each build. |
+| **Chosen: TUF metadata with offline target approval** | Established root, targets, snapshot and timestamp roles, expiry, version and key rotation rules; a release-CI compromise alone cannot approve a new digest. | A metadata publisher, key custody and an audited verifier are substantial new operations. An offline approver still needs to validate each build. |
 | Signed APT repository with a key outside CI | APT already verifies signed Release metadata and package hashes; operators know its configuration. | An independent signer/repository is still required. APT alone does not coordinate node restarts, preserve stores or enforce the app's monotonic version policy. Repository-key compromise authorizes packages. |
 | Pinned one-file signed manifest | Few moving parts to publish initially. | Implementing expiry, rollback, key rotation and metadata consistency recreates part of TUF; an error would authorize privileged installation. |
 
@@ -30,9 +32,9 @@ An operator can retain manual updates if they do not opt in.
 Root and targets key rotation requires an operator-reviewed transition signed
 under the old trust root and the new one, with an explicit recovery procedure
 for a lost key. No key material enters the repository, GitHub secrets, node
-identity store or `dyappd` process. Key custody, signer count and who can use
-the offline key remain maintainer decisions; a single signer is an availability
-and insider-risk trade-off, while a threshold requires multiple custodians.
+identity store or `dyappd` process. The maintainer chose one offline signer
+plus a separate reserve root key. A single signer is an availability and
+insider-risk trade-off; threshold signing was considered and not chosen.
 
 ## Installer rejection rules
 
@@ -53,10 +55,10 @@ and insider-risk trade-off, while a threshold requires multiple custodians.
    descriptor. It cannot take a URL, digest or command from peer traffic.
    Backup, rollout and host-isolation gates remain separate beads.
 
-Until this design is approved, the updater work must not select a signing
-library or generate production keys. After approval, add an ADR and adversarial
-fixtures for forged targets, stale metadata, key rotation, replayed/changed
-tag, mismatched provenance and lower package version.
+The approved policy is in ADR 0024. Before generating production keys, choose
+and review the verifier library, custody procedure and metadata publisher.
+Adversarial fixtures must cover forged targets, stale metadata, key rotation,
+replayed/changed tags, mismatched provenance and lower package versions.
 
 ## Evidence
 
