@@ -278,8 +278,7 @@ What keygen and startup check:
   same key/ID check without opening a store or listener and prints the verified peer ID. Use
   `--storage.key=<temporary-key-file>` when restoring an external or decrypted backup key;
   run as the copy's owner with the original `network.id_pow_bits` setting. This command checks
-  identity only; the backup inventory verifier exists, while SQLite restore
-  checks are still planned.
+  identity only; the backup inventory and SQLite checks run separately.
 - A key file must be readable only by its owner: startup refuses group or other permission bits
   with a `chmod 600` hint and never changes the mode itself; 0400 also loads. A systemd
   credential is not checked: systemd makes it readable to the service user only.
@@ -813,13 +812,17 @@ rehearsal with a plain inline key is:
 sudo python3 tools/scripts/backup-bootstrap.py /var/lib/dyappd \
   /root/dyappd-backup-v1 --key-mode inline
 sudo python3 tools/scripts/verify-bootstrap-backup.py /root/dyappd-backup-v1
+sudo python3 tools/scripts/probe-bootstrap-sqlite.py /root/dyappd-backup-v1
 ```
 
 For an external plain key or an `age`-encrypted key copy, choose `external`
 or `age` and add `--recovery-key <path>`; the writer copies that file without
 decrypting it. The destination must not exist and remains incomplete without
 `manifest.jsonl` if copying fails. Do not use the resulting snapshot as an
-unattended update gate until SQLite recovery and key restoration are checked.
+unattended update gate until key restoration is checked. The SQLite probe first
+verifies the manifest and inventory, refuses hot rollback journals, then copies
+DB/WAL files to a private temporary directory and runs `integrity_check(1)`
+there. It does not open the source snapshot with SQLite.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent

@@ -183,6 +183,7 @@ def parse_and_hash(root):
             count = 0
             hot_journal = False
             recovery_key_seen = False
+            sqlite_records = []
             while stream.peek(1):
                 value = record()
                 if not isinstance(value, dict) or set(value) != FILE_FIELDS:
@@ -198,6 +199,10 @@ def parse_and_hash(root):
                     recovery_key_seen = True
                 if parts[0] == "storage" and len(parts) == 2:
                     seen.add(parts[1])
+                    is_wal = any(parts[1] == f"{db}-wal"
+                                 for db in BACKUP.DATABASES)
+                    if parts[1] in BACKUP.DATABASES or is_wal:
+                        sqlite_records.append(value)
                     for suffix in ("-wal", "-journal"):
                         if parts[1].endswith(suffix):
                             sidecars.add(parts[1][:-len(suffix)])
@@ -230,7 +235,7 @@ def parse_and_hash(root):
         raise ValueError("peer ID differs from manifest")
     if read_marker(root, "network", 64) != header["network"]:
         raise ValueError("network differs from manifest")
-    return header, count, expected_dirs
+    return header, count, expected_dirs, sqlite_records
 
 
 def check_inventory(root, expected_count, expected_dirs):
@@ -272,7 +277,7 @@ def verify(snapshot):
     root = snapshot.resolve(strict=True)
     if not root.is_dir():
         raise ValueError("snapshot is not a directory")
-    header, count, expected_dirs = parse_and_hash(root)
+    header, count, expected_dirs, _ = parse_and_hash(root)
     check_inventory(root, count, expected_dirs)
     return header["peer_id"], count
 
