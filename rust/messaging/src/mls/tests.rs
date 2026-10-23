@@ -146,6 +146,35 @@ fn welcome_works_once_for_a_single_use_key_package() {
 }
 
 #[test]
+fn welcome_from_an_unknown_owner_keeps_the_key_package() {
+    let (alice, alice_device) = device();
+    let (bob, bob_device) = device();
+    let profiles = [
+        profile(&alice, &[&alice_device]),
+        profile(&bob, &[&bob_device]),
+    ];
+    let (_, welcome) = alice_device
+        .create_group(&[bob_device.key_package(false).unwrap()], &profiles)
+        .unwrap();
+    assert!(matches!(
+        bob_device.join(&welcome, &profiles[1..]),
+        Err(Error::UnknownOwner(peer)) if peer == alice.peer_id()
+    ));
+    bob_device.join(&welcome, &profiles).unwrap();
+
+    // Any other refusal consumes it.
+    let (_, welcome) = alice_device
+        .create_group(&[bob_device.key_package(false).unwrap()], &profiles)
+        .unwrap();
+    let dropped = [profile(&alice, &[]), profile(&bob, &[&bob_device])];
+    assert!(matches!(
+        bob_device.join(&welcome, &dropped),
+        Err(Error::Revoked)
+    ));
+    assert!(bob_device.join(&welcome, &profiles).is_err());
+}
+
+#[test]
 fn key_package_without_a_valid_certificate_is_rejected() {
     let (alice, alice_device) = device();
     let (bob, mut bob_device) = device();
@@ -184,15 +213,20 @@ fn key_package_of_an_unlisted_device_is_rejected() {
     let (bob, bob_device) = device();
     let other = Device::new(&bob, [8; 32], 2).unwrap();
     let package = bob_device.key_package(false).unwrap();
-    for profiles in [
-        vec![profile(&alice, &[&alice_device])],
-        vec![profile(&alice, &[&alice_device]), profile(&bob, &[&other])],
-    ] {
-        assert!(matches!(
-            alice_device.create_group(std::slice::from_ref(&package), &profiles),
-            Err(Error::Revoked)
-        ));
-    }
+    assert!(matches!(
+        alice_device.create_group(
+            std::slice::from_ref(&package),
+            &[profile(&alice, &[&alice_device])]
+        ),
+        Err(Error::UnknownOwner(peer)) if peer == bob.peer_id()
+    ));
+    assert!(matches!(
+        alice_device.create_group(
+            &[package],
+            &[profile(&alice, &[&alice_device]), profile(&bob, &[&other])]
+        ),
+        Err(Error::Revoked)
+    ));
 }
 
 #[test]

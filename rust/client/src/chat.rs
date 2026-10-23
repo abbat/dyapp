@@ -56,6 +56,9 @@ pub enum Event {
     /// A message from a later epoch of the group with this ID: a commit is missing, maybe hidden
     /// by the node. The envelope stays in the mailbox; run [`cross_check`].
     Gap(Vec<u8>),
+    /// A Welcome names a member of the owner with this Peer ID, whose profile was not given. The
+    /// envelope stays in the mailbox: fetch the profile and receive again.
+    UnknownOwner(String),
     /// The envelope was refused and acked: no group took it.
     Refused(String),
 }
@@ -71,6 +74,7 @@ impl std::fmt::Debug for Event {
                 .finish_non_exhaustive(),
             Self::Commit(group) => f.debug_tuple("Commit").field(group).finish(),
             Self::Gap(group) => f.debug_tuple("Gap").field(group).finish(),
+            Self::UnknownOwner(_) => f.debug_tuple("UnknownOwner").finish_non_exhaustive(),
             Self::Refused(reason) => f.debug_tuple("Refused").field(reason).finish(),
         }
     }
@@ -218,14 +222,12 @@ fn apply_all(
     let mut handled = Vec::new();
     for envelope in envelopes {
         let event = match apply(device, groups, &envelope.ciphertext, profiles) {
-            Ok(Some(Event::Gap(group))) => {
-                events.push(Event::Gap(group));
+            Ok(Some(event @ (Event::Gap(_) | Event::UnknownOwner(_)))) => {
+                events.push(event);
                 continue;
             }
             Ok(Some(event)) => event,
             Ok(None) => continue,
-            // ponytail: a refused envelope is dropped; keep it for a retry once a profile can
-            // be refreshed and a Welcome rechecked without consuming its KeyPackage.
             Err(error) => Event::Refused(error.to_string()),
         };
         events.push(event);
@@ -241,7 +243,10 @@ fn apply(
     profiles: &[VerifiedProfile],
 ) -> Result<Option<Event>, Error> {
     let Some(id) = mls::group_of(bytes)? else {
-        let group = device.join(bytes, profiles)?;
+        let group = match device.join(bytes, profiles) {
+            Err(mls::Error::UnknownOwner(owner)) => return Ok(Some(Event::UnknownOwner(owner))),
+            joined => joined?,
+        };
         let id = group.id().to_vec();
         groups.push(group);
         return Ok(Some(Event::Joined(id)));

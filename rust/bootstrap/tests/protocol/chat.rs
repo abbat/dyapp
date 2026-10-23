@@ -167,7 +167,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
 }
 
 #[tokio::test]
-async fn a_stranger_s_welcome_is_refused_and_acked() {
+async fn a_welcome_waits_in_the_mailbox_for_its_sender_s_profile() {
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -202,18 +202,30 @@ async fn a_stranger_s_welcome_is_refused_and_acked() {
         .await
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
-    // Bob holds only his own profile, so Alice's membership cannot be checked.
+    // Bob holds only his own profile, so Alice's membership cannot be checked yet.
+    let mut groups = Vec::new();
     let (events, ids) = chat::receive(
         &mut bob.node,
         &bob.device_key,
         &bob.device,
-        &mut Vec::new(),
+        &mut groups,
         &profiles[1..],
     )
     .await
     .unwrap();
+    assert_eq!(events, vec![Event::UnknownOwner(alice.identity.peer_id())]);
+    assert!(ids.is_empty());
+    let (events, ids) = chat::receive(
+        &mut bob.node,
+        &bob.device_key,
+        &bob.device,
+        &mut groups,
+        &profiles,
+    )
+    .await
+    .unwrap();
     assert!(
-        matches!(events.as_slice(), [Event::Refused(_)]),
+        matches!(events.as_slice(), [Event::Joined(_)]),
         "{events:?}"
     );
     assert_eq!(ids.len(), 1);

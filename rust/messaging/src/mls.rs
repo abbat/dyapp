@@ -12,6 +12,7 @@ use openmls::prelude::tls_codec::{Deserialize as _, Serialize as _};
 use openmls::prelude::*;
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use openmls_traits::storage::StorageProvider as _;
 use prost::Message as _;
 
 /// The only suite accepted, `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (0x0001).
@@ -36,6 +37,9 @@ pub enum Error {
     /// The member's certificate is not in its owner's profile among those given.
     #[error("device is not in its owner's current profile")]
     Revoked,
+    /// The owner with this Peer ID has no profile among those given: fetch it and retry.
+    #[error("owner's profile is not held")]
+    UnknownOwner(String),
     /// The KeyPackage is valid for longer than [`KEY_PACKAGE_LIFETIME_SECONDS`].
     #[error("KeyPackage lifetime is too long")]
     Lifetime,
@@ -81,11 +85,11 @@ pub fn verify_member(
     profiles: &[VerifiedProfile],
 ) -> Result<String, Error> {
     let (peer_id, certificate) = certified(credential, signature_key)?;
-    profiles
-        .iter()
-        .any(|owner| owner.peer_id == peer_id && owner.profile.devices.contains(&certificate))
-        .then_some(peer_id)
-        .ok_or(Error::Revoked)
+    match profiles.iter().find(|owner| owner.peer_id == peer_id) {
+        None => Err(Error::UnknownOwner(peer_id)),
+        Some(owner) if owner.profile.devices.contains(&certificate) => Ok(peer_id),
+        Some(_) => Err(Error::Revoked),
+    }
 }
 
 fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, Error> {
@@ -327,7 +331,8 @@ impl Device {
 
     /// Joins the group a Welcome invites this device to. The Welcome must use [`CIPHERSUITE`],
     /// target a KeyPackage of this device that is still unused (or last-resort), and list only
-    /// members [`verify_member`] accepts with `profiles`.
+    /// members [`verify_member`] accepts with `profiles`. On [`Error::UnknownOwner`] the KeyPackage
+    /// is kept, so the Welcome joins once the owner's profile is given.
     pub fn join(&self, welcome: &[u8], profiles: &[VerifiedProfile]) -> Result<Group, Error> {
         let MlsMessageBodyIn::Welcome(welcome) = MlsMessageIn::tls_deserialize_exact(welcome)
             .map_err(mls)?
@@ -341,11 +346,28 @@ impl Device {
         let config = MlsGroupJoinConfig::builder()
             .use_ratchet_tree_extension(true)
             .build();
+        let storage = self.provider.storage();
+        let held: Vec<(KeyPackageRef, KeyPackageBundle)> = welcome
+            .secrets()
+            .iter()
+            .filter_map(|secret| {
+                let hash_ref = secret.new_member();
+                let bundle = storage.key_package(&hash_ref).ok().flatten()?;
+                Some((hash_ref, bundle))
+            })
+            .collect();
         // Consumes the KeyPackage's private keys: a second Welcome for it finds none.
         let staged =
             StagedWelcome::new_from_welcome(&self.provider, &config, welcome, None).map_err(mls)?;
         for member in staged.members() {
-            verify_member(&member.credential, &member.signature_key, profiles)?;
+            if let Err(error) = verify_member(&member.credential, &member.signature_key, profiles) {
+                if matches!(error, Error::UnknownOwner(_)) {
+                    for (hash_ref, bundle) in &held {
+                        storage.write_key_package(hash_ref, bundle).map_err(mls)?;
+                    }
+                }
+                return Err(error);
+            }
         }
         Ok(Group {
             group: staged.into_group(&self.provider).map_err(mls)?,
