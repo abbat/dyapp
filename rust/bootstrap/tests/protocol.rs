@@ -691,7 +691,10 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
     assert_eq!(
         status(
             client
-                .media(Request::Get(proto::GetMedia { hash: hash.clone() }))
+                .media(Request::Get(proto::GetMedia {
+                    hash: hash.clone(),
+                    ..Default::default()
+                }))
                 .await
                 .status
         ),

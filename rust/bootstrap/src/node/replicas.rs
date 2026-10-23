@@ -811,12 +811,14 @@ impl Replicas {
         swarm: &mut Swarm<Behaviour>,
         service: &Service,
         manifest: proto::MediaManifest,
+        get: proto::GetMedia,
         reply: libp2p::request_response::ResponseChannel<proto::MediaResponse>,
     ) {
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
         let mut read = MediaRead {
             manifest,
+            get,
             reply,
             deadline: Instant::now() + PUT_TIMEOUT,
             shards: HashMap::new(),
@@ -874,7 +876,7 @@ impl Replicas {
             let shards: Vec<_> = read.shards.into_iter().collect();
             let response = if shards.len() >= read.manifest.data_shards().unwrap() {
                 service
-                    .assemble_media(&read.manifest, &shards)
+                    .assemble_media(&read.manifest, &shards, &read.get)
                     .unwrap_or_else(|error| {
                         tracing::error!(%error, "media assembly failed");
                         proto::MediaResponse {

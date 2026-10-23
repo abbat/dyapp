@@ -150,14 +150,14 @@ pub(super) fn reply(
                         return true;
                     }
                 }
-                if let Some(manifest) = manifest {
+                if let Some((manifest, get)) = manifest {
                     let from = peer(swarm, service, id, connection);
                     if replicas.media_reads.len() >= 4
-                        || !service.prepare_media_read(&from, &manifest)
+                        || !service.prepare_media_read(&from, &manifest, &get)
                     {
                         PutReply::Media(channel).send(swarm, service, Status::RateLimited, None);
                     } else {
-                        replicas.start_read(swarm, service, manifest, channel);
+                        replicas.start_read(swarm, service, manifest, get, channel);
                     }
                     return true;
                 }
@@ -257,8 +257,8 @@ pub(super) fn reply(
     answered
 }
 
-/// The hourly expiry of messages, KeyPackages, inactive profiles, attachments, media keeps and
-/// search entries.
+/// The hourly expiry of messages, KeyPackages, inactive profiles, attachments, media keeps, idle
+/// assembled media and search entries.
 pub(super) fn expire(service: &Service) {
     let now = chrono::Utc::now().timestamp();
     match service.store.cleanup_expired(now) {
@@ -281,6 +281,12 @@ pub(super) fn expire(service: &Service) {
         match media.expire_owners(now - ttl) {
             Ok(removed) => tracing::info!(removed, "media keeps of inactive owners removed"),
             Err(error) => tracing::error!(%error, "media owner cleanup failed"),
+        }
+        let idle = i64::from(service.config.limits.media_cache_minutes) * 60;
+        match media.expire_cache(now - idle) {
+            Ok(0) => {}
+            Ok(removed) => tracing::info!(removed, "idle assembled media removed"),
+            Err(error) => tracing::error!(%error, "media cache cleanup failed"),
         }
     }
     if let Some(index) = &service.search {

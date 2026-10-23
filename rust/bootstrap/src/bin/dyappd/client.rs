@@ -164,10 +164,7 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
             response["keep_record"] = hex(&record.encode_to_vec()).into();
             response
         }
-        ["media-get", addr, hash] => {
-            let get = proto::GetMedia { hash: unhex(hash)? };
-            timeout(media_call(addr, media_request::Request::Get(get))).await?
-        }
+        ["media-get", addr, hash] => timeout(media_get(addr, unhex(hash)?)).await?,
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
         _ => return Ok(None),
@@ -267,7 +264,10 @@ async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
             owner: unhex(&owner.peer_id())?,
             data: data.clone(),
         }),
-        media_request::Request::Get(proto::GetMedia { hash }),
+        media_request::Request::Get(proto::GetMedia {
+            hash,
+            ..Default::default()
+        }),
     ];
     let (mut swarm, peer) = connect(addr).await?;
     let mut output = json!({});
@@ -294,6 +294,53 @@ async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
         output["details"] = details;
     }
     Ok(output)
+}
+
+/// Fetches a blob in 1 MiB pieces on one connection, retrying a rate-limited piece from its
+/// offset, and checks the hash once all pieces are in.
+async fn media_get(addr: &str, hash: Vec<u8>) -> anyhow::Result<Value> {
+    let (mut swarm, peer) = connect(addr).await?;
+    let mut data = Vec::new();
+    loop {
+        let get = proto::GetMedia {
+            hash: hash.clone(),
+            offset: data.len() as u64,
+            len: 1 << 20,
+        };
+        swarm.behaviour_mut().media.send_request(
+            &peer,
+            proto::MediaRequest {
+                request: Some(media_request::Request::Get(get)),
+            },
+        );
+        let response = wait(&mut swarm, |event| match event {
+            BehaviourEvent::Media(event) => reply(event),
+            _ => None,
+        })
+        .await?;
+        if response.status == i32::from(Status::RateLimited) {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            continue;
+        }
+        if response.status != i32::from(Status::Ok) {
+            return Ok(json!({ "status": status(response.status), "offset": data.len() }));
+        }
+        anyhow::ensure!(
+            !response.data.is_empty() || data.len() as u64 >= response.total_size,
+            "empty piece before the end"
+        );
+        data.extend(response.data);
+        // A node without ranged gets answers the whole blob with no total size.
+        if data.len() as u64 >= response.total_size {
+            break;
+        }
+    }
+    let status = if dyapp_identity::sha256(&data).as_slice() == hash {
+        "STATUS_OK"
+    } else {
+        "CHANGED"
+    };
+    Ok(json!({ "status": status, "data": hex(&data) }))
 }
 
 async fn media_call(addr: &str, request: media_request::Request) -> anyhow::Result<Value> {

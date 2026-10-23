@@ -194,6 +194,7 @@ fn invalid_config_fails() {
     }));
     assert!(invalid(|c| c.limits.message_ttl_hours = 0));
     assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
+    assert!(invalid(|c| c.limits.media_cache_minutes = 0));
     assert!(invalid(|c| c.limits.profile_ttl_days = 0));
     assert!(invalid(|c| c.limits.signal_max_kb = 1));
     assert!(!invalid(|c| c.limits.signal_max_kb = 2));

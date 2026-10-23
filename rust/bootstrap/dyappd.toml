@@ -45,6 +45,7 @@
 # How long data is kept.
 # message_ttl_hours = 24              # undelivered messages
 # attachment_retention_hours = 168    # chat attachments the recipient has not fetched
+# media_cache_minutes = 10            # blobs assembled from shards, after the last read
 # profile_ttl_days = 30               # after the owner's last signed request
 
 # Disk. A full store answers FULL to writes. Disk use stays below the sum of the store sizes

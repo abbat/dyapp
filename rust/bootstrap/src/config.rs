@@ -446,6 +446,8 @@ pub struct Limits {
     pub media_per_owner_mb: u64,
     /// How long a chat attachment the recipient never released is kept.
     pub attachment_retention_hours: u32,
+    /// How long a blob assembled from shards for ranged gets stays cached after its last read.
+    pub media_cache_minutes: u32,
     /// How long a profile or tombstone is kept after its owner's last signed action.
     pub profile_ttl_days: u32,
     /// Media requests per second from one peer: a reply carries up to 6 MiB.
@@ -552,6 +554,7 @@ impl Default for Limits {
             media_max_mb: 10240,
             media_per_owner_mb: 10,
             attachment_retention_hours: 168,
+            media_cache_minutes: 10,
             profile_ttl_days: 30,
             media_requests_per_second: 10,
             min_free_mb: 512,
@@ -782,10 +785,14 @@ impl NodeConfig {
             }
         }
         let l = &self.limits;
-        if l.message_ttl_hours < 1 || l.attachment_retention_hours < 1 || l.profile_ttl_days < 1 {
+        if l.message_ttl_hours < 1
+            || l.attachment_retention_hours < 1
+            || l.media_cache_minutes < 1
+            || l.profile_ttl_days < 1
+        {
             anyhow::bail!(
-                "limits.message_ttl_hours, attachment_retention_hours and profile_ttl_days must \
-                 be at least 1"
+                "limits.message_ttl_hours, attachment_retention_hours, media_cache_minutes and \
+                 profile_ttl_days must be at least 1"
             );
         }
         // A 1 KiB signal payload with its key and signature encodes to more than 1 KiB.

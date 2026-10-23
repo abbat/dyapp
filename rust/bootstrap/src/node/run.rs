@@ -244,13 +244,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             _ => None,
                         };
                         let get = match &request.request {
-                            Some(proto::media_request::Request::Get(get)) => Some(get.hash.clone()),
+                            Some(proto::media_request::Request::Get(get)) => Some(get.clone()),
                             _ => None,
                         };
                         let result = service.media(&from, request);
                         let missing = matches!(&result, Ok(response) if response.status == i32::from(Status::NotFound));
                         let manifest = match (get, &service.media) {
-                            (Some(hash), Some(media)) if missing => media.manifest(&hash).ok().flatten(),
+                            (Some(get), Some(media)) if missing => {
+                                media.manifest(&get.hash).ok().flatten().map(|manifest| (manifest, get))
+                            }
                             _ => None,
                         };
                         StoreDone::Media { channel, result, keep, have, manifest }

@@ -472,6 +472,7 @@ impl PendingPut {
 
 struct MediaRead {
     manifest: proto::MediaManifest,
+    get: proto::GetMedia,
     reply: libp2p::request_response::ResponseChannel<proto::MediaResponse>,
     deadline: Instant,
     shards: HashMap<usize, Vec<u8>>,
@@ -657,8 +658,8 @@ enum StoreDone {
         result: crate::Result<proto::MediaResponse>,
         keep: Option<SignedRecord>,
         have: Option<Vec<proto::MediaPart>>,
-        /// The manifest of a blob the get did not find whole here.
-        manifest: Option<proto::MediaManifest>,
+        /// The manifest of a blob the get did not find whole or cached here, with the get.
+        manifest: Option<(proto::MediaManifest, proto::GetMedia)>,
     },
     MailboxPut(
         ResponseChannel<proto::MailboxResponse>,

@@ -56,6 +56,7 @@ fn reloading_deny_purges_whole_and_sharded_blobs_without_dropping_keeps() {
     for request in [
         Request::Get(proto::GetMedia {
             hash: whole_hash.clone(),
+            ..Default::default()
         }),
         Request::ShardGet(proto::MediaShardGet {
             hash: manifest.hash.clone(),

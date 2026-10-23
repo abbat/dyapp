@@ -146,6 +146,44 @@ fn eviction_drops_attachments_then_oldest_keeps_and_stops_at_target() {
 }
 
 #[test]
+fn assembled_blobs_expire_when_idle_and_go_first_under_the_disk_guard() {
+    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let media = MediaStore::open(&dir).unwrap();
+    let attached = vec![1u8; 100];
+    let hash = dyapp_identity::sha256(&attached).to_vec();
+    media
+        .attach(
+            "sender",
+            &[9; 32],
+            std::slice::from_ref(&hash),
+            1000,
+            10,
+            10,
+        )
+        .unwrap();
+    media.put("sender", &attached, 1000).unwrap();
+    let (old, recent) = ([2u8; 32], [3u8; 32]);
+    media.cache(&old, &[2; 50], 100).unwrap();
+    media.cache(&recent, &[3; 50], 100).unwrap();
+    assert_eq!(media.cached(&recent, 200).unwrap(), Some(vec![3; 50]));
+    assert_eq!(media.usage().unwrap().0, 200);
+    assert_eq!(media.expire_cache(150).unwrap(), 1);
+    assert_eq!(media.cached(&old, 300).unwrap(), None);
+    assert_eq!(media.usage().unwrap().0, 150);
+
+    media.cache(&old, &[2; 50], 100).unwrap();
+    media.evict(100).unwrap();
+    assert_eq!(media.cached(&old, 300).unwrap(), None);
+    assert_eq!(media.cached(&recent, 300).unwrap(), None);
+    assert_eq!(media.get(&hash).unwrap(), Some(attached), "attachment kept");
+
+    media.cache(&old, &[2; 50], 400).unwrap();
+    assert!(media.purge(&old).unwrap());
+    assert_eq!(media.cached(&old, 500).unwrap(), None);
+    assert_eq!(media.usage().unwrap().0, 100);
+}
+
+#[test]
 fn old_layout_is_moved() {
     let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
     let data = vec![7u8; 10];

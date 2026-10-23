@@ -25,7 +25,7 @@ Served today ([Served protocol](#served-protocol)): `/dyapp/node`, `/dyapp/profi
 `/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory` and
 `/dyapp/digest`,
 the store, media and TURN roles, the search role (gossipsub, `/dyapp/search-kad`,
-`profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox. Ranged media reads, the search index rebuild, search defences against fake-profile and query
+`profiles-idx.db`), mailbox replicas and repair over the DHT, signals in the mailbox, ranged media reads with the assembly cache. The search index rebuild, search defences against fake-profile and query
 floods ([search capacity](search-capacity.md#adversary)) and the store format path are planned; each part below says which it is, and the sections after
 it describe today's code.
 
@@ -123,7 +123,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/keypackage` | store | `publish(device-signed KeyPackageRecord)`, `fetch(owner, mailbox, profile version, slot)`; node to node `replica_put` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys, or close)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
-| `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `attach(signed chat attachment)`, `release(secret)`; `get(hash, offset, len)` is planned |
+| `/dyapp/media` | media | `keep(signed hash list)`, `put(owner, blob)`, `get(hash)`, `get(hash, offset, len)` for a piece, `attach(signed chat attachment)`, `release(secret)` |
 | `/dyapp/search` | search | `publish(SignedRecord)`, `heartbeat(SignedRecord)`; `query(conditions, limit)` → (identity key, version) pairs in random order, the conditions applied, `partial`; `get(keys)` → `SignedRecord`s |
 | `/dyapp/inventory` | search | node to node: `(topic, after, before)` → up to 10 000 (key, version) pairs sorted by key, for search catch-up; `before` is an exclusive upper bound, empty = none |
 | `/dyapp/digest` | search | node to node: `(topic)` → the 256 bucket hashes of the topic, `(topic, bucket)` → the 256 sub-bucket hashes of one bucket; 32 B each, same guards as `/dyapp/inventory` |
@@ -922,7 +922,7 @@ The current protocol replies are:
 | `/dyapp/media` | `shard_put(MediaShardPut)`: signed manifest replica, index, data | `OK` after proof, manifest hash and shard length/hash validation; never forwarded; invalid data gives `INVALID` |
 | `/dyapp/media` | `have(MediaHave)`: at most 256 hashes/2816 parts | `OK` with an inventory of allowed present/missing parts, manifests and whole-copy availability; untrusted/far entries omitted; `INVALID` malformed or oversized batch; `RATE_LIMITED` traffic budget |
 | `/dyapp/media` | `shard_get(MediaShardGet)`: hash, index | `OK` with at most 1 MiB; `NOT_FOUND`; `RATE_LIMITED` reply byte budget; `INVALID` malformed hash or index |
-| `/dyapp/media` | `get(GetMedia)`: hash | `OK` with the blob; `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes; planned: `offset` and `len` for a piece of at most 1 MiB with the total size ([ranged get](#ranged-media-get)) |
+| `/dyapp/media` | `get(GetMedia)`: hash, optional `offset` and `len` | `OK` with the blob, or with `len` the piece of at most `len` bytes from `offset`, and `total_size` ([ranged get](#ranged-media-get)); `RATE_LIMITED` reply/assembly budget or four active assemblies; `NOT_FOUND` missing blob, insufficient shards or invalid decoded hash; `INVALID` hash not 32 bytes, `len` over 1 MiB, `offset` without `len` or at or past the end |
 | `/dyapp/media` | `attach(SignedRecord)`, payload `MediaAttach` | `OK` with `missing`; `DENIED` bad signature; `FULL` 256 unreleased attachments of the sender; `INVALID` release hash or a blob hash not 32 bytes, no or over 16 hashes, `created` over 10 minutes ahead; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
 | `/dyapp/media` | `release(MediaRelease)`: secret | `OK` attachments dropped; `NOT_FOUND` none with SHA-256(secret) |
 | `/dyapp/search` | `publish(SignedRecord)` | `OK` stored, or skipped for a topic the node does not keep, then gossiped; `STALE` not newer than the held version; `RATE_LIMITED` with `retry_after` within 10 minutes of the last update, or 1 when both proof-of-work slots are busy; `DENIED` bad signature or forged proof of work, which strikes the peer; `INVALID` bad content, or with `required_pow_bits` when `pow_bits` is below `search.min_profile_pow_bits`; `TOO_LARGE` with `max_bytes` over `search.max_profile_bytes`; `REFUSED` denied key; `UNSUPPORTED` without the search role |
@@ -974,8 +974,8 @@ The current protocol replies are:
   its current `keep` with a fresh `time` when the app opens, uploads what `missing` lists and so
   restores evicted blobs. A deny-listed key cannot refresh its `keep`, so it expires. Media
   requests have their own per-peer limit (`limits.media_requests_per_second`, default 10, no
-  strike) besides the shared ones. A node without the media role answers `UNSUPPORTED`. Ranges,
-  assembly caching are planned.
+  strike) besides the shared ones. A node without the media role answers `UNSUPPORTED`. A get
+  can ask for a piece ([ranged get](#ranged-media-get)).
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret (the recipient, after downloading) sends `release` to each holder and the node drops the
@@ -1090,7 +1090,7 @@ dyappd media-owned <addr> <data hex> → media statuses + details {owner, hash, 
 dyappd media-sized <addr> <size> <32-byte seed hex> → same details; generated blob up to 6 MiB
 dyappd media-keep <addr> <record hex> → {"status", "data", "missing"}
 dyappd media-refresh <addr> <record hex> <secret hex> → fresh signed keep, statuses + missing + keep_record
-dyappd media-get <addr> <hash hex>  → {"status", "data"}
+dyappd media-get <addr> <hash hex>  → {"status", "data"}   (1 MiB pieces; CHANGED on a wrong hash)
 dyappd turn    <addr>               → {"status", "username", "password", "urls", "expires"}
 dyappd relays  <addr>               → {"providers"}   (TURN relays in the DHT)
 ```
@@ -1137,16 +1137,18 @@ At most four assemblies run at once. Assembly and reply bytes are reserved withi
 75 % traffic budget before fetching (all K+M shard payloads are reserved conservatively).
 Media RPCs are queued with at most two outstanding requests per peer and sixteen per node;
 queued jobs keep shard data in the shared upload rather than cloning it until dispatch.
-There is no assembly cache yet; keep-driven media repair is described above. `media_replica_holders` counts manifest holders
+Keep-driven media repair is described above. `media_replica_holders` counts manifest holders
 for the latest sharded write, not distinct shard holders or guaranteed fault tolerance.
 
-<a id="ranged-media-get"></a>**Ranged get and assembly cache (planned).** `get(hash, offset, len)`
+<a id="ranged-media-get"></a>**Ranged get and assembly cache.** `get(hash, offset, len)`
 answers one piece of at most 1 MiB with the blob's total size, so a client fetches a large blob
 piece by piece and resumes after a break; without `len` it is the whole get. A blob assembled from
 shards is kept as `<media dir>/cache/<hash>` for `limits.media_cache_minutes` (default 10) after
 its last read, so later pieces read that file instead of assembling again. The cache counts towards
-`media_max_mb` and is evicted first; the hourly cleanup deletes expired entries. Piece bytes count
-towards the traffic cap like a get; the client checks the hash once it has all pieces.
+`media_max_mb` and is evicted first; the hourly cleanup deletes expired entries, and a deny-list
+purge deletes the blob's entry. Piece bytes count towards the traffic cap like a get; an assembly
+reserves its shard bytes plus the piece. `dyappd media-get` fetches 1 MiB pieces, retries a
+rate-limited piece from its offset and checks the hash once it has all pieces.
 
 A Reed-Solomon code with `d` data and `p` parity shards survives the loss of
 any `p` shards and needs any `d` of the `d + p` shards to rebuild. With one
@@ -1262,10 +1264,10 @@ starts refusing and a line when it clears, not one per request:
   The free-space floor is not cleared by eviction, since freed pages stay in the file until
   maintenance. Media puts get `FULL` at `media_max_mb` of distinct blobs (default 10240) or at
   `min_free_mb` free on the media file system. At `media_max_mb` the node first evicts down to
-  95 % of it: unreleased chat attachments by oldest `created`, then the `keep` of owners seen
-  longest ago, and answers `FULL` only if that is not enough; a blob still held by another
-  `keep` or attachment stays. Eviction is bounded to 4096 lists per category per put;
-  assembled-blob cache eviction is planned with ranged media reads.
+  95 % of it: assembled blobs of the cache by oldest read, then unreleased chat attachments by
+  oldest `created`, then the `keep` of owners seen longest ago, and answers `FULL` only if that is
+  not enough; a blob still held by another `keep` or attachment stays. Eviction is bounded to 4096
+  lists per category per put.
 - **Traffic**: node protocol bytes in and out (encoded requests and replies, not transport
   overhead) are counted per second. Media fan-out prepays four additional payload copies at
   acceptance; forwarded payload is not charged again, and get payload is reserved before reply.
@@ -1414,7 +1416,7 @@ unknown keys are logged and ignored, so configs work across upgrades and rollbac
 `listen`, `external`, `seeds` ([joining](p2p-networking.md)), `roles`, `storage.dir` (every store
 in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,media}` are refused),
 `storage.key` (the node key file; empty: the unit's `node.key` credential, else `<dir>/node.key`),
-`limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours}`,
+`limits.{message_ttl_hours,requests_per_second,media_requests_per_second,media_per_owner_mb,attachment_retention_hours,media_cache_minutes}`,
 `limits.{profiles_max_mb,messages_max_mb,signal_max_kb,media_max_mb,min_free_mb,bytes_per_second}`,
 `limits.{mailbox_pool_kb,tokenless_share_pct,require_write_tokens}` ([tokenless pool](#mailbox-envelope)),
 `limits.{max_connections,max_connections_per_peer,max_connections_per_ip_group,max_streams,max_memory_mb}`
@@ -1635,7 +1637,6 @@ run `make test` first to build the current `dyappd` binary.
 
 **Current limitations:**
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
-- Ranged media reads and assembly caching remain planned
 - Search expiry drops at most 4096 silent keys an hour
 - No audit logging
 

@@ -5,6 +5,9 @@
 //! A chat attachment is a slot `r:<release hash>:<owner>` in `attachments`, listing its blobs in
 //! `blobs` like an owner; the owner's puts and quota cover its slots. A slot goes on release or
 //! expiry.
+//!
+//! A sharded blob assembled for a ranged get stays whole at `<dir>/cache/<hash>` until idle for
+//! `limits.media_cache_minutes`; under the disk guard it goes before any list.
 
 use crate::replication::MediaManifestExt;
 use crate::storage::{add_column, free, lock, open, storage_error, Step};
@@ -45,6 +48,7 @@ pub enum Attached {
 /// Media blob files and their ownership database.
 pub struct MediaStore {
     dir: PathBuf,
+    cache: PathBuf,
     // ponytail: one connection; puts hold it while the file is written (1 MiB at most).
     db: Mutex<Connection>,
 }
@@ -108,7 +112,12 @@ const KEEPS_AFTER: &str = "SELECT `owner`, `record` FROM `owners` \
      WHERE `owner` > ? AND `record` IS NOT NULL ORDER BY `owner` LIMIT ?";
 
 /// `media.db` format steps.
-const MEDIA_STEPS: &[Step] = &[media_replicas, media_purge_stats, media_releases];
+const MEDIA_STEPS: &[Step] = &[
+    media_replicas,
+    media_purge_stats,
+    media_releases,
+    media_cache,
+];
 
 /// Owner `last_seen` (rows stored before it count as seen now), attachment `created`, the
 /// signed records, blob `cost`, and the manifest and shard tables of erasure-coded replicas.
@@ -148,8 +157,42 @@ fn media_releases(db: &Connection) -> rusqlite::Result<()> {
     )
 }
 
+/// Assembled blobs and their last read, in Unix seconds.
+fn media_cache(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS `cache` (`hash` BLOB PRIMARY KEY, `size` INTEGER NOT NULL,
+             `read` INTEGER NOT NULL) WITHOUT ROWID;
+         CREATE INDEX IF NOT EXISTS `cache_read` ON `cache` (`read`);",
+    )
+}
+
+/// Writes `data` aside and renames it to `path`, so a reader never sees a partial file.
+fn write_aside(path: &Path, data: &[u8]) -> Result<()> {
+    let dir = path.parent().unwrap();
+    fs::create_dir_all(dir).map_err(storage_error)?;
+    let temp = dir.join(format!(".{}", uuid::Uuid::new_v4()));
+    let mut file = fs::File::create(&temp).map_err(storage_error)?;
+    file.write_all(data)
+        .and_then(|()| file.sync_all())
+        .and_then(|()| fs::rename(&temp, path))
+        .map_err(|e| {
+            let _ = fs::remove_file(&temp);
+            storage_error(e)
+        })
+}
+
+/// Removes `path`; true if it was there.
+fn remove_file(path: &Path) -> Result<bool> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(storage_error(e)),
+    }
+}
+
 impl MediaStore {
-    /// Opens `dir/media.db` with the blob files under `dir/data`.
+    /// Opens `dir/media.db` with the blob files under `dir/data` and assembled ones under
+    /// `dir/cache`.
     pub fn open(dir: &Path) -> Result<Self> {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
         // Older nodes kept both in `dir/media`. Each step is a rename, so a crash between them
@@ -195,7 +238,11 @@ impl MediaStore {
                  WHERE `size` IS NULL;",
             )
             .map_err(storage_error)?;
-        Ok(Self { dir: data, db })
+        Ok(Self {
+            dir: data,
+            cache: dir.join("cache"),
+            db,
+        })
     }
 
     fn path(&self, hash: &[u8]) -> PathBuf {
@@ -519,10 +566,25 @@ impl MediaStore {
         orphans(tx, dropped)
     }
 
-    /// Evicts attachments by creation time, then keeps by liveness, down to `target` bytes.
+    /// Evicts assembled blobs by last read, then attachments by creation time, then keeps by
+    /// liveness, down to `target` bytes.
     pub fn evict(&self, target: u64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let mut removed = 0;
+        while Self::used(&db)? > target {
+            let hash: Option<Vec<u8>> = db
+                .query_row(
+                    "DELETE FROM `cache` WHERE `hash` = \
+                     (SELECT `hash` FROM `cache` ORDER BY `read` LIMIT 1) RETURNING `hash`",
+                    [],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(storage_error)?;
+            let Some(hash) = hash else { break };
+            remove_file(&self.cache.join(hex(&hash)))?;
+            removed += 1;
+        }
         for (attachments, query) in [
             (
                 true,
@@ -576,12 +638,10 @@ impl MediaStore {
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        let path = self.path(hash);
-        let file = path.try_exists().map_err(storage_error)?;
-        if file {
-            fs::remove_file(path).map_err(storage_error)?;
-        }
+        let file = remove_file(&self.path(hash))? | remove_file(&self.cache.join(hex(hash)))?;
         let tx = db.transaction().map_err(storage_error)?;
+        tx.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
+            .map_err(storage_error)?;
         tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [hash])
             .map_err(storage_error)?;
         tx.execute("DELETE FROM `manifests` WHERE `hash` = ?", [hash])
@@ -607,12 +667,57 @@ impl MediaStore {
 
     fn remove(&self, hashes: Vec<Vec<u8>>) -> Result<()> {
         for hash in hashes {
-            match fs::remove_file(self.path(&hash)) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(storage_error(e)),
-                _ => {}
-            }
+            remove_file(&self.path(&hash))?;
         }
         Ok(())
+    }
+
+    /// Keeps an assembled blob for the next pieces; `now` in Unix seconds.
+    pub fn cache(&self, hash: &[u8], data: &[u8], now: i64) -> Result<()> {
+        let db = lock(&self.db)?;
+        write_aside(&self.cache.join(hex(hash)), data)?;
+        db.execute(
+            "INSERT OR REPLACE INTO `cache` (`hash`, `size`, `read`) VALUES (?, ?, ?)",
+            params![hash, data.len() as i64, now],
+        )
+        .map_err(storage_error)?;
+        Ok(())
+    }
+
+    /// An assembled blob, refreshing its last read.
+    pub fn cached(&self, hash: &[u8], now: i64) -> Result<Option<Vec<u8>>> {
+        let db = lock(&self.db)?;
+        let held = db
+            .execute(
+                "UPDATE `cache` SET `read` = ? WHERE `hash` = ?",
+                params![now, hash],
+            )
+            .map_err(storage_error)?;
+        if held == 0 {
+            return Ok(None);
+        }
+        match fs::read(self.cache.join(hex(hash))) {
+            Ok(data) => Ok(Some(data)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                db.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
+                    .map_err(storage_error)?;
+                Ok(None)
+            }
+            Err(e) => Err(storage_error(e)),
+        }
+    }
+
+    /// Drops assembled blobs last read before `before` (Unix seconds); returns how many.
+    pub fn expire_cache(&self, before: i64) -> Result<usize> {
+        let db = lock(&self.db)?;
+        let hashes: Vec<Vec<u8>> = db
+            .prepare("DELETE FROM `cache` WHERE `read` < ? RETURNING `hash`")
+            .and_then(|mut q| q.query_map([before], |row| row.get(0))?.collect())
+            .map_err(storage_error)?;
+        for hash in &hashes {
+            remove_file(&self.cache.join(hex(hash)))?;
+        }
+        Ok(hashes.len())
     }
 
     /// Stores `data` for `owner` if a keep or an attachment of the owner lists its hash and the
@@ -664,20 +769,8 @@ impl MediaStore {
         if stored == 1 && held.as_deref() == Some(data) {
             return Ok(Put::Stored);
         }
-        let path = self.path(&hash);
         if held.as_deref() != Some(data) {
-            // Written aside and renamed, so a reader never sees a partial blob.
-            let dir = path.parent().unwrap_or(&self.dir);
-            fs::create_dir_all(dir).map_err(storage_error)?;
-            let temp = dir.join(format!(".{}", uuid::Uuid::new_v4()));
-            let mut file = fs::File::create(&temp).map_err(storage_error)?;
-            file.write_all(data)
-                .and_then(|()| file.sync_all())
-                .and_then(|()| fs::rename(&temp, &path))
-                .map_err(|e| {
-                    let _ = fs::remove_file(&temp);
-                    storage_error(e)
-                })?;
+            write_aside(&self.path(&hash), data)?;
         }
         let tx = db.transaction().map_err(storage_error)?;
         tx.execute(
@@ -872,7 +965,7 @@ impl MediaStore {
 
     fn used(db: &Connection) -> Result<u64> {
         db.query_row(
-            "SELECT COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE(SUM(`size`), 0) FROM \
+            "SELECT COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE((SELECT SUM(`size`) FROM `cache`), 0) + COALESCE(SUM(`size`), 0) FROM \
              (SELECT MAX(`size`) AS `size` FROM `blobs` WHERE `size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`) GROUP BY `hash`)",
             [],
             |row| row.get::<_, i64>(0),

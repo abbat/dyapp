@@ -357,6 +357,7 @@ Retention:
 |-----|---------|---------|
 | `message_ttl_hours` | 24 | How long an undelivered mailbox envelope is kept. |
 | `attachment_retention_hours` | 168 | How long a chat attachment the recipient never released is kept. |
+| `media_cache_minutes` | 10 | How long a blob assembled from shards for piece-by-piece reads stays cached after its last read. |
 | `profile_ttl_days` | 30 | How long a profile or tombstone, and the owner's media, is kept after the owner's last signed action. |
 
 Disk. A full store answers `FULL` to writes instead of growing; disk use stays below the sum of
@@ -370,7 +371,7 @@ the store sizes plus SQLite overhead:
 | `require_write_tokens` | `false` | Messages without a mailbox write token go to a small per-mailbox pool instead of the 10 MiB mailbox quota ([write tokens](../architecture/bootstrap.md#mailbox-envelope)). |
 | `mailbox_pool_kb` | 1024 | That pool, per mailbox, while `require_write_tokens` is on; when full, the oldest envelope of the sender group holding most bytes is deleted. At least 101. |
 | `tokenless_share_pct` | 20 | Tokenless envelope bytes kept store-wide, in percent of `messages_max_mb`. |
-| `media_max_mb` | 10240 | Media store size (media role); when full, unreleased attachments go first, then the oldest owners, down to 95 %. |
+| `media_max_mb` | 10240 | Media store size (media role); when full, cached assembled blobs go first, then unreleased attachments, then the oldest owners, down to 95 %. |
 | `media_per_owner_mb` | 10 | Media bytes of one owner, billed as whole copies × 5 and shards as `ceil(bytes × (K+4)/K)`. |
 | `min_free_mb` | 512 | Free space kept on the file system of `storage.dir`; writes stop below it. |
 

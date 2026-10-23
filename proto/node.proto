@@ -462,6 +462,10 @@ message MediaInventory {
 
 message GetMedia {
   bytes hash = 1;
+  // A piece of at most 1 MiB starting at `offset`, cut at the end of the blob. 0 asks for the
+  // whole blob, with `offset` 0.
+  uint64 offset = 2;
+  uint64 len = 3;
 }
 
 // Chat attachment blobs, end-to-end encrypted, put like listed blobs and counted against the
@@ -493,6 +497,8 @@ message MediaResponse {
   uint64 max_bytes = 5;
   // INVALID caused by signed time: node clock in Unix seconds; 0 means not reported.
   uint64 server_time = 6;
+  // get: the blob size, so a piece reader knows where it ends.
+  uint64 total_size = 7;
 }
 
 // ---- /dyapp/search: search role ----

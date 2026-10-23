@@ -79,6 +79,7 @@ async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
             proto::MediaRequest {
                 request: Some(proto::media_request::Request::Get(proto::GetMedia {
                     hash: vec![0; 32],
+                    ..Default::default()
                 })),
             },
         );

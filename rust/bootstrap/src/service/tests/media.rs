@@ -294,7 +294,9 @@ fn deny_list_refuses_replica_and_shard_restoration() {
         i32::from(Status::Refused)
     );
     assert_eq!(
-        s.assemble_media(&manifest, &[]).unwrap().status,
+        s.assemble_media(&manifest, &[], &Default::default())
+            .unwrap()
+            .status,
         i32::from(Status::Refused)
     );
 }
@@ -319,6 +321,7 @@ fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
     let get = MediaRequest {
         request: Some(media_request::Request::Get(proto::GetMedia {
             hash: dyapp_identity::sha256(&put.data).to_vec(),
+            ..Default::default()
         })),
     };
     assert_eq!(s.media(&peer("client"), get).unwrap().data, put.data);
@@ -442,13 +445,37 @@ fn media_manifests_shards_quota_and_corruption() {
     put.data = shards[5].clone();
     assert_eq!(s.store_shard(&put).unwrap().status, i32::from(Status::Ok));
     let fragments = vec![(4, shards[4].clone()), (5, shards[5].clone())];
-    assert_eq!(s.assemble_media(&manifest, &fragments).unwrap().data, data);
+    let last = proto::GetMedia {
+        offset: 1 << 20,
+        len: 1 << 20,
+        ..Default::default()
+    };
+    let piece = s.assemble_media(&manifest, &fragments, &last).unwrap();
+    assert_eq!((piece.data, piece.total_size), (vec![7], data.len() as u64));
+    // The next piece reads the assembled copy: no shards are passed in.
+    let first = s
+        .media(
+            &peer("ranged"),
+            MediaRequest {
+                request: Some(media_request::Request::Get(proto::GetMedia {
+                    hash: manifest.hash.clone(),
+                    offset: 0,
+                    len: 10,
+                })),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        (Status::try_from(first.status).unwrap(), first.data),
+        (Status::Ok, vec![7; 10])
+    );
     let persisted = MediaStore::open(&s.config.storage.dir).unwrap();
     assert_eq!(
         persisted.shard(&manifest.hash, 5).unwrap(),
         Some(shards[5].clone())
     );
-    assert!(persisted.usage().unwrap().0 <= (1 << 20) + 1024);
+    // Shards plus the assembled copy.
+    assert!(persisted.usage().unwrap().0 <= 2 * ((1 << 20) + 1024));
     let mut wrong = manifest.clone();
     wrong.hash[0] ^= 1;
     let keep = proto::MediaKeep {
@@ -467,7 +494,9 @@ fn media_manifests_shards_quota_and_corruption() {
     put.replica = Some(replica);
     assert_eq!(s.store_shard(&put).unwrap().status, i32::from(Status::Ok));
     assert_eq!(
-        s.assemble_media(&wrong, &fragments).unwrap().status,
+        s.assemble_media(&wrong, &fragments, &Default::default())
+            .unwrap()
+            .status,
         i32::from(Status::NotFound)
     );
     assert_eq!(persisted.manifest(&wrong.hash).unwrap(), None);
@@ -498,7 +527,12 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
         s.media.as_ref().unwrap().manifest(&manifest.hash).unwrap(),
         None
     );
-    assert_eq!(s.assemble_media(&manifest, &[]).unwrap().data, small.data);
+    assert_eq!(
+        s.assemble_media(&manifest, &[], &Default::default())
+            .unwrap()
+            .data,
+        small.data
+    );
     // A manifest already held must not suppress a later verified whole-copy put.
     let second = media_service(|_| {});
     assert_eq!(
@@ -569,6 +603,14 @@ fn media_keep_put_get() {
     let get = |hash: &[u8]| {
         Get(proto::GetMedia {
             hash: hash.to_vec(),
+            ..Default::default()
+        })
+    };
+    let range = |hash: &[u8], offset, len| {
+        Get(proto::GetMedia {
+            hash: hash.to_vec(),
+            offset,
+            len,
         })
     };
     let mut service = service();
@@ -609,6 +651,19 @@ fn media_keep_put_get() {
     let (got, response) = call(&service, get(&hash));
     assert_eq!((got, response.data), (Status::Ok, data));
     assert_eq!(call(&service, get(&[1; 5])).0, Status::Invalid);
+    let (got, response) = call_as(&service, "range", range(&hash, 1, 3));
+    assert_eq!(
+        (got, response.data, response.total_size),
+        (Status::Ok, b"hot".to_vec(), 5)
+    );
+    let (_, response) = call_as(&service, "range", range(&hash, 3, 1 << 20));
+    assert_eq!(response.data, b"to");
+    for (offset, len) in [(5, 1), (1, 0), (0, (1 << 20) + 1)] {
+        assert_eq!(
+            call_as(&service, "range", range(&hash, offset, len)).0,
+            Status::Invalid
+        );
+    }
 
     let mut forged = keep;
     forged.payload.push(0);

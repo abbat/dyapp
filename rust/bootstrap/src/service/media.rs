@@ -73,21 +73,28 @@ impl Service {
             // ponytail: a get names no owner, so a listed owner's blobs already stored are still
             // served unless the deny list names the blob hash too.
             Some(media_request::Request::Get(get)) => {
-                if get.hash.len() != 32 {
+                if get.hash.len() != 32
+                    || get.len > crate::replication::MEDIA_OBJECT_BYTES as u64
+                    || (get.len == 0 && get.offset != 0)
+                {
                     return Ok(media_status(Status::Invalid));
                 }
                 if self.listed(&get.hash) {
                     return Ok(media_status(Status::Refused));
                 }
-                match media.get(&get.hash)? {
+                let now = chrono::Utc::now().timestamp();
+                let data = match media.get(&get.hash)? {
+                    Some(data) => Some(data),
+                    None => media.cached(&get.hash, now)?,
+                };
+                match data {
                     Some(data) => {
-                        if !self.media_charge(peer, data.len() as u64, data.len() as u64) {
+                        let response = media_piece(&get, data);
+                        let len = response.data.len() as u64;
+                        if !self.media_charge(peer, len, len) {
                             return Ok(media_status(Status::RateLimited));
                         }
-                        MediaResponse {
-                            data,
-                            ..media_status(Status::Ok)
-                        }
+                        response
                     }
                     None => media_status(Status::NotFound),
                 }
@@ -288,12 +295,13 @@ impl Service {
         ))
     }
 
-    /// A blob from its whole copy, or decoded from `shards`;
-    /// discards shards and manifest that do not decode.
+    /// The piece `get` asks for of a blob from its whole copy, or decoded from `shards` and
+    /// cached for the next pieces; discards shards and manifest that do not decode.
     pub fn assemble_media(
         &self,
         manifest: &proto::MediaManifest,
         shards: &[(usize, Vec<u8>)],
+        get: &proto::GetMedia,
     ) -> crate::Result<MediaResponse> {
         if self.listed(&manifest.hash) {
             return Ok(media_status(Status::Refused));
@@ -301,17 +309,17 @@ impl Service {
         let media = self.media.as_ref().unwrap();
         if let Some(data) = media.get(&manifest.hash)? {
             if dyapp_identity::sha256(&data).as_slice() == manifest.hash {
-                return Ok(MediaResponse {
-                    data,
-                    ..media_status(Status::Ok)
-                });
+                return Ok(media_piece(get, data));
             }
         }
         match crate::replication::media_decode(manifest, shards) {
-            Ok(data) => Ok(MediaResponse {
-                data,
-                ..media_status(Status::Ok)
-            }),
+            Ok(data) => {
+                let now = chrono::Utc::now().timestamp();
+                if let Err(error) = media.cache(&manifest.hash, &data, now) {
+                    tracing::error!(%error, "media cache write failed");
+                }
+                Ok(media_piece(get, data))
+            }
             Err(error) => {
                 tracing::warn!(%error, "media decode failed");
                 media.discard_sharded(&manifest.hash)?;
@@ -320,8 +328,14 @@ impl Service {
         }
     }
 
-    /// Charges reading and assembling a sharded blob to `peer`; false when refused.
-    pub fn prepare_media_read(&self, peer: &Peer, manifest: &proto::MediaManifest) -> bool {
+    /// Charges reading the piece `get` asks for and assembling a sharded blob to `peer`; false
+    /// when refused.
+    pub fn prepare_media_read(
+        &self,
+        peer: &Peer,
+        manifest: &proto::MediaManifest,
+        get: &proto::GetMedia,
+    ) -> bool {
         if self.listed(&manifest.hash) {
             return false;
         }
@@ -330,7 +344,11 @@ impl Service {
         };
         let assembly =
             manifest.shard_size().unwrap() as u64 * (k + crate::replication::MEDIA_PARITY) as u64;
-        self.media_charge(peer, manifest.length, manifest.length + assembly)
+        let piece = match get.len {
+            0 => manifest.length,
+            len => len.min(manifest.length.saturating_sub(get.offset)),
+        };
+        self.media_charge(peer, piece, piece + assembly)
     }
 
     /// Byte charges are separate from the request-count buckets; 0 disables the byte cap.
@@ -558,5 +576,22 @@ fn media_status(status: Status) -> MediaResponse {
     MediaResponse {
         status: status.into(),
         ..MediaResponse::default()
+    }
+}
+
+/// The piece of `data` that `get` asks for, with the blob size; `INVALID` past its end.
+fn media_piece(get: &proto::GetMedia, mut data: Vec<u8>) -> MediaResponse {
+    let total_size = data.len() as u64;
+    if get.len != 0 {
+        if get.offset >= total_size {
+            return media_status(Status::Invalid);
+        }
+        let end = get.offset.saturating_add(get.len).min(total_size);
+        data = data[get.offset as usize..end as usize].to_vec();
+    }
+    MediaResponse {
+        data,
+        total_size,
+        ..media_status(Status::Ok)
     }
 }

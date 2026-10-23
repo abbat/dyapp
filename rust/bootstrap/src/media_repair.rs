@@ -234,6 +234,7 @@ impl Repair {
             Job::Get(blob, _) => (
                 Request::Get(proto::GetMedia {
                     hash: self.blobs[*blob].hash.clone(),
+                    ..Default::default()
                 }),
                 (MEDIA_OBJECT_BYTES + 1024) as u64,
             ),
