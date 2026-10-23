@@ -189,7 +189,8 @@ assertion changes.
 | Store format steps run once; a newer file is refused | Unit | `storage.rs::store_format_steps_run_once_and_a_newer_file_is_refused` | exists |
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |
 | Config precedence file < env < CLI; unknown keys fail; node key bound to the data | Unit, Property | `config.rs` | exists |
-| Stopped-node snapshot records every required file and SQLite WAL/journal, hashes them and rejects unsafe paths or corrupt bytes | Offline fixture | Backup verifier fixture | planned |
+| Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; restore verification planned |
+| Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Offline fixture | Backup verifier fixture | planned |
 | Restore probe checks SQLite and key against the saved peer ID on a separate copy; absent portable key evidence fails closed | Offline fixture | Restore probe fixture | planned |
 | Update preflight refuses a missing/unverified backup and migrated-store rollback is rehearsed without touching live storage | Fault test | Update preflight and migration recovery fixtures | planned |
 
