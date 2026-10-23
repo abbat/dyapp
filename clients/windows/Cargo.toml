@@ -7,6 +7,9 @@ rust-version = "1.99"
 [dependencies]
 tauri = { version = "=2.12.3", features = [] }
 dyapp-identity = { path = "../../rust/identity" }
+keyring-core = "=1.0.0"
+windows-native-keyring-store = "=1.1.0"
+zeroize = "1.9"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.2", features = [] }

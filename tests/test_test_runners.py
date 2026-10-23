@@ -381,17 +381,17 @@ class Runners(unittest.TestCase):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             outcomes = [
-                subprocess.CompletedProcess([], 0, "UI_SMOKE_PASS", ""),
-                subprocess.CompletedProcess([], 0, "UI_SMOKE_PASS", ""),
-                subprocess.CompletedProcess([], 1, "UI_SMOKE_FAIL", ""),
-            ]
+                subprocess.CompletedProcess(
+                    [], 0, "UI_SMOKE_PASS:" + "0" * 64, "")
+                for _ in range(5)
+            ] + [subprocess.CompletedProcess([], 1, "UI_SMOKE_FAIL", "")]
             environment = {"RUNNER_TEMP": directory}
             with patch.dict(os.environ, environment, clear=True):
                 with patch.object(desktop, "run", side_effect=outcomes):
                     desktop.smoke("windows.exe")
             report = json.loads(
                 (Path(directory) / "desktop-ui-results.json").read_text())
-            self.assertEqual(len(report), 3)
+            self.assertEqual(len(report), 6)
             self.assertTrue(all(case["passed"] for case in report))
 
     def test_desktop_timeout_kills_helpers_holding_stdout(self):

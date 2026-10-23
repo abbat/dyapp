@@ -5,12 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="app.name"></title>
   <style>
-    body { font: 24px system-ui, sans-serif; margin: 0; }
-    main { display: grid; place-content: center; min-height: 100vh; text-align: center; }
+    body { font: 18px system-ui, sans-serif; margin: 0; }
+    main { max-width: 640px; margin: auto; padding: 3rem 1.5rem; text-align: center; }
+    button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
+    button:disabled { opacity: .5; }
+    .notice { font-size: .9rem; }
+    #peer-id { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
-  <main><h1 data-i18n="app.name"></h1><p id="app-ready" role="status" data-i18n="status.ready"></p><p id="peer-id"></p></main>
+  <main>
+    <h1 data-i18n="app.name"></h1>
+    <p id="app-ready" role="status" data-i18n="status.loading"></p>
+    <section id="setup" hidden>
+      <h2 data-i18n="storage.title"></h2>
+      <button id="system-choice" type="button" data-i18n="storage.system.choice"></button>
+      <p id="system-reason" class="notice" role="status"></p>
+      <button id="file-choice" type="button" data-i18n="storage.file.choice"></button>
+      <p class="notice" data-i18n="storage.file.warning"></p>
+    </section>
+    <section id="identity" hidden>
+      <p data-i18n="storage.peerId"></p>
+      <p id="peer-id"></p>
+    </section>
+    <p id="storage-error" role="alert" hidden></p>
+  </main>
   <script src="app.js"></script>
 </body>
 </html>

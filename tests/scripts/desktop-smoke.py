@@ -43,14 +43,14 @@ def display_diagnostics():
     return "\n".join(lines)[:4096]
 
 
-def run(arguments, timeout=60):
+def run(arguments, timeout=60, env=None):
     # Output goes to files, not pipes: WebKit helpers inherit it, and
     # sandboxed ones (bwrap --new-session) escape killpg, so waiting for
     # pipe EOF could hang forever.
     with tempfile.TemporaryFile("w+") as out, \
             tempfile.TemporaryFile("w+") as err:
         process = subprocess.Popen(
-            arguments, stdout=out, stderr=err,
+            arguments, stdout=out, stderr=err, env=env,
             start_new_session=os.name == "posix")
         try:
             process.wait(timeout=timeout)
@@ -74,28 +74,45 @@ def run(arguments, timeout=60):
 
 
 def smoke(executable):
-    results = []
-    cases = (("launch-render-close", []),
-             ("pseudo-locale", ["--pseudo-locale"]),
-             ("hidden-ready-rejected", ["--break-ui"]))
-    for case, extra in cases:
-        broken = extra == ["--break-ui"]
-        arguments = [executable, "--ui-test", *extra]
-        process = run(arguments)
-        expected = "UI_SMOKE_FAIL" if broken else "UI_SMOKE_PASS"
-        if process.returncode != int(broken) or expected not in process.stdout:
-            raise RuntimeError(
-                f"UI suite failed: {arguments}, exit={process.returncode}\n"
-                f"{process.stdout}\n{process.stderr}")
-        print(process.stdout, end="")
-        print(process.stderr, end="", file=sys.stderr)
-        results.append({"case": case, "exit": process.returncode,
-                        "passed": True})
     report_root = os.environ.get("RUNNER_TEMP")
     if not report_root:
         report_root = f"/reports/{os.environ['HOSTNAME']}"
     reports = Path(report_root)
     reports.mkdir(parents=True, exist_ok=True)
+    results = []
+
+    def case(name, extra, profile, broken=False):
+        arguments = [executable, "--ui-test", *extra]
+        env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
+        process = run(arguments, env=env)
+        match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})", process.stdout)
+        marker_found = ("UI_SMOKE_FAIL" in process.stdout
+                        if broken else match is not None)
+        passed = process.returncode == int(broken) and marker_found
+        if not passed:
+            raise RuntimeError(
+                f"UI suite failed: {arguments}, exit={process.returncode}\n"
+                f"{process.stdout}\n{process.stderr}")
+        print(process.stdout, end="")
+        print(process.stderr, end="", file=sys.stderr)
+        results.append({"case": name, "exit": process.returncode,
+                        "passed": True})
+        return match.group(1) if match else None
+
+    for mode in ("system", "file"):
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            flags = ["--ui-test-file"] if mode == "file" else []
+            peer_id = case(f"{mode}-create", flags, profile)
+            reopened = case(f"{mode}-restart",
+                            [*flags, "--ui-test-existing"], profile)
+            if reopened != peer_id:
+                raise RuntimeError(
+                    f"{mode} storage changed Peer ID after restart")
+    with tempfile.TemporaryDirectory(dir=reports) as profile:
+        case("pseudo-locale", ["--ui-test-file", "--pseudo-locale"], profile)
+    with tempfile.TemporaryDirectory(dir=reports) as profile:
+        case("hidden-ready-rejected", ["--ui-test-file", "--break-ui"],
+             profile, broken=True)
     (reports / "desktop-ui-results.json").write_text(
         json.dumps(results, indent=2))
     print(f"{len(results)} desktop UI cases passed")

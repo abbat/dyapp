@@ -47,7 +47,7 @@ node, and there is no WebRTC signaling channel.
 | Node client | `rust/bootstrap/src/bin/dyappd/client.rs` | prototype | `dyappd info` and the other libp2p client commands for the node protocol; used by network tests |
 | Android app | `clients/android/` | skeleton | Shows the peer ID of its stored identity key, wrapped by the Android Keystore, via UniFFI Kotlin bindings |
 | iOS / macOS apps | `clients/ios/`, `clients/macos/` | skeleton | Shows the peer ID of its stored identity key, wrapped by a Keychain key, via UniFFI Swift bindings |
-| Desktop | `clients/desktop/main.rs` | skeleton | Tauri shell; `peer_id` command shows the peer ID of a key generated per run (not persisted) |
+| Desktop | `clients/desktop/main.rs` | skeleton | Tauri shell; user chooses system credential storage or an app-data file before key creation, and the saved Peer ID reopens on restart |
 | Linux / Windows | `clients/linux/`, `clients/windows/` | skeleton | Tauri projects outside the Cargo workspace |
 | Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` defines every served node protocol; no gRPC/tonic |
 

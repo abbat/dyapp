@@ -5,8 +5,8 @@
 
 ## Context
 
-The Linux and Windows Tauri shell currently calls `dyapp-identity` directly and generates a
-new key on every launch. Its user must choose where a persistent identity key is stored.
+Before this change, the Linux and Windows Tauri shell called `dyapp-identity` directly and
+generated a new key on every launch. Its user must choose where a persistent identity key is stored.
 A system credential store is only one option; it must not be offered on an account where
 the running client cannot use it. The mobile UniFFI `KeyStore` trait is not the desktop
 storage API. Losing or replacing the key changes the Peer ID permanently (ADR 0004).
@@ -20,20 +20,24 @@ user chooses a storage mode before key generation. Save the mode separately from
 Never switch modes or generate a replacement identity after a save/open failure.
 
 On Linux use `secret-service` 5.2.0 with pure-Rust cryptography and the Secret Service
-default collection. The probe connects to the session bus and checks that collection's
-locked state. Store the 32-byte identity secret as a 64-character hex string so both GNOME
-Keyring and KDE Wallet can handle it. A provider without a usable default collection is
-unavailable until a separately tested path is implemented.
+default collection. The probe connects to the session bus, checks that collection's
+locked state, then writes, reads and removes an app-owned test item. Store the 32-byte identity
+secret as a 64-character hex string so both GNOME Keyring and KDE Wallet can handle it. A provider
+without a usable default collection is unavailable until a separately tested path is implemented.
 
-On Windows use `keyring-core` 1.0.1 with `windows-native-keyring-store` 1.1.0. Set the
+On Windows use `keyring-core` 1.0.0 with `windows-native-keyring-store` 1.1.0. Set the
 credential's `persistence` modifier to `Local`; the store's default `Enterprise`
-persistence could roam. The Windows probe uses the same native store API as saving and
-opening. A successful probe is a current capability signal, not a guarantee that a
-later write cannot fail.
+persistence could roam. The Windows probe writes, reads and removes a separate app-owned
+credential through the same native store API, and checks that its persistence is `Local`.
+A successful probe is a current capability signal, not a guarantee that a later write
+cannot fail.
 
-The file mode remains an explicit user choice with a protection warning, not an automatic
-fallback. Its on-disk format and Windows access control need their own implementation and
-tests before the option is offered.
+The file mode is an explicit user choice with a protection warning, never an automatic
+fallback. It stores the raw 32-byte secret in the app configuration directory. Linux creates
+it with mode `0600` and rejects looser permissions. Windows inherits that directory's ACL;
+the client warns that anyone who can read the file can copy the identity key. The selected
+mode is stored separately before creating the key, so a failed save cannot silently start a
+new identity on the next launch.
 
 ## Consequences
 

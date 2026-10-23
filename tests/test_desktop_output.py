@@ -23,7 +23,8 @@ class DesktopOutput(unittest.TestCase):
                 " if os.environ.get('DYAPP_FIXTURE_BROKEN') == '1':\n"
                 "  raise SystemExit(0)\n"
                 " print('UI_SMOKE_FAIL'); raise SystemExit(1)\n"
-                "print('passing-case-noise'); print('UI_SMOKE_PASS')\n")
+                "print('passing-case-noise')\n"
+                "print('UI_SMOKE_PASS:' + '0' * 64)\n")
             app.chmod(0o755)
             for broken in ("0", "1"):
                 reports = root / broken
@@ -40,7 +41,7 @@ class DesktopOutput(unittest.TestCase):
                     self.assertEqual(result.stdout, "OK desktop-smoke\n")
                     data = json.loads(
                         (reports / "desktop-ui-results.json").read_text())
-                    self.assertEqual(len(data), 3)
+                    self.assertEqual(len(data), 6)
                     self.assertTrue(all(case["passed"] for case in data))
                 else:
                     self.assertEqual(result.returncode, 1)
@@ -108,7 +109,7 @@ class DesktopOutput(unittest.TestCase):
                 "if '--break-ui' in sys.argv:\n"
                 " print('cannot open display :99', file=sys.stderr)\n"
                 " raise SystemExit(1)\n"
-                "print('UI_SMOKE_PASS')\n")
+                "print('UI_SMOKE_PASS:' + '0' * 64)\n")
             app.chmod(0o755)
             result = subprocess.run(
                 [sys.executable, str(ROOT / "tests/scripts/desktop-smoke.py"),

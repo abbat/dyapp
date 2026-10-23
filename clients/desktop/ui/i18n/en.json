@@ -1,4 +1,19 @@
 {
   "app.name": "DYApp",
-  "status.ready": "Ready"
+  "status.loading": "Checking identity storage…",
+  "status.choose": "Choose where to store your identity key",
+  "status.ready": "Ready",
+  "status.error": "Identity storage could not be opened",
+  "storage.title": "Identity key storage",
+  "storage.system.choice": "Use system credential storage (recommended)",
+  "storage.system.noSessionBus": "No desktop session bus is available for system storage.",
+  "storage.system.noService": "No supported Secret Service is running in this session.",
+  "storage.system.noCollection": "The system store has no default collection.",
+  "storage.system.locked": "The system credential collection is locked.",
+  "storage.system.denied": "The system credential store denied access.",
+  "storage.system.unavailable": "Windows Credential Manager is unavailable for this account.",
+  "storage.file.choice": "Use an app data file",
+  "storage.file.warning": "Anyone who can read this file can copy your identity key. Protect your user profile and backups.",
+  "storage.peerId": "Your Peer ID",
+  "storage.error": "Check the selected storage and restart the app. Your identity was not replaced."
 }

@@ -13,19 +13,20 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 ## What is tested
 
 The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
-The shells call the Rust core for one value, a peer ID (see
+The shells call the Rust core for a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
-exercises messaging, matching or video. The tests check launch, render of a ready screen, app
-identity and close; the Android, iOS and macOS UI tests and the desktop smoke also check that
-the peer ID is 64 lowercase hex characters. The Android UI test also recreates the activity and
+exercises messaging, matching or video. The tests check launch, render, app identity and close;
+the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
+lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID
+after a second launch. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 4 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×1, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 2 cargo tests (`clients/desktop/main.rs`, `clients/linux/tests/integration_tests.rs`) | 3 `desktop-smoke.py` cases under Xvfb | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | same 2 cargo tests (`clients/windows/` includes `clients/desktop/` and `clients/linux/tests`) | same 3 smoke cases | same |
+| Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 6 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 6 smoke cases | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 4 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 1 XCTest | 4 XCUITest | `check-apple-results.py` (≥3) |
 
@@ -38,11 +39,10 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs the app
-three times: `--ui-test` and `--ui-test --pseudo-locale` must print `UI_SMOKE_PASS` and exit 0;
-`--ui-test --break-ui` must print
-`UI_SMOKE_FAIL` and exit 1 (an injected hidden ready screen has to be detected). A pass also
-needs the page to show the peer ID from the `peer_id` command as 64 lowercase hex characters.
+(`android instrumentation` when a failed run lists none). The desktop smoke runs six app
+instances: system create/restart, file create/restart, pseudo-locale and an injected hidden-ready
+rejection. The restart in each mode must report the same 64-character Peer ID. Successful runs
+print `UI_SMOKE_PASS:<peer-id>` and exit 0; `--break-ui` prints `UI_SMOKE_FAIL` and exits 1.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
 letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to
@@ -122,17 +122,17 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 ### Linux
 
 - **Image** `dyapp:linux-test` (`tests/docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
-  WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus and Rust 1.99.0 from a digest-pinned image. It builds
-  the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
+  WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus, GNOME Keyring and Rust 1.99.0 from a digest-pinned
+  image. It builds the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
   `build/unit-build.json` at build time. The container has no checkout mount and no
   network, and `ui-test.sh` never builds images: after changing `clients/linux/`, `clients/desktop/` or the
   Dockerfile, run `make prepare` (or `bash tests/scripts/ui-test.sh prepare`) first, or
   `make ui-test-linux` tests the old binaries.
 - **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
-  It then calls `run-cargo-unit-binaries.py` runs every test binary in
-  the inventory, then `desktop-smoke.py` launches `build/debug/dyapp-linux` under
-  `xvfb-run` + `dbus-run-session`.
+  Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
+  unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
+  `build/debug/dyapp-linux` six times using isolated test profiles.
 
 ### Reports on the host
 

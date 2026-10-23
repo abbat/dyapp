@@ -17,7 +17,7 @@
 
 The Android, iOS and macOS apps link the library. Linux and Windows call
 `dyapp-identity` directly; their [storage choice and capability checks](../development/desktop-identity-storage.md)
-are planned, not part of this UniFFI contract.
+are implemented in the Tauri shell, outside this UniFFI contract.
 
 ## Exported surface
 

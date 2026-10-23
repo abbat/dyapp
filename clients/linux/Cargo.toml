@@ -7,6 +7,10 @@ rust-version = "1.99"
 [dependencies]
 tauri = { version = "=2.12.3", features = [] }
 dyapp-identity = { path = "../../rust/identity" }
+secret-service = { version = "=5.2.0", default-features = false, features = [
+    "rt-tokio-crypto-rust",
+] }
+zeroize = "1.9"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.2", features = [] }

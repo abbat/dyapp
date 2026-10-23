@@ -1,6 +1,6 @@
 FROM dyapp:linux-base
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11 gnome-keyring
 RUN cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/build/unit-build.json
 COPY tools/scripts tools/scripts
 COPY tests/scripts tests/scripts

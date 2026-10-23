@@ -11,7 +11,7 @@ case "${1:?usage: ci-setup.sh rust|linux}" in
         ;;
     linux)
         packages=(build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libxdo-dev
-                  libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus-x11)
+                  libayatana-appindicator3-dev librsvg2-dev xvfb xauth dbus-x11 gnome-keyring)
         components=()
         ;;
     *) echo "Unknown target: $1" >&2; exit 2 ;;

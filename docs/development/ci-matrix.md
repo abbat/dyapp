@@ -50,7 +50,7 @@ The apps are shells that call one core function at most:
 - `clients/ios/` and `clients/macos/` link `DyappFFI.xcframework` through the UniFFI Swift bindings and show
   the peer ID of their stored `IdentityKey`.
 - `clients/linux/` and `clients/windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
-  `rust/identity` only, to show a peer ID.
+  `rust/identity` and their platform credential provider to create and reopen a chosen identity key.
 
 So a green matrix means "the shells build and their own tests pass". It does **not** mean an
 APK/AAB, `.app` or installer containing the Rust core was built, signed or tested. No job
