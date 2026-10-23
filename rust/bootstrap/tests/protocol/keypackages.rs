@@ -27,15 +27,6 @@ async fn keypackage_publish_and_consume_over_tcp() {
         ..Default::default()
     }
     .sign(&owner);
-    assert_eq!(
-        status(
-            client
-                .profile(profile_request::Request::Publish(profile))
-                .await
-                .status
-        ),
-        Status::Ok
-    );
     let owner_hash = dyapp_identity::key_hash(&owner.public_key()).to_vec();
     let mailbox = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let package = vec![0, 1, 0, 1, 7];
@@ -50,6 +41,25 @@ async fn keypackage_publish_and_consume_over_tcp() {
             ..Default::default()
         }
         .encode_to_vec(),
+    );
+    // Rejected without the profile, and answered at once rather than replicated.
+    assert_eq!(
+        status(
+            client
+                .keypackage(proto::key_package_request::Request::Publish(signed.clone()))
+                .await
+                .status
+        ),
+        Status::Denied
+    );
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::Publish(profile))
+                .await
+                .status
+        ),
+        Status::Ok
     );
     assert_eq!(
         status(
