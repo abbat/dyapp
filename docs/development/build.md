@@ -45,6 +45,12 @@ the packaging image uses the shared base without test-only packages.
 
 ## Client update feed generator
 
+`python3 tools/scripts/release-candidates.py RELEASE.json TAG COMMIT` extracts
+untrusted package candidates from a GitHub REST release response. `COMMIT` must
+be resolved independently from the tag; the adapter does not verify package
+bytes or provenance. Its output is deliberately incompatible with the trusted
+inventory accepted by the generator below.
+
 `python3 tools/scripts/build-update-feed.py INVENTORY.json [PREVIOUS.json]`
 prints a deterministic schema 1 stable feed. The inventory is trusted release-CI
 input, and the optional previous feed must already come from the fixed trusted

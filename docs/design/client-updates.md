@@ -44,6 +44,18 @@ and `ios` for the first release. `method` is `package`, `store`, or
 claim a Linux client release already exists. Feed data
 contains no arbitrary URL, release-note HTML, script or executable command.
 
+### Release candidate adapter checkpoint
+
+`tools/scripts/release-candidates.py RELEASE.json TAG COMMIT` parses the bounded
+GitHub REST get-by-tag response into exact Linux and Windows package candidates.
+It rejects draft/prerelease, unpublished or mismatched tags, duplicate or wrong-
+version client assets, missing SHA-256 digests and invalid package sizes. The
+commit argument must come from a separately resolved, checked-out tag; GitHub's
+`target_commitish` can be a branch and is not tag proof. Candidate output has no
+trusted `releases` or `targets` fields and cannot be passed to the feed generator
+as verification evidence. Download, digest and attestation checks are the next
+checkpoint before constructing that trusted inventory.
+
 ### Offline feed generator checkpoint
 
 `tools/scripts/build-update-feed.py` turns a CI-verified inventory and optional
