@@ -64,6 +64,11 @@ or returns constants.
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.
 
+The planned first-run client connection surface has a
+[typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract-planned).
+It is not exported yet; platform UI must not treat the current `PeerConnection`
+label object as a working network connection.
+
 ### Native symbols
 
 The library's C ABI is UniFFI-internal (`nm -D libdyapp_ffi.so`):
