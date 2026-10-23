@@ -93,6 +93,9 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
     Ok(orphans)
 }
 
+const KEEPS_AFTER: &str = "SELECT `owner`, `record` FROM `owners` \
+     WHERE `owner` > ? AND `record` IS NOT NULL ORDER BY `owner` LIMIT ?";
+
 /// `media.db` format steps.
 const MEDIA_STEPS: &[Step] = &[media_replicas, media_purge_stats];
 
@@ -353,6 +356,22 @@ impl MediaStore {
                 |row| row.get(0),
             )
             .map_err(storage_error)
+    }
+
+    /// Owners after `after` with a signed keep, in owner order, and that keep.
+    pub fn keeps_after(&self, after: &str, limit: u32) -> Result<Vec<(String, SignedRecord)>> {
+        let db = lock(&self.db)?;
+        let mut query = db.prepare(KEEPS_AFTER).map_err(storage_error)?;
+        let rows: Vec<(String, Vec<u8>)> = query
+            .query_map(params![after, limit], |row| Ok((row.get(0)?, row.get(1)?)))
+            .and_then(Iterator::collect)
+            .map_err(storage_error)?;
+        rows.into_iter()
+            .map(|(owner, bytes)| {
+                let record = SignedRecord::decode(bytes.as_slice()).map_err(storage_error)?;
+                Ok((owner, record))
+            })
+            .collect()
     }
 
     /// Returns the latest signed list naming this hash; legacy unsigned rows need a fresh keep.

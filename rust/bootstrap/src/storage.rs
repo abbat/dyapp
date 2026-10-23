@@ -121,6 +121,10 @@ fn messages_class(db: &Connection) -> rusqlite::Result<()> {
     )
 }
 
+const PROFILES_AFTER: &str =
+    "SELECT `record` FROM `profiles` WHERE `live` AND `peer_id` > ? ORDER BY `peer_id` LIMIT ?";
+const MAILBOXES_AFTER: &str = "SELECT DISTINCT `mailbox` FROM `envelopes` \
+     WHERE `mailbox` > ? AND `expires_at` > ? ORDER BY `mailbox` LIMIT ?";
 /// Bytes a WAL file is truncated to after a checkpoint.
 const WAL_LIMIT: u64 = 64 * 1024 * 1024;
 
@@ -202,6 +206,23 @@ pub(crate) fn free(path: &str) -> Result<u64> {
     // The statvfs field types differ between targets.
     #[allow(clippy::useless_conversion)]
     Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
+}
+
+/// Panics if `EXPLAIN QUERY PLAN` shows a step that reads a table without an index.
+#[cfg(test)]
+pub(crate) fn assert_indexed(db: &Connection, sql: &str) {
+    let mut query = db.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+    let count = query.parameter_count();
+    let steps: Vec<String> = query
+        .query_map(rusqlite::params_from_iter(vec![0; count]), |row| row.get(3))
+        .and_then(Iterator::collect)
+        .unwrap();
+    assert!(
+        steps
+            .iter()
+            .all(|step| !step.starts_with("SCAN") || step.contains(" USING ")),
+        "{steps:?}"
+    );
 }
 
 pub(crate) fn lock<T>(db: &Mutex<T>) -> Result<MutexGuard<'_, T>> {
@@ -388,6 +409,30 @@ impl BootstrapStore {
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         records.into_iter().map(decode).collect()
+    }
+
+    /// Live profiles with a peer ID after `after`, in peer ID order; tombstones are skipped.
+    pub fn profiles_after(&self, after: &str, limit: u32) -> Result<Vec<SignedRecord>> {
+        let db = lock(&self.profiles)?;
+        let mut query = db.prepare(PROFILES_AFTER).map_err(storage_error)?;
+        let records: Vec<Vec<u8>> = query
+            .query_map(params![after, limit], |row| row.get(0))
+            .and_then(Iterator::collect)
+            .map_err(storage_error)?;
+        records.into_iter().map(decode).collect()
+    }
+
+    /// Mailboxes after `after` that hold an unexpired envelope, in mailbox order.
+    pub fn mailboxes_after(&self, after: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
+        let db = lock(&self.messages)?;
+        let mut query = db.prepare(MAILBOXES_AFTER).map_err(storage_error)?;
+        query
+            .query_map(
+                params![after, chrono::Utc::now().timestamp(), limit],
+                |row| row.get(0),
+            )
+            .and_then(Iterator::collect)
+            .map_err(storage_error)
     }
 
     /// Advances liveness to the validated, signed heartbeat time; false if no profile is stored.
@@ -875,6 +920,58 @@ mod tests {
             .unwrap();
         assert!(store.list_profiles(0, 10).unwrap().is_empty());
         assert!(store.put_profile(&profile(2).sign(&owner)).is_err());
+    }
+
+    #[test]
+    fn cursors_resume_skip_dead_rows_and_use_indexes() {
+        let store = temp_store();
+        let record = SignedRecord::default();
+        for (id, (mailbox, expires_at)) in [(1u8, i64::MAX), (2, 0), (3, i64::MAX), (3, i64::MAX)]
+            .into_iter()
+            .enumerate()
+        {
+            store
+                .put_plain(
+                    &[mailbox; 32],
+                    &[id as u8],
+                    &record,
+                    false,
+                    expires_at,
+                    u64::MAX,
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            store.mailboxes_after(&[], 10).unwrap(),
+            vec![vec![1; 32], vec![3; 32]],
+            "expired mailbox 2 skipped, 3 once"
+        );
+        assert_eq!(
+            store.mailboxes_after(&[1; 32], 1).unwrap(),
+            vec![vec![3; 32]]
+        );
+        assert!(store.mailboxes_after(&[3; 32], 10).unwrap().is_empty());
+
+        let mut owners: Vec<_> = (0..3).map(|_| Identity::generate()).collect();
+        owners.sort_by_key(Identity::peer_id);
+        for owner in &owners {
+            let profile = Profile {
+                version: 1,
+                age: 35,
+                ..Profile::default()
+            };
+            store.put_profile(&profile.sign(owner)).unwrap();
+        }
+        store
+            .put_profile(&Profile::tombstone(2, 0, 0).sign(&owners[1]))
+            .unwrap();
+        let after = store.profiles_after(&owners[0].peer_id(), 10).unwrap();
+        assert_eq!(after.len(), 1, "tombstone skipped");
+        assert_eq!(after[0].public_key, owners[2].public_key());
+        assert_eq!(store.profiles_after("", 1).unwrap().len(), 1);
+
+        assert_indexed(&lock(&store.messages).unwrap(), MAILBOXES_AFTER);
+        assert_indexed(&lock(&store.profiles).unwrap(), PROFILES_AFTER);
     }
 
     #[test]

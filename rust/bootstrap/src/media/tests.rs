@@ -218,3 +218,31 @@ fn attach_put_release_and_expire() {
     assert_eq!(media.get(&hb).unwrap(), Some(b));
     assert!(!media.release(s2).unwrap());
 }
+
+#[test]
+fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
+    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let media = MediaStore::open(&dir).unwrap();
+    let record = |n: u8| SignedRecord {
+        payload: vec![n],
+        ..SignedRecord::default()
+    };
+    let keep = proto::MediaKeep {
+        version: 1,
+        time: 10,
+        ..Default::default()
+    };
+    media.keep_signed("a", &keep, &record(1)).unwrap();
+    media.keep("b", 1, &[], 10).unwrap();
+    media.keep_signed("c", &keep, &record(3)).unwrap();
+
+    let all = media.keeps_after("", 10).unwrap();
+    assert_eq!(
+        all,
+        vec![("a".to_string(), record(1)), ("c".to_string(), record(3))],
+        "unsigned b skipped"
+    );
+    assert_eq!(media.keeps_after("a", 1).unwrap(), all[1..]);
+    assert!(media.keeps_after("c", 10).unwrap().is_empty());
+    crate::storage::assert_indexed(&lock(&media.db).unwrap(), KEEPS_AFTER);
+}

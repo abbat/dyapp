@@ -18,6 +18,7 @@ pub mod puzzle;
 pub mod rate_limit;
 /// Erasure coding of media blobs.
 pub mod replication;
+pub mod republish;
 pub mod search;
 pub mod secret;
 pub mod service;
