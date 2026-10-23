@@ -1,4 +1,14 @@
 #!/usr/bin/env sh
+# Check the commit batch policy before a direct push updates main.
+_repo_root=$(git rev-parse --show-toplevel) || exit 1
+while read -r _local_ref _local_sha _remote_ref _remote_sha; do
+  [ "$_remote_ref" = refs/heads/main ] || continue
+  if ! python3 -B "$_repo_root/tests/scripts/check-batches.py" --head "$_local_sha"; then
+    echo >&2 "Batch policy: https://github.com/abbat/dyapp/blob/main/docs/development/code-quality.md#small-batches"
+    exit 1
+  fi
+done
+
 # --- BEGIN BEADS INTEGRATION v1.3.1 ---
 # This section is managed by beads. Do not remove these markers.
 if command -v bd >/dev/null 2>&1; then

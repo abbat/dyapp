@@ -129,9 +129,9 @@ the check. The required `commit-batches` PR status runs the checker from the bas
 every proposed commit. For non-owner writers, `main` requires a PR and allows only rebase merge,
 so squash cannot turn several compliant commits into one oversized commit. Account `abbat` has
 an `always` ruleset bypass and can push directly to `main`; those commits get a post-push CI
-check. A pre-update gate for owner pushes is planned. Until it exists, run the local batch check
-before pushing. The owner also reviews changes to `.github/workflows/batch-policy.yml`: a PR
-can edit its own workflow.
+check. A server-side pre-update gate for owner pushes is planned. Until it exists, keep the local
+`pre-push` hook enabled. The owner also reviews changes to
+`.github/workflows/batch-policy.yml`: a PR can edit its own workflow.
 
 ### Docs change with the code
 
@@ -200,8 +200,12 @@ list fires `checks` itself.
 There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
 
 Install them with `pre-commit install --hook-type pre-commit --hook-type pre-push`. It refuses to
-install while `core.hooksPath` is set (check with `git config core.hooksPath`); in that case run
-`make quality` yourself before committing.
+install while `core.hooksPath` is set (check with `git config core.hooksPath`). In the maintainer
+checkout, `core.hooksPath` points to `.beads/hooks`: its `pre-push` hook runs the fast batch
+checker on the commit being pushed to `main` and prints this page's [small-batches](#small-batches)
+link if it fails. This local gate catches a missed `make quality` before publication; `--no-verify`
+can bypass Git hooks, so server-side enforcement remains planned. Run `make quality` yourself
+before committing when the `pre-commit` package cannot install its hooks.
 
 ## Rust lints
 
