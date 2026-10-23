@@ -420,6 +420,27 @@ fn help_uses_the_message_locale_without_changing_commands() {
 }
 
 #[test]
+fn validation_errors_follow_locale_without_changing_option_names() {
+    let dir = directory();
+    for (locale, expected) in [
+        (
+            "C",
+            "media.shard_threshold must be between 1 and 1048576 bytes",
+        ),
+        (
+            "ru_RU.UTF-8",
+            "media.shard_threshold: значение должно быть от 1 до 1048576 байт",
+        ),
+    ] {
+        let output = command_locale(&dir, &["keygen", "--media.shard_threshold", "0"], locale);
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(expected), "{error}");
+    }
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);
