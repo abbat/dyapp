@@ -18,7 +18,7 @@ def box(element: ET.Element) -> tuple[int, int, int, int]:
     return tuple(int(element.attrib[key]) * SCALE for key in keys)
 
 
-def render() -> Image.Image:
+def render(size: int = 256) -> Image.Image:
     root = ET.parse(SVG).getroot()
     canvas = Image.new("RGBA", (256 * SCALE, 256 * SCALE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
@@ -61,7 +61,7 @@ def render() -> Image.Image:
             )
         else:
             raise ValueError(f"unsupported SVG element: {kind}")
-    return canvas.resize((256, 256), Image.Resampling.LANCZOS)
+    return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def main() -> None:
@@ -78,6 +78,14 @@ def main() -> None:
             (64, 64), (128, 128), (256, 256),
         ],
     )
+    ios_icon = render(1024)
+    opaque = Image.new("RGBA", ios_icon.size, "#392348")
+    opaque.alpha_composite(ios_icon)
+    ios_icons = ROOT / "clients/ios/DYApp/Assets.xcassets/AppIcon.appiconset"
+    opaque.convert("RGB").save(ios_icons / "icon-1024.png")
+    mac_icons = ROOT / "clients/macos/Assets.xcassets/AppIcon.appiconset"
+    for size in (16, 32, 64, 128, 256, 512, 1024):
+        render(size).save(mac_icons / f"icon-{size}.png")
 
 
 if __name__ == "__main__":
