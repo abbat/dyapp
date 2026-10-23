@@ -55,8 +55,11 @@ inventory accepted by the generator below.
 tag with GitHub CLI authentication. It fetches release metadata and exact
 client packages, verifies downloaded bytes against GitHub's digest and requires
 a build attestation pinned to the repository, release workflow, tag and commit.
-Only its output can become the trusted inventory below. Release-CI wiring is
-planned; running this locally requires a published tag and matching checkout.
+Only its output can become the trusted inventory below. The tagged release
+workflow runs `stage-update-feed.py` after publishing assets and uploads the
+validated JSON as the `stable-update-feed` workflow artifact; Pages deployment
+is still planned. Running the verifier locally requires a published tag and
+matching checkout.
 
 `python3 tools/scripts/build-update-feed.py INVENTORY.json [PREVIOUS.json]`
 prints a deterministic schema 1 stable feed. The inventory is trusted release-CI

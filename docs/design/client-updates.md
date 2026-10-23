@@ -58,7 +58,11 @@ fetches the published response itself, resolves the tag against the checked-out
 commit, downloads exact candidates, checks actual size and SHA-256, and requires
 `gh attestation verify` to pin repository, release workflow, tag ref and commit.
 Only then does it emit a trusted inventory for the feed generator. The tag
-workflow has not yet wired this script or published a feed.
+workflow now stages `stable-update-feed` only after release publication and
+verification; Pages deployment is separate and not live yet. It reads the prior
+feed from the fixed HTTPS URL without redirects, with a 64 KiB limit. A 404 is
+accepted only for the initial `v0.0.1` tag; later missing or malformed prior
+feeds fail the release workflow. Server-only tags keep prior client targets.
 
 ### Offline feed generator checkpoint
 

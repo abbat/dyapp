@@ -124,6 +124,11 @@ gh attestation verify dyapp-X.Y.Z-x86_64-windows.zip --repo abbat/dyapp
 gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
 ```
 
+The tagged release workflow also verifies published client packages and stages
+a `stable-update-feed` workflow artifact. It is not yet deployed to Pages, so
+clients must not treat the proposed feed URL as live. Staging accepts a missing
+prior feed only for the initial `v0.0.1` tag; later failures stop the workflow.
+
 Operators answering an abuse report or a lawful-access request: [Abuse reports and legal
 requests](abuse-and-legal-requests.md).
 
