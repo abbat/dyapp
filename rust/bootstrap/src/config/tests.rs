@@ -98,6 +98,26 @@ proptest! {
     }
 }
 
+#[test]
+fn search_rejects_invalid_puzzle_bounds() {
+    let mut search = Search {
+        puzzle_wait_ms: 0,
+        ..Search::default()
+    };
+    assert!(search
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("search.puzzle_wait_ms must be at least 1"));
+    search.puzzle_wait_ms = 1;
+    search.max_puzzle_bits = 33;
+    assert!(search
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("max_puzzle_bits 12..=32"));
+}
+
 pub(super) fn temp_dir() -> PathBuf {
     PathBuf::from(format!("/tmp/ai/test-config-{}", uuid::Uuid::new_v4()))
 }

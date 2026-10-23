@@ -572,6 +572,55 @@ fn invalid_config_types_never_echo_supplied_values() {
 }
 
 #[test]
+fn invalid_config_type_guidance_covers_other_types() {
+    let dir = directory();
+    let config = dir.join("bad-type.toml");
+    for (source, field, english, russian) in [
+        (
+            "[search]\nnewcomer_share = \"CANARY_SECRET_VALUE\"\n",
+            "search.newcomer_share",
+            "float",
+            "дробное число",
+        ),
+        (
+            "[network]\nguard_dials = \"CANARY_SECRET_VALUE\"\n",
+            "network.guard_dials",
+            "boolean",
+            "логическое значение",
+        ),
+        (
+            "[turn]\nurls = \"CANARY_SECRET_VALUE\"\n",
+            "turn.urls",
+            "array",
+            "список",
+        ),
+        (
+            "limits = \"CANARY_SECRET_VALUE\"\n",
+            "limits",
+            "table",
+            "раздел",
+        ),
+    ] {
+        std::fs::write(&config, source).unwrap();
+        for (locale, label, kind) in [
+            ("C", "invalid type for", english),
+            ("ru_RU.UTF-8", "неверный тип для", russian),
+        ] {
+            let output = command_locale(
+                &dir,
+                &["status", "--config", config.to_str().unwrap()],
+                locale,
+            );
+            assert!(!output.status.success(), "{output:?}");
+            let error = String::from_utf8(output.stderr).unwrap();
+            assert!(error.contains(&format!("{label} {field}")), "{error}");
+            assert!(error.contains(kind), "{error}");
+            assert!(!error.contains("CANARY_SECRET_VALUE"), "{error}");
+        }
+    }
+}
+
+#[test]
 fn missing_turn_secret_file_explains_failure_in_each_locale() {
     let dir = directory();
     let config = dir.join("turn.toml");
