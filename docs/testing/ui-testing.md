@@ -44,6 +44,10 @@ suite reruns up to twice and the tests listed by a failed run before a passing o
 instances: system create/restart, file create/restart, Russian, pseudo-locale and an injected
 hidden-ready rejection. The restart in each mode must report the same 64-character Peer ID. Successful runs
 print `UI_SMOKE_PASS:<peer-id>` and exit 0; `--break-ui` prints `UI_SMOKE_FAIL` and exits 1.
+The Debian client package smoke installs and unlocks GNOME Keyring inside its
+D-Bus/Xvfb session before testing system storage. Without a running Secret
+Service the application correctly disables that choice, making the system-mode
+smoke fail rather than silently falling back to file storage.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
 letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to

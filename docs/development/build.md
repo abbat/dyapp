@@ -32,12 +32,15 @@ its own path and builds there.
 
 `make build` runs `tools/scripts/build-rust.sh` in the shared development image.
 `make deb` runs `tools/scripts/build-deb.sh` in the Debian 12 packaging image,
-then runs package-install tests from `tests/scripts/`. On a version tag, the
-release workflow requires the Linux client version to match the tag, collects
-`dyapp_X.Y.Z_amd64.deb`, includes it in `SHA256SUMS`, attests its provenance and
-publishes it with the server package. A Windows 2022 job builds and smoke-tests
-the portable ZIP; tagged releases merge it into the checksums, provenance
-attestation and GitHub Release. Manual workflow runs only build artifacts.
+then runs package-install tests from `tests/scripts/`. The clean Debian
+client package test starts a real D-Bus Secret Service in its Xvfb session, so
+both system and file identity storage are exercised after installation. On a
+version tag, the release workflow checks that the Linux client version matches
+the tag. It collects `dyapp_X.Y.Z_amd64.deb`, includes it in `SHA256SUMS`,
+attests its provenance and publishes it with the server package. A Windows
+2022 job builds and smoke-tests the portable ZIP. Tagged releases include it
+in the checksums, provenance attestation and GitHub Release. Manual
+workflow runs only build artifacts.
 `tools/docker/Dockerfile.linux-base` holds the shared Linux client build
 requirements. `tests/docker/Dockerfile.linux-test` adds Xvfb and test binaries;
 the packaging image uses the shared base without test-only packages.

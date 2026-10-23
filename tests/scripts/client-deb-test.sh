@@ -2,9 +2,17 @@
 # Installs the desktop client .deb on a clean Debian 12, letting apt pull its Depends, then runs
 # the desktop smoke (launch, render, close) on the installed binary and on the tarball's.
 set -euo pipefail
+trap 'printf "client-deb-test failed at line %s\n" "$LINENO" >&2' ERR
+if [[ ${1:-} == --session ]]; then
+    printf 'dyapp-ci-test-keyring' | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+    for app in /usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp; do
+        python3 /tests/scripts/desktop-smoke.py "$app"
+    done
+    exit
+fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends /deb/dyapp_*.deb xvfb xauth dbus-x11 python3 \
+apt-get install -y -qq --no-install-recommends /deb/dyapp_*.deb xvfb xauth dbus-x11 gnome-keyring python3 \
     >/dev/null
 test -f /usr/share/applications/dyapp.desktop
 test -f /usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml
@@ -26,9 +34,8 @@ cd /tmp
 tar -xzf /deb/dyapp-*-linux-gnu.tar.gz
 test "$(ls dyapp-*-linux-gnu)" = "$(printf 'LICENSE\ndyapp\ndyapp.desktop\ndyapp.png')"
 useradd -m tester
-for app in /usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp; do
-    runuser -u tester -- env HOME=/home/tester RUNNER_TEMP=/tmp/reports \
-        xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
-        python3 /tests/scripts/desktop-smoke.py "$app"
-done
+runuser -u tester -- env HOME=/home/tester RUNNER_TEMP=/tmp/reports \
+    DYAPP_XVFB_DIAGNOSTICS=1 \
+    xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
+    bash /tests/scripts/client-deb-test.sh --session
 echo "dyapp client .deb and tarball install on Debian 12, launch and close"
