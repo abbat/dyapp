@@ -129,7 +129,8 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
   tests cover localized option, seed, TURN, removed-key, startup validation and node-key guidance
   with stable English diagnostics and without replacing existing node data or a malformed network marker.
   Real-binary EN/RU checks cover missing config files and TOML syntax errors; the latter must
-  retain file and position without echoing a secret on the invalid line.
+  retain file and position without echoing a secret on the invalid line. Type and TURN-secret-file
+  errors are also checked in both locales; a type canary must stay out of stderr.
 
 `make test` runs these checks. Review fixture diffs as changes to an external contract;
 never auto-update a baseline just to make a failed check pass. For an intentional format

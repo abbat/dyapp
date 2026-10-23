@@ -137,6 +137,52 @@ fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error) -> anyhow
     )
 }
 
+/// Find a known field's type mismatch without formatting its potentially secret value.
+fn first_type_mismatch(
+    defaults: &toml::Value,
+    values: &toml::Table,
+) -> Option<(String, &'static str)> {
+    fn find(
+        defaults: &toml::Table,
+        values: &toml::Table,
+        prefix: &str,
+    ) -> Option<(String, &'static str)> {
+        for (key, expected) in defaults {
+            let Some(actual) = values.get(key) else {
+                continue;
+            };
+            let name = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            if !expected.same_type(actual) {
+                return Some((name, expected.type_str()));
+            }
+            if let (Some(expected), Some(actual)) = (expected.as_table(), actual.as_table()) {
+                if let Some(mismatch) = find(expected, actual, &name) {
+                    return Some(mismatch);
+                }
+            }
+        }
+        None
+    }
+    find(defaults.as_table()?, values, "")
+}
+
+fn expected_type(english: &'static str) -> &'static str {
+    match english {
+        "string" => message("string", "строка"),
+        "integer" => message("integer", "целое число"),
+        "float" => message("float", "дробное число"),
+        "boolean" => message("boolean", "логическое значение"),
+        "array" => message("array", "список"),
+        "table" => message("table", "раздел"),
+        "datetime" => message("datetime", "дата и время"),
+        _ => english,
+    }
+}
+
 /// Sets `path` in `table`, creating the sections on the way; `name` labels errors.
 fn set(
     table: &mut toml::Table,
@@ -745,8 +791,17 @@ impl NodeConfig {
             ));
         }
         let text = Zeroizing::new(fs::read_to_string(path).map_err(|e| {
+            let guidance = if russian_locale() {
+                match e.kind() {
+                    std::io::ErrorKind::NotFound => ": файл не найден; проверьте путь",
+                    std::io::ErrorKind::PermissionDenied => ": нет доступа; проверьте права",
+                    _ => ": не удалось прочитать файл секрета",
+                }
+            } else {
+                ""
+            };
             anyhow::anyhow!(
-                "{} {}: {e}",
+                "{} {}{guidance}: {e}",
                 message("turn.secret_file", "файл секрета TURN"),
                 path.display()
             )
@@ -839,9 +894,24 @@ impl NodeConfig {
         for (path, items) in lists {
             set(&mut table, &path, toml::Value::Array(items), "option")?;
         }
+        let mismatch = first_type_mismatch(&defaults, &table);
         let mut ignored = Vec::new();
         let config = serde_ignored::deserialize(table, |path| ignored.push(path.to_string()))
-            .map_err(|e| anyhow::anyhow!("config: {e}"))?;
+            .map_err(|_| match mismatch {
+                Some((path, kind)) => anyhow::anyhow!(
+                    "config: {} {path}, {} {}",
+                    message("invalid type for", "неверный тип для"),
+                    message("expected", "ожидается"),
+                    expected_type(kind)
+                ),
+                None => anyhow::anyhow!(
+                    "config: {}",
+                    message(
+                        "invalid configuration value",
+                        "неверное значение конфигурации"
+                    )
+                ),
+            })?;
         // Ignoring a removed store path would start that store empty in storage.dir.
         if let Some(key) = ignored.iter().find(|key| {
             ["storage.profiles", "storage.messages", "storage.media"].contains(&key.as_str())

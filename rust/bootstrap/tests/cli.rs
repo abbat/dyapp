@@ -522,6 +522,86 @@ fn missing_config_file_explains_failure_in_each_locale() {
 }
 
 #[test]
+fn invalid_config_types_never_echo_supplied_values() {
+    let dir = directory();
+    let config = dir.join("bad-type.toml");
+    std::fs::write(
+        &config,
+        "[limits]\nrequests_per_second = \"CANARY_SECRET_VALUE\"\n",
+    )
+    .unwrap();
+    for (locale, expected) in [
+        (
+            "C",
+            "invalid type for limits.requests_per_second, expected integer",
+        ),
+        (
+            "ru_RU.UTF-8",
+            "неверный тип для limits.requests_per_second, ожидается целое число",
+        ),
+    ] {
+        let output = command_locale(
+            &dir,
+            &["status", "--config", config.to_str().unwrap()],
+            locale,
+        );
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(expected), "{error}");
+        assert!(!error.contains("CANARY_SECRET_VALUE"), "{error}");
+    }
+    std::fs::write(&config, "[turn]\nsecret = [\"CANARY_SECRET_VALUE\"]\n").unwrap();
+    for (locale, expected) in [
+        ("C", "invalid type for turn.secret, expected string"),
+        (
+            "ru_RU.UTF-8",
+            "неверный тип для turn.secret, ожидается строка",
+        ),
+    ] {
+        let output = command_locale(
+            &dir,
+            &["status", "--config", config.to_str().unwrap()],
+            locale,
+        );
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(expected), "{error}");
+        assert!(!error.contains("CANARY_SECRET_VALUE"), "{error}");
+    }
+}
+
+#[test]
+fn missing_turn_secret_file_explains_failure_in_each_locale() {
+    let dir = directory();
+    let config = dir.join("turn.toml");
+    let secret = dir.join("missing-secret");
+    std::fs::write(
+        &config,
+        format!("[turn]\nsecret_file = {:?}\n", secret.to_str().unwrap()),
+    )
+    .unwrap();
+    for (locale, label, guidance) in [
+        ("C", "turn.secret_file", "No such file or directory"),
+        (
+            "ru_RU.UTF-8",
+            "файл секрета TURN",
+            "файл не найден; проверьте путь",
+        ),
+    ] {
+        let output = command_locale(
+            &dir,
+            &["status", "--config", config.to_str().unwrap()],
+            locale,
+        );
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(secret.to_str().unwrap()), "{error}");
+        assert!(error.contains(label), "{error}");
+        assert!(error.contains(guidance), "{error}");
+    }
+}
+
+#[test]
 fn help_and_incomplete_options_do_not_create_stores() {
     let dir = directory();
     let help = success(&dir, &["--help"]);

@@ -302,8 +302,10 @@ command and option names and default values stay unchanged, while option descrip
 translated. A parity test requires a Russian description for every new option. Project-authored
 option, seed, and TURN errors are translated. Config file read failures and TOML syntax errors
 now have Russian guidance while preserving paths, positions and original technical causes.
-Syntax errors never echo source lines that may contain secrets; type-error guidance remains planned
-in the [diagnostic design](../design/localized-config-diagnostics.md). An unknown option stops the node; an
+Syntax and type errors never echo source values that may contain secrets. Known type mismatches
+name the config key and expected TOML type; other deserialization failures use a generic safe
+message. Missing TURN secret files also get Russian guidance. See the
+[diagnostic design](../design/localized-config-diagnostics.md). An unknown option stops the node; an
 unknown key in the file or the environment is logged and ignored, so a config written for a
 newer node does not stop an older one. Changes take effect on restart
 (`sudo systemctl restart dyappd`); only the deny list is reloaded while running. Keep

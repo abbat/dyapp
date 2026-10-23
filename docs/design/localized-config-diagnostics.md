@@ -1,6 +1,6 @@
 # Configuration diagnostics for Russian operators
 
-Status: design; safe syntax and file-read guidance is implemented; type guidance is pending.
+Status: implemented for syntax, known type mismatches and file-read guidance.
 
 ## Decision
 
@@ -13,15 +13,16 @@ Do not translate third-party error strings by matching their English text. For a
 file-read failure, show the path, a Russian action for known kinds (missing file or
 permission denied) or a generic read failure, and the original OS cause. For TOML
 syntax failures, show the path, line and column when the parser provides them, and
-a safe parser cause without echoing the source line. For type failures, show the
-TOML key path and expected type when available, but omit the rejected value.
-If a safe cause or field path cannot be extracted, use a generic Russian category
-and retain the known location rather than print an untrusted value.
+a safe parser cause without echoing the source line. For type failures, compare
+the merged table with serialized defaults and show known key paths and expected
+TOML types without printing rejected values.
+Other deserialization failures use a generic safe category because the library
+error text can contain the rejected value.
 
 Example shapes (wording may change in implementation):
 
 - `config /path/node.toml: ошибка синтаксиса TOML, строка 1, столбец 9: unclosed table`
-- `config: неверный тип network.id_pow_bits, ожидается u32`
+- `config: неверный тип для limits.requests_per_second, ожидается целое число`
 - `config /path/node.toml: файл не найден: No such file or directory (os error 2)`
 
 The actual locale selection remains `LC_ALL`, then `LC_MESSAGES`, then `LANG`.
@@ -55,8 +56,8 @@ text can contain the rejected value.
 ## Verification and follow-up
 
 Raw TOML source excerpts are removed for both locales and covered by a real-binary
-canary test. Russian syntax and file-read guidance is implemented. Next handle
-wrong types and secret-file errors in both locales. Assert that the
-path and available line/column or key path survive, the canary never reaches
-stderr, and the English diagnostics remain stable except for required secret
-redaction. Review again if a dependency update changes parser error structure.
+canary test. Russian syntax, known type mismatches, and file-read guidance are
+implemented. Real-binary tests cover wrong types and missing secret files in
+both locales. Unknown schema/range errors still use a generic category because
+the library offers no safe structured cause or public key-path accessor.
+Review again if a dependency update changes parser error structure.
