@@ -47,5 +47,5 @@ check alone is insufficient evidence that writes work for every user account.
 - A second app launch must show the same peer ID on both platforms.
 - A transient backend failure must never create a new peer ID.
 
-The exact crates and storage format need a human-confirmed ADR before new direct dependencies
-are added. Until the real backend and restart tests pass, its option remains unavailable.
+[ADR 0022](../decisions/0022-desktop-system-credential-storage.md) records the approved system-store
+choice. Until the real backend and restart tests pass, its option remains unavailable.
