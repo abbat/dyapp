@@ -60,6 +60,10 @@ fn decoded_pixels_must_match_frame() {
     assert!(rgba_pixels(&[1, 2], &PixelFormat::RGB24, 1).is_err());
     assert!(rgba_pixels(&[7, 8], &PixelFormat::L8, 1).is_err());
     assert_eq!(
+        rgba_pixels(&[7], &PixelFormat::L8, 1).unwrap(),
+        vec![7, 7, 7, 255]
+    );
+    assert_eq!(
         rgba_pixels(&[1, 2, 3], &PixelFormat::RGB24, 1).unwrap(),
         vec![1, 2, 3, 255]
     );
