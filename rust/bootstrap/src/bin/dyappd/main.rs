@@ -12,6 +12,7 @@
 //! `dyappd deny received`: the lists other nodes shared, stored only.
 //!
 //! `dyappd id`: the peer ID, then `<external address>/<peer ID>` seed entries for other nodes.
+//! `dyappd probe-key`: read-only key/peer-ID check for a stopped backup copy; no listeners.
 //!
 //! `dyappd status`: whether the node answers, what the stores hold (read-only) and the traffic
 //! totals from the metrics listener; exits 3 when the node does not answer. These subcommands
@@ -39,11 +40,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod client;
 
-const USAGE: &str = "usage: dyappd [keygen [-] | id | status | deny add <entry> [note] | \
+const USAGE: &str =
+    "usage: dyappd [keygen [-] | id | probe-key | status | deny add <entry> [note] | \
                      deny remove <entry> | deny list | deny received] [--config <file>] \
                      [--<option> <value>]...";
 const USAGE_RU: &str =
-    "использование: dyappd [keygen [-] | id | status | deny add <запись> [примечание] | \
+    "использование: dyappd [keygen [-] | id | probe-key | status | deny add <запись> [примечание] | \
                      deny remove <запись> | deny list | deny received] [--config <файл>] \
                      [--<параметр> <значение>]...";
 
@@ -157,6 +159,7 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
         ["id"] => print!("{}", id(&config)?),
+        ["probe-key"] => println!("{}", config.node_key()?.public().to_peer_id()),
         ["status"] => {
             let running = running(&config).await;
             print!("{}", status(&config, running));

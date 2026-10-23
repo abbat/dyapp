@@ -274,7 +274,11 @@ What keygen and startup check:
   stderr.
 - Keygen refuses when a key or any data already exists.
 - The node does not start without the key, with a key that lacks the proof of work or with one
-  that does not match `node.id`.
+  that does not match `node.id`. `dyappd probe-key --storage.dir=<stopped-copy>` performs the
+  same key/ID check without opening a store or listener and prints the verified peer ID. Use
+  `--storage.key=<temporary-key-file>` when restoring an external or decrypted backup key;
+  run as the copy's owner with the original `network.id_pow_bits` setting. This command checks
+  identity only; the backup verifier and SQLite checks are still planned.
 - A key file must be readable only by its owner: startup refuses group or other permission bits
   with a `chmod 600` hint and never changes the mode itself; 0400 also loads. A systemd
   credential is not checked: systemd makes it readable to the service user only.

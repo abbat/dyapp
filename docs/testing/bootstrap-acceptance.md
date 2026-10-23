@@ -175,6 +175,7 @@ assertion changes.
 | The packaged node is not dumpable and its unit sets `LimitCORE=0` | Package | `deb-test.sh` | exists, local only |
 | The packaged node starts from a key piped by `keygen -` into its credential directory; the unit loads `node.key` encrypted | Package | `deb-test.sh` | exists, local only |
 | The node key comes from `storage.key`, a credential or `storage.dir`; a credential's mode is not checked, a key file's is | Unit | `config.rs` | exists |
+| `dyappd probe-key` validates a stopped copy's key against its peer ID without changing files or opening a listener | CLI integration | `tests/cli.rs::probe_key_checks_a_stopped_copy_without_changing_files` | exists |
 
 ### Storage and configuration
 

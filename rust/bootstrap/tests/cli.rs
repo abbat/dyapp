@@ -104,6 +104,55 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
 }
 
 #[test]
+fn probe_key_checks_a_stopped_copy_without_changing_files() {
+    let original = directory();
+    let restored = directory();
+    let peer_id = success(&original, &["keygen", "--network.id-pow-bits", "0"]);
+    for name in ["node.id", "network", "node.key"] {
+        std::fs::copy(original.join(name), restored.join(name)).unwrap();
+    }
+    let snapshot = |dir: &Path| -> std::collections::BTreeMap<_, _> {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                (entry.file_name(), std::fs::read(entry.path()).unwrap())
+            })
+            .collect()
+    };
+    let before = snapshot(&restored);
+    assert_eq!(
+        success(&restored, &["probe-key", "--network.id-pow-bits", "0"]),
+        peer_id
+    );
+    assert_eq!(snapshot(&restored), before);
+
+    let other = directory();
+    success(&other, &["keygen", "--network.id-pow-bits", "0"]);
+    std::fs::copy(other.join("node.key"), restored.join("node.key")).unwrap();
+    let before_wrong_key = snapshot(&restored);
+    let result = command(&restored, &["probe-key", "--network.id-pow-bits", "0"]);
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("does not match the data"));
+    assert_eq!(snapshot(&restored), before_wrong_key);
+
+    let missing = restored.join("missing.key");
+    let result = command(
+        &restored,
+        &[
+            "probe-key",
+            "--storage.key",
+            missing.to_str().unwrap(),
+            "--network.id-pow-bits",
+            "0",
+        ],
+    );
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("is missing"));
+    assert_eq!(snapshot(&restored), before_wrong_key);
+}
+
+#[test]
 fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     let dir = directory();
     let entry = "192.0.2.0/24";
