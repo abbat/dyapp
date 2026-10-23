@@ -636,6 +636,14 @@ restart them one at a time as in a [rolling upgrade](#updates).
 
 ### Updates
 
+[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) approves an
+operator opt-in unattended updater for v0.0.1, but no updater or trusted
+automatic package channel exists yet. Until its release, backup, rollout and
+recovery gates pass, upgrade manually with the procedure below. Do not enable
+an unattended package upgrade on this node as a substitute: it cannot account
+for the trust window or store migration. A node operator will have to opt in
+explicitly when the tested updater becomes available.
+
 Install the new package (`sudo apt install ./dyappd_<new>.deb`) or start the new image, one node
 at a time:
 

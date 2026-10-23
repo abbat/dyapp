@@ -59,5 +59,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0020](0020-dyappd-release-channels.md) | dyappd release channels: GitHub Releases and GHCR with build provenance |
 | [0021](0021-ai-review-human-merge.md) | AI review with a human merge |
 | [0022](0022-desktop-system-credential-storage.md) | Optional desktop system credential storage |
+| [0023](0023-bootstrap-node-update-policy.md) | Opt-in unattended bootstrap updates for v0.0.1 |
 
 All listed ADRs are accepted.
