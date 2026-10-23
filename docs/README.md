@@ -26,6 +26,7 @@ it are entry points that tools discover by path (see
 ### Product and operator design
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
+- [Client update discovery](design/client-updates.md): trusted release source and version rules; scheduling and UI pending
 
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
