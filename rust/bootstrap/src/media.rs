@@ -168,7 +168,9 @@ fn media_cache(db: &Connection) -> rusqlite::Result<()> {
 
 /// Writes `data` aside and renames it to `path`, so a reader never sees a partial file.
 fn write_aside(path: &Path, data: &[u8]) -> Result<()> {
-    let dir = path.parent().ok_or_else(|| storage_error("media path has no parent"))?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| storage_error("media path has no parent"))?;
     fs::create_dir_all(dir).map_err(storage_error)?;
     let temp = dir.join(format!(".{}", uuid::Uuid::new_v4()));
     let mut file = fs::File::create(&temp).map_err(storage_error)?;
