@@ -9,6 +9,11 @@ repos:
         always_run: true
         require_serial: true
         stages: [pre-commit]
+      - id: commit-message
+        name: Commit message policy
+        entry: python3 -B tests/scripts/check-repository.py --message-file
+        language: system
+        stages: [commit-msg]
       - id: docker-test
         name: Docker full local inventory
         entry: bash tests/scripts/docker-test.sh all

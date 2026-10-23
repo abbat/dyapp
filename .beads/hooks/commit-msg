@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+_repo_root=$(git rev-parse --show-toplevel) || exit 1
+if ! python3 -B "$_repo_root/tests/scripts/check-repository.py" --message-file "$1"; then
+  echo >&2 "Commit message policy: https://github.com/abbat/dyapp/blob/main/docs/development/code-quality.md#git-hooks"
+  exit 1
+fi

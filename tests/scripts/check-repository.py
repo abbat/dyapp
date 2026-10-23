@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 import posixpath
 import re
 import subprocess
+import sys
 import tomllib
 import unicodedata
 from xml.etree import ElementTree
@@ -225,6 +226,15 @@ def commit_errors(allowed):
         errors += [f"{sha[:12]}: {error}"
                    for error in message_errors(message, allowed, bot)]
     return errors
+
+
+def message_file_errors(path):
+    """Apply the history check to a proposed commit before Git records it."""
+    names = subprocess.check_output(
+        ["git", "ls-files", "--", "*Cargo.toml"], text=True).splitlines()
+    allowed = NOT_TRACKER | {
+        crate for name in names for crate in CRATE.findall(Path(name).read_text())}
+    return message_errors(Path(path).read_text(), allowed)
 
 
 def size_errors(texts, size):
@@ -514,7 +524,13 @@ def main():
 
 
 if __name__ == "__main__":
-    from check_wrapper import wrap
+    if len(sys.argv) == 3 and sys.argv[1] == "--message-file":
+        problems = message_file_errors(sys.argv[2])
+        if problems:
+            print("Commit message:\n" + "\n".join(problems), file=sys.stderr)
+            sys.exit(1)
+    else:
+        from check_wrapper import wrap
 
-    wrap("repository")
-    main()
+        wrap("repository")
+        main()

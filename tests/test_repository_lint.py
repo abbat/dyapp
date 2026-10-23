@@ -1,6 +1,9 @@
 """Tracker-ID and commit-message checks of check-repository.py."""
 import importlib.util
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +47,18 @@ class Lint(unittest.TestCase):
         self.assertEqual(CHECK.message_errors("Bump x", ALLOWED, True), [])
         self.assertIn("no blank line",
                       self.errors("Add a check\nbody" + TRAILER))
+
+    def test_commit_message_cli(self):
+        Path("/tmp/ai").mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
+            path = Path(directory) / "message"
+            for subject, expected in (("test(bootstrap): verify media", 1),
+                                      ("Test(bootstrap): Verify media", 0)):
+                path.write_text(subject + TRAILER)
+                result = subprocess.run(
+                    [sys.executable, "-B", str(ROOT / "tests/scripts/check-repository.py"),
+                     "--message-file", str(path)], cwd=ROOT, capture_output=True, text=True)
+                self.assertEqual(result.returncode, expected, result.stderr)
 
     def test_orphans(self):
         documents = {"docs/README.md": "[a](a/README.md)\n[x](https://x)\n",

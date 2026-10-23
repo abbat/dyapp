@@ -192,20 +192,21 @@ list fires `checks` itself.
 
 ### Git hooks
 
-`.pre-commit-config.yaml` defines two local hooks:
+`.pre-commit-config.yaml` defines three local hooks:
 
 - `pre-commit` stage: `bash tests/scripts/check-quality.sh` (= `make quality`)
+- `commit-msg` stage: `python3 -B tests/scripts/check-repository.py --message-file` checks the proposed message against the repository's history rules before a commit exists
 - `pre-push` stage: `bash tests/scripts/docker-test.sh all`
 
 There are no separate rustfmt, YAML, trailing-whitespace or cargo-deny hooks.
 
-Install them with `pre-commit install --hook-type pre-commit --hook-type pre-push`. It refuses to
-install while `core.hooksPath` is set (check with `git config core.hooksPath`). In the maintainer
-checkout, `core.hooksPath` points to `.beads/hooks`: its `pre-push` hook runs the fast batch
-checker on the commit being pushed to `main` and prints this page's [small-batches](#small-batches)
-link if it fails. This local gate catches a missed `make quality` before publication; `--no-verify`
-can bypass Git hooks, so server-side enforcement remains planned. Run `make quality` yourself
-before committing when the `pre-commit` package cannot install its hooks.
+Install them with `pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push`.
+It refuses to install while `core.hooksPath` is set (check with `git config core.hooksPath`). In the
+maintainer checkout, `core.hooksPath` points to `.beads/hooks`: its `commit-msg` hook checks the
+proposed message and its `pre-push` hook runs the fast batch checker on a direct push to `main`.
+Both print a link to this page on failure. Git hooks can be bypassed with `--no-verify`; server-side
+enforcement remains planned. Run `make quality` yourself before committing when the `pre-commit`
+package cannot install its hooks.
 
 ## Rust lints
 
