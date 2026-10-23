@@ -1,16 +1,19 @@
 use crate::{ice::ICECandidate, Result, VideoError};
 use rtc::ice::mdns::MulticastDnsMode;
 use rtc::rtp_transceiver::rtp_sender::RtpCodecKind;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use webrtc::peer_connection::{
     MediaEngine, PeerConnection, PeerConnectionBuilder, PeerConnectionEventHandler,
-    RTCIceCandidateInit, RTCSessionDescription, SettingEngineBuilder,
+    RTCIceCandidateInit, RTCPeerConnectionIceEvent, RTCPeerConnectionState, RTCSessionDescription,
+    SettingEngineBuilder,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Session bookkeeping; connection events do not update this state.
+/// Signaling steps, then the connection outcome reported by WebRTC.
 pub enum SessionState {
     /// The session has no offer.
     Idle,
@@ -24,20 +27,63 @@ pub enum SessionState {
     OfferReceived,
     /// A local answer to the remote offer has been created.
     AnswerCreated,
-    /// The caller marked the session connected.
+    /// ICE and DTLS connected the peers.
     Connected,
-    /// Reserved failure state; currently never assigned.
+    /// ICE or DTLS failed; the session needs a new offer in a new session.
     Failed,
     /// The peer connection was closed successfully.
     Closed,
 }
 
-// webrtc requires an event handler; no connection events are consumed yet.
-struct NoEvents;
+type Event<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
-impl PeerConnectionEventHandler for NoEvents {}
+/// Records local candidates and the connection outcome into the session.
+struct Events {
+    state: Arc<RwLock<SessionState>>,
+    local_candidates: Arc<RwLock<Vec<ICECandidate>>>,
+}
 
-async fn new_peer_connection() -> webrtc::error::Result<impl PeerConnection> {
+// The trait is `#[async_trait]`; these are its expanded signatures, without the macro crate.
+impl PeerConnectionEventHandler for Events {
+    fn on_ice_candidate<'a, 'b>(&'a self, event: RTCPeerConnectionIceEvent) -> Event<'b>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        Box::pin(async move {
+            // A candidate that cannot be serialised cannot be signalled either.
+            if let Ok(init) = event.candidate.to_json() {
+                self.local_candidates.write().await.push(ICECandidate::new(
+                    init.candidate,
+                    init.sdp_mid,
+                    init.sdp_mline_index,
+                ));
+            }
+        })
+    }
+
+    fn on_connection_state_change<'a, 'b>(&'a self, state: RTCPeerConnectionState) -> Event<'b>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        Box::pin(async move {
+            let outcome = match state {
+                RTCPeerConnectionState::Connected => SessionState::Connected,
+                RTCPeerConnectionState::Failed => SessionState::Failed,
+                _ => return,
+            };
+            let mut current = self.state.write().await;
+            if *current != SessionState::Closed {
+                *current = outcome;
+            }
+        })
+    }
+}
+
+async fn new_peer_connection(
+    handler: Arc<dyn PeerConnectionEventHandler>,
+) -> webrtc::error::Result<impl PeerConnection> {
     let mut media_engine = MediaEngine::default();
     media_engine.register_default_codecs()?;
     // No mDNS: our peers send IP host candidates, and the multicast join fails
@@ -48,14 +94,14 @@ async fn new_peer_connection() -> webrtc::error::Result<impl PeerConnection> {
     PeerConnectionBuilder::new()
         .with_media_engine(media_engine)
         .with_setting_engine(setting_engine)
-        .with_handler(Arc::new(NoEvents))
+        .with_handler(handler)
         .with_udp_addrs(vec!["0.0.0.0:0"])
         .build()
         .await
 }
 
 /// WebRTC offer and answer for either side of a call, and remote candidate handling.
-/// Local candidate events and media transmission are not exposed.
+/// Media transmission is not exposed.
 pub struct VideoSession {
     id: String,
     state: Arc<RwLock<SessionState>>,
@@ -63,6 +109,7 @@ pub struct VideoSession {
     local_sdp: Arc<RwLock<Option<String>>>,
     remote_sdp: Arc<RwLock<Option<String>>>,
     ice_candidates: Arc<RwLock<Vec<ICECandidate>>>,
+    local_candidates: Arc<RwLock<Vec<ICECandidate>>>,
     created_at: i64,
 }
 
@@ -72,7 +119,13 @@ impl VideoSession {
     /// # Panics
     /// Panics if the system clock precedes the Unix epoch.
     pub async fn new() -> Result<Self> {
-        let peer_connection = new_peer_connection().await.map_err(|e| {
+        let state = Arc::new(RwLock::new(SessionState::Idle));
+        let local_candidates = Arc::new(RwLock::new(Vec::new()));
+        let events = Arc::new(Events {
+            state: state.clone(),
+            local_candidates: local_candidates.clone(),
+        });
+        let peer_connection = new_peer_connection(events).await.map_err(|e| {
             VideoError::InvalidState(format!("Failed to create peer connection: {}", e))
         })?;
         // Without a media section the offer carries no ICE credentials and a peer rejects it.
@@ -83,11 +136,12 @@ impl VideoSession {
 
         Ok(Self {
             id: Uuid::new_v4().to_string(),
-            state: Arc::new(RwLock::new(SessionState::Idle)),
+            state,
             peer_connection: Arc::new(peer_connection),
             local_sdp: Arc::new(RwLock::new(None)),
             remote_sdp: Arc::new(RwLock::new(None)),
             ice_candidates: Arc::new(RwLock::new(Vec::new())),
+            local_candidates,
             created_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -100,9 +154,17 @@ impl VideoSession {
         &self.id
     }
 
-    /// Returns the current bookkeeping state.
+    /// Returns the current state.
     pub async fn state(&self) -> SessionState {
         *self.state.read().await
+    }
+
+    /// Moves `from` to `to` unless a connection event already moved the state on.
+    async fn advance(&self, from: SessionState, to: SessionState) {
+        let mut state = self.state.write().await;
+        if *state == from {
+            *state = to;
+        }
     }
 
     /// Creates and applies a local SDP offer; requires the idle state.
@@ -132,7 +194,8 @@ impl VideoSession {
             .sdp;
 
         *self.local_sdp.write().await = Some(sdp.clone());
-        *self.state.write().await = SessionState::OfferCreated;
+        self.advance(SessionState::Idle, SessionState::OfferCreated)
+            .await;
 
         Ok(sdp)
     }
@@ -154,7 +217,8 @@ impl VideoSession {
             })?;
 
         *self.remote_sdp.write().await = Some(sdp);
-        *self.state.write().await = SessionState::AnswerReceived;
+        self.advance(SessionState::OfferSent, SessionState::AnswerReceived)
+            .await;
         self.apply_stored_candidates().await
     }
 
@@ -177,7 +241,8 @@ impl VideoSession {
             })?;
 
         *self.remote_sdp.write().await = Some(sdp);
-        *self.state.write().await = SessionState::OfferReceived;
+        self.advance(SessionState::Idle, SessionState::OfferReceived)
+            .await;
         self.apply_stored_candidates().await
     }
 
@@ -204,7 +269,8 @@ impl VideoSession {
             .sdp;
 
         *self.local_sdp.write().await = Some(sdp.clone());
-        *self.state.write().await = SessionState::AnswerCreated;
+        self.advance(SessionState::OfferReceived, SessionState::AnswerCreated)
+            .await;
         Ok(sdp)
     }
 
@@ -244,18 +310,18 @@ impl VideoSession {
         self.ice_candidates.read().await.clone()
     }
 
+    /// Clones the candidates gathered so far after the local description was set, for the
+    /// caller to signal to the peer.
+    pub async fn local_ice_candidates(&self) -> Vec<ICECandidate> {
+        self.local_candidates.read().await.clone()
+    }
+
     /// Marks an existing local offer as delivered; performs no signaling.
     pub async fn mark_offer_sent(&self) -> Result<()> {
         if *self.state.read().await != SessionState::OfferCreated {
             return Err(VideoError::InvalidState("Offer not created".to_string()));
         }
         *self.state.write().await = SessionState::OfferSent;
-        Ok(())
-    }
-
-    /// Unconditionally marks connected; does not verify connectivity.
-    pub async fn mark_connected(&self) -> Result<()> {
-        *self.state.write().await = SessionState::Connected;
         Ok(())
     }
 
@@ -309,9 +375,6 @@ mod tests {
         session.mark_offer_sent().await.ok();
         assert_eq!(session.state().await, SessionState::OfferSent);
 
-        session.mark_connected().await.ok();
-        assert_eq!(session.state().await, SessionState::Connected);
-
         session.close().await.ok();
         assert_eq!(session.state().await, SessionState::Closed);
     }
@@ -338,9 +401,15 @@ mod tests {
         assert!(result.is_err());
     }
 
+    struct Ignore;
+
+    impl PeerConnectionEventHandler for Ignore {}
+
     /// Answers `offer` from a second, independent peer connection.
     async fn remote_answer(offer: String) -> String {
-        let remote = new_peer_connection().await.expect("remote peer");
+        let remote = new_peer_connection(Arc::new(Ignore))
+            .await
+            .expect("remote peer");
         remote
             .set_remote_description(RTCSessionDescription::offer(offer).expect("offer"))
             .await
@@ -451,11 +520,62 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mark_connected() {
-        let session = VideoSession::new().await.expect("Failed to create session");
-        let result = session.mark_connected().await;
-        assert!(result.is_ok());
-        assert_eq!(session.state().await, SessionState::Connected);
+    async fn test_connection_events_set_the_outcome_but_not_after_close() {
+        let events = Events {
+            state: Arc::new(RwLock::new(SessionState::AnswerCreated)),
+            local_candidates: Arc::new(RwLock::new(Vec::new())),
+        };
+        events
+            .on_connection_state_change(RTCPeerConnectionState::Connecting)
+            .await;
+        assert_eq!(*events.state.read().await, SessionState::AnswerCreated);
+        events
+            .on_connection_state_change(RTCPeerConnectionState::Failed)
+            .await;
+        assert_eq!(*events.state.read().await, SessionState::Failed);
+        *events.state.write().await = SessionState::Closed;
+        events
+            .on_connection_state_change(RTCPeerConnectionState::Connected)
+            .await;
+        assert_eq!(*events.state.read().await, SessionState::Closed);
+    }
+
+    /// Polls `check` every 50 ms for up to 10 s.
+    async fn eventually<F: Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
+        for _ in 0..200 {
+            if check().await {
+                return true;
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        }
+        false
+    }
+
+    #[tokio::test]
+    async fn test_peers_connect_with_gathered_candidates() {
+        let caller = VideoSession::new().await.expect("caller");
+        let callee = VideoSession::new().await.expect("callee");
+        let offer = caller.create_offer().await.expect("offer");
+        caller.mark_offer_sent().await.expect("sent");
+        callee.set_remote_offer(offer).await.expect("offer applied");
+        let answer = callee.create_answer().await.expect("answer");
+        caller.receive_answer(answer).await.expect("answer applied");
+
+        for (from, to) in [(&caller, &callee), (&callee, &caller)] {
+            assert!(eventually(|| async { !from.local_ice_candidates().await.is_empty() }).await);
+            for candidate in from.local_ice_candidates().await {
+                assert!(candidate.candidate.starts_with("candidate:"));
+                to.add_ice_candidate(candidate).await.expect("candidate");
+            }
+        }
+        for session in [&caller, &callee] {
+            assert!(
+                eventually(|| async { session.state().await == SessionState::Connected }).await
+            );
+        }
+
+        caller.close().await.expect("closed");
+        assert_eq!(caller.state().await, SessionState::Closed);
     }
 
     #[tokio::test]

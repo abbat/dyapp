@@ -26,15 +26,15 @@ hardware and open-source flags are static classifications, not capability probes
 
 | Piece | Status |
 |-------|--------|
-| `VideoSession::new()` | Builds a `PeerConnection` with webrtc's default codecs, UDP sockets on every local interface (`0.0.0.0:0`), one send/receive video transceiver with no track, no ICE servers (no STUN/TURN) and mDNS off (remote `.local` candidates, as browsers send, are not resolved). The event handler ignores all events |
+| `VideoSession::new()` | Builds a `PeerConnection` with webrtc's default codecs, UDP sockets on every local interface (`0.0.0.0:0`), one send/receive video transceiver with no track, no ICE servers (no STUN/TURN) and mDNS off (remote `.local` candidates, as browsers send, are not resolved). Its event handler records local candidates and sets `Connected` / `Failed` from the connection state |
 | `create_offer()` | Calls `create_offer` + `set_local_description`, returns the SDP with one video media section |
 | `mark_offer_sent()` | Manual state change; the caller says the offer was delivered |
 | `receive_answer(sdp)` | Parses the SDP as an answer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
 | `set_remote_offer(sdp)` | Callee side: parses the SDP as an offer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
 | `create_answer()` | Calls `create_answer` + `set_local_description` on the applied offer, returns the answer SDP; the transceiver from `new()` takes the offer's video section |
 | `add_ice_candidate(c)` | Stores a remote candidate; once the remote offer or answer is set, also passes it to the peer connection (`ICEError` if rejected). Allowed in any state |
-| `get_ice_candidates()` | Returns the candidates added above (remote ones), not locally gathered ones; local `on_ice_candidate` events are ignored |
-| `mark_connected()` | Manual state change from **any** state; not driven by an ICE/DTLS connection event |
+| `get_ice_candidates()` | Returns the candidates added above (remote ones) |
+| `local_ice_candidates()` | Returns the candidates gathered after the local offer or answer was set (`on_ice_candidate`), for the app to send to the peer; host candidates only, as no STUN or TURN server is configured |
 | `close()` | Closes the peer connection, state → `Closed` |
 | Media tracks, capture, rendering | Not implemented |
 | Signaling channel | Not implemented; bootstrap has no SDP/ICE endpoint |
@@ -52,10 +52,11 @@ hardware and open-source flags are static classifications, not capability probes
 | `OfferSent` | `receive_answer(sdp)` | `AnswerReceived` | any other state → `InvalidState("Offer not sent yet")`; SDP that does not parse or is rejected by the peer connection → `InvalidState`, state unchanged |
 | `Idle` | `set_remote_offer(sdp)` | `OfferReceived` | any other state → `InvalidState("Offer already created or received")`; SDP that does not parse or is rejected → `InvalidState`, state unchanged |
 | `OfferReceived` | `create_answer()` | `AnswerCreated` | any other state → `InvalidState("Offer not received")`; WebRTC failure → `AnswerGenerationFailed` / `InvalidState` |
-| any | `mark_connected()` | `Connected` | never fails |
+| any but `Closed` | WebRTC connection state `connected` / `failed` | `Connected` / `Failed` | event, not a call |
 | any | `close()` | `Closed` | peer connection close error → `InvalidState` |
 
-`Failed` is never set by the code. `EncryptionError` exists in `VideoError` but
+A connection event can arrive before the call that caused it returns; the call then keeps
+`Connected` or `Failed` rather than its own step state. `EncryptionError` exists in `VideoError` but
 is never returned.
 
 ## Call setup
@@ -71,8 +72,8 @@ Caller app                    VideoSession                Callee
   |◀ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ answer SDP ─ ─ |
   | receive_answer(answer) ──▶ | set_remote_description    |
   |                            | state = AnswerReceived    |
-  | mark_connected() ────────▶ | state = Connected         |
-  |                            | (no ICE/DTLS check)       |
+  | local_ice_candidates() ──▶ | [send them to the callee] |
+  |                            | ICE + DTLS: state = Connected or Failed |
 ```
 
 `receive_answer` takes the callee's **answer** to the offer this session
@@ -96,10 +97,10 @@ Remote candidates reach the peer connection: `add_ice_candidate` applies them
 once the remote offer or answer is set, and `set_remote_offer` or
 `receive_answer` applies those that came earlier.
 
-Planned: each side handles `on_ice_candidate` and sends local candidates over
-signaling (or waits for gathering to finish and sends the full SDP). The
-WebRTC stack then runs connectivity checks, DTLS, and reports a connection
-state that should drive `Connected` / `Failed` instead of `mark_connected()`.
+Local candidates come from `on_ice_candidate`: `local_ice_candidates()` returns those gathered
+so far, and the app sends them to the peer, which passes each to `add_ice_candidate`. The
+WebRTC stack then runs connectivity checks and DTLS, and its connection state sets `Connected`
+or `Failed`. There is no end-of-gathering signal yet; the app polls.
 
 `ice.rs` only has helpers: `ICECandidate::priority()` returns 300/200/100/0 by
 searching the candidate string for `host`/`srflx`/`relay`, and
@@ -165,7 +166,7 @@ fingerprints [ADR 0006](../decisions/0006-transport-keys-separate-from-identity.
 `mark_offer_sent`, `receive_answer`, `close`, `get_session_id`. The underlying
 `RustVideoSession` is created lazily on the first `create_offer`, so
 `receive_answer` before it returns "Session not initialized". `add_ice_candidate`,
-`mark_connected` and state queries are not exported. Errors cross as
+`local_ice_candidates` and state queries are not exported. Errors cross as
 `String`. No platform app loads the library yet.
 
 ## Security and metadata
@@ -186,8 +187,9 @@ See [Privacy & Metadata Visibility](../security/privacy.md).
 ## Testing
 
 Unit tests (`rust/video/src/*.rs`):
-- Session creation, `create_offer` → `mark_offer_sent` state changes,
-  `mark_connected` from `Idle`, `close`
+- Session creation, `create_offer` → `mark_offer_sent` state changes, `close`
+- Two sessions in one process exchange offer, answer and gathered host candidates and
+  both reach `Connected`
 - `receive_answer` with a real answer from a second peer connection, with a
   candidate added before it; invalid SDP and an answer before an offer are
   rejected
@@ -197,16 +199,13 @@ Unit tests (`rust/video/src/*.rs`):
   replay window, counter uniqueness and epoch retirement
 
 Integration tests (`tests/integration_tests.rs`, one process, no network):
-`test_video_session_lifecycle` (one session, manual `mark_connected`),
+`test_video_session_lifecycle` (one session, offer to close),
 `test_ice_candidate_priority`, `test_codec_negotiation`.
 
-No test reaches a connected state or sends media.
+No test sends media.
 
 ## Planned work
 
-- Callee API (set remote offer, create answer)
-- Local candidate events
-- Connection state from WebRTC events instead of `mark_connected`
 - Media engine codecs, tracks, capture/render on each platform
 - STUN/TURN configuration and a signaling channel
 - SFrame on the media path, its base key exported per epoch from the chat's MLS group

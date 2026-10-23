@@ -59,7 +59,7 @@ or returns constants.
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
 | `UserProfile` | Record | `user_id: String`, `age: i32`, `verified: bool` | Copied by value. |
 
-Not exported: `start`/`stop` video, `add_ice_candidate`, `mark_connected`, sync, discovery,
+Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.
 
 ### Native symbols

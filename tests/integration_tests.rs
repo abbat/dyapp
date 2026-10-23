@@ -83,10 +83,6 @@ async fn test_video_session_lifecycle() {
     session.mark_offer_sent().await.unwrap();
     assert_eq!(session.state().await, SessionState::OfferSent);
 
-    // Connection established
-    session.mark_connected().await.unwrap();
-    assert_eq!(session.state().await, SessionState::Connected);
-
     // Close session
     session.close().await.unwrap();
     assert_eq!(session.state().await, SessionState::Closed);
