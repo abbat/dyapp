@@ -26,7 +26,13 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     const style = getComputedStyle(ready);
     const { strings } = window;
     const peerId = document.getElementById('peer-id').textContent;
-    const passed = document.title === strings['app.name']
+    const backup = document.getElementById('file-backup');
+    const keyPath = document.getElementById('key-path').textContent;
+    const backupMatches = mode === 'file'
+      ? !backup.hidden && /[\\/]identity\.key$/.test(keyPath)
+        && backup.querySelector('p').textContent === strings['storage.file.backup']
+      : backup.hidden && keyPath === '';
+    const passed = backupMatches && document.title === strings['app.name']
       && document.querySelector('h1').textContent === strings['app.name']
       && ready.textContent === strings['status.ready']
       && strings['status.ready'] === (window.pseudoLocale ? '[Réádý··]'

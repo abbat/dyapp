@@ -10,7 +10,7 @@
     button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
     button:disabled { opacity: .5; }
     .notice { font-size: .9rem; }
-    #peer-id { overflow-wrap: anywhere; }
+    #peer-id, #key-path { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -27,6 +27,10 @@
     <section id="identity" hidden>
       <p data-i18n="storage.peerId"></p>
       <p id="peer-id"></p>
+      <div id="file-backup" hidden>
+        <p data-i18n="storage.file.backup"></p>
+        <p><code id="key-path"></code></p>
+      </div>
     </section>
     <p id="storage-error" role="alert" hidden></p>
   </main>

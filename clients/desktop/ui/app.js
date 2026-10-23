@@ -42,6 +42,9 @@ const render = (state) => {
     identity.hidden = false;
     ready.textContent = window.strings['status.ready'];
     document.getElementById('peer-id').textContent = state.peerId;
+    const backup = document.getElementById('file-backup');
+    backup.hidden = state.mode !== 'file';
+    document.getElementById('key-path').textContent = state.keyPath || '';
     return state;
   }
   if (state.status !== 'setup') throw new Error('Unknown identity state');
@@ -58,8 +61,7 @@ const choose = async (mode) => {
   systemChoice.disabled = true;
   fileChoice.disabled = true;
   try {
-    const peerId = await invoke('create_identity', { mode });
-    render({ status: 'ready', peerId });
+    render(await invoke('create_identity', { mode }));
   } catch (_) {
     showError();
   }

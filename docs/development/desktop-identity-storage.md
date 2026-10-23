@@ -21,6 +21,9 @@ private ACL, so the UI warns that anyone who can read the file can copy the iden
 is selected silently. The non-secret `identity-storage` file in the same directory contains
 `system` or `file` and is written before the identity key. An interrupted save can leave the
 selection in place without a key; the app then shows an error rather than generating another.
+After choosing file storage, the ready screen shows the exact `identity.key` path from the
+running app and asks the user to back it up together with `identity-storage` in the same
+folder. System storage never shows a file path. The screen does not reveal key bytes.
 
 After selection, failure to open the chosen backend never generates a replacement identity or
 switches storage. Restore access to that backend and restart the app. Changing backends later

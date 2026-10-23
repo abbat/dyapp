@@ -42,6 +42,18 @@ fn read_mode(dir: &Path) -> Result<Option<String>, String> {
     }
 }
 
+fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str, String> {
+    let mut result = HashMap::from([
+        ("status", "ready".into()),
+        ("mode", mode.to_owned()),
+        ("peerId", peer_id),
+    ]);
+    if mode == "file" {
+        result.insert("keyPath", dir.join("identity.key").display().to_string());
+    }
+    result
+}
+
 fn write_mode(dir: &Path, mode: &str) -> Result<(), String> {
     fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let mut file = OpenOptions::new()
@@ -76,9 +88,7 @@ async fn identity_state(
             })
             .await
             .map_err(|e| e.to_string())??;
-            result.insert("status", "ready".into());
-            result.insert("mode", mode);
-            result.insert("peerId", identity.peer_id());
+            result = ready_result(&mode, identity.peer_id(), &dir);
             *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
         }
         None => {
@@ -105,12 +115,12 @@ async fn create_identity(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
     mode: String,
-) -> Result<String, String> {
+) -> Result<HashMap<&'static str, String>, String> {
     if mode != "system" && mode != "file" {
         return Err("Unknown identity storage mode".into());
     }
     let dir = config_dir(&app)?;
-    let identity = tauri::async_runtime::spawn_blocking(move || {
+    let (identity, mode, dir) = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
             system_store::probe()
                 .map_err(|reason| format!("System storage unavailable: {:?}", reason))?;
@@ -122,13 +132,13 @@ async fn create_identity(
             "file" => file_store::save(&dir.join("identity.key"), &identity)?,
             _ => unreachable!(),
         }
-        Ok::<Identity, String>(identity)
+        Ok::<_, String>((identity, mode, dir))
     })
     .await
     .map_err(|e| e.to_string())??;
-    let peer_id = identity.peer_id();
+    let response = ready_result(&mode, identity.peer_id(), &dir);
     *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
-    Ok(peer_id)
+    Ok(response)
 }
 
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
@@ -203,6 +213,18 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::ready_result;
+    use std::path::Path;
+
+    #[test]
+    fn backup_path_is_only_returned_for_file_storage() {
+        let dir = Path::new("profile");
+        let file = ready_result("file", "peer".into(), dir);
+        assert_eq!(file["keyPath"], dir.join("identity.key").display().to_string());
+        let system = ready_result("system", "peer".into(), dir);
+        assert!(!system.contains_key("keyPath"));
+    }
+
     #[test]
     fn configured_window_is_visible_and_local() {
         let context: tauri::Context<tauri::Wry> = tauri::generate_context!();

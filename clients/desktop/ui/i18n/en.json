@@ -14,6 +14,7 @@
   "storage.system.unavailable": "Windows Credential Manager is unavailable for this account.",
   "storage.file.choice": "Use an app data file",
   "storage.file.warning": "Anyone who can read this file can copy your identity key. Protect your user profile and backups.",
+  "storage.file.backup": "Back up this key file now, along with identity-storage in the same folder. Keep the backup private.",
   "storage.peerId": "Your Peer ID",
   "storage.error": "Check the selected storage and restart the app. Your identity was not replaced."
 }
