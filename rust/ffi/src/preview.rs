@@ -151,7 +151,7 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
     let mut rgba = Vec::with_capacity(pixels * 4);
     match info.pixel_format {
         PixelFormat::RGB24 if decoded.len() == pixels * 3 => {
-            for rgb in decoded.chunks_exact(3) {
+            for rgb in decoded.as_chunks::<3>().0 {
                 rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
             }
         }
