@@ -60,6 +60,87 @@ and review the verifier library, custody procedure and metadata publisher.
 Adversarial fixtures must cover forged targets, stale metadata, key rotation,
 replayed/changed tags, mismatched provenance and lower package versions.
 
+## Proposed implementation profile
+
+Use the Rust [`tough` client](https://docs.rs/tough/latest/tough/) and its
+[`tuftool` publisher](https://github.com/awslabs/tough/tree/develop/tuftool)
+for the first implementation. This is a stack choice under ADR 0024, not
+permission to generate production keys or enable installation. Pin reviewed
+versions before implementation. Verify that both build with the repository's
+Rust 1.99 toolchain, that the publisher can preserve distinct role keys and
+consistent snapshots, and that client and publisher pass the fixture matrix
+below. Replace the stack if those checks fail; do not relax the checks.
+
+| Stack | Benefits | Costs and decision |
+|---|---|---|
+| `tough` + `tuftool` | Native Rust verifier, streaming target download, matching repository editor. | Not listed in the [TUF conformance results](https://theupdateframework.github.io/tuf-conformance/); persistent state and target staging require careful use. **Proposed**, contingent on independent fixtures and pinned-toolchain build. |
+| `sigstore-tuf` + separate publisher | Rust client passes the published conformance suite. | Its [target download](https://docs.rs/sigstore-tuf/latest/sigstore_tuf/client/struct.Updater.html) buffers the entire target; a Debian package would need a separately verified streaming path and publisher interoperability tests. Fallback if `tough` fails. |
+| `python-tuf` + separate updater process | Reference client passes the published conformance suite; mature repository tooling. | Adds a Python runtime and a process boundary to the privileged update path. Fallback if the Rust candidates cannot meet the gate. |
+
+The repository uses TUF 1.0 with root, targets, snapshot and timestamp; one
+signing key per role except root, which authorizes the active and separately
+held reserve key at threshold one. No delegated targets roles initially.
+Enable consistent snapshots, SHA-256 target hashes and immutable target paths.
+Install a reviewed `root.json` with the updater; never trust a root fetched
+from the same metadata origin as the initial trust anchor. Root rotation must
+be accepted by the old and new root keys under TUF's transition rules. The
+reserve root key is used only for a rehearsed recovery or planned rotation.
+
+The offline signer reviews the release artifact, GitHub attestation and source
+commit, then signs `targets.json` containing two immutable targets for each
+approved release:
+
+- `dyappd/<sha256>/dyappd_<version>_amd64.deb`, the exact package bytes;
+- `dyappd/<sha256>/approval.json`, a canonical release descriptor with schema
+  version, repository, stable tag, source commit, release workflow identity,
+  package target path, SHA-256, size and package version.
+
+Both paths are covered by TUF targets hashes and lengths. The descriptor binds
+the application-specific fields without depending on publisher support for
+TUF's optional target `custom` field. The verifier requires the descriptor's
+package path, hash and length to equal the authenticated package target. It
+also checks the attestation against the descriptor and rejects duplicate
+version/tag bindings, aliases, unexpected paths and mismatched architecture.
+Publishing a new release adds paths; it never replaces bytes at an existing
+path. This layout and descriptor schema are proposed and must be exercised by
+publisher/client interoperability fixtures before they become a wire format.
+
+Only the offline targets signer can add an approved release. A restricted
+publisher outside GitHub release CI signs snapshot and timestamp after
+verifying the received `targets.json` signature and that every referenced
+target is already uploaded. Upload immutable targets and versioned metadata
+first, then publish `timestamp.json` last. Use monotonic role versions and
+short timestamp expiry; renew timestamp without re-signing targets when no
+release changes. Provision separate online snapshot and timestamp keys. The
+publisher must not possess root or targets private keys. Record the exact
+expiry periods, ownership and recovery procedure before production keys exist.
+
+The client is unprivileged. It pins HTTPS metadata and target origins, limits
+downloads and redirects, enforces metadata expiry with a trustworthy clock,
+and persists TUF state across restarts. In `tough`, explicitly configure a
+[persistent datastore](https://docs.rs/tough/latest/tough/struct.RepositoryLoader.html):
+omitting it creates a temporary directory and loses rollback memory. Keep
+expiration enforcement safe and set explicit size limits. Stream a target
+only into private staging; [`read_target`](https://docs.rs/tough/latest/tough/struct.Repository.html)
+exposes bytes before its final checksum is known. The installer sees a
+descriptor only after the complete stream, hash, length, provenance and
+application version checks succeed, followed by an atomic handoff. Persist
+the highest approved and installed application versions separately from TUF
+metadata. State loss blocks unattended installation until operator recovery.
+
+### Verification gate before enabling updates
+
+Use an offline fixture repository and a fake package installer. The gate must
+exercise a valid release; forged targets/root; omitted, modified or truncated
+package and descriptor; expired metadata or invalid clock; timestamp/snapshot/
+targets rollback and freeze; same tag or version bound to a different digest;
+wrong repository/workflow/commit/architecture in the attestation; lower app
+version; redirect to another origin; interrupted target stream and state write;
+and old/new root rotation plus reserve-key recovery. Reopen stack selection if
+the selected versions reject a valid fixture or accept an invalid one. No
+fixture may invoke the privileged installer on rejection. These tests are
+planned; none is claimed by this design document.
+
 ## Evidence
 
 - [TUF specification](https://theupdateframework.github.io/specification/v1.0.37/index.html)
