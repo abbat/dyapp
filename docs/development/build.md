@@ -20,7 +20,7 @@
 |------|-------|--------|
 | Rust toolchain | `1.99.0` (pinned), components `rustfmt`, `clippy` | `rust-toolchain.toml` |
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
-| Swift | language mode 5 (`SWIFT_VERSION`) | `clients/ios/project.yml`, `clients/macos/project.yml` |
+| Swift | language mode 6, strict concurrency (`SWIFT_VERSION`) | `clients/ios/project.yml`, `clients/macos/project.yml` |
 | iOS / macOS minimum | iOS 14, macOS 11 | same |
 | Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `clients/android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |

@@ -1,5 +1,7 @@
 import XCTest
 
+// XCUIApplication is main-actor isolated.
+@MainActor
 final class LaunchTests: XCTestCase {
     func testLaunchRenderAndTerminate() {
         let app = XCUIApplication()

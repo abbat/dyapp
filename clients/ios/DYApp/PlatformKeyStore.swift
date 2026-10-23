@@ -8,11 +8,12 @@ import Security
 final class PlatformKeyStore: KeyStore {
     static let shared = PlatformKeyStore()
 
-    private static let query: [String: Any] = [
+    // Computed: a stored [String: Any] is not Sendable, so Swift 6 refuses it as a static.
+    private static var query: [String: Any] { [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "com.dyapp.identity-wrap",
         kSecAttrAccount as String: "identity-wrap",
-    ]
+    ] }
 
     private static func storedKey() throws -> SymmetricKey? {
         var query = Self.query
