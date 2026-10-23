@@ -283,14 +283,47 @@ mod tests {
         assert!(!admission.provider_allowed(&none, &record, 0));
     }
 
+    struct RestorePow(u32);
+    impl Drop for RestorePow {
+        fn drop(&mut self) {
+            dyapp_p2p_net::set_id_pow_bits(self.0);
+        }
+    }
+
+    #[test]
+    fn a_provider_flood_under_other_keys_leaves_the_search_key_room() {
+        let _restore_pow = RestorePow(dyapp_p2p_net::id_pow_bits());
+        dyapp_p2p_net::set_id_pow_bits(0);
+        let mut swarm =
+            dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        let provider = PeerId::random();
+        let address: Multiaddr = "/ip6/2001:db8::1/tcp/7070".parse().unwrap();
+        let mut admission = Admission::default();
+        admission.remotes.insert(
+            ConnectionId::new_unchecked(1),
+            (provider, address.clone(), false),
+        );
+        let record = |key: &[u8]| kad::ProviderRecord {
+            key: kad::RecordKey::new(&key),
+            provider,
+            expires: None,
+            addresses: vec![address.clone()],
+        };
+        // More keys than the MemoryStore's default max_provided_keys (1024).
+        for i in 0..1100u32 {
+            admission.add_provider(&mut swarm, record(&i.to_be_bytes()));
+        }
+        admission.add_provider(&mut swarm, record(dyapp_p2p_net::SEARCH_KEY));
+        let store = swarm.behaviour_mut().kad.store_mut();
+        assert!(store
+            .providers(&kad::RecordKey::new(&0u32.to_be_bytes()))
+            .is_empty());
+        let key = kad::RecordKey::new(&dyapp_p2p_net::SEARCH_KEY);
+        assert_eq!(store.providers(&key).len(), 1);
+    }
+
     #[test]
     fn only_the_matching_claim_connection_routes_an_alternative_address() {
-        struct RestorePow(u32);
-        impl Drop for RestorePow {
-            fn drop(&mut self) {
-                dyapp_p2p_net::set_id_pow_bits(self.0);
-            }
-        }
         let _restore_pow = RestorePow(dyapp_p2p_net::id_pow_bits());
         dyapp_p2p_net::set_id_pow_bits(0);
         let mut swarm =
