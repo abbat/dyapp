@@ -25,6 +25,7 @@ it are entry points that tools discover by path (see
 
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
+- [Pull request review](development/pr-review.md): checks and human review of untrusted PRs
 - [Build automation](development/build.md)
 - [FFI bindings (UniFFI)](development/ffi-bindings.md)
 - [Protobuf code generation](development/protobuf-codegen.md)

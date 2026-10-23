@@ -8,10 +8,6 @@ on:
       - '.github/requirements-lint.txt'
       - '.github/workflows/python-lint.yml'
   pull_request:
-    paths:
-      - '**.py'
-      - '.flake8'
-      - '.github/requirements-lint.txt'
 
 permissions:
   contents: read

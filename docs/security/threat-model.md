@@ -67,7 +67,7 @@ defences already in place. Nodes are untrusted by design
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals, padding and sealed sender in `rust/client`; relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
 | 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; the search result check is implemented as a library function; text rules, local names and the client that runs the check are planned ([below](#spoofing)) |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
-| 7 | Hostile pull requests | Critical | Medium | ❌ Planned |
+| 7 | Hostile pull requests | Critical | Medium | ⚠️ Partial: external CI approval, pinned-head review, a PR guard and branch rules; the maintainer bypass and PR-editable workflows remain ([below](#hostile-pull-requests)) |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps, per-group connection limits, a search fair queue and puzzle; write tokens, a TURN quota per IP group and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints and a repository Unicode check; official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
@@ -212,13 +212,13 @@ which lets bidi overrides and invisible characters through.
 
 Class 6 in detail. In place: AI agents run only in the maintainer's sessions on the developer
 host, never in CI; they commit and push only when the maintainer allows it, and their commits
-carry a `Co-Authored-By` trailer. They run with the maintainer's git, GitHub and beads access, and
-`main` takes direct pushes.
+carry a `Co-Authored-By` trailer. They run with the maintainer's git, GitHub and beads access.
+The maintainer can bypass the `main` PR ruleset for direct pushes until the first public release.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | Prompt injection in issues, pull requests, review comments, web pages, crate READMEs or dependency sources | Text an agent reads | Critical × medium | Fix: the agent rules treat such text as data, never as instructions, and tell the agent to report text that reads like instructions |
-| A hijacked agent pushes harmful code to `main` | git push | Critical × medium | Accept until the first public release: direct pushes stay. Fix before it: `main` takes changes only through pull requests with green CI and signed commits |
+| A hijacked agent pushes harmful code to `main` | git push | Critical × medium | Accept until the first public release: the maintainer account can bypass the PR ruleset. Before release remove that bypass and require signed commits |
 | An agent leaks host secrets through a command or an outbound request | Developer host | Critical × medium | Fix: agent sessions use a fine-grained GitHub token for this repository only. Accept: the rest of the host environment stays readable |
 | A hostile or compromised MCP server, plugin or hook | Developer host | Critical × low | Accept: the maintainer picks and updates these tools |
 | Instructions planted in beads | `.beads`, the Dolt remote | High × low | Accept: only the maintainer writes beads; their content is data for the agent |
@@ -226,6 +226,24 @@ carry a `Co-Authored-By` trailer. They run with the maintainer's git, GitHub and
 | A secret is committed | git | High × medium | Fix: GitHub secret scanning and push protection |
 | A hostile pull request by a person | Pull requests | Critical × medium | Out of scope here: class 7 |
 | A taken-over maintainer account | GitHub account | Critical × low | Out of scope here: class 11 |
+
+### Hostile pull requests
+
+Class 7 in detail. The [review policy](../development/pr-review.md) requires the maintainer
+to read an external PR before approving CI, two independent local reviews
+at the same head SHA, green required checks and a head-pinned merge. The repository ruleset
+requires PRs and checks, rejects force-pushes and deletion, and temporarily lets the maintainer
+bypass it. GitHub Actions requires approval for every external contributor's fork PR. These
+settings were applied through the GitHub API and read back on 2026-10-23.
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A hostile PR hides code in renames, generated files or a large diff | Review | Critical × medium | Fix: the checklist covers these cases; two independent reviewers report findings on a pinned SHA, and large changes are split |
+| A PR changes CI or build scripts to run privileged code | Workflows | Critical × medium | Partial: external CI needs maintainer approval after an infra diff review; the existing Android CI uses `sudo`, so PR code can run with runner privileges once approved, but receives no repository secrets |
+| A PR introduces a malicious dependency or alternate registry | Cargo.lock | Critical × medium | Fix: `pr-guard` reports changed packages, rejects non-crates.io sources and versions under 14 days old; human review covers package identity and build scripts |
+| A PR alters the guard or its workflow | `pull_request` workflow | Critical × medium | Accept: the PR can edit its own workflow; a warning is shown, while the trusted-base checker and maintainer's pre-run review remain the boundary |
+| A PR tries to poison the build cache read by `main` | Docker BuildKit | High × medium | In place: PRs read the GHA cache but `docker-local.py` omits `--cache-to` on PRs; `main` writes it |
+| A stolen maintainer session directly pushes malicious code | Ruleset bypass | Critical × medium | Accept until release; remove the bypass and require signed commits before publishing |
 
 ### Hostile node
 

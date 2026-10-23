@@ -12,7 +12,7 @@ permissions: {}
 jobs:
   analyze:
     name: codeql - ${{ matrix.language }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
@@ -46,7 +46,7 @@ jobs:
   # custom rust analysis (using clippy for static analysis)
   rust-analysis:
     name: analyze - rust
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
