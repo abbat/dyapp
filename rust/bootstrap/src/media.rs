@@ -374,6 +374,22 @@ impl MediaStore {
             .collect()
     }
 
+    /// The signed keep of `owner`, if any.
+    pub fn keep_of(&self, owner: &str) -> Result<Option<SignedRecord>> {
+        let bytes: Option<Option<Vec<u8>>> = lock(&self.db)?
+            .query_row(
+                "SELECT `record` FROM `owners` WHERE `owner` = ?",
+                params![owner],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        bytes
+            .flatten()
+            .map(|bytes| SignedRecord::decode(bytes.as_slice()).map_err(storage_error))
+            .transpose()
+    }
+
     /// Returns the latest signed list naming this hash; legacy unsigned rows need a fresh keep.
     pub fn authorization(&self, owner: &str, hash: &[u8]) -> Result<Option<Authorization>> {
         let now = chrono::Utc::now().timestamp();

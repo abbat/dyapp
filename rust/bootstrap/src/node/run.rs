@@ -104,6 +104,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let mut puzzle_tick = tokio::time::interval(crate::puzzle::TICK);
     let mut put_check = tokio::time::interval(Duration::from_millis(100));
     let mut cleanup = tokio::time::interval(Duration::from_secs(3600));
+    let mut republish_scan = tokio::time::interval(republish::REPUBLISH_INTERVAL);
     let maintenance = service.config.maintenance.clone();
     let mut maintain = tokio::time::interval(Duration::from_secs(
         u64::from(maintenance.interval_minutes) * 60,
@@ -557,6 +558,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 })) => {
                     replicas.closest(&mut swarm, &service, &watchers, id, result);
                 }
+                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                    result: kad::QueryResult::Bootstrap(Ok(ok)),
+                    ..
+                })) if ok.num_remaining == 0 => replicas.republish.bootstrapped(Instant::now()),
                 // The peer's answer to an inventory: it gets what it lacks.
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
                     peer: id,
@@ -641,7 +646,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 _ => {}
             }
             },
-            _ = put_check.tick() => replicas.finish_puts(&mut swarm, &service, Instant::now()),
+            _ = put_check.tick() => {
+                replicas.finish_puts(&mut swarm, &service, Instant::now());
+                replicas.republish(&mut swarm, &service, Instant::now());
+            }
+            _ = republish_scan.tick() => replicas.scan(&mut swarm, &service, Instant::now()),
             _ = deny_check.tick() => reload_deny(&service, &deny, &mut deny_version),
             _ = hangup.recv() => {
                 deny_version = None;

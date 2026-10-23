@@ -250,7 +250,9 @@ clients score the nodes they use and cross-check their mailbox at a second repli
 | False roles or false limits in `info` and status | DHT, `/dyapp/node` | Medium × medium | Accept: the client treats `info` as a hint within compiled floors ([Downgrade](#downgrade)); a role that is not served costs the node reputation |
 | Harvesting peer and profile data | DHT, search | Medium × high | Accept: profiles are public by design and Kademlia routing tables are open; metadata is class 4 ([above](#traffic-analysis)) |
 | Colluding or Sybil nodes take every replica of a key | DHT | High × medium | Accept: [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) makes a targeted eclipse costly, not impossible |
-| A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish (planned) |
+| A holder that is no longer closest keeps its copy unseen | DHT | Medium × medium | Fix: holder-side republish ([network growth](../architecture/bootstrap.md#replication-and-repair)) |
+| Sybils near a key receive republished data | DHT, republish | Medium × medium | Accept: republish goes only to trusted peers, the data is encrypted or signed, old holders keep their copies, and the exposure lasts at most one TTL |
+| Churn causes republish traffic | DHT, republish | Low × medium | Fix: a key is handed over at most once an hour, 16 at a time, and only while traffic is under 50 % |
 | A client keeps using nodes that failed it | Client | Medium × high | In place: `rust/client` `scores` counts refusals, timeouts, invalid data and older profiles per node, halves the penalty daily and tries the lowest penalty first, falling back across replica keys ([replication](../architecture/bootstrap.md#replication-and-repair)); missing receipts count once delivery receipts exist |
 
 ### Denial of service

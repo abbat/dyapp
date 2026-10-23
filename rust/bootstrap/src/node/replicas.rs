@@ -43,6 +43,7 @@ impl Replicas {
             + self.lookups.len()
             + self.inventories.len()
             + self.profile_inventories.len()
+            + self.republish.len()
     }
 
     pub(super) fn repair_media(
@@ -224,18 +225,20 @@ impl Replicas {
         finished
     }
 
+    /// Looks up the closest nodes of `record`'s replica keys, at most once an hour per profile;
+    /// returns the lookups.
     pub(super) fn repair_profile(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
         service: &Service,
         record: SignedRecord,
         now: Instant,
-    ) {
+    ) -> Vec<kad::QueryId> {
         if service.traffic.second() >= SHED_MEDIA || dyapp_p2p_net::known_peers(swarm).is_empty() {
-            return;
+            return Vec::new();
         }
         let Ok(verified) = dyapp_profile::verify(&record) else {
-            return;
+            return Vec::new();
         };
         let key =
             dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
@@ -244,7 +247,7 @@ impl Replicas {
         if self.profile_repaired.contains_key(&key)
             || self.profile_repaired.len() >= MAX_PROFILE_REPAIRS
         {
-            return;
+            return Vec::new();
         }
         let record = match service.store.get_profile(&verified.peer_id) {
             Ok(Some(held))
@@ -254,38 +257,46 @@ impl Replicas {
                 held
             }
             Ok(_) => record,
-            Err(error) => return tracing::error!(%error, "profile repair failed"),
+            Err(error) => {
+                tracing::error!(%error, "profile repair failed");
+                return Vec::new();
+            }
         };
         self.profile_repaired
             .insert(key.clone(), (now, HashSet::new()));
         let record = Arc::new(record);
-        for i in 0..REPLICAS {
-            let query = swarm
-                .behaviour_mut()
-                .kad
-                .get_closest_peers(replica_key(&key, i));
-            self.lookups
-                .insert(query, Lookup::ProfileRepair(record.clone()));
-        }
+        (0..REPLICAS)
+            .map(|i| {
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(&key, i));
+                self.lookups
+                    .insert(query, Lookup::ProfileRepair(record.clone()));
+                query
+            })
+            .collect()
     }
 
+    /// Asks `to` which version of `record` it holds; returns the request, or `Err` when traffic
+    /// refused it.
     pub(super) fn profile_inventory(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
         service: &Service,
         to: PeerId,
         record: Arc<SignedRecord>,
-    ) {
+    ) -> Result<Option<OutboundRequestId>, ()> {
         if to == *swarm.local_peer_id() || !self.trust.trusted(&to) {
-            return;
+            return Ok(None);
         }
         let key =
             dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
         let Some((_, sent)) = self.profile_repaired.get_mut(&key) else {
-            return;
+            return Ok(None);
         };
         if sent.contains(&to) {
-            return;
+            return Ok(None);
         }
         let request = proto::ProfileRequest {
             request: Some(proto::profile_request::Request::Inventory(
@@ -297,11 +308,12 @@ impl Replicas {
             .traffic
             .try_add(request.encoded_len() as u64, SHED_MEDIA)
         {
-            return;
+            return Err(());
         }
         sent.insert(to);
         let id = swarm.behaviour_mut().profile.send_request(&to, request);
         self.profile_inventories.insert(id, record);
+        Ok(Some(id))
     }
 
     pub(super) fn profile_gap(
@@ -311,14 +323,18 @@ impl Replicas {
         to: PeerId,
         record: &SignedRecord,
         response: &proto::ProfileResponse,
-    ) -> Option<OutboundRequestId> {
-        let version = dyapp_profile::stored_version(record).ok()?;
+    ) -> Result<Option<OutboundRequestId>, ()> {
+        let Ok(version) = dyapp_profile::stored_version(record) else {
+            return Ok(None);
+        };
         if response.status != i32::from(Status::NotFound)
             && !(response.status == i32::from(Status::Ok) && response.version < version)
         {
-            return None;
+            return Ok(None);
         }
-        let key: [u8; 32] = record.public_key.as_slice().try_into().ok()?;
+        let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) else {
+            return Ok(None);
+        };
         let last_seen = service
             .store
             .profile_last_seen(&dyapp_identity::peer_id(&key))
@@ -331,15 +347,19 @@ impl Replicas {
                 u32::try_from((now - seen).max(0)).unwrap_or(u32::MAX)
             }),
         };
-        if self.trust.trusted(&to)
-            && service
-                .traffic
-                .try_add(request.encoded_len() as u64, SHED_MEDIA)
+        if !self.trust.trusted(&to) {
+            return Ok(None);
+        }
+        if service
+            .traffic
+            .try_add(request.encoded_len() as u64, SHED_MEDIA)
             && self.cap.allow(&to, 1)
         {
-            Some(swarm.behaviour_mut().profile.send_request(&to, request))
+            Ok(Some(
+                swarm.behaviour_mut().profile.send_request(&to, request),
+            ))
         } else {
-            None
+            Err(())
         }
     }
 
@@ -594,7 +614,9 @@ impl Replicas {
         self.lookups
             .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) | Lookup::ShardPut(id, _) if !self.puts.contains_key(id)));
         self.finish_reads(swarm, service, now);
-        let _ = self.finish_media_repairs(swarm, service, now);
+        for (repair, complete) in self.finish_media_repairs(swarm, service, now) {
+            self.republish.media_done(repair, complete);
+        }
         self.drain_media(swarm, service);
     }
 

@@ -43,8 +43,10 @@ media is different: full copies are expensive, and a node should hold no object 
   `keep`, so receivers accept only blobs the owner listed.
 - **Repair while the owner is present, by nodes:** a fetch, a profile publish or a media `keep`
   makes the node compare the replica holders and fill the gaps. A repaired copy keeps the
-  original expiry or owner age, so repair never extends a TTL. Data of an absent owner is not
-  repaired and expires by TTL.
+  original expiry or owner age, so repair never extends a TTL.
+- **Republish by holders:** a holder whose routing table shows new closest nodes for a key it
+  holds hands the key to them through the same repair, so an absent owner's data follows network
+  growth until its TTL. The old holder keeps its copy until then.
 - Details: [Bootstrap: Replication and repair](../architecture/bootstrap.md#replication-and-repair).
 - All stored message data is end-to-end encrypted
   ([ADR 0005](0005-openmls-end-to-end-encryption.md)).
@@ -71,5 +73,5 @@ media is different: full copies are expensive, and a node should hold no object 
   manifest; a signed `keep` repairs missing copies, manifests and shards on the current holders.
   Nodes check write tokens and revokes and keep the tokenless pool; the pool binds only under
   `limits.require_write_tokens` (off by default), and clients do not issue tokens yet.
-  Planned: ranged media reads with an assembled-blob cache, and a holder that is no longer
-  closest to a replica key pushing the object on.
+  Holders republish hourly from their routing tables. Planned: ranged media reads with an
+  assembled-blob cache.

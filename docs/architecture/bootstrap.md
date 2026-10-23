@@ -258,13 +258,21 @@ resent from the sender's retry queue.
   each verified like a put. The peer sends the envelopes the repairer lacks back only
   if its own routing table places the repairer among the closest nodes of one of the mailbox's
   replica keys, so an arbitrary peer cannot pull a mailbox's ciphertexts.
-- **No grace period.** Nothing is copied when a node leaves or restarts; only the owner's next
-  visit moves data, and only the gaps, so a restart never moves the node's whole store.
+- **No grace period.** Nothing is copied when a node leaves or restarts; the owner's next
+  visit or a holder's republish moves only the gaps, so a restart never moves the node's whole
+  store.
 - **Network growth.** When nodes join, the holder of some replica keys changes and the new
   holder has nothing yet; a read there misses and the client tries the next key. Repair checks
-  the current holders, so a present owner's data moves to them. An offline owner's data stays on
-  the old holders until its TTL; a holder that sees it is no longer closest and pushes the object
-  on is planned.
+  the current holders, so a present owner's data moves to them. For an absent owner the holders
+  republish: ten minutes after the first finished Kademlia bootstrap, and then hourly, a node
+  scans up to 10 000 held keys per store (mailboxes, profiles, media keeps) and fingerprints the
+  five closest peers its routing table gives for each replica key. A key whose fingerprint
+  changed since its last complete handover is queued and handed over through the repair above:
+  mailbox inventories, profile version inventories, media `keep` repairs. At most 16 keys are in
+  flight, none start while traffic is at 50 % of `bytes_per_second` or above, and a key the
+  owner repaired this hour is skipped. A handover that is cut or fails leaves the key queued
+  for the next scan. The old holder keeps its copy until the TTL. Restarts reset the
+  fingerprints, so the first scan after a restart inventories every held key once.
 - **Budget.** One inventory per mailbox per hour on a node; profile repair uses a rolling
   one-hour limit. Repair traffic counts towards `bytes_per_second` and stops at 75 % of it,
   together with media. Profile inventory requests and gap transfers reserve their encoded

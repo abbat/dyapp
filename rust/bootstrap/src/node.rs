@@ -7,6 +7,7 @@ mod refill;
 mod replicas;
 mod replies;
 mod report;
+mod republish;
 mod run;
 use delivery::{after_lookup, after_mailbox, push, send_envelopes};
 use report::{state, status};
@@ -619,6 +620,7 @@ struct Replicas {
     repaired: HashSet<Vec<u8>>,
     profile_repaired: HashMap<Vec<u8>, (Instant, HashSet<PeerId>)>,
     profile_inventories: HashMap<OutboundRequestId, Arc<SignedRecord>>,
+    republish: republish::Republish,
 }
 
 /// A store request run off the swarm loop: it gets the connection's mailbox challenge.

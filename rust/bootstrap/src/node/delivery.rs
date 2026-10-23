@@ -7,7 +7,8 @@ pub(super) const REPAIR_BYTES: usize = 1024 * 1024;
 
 /// Sends the mailbox's unexpired revokes, one unit each, then wanted held messages in immediately
 /// admitted batches of at most 50 units. Signals are never repaired: a signal evicted at its quota
-/// would come back from another replica and evict the next one.
+/// would come back from another replica and evict the next one. False when something was not
+/// sent: a store error, a unit the cap refused or the `REPAIR_BYTES` cut.
 pub(super) fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -15,13 +16,18 @@ pub(super) fn send_envelopes(
     to: PeerId,
     mailbox: &[u8],
     wanted: impl Fn(&Vec<u8>) -> bool,
-) {
+) -> bool {
     let revokes = match service.revokes(mailbox) {
         Ok(revokes) => revokes,
-        Err(error) => return tracing::error!(%error, "mailbox repair failed"),
+        Err(error) => {
+            tracing::error!(%error, "mailbox repair failed");
+            return false;
+        }
     };
+    let mut complete = true;
     for record in revokes {
         if !cap.allow(&to, 1) {
+            complete = false;
             continue;
         }
         let request = MailboxRequest {
@@ -32,11 +38,14 @@ pub(super) fn send_envelopes(
     }
     let held = match service.held(mailbox) {
         Ok(held) => held,
-        Err(error) => return tracing::error!(%error, "mailbox repair failed"),
+        Err(error) => {
+            tracing::error!(%error, "mailbox repair failed");
+            return false;
+        }
     };
     let mut bytes = 0;
     let now = chrono::Utc::now().timestamp();
-    let envelopes: Vec<crate::service::Held> = held
+    let mut wanted: Vec<crate::service::Held> = held
         .into_iter()
         .filter(|(id, (record, _, _))| {
             wanted(id)
@@ -44,13 +53,19 @@ pub(super) fn send_envelopes(
                     .is_ok_and(|e| !crate::service::is_signal(&e))
         })
         .map(|(_, held)| held)
+        .collect();
+    let count = wanted.len();
+    let envelopes: Vec<crate::service::Held> = wanted
+        .drain(..)
         .take_while(|(record, _, _)| {
             bytes += record.encoded_len();
             bytes <= REPAIR_BYTES
         })
         .collect();
+    complete &= envelopes.len() == count;
     for batch in envelopes.chunks(usize::try_from(REPLICA_UNITS_PER_SECOND).unwrap()) {
         if !cap.allow(&to, u32::try_from(batch.len()).unwrap()) {
+            complete = false;
             continue;
         }
         let request = MailboxRequest {
@@ -68,6 +83,7 @@ pub(super) fn send_envelopes(
         service.traffic.add(request.encoded_len() as u64);
         swarm.behaviour_mut().mailbox.send_request(&to, request);
     }
+    complete
 }
 
 /// What follows a successful mailbox request: a put is pushed to the mailbox's watchers; a
@@ -135,7 +151,7 @@ pub(super) fn after_mailbox(
             });
             if near && replicas.trust.trusted(&peer) {
                 let listed: HashSet<Vec<u8>> = inventory.ids.into_iter().collect();
-                send_envelopes(
+                let _ = send_envelopes(
                     swarm,
                     service,
                     &mut replicas.cap,
@@ -169,7 +185,7 @@ pub(super) fn push(
 }
 
 /// A finished replica-key lookup: forwards the ack, or sends the inventory unless this node is
-/// itself the closest to the key.
+/// itself the closest to the key. Returns the inventory's request.
 pub(super) fn after_lookup(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -177,7 +193,7 @@ pub(super) fn after_lookup(
     lookup: Lookup,
     key: Vec<u8>,
     node: kad::PeerInfo,
-) {
+) -> Option<OutboundRequestId> {
     let (request, repair) = match lookup {
         Lookup::MediaRepair(_, _, _)
         | Lookup::Put(_)
@@ -189,11 +205,14 @@ pub(super) fn after_lookup(
             let target = kad::KBucketKey::new(key);
             let me = kad::KBucketKey::from(*swarm.local_peer_id());
             if me.distance(&target) < kad::KBucketKey::from(node.peer_id).distance(&target) {
-                return;
+                return None;
             }
             let ids = match service.held_ids(&mailbox) {
                 Ok(ids) => ids,
-                Err(error) => return tracing::error!(%error, "mailbox repair failed"),
+                Err(error) => {
+                    tracing::error!(%error, "mailbox repair failed");
+                    return None;
+                }
             };
             let inventory = proto::Inventory {
                 mailbox: mailbox.clone(),
@@ -216,7 +235,7 @@ pub(super) fn after_lookup(
         .behaviour_mut()
         .mailbox
         .send_request(&node.peer_id, request);
-    if let Some(mailbox) = repair {
-        replicas.inventories.insert(id, mailbox);
-    }
+    let mailbox = repair?;
+    replicas.inventories.insert(id, mailbox);
+    Some(id)
 }

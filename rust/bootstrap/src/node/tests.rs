@@ -66,6 +66,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
 
 mod deny_media;
 mod groups;
+mod republish;
 
 #[tokio::test]
 async fn background_media_repair_holds_no_channel() {
@@ -295,7 +296,14 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
         );
     }
     let mut cap = ReplicaCap::default();
-    send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| true);
+    assert!(!send_envelopes(
+        &mut sender,
+        &source,
+        &mut cap,
+        remote,
+        &mailbox,
+        |_| true
+    ));
     assert_eq!(cap.take_dropped(), 1, "only the second batch is refused");
     assert_eq!(
         receive_repair_batch(&mut sender, &mut receiver, &destination).await,
@@ -304,9 +312,14 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     let held = destination.held(&mailbox).unwrap();
     assert_eq!(held.len(), 50);
     tokio::time::sleep(Duration::from_millis(1100)).await;
-    send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |id| {
-        !held.contains_key(id)
-    });
+    assert!(send_envelopes(
+        &mut sender,
+        &source,
+        &mut cap,
+        remote,
+        &mailbox,
+        |id| { !held.contains_key(id) }
+    ));
     assert_eq!(
         receive_repair_batch(&mut sender, &mut receiver, &destination).await,
         25
@@ -314,7 +327,14 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     assert_eq!(destination.held(&mailbox).unwrap().len(), 75);
     assert_eq!(cap.take_dropped(), 0);
     // Inventory of the complete mailbox sends nothing and consumes no units.
-    send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| false);
+    assert!(send_envelopes(
+        &mut sender,
+        &source,
+        &mut cap,
+        remote,
+        &mailbox,
+        |_| false
+    ));
     assert!(cap.allow(&remote, 25));
 }
 
@@ -352,7 +372,14 @@ async fn repair_sends_no_signals_but_lists_them() {
     // A one-unit burst admits the single message; a batch carrying the signals would be refused.
     let mut cap = ReplicaCap::new(1);
     let to = PeerId::random();
-    send_envelopes(&mut sender, &service, &mut cap, to, &mailbox, |_| true);
+    assert!(send_envelopes(
+        &mut sender,
+        &service,
+        &mut cap,
+        to,
+        &mailbox,
+        |_| true
+    ));
     assert_eq!(cap.take_dropped(), 0);
 }
 
@@ -419,9 +446,10 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
         status: Status::NotFound.into(),
         ..Default::default()
     };
-    assert!(replicas
-        .profile_gap(&mut swarm, &service, remote, &record, &missing)
-        .is_some());
+    assert!(matches!(
+        replicas.profile_gap(&mut swarm, &service, remote, &record, &missing),
+        Ok(Some(_))
+    ));
     replicas.put_holder(&mut swarm, &service, &watchers, 1, remote);
     assert!(replicas.profile_puts.is_empty());
     assert!(replicas.puts[&1].sent.contains(&remote));
@@ -578,7 +606,7 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
         now + PROFILE_REPAIR_INTERVAL
     );
     for _ in 0..REPLICAS {
-        replicas.profile_inventory(&mut swarm, &service, remote, Arc::new(record.clone()));
+        let _ = replicas.profile_inventory(&mut swarm, &service, remote, Arc::new(record.clone()));
     }
     assert_eq!(
         replicas.profile_inventories.len(),
@@ -599,9 +627,10 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
             ..Default::default()
         };
         assert_eq!(
-            replicas
-                .profile_gap(&mut swarm, &service, remote, &record, &response)
-                .is_some(),
+            matches!(
+                replicas.profile_gap(&mut swarm, &service, remote, &record, &response),
+                Ok(Some(_))
+            ),
             sends
         );
     }
@@ -612,9 +641,11 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
     };
     assert!(replicas
         .profile_gap(&mut swarm, &service, remote, &record, &response)
-        .is_none());
+        .is_err());
     let other = PeerId::random();
-    replicas.profile_inventory(&mut swarm, &service, other, Arc::new(record));
+    assert!(replicas
+        .profile_inventory(&mut swarm, &service, other, Arc::new(record))
+        .is_err());
     assert_eq!(
         replicas.profile_inventories.len(),
         1,

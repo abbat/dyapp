@@ -13,6 +13,7 @@ impl Replicas {
         result: kad::GetClosestPeersResult,
     ) {
         let lookup = self.lookups.remove(&id);
+        let job = self.republish.query_done(id, result.is_ok());
         if result.is_err() {
             if let Some(Lookup::MediaRepair(repair, blob, index)) = &lookup {
                 if let Some((r, _)) = self.media_repairs.get_mut(repair) {
@@ -67,7 +68,11 @@ impl Replicas {
                         }
                     }
                     Lookup::ProfileRepair(record) => {
-                        self.profile_inventory(swarm, service, to, record)
+                        match self.profile_inventory(swarm, service, to, record) {
+                            Ok(Some(request)) => self.republish.request(job, request),
+                            Ok(None) => {}
+                            Err(()) => self.republish.fail(job),
+                        }
                     }
                     _ => unreachable!(),
                 }
@@ -77,7 +82,9 @@ impl Replicas {
             if let Some(node) = peers.find(|p| {
                 dyapp_p2p_net::id_has_pow(&p.peer_id, bits) && self.trust.trusted(&p.peer_id)
             }) {
-                after_lookup(swarm, service, self, lookup, ok.key, node);
+                if let Some(request) = after_lookup(swarm, service, self, lookup, ok.key, node) {
+                    self.republish.request(job, request);
+                }
             }
         }
     }
@@ -99,10 +106,15 @@ impl Replicas {
             self.finish_puts(swarm, service, Instant::now());
         }
         if let Some(mailbox) = self.inventories.remove(&request_id) {
+            let ok = response.status == i32::from(Status::Ok);
             let missing: HashSet<Vec<u8>> = response.missing.into_iter().collect();
-            send_envelopes(swarm, service, &mut self.cap, id, &mailbox, |envelope| {
-                missing.contains(envelope)
-            });
+            // shortcut: the replica puts sent here are not awaited, so a holder that drops them
+            // still counts as handed over; track their replies if republished copies go missing.
+            let complete =
+                send_envelopes(swarm, service, &mut self.cap, id, &mailbox, |envelope| {
+                    missing.contains(envelope)
+                });
+            self.republish.answered(request_id, ok && complete);
         }
     }
 
@@ -117,6 +129,8 @@ impl Replicas {
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
+        let unsupported = matches!(error, OutboundFailure::UnsupportedProtocols);
+        self.republish.answered(request_id, unsupported);
         self.inventories.remove(&request_id);
         self.mailbox_puts.remove(&request_id);
     }
@@ -132,8 +146,16 @@ impl Replicas {
     ) {
         service.traffic.add(response.encoded_len() as u64);
         self.trust.add(id, 1);
+        let refused = [Status::RateLimited, Status::Full].map(i32::from);
+        let job = self
+            .republish
+            .answered(request_id, !refused.contains(&response.status));
         if let Some(record) = self.profile_inventories.remove(&request_id) {
-            self.profile_gap(swarm, service, id, &record, &response);
+            match self.profile_gap(swarm, service, id, &record, &response) {
+                Ok(Some(request)) => self.republish.request(job, request),
+                Ok(None) => {}
+                Err(()) => self.republish.fail(job),
+            }
         }
         if let Some(put) = self.profile_puts.remove(&request_id) {
             if let Some(put) = self.puts.get_mut(&put) {
@@ -153,6 +175,8 @@ impl Replicas {
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
+        let unsupported = matches!(error, OutboundFailure::UnsupportedProtocols);
+        self.republish.answered(request_id, unsupported);
         self.profile_puts.remove(&request_id);
         self.profile_inventories.remove(&request_id);
     }

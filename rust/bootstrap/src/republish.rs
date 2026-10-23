@@ -13,6 +13,9 @@ pub const QUEUE: usize = 4096;
 /// Replica keys per media blob hash: the bound media inventory checks, which covers shard keys.
 const MEDIA_REPLICAS: u8 = 10;
 
+/// Keys in key order, each with its replica keys.
+pub type Batch = Vec<(Vec<u8>, Vec<Vec<u8>>)>;
+
 /// A store the scanner walks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Store {
@@ -38,7 +41,7 @@ pub fn replica_keys(store: Store, keys: &[Vec<u8>]) -> Vec<Vec<u8>> {
 
 /// A hash of the closest peers of every replica key in order, each set sorted. In memory only:
 /// `DefaultHasher` may change between builds.
-pub fn fingerprint(closest: impl Fn(&[u8]) -> Vec<PeerId>, keys: &[Vec<u8>]) -> u64 {
+pub fn fingerprint(mut closest: impl FnMut(&[u8]) -> Vec<PeerId>, keys: &[Vec<u8>]) -> u64 {
     let mut hasher = DefaultHasher::new();
     for key in keys {
         let mut peers = closest(key);
@@ -85,13 +88,13 @@ impl Scanner {
     pub fn scan(
         &mut self,
         store: Store,
-        batch: Vec<(Vec<u8>, Vec<Vec<u8>>)>,
-        closest: impl Fn(&[u8]) -> Vec<PeerId>,
+        batch: Batch,
+        mut closest: impl FnMut(&[u8]) -> Vec<PeerId>,
         wrapped: bool,
     ) {
         let lane = &mut self.lanes[store as usize];
         for (key, replicas) in batch {
-            let fingerprint = fingerprint(&closest, &replicas);
+            let fingerprint = fingerprint(&mut closest, &replicas);
             let hash = key_hash(&key);
             if lane.seen.get(&hash).and_then(|seen| seen.0) != Some(fingerprint) {
                 if let Some(queued) = lane.queue.iter_mut().find(|queued| queued.0 == key) {
