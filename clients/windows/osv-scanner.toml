@@ -4,7 +4,7 @@
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0429"
-reason = "glib 0.18 VariantStrIter in the Tauri apps: gtk 0.18 pins it and no fixed version is reachable; the apps never use VariantStrIter (Dependabot alert dismissed as tolerable risk)"
+reason = "glib 0.18 is in Tauri's Linux-only GTK 3 dependency graph and is not compiled on Windows (Dependabot alert dismissed as not used)"
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"

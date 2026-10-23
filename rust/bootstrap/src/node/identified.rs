@@ -295,7 +295,9 @@ mod tests {
     }
 
     fn zero_pow() -> ZeroPow {
-        let guard = POW.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let guard = POW
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let bits = dyapp_p2p_net::id_pow_bits();
         dyapp_p2p_net::set_id_pow_bits(0);
         ZeroPow(bits, guard)

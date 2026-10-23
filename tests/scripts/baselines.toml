@@ -3,9 +3,9 @@
 
 [coverage]
 # Workspace line coverage, percent (tests/scripts/check_coverage.py).
-# 86.6 measured on 2026-10-20; previously lowered from 87.8 to 86.0 when
-# bootstrap's inline test modules moved to tests files, which llvm-cov leaves out.
-lines = 86.6
+# 88.44 measured on 2026-10-23 after covering the media-get CLI; previously lowered
+# from 87.8 to 86.0 when bootstrap's inline tests moved to separate test files.
+lines = 88.4
 
 [batches]
 # Server-side A4 enforcement starts after this already-published commit.

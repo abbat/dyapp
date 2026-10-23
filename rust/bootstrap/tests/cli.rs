@@ -177,9 +177,27 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     ];
     let status = |extra: &[&str]| command(&dir, &[&["status"], &options[..], extra].concat());
     success(&dir, &[&["keygen"], &options[..]].concat());
+    let blob = b"media CLI roundtrip";
+    let hash = dyapp_identity::sha256(blob);
+    let hash_hex: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+    let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    assert!(media
+        .keep("test", 1, &[hash.to_vec()], now)
+        .unwrap()
+        .is_some());
+    assert_eq!(
+        media.put("test", blob, 1 << 20).unwrap(),
+        dyapp_bootstrap::media::Put::Stored
+    );
+    drop(media);
     let mut node = Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
         .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+        .env("DYAPPD_ROLES", "[\"store\", \"media\"]")
         .arg("--storage.dir")
         .arg(&dir)
         .args(options)
@@ -216,6 +234,16 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     assert!(
         unmetered.ends_with("wire_out_bytes unavailable\n"),
         "{unmetered}"
+    );
+
+    let fetched: serde_json::Value =
+        serde_json::from_str(&success(&dir, &["media-get", &listen, &hash_hex])).unwrap();
+    assert_eq!(fetched["status"], "STATUS_OK");
+    assert_eq!(
+        fetched["data"],
+        blob.iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
     );
 
     node.kill().unwrap();

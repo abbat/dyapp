@@ -22,8 +22,10 @@ digest-pinned images, hash-pinned flake8 and the OSV exceptions it rose to 6.8.
 The 2026-10-20 run on `fd8c98b` measured 7.3. CI-Tests scores only merged pull requests among
 the recent commits; once the last one left that window the check became inconclusive and dropped
 out of the average. After the local `tests/docker/Dockerfile.linux-test` was added, Scorecard
-counted one more unpinned local base image and the score fell from 7.2 to 7.1. The baseline is
-7.1; the target of 7.0 is met.
+counted one more unpinned local base image and the score fell from 7.2 to 7.1.
+The 2026-10-23 run scored 6.5: the Vulnerabilities check found 13 OSV advisories and scored 0.
+The 7.1 baseline and 7.0 target are currently unmet; the exceptions below record the reviewed
+cases, while the remaining dependency findings need resolution.
 Maintained remains at 0 while the repository is younger than 90 days; Code-Review and
 Contributors are also at 0. The registered Best Practices badge scores 2 and branch
 protection scores 4. Improving these checks requires maintainer decisions.
@@ -32,6 +34,9 @@ protection scores 4. Improving these checks requires maintainer decisions.
 An `osv-scanner.toml` next to each `Cargo.lock` (root, `tests/fuzz/`, `clients/linux/`, `clients/windows/`) lists the
 advisories that do not apply there, each with its reason (no fixed version reachable, a code path
 the project never takes). cargo-deny keeps its own list in `deny.toml`.
+The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
+series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
+because this Linux dependency is not compiled for Windows.
 Pinned-Dependencies cannot pin the locally built `dyapp:*` base images or a stage of the same
 Dockerfile; those findings are dismissed in code scanning as false positives, and so is the
 Gradle wrapper JAR under Binary-Artifacts (the checked-in Gradle bootstrap).
