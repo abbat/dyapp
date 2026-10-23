@@ -148,6 +148,8 @@ pipeline). In short:
   - an aggregate check, **required**.
 - The platform apps do not link the Rust core yet.
 - codeql, security (cargo audit + SBOM) and python lint are separate workflows.
+- `release.yml` builds and tests `dyappd` with `make deb image`; a `vX.Y.Z` tag also publishes it
+  with build provenance ([ADR 0020](../decisions/0020-dyappd-release-channels.md)).
 
 ### Required Status Checks
 

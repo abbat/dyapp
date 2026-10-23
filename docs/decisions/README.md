@@ -56,5 +56,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0017](0017-network-names.md) | Network names: namespaced protocol IDs, foreign peers dropped after identify, storage bound to one network |
 | [0018](0018-node-key-source.md) | Node key source: a file `dyappd` does not interpret; the package seals it with `systemd-creds` |
 | [0019](0019-device-directory-and-keypackage-rendezvous.md) | Device directory and KeyPackage rendezvous |
+| [0020](0020-dyappd-release-channels.md) | dyappd release channels: GitHub Releases and GHCR with build provenance |
 
 All listed ADRs are accepted.

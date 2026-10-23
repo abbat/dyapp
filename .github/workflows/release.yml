@@ -1,0 +1,110 @@
+name: release
+
+# A vX.Y.Z tag publishes dyappd to GitHub Releases and GHCR with build provenance (ADR 0020).
+# A manual run only builds and tests, and keeps the files as a workflow artifact.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: release - build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      DYAPP_CHECK_LOG_DIR: build/release-check-output
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: version
+        if: github.event_name == 'push'
+        run: test "v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)" = "$GITHUB_REF_NAME"
+      # The dev, base and deb images hold the toolchain and crates: free the preinstalled SDKs.
+      - name: free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      # No layer cache: a release starts from the Dockerfiles alone.
+      - name: images
+        run: |
+          bash tests/scripts/docker-test.sh prepare
+          python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml --profile base build linux-base
+          python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml --profile deb build deb
+      - name: package and test
+        run: make deb image
+      # Prebuilt release binary, pinned by checksum, as in security.yml.
+      - name: sbom
+        run: |
+          curl -fsSLo "$HOME/.cargo/bin/cargo-sbom" https://github.com/psastras/sbom-rs/releases/download/cargo-sbom-v0.10.0/cargo-sbom-x86_64-unknown-linux-gnu
+          echo "860a50d3e009c72fefc12506869cc11ea34d240c65da65cda2c491ed2aaa34f3  $HOME/.cargo/bin/cargo-sbom" | sha256sum -c
+          chmod +x "$HOME/.cargo/bin/cargo-sbom"
+          cargo sbom --cargo-package dyapp-bootstrap --output-format spdx_json_2_3 > build/dyappd.spdx.json
+      - name: collect
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          mkdir -p build/release
+          cp build/deb/dyappd_*.deb build/deb/dyappd-*.tar.gz build/release/
+          cp build/dyappd.spdx.json "build/release/dyappd-$version.spdx.json"
+          (cd build/release && sha256sum -- * > SHA256SUMS)
+          docker save dyappd:latest | gzip -n > build/dyappd-image.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dyappd-release
+          path: |
+            build/release/
+            build/dyappd-image.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-check-output
+          path: build/release-check-output/
+          if-no-files-found: ignore
+
+  publish:
+    name: release - publish
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/dyappd
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dyappd-release
+          path: build
+      - name: verify checksums
+        run: cd build/release && sha256sum -c SHA256SUMS
+      - name: push image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          gunzip -c build/dyappd-image.tar.gz | docker load
+          docker tag dyappd:latest "$IMAGE:$version"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$version"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$version")
+          echo "digest=${digest#*@}" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: build/release/*
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd $GITHUB_REF_NAME. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
