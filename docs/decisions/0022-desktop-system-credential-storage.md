@@ -39,6 +39,14 @@ the client warns that anyone who can read the file can copy the identity key. Th
 mode is stored separately before creating the key, so a failed save cannot silently start a
 new identity on the next launch.
 
+For multiple identities, the choice stays **per identity**. New identities get a random local
+UUID slot, independent of their public Peer ID. File keys live at
+`profiles/<slot>/identity.key`; system credentials use the same slot in their provider-specific
+name. A discoverable profile directory records its mode before key creation. The existing
+`identity.key`/`identity-storage` pair and `primary` system credential remain an in-place
+legacy slot: adopting them must not move, overwrite or regenerate the key. The local active-slot
+pointer is separate from every key. See the [storage layout and recovery rules](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
+
 ## Consequences
 
 System storage is optional and may be unavailable on headless Linux, locked sessions or
@@ -48,3 +56,7 @@ Both platform backends add direct dependencies and lockfile changes. The real ba
 must create and reopen the same Peer ID in Linux and Windows CI before its option ships.
 A temporary provider failure must leave the existing identity recoverable and must not
 silently create a new one.
+The per-identity layout permits independently chosen file and system storage, but its directory
+metadata is visible to anyone who can read the app config directory. A system credential is not
+included merely by copying that directory; backup/export of system-stored keys needs its own
+explicit flow.
