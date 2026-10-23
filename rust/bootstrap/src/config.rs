@@ -121,13 +121,18 @@ fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error) -> anyhow
                 .take_while(|&&byte| byte != b'\n')
                 .count()
                 + 1;
-            format!(" at line {line}, column {column}")
+            if russian_locale() {
+                format!(" в строке {line}, столбце {column}")
+            } else {
+                format!(" at line {line}, column {column}")
+            }
         })
         .unwrap_or_default();
     // Display includes the source line, which can hold turn.secret.
     anyhow::anyhow!(
-        "config {}: TOML parse error{location}: {}",
+        "config {}: {}{location}: {}",
         path.display(),
+        message("TOML parse error", "ошибка синтаксиса TOML"),
         error.message()
     )
 }
@@ -768,8 +773,20 @@ impl NodeConfig {
     ) -> anyhow::Result<(Self, Vec<String>)> {
         let mut table = match file {
             Some(path) => {
-                let source = fs::read_to_string(path)
-                    .map_err(|e| anyhow::anyhow!("config {}: {e}", path.display()))?;
+                let source = fs::read_to_string(path).map_err(|e| {
+                    if russian_locale() {
+                        let guidance = match e.kind() {
+                            std::io::ErrorKind::NotFound => "файл не найден; проверьте путь",
+                            std::io::ErrorKind::PermissionDenied => {
+                                "нет доступа к файлу; проверьте права"
+                            }
+                            _ => "не удалось прочитать файл конфигурации",
+                        };
+                        anyhow::anyhow!("config {}: {guidance}: {e}", path.display())
+                    } else {
+                        anyhow::anyhow!("config {}: {e}", path.display())
+                    }
+                })?;
                 source
                     .parse::<toml::Table>()
                     .map_err(|e| safe_toml_error(path, &source, &e))?

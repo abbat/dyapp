@@ -484,7 +484,10 @@ fn malformed_toml_never_echoes_secret_values() {
     let dir = directory();
     let config = dir.join("bad.toml");
     std::fs::write(&config, "[turn]\nsecret = \"CANARY_SECRET_VALUE\" ???\n").unwrap();
-    for locale in ["C", "ru_RU.UTF-8"] {
+    for (locale, expected) in [
+        ("C", "TOML parse error at line 2, column"),
+        ("ru_RU.UTF-8", "ошибка синтаксиса TOML в строке 2, столбце"),
+    ] {
         let output = command_locale(
             &dir,
             &["status", "--config", config.to_str().unwrap()],
@@ -493,11 +496,28 @@ fn malformed_toml_never_echoes_secret_values() {
         assert!(!output.status.success(), "{output:?}");
         let error = String::from_utf8(output.stderr).unwrap();
         assert!(error.contains(config.to_str().unwrap()), "{error}");
-        assert!(
-            error.contains("TOML parse error at line 2, column"),
-            "{error}"
-        );
+        assert!(error.contains(expected), "{error}");
         assert!(!error.contains("CANARY_SECRET_VALUE"), "{error}");
+    }
+}
+
+#[test]
+fn missing_config_file_explains_failure_in_each_locale() {
+    let dir = directory();
+    let config = dir.join("missing.toml");
+    for (locale, expected) in [
+        ("C", "No such file or directory"),
+        ("ru_RU.UTF-8", "файл не найден; проверьте путь"),
+    ] {
+        let output = command_locale(
+            &dir,
+            &["status", "--config", config.to_str().unwrap()],
+            locale,
+        );
+        assert!(!output.status.success(), "{output:?}");
+        let error = String::from_utf8(output.stderr).unwrap();
+        assert!(error.contains(config.to_str().unwrap()), "{error}");
+        assert!(error.contains(expected), "{error}");
     }
 }
 

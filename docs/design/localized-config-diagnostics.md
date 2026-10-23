@@ -1,6 +1,6 @@
 # Configuration diagnostics for Russian operators
 
-Status: design; source-excerpt redaction is implemented, Russian guidance is pending.
+Status: design; safe syntax and file-read guidance is implemented; type guidance is pending.
 
 ## Decision
 
@@ -55,8 +55,8 @@ text can contain the rejected value.
 ## Verification and follow-up
 
 Raw TOML source excerpts are removed for both locales and covered by a real-binary
-canary test. Next implement the Russian stage guidance. Test malformed TOML,
-wrong types, missing files and denied reads in both locales. Assert that the
+canary test. Russian syntax and file-read guidance is implemented. Next handle
+wrong types and secret-file errors in both locales. Assert that the
 path and available line/column or key path survive, the canary never reaches
 stderr, and the English diagnostics remain stable except for required secret
 redaction. Review again if a dependency update changes parser error structure.
