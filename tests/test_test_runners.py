@@ -383,7 +383,7 @@ class Runners(unittest.TestCase):
             outcomes = [
                 subprocess.CompletedProcess(
                     [], 0, "UI_SMOKE_PASS:" + "0" * 64, "")
-                for _ in range(5)
+                for _ in range(6)
             ] + [subprocess.CompletedProcess([], 1, "UI_SMOKE_FAIL", "")]
             environment = {"RUNNER_TEMP": directory}
             with patch.dict(os.environ, environment, clear=True):
@@ -391,7 +391,7 @@ class Runners(unittest.TestCase):
                     desktop.smoke("windows.exe")
             report = json.loads(
                 (Path(directory) / "desktop-ui-results.json").read_text())
-            self.assertEqual(len(report), 6)
+            self.assertEqual(len(report), 7)
             self.assertTrue(all(case["passed"] for case in report))
 
     def test_desktop_timeout_kills_helpers_holding_stdout(self):

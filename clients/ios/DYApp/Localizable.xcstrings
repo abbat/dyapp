@@ -8,6 +8,12 @@
             "state": "translated",
             "value": "DYApp"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DYApp"
+          }
         }
       }
     },
@@ -17,6 +23,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ready"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
           }
         }
       }

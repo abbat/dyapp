@@ -24,11 +24,11 @@ iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 4 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×1, `ActivityLifecycleTests.kt` ×1 — `activityCanBeClosed`, not a Rust test) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 6 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 6 smoke cases | same |
-| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 4 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
-| macOS | CI only (macos-15) | 1 XCTest | 4 XCUITest | `check-apple-results.py` (≥3) |
+| Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 5 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 7 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 7 smoke cases | same |
+| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
+| macOS | CI only (macos-15) | 1 XCTest | 5 XCUITest | `check-apple-results.py` (≥3) |
 
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty
@@ -39,9 +39,9 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs six app
-instances: system create/restart, file create/restart, pseudo-locale and an injected hidden-ready
-rejection. The restart in each mode must report the same 64-character Peer ID. Successful runs
+(`android instrumentation` when a failed run lists none). The desktop smoke runs seven app
+instances: system create/restart, file create/restart, Russian, pseudo-locale and an injected
+hidden-ready rejection. The restart in each mode must report the same 64-character Peer ID. Successful runs
 print `UI_SMOKE_PASS:<peer-id>` and exit 0; `--break-ui` prints `UI_SMOKE_FAIL` and exits 1.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
@@ -64,16 +64,20 @@ on a pseudo-locale:
 
 | Shell | Catalogue | Pseudo-locale test |
 |-------|-----------|--------------------|
-| Android | `res/values/strings.xml`, read with `stringResource`; plurals go in `<plurals>` | `pseudoLocalesEnabled` in the debug build; `PseudoLocaleTests` renders the start screen with an en-XA context and expects its accented strings |
+| Android | `res/values/strings.xml` and `res/values-ru/strings.xml`, read with `stringResource`; plurals go in `<plurals>` | `pseudoLocalesEnabled` in the debug build; `PseudoLocaleTests` renders the start screen with an en-XA context and expects its accented strings |
 | iOS, macOS | `clients/ios/DYApp/Localizable.xcstrings` (String Catalog, shared by both projects); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
-| Linux, Windows | `clients/desktop/ui/i18n/en.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
+| Linux, Windows | `clients/desktop/ui/i18n/{en,ru}.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
 
-The tests themselves compare against the catalogue (Android, desktop) or the English text (Apple).
+The tests compare against the selected catalogue (Android, desktop) or expected language text (Apple).
 `check-repository.py` fails on a Compose `Text("…")` literal under `clients/android/app/src/main`, on a
 SwiftUI `Text("key")` whose key is not in the String Catalog, and on visible text in
 `clients/desktop/ui/*.html` outside `<script>`/`<style>` or a `data-i18n` key missing from `en.json`.
-Strings that are data, such as the peer ID, are not catalogued. Only English exists; other
-languages are planned.
+Strings that are data, such as the peer ID, are not catalogued. English and Russian are
+shipped for v0.0.1. Android and Apple use the OS app locale; desktop selects `ru.json` when
+the primary browser locale is Russian and `en.json` otherwise. The repository quality check
+requires every English catalogue key to have a nonempty Russian value. The Linux/Windows smoke,
+Android instrumentation and Apple UI suites each exercise the Russian ready screen. The Linux
+application menu entry also has a Russian description.
 
 ## Local Docker suites (Android, Linux)
 

@@ -20,6 +20,24 @@ class PseudoLocaleTests {
     val compose = createComposeRule()
 
     @Test
+    fun startScreenRendersRussianStrings() {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        val configuration = Configuration(base.resources.configuration)
+        configuration.setLocale(Locale.forLanguageTag("ru"))
+        val russian = base.createConfigurationContext(configuration)
+        val ready = russian.getString(R.string.status_ready)
+        check(ready == "\u0413\u043e\u0442\u043e\u0432\u043e") { "Russian translation missing: $ready" }
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalContext provides russian,
+                LocalConfiguration provides configuration
+            ) { MainScreen() }
+        }
+        compose.onNodeWithText(russian.getString(R.string.app_name)).assertIsDisplayed()
+        compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
+    }
+
+    @Test
     fun startScreenRendersPseudoLocalizedStrings() {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val configuration = Configuration(base.resources.configuration)

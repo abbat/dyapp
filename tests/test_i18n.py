@@ -36,6 +36,16 @@ class I18n(unittest.TestCase):
              "clients/ios/DYApp/Localizable.xcstrings"),
         ])
 
+    def test_russian_catalogues_cover_current_keys(self):
+        names = set(CHECK.CATALOGUES.values()) | set(CHECK.RUSSIAN.values())
+        texts = {name: (ROOT / name).read_text() for name in names}
+        self.assertEqual(CHECK.translation_errors(texts), [])
+        russian = CHECK.RUSSIAN["desktop"]
+        texts[russian] = texts[russian].replace(
+            '"status.ready": "Готово",', '')
+        errors = CHECK.translation_errors(texts)
+        self.assertIn("status.ready", " ".join(errors))
+
     def test_repository_ui_strings_come_from_catalogues(self):
         names = [
             *CHECK.CATALOGUES.values(),

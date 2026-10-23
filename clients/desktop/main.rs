@@ -138,6 +138,12 @@ fn pseudo_locale() -> bool {
 }
 
 #[tauri::command]
+fn ui_test_russian() -> bool {
+    std::env::args().any(|arg| arg == "--ui-test")
+        && std::env::args().any(|arg| arg == "--ui-test-ru")
+}
+
+#[tauri::command]
 fn ui_test_mode() -> String {
     if std::env::args().any(|arg| arg == "--ui-test-file") {
         "file".into()
@@ -174,6 +180,7 @@ fn main() {
             identity_state,
             create_identity,
             pseudo_locale,
+            ui_test_russian,
             ui_test_mode,
             ui_test_existing,
             ui_test_result

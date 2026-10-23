@@ -59,6 +59,9 @@ ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
 CATALOGUES = {"android": "clients/android/app/src/main/res/values/strings.xml",
               "apple": "clients/ios/DYApp/Localizable.xcstrings",
               "desktop": "clients/desktop/ui/i18n/en.json"}
+RUSSIAN = {"android": "clients/android/app/src/main/res/values-ru/strings.xml",
+           "apple": CATALOGUES["apple"],
+           "desktop": "clients/desktop/ui/i18n/ru.json"}
 KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
 SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
@@ -379,6 +382,44 @@ def i18n_errors(texts):
     return errors
 
 
+def translation_errors(texts):
+    """Require Russian values for every source catalogue key."""
+    errors = [f"{path}: missing Russian catalogue"
+              for path in (RUSSIAN["android"], RUSSIAN["desktop"])
+              if path not in texts]
+    if errors:
+        return errors
+    english = ElementTree.fromstring(texts[CATALOGUES["android"]])
+    russian = ElementTree.fromstring(texts[RUSSIAN["android"]])
+
+    def resources(root):
+        return {(item.tag, item.get("name")): item
+                for item in root if item.get("name")}
+    source, translated = resources(english), resources(russian)
+    for key in sorted(source.keys() | translated.keys()):
+        item = translated.get(key)
+        missing = key not in source or item is None
+        empty = item is not None and not "".join(item.itertext()).strip()
+        if missing or empty:
+            errors.append(f"{RUSSIAN['android']}: missing or extra {key}")
+        elif item.tag == "plurals" and any(
+                not "".join(value.itertext()).strip() for value in item):
+            errors.append(f"{RUSSIAN['android']}: empty plural form {key}")
+    apple = json.loads(texts[CATALOGUES["apple"]]).get("strings", {})
+    for key, entry in sorted(apple.items()):
+        unit = (entry.get("localizations", {}).get("ru", {})
+                .get("stringUnit", {}))
+        translated = unit.get("state") == "translated"
+        if not translated or not unit.get("value", "").strip():
+            errors.append(f"{CATALOGUES['apple']}: no Russian value for {key}")
+    english = json.loads(texts[CATALOGUES["desktop"]])
+    russian = json.loads(texts[RUSSIAN["desktop"]])
+    for key in sorted(english.keys() | russian.keys()):
+        if key not in english or not russian.get(key, "").strip():
+            errors.append(f"{RUSSIAN['desktop']}: missing or extra {key}")
+    return errors
+
+
 def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
     targets = "".join(text for name, text in texts.items()
@@ -479,7 +520,7 @@ def main():
     errors = round_trip_errors(texts)
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
-    errors = i18n_errors(texts)
+    errors = i18n_errors(texts) + translation_errors(texts)
     if errors:
         raise ValueError("UI strings (practice D1):\n" + "\n".join(errors))
     errors = fuzz_errors(texts)

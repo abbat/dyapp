@@ -41,6 +41,10 @@ when `GITHUB_EVENT_NAME` is `pull_request`).
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` of `clients/windows/Cargo.toml`; `desktop-smoke.py` on the exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
 | `summary` → **required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
 
+The Android, Linux, Windows, iOS and macOS UI suites exercise Russian strings as well as their
+existing English or pseudo-locale cases. The `quality` job checks Russian catalogue parity with
+English, so adding a visible UI key without its translation fails before release.
+
 ### What the platform jobs do **not** validate
 
 The apps are shells that call one core function at most:

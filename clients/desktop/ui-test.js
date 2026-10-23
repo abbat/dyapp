@@ -29,7 +29,8 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     const passed = document.title === strings['app.name']
       && document.querySelector('h1').textContent === strings['app.name']
       && ready.textContent === strings['status.ready']
-      && strings['status.ready'] === (window.pseudoLocale ? '[Réádý··]' : 'Ready')
+      && strings['status.ready'] === (window.pseudoLocale ? '[Réádý··]'
+        : window.locale === 'ru' ? 'Готово' : 'Ready')
       && rect.width > 0 && rect.height > 0
       && style.visibility === 'visible' && style.opacity !== '0'
       && document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready

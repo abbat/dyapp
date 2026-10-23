@@ -2,6 +2,7 @@
 Type=Application
 Name=DYApp
 Comment=Peer-to-peer dating client
+Comment[ru]=Клиент для знакомств с прямыми соединениями
 Exec=dyapp
 Icon=dyapp
 Terminal=false

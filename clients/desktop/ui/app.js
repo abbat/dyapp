@@ -1,12 +1,20 @@
-// Practice D1: every visible string comes from the i18n/en.json catalogue, by data-i18n key;
-// plurals use Intl.PluralRules. With --pseudo-locale each string is accented and 40% longer.
+// Practice D1: visible strings come from the matching i18n catalogue by data-i18n key.
+// With --pseudo-locale each English string is accented and 40% longer.
 const { invoke } = window.__TAURI__.core;
 const accents = { a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú', y: 'ý', A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú' };
 const pseudo = (text) => `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
 
-window.stringsShown = Promise.all([fetch('i18n/en.json').then((r) => r.json()), invoke('pseudo_locale')])
-  .then(([catalogue, pseudoLocale]) => {
+window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russian')])
+  .then(async ([pseudoLocale, testRussian]) => {
+    const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
+      .split(/[-_]/)[0].toLowerCase();
+    const language = !pseudoLocale && (testRussian || systemLanguage === 'ru') ? 'ru' : 'en';
+    const response = await fetch(`i18n/${language}.json`);
+    if (!response.ok) throw new Error('Translation catalogue unavailable');
+    const catalogue = await response.json();
+    window.locale = language;
     window.pseudoLocale = pseudoLocale;
+    document.documentElement.lang = language;
     window.strings = Object.fromEntries(Object.entries(catalogue)
       .map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]));
     for (const element of document.querySelectorAll('[data-i18n]')) {

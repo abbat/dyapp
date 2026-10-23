@@ -4,7 +4,7 @@ This is the implementation contract for the empty platform applications. It spec
 
 ## Scope
 
-Each application opens one real window or activity, renders `DYApp` and `Ready`, and terminates when closed. The ready element has the stable accessibility identifier/test tag/DOM id `app-ready`. Launch does not require networking, registration, Rust FFI, or any business feature. Initialization failures must fail the launch test; a placeholder bridge is not evidence of FFI integration.
+Each application opens one real window or activity, renders `DYApp` and the localized ready label (`Ready` in English, `Готово` in Russian), and terminates when closed. The ready element has the stable accessibility identifier/test tag/DOM id `app-ready`. Launch does not require networking, registration, Rust FFI, or any business feature. Initialization failures must fail the launch test; a placeholder bridge is not evidence of FFI integration.
 
 Only the roots below are applications. Web is outside this milestone. Preserve SwiftUI for Apple and Compose for Android; do not add Tauri to SwiftUI.
 

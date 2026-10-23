@@ -109,6 +109,8 @@ def smoke(executable):
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
     with tempfile.TemporaryDirectory(dir=reports) as profile:
+        case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
+    with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("pseudo-locale", ["--ui-test-file", "--pseudo-locale"], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("hidden-ready-rejected", ["--ui-test-file", "--break-ui"],

@@ -50,6 +50,16 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testRussianLanguage() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        app.launch()
+        let ready = app.staticTexts["app-ready"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 10))
+        XCTAssertEqual(ready.label, "\u{0413}\u{043e}\u{0442}\u{043e}\u{0432}\u{043e}")
+        app.terminate()
+    }
+
     func testHiddenReadyDoesNotSatisfyLaunchContract() {
         let app = XCUIApplication()
         app.launchArguments = ["--break-ui"]
