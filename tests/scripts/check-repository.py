@@ -43,7 +43,7 @@ DEBT_SOURCE = SOURCE | {".html", ".css", ".scss", ".java", ".gradle", ".c",
                         ".h", ".cpp", ".hpp", ".m", ".mm", ".ps1"}
 # Split marker spellings so this source also passes its own check.
 DEBT = re.compile(r"\b(?:T[O]DO|F[I]XME)\b")
-SCOPE = re.compile(r"^[\w./-]+: ")
+SCOPE = re.compile(r"^[\w./-]+(?:\([\w./-]+\))?: ")
 # Imperative words that look like past tense or a gerund.
 IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
               "Shed", "Speed", "String", "Succeed"}

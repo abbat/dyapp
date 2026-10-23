@@ -27,7 +27,8 @@ class Lint(unittest.TestCase):
         self.assertEqual(CHECK.bead_ids(text, ALLOWED), [ID, CHILD])
 
     def test_good_messages(self):
-        for subject in ("Add a check", "ci: Pin the image", "Embed the key",
+        for subject in ("Add a check", "ci: Pin the image",
+                        "test(bootstrap): Verify media", "Embed the key",
                         "Process the queue", "Focus on dyapp-ffi"):
             self.assertEqual(self.errors(subject + TRAILER), "", subject)
 
@@ -53,11 +54,13 @@ class Lint(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             path = Path(directory) / "message"
             for subject, expected in (("test(bootstrap): verify media", 1),
-                                      ("Test(bootstrap): Verify media", 0)):
+                                      ("test(bootstrap): Verify media", 0)):
                 path.write_text(subject + TRAILER)
                 result = subprocess.run(
-                    [sys.executable, "-B", str(ROOT / "tests/scripts/check-repository.py"),
-                     "--message-file", str(path)], cwd=ROOT, capture_output=True, text=True)
+                    [sys.executable, "-B",
+                     str(ROOT / "tests/scripts/check-repository.py"),
+                     "--message-file", str(path)],
+                    cwd=ROOT, capture_output=True, text=True)
                 self.assertEqual(result.returncode, expected, result.stderr)
 
     def test_orphans(self):

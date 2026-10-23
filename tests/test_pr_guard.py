@@ -110,7 +110,8 @@ class PullRequestGuardTests(unittest.TestCase):
         self.assertIn("example 1.0.0", text)
 
     def test_infra_only_passes(self):
-        ok, _ = self.check({".github/workflows/ci.yml": "on: push\n"})
+        ok, _ = self.check({".github/workflows/ci.yml": "on: push\n",
+                            "tests/test_pr_guard.py": "fixture\n"})
         self.assertTrue(ok)
 
     def test_young_version_fails(self):

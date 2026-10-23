@@ -30,8 +30,8 @@ Docker `make` targets, with network disabled after dependencies are fetched.
   the entire lockfile diff. A new direct dependency needs an issue with a reason and an ADR.
 - For infrastructure changes, inspect new steps, permissions, triggers, `sudo`, downloads
   without a hash and `${{ github.event.* }}` used in `run:`. Keep infrastructure changes in
-  their own PR, with documentation allowed; do not combine them with application code or
-  dependency changes.
+  their own PR, with documentation and guard tests allowed; do not combine them with application
+  code or dependency changes.
 - Inspect renames, removed tests, generated and binary files. Split a PR above roughly 1000
   changed lines excluding generated files so every change remains reviewable.
 

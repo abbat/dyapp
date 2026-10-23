@@ -6,14 +6,22 @@
 - Work branches: `feature/<topic>`, `bugfix/<topic>`, `docs/<topic>`,
   `chore/<topic>`. Lowercase and hyphens; you may append an issue number
   (`bugfix/42-integration-tests`).
-- Small single-maintainer changes (including agent sessions the maintainer
-  approves) may be committed directly to `main` until the first public release; from then on
-  `main` takes changes only through pull requests with green CI and signed commits (planned,
-  [Threat Model](../security/threat-model.md#ai-agents-and-developer-tooling)).
+- `main` requires pull requests and green checks. The maintainer has a temporary direct-push
+  bypass until the first public release; release hardening removes it and requires signed commits
+  ([Threat Model](../security/threat-model.md#ai-agents-and-developer-tooling)).
+
+## Pull requests
+
+External PRs require maintainer approval before CI runs, two independent local AI reviews of a
+pinned head SHA, and green checks on that SHA. The maintainer merges with
+`gh pr merge --match-head-commit <head-sha>`. Keep infrastructure changes separate from code and
+dependency changes. Follow the [review checklist](pr-review.md) and
+[ADR 0021](../decisions/0021-ai-review-human-merge.md).
 
 ## Commits
 
-[Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`.
+[Conventional Commits](https://www.conventionalcommits.org/): `type(scope): Summary`.
+The summary starts with a capitalized imperative verb; the local `commit-msg` hook checks it.
 
 - Types: `feat`, `fix`, `docs`, `test`, `build`, `ci`, `refactor`, `perf`, `chore`.
 - Scope: a crate (`bootstrap`, `messaging`, `ffi`, …), a platform (`android`,

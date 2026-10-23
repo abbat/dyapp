@@ -229,8 +229,9 @@ The maintainer can bypass the `main` PR ruleset for direct pushes until the firs
 
 ### Hostile pull requests
 
-Class 7 in detail. The [review policy](../development/pr-review.md) requires the maintainer
-to read an external PR before approving CI, two independent local reviews
+Class 7 in detail. The [review policy](../development/pr-review.md) and
+[ADR 0021](../decisions/0021-ai-review-human-merge.md) require the maintainer to read an external
+PR before approving CI, two independent local reviews
 at the same head SHA, green required checks and a head-pinned merge. The repository ruleset
 requires PRs and checks, rejects force-pushes and deletion, and temporarily lets the maintainer
 bypass it. GitHub Actions requires approval for every external contributor's fork PR. These

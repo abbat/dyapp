@@ -16,7 +16,7 @@ INFRA_PREFIXES = (".github/", ".agents/", ".claude/", "docker/",
                   "scripts/", "tools/docker/", "tests/docker/",
                   "tools/scripts/", "tests/scripts/", "docs/agents/")
 INFRA_FILES = {"Makefile", "AGENTS.md", "CLAUDE.md", "deny.toml",
-               ".pre-commit-config.yaml"}
+               ".pre-commit-config.yaml", "tests/test_pr_guard.py"}
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
