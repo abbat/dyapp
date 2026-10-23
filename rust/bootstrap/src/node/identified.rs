@@ -283,17 +283,27 @@ mod tests {
         assert!(!admission.provider_allowed(&none, &record, 0));
     }
 
-    struct RestorePow(u32);
-    impl Drop for RestorePow {
+    /// The proof-of-work bits are process-wide: tests that zero them run one at a time.
+    static POW: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Zeroes the proof-of-work bits until dropped.
+    struct ZeroPow(u32, #[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+    impl Drop for ZeroPow {
         fn drop(&mut self) {
             dyapp_p2p_net::set_id_pow_bits(self.0);
         }
     }
 
+    fn zero_pow() -> ZeroPow {
+        let guard = POW.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let bits = dyapp_p2p_net::id_pow_bits();
+        dyapp_p2p_net::set_id_pow_bits(0);
+        ZeroPow(bits, guard)
+    }
+
     #[test]
     fn a_provider_flood_under_other_keys_leaves_the_search_key_room() {
-        let _restore_pow = RestorePow(dyapp_p2p_net::id_pow_bits());
-        dyapp_p2p_net::set_id_pow_bits(0);
+        let _pow = zero_pow();
         let mut swarm =
             dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
         let provider = PeerId::random();
@@ -324,8 +334,7 @@ mod tests {
 
     #[test]
     fn only_the_matching_claim_connection_routes_an_alternative_address() {
-        let _restore_pow = RestorePow(dyapp_p2p_net::id_pow_bits());
-        dyapp_p2p_net::set_id_pow_bits(0);
+        let _pow = zero_pow();
         let mut swarm =
             dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
         let peer = PeerId::random();
