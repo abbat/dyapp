@@ -46,10 +46,28 @@ fn documented() -> Vec<(String, &'static str, &'static str, &'static str)> {
 
 /// The options of `dyappd --help`, one per config key, with its default and description.
 pub fn options_help() -> String {
+    options_help_for_locale(false)
+}
+
+/// The same flags and defaults, with Russian descriptions.
+pub fn options_help_russian() -> String {
+    options_help_for_locale(true)
+}
+
+fn options_help_for_locale(russian: bool) -> String {
     let flags: Vec<_> = documented()
         .into_iter()
         .map(|(section, key, default, about)| {
             let flag = format!("--{section}{}", key.replace('_', "-"));
+            let about = if russian {
+                let name = format!("{section}{key}");
+                ru::DESCRIPTIONS
+                    .iter()
+                    .find(|(key, _)| *key == name.as_str())
+                    .map_or(about, |(_, text)| *text)
+            } else {
+                about
+            };
             (flag, default, about)
         })
         .collect();
@@ -868,6 +886,7 @@ fn check_writable(dir: &Path) -> anyhow::Result<()> {
 
 mod binding;
 mod key;
+mod ru;
 
 #[cfg(test)]
 #[path = "config/validation.rs"]

@@ -20,7 +20,7 @@
 //! `dyappd info <host:port>` and the other [client] commands talk to a running node; they only
 //! read the config, for `network.name`.
 
-use dyapp_bootstrap::config::{options_help, transports, Role};
+use dyapp_bootstrap::config::{options_help, options_help_russian, transports, Role};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::metrics::{self, listener};
@@ -73,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
                      ./dyappd.toml, ~/dyappd.toml или /etc/dyappd.toml. Параметры командной строки \
                      переопределяют файл и переменные DYAPPD_; для каждого элемента списка укажите \
                      параметр отдельно. Значения по умолчанию:\n{}",
-                    options_help()
+                    options_help_russian()
                 );
             } else {
                 print!(

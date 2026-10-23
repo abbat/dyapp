@@ -247,6 +247,25 @@ fn reference_matches_defaults() {
 }
 
 #[test]
+fn russian_help_covers_every_documented_option() {
+    let documented: std::collections::BTreeSet<_> = documented()
+        .into_iter()
+        .map(|(section, key, _, _)| format!("{section}{key}"))
+        .collect();
+    let translated: std::collections::BTreeSet<_> = ru::DESCRIPTIONS
+        .iter()
+        .map(|(key, description)| {
+            assert!(!description.trim().is_empty(), "{key}");
+            key.to_string()
+        })
+        .collect();
+    assert_eq!(translated.len(), ru::DESCRIPTIONS.len());
+    assert_eq!(translated, documented);
+    assert!(options_help_russian().contains("--storage.dir"));
+    assert!(options_help_russian().contains("каталог всех данных узла"));
+}
+
+#[test]
 fn node_key_refuses_group_other_bits_without_repairing_permissions() {
     use std::os::unix::fs::PermissionsExt;
     let mut config = NodeConfig::default();

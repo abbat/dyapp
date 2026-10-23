@@ -296,8 +296,9 @@ Every setting is optional. Later sources override earlier ones:
 
 `dyappd --help` lists every option with its default. With a Russian message locale (`LC_ALL`,
 then `LC_MESSAGES`, then `LANG`), command usage and config-loading instructions appear in Russian;
-command and option names stay unchanged. Individual option descriptions remain in English until
-localization is finished for v0.0.1. An unknown option stops the node; an
+command and option names and default values stay unchanged, while option descriptions are
+translated. A parity test requires a Russian description for every new option. An unknown option
+stops the node; an
 unknown key in the file or the environment is logged and ignored, so a config written for a
 newer node does not stop an older one. Changes take effect on restart
 (`sudo systemctl restart dyappd`); only the deny list is reloaded while running. Keep

@@ -288,6 +288,7 @@ fn help_uses_the_message_locale_without_changing_commands() {
     assert!(ru.contains("клиент: dyappd info <адрес>"));
     assert!(ru.contains("Значения по умолчанию:"));
     assert!(ru.contains("--storage.dir"));
+    assert!(ru.contains("каталог всех данных узла"));
     assert!(help("", "ru_RU.UTF-8").contains("использование: dyappd"));
     let en = help("C", "ru_RU.UTF-8");
     assert!(en.contains("usage: dyappd"));
