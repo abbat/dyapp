@@ -23,8 +23,9 @@ it are entry points that tools discover by path (see
 - [Protobuf schema](architecture/protobuf-schema.md)
 - [Platform integration](architecture/platform-integration.md)
 
-### Client design
+### Product and operator design
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
+- [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
