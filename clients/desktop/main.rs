@@ -168,7 +168,13 @@ fn ui_test_existing() -> bool {
 }
 
 #[tauri::command]
-fn ui_test_result(app: tauri::AppHandle, window: tauri::Window, passed: bool, peer_id: String) {
+fn ui_test_result(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    passed: bool,
+    peer_id: String,
+    reason: String,
+) {
     if !std::env::args().any(|arg| arg == "--ui-test") {
         return;
     }
@@ -176,7 +182,8 @@ fn ui_test_result(app: tauri::AppHandle, window: tauri::Window, passed: bool, pe
     if success {
         println!("UI_SMOKE_PASS:{peer_id}");
     } else {
-        println!("UI_SMOKE_FAIL");
+        let reason = reason.lines().next().unwrap_or("unknown");
+        println!("UI_SMOKE_FAIL: {}", reason.chars().take(160).collect::<String>());
     }
     app.exit(if success { 0 } else { 1 });
 }

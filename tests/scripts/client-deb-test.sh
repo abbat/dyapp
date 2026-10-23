@@ -5,10 +5,7 @@ set -euo pipefail
 trap 'printf "client-deb-test failed at line %s\n" "$LINENO" >&2' ERR
 if [[ ${1:-} == --session ]]; then
     printf 'dyapp-ci-test-keyring' | gnome-keyring-daemon --unlock --components=secrets >/dev/null
-    for app in /usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp; do
-        python3 /tests/scripts/desktop-smoke.py "$app"
-    done
-    exit
+    exec python3 /tests/scripts/desktop-smoke.py "$2"
 fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -34,8 +31,10 @@ cd /tmp
 tar -xzf /deb/dyapp-*-linux-gnu.tar.gz
 test "$(ls dyapp-*-linux-gnu)" = "$(printf 'LICENSE\ndyapp\ndyapp.desktop\ndyapp.png')"
 useradd -m tester
-runuser -u tester -- env HOME=/home/tester RUNNER_TEMP=/tmp/reports \
-    DYAPP_XVFB_DIAGNOSTICS=1 \
-    xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
-    bash /tests/scripts/client-deb-test.sh --session
+for app in /usr/bin/dyapp /tmp/dyapp-*-linux-gnu/dyapp; do
+    runuser -u tester -- env HOME=/home/tester RUNNER_TEMP=/tmp/reports \
+        DYAPP_XVFB_DIAGNOSTICS=1 \
+        xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
+        bash /tests/scripts/client-deb-test.sh --session "$app"
+done
 echo "dyapp client .deb and tarball install on Debian 12, launch and close"
