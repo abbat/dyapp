@@ -5,17 +5,17 @@
 # The deny list is edited with `sudo -u dyappd dyappd deny add|remove|list`.
 
 # --- Network addresses -------------------------------------------------------------------------
-# Every address is host:port; an IPv6 host goes in brackets: [2001:db8::7]:7070.
+# Every address is host:port; an IPv6 host goes in brackets: [2001:db8::7]:33445.
 # Each address serves TCP and QUIC (UDP) on its port: open both in the firewall.
 
 # Where the node listens. The default is loopback only, so a fresh install serves nobody.
-# To serve the network on all IPv6 and IPv4 addresses: ["[::]:7070", "0.0.0.0:7070"].
-# listen = ["[::1]:7070", "127.0.0.1:7070"]  # addresses the node listens on
+# To serve the network on all IPv6 and IPv4 addresses: ["[::]:33445", "0.0.0.0:33445"].
+# listen = ["[::1]:33445", "127.0.0.1:33445"]  # addresses the node listens on
 
 # The public addresses of this node, if known (a static address, port forwarding).
 # Empty: peers check which address they see the node from, and it is announced once they reach
 # it there. Until then the node only uses the network and stores nothing for it.
-# external = []                  # e.g. ["[2001:db8::7]:7070", "198.51.100.7:7070"]
+# external = []                  # e.g. ["[2001:db8::7]:33445", "198.51.100.7:33445"]
 
 # Running nodes to join the network through on the first start. A host may be a DNS name.
 # Later starts also dial the peers remembered in storage.dir, so seeds are only a way in.

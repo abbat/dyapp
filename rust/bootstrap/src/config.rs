@@ -97,7 +97,9 @@ fn set(
 /// The TCP and QUIC (UDP) addresses of a `host:port` listen or external address.
 pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     let socket: SocketAddr = address.parse().map_err(|_| {
-        anyhow::anyhow!("bad address {address}: expected host:port, e.g. [::]:7070 or 0.0.0.0:7070")
+        anyhow::anyhow!(
+            "bad address {address}: expected host:port, e.g. [::]:33445 or 0.0.0.0:33445"
+        )
     })?;
     let ip = Multiaddr::from(socket.ip());
     Ok([
@@ -123,8 +125,8 @@ pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
         .and_then(|(host, port)| Some((host, port.parse::<u16>().ok()?)))
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "bad seed {address}: expected host:port, e.g. seed.example.org:7070 or \
-                 [2001:db8::7]:7070"
+                "bad seed {address}: expected host:port, e.g. seed.example.org:33445 or \
+                 [2001:db8::7]:33445"
             )
         })?;
     let dns = Multiaddr::empty().with(Protocol::Dns(host.into()));
@@ -513,9 +515,9 @@ impl Default for Maintenance {
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
-            // Loopback until the operator opens the node with ["[::]:7070", "0.0.0.0:7070"];
+            // Loopback until the operator opens the node with ["[::]:33445", "0.0.0.0:33445"];
             // libp2p binds IPv6 sockets v6-only, so dual stack takes both addresses.
-            listen: vec!["[::1]:7070".into(), "127.0.0.1:7070".into()],
+            listen: vec!["[::1]:33445".into(), "127.0.0.1:33445".into()],
             external: vec![],
             seeds: vec![],
             roles: vec![Role::Store, Role::Search],

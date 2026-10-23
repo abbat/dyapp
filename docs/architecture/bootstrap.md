@@ -685,7 +685,7 @@ reload; the node refuses new puts and reads of that hash.
 
 ### Operating a node
 
-- Runs as an unprivileged system user and refuses to start as root; default port 7070, every
+- Runs as an unprivileged system user and refuses to start as root; default port 33445, every
   path must be writable by that user (implemented in `dyappd`). The Debian 12 package adds a
   hardened systemd unit and the `dyappd` system user
   ([deployment](../manuals/bootstrap.md#debian-12-package)).
@@ -712,9 +712,10 @@ reload; the node refuses new puts and reads of that hash.
   node applies within 10 seconds and logs ([Deny list](#deny-list)), `deny received` prints the
   lists other nodes shared, and `status` prints what
   the stores hold, read-only. There is no TUI and no admin HTTP endpoint; metrics go to the log.
-- <a id="default-port"></a>Default port 7070 for the first release. It came with the initial
-  tree without a recorded reason; it is kept because it binds without privilege, serves TCP and
-  QUIC on one number, and every config, seed and doc already uses it. Changing the port alone
+- <a id="default-port"></a>Default port 33445 for the first release, chosen by the maintainer.
+  It binds without privilege and serves TCP and QUIC on one number. Explicit addresses on the
+  former port 7070 still work; operators must update their firewall and seed entries when
+  changing a node's listen address. Changing the port alone
   does not resist DPI: a filter matches the libp2p handshake and QUIC Initial on any port
   ([RFC 9312](https://www.rfc-editor.org/rfc/rfc9312.html),
   [RFC 9505](https://www.rfc-editor.org/rfc/rfc9505.html)). Port 443 may pass port-based
@@ -1072,7 +1073,7 @@ JSON object:
 ```
 dyappd sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
 dyappd heartbeat <addr> <secret hex> → {"status"}
-dyappd info    [::1]:7070                → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
+dyappd info    [::1]:33445                → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
 dyappd publish <addr> <record hex>  → {"status"} (+ "record" when stale)
 dyappd get     <addr> <peer_id hex> → {"status", "record"}
 dyappd device-key                        → {"secret", "mailbox"}
@@ -1108,8 +1109,8 @@ sends `n` profile gets at once on one connection. `media` has a fresh owner keep
 put the blob and get it back on one connection and prints each status; `"get"` is `"CHANGED"` if
 the blob came back different.
 
-`<addr>` is `host:port`, the host an IP (IPv6 in brackets, e.g. `[::1]:7070`) or a DNS name;
-the client dials TCP. A multiaddr starting with `/` (e.g. `/ip6/::1/tcp/7070`) is still accepted.
+`<addr>` is `host:port`, the host an IP (IPv6 in brackets, e.g. `[::1]:33445`) or a DNS name;
+the client dials TCP. A multiaddr starting with `/` (e.g. `/ip6/::1/tcp/33445`) is still accepted.
 A host without a port or an unbracketed IPv6 address is refused with the expected forms.
 
 ## Erasure coding (Reed-Solomon)

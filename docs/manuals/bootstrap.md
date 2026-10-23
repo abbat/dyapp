@@ -51,7 +51,7 @@ A single node keeps the only copy, so a network needs several.
 - Debian 12 (bookworm) with systemd, or any Linux host with Docker.
 - About 2 vCPU, 1 GiB of memory and 16 GiB of disk with the default quotas
   ([Capacity](#capacity)). Run without swap: the key must not reach it.
-- A public IPv4 and/or IPv6 address, with TCP **and** UDP open on the node port (7070 by default).
+- A public IPv4 and/or IPv6 address, with TCP **and** UDP open on the node port (33445 by default).
 - An authenticated time source, such as `chrony` with NTS ([Clock](#clock)).
 - Optional: a TPM 2.0 or a vTPM, so the sealed node key is bound to the machine
   ([Node key](#node-key)).
@@ -114,10 +114,11 @@ The package holds `/usr/bin/dyappd`, `/etc/dyappd.toml` (a conffile, kept on upg
 - decrypts the [sealed node key](#node-key) with `LoadCredentialEncrypted=node.key`;
 - logs to the journal with `RUST_LOG=info`; `systemctl reload dyappd` sends SIGHUP.
 
-The default port 7070 needs no privilege; any port works, seeds and clients carry it, and
+The default port 33445 needs no privilege; any port works, seeds and clients carry it, and
 another port alone does not hide the traffic from DPI
-([why 7070](../architecture/bootstrap.md#default-port)). Another `storage.dir` or a port below 1024 needs a
-drop-in (`sudo systemctl edit dyappd`):
+([why 33445](../architecture/bootstrap.md#default-port)). An explicitly configured 7070 address
+keeps working; update firewalls and seed entries when moving an existing node. Another
+`storage.dir` or a port below 1024 needs a drop-in (`sudo systemctl edit dyappd`):
 
 ```ini
 [Service]
@@ -137,8 +138,8 @@ identity: delete them by hand to [retire the node](#retiring-a-node).
 docker volume create dyappd
 run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
 $run dyappd:latest keygen              # once: about a minute on 2 vCPU
-$run -d --name dyappd --memory 1g -p 7070:7070/tcp -p 7070:7070/udp \
-    -e DYAPPD_SEEDS='["seed.example.org:7070"]' dyappd:latest
+$run -d --name dyappd --memory 1g -p 33445:33445/tcp -p 33445:33445/udp \
+    -e DYAPPD_SEEDS='["seed.example.org:33445"]' dyappd:latest
 docker exec dyappd dyappd deny add <entry> [note]   # applied within 10 s
 docker exec dyappd dyappd status
 docker logs dyappd
@@ -148,7 +149,7 @@ docker logs dyappd
 empty base: no shell, no package manager, no `/etc`. The node runs as UID 65532 and writes only
 `/var/lib/dyappd`, its `storage.dir` and the image's one volume, so the root can be read-only and
 every capability dropped. A new named volume takes the owner and mode 0700 from the image; a
-bind mount needs `chown 65532:65532`. The image sets `listen` to `["[::]:7070", "0.0.0.0:7070"]`;
+bind mount needs `chown 65532:65532`. The image sets `listen` to `["[::]:33445", "0.0.0.0:33445"]`;
 other settings are `DYAPPD_` variables, `--<section>.<key>` options after the image name, or a
 config file mounted read-only at `/etc/dyappd.toml`, which is read without `--config`. With
 `--memory 1g` the default `limits.max_memory_mb = 768` sheds requests before Docker's limit. In
@@ -259,8 +260,8 @@ this node:
 
 ```text
 12D3KooW...
-[2001:db8::7]:7070/12D3KooW...
-192.0.2.7:7070/12D3KooW...
+[2001:db8::7]:33445/12D3KooW...
+192.0.2.7:33445/12D3KooW...
 ```
 
 What keygen and startup check:
@@ -288,10 +289,10 @@ Every setting is optional. Later sources override earlier ones:
    out with its default, [`rust/bootstrap/dyappd.toml`](../../rust/bootstrap/dyappd.toml) in
    the repository; a test keeps that file equal to the code);
 3. environment variables `DYAPPD_<SECTION>_<KEY>`, parsed as TOML (a bare string is taken as
-   is), e.g. `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` or `DYAPPD_LISTEN='["[2001:db8::7]:7070"]'`;
+   is), e.g. `DYAPPD_LIMITS_MESSAGE_TTL_HOURS=48` or `DYAPPD_LISTEN='["[2001:db8::7]:33445"]'`;
 4. options `--<section>.<key>` with `-` for `_`, e.g. `--limits.max-connections 500` or
    `--storage.dir=/srv/dyappd`; a list option is given once per item and replaces the list
-   (`--listen '[::]:7070' --listen 0.0.0.0:7070`).
+   (`--listen '[::]:33445' --listen 0.0.0.0:33445`).
 
 `dyappd --help` lists every option with its default. An unknown option stops the node; an
 unknown key in the file or the environment is logged and ignored, so a config written for a
@@ -307,9 +308,9 @@ than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `listen` | `["[::1]:7070", "127.0.0.1:7070"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:7070", "0.0.0.0:7070"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
+| `listen` | `["[::1]:33445", "127.0.0.1:33445"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:33445", "0.0.0.0:33445"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
 | `external` | `[]` | Public addresses announced to peers, when known (a static address, port forwarding). Empty: peers learn the listen addresses through identify (only the global ones when there are any), and the address they see the node from is announced once AutoNAT confirms it. Until then the node is a DHT client: it uses the DHT but serves no part of it. |
-| `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:7070`, `[2001:db8::7]:7070`). The peer ID, printed by the seed's `dyappd id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
+| `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:33445`, `[2001:db8::7]:33445`). The peer ID, printed by the seed's `dyappd id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
 | `roles` | `["store", "search"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
 
 `listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.
@@ -320,9 +321,9 @@ node; the name only finds it. Choose by how stable the address is:
 
 | Choice | Example `seeds` entry | Pros | Cons |
 |--------|-----------------------|------|------|
-| Direct IP | `192.0.2.7:7070/12D3KooW...` | No third party; nothing to renew | Every operator who lists the node edits the entry when the address changes |
-| Free dynamic DNS name | `mynode.duckdns.org:7070/12D3KooW...` | The entry survives an address change; free | A provider outage or a lost name stops new nodes from joining through this seed; an update token to protect |
-| Owned domain | `seed1.example.org:7070/12D3KooW...` | Under your control; your own DNS provider and TTL | Costs money and renewal; lost on expiry like any name |
+| Direct IP | `192.0.2.7:33445/12D3KooW...` | No third party; nothing to renew | Every operator who lists the node edits the entry when the address changes |
+| Free dynamic DNS name | `mynode.duckdns.org:33445/12D3KooW...` | The entry survives an address change; free | A provider outage or a lost name stops new nodes from joining through this seed; an update token to protect |
+| Owned domain | `seed1.example.org:33445/12D3KooW...` | Under your control; your own DNS provider and TTL | Costs money and renewal; lost on expiry like any name |
 
 Free dynamic DNS providers, as their own pages state (October 2026; terms change, check before
 use):
@@ -480,17 +481,17 @@ sudo -u dyappd dyappd status
 A minimal serving config:
 
 ```toml
-listen = ["[::]:7070", "0.0.0.0:7070"]
-seeds = ["seed1.example.org:7070/12D3KooW...", "seed2.example.org:7070/12D3KooW..."]
+listen = ["[::]:33445", "0.0.0.0:33445"]
+seeds = ["seed1.example.org:33445/12D3KooW...", "seed2.example.org:33445/12D3KooW..."]
 ```
 
 Open TCP and UDP on the port in the host and cloud firewalls. Check from another host with
 `dyappd info` ([client commands](../architecture/bootstrap.md#client-commands)):
 
 ```bash
-dyappd info node.example.org:7070   # exit 0 and "STATUS_OK" → alive
-dyappd info [2001:db8::7]:7070      # an IPv6 address goes in brackets
-dyappd info 192.0.2.7:7070          # an IPv4 address
+dyappd info node.example.org:33445   # exit 0 and "STATUS_OK" → alive
+dyappd info [2001:db8::7]:33445      # an IPv6 address goes in brackets
+dyappd info 192.0.2.7:33445          # an IPv4 address
 ```
 
 A new node answers `STATUS_FULL` to writes until it has trusted peers for
@@ -865,8 +866,8 @@ network grows, so lower it on a small disk) and 1 GiB of memory
 
 | Symptom | Check |
 |---------|-------|
-| `dyappd info` fails with a timeout or `request failed` | The node is down, the address is wrong (`host:port`, with an IPv6 address in brackets) or a firewall blocks TCP/UDP 7070 |
-| `dyappd info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:7070", "0.0.0.0:7070"]` |
+| `dyappd info` fails with a timeout or `request failed` | The node is down, the address is wrong (`host:port`, with an IPv6 address in brackets) or a firewall blocks TCP/UDP 33445 |
+| `dyappd info` works on the host but times out from elsewhere | `listen` is the loopback default; set `listen = ["[::]:33445", "0.0.0.0:33445"]` |
 | Writes answer `STATUS_FULL` | The node trusts no peer yet (`storage_trust_minutes` after its start), a store is at its quota, or the disk is below `min_free_mb` |
 | `dyappd` exits at startup about a directory | The storage directory is not writable by the node's user; fix permissions or `ReadWritePaths=` |
 | `run as the owner of ...` | Run commands as the service user: `sudo -u dyappd dyappd ...` |

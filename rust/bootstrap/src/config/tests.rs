@@ -140,6 +140,10 @@ fn file_then_env_overrides_and_unknown_keys() {
 
 #[test]
 fn options_override_env() {
+    assert_eq!(
+        NodeConfig::default().listen,
+        ["[::1]:33445", "127.0.0.1:33445"]
+    );
     let env = [("DYAPPD_LIMITS_MAX_CONNECTIONS".into(), "5".into())];
     let options = [
         ("limits.max-connections", "7"),

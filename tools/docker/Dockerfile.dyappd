@@ -17,7 +17,7 @@ RUN cargo auditable build --release --locked --offline --package dyapp-bootstrap
 FROM scratch
 COPY --from=build /out /
 USER 65532:65532
-ENV RUST_LOG=info DYAPPD_LISTEN='["[::]:7070", "0.0.0.0:7070"]'
+ENV RUST_LOG=info DYAPPD_LISTEN='["[::]:33445", "0.0.0.0:33445"]'
 VOLUME /var/lib/dyappd
-EXPOSE 7070/tcp 7070/udp
+EXPOSE 33445/tcp 33445/udp
 ENTRYPOINT ["/usr/bin/dyappd"]
