@@ -23,6 +23,9 @@ it are entry points that tools discover by path (see
 - [Protobuf schema](architecture/protobuf-schema.md)
 - [Platform integration](architecture/platform-integration.md)
 
+### Client design
+- [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
+
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
 - [Pull request review](development/pr-review.md): checks and human review of untrusted PRs
