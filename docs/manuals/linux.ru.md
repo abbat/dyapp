@@ -22,8 +22,10 @@ sudo apt install ./dyapp_<version>_<arch>.deb
 ```
 
 `apt` ставит зависимости: WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`) и GTK 3. Пакет устанавливает
-`/usr/bin/dyapp`, пункт меню (`/usr/share/applications/dyapp.desktop`) и значок. Удаление:
-`sudo apt remove dyapp`.
+`/usr/bin/dyapp`, пункт меню (`/usr/share/applications/dyapp.desktop`), значок и метаданные
+AppStream (`/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml`). Название типа приложения в
+меню и описание в каталоге программ переведены на русский; поле Debian `Description` остаётся
+английским. Удаление: `sudo apt remove dyapp`.
 
 ## Установка из архива
 

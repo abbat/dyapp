@@ -22,8 +22,10 @@ sudo apt install ./dyapp_<version>_<arch>.deb
 ```
 
 `apt` pulls the dependencies: WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`) and GTK 3. The package installs
-`/usr/bin/dyapp`, a menu entry (`/usr/share/applications/dyapp.desktop`) and an icon. Remove it with
-`sudo apt remove dyapp`.
+`/usr/bin/dyapp`, a menu entry (`/usr/share/applications/dyapp.desktop`), an icon, and
+AppStream metadata (`/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml`). The launcher and
+software-center summary have Russian translations; the package's Debian `Description` remains
+English. Remove it with `sudo apt remove dyapp`.
 
 ## Install from the tarball
 

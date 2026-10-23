@@ -55,6 +55,8 @@ root=build/client-root
 rm -rf "$root" build/shlibs
 install -D -s -m 0755 build/client/release/dyapp-linux "$root/usr/bin/dyapp"
 install -D -m 0644 packaging/linux/dyapp.desktop "$root/usr/share/applications/dyapp.desktop"
+install -D -m 0644 packaging/linux/io.github.abbat.dyapp.metainfo.xml \
+    "$root/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml"
 install -D -m 0644 clients/linux/icons/icon.png "$root/usr/share/icons/hicolor/32x32/apps/dyapp.png"
 mkdir -p build/shlibs/debian
 printf 'Source: dyapp\n\nPackage: dyapp\nArchitecture: any\n' >build/shlibs/debian/control

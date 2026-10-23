@@ -1,6 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=DYApp
+GenericName=Dating client
+GenericName[ru]=Клиент для знакомств
 Comment=Peer-to-peer dating client
 Comment[ru]=Клиент для знакомств с прямыми соединениями
 Exec=dyapp

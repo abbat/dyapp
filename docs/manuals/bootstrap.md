@@ -81,7 +81,9 @@ make image    # → the dyappd:latest container image
 
 `make deb` builds a release binary in a Debian 12 image, so it runs on glibc 2.36, and
 test-installs the package and the [tarball](#tarball-manual-install) on a clean
-`debian:bookworm-slim`. `make image` runs the image
+`debian:bookworm-slim`. The package's Debian `Description` stays in English: translations of that
+field belong in repository `Translation-*` indexes rather than in a standalone `.deb`. Russian
+operator help and diagnostics use the process locale. `make image` runs the image
 read-only with no network, makes a key, starts the node, edits the deny list and checks that the
 image has no shell. Both need only Docker on the build host.
 

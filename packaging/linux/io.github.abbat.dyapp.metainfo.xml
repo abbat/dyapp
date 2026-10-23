@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.abbat.dyapp</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>DYApp</name>
+  <summary>Peer-to-peer dating client</summary>
+  <summary xml:lang="ru">Клиент для знакомств с прямыми соединениями</summary>
+  <description>
+    <p>DYApp is a Linux desktop client for a peer-to-peer dating network.</p>
+    <p xml:lang="ru">DYApp — клиент для Linux для сети знакомств с прямыми соединениями.</p>
+  </description>
+  <url type="homepage">https://github.com/abbat/dyapp</url>
+  <launchable type="desktop-id">dyapp.desktop</launchable>
+  <provides>
+    <binary>dyapp</binary>
+  </provides>
+</component>
