@@ -1,6 +1,6 @@
 # Client update discovery and notifications
 
-Status: source, schedule and platform delivery designed; notification UI is pending.
+Status: design complete; implementation and live publisher verification are pending.
 No client currently checks for updates. The current release workflow publishes `dyappd` only.
 
 ## Goal and boundary
@@ -90,8 +90,8 @@ publisher. No feed error may silently install anything.
 Network errors, invalid JSON, unexpected redirects, missing platform entries,
 rollback, and publisher failures produce no new-version notice. They must remain
 visible to a manual check and in support diagnostics without exposing identity
-keys or bootstrap/network configuration. Scheduling and UI wording are pending.
-The update request is independent of the active identity and should carry no
+keys or bootstrap/network configuration. The update request is independent
+of the active identity and should carry no
 Peer ID or user profile data.
 
 ## Check cadence and privacy
@@ -179,6 +179,63 @@ GitHub documents [Pages workflow permissions](https://docs.github.com/en/pages/g
 [release API ordering](https://docs.github.com/en/rest/releases/releases) and
 [REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
 
+## Settings and notification UX
+
+Settings exposes the four intervals above, **Check now**, installed version,
+last successful check (local date/time or **Never**), and the current update
+state. A failed check must not replace the last known valid version. Changing
+the interval persists immediately and recomputes the next due check; shortening
+it past due schedules a check, lengthening it does not force one. The setting
+and dismissal state belong to the installation, not to an identity. While the
+feed or platform destination is unfinished, controls remain disabled with a
+specific explanation, as required by the [screen draft](v0.0.1-client-screens.md).
+
+On a newly discovered higher version, show one in-app notice with installed and
+available versions. While background execution succeeds, the app may also
+request one OS notification for that version. Where permission is needed, ask
+for it from a foreground Settings action before background notification use;
+never prompt from a background task. If permission is unavailable or denied,
+the in-app notice and Settings badge still work on next open. No permission is
+required just to check. **Later** dismisses the interruption for that version,
+not the Settings badge; a newer version can notify again. Do not repeatedly
+show an OS notification for the same version. An installed version at least as
+new as the notice clears it and the badge. No release notes or URL from feed
+JSON are rendered as markup.
+
+| State code | English UI | Russian UI | Action |
+|---|---|---|---|
+| `checking` | Checking for updates… | Проверка обновлений… | Coalesce repeated taps; keep Cancel/Back if the platform needs it. |
+| `current` | Version {installed} is up to date. | Версия {installed} актуальна. | Show only after a verified feed check for this target. |
+| `available-package` | Version {available} is available. Open the official release page. | Доступна версия {available}. Откройте официальную страницу релиза. | Open the fixed GitHub release page; explain package verification. |
+| `available-store` | Version {available} is available in the app store. | Версия {available} доступна в магазине приложений. | Open the app-pinned store listing. |
+| `available-source` | Source for version {available} is available. Build and sign it using the platform guide. | Доступны исходники версии {available}. Соберите и подпишите приложение по инструкции для вашей платформы. | Open the fixed tag and relevant manual; never present an unsigned IPA as installable. |
+| `offline` | No connection. Last checked: {date/never}. | Нет соединения. Последняя проверка: {дата/никогда}. | Retry manually or wait for backoff/network restoration. |
+| `untrusted` | Update information could not be verified. Try again later. | Не удалось проверить сведения об обновлениях. Попробуйте позже. | Keep prior validated state; do not open a feed-supplied link. |
+| `not-published` | Updates for this platform are not published yet. | Обновления для этой платформы пока не опубликованы. | Never claim the installed version is latest. |
+| `background-limited` | Background checks may run late; updates are checked when you open the app. | Фоновая проверка может задерживаться; при открытии приложение проверит обновления. | Show as an explanation when platform background work is unavailable. |
+
+The notice controls are **Open official release / Открыть официальный релиз**
+(or **Open store / Открыть магазин**, **Build instructions / Инструкция по
+сборке**) and **Later / Позже**. Display release notes only on the fixed
+external page, not as untrusted HTML in the app. Background failures do not
+raise repetitive dialogs or OS alerts; manual checks explain the failure.
+
+## Acceptance matrix
+
+- A valid higher version for the installed target yields one localized notice
+  and a persistent Settings badge; equal/older/missing target yields no false
+  notice. A later higher version notifies again after dismissal.
+- Manual check shows `checking` then `current`, available, offline, untrusted or
+  not-published as appropriate; background checks update state without an error
+  modal. Denied notification permission leaves the in-app notice intact.
+- Changing the interval persists across restart and identities; fake clock,
+  sleep/wake, offline, retry, 304 cache, and simultaneous foreground/background
+  triggers follow the cadence rules. Android and iOS tests assert catch-up on
+  next launch, not a fixed 24-hour wake-up.
+- Every notice opens only a platform-pinned destination. Apple source-build
+  states never claim an unsigned download can be installed. EN/RU copy and
+  accessibility labels describe the same state and action.
+
 ## Checks before implementation is complete
 
 - Publisher fixtures: server-only release, one platform only, out-of-order tags,
@@ -188,5 +245,5 @@ GitHub documents [Pages workflow permissions](https://docs.github.com/en/pages/g
   older/equal/newer versions, target absent, and stale feed. Assert that no
   response-supplied URL is ever opened and no key or profile data is sent.
 - Enable checks only after the Pages URL and platform destinations have live
-  end-to-end smoke checks. Notification UX is specified by the remaining design
-  checkpoint; this document will be updated before implementation.
+  end-to-end smoke checks. Keep this design and the platform manuals aligned
+  with the implemented behavior.
