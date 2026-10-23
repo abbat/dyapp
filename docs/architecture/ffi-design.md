@@ -15,7 +15,9 @@
 | `clients/ios/DYApp/RustBridge.swift` | Creates or opens the stored `IdentityKey` and shows its peer ID; shared by the iOS and macOS apps. |
 | `clients/ios/DYApp/PlatformKeyStore.swift` | The Apple apps' `KeyStore`: CryptoKit AES-256-GCM with a random key in the Keychain, this device only. |
 
-The Android, iOS and macOS apps link the library.
+The Android, iOS and macOS apps link the library. Linux and Windows call
+`dyapp-identity` directly; their [storage choice and capability checks](../development/desktop-identity-storage.md)
+are planned, not part of this UniFFI contract.
 
 ## Exported surface
 
