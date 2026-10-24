@@ -3,9 +3,9 @@
 How the project measures its own security practices and handles reported vulnerabilities.
 
 The [exception audit inventory](../development/practices.md#exception-audit-inventory)
-lists every repository and GitHub-side waiver source. Its monthly item review
-and first full evidence record are pending; current advisory explanations below
-are inputs to that review.
+lists every repository and GitHub-side waiver source. The
+[first review](exception-audit-2026-10-24.md) records evidence and the next
+monthly review date; current advisory explanations below are inputs to it.
 
 ## OpenSSF Scorecard
 
