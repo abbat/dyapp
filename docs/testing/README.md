@@ -45,6 +45,9 @@ Located in `#[cfg(test)]` modules within each crate.
 - Signed profile: version ordering (stale → error), tombstone kept and hidden from the list
 - Replication: encode/decode, single+multiple shard failures, fault tolerance
 - RateLimiter: per-peer limits, active peer tracking
+- Media billing checks payload and framing charges in separate upload and reply windows, so
+  test assertions do not depend on a wall-clock second boundary. Its per-peer quota assertions
+  use a test-only fixed clock, so a loaded CI host cannot refill the quota between calls.
 
 **FFI** (rust/ffi)
 - VideoSession wrapper: async bridging, state management

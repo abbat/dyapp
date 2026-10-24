@@ -1,5 +1,7 @@
 //! Request, ban, byte-rate and memory limits of the node.
 
+#[cfg(test)]
+use governor::clock::{Clock, FakeRelativeClock};
 use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -10,16 +12,30 @@ use std::time::{Duration, Instant};
 const MAX_BUCKETS: usize = 10_000;
 
 /// Buckets per key with the last time idle ones were dropped.
-type Buckets = (
-    HashMap<String, (DefaultDirectRateLimiter, Instant)>,
-    Instant,
-);
+type Buckets = (HashMap<String, (Bucket, Instant)>, Instant);
+
+enum Bucket {
+    Real(DefaultDirectRateLimiter),
+    #[cfg(test)]
+    Frozen(
+        RateLimiter<
+            governor::state::direct::NotKeyed,
+            governor::state::InMemoryState,
+            FakeRelativeClock,
+            governor::middleware::NoOpMiddleware<<FakeRelativeClock as Clock>::Instant>,
+        >,
+    ),
+}
 
 /// A request-rate bucket per key (peer ID, IP group or sender key), dropping idle ones once a
 /// second and at `MAX_BUCKETS`.
 pub struct PeerRateLimiter {
     limiters: Arc<RwLock<Buckets>>,
     messages_per_second: u32,
+    #[cfg(test)]
+    frozen_clock: Option<FakeRelativeClock>,
+    #[cfg(test)]
+    frozen_instant: Option<Instant>,
 }
 
 impl PeerRateLimiter {
@@ -28,7 +44,20 @@ impl PeerRateLimiter {
         Self {
             limiters: Arc::new(RwLock::new((HashMap::new(), Instant::now()))),
             messages_per_second,
+            #[cfg(test)]
+            frozen_clock: None,
+            #[cfg(test)]
+            frozen_instant: None,
         }
+    }
+
+    /// Keep governor's clock fixed for assertions about a single quota window.
+    #[cfg(test)]
+    pub(crate) fn frozen(messages_per_second: u32) -> Self {
+        let mut limiter = Self::new(messages_per_second);
+        limiter.frozen_clock = Some(FakeRelativeClock::default());
+        limiter.frozen_instant = Some(Instant::now());
+        limiter
     }
 
     /// Charges one request to `peer_id`; false when its bucket is empty.
@@ -44,6 +73,9 @@ impl PeerRateLimiter {
         let mut guard = self.limiters.write().unwrap();
         let (limiters, pruned) = &mut *guard;
 
+        #[cfg(test)]
+        let now = self.frozen_instant.unwrap_or_else(Instant::now);
+        #[cfg(not(test))]
         let now = Instant::now();
         let second = Duration::from_secs(1);
         // Not only at the cap: one-off keys (fresh peer IDs) would hold the map at its high water.
@@ -54,10 +86,21 @@ impl PeerRateLimiter {
         }
         let (limiter, seen) = limiters.entry(peer_id.to_string()).or_insert_with(|| {
             let quota = Quota::per_second(NonZeroU32::new(self.messages_per_second).unwrap());
-            (RateLimiter::direct(quota), now)
+            #[cfg(test)]
+            if let Some(clock) = &self.frozen_clock {
+                return (
+                    Bucket::Frozen(RateLimiter::direct_with_clock(quota, clock.clone())),
+                    now,
+                );
+            }
+            (Bucket::Real(RateLimiter::direct(quota)), now)
         });
         *seen = now;
-        matches!(limiter.check_n(units), Ok(Ok(())))
+        match limiter {
+            Bucket::Real(limiter) => matches!(limiter.check_n(units), Ok(Ok(()))),
+            #[cfg(test)]
+            Bucket::Frozen(limiter) => matches!(limiter.check_n(units), Ok(Ok(()))),
+        }
     }
 
     /// Keys with a bucket.
@@ -138,6 +181,12 @@ impl Traffic {
             .saturating_mul(100)
             .checked_div(self.rate)
             .unwrap_or(0)
+    }
+
+    /// Last charged window without advancing the wall-clock window during a test assertion.
+    #[cfg(test)]
+    pub(crate) fn charged_bytes(&self) -> u64 {
+        self.second.lock().unwrap().1
     }
 
     /// Reserves outgoing bytes only if they fit under `share` percent of the byte rate.
