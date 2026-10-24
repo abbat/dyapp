@@ -14,7 +14,8 @@ each push to `main` and on demand:
   actions.
 - job **scorecard - score** runs Scorecard again with JSON output, and
   `tests/scripts/check-scorecard.py` fails when the aggregate score is below `[scorecard] score` in
-  `tests/scripts/baselines.toml`. Below the target of 7.0 it lists the checks that lose points; at
+  `tests/scripts/baselines.toml`. Below the baseline or the target of 7.0 it lists the checks that
+  lose points and any vulnerability IDs; at
   0.5 above the baseline it asks to raise the baseline. Artifact **`scorecard`** keeps the JSON.
 
 The first run (2026-10-19, before `SECURITY.md`) scored 5.9. With `SECURITY.md`,
@@ -67,6 +68,17 @@ map every advisory ID to **all** scanned manifests, and check the `osv-scanner.t
 each one. Upgrade or remove affected dependencies where possible; add a reasoned local
 exception only after reviewing reachability and available fixes. Re-run Scorecard and confirm
 the IDs disappear. Dismissing a GitHub alert alone does not change this scan.
+
+The 2026-10-24 [Scorecard run](https://github.com/abbat/dyapp/actions/runs/40079935683)
+scored 7.0 with four findings: `RUSTSEC-2026-0387` is the
+`crypto-bigint 0.5.5` timing vulnerability pulled in by OpenMLS's
+`p256 0.13`/`elliptic-curve 0.13` dependencies. The other three
+(`RUSTSEC-2026-0370`, `-0371`, `-0372`) mark the separate `zvariant`,
+`zbus_names` and `zvariant_derive` crates as unmaintained; the Linux client's
+`secret-service 5.2` depends on `zbus 5`, which still uses them. A fixed
+`crypto-bigint` requires the `0.7.6` series, while the current OpenMLS crypto
+and credential crates still require `p256 0.13`. Scorecard and `cargo-deny`
+remain red; these paths need dependency migrations, not a lower baseline.
 
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
 is registered and currently at InProgress level. The maintainer keeps its answers current at

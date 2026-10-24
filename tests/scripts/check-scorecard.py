@@ -15,19 +15,26 @@ TARGET = 7.0
 def check(result, baseline):
     """The report; fails below the baseline."""
     score = result["score"]
+    weak = sorted((c for c in result["checks"] if 0 <= c["score"] < 10),
+                  key=lambda c: c["score"])
+    details = []
+    for item in weak:
+        details.append(f"  {item['name']}: {item['score']} - {item['reason']}")
+        if item["name"] == "Vulnerabilities":
+            details.extend(
+                f"    {line}" for line in item.get("details") or []
+                if line.startswith("Warn: Project is vulnerable to:"))
     if score < baseline:
-        raise ValueError(f"Scorecard {score} < baseline {baseline} "
-                         "(tests/scripts/baselines.toml)")
+        report = f"Scorecard {score} < baseline {baseline} "
+        report += "(tests/scripts/baselines.toml)\n" + "\n".join(details)
+        raise ValueError(report)
     lines = [f"Scorecard {score} (baseline {baseline}, target {TARGET})"]
     if score >= baseline + 0.5:
         lines.append("Raise [scorecard] score in "
                      "tests/scripts/baselines.toml to "
                      f"{score}")
     if score < TARGET:
-        weak = sorted((c for c in result["checks"] if 0 <= c["score"] < 10),
-                      key=lambda c: c["score"])
-        lines += [f"  {c['name']}: {c['score']} - {c['reason']}"
-                  for c in weak]
+        lines += details
     return "\n".join(lines)
 
 

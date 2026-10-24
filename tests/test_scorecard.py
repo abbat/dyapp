@@ -20,6 +20,21 @@ class Scorecard(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "6.2 < baseline 6.5"):
             CHECK.check(RESULT, 6.5)
 
+    def test_baseline_failure_names_weak_checks_and_advisories(self):
+        result = {"score": 7.0, "checks": [
+            {"name": "Vulnerabilities", "score": 6,
+             "reason": "4 existing vulnerabilities detected",
+             "details": ["Warn: Project is vulnerable to: "
+                         "https://osv.dev/RUSTSEC-2026-0387"]},
+            {"name": "Fuzzing", "score": 10, "reason": "project is fuzzed"}]}
+        with self.assertRaises(ValueError) as raised:
+            CHECK.check(result, 7.1)
+        self.assertIn("Vulnerabilities: 6 - 4 existing "
+                      "vulnerabilities detected",
+                      str(raised.exception))
+        self.assertIn("RUSTSEC-2026-0387", str(raised.exception))
+        self.assertNotIn("Fuzzing", str(raised.exception))
+
     def test_below_target_lists_weak_checks(self):
         self.assertEqual(CHECK.check(RESULT, 5.5).splitlines(), [
             "Scorecard 6.2 (baseline 5.5, target 7.0)",
