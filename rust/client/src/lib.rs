@@ -133,6 +133,11 @@ impl PreparedEnvelope {
     pub fn id(&self) -> &[u8; 16] {
         &self.id
     }
+
+    /// The envelope this record signs; [`Self::from_bytes`] checked it decodes.
+    pub(crate) fn envelope(&self) -> proto::Envelope {
+        proto::Envelope::decode(self.record.payload.as_slice()).unwrap_or_default()
+    }
 }
 
 impl std::fmt::Debug for PreparedEnvelope {

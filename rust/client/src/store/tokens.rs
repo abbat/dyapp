@@ -3,6 +3,7 @@
 //! owner keeps the keys it signed per contact so it can revoke them when it blocks that contact.
 
 use super::{Error, Store};
+use crate::PreparedEnvelope;
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
 use dyapp_identity::Identity;
@@ -146,6 +147,39 @@ impl Store {
         )?)
     }
 
+    /// Replace pending write `refused`, which a node refused for its token, with `next`, the same
+    /// ciphertext under another token or none, in one commit.
+    pub fn replace_outbound(
+        &mut self,
+        refused: &PreparedEnvelope,
+        next: &PreparedEnvelope,
+    ) -> Result<(), Error> {
+        let tx = self.db.transaction()?;
+        let deleted = tx.execute(
+            "DELETE FROM `outbox`
+             WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `signed_envelope` = ?3",
+            params![
+                refused.mailbox().as_slice(),
+                refused.id().as_slice(),
+                refused.as_bytes()
+            ],
+        )?;
+        if deleted != 1 || refused.mailbox() != next.mailbox() {
+            return Err(Error::OutboxConflict);
+        }
+        tx.execute(
+            "INSERT INTO `outbox` (`mailbox`, `envelope_id`, `signed_envelope`, `retry_at_ms`,
+             `attempts`) VALUES (?1, ?2, ?3, 0, 0)",
+            params![
+                next.mailbox().as_slice(),
+                next.id().as_slice(),
+                next.as_bytes()
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Delete held and issued tokens that no node accepts on `today` any more.
     pub fn prune_tokens(&self, today: u32) -> Result<(), Error> {
         for table in ["held_tokens", "issued_tokens"] {
@@ -205,6 +239,7 @@ fn aad(mailbox: &[u8; 32], epoch: u32) -> Vec<u8> {
 mod tests {
     use super::super::tests::temp_db_path;
     use super::super::{Error, Store};
+    use crate::prepare_put;
     use dyapp_identity::Identity;
     use rusqlite::Connection;
 
@@ -319,5 +354,32 @@ mod tests {
         store.prune_tokens(12).unwrap();
         assert!(!store.issued_revoked(&[3; 32]).unwrap());
         assert!(store.issued_revoked(&[4; 32]).unwrap());
+    }
+
+    #[test]
+    fn a_refused_write_is_swapped_for_its_replacement_once() {
+        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let refused = prepare_put(&[1; 32], vec![9]).unwrap();
+        store
+            .stage_outbound(b"mls", std::slice::from_ref(&refused))
+            .unwrap();
+        let next = prepare_put(&[1; 32], vec![9]).unwrap();
+        store.replace_outbound(&refused, &next).unwrap();
+        let due = store.due_outbound(0).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].as_bytes(), next.as_bytes());
+        assert!(matches!(
+            store.replace_outbound(&refused, &next),
+            Err(Error::OutboxConflict)
+        ));
+        let elsewhere = prepare_put(&[2; 32], vec![9]).unwrap();
+        assert!(matches!(
+            store.replace_outbound(&next, &elsewhere),
+            Err(Error::OutboxConflict)
+        ));
+        assert_eq!(
+            store.due_outbound(0).unwrap()[0].as_bytes(),
+            next.as_bytes()
+        );
     }
 }

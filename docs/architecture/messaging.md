@@ -21,6 +21,8 @@ record on retry. `Node::put` still prepares and sends in one call for existing c
 durable outbox and receipt handling remain planned. `prepare_tokened_put` carries a held
 WriteToken and signs with its token key instead of a one-off key. `tokens::send` uses today's
 held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, then tokenless.
+`Session::send_message` stages writes with today's held token the same way; a refused one is
+swapped for its replacement in the outbox in one commit before it is put again.
 `tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
 device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;

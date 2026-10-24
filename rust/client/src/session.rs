@@ -2,7 +2,7 @@
 
 use crate::chat::{self, Body, Event};
 use crate::store::{InboxKey, InboxKind, Store};
-use crate::{prepare_put, Node, PreparedEnvelope};
+use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
@@ -100,9 +100,18 @@ impl Session {
             .ok_or(Error::UnknownGroup)?;
         let staged = (|| {
             let deliveries = chat::message(group, device, body)?;
+            let today = (crate::now() / 86_400) as u32;
             let writes = deliveries
                 .into_iter()
-                .map(|delivery| prepare_put(&delivery.mailbox, delivery.mls))
+                .map(|delivery| {
+                    tokens::prepare(
+                        &self.store,
+                        &delivery.mailbox,
+                        delivery.mls,
+                        today,
+                        seal_key,
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             let sealed = device.seal(seal_key)?;
             self.store.stage_outbound(&sealed, &writes)?;
@@ -115,7 +124,9 @@ impl Session {
         staged
     }
 
-    /// Send a text only after the new MLS state and every signed envelope are durable.
+    /// Send a text only after the new MLS state and every signed envelope are durable. Each write
+    /// carries this device's token for today when it holds one; a write refused for its token is
+    /// replaced in the outbox as in [`tokens::send`] and put again.
     pub async fn send_message(
         &mut self,
         node: &mut Node,
@@ -124,8 +135,20 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         let writes = self.stage_message(group_id, &Body::Text(text.to_vec()), seal_key)?;
-        for write in &writes {
-            node.put_prepared(write).await?;
+        let today = (crate::now() / 86_400) as u32;
+        for mut write in writes {
+            loop {
+                match node.put_prepared(&write).await {
+                    Ok(()) => break,
+                    Err(crate::Error::Status(status)) => {
+                        let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
+                            .ok_or(crate::Error::Status(status))?;
+                        self.store.replace_outbound(&write, &next)?;
+                        write = next;
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+            }
         }
         Ok(())
     }

@@ -4,7 +4,7 @@
 
 use crate::chat::{Body, TokenAnswer, TokenAsk, TokenRequest, MAX_TOKENS};
 use crate::store::{Error, Store};
-use crate::{session, Node};
+use crate::{session, Node, PreparedEnvelope};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, Status};
 use prost::Message as _;
@@ -100,20 +100,70 @@ pub async fn send(
     today: u32,
     seal_key: &[u8; 32],
 ) -> Result<Option<u32>, session::Error> {
-    for epoch in [today, today.saturating_add(1)] {
-        let Some((key, token)) = store.write_token(mailbox, epoch, seal_key)? else {
-            break;
-        };
-        let prepared = crate::prepare_tokened_put(mailbox, ciphertext.to_vec(), &key, &token)?;
-        match node.put_prepared(&prepared).await {
-            Ok(()) => return Ok(Some(epoch)),
-            Err(crate::Error::Status(Status::Stale)) => continue,
-            Err(crate::Error::Status(Status::Denied)) => break,
+    let mut write = prepare(store, mailbox, ciphertext.to_vec(), today, seal_key)?;
+    loop {
+        match node.put_prepared(&write).await {
+            Ok(()) => return Ok(epoch(&write)),
+            Err(crate::Error::Status(status)) => {
+                match fallback(store, &write, status, today, seal_key)? {
+                    Some(next) => write = next,
+                    None => return Err(crate::Error::Status(status).into()),
+                }
+            }
             Err(error) => return Err(error.into()),
         }
     }
-    node.put(mailbox, ciphertext.to_vec()).await?;
-    Ok(None)
+}
+
+/// A put of `ciphertext` to `mailbox` with this device's token for `epoch`, or tokenless without
+/// one.
+pub(crate) fn prepare(
+    store: &Store,
+    mailbox: &[u8],
+    ciphertext: Vec<u8>,
+    epoch: u32,
+    seal_key: &[u8; 32],
+) -> Result<PreparedEnvelope, session::Error> {
+    let held = match mailbox.try_into() {
+        Ok(mailbox) => store.write_token(mailbox, epoch, seal_key)?,
+        Err(_) => None,
+    };
+    Ok(match held {
+        Some((key, token)) => crate::prepare_tokened_put(mailbox, ciphertext, &key, &token)?,
+        None => crate::prepare_put(mailbox, ciphertext)?,
+    })
+}
+
+/// The day of the token `write` carries.
+pub(crate) fn epoch(write: &PreparedEnvelope) -> Option<u32> {
+    let token = write.envelope().write_token?;
+    proto::WriteToken::decode(token.payload.as_slice())
+        .ok()
+        .map(|token| token.epoch)
+}
+
+/// The same ciphertext to put after the node refused tokened `write` with `status`: on STALE with
+/// the next day's token up to `today + 1`, otherwise tokenless. `None` when `write` was tokenless
+/// or the refusal is not DENIED or STALE.
+pub(crate) fn fallback(
+    store: &Store,
+    write: &PreparedEnvelope,
+    status: Status,
+    today: u32,
+    seal_key: &[u8; 32],
+) -> Result<Option<PreparedEnvelope>, session::Error> {
+    let Some(epoch) = epoch(write) else {
+        return Ok(None);
+    };
+    let ciphertext = write.envelope().ciphertext;
+    let next = match status {
+        Status::Stale if epoch < today.saturating_add(1) => {
+            prepare(store, write.mailbox(), ciphertext, epoch + 1, seal_key)?
+        }
+        Status::Stale | Status::Denied => crate::prepare_put(write.mailbox(), ciphertext)?,
+        _ => return Ok(None),
+    };
+    Ok(Some(next))
 }
 
 /// Revokes every token key this device issued to `contact` (hex Peer ID), for example when the

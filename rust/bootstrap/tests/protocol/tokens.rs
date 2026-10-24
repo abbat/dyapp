@@ -130,9 +130,84 @@ async fn put(owner: &mut Person, contact: &mut Person, store: &Store, today: u32
     let epoch = tokens::send(&mut contact.node, store, &mailbox, &[1], today, &SEAL)
         .await
         .unwrap();
+    assert_eq!(senders(owner).await.len(), 1);
+    epoch
+}
+
+/// Fetches and acks `owner`'s mailbox; returns each envelope's sender key.
+async fn senders(owner: &mut Person) -> Vec<Vec<u8>> {
     let (envelopes, _) = owner.node.fetch(&owner.device_key).await.unwrap();
-    assert_eq!(envelopes.len(), 1);
     let ids = envelopes.iter().map(|e| e.id.clone()).collect();
     owner.node.ack(&owner.device_key, ids).await.unwrap();
-    epoch
+    envelopes.into_iter().map(|e| e.sender_key).collect()
+}
+
+#[tokio::test]
+async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox() {
+    use dyapp_client::{chat, session::Session};
+
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+        .await
+        .unwrap();
+    let mut profiles = Vec::new();
+    for owner in [alice.identity.peer_id(), bob_owner] {
+        profiles.push(alice.node.get_profile(&owner).await.unwrap());
+    }
+    let alice_mailbox = alice.mailbox();
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        .await
+        .unwrap();
+    chat::send(&mut alice.node, &welcome).await.unwrap();
+    assert_eq!(senders(&mut bob).await.len(), 1);
+    let group_id = group.id().to_vec();
+    let today = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        / 86_400) as u32;
+    let mut store = Store::open(&store_path("token-session"), &alice.identity).unwrap();
+    store
+        .stage_group(
+            &group,
+            &profiles[1],
+            &alice.device.seal(&SEAL).unwrap(),
+            &[],
+        )
+        .unwrap();
+    drop(group);
+    let bob_mailbox = bob.mailbox();
+    let key = hold(&mut store, &bob.device_key, &bob_mailbox, today);
+    let mut session = Session::open(store, &SEAL).unwrap();
+
+    session
+        .send_message(&mut alice.node, &group_id, b"one", &SEAL)
+        .await
+        .unwrap();
+    assert_eq!(senders(&mut bob).await, [key.to_vec()]);
+
+    // Bob revokes the key: the refused write is swapped in the outbox and goes tokenless.
+    let bob_store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
+    bob_store
+        .record_issued("alice", &bob_mailbox, &key, today)
+        .unwrap();
+    tokens::revoke(&mut bob.node, &bob_store, &bob.device_key, "alice", today)
+        .await
+        .unwrap();
+    session
+        .send_message(&mut alice.node, &group_id, b"two", &SEAL)
+        .await
+        .unwrap();
+    let sent = senders(&mut bob).await;
+    assert_eq!(sent.len(), 1);
+    assert_ne!(sent[0], key.to_vec());
+    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
 }
