@@ -87,13 +87,6 @@ impl Store {
         Ok(Self { db })
     }
 
-    /// The schema version read from the opened database.
-    pub fn schema_version(&self) -> Result<i64, Error> {
-        Ok(self
-            .db
-            .pragma_query_value(None, "user_version", |row| row.get(0))?)
-    }
-
     /// Whether this profile sends optional view signals; absent means off.
     pub fn send_profile_views(&self) -> Result<bool, Error> {
         let value: Option<(i64, Vec<u8>)> = self
@@ -195,7 +188,7 @@ PRAGMA user_version = 1;
 
 #[cfg(test)]
 mod tests {
-    use super::{Error, Store, VERSION};
+    use super::{Error, Store};
     use dyapp_identity::Identity;
     use dyapp_messaging::hlc::Timestamp;
     use rusqlite::Connection;
@@ -216,19 +209,12 @@ mod tests {
         let alice = Identity::generate();
         let bob = Identity::generate();
         let store = Store::open(&path, &alice).unwrap();
-        assert_eq!(store.schema_version().unwrap(), VERSION);
         drop(store);
         assert!(matches!(
             Store::open(&path, &bob),
             Err(Error::WrongIdentity)
         ));
-        assert_eq!(
-            Store::open(&path, &alice)
-                .unwrap()
-                .schema_version()
-                .unwrap(),
-            VERSION
-        );
+        drop(Store::open(&path, &alice).unwrap());
     }
 
     #[test]
