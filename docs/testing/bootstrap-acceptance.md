@@ -97,6 +97,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Challenge is bound to its connection | Functional | `protocol.rs::challenge_is_bound_to_its_connection` | exists |
 | Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol/clock.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service/clock.rs` | exists |
 | Watching fetch gets a push | E2E | `network_checks.py::mailbox` | exists |
+| Two clients with SQLite stores chat across restarts: an unsent Welcome is retried with its exact bytes, a storage fault at send puts nothing, one at receive shows and acks nothing, and a retried envelope is shown once | Functional | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
 
 The clock checks cover node replies. Client signing-time correction using a median from
 three distinct nodes remains planned.

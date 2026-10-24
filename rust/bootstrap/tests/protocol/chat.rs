@@ -534,3 +534,184 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
     assert!(second.fetch(&bob.device_key).await.unwrap().0.is_empty());
 }
+
+/// A fresh database path for one person's client store.
+fn store_path(name: &str) -> std::path::PathBuf {
+    let mut random = [0; 16];
+    getrandom::fill(&mut random).unwrap();
+    std::env::temp_dir().join(format!(
+        "dyapp-{name}-{:032x}.sqlite3",
+        u128::from_be_bytes(random)
+    ))
+}
+
+/// Make every MLS state write in the database at `path` fail until `heal`.
+fn break_mls_writes(path: &std::path::Path) {
+    rusqlite::Connection::open(path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER `fail_mls` BEFORE UPDATE ON `mls_state`
+             BEGIN SELECT RAISE(ABORT, 'injected storage failure'); END",
+        )
+        .unwrap();
+}
+
+fn heal(path: &std::path::Path) {
+    rusqlite::Connection::open(path)
+        .unwrap()
+        .execute_batch("DROP TRIGGER `fail_mls`")
+        .unwrap();
+}
+
+#[tokio::test]
+async fn durable_chat_survives_restarts_storage_faults_and_retries() {
+    use dyapp_client::session::{Error, Session};
+    use dyapp_client::store::Store;
+
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let (alice_path, bob_path) = (store_path("alice"), store_path("bob"));
+    let (alice_key, bob_key) = ([1; 32], [2; 32]);
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+        .await
+        .unwrap();
+    Store::open(&bob_path, &bob.identity)
+        .unwrap()
+        .stage_outbound(&bob.device.seal(&bob_key).unwrap(), &[])
+        .unwrap();
+    let mut profiles = Vec::new();
+    for owner in [alice.identity.peer_id(), bob_owner.clone()] {
+        profiles.push(alice.node.get_profile(&owner).await.unwrap());
+    }
+
+    // Alice commits the new group and its Welcome, then stops before any put.
+    let alice_mailbox = alice.mailbox();
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        .await
+        .unwrap();
+    let group_id = group.id().to_vec();
+    let writes = welcome
+        .into_iter()
+        .map(|delivery| dyapp_client::prepare_put(&delivery.mailbox, delivery.mls).unwrap())
+        .collect::<Vec<_>>();
+    Store::open(&alice_path, &alice.identity)
+        .unwrap()
+        .stage_group(
+            &group,
+            &profiles[1],
+            &alice.device.seal(&alice_key).unwrap(),
+            &writes,
+        )
+        .unwrap();
+    drop(group);
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+
+    // After a restart the exact signed Welcome is retried from the outbox.
+    let mut alice_session = Session::open(
+        Store::open(&alice_path, &alice.identity).unwrap(),
+        &alice_key,
+    )
+    .unwrap();
+    let due = alice_session.due_outbound(i64::MAX).unwrap();
+    assert_eq!(due.len(), 1);
+    assert_eq!(due[0].as_bytes(), writes[0].as_bytes());
+    alice.node.put_prepared(&due[0]).await.unwrap();
+
+    // A failed local commit sends nothing and needs the saved snapshot reopened.
+    break_mls_writes(&alice_path);
+    assert!(matches!(
+        alice_session
+            .send_message(&mut alice.node, &group_id, b"never sent", &alice_key)
+            .await,
+        Err(Error::Store(_))
+    ));
+    assert!(matches!(
+        alice_session
+            .send_message(&mut alice.node, &group_id, b"never sent", &alice_key)
+            .await,
+        Err(Error::Invalidated)
+    ));
+    heal(&alice_path);
+    alice_session.recover(&alice_key).unwrap();
+    alice_session
+        .send_message(&mut alice.node, &group_id, b"hello bob", &alice_key)
+        .await
+        .unwrap();
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
+
+    // Bob's failed receive commit shows and acknowledges nothing.
+    let mut bob_session =
+        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
+    break_mls_writes(&bob_path);
+    assert!(matches!(
+        bob_session
+            .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+            .await,
+        Err(Error::Store(_))
+    ));
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
+    heal(&bob_path);
+    drop(bob_session);
+
+    let hello = Event::Message {
+        group: group_id.clone(),
+        sender: alice.identity.peer_id(),
+        plaintext: b"hello bob".to_vec(),
+    };
+    let mut bob_session =
+        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
+    assert_eq!(
+        bob_session
+            .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+            .await
+            .unwrap(),
+        [Event::Joined(group_id.clone()), hello]
+    );
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+
+    // Alice retries every saved write with its exact bytes; Bob shows nothing twice.
+    drop(alice_session);
+    let mut alice_session = Session::open(
+        Store::open(&alice_path, &alice.identity).unwrap(),
+        &alice_key,
+    )
+    .unwrap();
+    let due = alice_session.due_outbound(i64::MAX).unwrap();
+    assert_eq!(due.len(), 2);
+    for write in &due {
+        alice.node.put_prepared(write).await.unwrap();
+    }
+    drop(bob_session);
+    let mut bob_session =
+        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
+    assert!(bob_session
+        .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+
+    // The restored group keeps working in both directions.
+    bob_session
+        .send_message(&mut bob.node, &group_id, b"hi alice", &bob_key)
+        .await
+        .unwrap();
+    assert_eq!(
+        alice_session
+            .receive(&mut alice.node, &alice.device_key, &profiles, &alice_key)
+            .await
+            .unwrap(),
+        [Event::Message {
+            group: group_id,
+            sender: bob_owner,
+            plaintext: b"hi alice".to_vec(),
+        }]
+    );
+}

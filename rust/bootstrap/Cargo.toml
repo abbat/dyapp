@@ -55,6 +55,7 @@ dyapp-messaging = { path = "../messaging", features = ["proptest"] }
 dyapp-p2p-net = { path = "../p2p-net", features = ["proptest"] }
 dyapp-profile = { path = "../profile", features = ["proptest"] }
 dyapp-video = { path = "../video", features = ["proptest"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [lints.rust]
 missing_docs = "deny"
