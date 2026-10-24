@@ -144,6 +144,27 @@ impl std::fmt::Debug for PreparedEnvelope {
 
 /// Sign an ordinary MLS mailbox message with a fresh one-off key, before any network write.
 pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelope, Error> {
+    prepare(mailbox, ciphertext, &Identity::generate(), None)
+}
+
+/// Like [`prepare_put`], but carrying `token`, a signed WriteToken for `mailbox`, and signed by
+/// its `token_key` so the node bills it to the mailbox quota rather than the tokenless pool.
+pub fn prepare_tokened_put(
+    mailbox: &[u8],
+    ciphertext: Vec<u8>,
+    token_key: &Identity,
+    token: &[u8],
+) -> Result<PreparedEnvelope, Error> {
+    let token = SignedRecord::decode(token).map_err(|_| Error::Input("bad write token"))?;
+    prepare(mailbox, ciphertext, token_key, Some(token))
+}
+
+fn prepare(
+    mailbox: &[u8],
+    ciphertext: Vec<u8>,
+    signer: &Identity,
+    write_token: Option<SignedRecord>,
+) -> Result<PreparedEnvelope, Error> {
     let mailbox: [u8; 32] = mailbox
         .try_into()
         .map_err(|_| Error::Input("mailbox must be 32 bytes"))?;
@@ -153,9 +174,10 @@ pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelo
         id: id.to_vec(),
         mailbox: mailbox.to_vec(),
         ciphertext,
+        write_token,
         ..Default::default()
     };
-    let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    let record = signer.sign(Domain::Envelope, envelope.encode_to_vec());
     PreparedEnvelope::from_bytes(record.encode_to_vec())
 }
 
@@ -511,7 +533,7 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{prepare_put, Error, Node, PreparedEnvelope};
+    use super::{prepare_put, prepare_tokened_put, Error, Node, PreparedEnvelope};
     use dyapp_p2p_net::proto::{self, EnvelopeClass};
     use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
     use libp2p::futures::StreamExt;
@@ -541,6 +563,32 @@ mod tests {
             format!("{prepared:?}"),
             format!("PreparedEnvelope {{ bytes_len: {}, .. }}", bytes.len())
         );
+    }
+
+    #[test]
+    fn a_tokened_write_carries_the_token_and_is_signed_by_its_key() {
+        let token_key = dyapp_identity::Identity::generate();
+        let token = dyapp_identity::Identity::generate()
+            .sign(dyapp_identity::Domain::WriteToken, vec![1])
+            .encode_to_vec();
+        let prepared = prepare_tokened_put(&[7; 32], vec![1], &token_key, &token).unwrap();
+        assert_eq!(prepared.record.public_key, token_key.public_key());
+        let envelope = proto::Envelope::decode(prepared.record.payload.as_slice()).unwrap();
+        assert_eq!(envelope.write_token.unwrap().encode_to_vec(), token);
+        assert!(proto::Envelope::decode(
+            prepare_put(&[7; 32], vec![1])
+                .unwrap()
+                .record
+                .payload
+                .as_slice()
+        )
+        .unwrap()
+        .write_token
+        .is_none());
+        assert!(matches!(
+            prepare_tokened_put(&[7; 32], vec![1], &token_key, &[0xff]),
+            Err(Error::Input(_))
+        ));
     }
 
     #[test]
