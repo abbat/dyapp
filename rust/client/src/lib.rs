@@ -8,6 +8,7 @@ pub mod chat;
 pub mod interactions;
 pub mod profiles;
 pub mod scores;
+pub mod store;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, key_package_request, mailbox_request, profile_request, Status};

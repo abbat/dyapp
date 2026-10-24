@@ -4,7 +4,8 @@ The Rust client currently keeps MLS state and mailbox work in memory. This desig
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is implemented yet.
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
+schema; its tables are not populated by chat or settings code yet.
 
 ## Ownership and location
 
@@ -29,7 +30,7 @@ go into logs or migration diagnostics.
 
 ## Versioned records
 
-The proposed SQLite schema has one transactionally migrated `user_version`, one profile binding,
+The initial SQLite schema has one transactionally migrated `user_version`, one profile binding,
 and these logical tables. Exact SQL and indexes belong to the storage implementation and its ADR.
 
 | Table | Durable content | Key / invariant |

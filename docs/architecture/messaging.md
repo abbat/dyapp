@@ -24,6 +24,11 @@ The planned like, unlike and view payload and match state are specified in the
 three kinds. A Rust test sends it through the existing MLS chat path and decodes the result. The
 client still lacks a short-padded signal sender, persistent interaction state and app integration;
 the codec alone does not publish a like or compute a match.
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
+database at an absolute path supplied by the app. It refuses a different identity, unknown
+unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
+The schema reserves inbox, outbox, MLS state, settings and pass-history tables; no chat operation
+uses them yet. See the [client storage design](../design/client-local-storage.md).
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

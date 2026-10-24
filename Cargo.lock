@@ -1214,6 +1214,7 @@ dependencies = [
  "getrandom 0.4.3",
  "libp2p",
  "prost",
+ "rusqlite",
  "thiserror 2.0.21",
  "tokio",
 ]
