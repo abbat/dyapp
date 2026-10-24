@@ -72,6 +72,7 @@ it are entry points that tools discover by path (see
 - [Windows desktop client](manuals/windows.md) ([Russian](manuals/windows.ru.md))
 - [macOS client](manuals/macos.md) ([Russian](manuals/macos.ru.md))
 - [iOS client](manuals/ios.md) ([Russian](manuals/ios.ru.md))
+- [Android client](manuals/android.md) ([Russian](manuals/android.ru.md))
 
 ### AI agents
 - [Project guide for agents](agents/project.md): layout, commands, limits, rules

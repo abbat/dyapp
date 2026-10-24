@@ -178,9 +178,14 @@ nonempty manifest/dex/library members, rejects duplicate ZIP names and checks
 64-bit little-endian ELF machine identifiers for the native libraries. This is
 structural verification, not a signature, full executable or installation test.
 The runner expects `app-release-unsigned.apk` and `app-release.aab` and copies
-both verified packages into the report directory; signing and store distribution
-remain planned. `release-sizes.yml` runs it on schedule and gates both packages
-([size policy](ci-base.md#artifact-size-budgets)).
+both verified packages into the report directory. `release-sizes.yml` runs it on
+schedule and gates both unsigned packages ([size policy](ci-base.md#artifact-size-budgets)).
+The tagged `release.yml` workflow builds the same unsigned APK, signs it in a
+separate job using the protected `android-release` environment, verifies the
+signature, and publishes the signed APK with checksums and provenance. It fails
+closed until the maintainer provisions the signing key and secrets; see the
+[Android release manual](../manuals/android.md). Store distribution is not planned
+for v0.0.1.
 
 ## Unsigned Apple Release packages
 
@@ -231,8 +236,9 @@ Not implemented. This is the order in which the gaps block each other:
    Signing, notarization and App Store distribution remain planned.
 3. **Android:** done in `clients/android/app/build.gradle` (`cargo ndk` for arm64-v8a and
    x86_64, Kotlin bindings, JNA). The [offline Release runner](#unsigned-android-release)
-   packages unsigned APK/AAB, measured and size-gated in scheduled CI. Release signing
-   and store distribution remain planned.
+   packages unsigned APK/AAB, measured and size-gated in scheduled CI. The tag
+   workflow signs and publishes the APK once its protected secrets are provisioned;
+   store distribution is not planned for v0.0.1.
 4. **Web:** needs its own `wasm-bindgen` crate and a decision on which core
    crates can target `wasm32` (sockets and `sled` storage cannot). There is no
    such crate today.
