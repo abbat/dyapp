@@ -133,10 +133,10 @@ Pages failure fails the release workflow; a failure before deployment leaves
 the previous verified feed in place. A missing prior feed is accepted only for
 the initial `v0.0.1` tag.
 
-Pages is not enabled yet. The `github-pages` environment already permits only
-selected release tags (`v*.*.*`), not arbitrary branches. Before the first
-release, set the repository Pages source to **GitHub Actions**. Then run the
-first tagged release and verify
+Pages is enabled with the **GitHub Actions** source and HTTPS enforcement. The
+`github-pages` environment permits only selected release tags (`v*.*.*`), not
+arbitrary branches. No release has been published yet, so the feed is not live.
+After the first tagged release, verify
 `https://abbat.github.io/dyapp/updates/v1/stable.json` over HTTPS, checking
 its schema, content and cache behaviour. Until this live setup and smoke test
 succeed, clients must treat the proposed URL as unavailable. See

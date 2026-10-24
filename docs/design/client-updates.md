@@ -15,8 +15,9 @@ contract and cannot silently enter the stable feed.
 ## Chosen source
 
 A release job will publish a small static JSON feed through GitHub Pages at the
-proposed URL `https://abbat.github.io/dyapp/updates/v1/stable.json`. This URL is
-**not live yet**. Enable Pages and verify the live URL before turning on client
+URL `https://abbat.github.io/dyapp/updates/v1/stable.json`. Pages is enabled in
+GitHub Actions mode, but no release has been published and this feed is **not live yet**.
+Verify the live URL after the first release before turning on client
 checks. The job must run after release assets are uploaded and their provenance
 attestations are available. It derives entries from published `vX.Y.Z` GitHub
 Releases and records a platform only after its installable artifact, store
@@ -61,7 +62,7 @@ commit, downloads exact candidates, checks actual size and SHA-256, and requires
 Only then does it emit a trusted inventory for the feed generator. The tag
 workflow stages `stable-update-feed` only after release publication and
 verification. It packages the feed at `updates/v1/stable.json` for a dependent
-Pages deployment job, which is not live until the Pages source is configured.
+Pages deployment job, which is not live until a verified release deploys it.
 The `github-pages` environment already restricts deployment to release tags.
 The workflow serializes tagged releases through Pages deployment so the next
 tag reads the last deployed feed. It reads the
