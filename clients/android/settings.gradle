@@ -14,7 +14,7 @@ def safeBuildDependencies = {
     substitute module('org.bouncycastle:bcpkix-jdk18on:1.80.2') using module('org.bouncycastle:bcpkix-jdk18on:1.85')
     substitute module('org.bouncycastle:bcprov-jdk18on:1.80.2') using module('org.bouncycastle:bcprov-jdk18on:1.85')
     substitute module('org.bouncycastle:bcutil-jdk18on:1.80.2') using module('org.bouncycastle:bcutil-jdk18on:1.85')
-    substitute module('org.jdom:jdom2:2.0.6') using module('org.jdom:jdom2:2.0.6.1')
+    substitute module('org.jdom:jdom2:2.0.6.1') using module('org.jdom:jdom2:2.0.6.1.1')
 }
 gradle.beforeProject { project ->
     project.buildscript.configurations.classpath.resolutionStrategy.dependencySubstitution(safeBuildDependencies)
