@@ -268,6 +268,14 @@ mod tests {
     }
 
     #[test]
+    fn key_hash_is_sha256_of_the_key() {
+        // SHA-256 of 32 zero bytes.
+        let zero = "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925";
+        assert_eq!(peer_id(&[0; 32]), zero);
+        assert_ne!(key_hash(&[1; 32]), key_hash(&[0; 32]));
+    }
+
+    #[test]
     fn secret_round_trip_keeps_peer_id() {
         let identity = Identity::generate();
         let secret: Zeroizing<[u8; 32]> = identity.secret();
