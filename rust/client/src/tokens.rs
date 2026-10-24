@@ -4,8 +4,9 @@
 
 use crate::chat::{Body, TokenAnswer, TokenAsk, TokenRequest, MAX_TOKENS};
 use crate::store::{Error, Store};
+use crate::{session, Node};
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_p2p_net::proto;
+use dyapp_p2p_net::proto::{self, Status};
 use prost::Message as _;
 
 /// How many days after today a contact holds tokens for.
@@ -85,6 +86,34 @@ fn check(
     Ok(held
         .filter(|key| key.public_key().as_slice() == token.token_key)
         .map(|_| (mailbox, token.epoch)))
+}
+
+/// Puts `ciphertext` in `mailbox` with this device's token for `today` and returns the day of the
+/// token the node took. On DENIED (a forged or revoked token) the write goes tokenless into the
+/// mailbox pool and returns `None`. On STALE (the node is on another day) it retries with the
+/// token for `today + 1`, then tokenless. Without a token it is tokenless from the start.
+pub async fn send(
+    node: &mut Node,
+    store: &Store,
+    mailbox: &[u8; 32],
+    ciphertext: &[u8],
+    today: u32,
+    seal_key: &[u8; 32],
+) -> Result<Option<u32>, session::Error> {
+    for epoch in [today, today.saturating_add(1)] {
+        let Some((key, token)) = store.write_token(mailbox, epoch, seal_key)? else {
+            break;
+        };
+        let prepared = crate::prepare_tokened_put(mailbox, ciphertext.to_vec(), &key, &token)?;
+        match node.put_prepared(&prepared).await {
+            Ok(()) => return Ok(Some(epoch)),
+            Err(crate::Error::Status(Status::Stale)) => continue,
+            Err(crate::Error::Status(Status::Denied)) => break,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    node.put(mailbox, ciphertext.to_vec()).await?;
+    Ok(None)
 }
 
 /// Signs the asks in `request` from `contact` (hex Peer ID of a verified group member) that name

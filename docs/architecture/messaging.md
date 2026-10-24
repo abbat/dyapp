@@ -19,7 +19,8 @@ ack, so the client seals the state first. The app does not use it yet. See
 and ID. `PreparedEnvelope::from_bytes` verifies a stored copy; `Node::put_prepared` reuses that
 record on retry. `Node::put` still prepares and sends in one call for existing callers. The
 durable outbox and receipt handling remain planned. `prepare_tokened_put` carries a held
-WriteToken and signs with its token key instead of a one-off key.
+WriteToken and signs with its token key instead of a one-off key. `tokens::send` uses today's
+held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, then tokenless.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).

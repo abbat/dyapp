@@ -78,7 +78,8 @@ pub enum Error {
 pub struct Envelope {
     /// 16 random bytes the sender chose.
     pub id: Vec<u8>,
-    /// The one-off key that signed it: says nothing about the sender, who is inside the MLS bytes.
+    /// The one-off key that signed it, or the write token key the mailbox owner issued to a
+    /// contact device; the sender's identity stays inside the MLS bytes.
     pub sender_key: Vec<u8>,
     /// MLS message bytes.
     pub ciphertext: Vec<u8>,

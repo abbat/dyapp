@@ -6,15 +6,15 @@ use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
 
 /// One person with one device: identity, device mailbox key, MLS state and node connection.
-struct Person {
-    identity: Identity,
-    device_key: Identity,
-    device: Device,
-    node: dyapp_client::Node,
+pub(super) struct Person {
+    pub(super) identity: Identity,
+    pub(super) device_key: Identity,
+    pub(super) device: Device,
+    pub(super) node: dyapp_client::Node,
 }
 
 impl Person {
-    async fn new(address: &Multiaddr) -> Self {
+    pub(super) async fn new(address: &Multiaddr) -> Self {
         let mut person = Self::device(address, Identity::generate(), 1).await;
         let profile = Profile {
             version: 1,
@@ -47,7 +47,7 @@ impl Person {
         }
     }
 
-    fn mailbox(&self) -> [u8; 32] {
+    pub(super) fn mailbox(&self) -> [u8; 32] {
         dyapp_client::mailbox(&self.device_key.public_key())
     }
 }
@@ -553,7 +553,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
 }
 
 /// A fresh database path for one person's client store.
-fn store_path(name: &str) -> std::path::PathBuf {
+pub(super) fn store_path(name: &str) -> std::path::PathBuf {
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     std::env::temp_dir().join(format!(
