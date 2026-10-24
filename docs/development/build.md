@@ -130,13 +130,17 @@ refuses an artifact that is missing from the file or whose checksum differs, so 
 unexpected artifact fails the `dyapp:android-test` image build. Signatures are not checked.
 The root `settings.gradle` substitutes fixed versions for vulnerable AGP build-classpath and
 project configurations, including the separate release lint tool, before Gradle reads their
-metadata. Its substitutions and this checksum inventory
-must change together. The 2026-10-23 update replaced commons-lang3, jose4j, Bouncy Castle and
-jdom2, and removed old httpclient and Kotlin plugin entries. Check `buildEnvironment`, Android
-tests and Scorecard after any substitution change; these packages are not in the app runtime.
+metadata. The requested vulnerable versions are split across string literals so Dependabot
+cannot mistake them for dependency declarations and rewrite the match side. Its substitutions
+and this checksum inventory must change together. The 2026-10-23 update replaced commons-lang3,
+jose4j, Bouncy Castle and jdom2, and removed old httpclient and Kotlin plugin entries. Check
+`buildEnvironment`, Android tests and Scorecard after any substitution change; these packages are
+not in the app runtime.
 
-Dependabot does not update the file, so a Gradle update PR fails the Android build until the file is
-regenerated on its branch. Delete the file, run the image build's tasks online in the current image
+Dependabot does not update the verification file, so a Gradle replacement-target update PR fails
+the Android build until the file is regenerated on its branch. The old requested versions must
+stay fixed in substitution rules; changing them to the replacement versions reintroduces the
+vulnerable artifacts. Delete the file, run the image build's tasks online in the current image
 with an empty Gradle cache (a cached artifact skips the BOMs and parent POMs that a fresh download
 reads) and the branch's `clients/android` mounted, then review the changed entries in the diff:
 
