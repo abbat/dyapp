@@ -389,6 +389,30 @@ mod tests {
     }
 
     #[test]
+    fn field_spans_cover_every_wire_type_and_reject_bad_keys() {
+        let max = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01];
+        let long_zero = [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00];
+        let mut bytes = vec![0x08];
+        bytes.extend_from_slice(&max);
+        bytes.push(0x08);
+        bytes.extend_from_slice(&long_zero);
+        bytes.extend_from_slice(&[0x11, 1, 2, 3, 4, 5, 6, 7, 8]); // tag 2, fixed64
+        bytes.extend_from_slice(&[0x1d, 1, 2, 3, 4]); // tag 3, fixed32
+        assert_eq!(
+            fields(&bytes),
+            Ok(vec![(1, 0..11), (1, 11..22), (2, 22..31), (3, 31..36)])
+        );
+
+        let mut overflow = vec![0x08];
+        overflow.extend_from_slice(&max[..9]);
+        overflow.push(0x02);
+        assert_eq!(fields(&overflow), Err(Error::Decode));
+        assert_eq!(fields(&[0x00, 0x00]), Err(Error::Decode)); // tag 0
+        let tag_too_big = [0x80, 0x80, 0x80, 0x80, 0x10, 0x00]; // tag 1 << 29
+        assert_eq!(fields(&tag_too_big), Err(Error::Decode));
+    }
+
+    #[test]
     fn malformed_original_profile_cannot_be_preserved() {
         assert_eq!(
             Profile::default().encode_preserving(&[0xff]),
@@ -455,6 +479,69 @@ mod tests {
             verify(&profile.sign(&owner)),
             Err(Error::Invalid("invalid device certificate signature"))
         );
+    }
+
+    #[test]
+    fn content_rules_hold_at_their_boundaries() {
+        let owner = Identity::generate();
+        let invalid = |profile: &Profile, reason| {
+            assert_eq!(
+                verify(&profile.sign(&owner)),
+                Err(Error::Invalid(reason)),
+                "{reason}"
+            );
+        };
+        let mut country = sample(1);
+        for code in ["de", "DEU"] {
+            country.country = code.into();
+            invalid(&country, "country is not an ISO 3166-1 alpha-2 code");
+        }
+        let mut income = sample(1);
+        income.income_to = income.income_from;
+        assert!(verify(&income.sign(&owner)).is_ok());
+
+        let certificate = |device: [u8; 32], mls: [u8; 32], generation| {
+            owner.sign(
+                Domain::DeviceCertificate,
+                DeviceCertificate {
+                    device_key: device.to_vec(),
+                    mls_signature_key: mls.to_vec(),
+                    generation,
+                }
+                .encode_to_vec(),
+            )
+        };
+        let mut keys: Vec<_> = (0..=MAX_DEVICES)
+            .map(|_| {
+                (
+                    Identity::generate().public_key(),
+                    Identity::generate().public_key(),
+                )
+            })
+            .collect();
+        keys.sort_by_key(|(device, _)| key_hash(device));
+        let mut devices = sample(1);
+        devices.devices = keys.iter().map(|&(d, m)| certificate(d, m, 1)).collect();
+        invalid(&devices, "too many devices");
+        devices.devices.pop();
+        assert!(verify(&devices.sign(&owner)).is_ok());
+
+        let (device, mls) = keys[0];
+        let own = owner.public_key();
+        for (device, mls, generation) in [
+            (device, mls, 0),
+            (device, device, 1),
+            (own, mls, 1),
+            (device, own, 1),
+        ] {
+            devices.devices = vec![certificate(device, mls, generation)];
+            invalid(&devices, "invalid device key or generation");
+        }
+
+        let at_limit = owner.sign(Domain::Profile, vec![0xff; MAX_PAYLOAD_LEN]);
+        assert_eq!(verify(&at_limit), Err(Error::Decode));
+        let over = owner.sign(Domain::Profile, vec![0xff; MAX_PAYLOAD_LEN + 1]);
+        assert_eq!(verify(&over), Err(Error::Invalid("profile too large")));
     }
 
     #[test]
