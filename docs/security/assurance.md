@@ -2,6 +2,11 @@
 
 How the project measures its own security practices and handles reported vulnerabilities.
 
+The [exception audit inventory](../development/practices.md#exception-audit-inventory)
+lists every repository and GitHub-side waiver source. Its monthly item review
+and first full evidence record are pending; current advisory explanations below
+are inputs to that review.
+
 ## OpenSSF Scorecard
 
 Practice C3. `.github/workflows/scorecard.yml` runs

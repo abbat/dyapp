@@ -67,6 +67,34 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
   practice moves to [Excluded](#excluded) with its data; retiring a C practice needs a quorum.
   Before W2 starts, U/F/C scores are revised from W1 data and reviewed by a quorum.
 
+## Exception audit inventory
+
+The repository maintainer owns a monthly review of every source below and an
+immediate review when its upstream dependency, tool rule or affected code path
+changes. This is the source inventory as of 2026-10-24; the first complete
+item-by-item audit and recurring reminder are still pending. An audit record
+must give the item ID or path, original rationale, current reachability, fix
+availability, next trigger or expiry, decision (remove/retain/follow-up), and
+evidence. A missing rationale or trigger is work to fix, not implicit approval.
+
+| Source | Extract entries | Initial gap to review |
+|---|---|---|
+| Rust advisories | `deny.toml` `[advisories].ignore`; `.cargo/audit.toml` duplicates; root, fuzz, Linux and Windows `osv-scanner.toml` | Reasons exist, but most have no explicit revisit date; confirm each dependency path and fixed version in every scanned lockfile. |
+| Dependency/version exceptions | `deny.toml` `[bans].skip`; `.github/dependabot.yml` `ignore`; `tests/scripts/check-dependency-age.py` `EXCEPTIONS` | Cargo-deny and Dependabot reasons need a concrete upstream-change trigger; dependency-age entries expire after 14 days by code. |
+| Scanner dismissals | `gh api --paginate --method GET repos/abbat/dyapp/code-scanning/alerts -f state=dismissed`; same endpoint under `dependabot/alerts` and `secret-scanning/alerts` | 36 code-scanning and 2 Dependabot dismissals, 0 resolved secret-scanning alerts today. Comments give reasons, but no shared review date; check rule/trace and dependency changes. Keep alert numbers in the audit evidence. |
+| Secret-scan suppressions | `.gitleaksignore`, inline `gitleaks:allow` | Three historical fingerprints and one inline test-vector allowance; check whether each still matches an active finding and is still non-secret. |
+| CI escape hatches | `git log --format=%B` for `Large-Change:`, `Size-Increase:`, `Docs-Unchanged:`, `Quorum: not-needed`; `#[mutants::skip]` in Rust sources | Historical commit trailers are immutable evidence, not entries to delete. Review their rationale and whether the underlying ongoing exception remains; check mutation skips for a reason and current applicability. |
+| Ratchet budgets and quarantine | `tests/scripts/baselines.toml` (`coverage`, `batches`, `panics`, `scorecard`, `mutants`, `flaky`, `size.files`); `tests/scripts/artifact-sizes.json` | `flaky` and `size.files` are empty; coverage, panic, scorecard, mutation and artifact-size baselines need a fresh measurement before tightening. Never lower a threshold to clear CI. |
+| Historical check cutoffs | `tests/scripts/check-repository.py` `BASELINE`, `tests/scripts/docs-sync.py` `BASELINE`, and `[batches].base` in `baselines.toml` | Each cutoff must remain an ancestor and its one-time reason must stay documented; investigate any move before accepting it. |
+| Lint and dependency-tool suppressions | Rust `#[allow(...)]`, Python `# noqa`, Kotlin `@Suppress`, `detekt.yml`, `.flake8`, `[package.metadata.cargo-shear] ignored` | Some local suppressions lack an adjacent reason or expiry. Distinguish narrow false positives from broad tool configuration before retaining them. |
+
+The GitHub queries above are read-only (`--method GET` is essential when
+passing `-f` query fields). Use pagination so the audit includes all alerts.
+Do not close or dismiss an alert merely because it appears in this inventory.
+The [security assurance record](../security/assurance.md) explains the current
+advisory decisions and why the unresolved OpenMLS and Linux backend findings
+remain failures.
+
 ## A. Agent process and flow
 
 | id | Practice and rule | Stage | Standard | Metric, threshold | Tool | Auto | U/F/C | Wave |
