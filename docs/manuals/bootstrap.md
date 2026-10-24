@@ -835,6 +835,24 @@ original `network.id_pow_bits` value. For `external`, it uses the saved
 scratch before probing, and fails if `age` or the identity is unavailable, the identity is
 wrong or the ciphertext was altered. The tests run this against the official age 1.3.2
 release. The preflight never opens or changes the source snapshot with SQLite.
+Both probes use `TMPDIR` for these copies; `--scratch <dir>` picks another directory.
+
+The [update preflight](../../tools/scripts/preflight-bootstrap-update.py) runs the whole
+sequence in one command and is what the planned updater will call:
+
+```bash
+sudo python3 tools/scripts/preflight-bootstrap-update.py /var/lib/dyappd \
+  /root/dyappd-backup-v2 --key-mode inline --dyappd /usr/bin/dyappd --id-pow-bits 22
+```
+
+It takes `dyappd.lock` and fails with "node still running" if a node holds it; while it
+runs, the node cannot start. It then checks free space, writes the snapshot and runs both
+probes, and exits non-zero on any failure without changing `storage.dir`. The space check
+wants the snapshot size plus 64 MiB at the destination, the snapshot size again in the
+scratch directory, and the largest store with its WAL free on the `storage.dir` file system,
+since a store-format change may rebuild a table beside the old one; directories on one file
+system add up. A node older than the data-directory lock never takes `dyappd.lock`, so the
+preflight cannot tell that such a node is running: stop it first.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent

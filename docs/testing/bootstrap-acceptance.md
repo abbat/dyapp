@@ -193,7 +193,8 @@ assertion changes.
 | Independent verifier rejects missing/extra files, bad hashes and unsafe manifest paths | Python unit | `test_verify_bootstrap_backup.py` | exists |
 | SQLite restore probe copies DB/WAL to a disposable directory, rejects hot journals and corrupt stores without changing the snapshot | Python unit | `test_probe_bootstrap_sqlite.py` | exists |
 | Restore preflight checks key against saved peer ID on a separate copy, decrypts age recovery evidence with the pinned real `age` CLI and restores committed WAL data; absent/wrong key or identity, tampered ciphertext, missing `age` executable or corrupt file fails closed | Python unit, Rust CLI | `test_probe_bootstrap_backup.py`, `probe_key_checks_a_stopped_copy_without_changing_files` | exists; updater integration planned |
-| Update preflight refuses a missing/unverified backup and migrated-store rollback is rehearsed without touching live storage | Fault test | Update preflight and migration recovery fixtures | planned |
+| Update preflight holds `dyappd.lock`, refuses a running node, too little free space, a missing recovery key, a corrupt store or a key that does not match the saved peer ID, and leaves live storage unchanged | Python unit | `test_preflight_bootstrap_update.py` | exists; updater integration planned |
+| Migrated-store rollback is rehearsed without touching live storage | Fault test | Migration recovery fixtures | planned |
 
 ## Decisions
 

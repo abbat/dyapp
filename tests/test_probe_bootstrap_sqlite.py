@@ -25,7 +25,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
-        root = Path(self.temp.name)
+        root = self.scratch = Path(self.temp.name)
         self.source = root / "source"
         self.source.mkdir()
         self.snapshot = root / "snapshot"
@@ -44,7 +44,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
         self.snapshot_now()
         before = {p.relative_to(self.snapshot): p.read_bytes()
                   for p in self.snapshot.rglob("*") if p.is_file()}
-        header, keys, count = PROBE.probe(self.snapshot)
+        header, keys, count = PROBE.probe(self.snapshot, self.scratch)
         self.assertEqual((header["peer_id"], count), ("peer-id", 2))
         self.assertIn("storage/node.key", keys)
         after = {p.relative_to(self.snapshot): p.read_bytes()
@@ -58,19 +58,19 @@ class ProbeBootstrapSqlite(unittest.TestCase):
             self.snapshot_now()
             wal = self.snapshot / "storage/profiles.db-wal"
             self.assertTrue(wal.exists())
-            self.assertEqual(PROBE.probe(self.snapshot)[2], 2)
+            self.assertEqual(PROBE.probe(self.snapshot, self.scratch)[2], 2)
 
     def test_corrupt_database_and_hot_journal_fail(self):
         (self.source / "profiles.db").write_bytes(b"corrupt")
         self.snapshot_now()
         with self.assertRaises(sqlite3.DatabaseError):
-            PROBE.probe(self.snapshot)
+            PROBE.probe(self.snapshot, self.scratch)
 
         other = self.source.parent / "hot"
         (self.source / "profiles.db-journal").write_bytes(b"hot")
         BACKUP.snapshot(self.source, other, "inline", None)
         with self.assertRaisesRegex(ValueError, "hot rollback journal"):
-            PROBE.probe(other)
+            PROBE.probe(other, self.scratch)
 
 
 if __name__ == "__main__":

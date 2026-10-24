@@ -30,7 +30,7 @@ CLI flags.
 | Files by name | `ctx_glob` | `{"pattern": "**/Cargo.toml"}` |
 | Callers / callees | `ctx_callgraph` | `{"action": "callers", "symbol": "create_offer"}` |
 | Builds, tests, git, `make` | `ctx_shell` | `{"command": "make test", "cwd": "/abs/repo"}` |
-| Edit a file | `ctx_read` `mode="anchored"` → `ctx_patch` | |
+| Edit a file | `ctx_read` `mode="anchored"` → `ctx_patch` | `replace_all` leaves mode 0600; `chmod 644` after |
 | Output shown as `[Archived:ID]` | `ctx_expand` | `{"id": "<ID>", "search": "error"}` |
 
 `/abs` stands for the absolute path of your checkout; paths must be absolute.

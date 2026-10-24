@@ -40,7 +40,7 @@ def check_database(path):
             raise ValueError(f"SQLite integrity check failed: {path.name}")
 
 
-def probe(snapshot):
+def probe(snapshot, scratch=None):
     if snapshot.is_symlink():
         raise ValueError("snapshot must not be a symlink")
     root = snapshot.resolve(strict=True)
@@ -51,7 +51,7 @@ def probe(snapshot):
     if header["hot_journal"]:
         raise ValueError("hot rollback journal blocks automatic preflight")
     with tempfile.TemporaryDirectory(prefix="dyappd-restore-",
-                                     dir="/tmp/ai") as temporary:
+                                     dir=scratch) as temporary:
         scratch = Path(temporary)
         for record in records:
             copy_verified_file(root, scratch, record)
@@ -65,9 +65,11 @@ def probe(snapshot):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
+    parser.add_argument("--scratch", type=Path,
+                        help="directory for restored copies (default: TMPDIR)")
     args = parser.parse_args()
     try:
-        header, _, count = probe(args.snapshot)
+        header, _, count = probe(args.snapshot, args.scratch)
     except (OSError, sqlite3.Error, UnicodeError, ValueError) as error:
         parser.exit(1, f"SQLite backup probe failed: {error}\n")
     print(f"SQLite databases verified: {count}; peer ID: {header['peer_id']}")

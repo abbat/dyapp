@@ -75,7 +75,8 @@ class ProbeBootstrapBackup(unittest.TestCase):
         BACKUP.snapshot(self.source, self.snapshot, mode, recovery)
 
     def probe(self, **options):
-        return PROBE.probe(self.snapshot, self.dyappd, 0, **options)
+        return PROBE.probe(self.snapshot, self.dyappd, 0,
+                           scratch=Path(self.temp.name), **options)
 
     def test_inline_and_external_use_snapshot_key(self):
         for mode in ("inline", "external"):

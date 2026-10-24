@@ -39,10 +39,11 @@ def decrypt_age(encrypted, identity, output, age_binary):
         raise ValueError("decrypted node key has invalid size")
 
 
-def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None):
+def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None,
+          scratch=None):
     if not 0 <= id_pow_bits <= 32:
         raise ValueError("ID proof-of-work difficulty must be 0..32")
-    header, records, _ = SQLITE.probe(snapshot)
+    header, records, _ = SQLITE.probe(snapshot, scratch)
     root = snapshot.resolve(strict=True)
     mode = header["key_mode"]
     if mode == "age" and (age_identity is None or age_binary is None):
@@ -50,7 +51,7 @@ def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None):
     if mode != "age" and (age_identity is not None or age_binary is not None):
         raise ValueError("age options are only valid for age snapshots")
     with tempfile.TemporaryDirectory(prefix="dyappd-key-restore-",
-                                     dir="/tmp/ai") as temporary:
+                                     dir=scratch) as temporary:
         scratch = Path(temporary)
         for name in ("storage/node.id", "storage/network"):
             SQLITE.copy_verified_file(root, scratch, records[name])
@@ -93,10 +94,12 @@ def main():
     parser.add_argument("--id-pow-bits", type=int, required=True)
     parser.add_argument("--age-identity", type=Path)
     parser.add_argument("--age-binary", type=Path)
+    parser.add_argument("--scratch", type=Path,
+                        help="directory for restored copies (default: TMPDIR)")
     args = parser.parse_args()
     try:
         peer_id = probe(args.snapshot, args.dyappd, args.id_pow_bits,
-                        args.age_identity, args.age_binary)
+                        args.age_identity, args.age_binary, args.scratch)
     except (OSError, UnicodeError, ValueError,
             subprocess.TimeoutExpired) as error:
         parser.exit(1, f"backup preflight failed: {error}\n")
