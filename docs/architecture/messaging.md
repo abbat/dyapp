@@ -25,7 +25,10 @@ the measured envelope sizes and 1 KiB limit are documented under
 The planned like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
-three kinds. A Rust test sends it through the existing MLS chat path and decodes the result.
+three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
+interaction, `3` and `4` reserved for write tokens), so a text is never read as an interaction;
+an unknown tag is refused and acked. A Rust test sends an interaction through the existing MLS
+chat path and decodes the result.
 `Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
 `Store::likes` derives a match from them. `Store::interact` creates own events from a persisted
 HLC and creates at most one view per peer per UTC day; `Store::receive_interaction` applies the

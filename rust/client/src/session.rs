@@ -1,6 +1,6 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
-use crate::chat::{self, Event};
+use crate::chat::{self, Body, Event};
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{prepare_put, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
@@ -17,9 +17,9 @@ pub struct StoredMessage {
     /// Peer ID of the sender's identity.
     #[prost(string, tag = "2")]
     pub sender: String,
-    /// The unpadded text.
+    /// The tagged body, [`chat::Body::encode`].
     #[prost(bytes = "vec", tag = "3")]
-    pub plaintext: Vec<u8>,
+    pub body: Vec<u8>,
 }
 
 /// Why an outbound session cannot send.
@@ -89,7 +89,7 @@ impl Session {
     fn stage_message(
         &mut self,
         group_id: &[u8],
-        plaintext: &[u8],
+        body: &Body,
         seal_key: &[u8; 32],
     ) -> Result<Vec<PreparedEnvelope>, Error> {
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
@@ -99,7 +99,7 @@ impl Session {
             .find(|group| group.id() == group_id)
             .ok_or(Error::UnknownGroup)?;
         let staged = (|| {
-            let deliveries = chat::message(group, device, plaintext)?;
+            let deliveries = chat::message(group, device, body)?;
             let writes = deliveries
                 .into_iter()
                 .map(|delivery| prepare_put(&delivery.mailbox, delivery.mls))
@@ -115,15 +115,15 @@ impl Session {
         staged
     }
 
-    /// Send a message only after the new MLS state and every signed envelope are durable.
+    /// Send a text only after the new MLS state and every signed envelope are durable.
     pub async fn send_message(
         &mut self,
         node: &mut Node,
         group_id: &[u8],
-        plaintext: &[u8],
+        text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let writes = self.stage_message(group_id, plaintext, seal_key)?;
+        let writes = self.stage_message(group_id, &Body::Text(text.to_vec()), seal_key)?;
         for write in &writes {
             node.put_prepared(write).await?;
         }
@@ -220,13 +220,13 @@ impl Session {
                     Event::Message {
                         group,
                         sender,
-                        plaintext,
+                        body,
                     } => (
                         InboxKind::Message,
                         prost::Message::encode_to_vec(&StoredMessage {
                             group: group.clone(),
                             sender: sender.clone(),
-                            plaintext: plaintext.clone(),
+                            body: body.encode(),
                         }),
                     ),
                     _ => (InboxKind::StateChange, Vec::new()),
@@ -267,7 +267,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::{Error, Session, StoredMessage};
-    use crate::chat::{self, Event};
+    use crate::chat::{self, Body, Event};
     use crate::store::{InboxKey, InboxKind, Store};
     use dyapp_identity::Identity;
     use dyapp_messaging::mls::Device;
@@ -309,7 +309,7 @@ mod tests {
             .unwrap();
         let mut session = Session::open(store, &seal_key).unwrap();
         let writes = session
-            .stage_message(&group_id, b"hello", &seal_key)
+            .stage_message(&group_id, &Body::Text(b"hello".to_vec()), &seal_key)
             .unwrap();
         assert_eq!(writes.len(), 1);
         assert_eq!(
@@ -396,7 +396,7 @@ mod tests {
             session.store.known_groups().unwrap(),
             [(group.id().to_vec(), alice_id.peer_id())]
         );
-        let hi = chat::message(&mut group, &alice, b"hi").unwrap();
+        let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
         assert!(matches!(
             session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key),
             Ok(Some(Event::Message { .. }))
@@ -414,7 +414,7 @@ mod tests {
                 == StoredMessage {
                     group: group.id().to_vec(),
                     sender: alice_id.peer_id(),
-                    plaintext: b"hi".to_vec(),
+                    body: Body::Text(b"hi".to_vec()).encode(),
                 }
         );
         drop(session);
@@ -423,14 +423,14 @@ mod tests {
         let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
         assert!(session.store.has_inbox(&key(2)).unwrap());
         assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1), key(2)]);
-        let again = chat::message(&mut group, &alice, b"again").unwrap();
-        let Some(Event::Message { plaintext, .. }) = session
+        let again = chat::message(&mut group, &alice, &Body::Text(b"again".to_vec())).unwrap();
+        let Some(Event::Message { body, .. }) = session
             .stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key)
             .unwrap()
         else {
             panic!("expected the next message");
         };
-        assert_eq!(plaintext, b"again");
+        assert!(body == Body::Text(b"again".to_vec()));
 
         // A duplicate seen after its ACK is acknowledged again; another mailbox is not.
         for id in [1, 2, 3] {
@@ -462,7 +462,7 @@ mod tests {
         session
             .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
             .unwrap();
-        let hi = chat::message(&mut group, &alice, b"hi").unwrap();
+        let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
         let db = rusqlite::Connection::open(&path).unwrap();
         db.execute_batch(
             "CREATE TRIGGER `fail_mls` BEFORE UPDATE ON `mls_state`
@@ -482,13 +482,13 @@ mod tests {
 
         db.execute_batch("DROP TRIGGER `fail_mls`").unwrap();
         session.recover(&seal_key).unwrap();
-        let Some(Event::Message { plaintext, .. }) = session
+        let Some(Event::Message { body, .. }) = session
             .stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key)
             .unwrap()
         else {
             panic!("expected the message after recovery");
         };
-        assert_eq!(plaintext, b"hi");
+        assert!(body == Body::Text(b"hi".to_vec()));
     }
 
     #[test]
@@ -543,11 +543,11 @@ mod tests {
             )
             .unwrap();
         assert!(matches!(
-            session.stage_message(&group_id, b"hello", &seal_key),
+            session.stage_message(&group_id, &Body::Text(b"hello".to_vec()), &seal_key),
             Err(Error::Store(_))
         ));
         assert!(matches!(
-            session.stage_message(&group_id, b"retry", &seal_key),
+            session.stage_message(&group_id, &Body::Text(b"retry".to_vec()), &seal_key),
             Err(Error::Invalidated)
         ));
         assert!(session.due_outbound(0).unwrap().is_empty());

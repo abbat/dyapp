@@ -26,8 +26,11 @@ local side after device sync. The codec must not allow a signal to change the st
 profile. A group may contain several devices of either identity. A view uses the same layout but
 never affects likes or matches.
 
-The 26-byte plaintext fits the 256-byte short padding bucket. An introduction is a separate
-one-message chat payload, not a v1 interaction event; its delivery policy belongs to chat design.
+Every chat plaintext starts with a one-byte body tag (`chat::Body`): `1` user text, `2` an
+interaction; `3` and `4` are reserved for the write-token request and answer, and other tags are
+refused and acked without changing state. A tagged interaction is 27 bytes and fits the 256-byte
+short padding bucket. An introduction is a separate one-message chat payload, not a v1
+interaction event; its delivery policy belongs to chat design.
 The [size guard](../architecture/bootstrap.md#mailbox-envelope) measured 638 bytes for a short
 like and 894 bytes for up to 508 bytes of introduction plaintext if sent with the signal class,
 both including a signed write token. The sender checks the *encoded envelope* against the node's

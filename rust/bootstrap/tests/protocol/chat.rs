@@ -1,5 +1,5 @@
 use super::*;
-use dyapp_client::chat::{self, Event};
+use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::profiles;
 use dyapp_messaging::mls::Device;
 
@@ -91,7 +91,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     assert_eq!(welcome[0].mailbox, bob.mailbox());
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let hello = b"hello bob, this text must never reach the node";
-    let sent = chat::message(&mut group, &alice.device, hello).unwrap();
+    let sent = chat::message(&mut group, &alice.device, &Body::Text(hello.to_vec())).unwrap();
     chat::send(&mut alice.node, &sent).await.unwrap();
 
     // What the node stores and returns is MLS bytes, padded and encrypted.
@@ -136,14 +136,19 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
-                plaintext: hello.to_vec(),
+                body: Body::Text(hello.to_vec()),
             },
         ]
     );
     bob.node.ack(&bob.device_key, ids).await.unwrap();
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
-    let reply = chat::message(&mut bob_groups[0], &bob.device, b"hi alice").unwrap();
+    let reply = chat::message(
+        &mut bob_groups[0],
+        &bob.device,
+        &Body::Text(b"hi alice".to_vec()),
+    )
+    .unwrap();
     assert_eq!(reply[0].mailbox, alice.mailbox());
     chat::send(&mut bob.node, &reply).await.unwrap();
     let mut alice_groups = vec![group];
@@ -161,7 +166,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         vec![Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
-            plaintext: b"hi alice".to_vec(),
+            body: Body::Text(b"hi alice".to_vec()),
         }]
     );
 }
@@ -390,7 +395,12 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
     assert_eq!(deliveries[0].mailbox, alice.mailbox());
     chat::send(&mut bob.node, &deliveries).await.unwrap();
     let secret = b"after the revocation";
-    let sent = chat::message(&mut bob_groups[0], &bob.device, secret).unwrap();
+    let sent = chat::message(
+        &mut bob_groups[0],
+        &bob.device,
+        &Body::Text(secret.to_vec()),
+    )
+    .unwrap();
     assert_eq!(sent.len(), 1);
     chat::send(&mut bob.node, &sent).await.unwrap();
 
@@ -409,7 +419,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         Some(&Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
-            plaintext: secret.to_vec(),
+            body: Body::Text(secret.to_vec()),
         })
     );
     // The lost device can neither fetch its mailbox nor read the new epoch's message.
@@ -484,7 +494,12 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     chat::send(&mut second, &chat::to_members(&group, &commit).unwrap())
         .await
         .unwrap();
-    let sent = chat::message(&mut group, &alice.device, b"carol is gone").unwrap();
+    let sent = chat::message(
+        &mut group,
+        &alice.device,
+        &Body::Text(b"carol is gone".to_vec()),
+    )
+    .unwrap();
     chat::send(&mut alice.node, &sent).await.unwrap();
 
     let (events, ids) = chat::receive(
@@ -518,7 +533,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
-                plaintext: b"carol is gone".to_vec(),
+                body: Body::Text(b"carol is gone".to_vec()),
             },
         ]
     );
@@ -663,7 +678,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     let hello = Event::Message {
         group: group_id.clone(),
         sender: alice.identity.peer_id(),
-        plaintext: b"hello bob".to_vec(),
+        body: Body::Text(b"hello bob".to_vec()),
     };
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
@@ -711,7 +726,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         [Event::Message {
             group: group_id,
             sender: bob_owner,
-            plaintext: b"hi alice".to_vec(),
+            body: Body::Text(b"hi alice".to_vec()),
         }]
     );
 }

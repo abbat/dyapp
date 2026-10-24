@@ -7,6 +7,7 @@
 //! store the device state ([`Device::seal`]) first, then [`send`] it. Likewise [`receive`]
 //! returns the envelope ids to [`Node::ack`] once the new state is stored.
 
+use crate::interactions::Interaction;
 use crate::scores::Scores;
 use crate::{mailbox, Envelope, Error, Node};
 use dyapp_identity::{Identity, SignedRecord};
@@ -48,8 +49,8 @@ pub enum Event {
         group: Vec<u8>,
         /// Peer ID of the sender's identity.
         sender: String,
-        /// The unpadded text.
-        plaintext: Vec<u8>,
+        /// What the message carries.
+        body: Body,
     },
     /// A commit moved the group with this ID to its next epoch.
     Commit(Vec<u8>),
@@ -61,6 +62,37 @@ pub enum Event {
     UnknownOwner(String),
     /// The envelope was refused and acked: no group took it.
     Refused(String),
+}
+
+/// What an application message carries: the first plaintext byte names the kind, so a chat text
+/// is never read as an interaction. Tags 3 and 4 are kept for the write-token request and answer.
+#[derive(Clone, PartialEq, Eq)]
+pub enum Body {
+    /// User text, tag 1.
+    Text(Vec<u8>),
+    /// A like, unlike or view, tag 2.
+    Interaction(Interaction),
+}
+
+impl Body {
+    /// The tag byte, then the text or the encoded interaction.
+    pub fn encode(&self) -> Vec<u8> {
+        match self {
+            Self::Text(text) => [&[1], text.as_slice()].concat(),
+            Self::Interaction(event) => [&[2], event.encode().as_slice()].concat(),
+        }
+    }
+
+    /// Refuses an unknown or missing tag and a malformed interaction.
+    pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
+        match bytes.split_first() {
+            Some((1, text)) => Ok(Self::Text(text.to_vec())),
+            Some((2, event)) => Interaction::decode(event)
+                .map(Self::Interaction)
+                .map_err(|_| Error::Reply("bad interaction")),
+            _ => Err(Error::Reply("unknown message kind")),
+        }
+    }
 }
 
 /// Leaves out a message's text and sender, so a logged event says nothing about the chat.
@@ -130,13 +162,9 @@ pub async fn invite(
     Ok((group, deliveries))
 }
 
-/// Pads and encrypts `plaintext` for every other device in `group`.
-pub fn message(
-    group: &mut Group,
-    device: &Device,
-    plaintext: &[u8],
-) -> Result<Vec<Delivery>, Error> {
-    let message = group.encrypt(device, &pad(plaintext))?;
+/// Pads and encrypts `body` for every other device in `group`.
+pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
+    let message = group.encrypt(device, &pad(&body.encode()))?;
     to_members(group, &message)
 }
 
@@ -261,9 +289,7 @@ pub(crate) fn apply(
         Received::Message { sender, plaintext } => Event::Message {
             group: id,
             sender,
-            plaintext: unpad(&plaintext)
-                .ok_or(Error::Reply("bad padding"))?
-                .to_vec(),
+            body: Body::decode(unpad(&plaintext).ok_or(Error::Reply("bad padding"))?)?,
         },
         Received::Commit => Event::Commit(id),
     }))
@@ -301,7 +327,7 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_all, message, pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
+    use super::{apply_all, message, pad, unpad, Body, Delivery, Event, MIN_PADDED_BYTES};
     use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
     use dyapp_identity::{Domain, Identity};
@@ -341,7 +367,7 @@ mod tests {
         let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(1, welcome)], &profiles);
         assert!(events == [Event::Joined(group.id().to_vec())]);
         assert_eq!(acked, [vec![1]]);
-        let sent = message(&mut group, &alice, b"hi").unwrap();
+        let sent = message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
         let (events, acked) = apply_all(
             &bob,
             &mut groups,
@@ -353,7 +379,7 @@ mod tests {
                 == [Event::Message {
                     group: group.id().to_vec(),
                     sender: alice_identity.peer_id(),
-                    plaintext: b"hi".to_vec(),
+                    body: Body::Text(b"hi".to_vec()),
                 }]
         );
         assert_eq!(acked, [vec![2]]);
@@ -363,18 +389,47 @@ mod tests {
             event_id: [7; 16],
             hlc: 42,
         };
-        let sent = message(&mut group, &alice, &like.encode()).unwrap();
+        let sent = message(&mut group, &alice, &Body::Interaction(like)).unwrap();
         let (events, acked) = apply_all(
             &bob,
             &mut groups,
             vec![envelope(3, sent[0].mls.clone())],
             &profiles,
         );
-        let [Event::Message { plaintext, .. }] = events.as_slice() else {
+        let [Event::Message { body, .. }] = events.as_slice() else {
             panic!("expected decrypted interaction");
         };
-        assert_eq!(Interaction::decode(plaintext), Ok(like));
+        assert!(*body == Body::Interaction(like));
         assert_eq!(acked, [vec![3]]);
+
+        // An untagged plaintext, as before the frame, is refused and still acked.
+        let raw = group.encrypt(&alice, &pad(b"hi")).unwrap();
+        let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(4, raw)], &profiles);
+        assert!(events == [Event::Refused("bad reply: unknown message kind".into())]);
+        assert_eq!(acked, [vec![4]]);
+    }
+
+    #[test]
+    fn body_frame_is_strict() {
+        let like = Interaction {
+            kind: Kind::Like,
+            event_id: [7; 16],
+            hlc: 42,
+        };
+        for body in [
+            Body::Text(Vec::new()),
+            Body::Text(b"hi".to_vec()),
+            Body::Interaction(like),
+        ] {
+            assert!(Body::decode(&body.encode()).ok() == Some(body));
+        }
+        let tagged = Body::Interaction(like).encode();
+        for bad in [&b""[..], &[0], &[3], &[4, 1], &tagged[..tagged.len() - 1]] {
+            assert!(Body::decode(bad).is_err(), "{bad:?}");
+        }
+        // A text that starts like an interaction stays text.
+        let text = [&[1], &tagged[..]].concat();
+        assert!(Body::decode(&text).ok() == Some(Body::Text(tagged)));
     }
 
     #[test]
@@ -382,7 +437,7 @@ mod tests {
         let event = Event::Message {
             group: vec![1],
             sender: "peer-of-bob".into(),
-            plaintext: b"secret text".to_vec(),
+            body: Body::Text(b"secret text".to_vec()),
         };
         assert_eq!(format!("{event:?}"), "Message { group: [1], .. }");
         let delivery = Delivery {
