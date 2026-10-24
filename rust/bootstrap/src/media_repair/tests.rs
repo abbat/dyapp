@@ -77,7 +77,7 @@ fn drive(
         let queued = repair.queued();
         assert!(!queued.is_empty(), "repair stuck");
         for (to, job) in queued {
-            let (request, _) = repair.request(job).unwrap();
+            let (request, reply) = repair.request(job).unwrap();
             let service = nodes[&to];
             let mut response = match request.request.as_ref().unwrap() {
                 proto::media_request::Request::Have(have) => {
@@ -96,6 +96,15 @@ fn drive(
                     )
                     .unwrap(),
             };
+            // The reply budget is the response cap plus 1 KiB of framing.
+            assert!(response.encoded_len() as u64 <= reply);
+            let expected = match request.request.as_ref().unwrap() {
+                proto::media_request::Request::Have(have) => have.items.len() * 512 + 1024,
+                proto::media_request::Request::Get(_) => MEDIA_OBJECT_BYTES + 1024,
+                proto::media_request::Request::ShardGet(_) => response.data.len() + 1024,
+                _ => reply as usize,
+            };
+            assert_eq!(reply, expected as u64);
             let fail = fail_get
                 && !failed
                 && matches!(request.request, Some(proto::media_request::Request::Get(_)));
@@ -328,6 +337,182 @@ fn missing_or_invalid_inventory_reports_a_blob_for_reupload() {
     repair.advance(&origin, me);
     assert!(repair.done());
     assert!(repair.results().next().unwrap().1);
+}
+
+#[test]
+fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
+    let origin = service();
+    let remote = PeerId::random();
+    let (manifest, _) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
+    let hash = manifest.hash.clone();
+    let record = proof(hash.clone());
+    keep(&origin, &record);
+    let fresh = || {
+        let mut repair =
+            Repair::new(&origin, record.clone(), vec![hash.clone()], Instant::now()).unwrap();
+        for index in repair.keys(0) {
+            repair.holder(0, index, Some(remote));
+        }
+        repair
+    };
+    let part = |hash: &[u8], index| proto::MediaPart {
+        hash: hash.to_vec(),
+        index,
+    };
+    let gap = || vec![part(&hash, None)];
+    let other = vec![9; 32];
+    let foreign = proto::MediaManifest {
+        hash: other.clone(),
+        ..manifest.clone()
+    };
+    assert!(foreign.data_shards().is_some());
+    let accepted = |inventory| {
+        let mut repair = fresh();
+        repair.inventory(remote, inventory);
+        !repair.blobs[0].gaps.is_empty()
+    };
+    let inventory = |missing, whole, manifests| proto::MediaInventory {
+        missing,
+        whole,
+        manifests,
+        ..Default::default()
+    };
+    // A full window of whole copies and manifests is accepted; one more is not.
+    assert!(accepted(inventory(
+        gap(),
+        vec![hash.clone(); WINDOW],
+        vec![manifest.clone(); WINDOW]
+    )));
+    assert!(!accepted(inventory(
+        gap(),
+        vec![hash.clone(); WINDOW + 1],
+        Vec::new()
+    )));
+    assert!(!accepted(inventory(
+        gap(),
+        Vec::new(),
+        vec![manifest.clone(); WINDOW + 1]
+    )));
+    // Any part, whole copy or manifest for an unrequested hash discards it all.
+    let mut missing = gap();
+    missing.push(part(&other, None));
+    assert!(!accepted(inventory(missing, Vec::new(), Vec::new())));
+    assert!(!accepted(inventory(gap(), vec![other], Vec::new())));
+    assert!(!accepted(inventory(gap(), Vec::new(), vec![foreign])));
+
+    // Shard holders count only under the manifest the repair adopted.
+    let mut repair = fresh();
+    repair.inventory(
+        remote,
+        inventory(Vec::new(), Vec::new(), vec![manifest.clone()]),
+    );
+    let mut changed = manifest.clone();
+    changed.shard_hashes[0] = vec![1; 32];
+    let present = |manifest, index| proto::MediaInventory {
+        present: vec![part(&hash, Some(index))],
+        manifests: vec![manifest],
+        ..Default::default()
+    };
+    repair.inventory(remote, present(changed, 0));
+    assert!(repair.blobs[0].shard_sources.is_empty());
+    // Requested, since keys cover ten shards before the layout is known.
+    let past = manifest.shard_hashes.len() as u32;
+    repair.inventory(remote, present(manifest.clone(), past));
+    assert!(repair.blobs[0].shard_sources.is_empty());
+    repair.inventory(remote, present(manifest, 0));
+    assert_eq!(repair.blobs[0].shard_sources[&0], [remote]);
+}
+
+#[test]
+fn local_copies_count_only_when_they_verify() {
+    let me = PeerId::random();
+    let missing = |origin: &Service, record: &SignedRecord, hash: &[u8]| {
+        let mut repair =
+            Repair::new(origin, record.clone(), vec![hash.to_vec()], Instant::now()).unwrap();
+        for index in repair.keys(0) {
+            repair.holder(0, index, None);
+        }
+        repair.advance(origin, me);
+        assert!(repair.done());
+        let missing = repair.results().next().unwrap().1;
+        missing
+    };
+    // A whole copy whose bytes no longer match its hash is not a source.
+    let origin = service();
+    let data = b"rotting".to_vec();
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    let record = proof(hash.clone());
+    origin
+        .store_media(&replica(&record, data.clone(), None))
+        .unwrap();
+    assert!(!missing(&origin, &record, &hash));
+    let path = origin.media.as_ref().unwrap().path(&hash);
+    std::fs::write(path, b"rotten!").unwrap();
+    assert!(missing(&origin, &record, &hash));
+
+    // Enough verified local shards make a sharded blob recoverable without peers.
+    let origin = service();
+    let (manifest, shards) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
+    let hash = manifest.hash.clone();
+    let record = proof(hash.clone());
+    keep(&origin, &record);
+    let replica = replica(&record, Vec::new(), Some(manifest));
+    for (index, data) in shards.into_iter().enumerate() {
+        let put = proto::MediaShardPut {
+            replica: Some(replica.clone()),
+            index: index as u32,
+            data,
+        };
+        assert_eq!(
+            origin.store_shard(&put).unwrap().status,
+            i32::from(proto::Status::Ok)
+        );
+    }
+    assert!(!missing(&origin, &record, &hash));
+}
+
+#[test]
+fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
+    let origin = service();
+    let (me, other, lacking) = (PeerId::random(), PeerId::random(), PeerId::random());
+    let hash = vec![8; 32];
+    let record = proof(hash.clone());
+    keep(&origin, &record);
+    let mut repair = Repair::new(&origin, record, vec![hash.clone()], Instant::now()).unwrap();
+    for index in repair.keys(0) {
+        for peer in [other, me, lacking] {
+            repair.holder(0, index, Some(peer));
+        }
+    }
+    repair.inventoried = true;
+    repair.inventory(
+        lacking,
+        proto::MediaInventory {
+            missing: vec![proto::MediaPart {
+                hash: hash.clone(),
+                index: None,
+            }],
+            ..Default::default()
+        },
+    );
+    // Sources are tried last-in first, so this node's own listing comes up first.
+    for peer in [other, me] {
+        repair.inventory(
+            peer,
+            proto::MediaInventory {
+                whole: vec![hash.clone()],
+                ..Default::default()
+            },
+        );
+    }
+    repair.advance(&origin, me);
+    let queued = repair.queued();
+    assert_eq!(queued.len(), 1);
+    assert_eq!(queued[0].0, other);
+    assert!(matches!(
+        repair.request(queued[0].1).unwrap().0.request,
+        Some(proto::media_request::Request::Get(_))
+    ));
 }
 
 #[test]

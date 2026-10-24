@@ -247,7 +247,7 @@ impl MediaStore {
         })
     }
 
-    fn path(&self, hash: &[u8]) -> PathBuf {
+    pub(crate) fn path(&self, hash: &[u8]) -> PathBuf {
         let name = hex(hash);
         self.dir.join(&name[..2]).join(&name[2..4]).join(name)
     }

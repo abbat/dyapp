@@ -857,3 +857,30 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     let s = media_service(|l| l.min_free_mb = 1 << 40);
     assert_eq!(status(&s, &fits), Status::Full);
 }
+
+#[test]
+fn media_have_accepts_a_full_repair_window_and_no_more() {
+    let s = media_service(|_| {});
+    let status = |items| {
+        let request = MediaRequest {
+            request: Some(media_request::Request::Have(proto::MediaHave { items })),
+        };
+        Status::try_from(s.media(&peer("p"), request).unwrap().status).unwrap()
+    };
+    // Every hash of a window, whole and in all ten shards.
+    let mut items = (0..MAX_KEEP as u32)
+        .flat_map(|i| {
+            let hash = dyapp_identity::sha256(&i.to_be_bytes()).to_vec();
+            std::iter::once(None)
+                .chain((0..10).map(Some))
+                .map(move |index| proto::MediaPart {
+                    hash: hash.clone(),
+                    index,
+                })
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(items.len(), crate::media_repair::MAX_ITEMS);
+    assert_eq!(status(items.clone()), Status::Ok);
+    items.push(items[0].clone());
+    assert_eq!(status(items), Status::Invalid);
+}
