@@ -50,11 +50,16 @@ yet, and delivery receipts are still planned.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the
-saved MLS snapshot. Wiring this sequence into the network receive path is still planned.
+saved MLS snapshot. `Session::receive` wires this sequence to a fetched mailbox: it skips known
+IDs, applies one envelope at a time, commits it (a Welcome also records its group and peer in the
+catalog, a message stores a protobuf `StoredMessage`) and only then returns the event and ACKs
+every pending ID of that mailbox. Gap and unknown-owner envelopes stay unrecorded and unacked; a
+refused envelope stores only a marker, keeps the previous MLS snapshot and reopens it. Only
+one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
 The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)
 specifies that a storage error invalidates the current in-memory MLS session, and that receive
-must process one envelope per transaction before UI display or ACK. The current batch receive API
-cannot satisfy that ordering without an adapter.
+must process one envelope per transaction before UI display or ACK; `Session::receive` is that
+adapter, and the app does not call it yet.
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

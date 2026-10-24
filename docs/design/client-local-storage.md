@@ -9,8 +9,8 @@ schema and migrates version 1 in place after checking the identity binding. It p
 per-profile view-sending choice, local pass history and group ID catalog; chat, MLS and outbound
 mailbox calls are not wired into the app yet. The store can atomically stage a sealed MLS
 snapshot and exact signed outbox records, reopen due records and schedule retries. Inbox dedupe
-and pending ACKs are now atomic with a sealed MLS snapshot in the store API; chat has not been
-wired to them, and delivery receipts remain planned.
+and pending ACKs are now atomic with a sealed MLS snapshot, and `Session::receive` uses them for
+one-to-one chat; the app does not call the session yet, and delivery receipts remain planned.
 
 ## Ownership and location
 
@@ -109,16 +109,19 @@ For **receive**, compute the device mailbox from its key and check `Store::has_i
 MLS processing. An already processed ID only needs a pending ACK retry. Process **one** new
 envelope, seal the changed `Device`, then commit its inbox record, application event and ACK intent
 with `stage_inbound`. Only after that commit may the UI show the event or `Node::ack` the ID. On a
-storage failure, neither show nor ACK it and invalidate/reopen the in-memory session. This requires
-a single-envelope adapter: today's `chat::receive`/`apply_all` processes a batch before returning
-ACK IDs, so wiring that batch directly to `stage_inbound` would leave uncommitted MLS mutations.
+storage failure, neither show nor ACK it and invalidate/reopen the in-memory session.
+`Session::receive` implements this per envelope; the batch `chat::receive`/`apply_all` must not be
+wired to `stage_inbound`, because it applies several MLS mutations before returning ACK IDs. A
+Welcome's group and its single other owner enter the catalog in the same commit; a group with any
+other membership is refused until multi-device sync or group chats exist.
 
 `Event::Gap` and `Event::UnknownOwner` stay unacknowledged and unrecorded until the missing commit
 or verified profile arrives. Unknown group messages likewise remain in the mailbox. Refused
-envelopes can be ACKed only after a durable refusal/deduplication marker; the UI must not show
-their bytes. Cross-check of a second replica must pass its union through the same per-envelope
-deduplication path. The current fetched `Envelope` omits its class, so private signal dispatch
-needs a separate transport change; this chat checkpoint handles ordinary MLS messages only.
+envelopes can be ACKed only after a durable refusal/deduplication marker (`InboxKind::Refused`,
+with the previous MLS snapshot kept); the UI must not show their bytes. Cross-check of a second
+replica must pass its union through the same per-envelope deduplication path; it does not yet.
+The current fetched `Envelope` omits its class, so private signal dispatch needs a separate
+transport change; this chat checkpoint handles ordinary MLS messages only.
 
 The first integration tests must inject a store failure after MLS send and receive mutations,
 reopen the last snapshot, and prove the unsent/outstanding envelope can be processed without
