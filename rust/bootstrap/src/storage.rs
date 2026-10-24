@@ -609,6 +609,44 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_store_format_step_rolls_back_and_reruns() {
+        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = std::path::PathBuf::from(format!("{dir}/test.db"));
+        let schema = "CREATE TABLE IF NOT EXISTS `t` (`v` BLOB NOT NULL);";
+        let first: Step = |db| db.execute_batch("INSERT INTO `t` VALUES (x'01');");
+        // The disk fills up after the step has written part of its change.
+        let full: Step = |db| {
+            db.execute_batch("INSERT INTO `t` VALUES (x'02');")?;
+            let pages: i64 = db.query_row("PRAGMA page_count", [], |row| row.get(0))?;
+            db.pragma_update(None, "max_page_count", pages)?;
+            db.execute("INSERT INTO `t` VALUES (?1)", [vec![0u8; 1 << 20]])
+                .map(drop)
+        };
+        let second: Step = |db| db.execute_batch("INSERT INTO `t` VALUES (x'03');");
+        let state = || -> (i64, Vec<Vec<u8>>) {
+            let db = Connection::open(&path).unwrap();
+            let version = db
+                .query_row("PRAGMA user_version", [], |row| row.get(0))
+                .unwrap();
+            let mut rows = db.prepare("SELECT `v` FROM `t` ORDER BY rowid").unwrap();
+            let rows = rows
+                .query_map([], |row| row.get(0))
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<Vec<u8>>>>()
+                .unwrap();
+            (version, rows)
+        };
+
+        let error = open(&path, schema, &[first, full]).err().unwrap();
+        assert!(error.to_string().contains("full"), "{error}");
+        assert_eq!(state(), (1, vec![vec![1]]));
+
+        drop(open(&path, schema, &[first, second]).unwrap());
+        assert_eq!(state(), (2, vec![vec![1], vec![3]]));
+    }
+
+    #[test]
     fn messages_class_step_migrates_an_old_file() {
         let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
         std::fs::create_dir_all(&dir).unwrap();
