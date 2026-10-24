@@ -21,8 +21,8 @@ tracking task; closing it requires scheduling its successor.
 ## Follow-up
 
 The first audit found no expired flaky quarantine or size-file exception.
-It did find documentation debt: Python `noqa` imports have no adjacent
-explanation, and individual GitHub dismissals have no per-alert review date.
-The monthly schedule supplies a common review date; a separate cleanup task
-tracks the missing local explanations. This audit does not dismiss new alerts,
-change advisory ignores or reduce any gate.
+Its follow-up added local explanations to the Python `noqa` imports and the
+test-only lock guard's `dead_code` allowance. Individual GitHub dismissals
+have no per-alert review date; the monthly schedule supplies a common review
+date. This audit does not dismiss new alerts, change advisory ignores or reduce
+any gate.

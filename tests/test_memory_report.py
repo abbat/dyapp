@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/scripts"))
+# This test imports the report helper from the path added above.
 from memory_report import write_report  # noqa: E402
 
 SPEC = importlib.util.spec_from_file_location(

@@ -287,7 +287,11 @@ mod tests {
     static POW: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     /// Zeroes the proof-of-work bits until dropped.
-    struct ZeroPow(u32, #[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+    struct ZeroPow(
+        u32,
+        #[allow(dead_code, reason = "the field holds the lock until Drop")]
+        std::sync::MutexGuard<'static, ()>,
+    );
     impl Drop for ZeroPow {
         fn drop(&mut self) {
             dyapp_p2p_net::set_id_pow_bits(self.0);

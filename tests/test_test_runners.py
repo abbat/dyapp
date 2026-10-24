@@ -14,6 +14,7 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools/scripts"))
 
+# This test imports the runner from the path added above.
 from capture import Capture  # noqa: E402
 
 
