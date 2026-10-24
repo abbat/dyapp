@@ -42,6 +42,10 @@ It can also commit an incoming envelope ID, caller-provided application payload 
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the
 saved MLS snapshot. Wiring this sequence into the network receive path is still planned.
+The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)
+specifies that a storage error invalidates the current in-memory MLS session, and that receive
+must process one envelope per transaction before UI display or ACK. The current batch receive API
+cannot satisfy that ordering without an adapter.
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

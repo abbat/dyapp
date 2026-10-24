@@ -83,6 +83,42 @@ neither may be saved alone. Outbox entries remain until the protocol's delivery 
 a node's acceptance, and use bounded backoff. Mailbox expiry and signal eviction still mean a
 recipient can miss an event; reconciliation remains necessary.
 
+### Session recovery contract
+
+The app owns one active `Device`, its loaded `Group` handles, the selected identity slot, the MLS
+sealing key and the SQLite `Store` together. It opens the identity key first, then the matching
+database, then `Device::open` with the key unwrapped from the platform backend and `Group::load`
+for each conversation. A missing or inaccessible key does not start network work. Never keep a
+group handle from the previous device after reopening a snapshot.
+
+For **send**, `chat::message` advances MLS state in memory. Prepare one signed envelope for each
+device delivery, seal the changed `Device`, and call `stage_outbound` with *all* prepared envelopes
+before `Node::put_prepared`. If sealing or staging fails, send nothing and mark the in-memory
+session unusable. Reopen the last committed snapshot (or require a restart) before any further MLS
+operation; retrying encryption on the advanced in-memory group could reuse state or diverge from
+disk. A node's successful put only schedules the next delivery check; it does not remove the
+outbox entry. Receipt processing is a separate protocol step.
+
+For **receive**, compute the device mailbox from its key and check `Store::has_inbox` before any
+MLS processing. An already processed ID only needs a pending ACK retry. Process **one** new
+envelope, seal the changed `Device`, then commit its inbox record, application event and ACK intent
+with `stage_inbound`. Only after that commit may the UI show the event or `Node::ack` the ID. On a
+storage failure, neither show nor ACK it and invalidate/reopen the in-memory session. This requires
+a single-envelope adapter: today's `chat::receive`/`apply_all` processes a batch before returning
+ACK IDs, so wiring that batch directly to `stage_inbound` would leave uncommitted MLS mutations.
+
+`Event::Gap` and `Event::UnknownOwner` stay unacknowledged and unrecorded until the missing commit
+or verified profile arrives. Unknown group messages likewise remain in the mailbox. Refused
+envelopes can be ACKed only after a durable refusal/deduplication marker; the UI must not show
+their bytes. Cross-check of a second replica must pass its union through the same per-envelope
+deduplication path. The current fetched `Envelope` omits its class, so private signal dispatch
+needs a separate transport change; this chat checkpoint handles ordinary MLS messages only.
+
+The first integration tests must inject a store failure after MLS send and receive mutations,
+reopen the last snapshot, and prove the unsent/outstanding envelope can be processed without
+duplicate display or premature ACK. They must also restart after a committed send, retry exact
+signed bytes, and restart after a committed receive before ACK.
+
 ## Implementation checkpoints
 
 1. Confirm the storage ADR and implement profile-bound open, schema migration and failure tests.
