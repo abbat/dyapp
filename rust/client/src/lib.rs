@@ -10,6 +10,7 @@ pub mod profiles;
 pub mod scores;
 pub mod session;
 pub mod store;
+pub mod tokens;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, key_package_request, mailbox_request, profile_request, Status};

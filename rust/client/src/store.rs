@@ -594,7 +594,7 @@ PRAGMA user_version = 5;
 ";
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1, VERSION};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -606,7 +606,7 @@ mod tests {
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    pub(super) fn temp_db_path() -> PathBuf {
+    pub(crate) fn temp_db_path() -> PathBuf {
         let mut random = [0; 16];
         getrandom::fill(&mut random).unwrap();
         std::env::temp_dir().join(format!(

@@ -29,7 +29,10 @@ three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` tex
 interaction, `3` write-token request, `4` write-token answer), so a text is never read as an
 interaction; an unknown tag is refused and acked. A request holds 1 to 1,920 asks (30 days for
 64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
-to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies. A Rust test
+to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.
+`tokens::answer` signs, with the device mailbox key, only asks for its own mailbox and a day from
+yesterday to 30 days ahead, records each key in `issued_tokens`, skips a revoked key or one issued
+to another contact, and splits the answer so each padded body is at most 64 KiB. A Rust test
 sends an interaction through the existing MLS chat path and decodes the result.
 `Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
 `Store::likes` derives a match from them. `Store::interact` creates own events from a persisted
