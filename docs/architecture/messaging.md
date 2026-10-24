@@ -32,7 +32,11 @@ interaction; an unknown tag is refused and acked. A request holds 1 to 1,920 ask
 to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.
 `tokens::answer` signs, with the device mailbox key, only asks for its own mailbox and a day from
 yesterday to 30 days ahead, records each key in `issued_tokens`, skips a revoked key or one issued
-to another contact, and splits the answer so each padded body is at most 64 KiB. A Rust test
+to another contact, and splits the answer so each padded body is at most 64 KiB.
+`tokens::request` asks, for each owner device mailbox holding fewer than 15 days, for every
+missing day of the next 30 with a sealed token key generated on first use, so a retry reuses it;
+`tokens::accept` stores a token only if its signer's mailbox is the token's mailbox and its key
+is the one held for that mailbox and day. A Rust test
 sends an interaction through the existing MLS chat path and decodes the result.
 `Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
 `Store::likes` derives a match from them. `Store::interact` creates own events from a persisted

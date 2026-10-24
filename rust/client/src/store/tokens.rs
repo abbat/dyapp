@@ -157,7 +157,7 @@ impl Store {
         Ok(())
     }
 
-    fn held_key(
+    pub(crate) fn held_key(
         &self,
         mailbox: &[u8; 32],
         epoch: u32,

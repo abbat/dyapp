@@ -25,10 +25,12 @@ media is different: full copies are expensive, and a node should hold no object 
   data at any time. Under a full quota the data of the profiles inactive longest is evicted first.
   A user who comes online again restores their data on the nodes.
 - **Write tokens:** the recipient gives each contact, inside MLS, a daily write token signed by
-  its device key; envelopes with a token use the mailbox quota, envelopes without one (a first
-  message) a small pool per mailbox evicted by the peer that handed them in and the sender's IP
-  group. A blocked contact's token keys are revoked by a signed `revoke` that replicas forward
-  and repair. Details: [Bootstrap: Mailbox envelope](../architecture/bootstrap.md#mailbox-envelope).
+  its device key. The contact device generates each token key pair and sends only the public key,
+  so the secret never leaves it. Envelopes with a token use the mailbox quota, envelopes without
+  one (a first message) a small pool per mailbox evicted by the peer that handed them in and the
+  sender's IP group. A blocked contact's token keys are revoked by a signed `revoke` that
+  replicas forward and repair. Details:
+  [Bootstrap: Mailbox envelope](../architecture/bootstrap.md#mailbox-envelope).
 - **History lives on devices.** A new device gets it from a linked device
   ([ADR 0004](0004-identity-keys.md)), not from bootstrap.
 - **Messages, MLS commits and profiles are replicated whole** to R = 5 points, replica *i* at the
