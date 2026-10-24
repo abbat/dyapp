@@ -4,8 +4,8 @@ The Rust client currently keeps MLS state and mailbox work in memory. This desig
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-4
-schema and migrates versions 1 to 3 in place after checking the identity binding. It persists the
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-5
+schema and migrates versions 1 to 4 in place after checking the identity binding. It persists the
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
@@ -28,8 +28,10 @@ writers for each slot; read-only multi-instance access is a later decision.
 
 The identity key and the 32-byte MLS sealing key stay in the platform key backend, not SQLite.
 `Device::seal` already encrypts the MLS signer, unused KeyPackages and all groups; only that sealed
-blob enters the database. Message text, contacts and settings are plaintext in the local database
-under the existing [device-at-rest threat decision](../security/threat-model.md#client-side-exposure).
+blob enters the database. A mailbox write-token key is also a secret: its 32 bytes are
+stored only under AES-256-GCM with the same sealing key, bound to the row's mailbox and day.
+Message text, contacts and settings are plaintext in the local database under
+the existing [device-at-rest threat decision](../security/threat-model.md#client-side-exposure).
 The app uses its private directory permissions, platform file protection and backup exclusions;
 desktop users need disk encryption for at-rest confidentiality. No user content, keys or Peer IDs
 go into logs or migration diagnostics.
@@ -51,6 +53,8 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload (version 3) | `(sender, event ID)` is unique; a replay with other bytes is refused. |
 | `like_state` | Latest like or unlike per sender and target (version 3) | Replaced only by a greater `(HLC, device, event ID)`. |
 | `view_days` | UTC days on which one profile viewed another (version 4) | One sent view per peer per day; received views are recorded regardless of the send setting. |
+| `held_tokens` | Own token key per owner mailbox and UTC day, sealed, and the owner's signed WriteToken (version 5) | `(mailbox, epoch)` is unique; a retry returns the same key. |
+| `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit (version 5) | `(mailbox, token key, epoch)` belongs to one contact. |
 
 `send_profile_views` defaults to false when absent. The stored value is versioned and must be a
 single byte 0 or 1; an unknown version or value returns an error rather than silently enabling

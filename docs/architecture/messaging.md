@@ -34,7 +34,7 @@ chat path and decodes the result.
 HLC and creates at most one view per peer per UTC day; `Store::receive_interaction` applies the
 60-second future-skew guard first. The client still lacks a short-padded signal sender and app
 integration, so nothing publishes a like yet.
-`rust/client::store::Store::open` now creates or reopens an identity-bound, version-4 SQLite
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-5 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
@@ -43,7 +43,7 @@ chat operation uses yet. See the [client storage design](../design/client-local-
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1, -2 or -3 database migrates to version 4 after its identity binding is checked. The
+version-1 to -4 database migrates to version 5 after its identity binding is checked. The
 group catalog records group IDs and verified peer associations with the sealed Device and
 prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
 or mismatched entries.

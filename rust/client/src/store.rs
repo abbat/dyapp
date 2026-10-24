@@ -9,9 +9,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
 mod likes;
+mod tokens;
 pub use likes::Likes;
 
-const VERSION: i64 = 4;
+const VERSION: i64 = 5;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -61,6 +62,9 @@ pub enum Error {
     /// A received timestamp is too far ahead of the local clock.
     #[error("client store interaction: {0}")]
     ClockSkew(#[from] dyapp_messaging::hlc::ClockSkew),
+    /// A token row is missing, opens under another key, or names another contact.
+    #[error("client store write token is missing, conflicts or is corrupt")]
+    TokenConflict,
     /// The system random source failed.
     #[error("client store could not read the system random source")]
     Random,
@@ -153,7 +157,10 @@ impl Store {
             if version < 3 {
                 tx.execute_batch(SCHEMA_V3)?;
             }
-            tx.execute_batch(SCHEMA_V4)?;
+            if version < 4 {
+                tx.execute_batch(SCHEMA_V4)?;
+            }
+            tx.execute_batch(SCHEMA_V5)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -566,6 +573,26 @@ CREATE TABLE `view_days` (
 PRAGMA user_version = 4;
 ";
 
+const SCHEMA_V5: &str = r"
+CREATE TABLE `held_tokens` (
+    `mailbox` BLOB NOT NULL CHECK (length(`mailbox`) = 32),
+    `epoch` INTEGER NOT NULL CHECK (`epoch` >= 0),
+    `sealed_key` BLOB NOT NULL,
+    `token` BLOB,
+    PRIMARY KEY (`mailbox`, `epoch`)
+) STRICT;
+CREATE TABLE `issued_tokens` (
+    `mailbox` BLOB NOT NULL CHECK (length(`mailbox`) = 32),
+    `token_key` BLOB NOT NULL CHECK (length(`token_key`) = 32),
+    `epoch` INTEGER NOT NULL CHECK (`epoch` >= 0),
+    `contact` TEXT NOT NULL CHECK (length(`contact`) > 0),
+    `revoked` INTEGER NOT NULL DEFAULT 0 CHECK (`revoked` IN (0, 1)),
+    PRIMARY KEY (`mailbox`, `token_key`, `epoch`)
+) STRICT;
+CREATE INDEX `issued_tokens_contact` ON `issued_tokens` (`contact`);
+PRAGMA user_version = 5;
+";
+
 #[cfg(test)]
 mod tests {
     use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1, VERSION};
@@ -608,11 +635,11 @@ mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 5").unwrap();
+        db.execute_batch("PRAGMA user_version = 6").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(5))
+            Err(Error::FutureVersion(6))
         ));
 
         let unknown = temp_db_path();
@@ -658,6 +685,7 @@ mod tests {
         assert!(store.send_profile_views().unwrap());
         assert!(store.known_groups().unwrap().is_empty());
         assert_eq!(store.likes(&alice.peer_id()).unwrap(), Likes::default());
+        assert!(store.write_token_epochs(&[0; 32], 0).unwrap().is_empty());
         drop(store);
         let db = Connection::open(&path).unwrap();
         assert_eq!(
