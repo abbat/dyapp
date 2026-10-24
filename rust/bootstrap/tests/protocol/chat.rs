@@ -1,7 +1,9 @@
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::profiles;
-use dyapp_messaging::mls::Device;
+use dyapp_client::store::Store;
+use dyapp_messaging::mls::{Device, Group};
+use dyapp_profile::VerifiedProfile;
 
 /// One person with one device: identity, device mailbox key, MLS state and node connection.
 struct Person {
@@ -581,7 +583,6 @@ fn heal(path: &std::path::Path) {
 #[tokio::test]
 async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     use dyapp_client::session::{Error, Session};
-    use dyapp_client::store::Store;
 
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
@@ -729,4 +730,137 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
             body: Body::Text(b"hi alice".to_vec()),
         }]
     );
+}
+
+async fn post(person: &mut Person, group: &mut Group, bodies: &[Body]) {
+    for body in bodies {
+        let deliveries = chat::message(group, &person.device, body).unwrap();
+        chat::send(&mut person.node, &deliveries).await.unwrap();
+    }
+}
+
+async fn fetch(
+    person: &mut Person,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) -> Vec<Event> {
+    let (events, ids) = chat::receive(
+        &mut person.node,
+        &person.device_key,
+        &person.device,
+        groups,
+        profiles,
+    )
+    .await
+    .unwrap();
+    person.node.ack(&person.device_key, ids).await.unwrap();
+    events
+}
+
+/// The token request for every other device in `group`, if one is due on `day`.
+fn ask(store: &mut Store, group: &Group, day: u32, seal: &[u8; 32]) -> Vec<Body> {
+    let mailboxes = group
+        .peer_device_keys()
+        .unwrap()
+        .iter()
+        .map(|key| dyapp_client::mailbox(key.as_slice().try_into().unwrap()))
+        .collect::<Vec<_>>();
+    dyapp_client::tokens::request(store, &mailboxes, day, seal)
+        .unwrap()
+        .into_iter()
+        .collect()
+}
+
+/// Answers the token requests among `events` and stores the token answers; returns the answers
+/// to send and how many tokens it stored.
+fn trade(
+    person: &Person,
+    store: &Store,
+    events: &[Event],
+    day: u32,
+    seal: &[u8; 32],
+) -> (Vec<Body>, usize) {
+    use dyapp_client::tokens;
+    let (mut answers, mut stored) = (Vec::new(), 0);
+    for event in events {
+        match event {
+            Event::Message {
+                sender,
+                body: Body::TokenRequest(request),
+                ..
+            } => answers
+                .extend(tokens::answer(store, &person.device_key, sender, request, day).unwrap()),
+            Event::Message {
+                body: Body::TokenAnswer(answer),
+                ..
+            } => stored += tokens::accept(store, answer, seal).unwrap(),
+            _ => {}
+        }
+    }
+    (answers, stored)
+}
+
+#[tokio::test]
+async fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+        .await
+        .unwrap();
+    let mut profiles = Vec::new();
+    for owner in [alice.identity.peer_id(), bob_owner] {
+        profiles.push(alice.node.get_profile(&owner).await.unwrap());
+    }
+    let mut alice_store = Store::open(&store_path("alice"), &alice.identity).unwrap();
+    let mut bob_store = Store::open(&store_path("bob"), &bob.identity).unwrap();
+    let (alice_seal, bob_seal) = ([1; 32], [2; 32]);
+
+    let alice_mailbox = alice.mailbox();
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        .await
+        .unwrap();
+    chat::send(&mut alice.node, &welcome).await.unwrap();
+    let mut alice_groups = vec![group];
+    let mut bob_groups = Vec::new();
+    assert_eq!(
+        fetch(&mut bob, &mut bob_groups, &profiles).await,
+        [Event::Joined(alice_groups[0].id().to_vec())]
+    );
+
+    // After the join each side asks the other for a month; a refill at 14 days left tops it up.
+    let today = 20_000;
+    for (day, expected) in [(today, 30), (today + 16, 16)] {
+        let asked = ask(&mut alice_store, &alice_groups[0], day, &alice_seal);
+        post(&mut alice, &mut alice_groups[0], &asked).await;
+        let asked = ask(&mut bob_store, &bob_groups[0], day, &bob_seal);
+        post(&mut bob, &mut bob_groups[0], &asked).await;
+
+        let events = fetch(&mut bob, &mut bob_groups, &profiles).await;
+        let (answers, _) = trade(&bob, &bob_store, &events, day, &bob_seal);
+        post(&mut bob, &mut bob_groups[0], &answers).await;
+        let events = fetch(&mut alice, &mut alice_groups, &profiles).await;
+        let (answers, stored) = trade(&alice, &alice_store, &events, day, &alice_seal);
+        assert_eq!(stored, expected);
+        post(&mut alice, &mut alice_groups[0], &answers).await;
+        let events = fetch(&mut bob, &mut bob_groups, &profiles).await;
+        assert_eq!(trade(&bob, &bob_store, &events, day, &bob_seal).1, expected);
+
+        let month = (day..day + 30).collect::<Vec<_>>();
+        assert_eq!(
+            alice_store.write_token_epochs(&bob.mailbox(), day).unwrap(),
+            month
+        );
+        assert_eq!(
+            bob_store.write_token_epochs(&alice.mailbox(), day).unwrap(),
+            month
+        );
+    }
+    assert!(ask(&mut alice_store, &alice_groups[0], today + 17, &alice_seal).is_empty());
 }
