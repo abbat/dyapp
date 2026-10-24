@@ -48,6 +48,12 @@ pub enum Error {
     /// The reply or a record in it is malformed or wrongly signed.
     #[error("bad reply: {0}")]
     Reply(&'static str),
+    /// A caller supplied a malformed mailbox address.
+    #[error("bad client input: {0}")]
+    Input(&'static str),
+    /// A persisted outbound envelope is malformed or no longer verifies.
+    #[error("bad prepared envelope")]
+    PreparedEnvelope,
     /// A profile failed its checks.
     #[error(transparent)]
     Profile(#[from] dyapp_profile::Error),
@@ -74,6 +80,81 @@ pub struct Envelope {
     pub sender_key: Vec<u8>,
     /// MLS message bytes.
     pub ciphertext: Vec<u8>,
+}
+
+/// A signed mailbox write that can be persisted and retried without changing its ID or bytes.
+#[derive(Clone)]
+pub struct PreparedEnvelope {
+    mailbox: [u8; 32],
+    id: [u8; 16],
+    record: SignedRecord,
+    bytes: Vec<u8>,
+}
+
+impl PreparedEnvelope {
+    /// Reopen exact bytes saved before the first network attempt.
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, Error> {
+        let record = SignedRecord::decode(bytes.as_slice()).map_err(|_| Error::PreparedEnvelope)?;
+        if record.encode_to_vec() != bytes || record.verify(Domain::Envelope).is_err() {
+            return Err(Error::PreparedEnvelope);
+        }
+        let envelope = proto::Envelope::decode(record.payload.as_slice())
+            .map_err(|_| Error::PreparedEnvelope)?;
+        let mailbox = envelope
+            .mailbox
+            .try_into()
+            .map_err(|_| Error::PreparedEnvelope)?;
+        let id = envelope
+            .id
+            .try_into()
+            .map_err(|_| Error::PreparedEnvelope)?;
+        Ok(Self {
+            mailbox,
+            id,
+            record,
+            bytes,
+        })
+    }
+
+    /// The exact signed record bytes for the durable outbox.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// The destination device mailbox.
+    pub fn mailbox(&self) -> &[u8; 32] {
+        &self.mailbox
+    }
+
+    /// The stable envelope ID, also used for idempotent retry.
+    pub fn id(&self) -> &[u8; 16] {
+        &self.id
+    }
+}
+
+impl std::fmt::Debug for PreparedEnvelope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreparedEnvelope")
+            .field("bytes_len", &self.bytes.len())
+            .finish_non_exhaustive()
+    }
+}
+
+/// Sign an ordinary MLS mailbox message with a fresh one-off key, before any network write.
+pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelope, Error> {
+    let mailbox: [u8; 32] = mailbox
+        .try_into()
+        .map_err(|_| Error::Input("mailbox must be 32 bytes"))?;
+    let mut id = [0u8; 16];
+    getrandom::fill(&mut id).map_err(|error| Error::Request(error.to_string()))?;
+    let envelope = proto::Envelope {
+        id: id.to_vec(),
+        mailbox: mailbox.to_vec(),
+        ciphertext,
+        ..Default::default()
+    };
+    let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    PreparedEnvelope::from_bytes(record.encode_to_vec())
 }
 
 /// A connection to one node.
@@ -205,18 +286,18 @@ impl Node {
     /// Stores `ciphertext` in `mailbox`, signed by a fresh key used only for this envelope (sealed
     /// sender), never a published one; returns the envelope id.
     pub async fn put(&mut self, mailbox: &[u8], ciphertext: Vec<u8>) -> Result<Vec<u8>, Error> {
-        let mut id = [0u8; 16];
-        getrandom::fill(&mut id).map_err(|error| Error::Request(error.to_string()))?;
-        let envelope = proto::Envelope {
-            id: id.to_vec(),
-            mailbox: mailbox.to_vec(),
-            ciphertext,
-            ..Default::default()
-        };
-        let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
-        let response = self.mailbox(mailbox_request::Request::Put(record)).await?;
+        let prepared = prepare_put(mailbox, ciphertext)?;
+        self.put_prepared(&prepared).await?;
+        Ok(prepared.id.to_vec())
+    }
+
+    /// Submit a previously prepared mailbox write; retries keep its exact ID and signed bytes.
+    pub async fn put_prepared(&mut self, prepared: &PreparedEnvelope) -> Result<(), Error> {
+        let response = self
+            .mailbox(mailbox_request::Request::Put(prepared.record.clone()))
+            .await?;
         ok(response.status)?;
-        Ok(id.to_vec())
+        Ok(())
     }
 
     /// The envelopes waiting in the mailbox of `device`, and whether more are waiting.
@@ -424,4 +505,45 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
                 .ok_or(Error::Reply("bad hex"))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{prepare_put, Error, PreparedEnvelope};
+    use dyapp_p2p_net::proto::{self, EnvelopeClass};
+    use prost::Message as _;
+
+    #[test]
+    fn prepared_mailbox_write_reopens_with_exact_signed_bytes() {
+        let mailbox = [7; 32];
+        let prepared = prepare_put(&mailbox, vec![1, 2, 3]).unwrap();
+        let bytes = prepared.as_bytes().to_vec();
+        let reopened = PreparedEnvelope::from_bytes(bytes.clone()).unwrap();
+        assert_eq!(reopened.as_bytes(), bytes);
+        assert_eq!(reopened.mailbox(), &mailbox);
+        assert_eq!(reopened.id(), prepared.id());
+        let envelope = proto::Envelope::decode(reopened.record.payload.as_slice()).unwrap();
+        assert_eq!(envelope.ciphertext, [1, 2, 3]);
+        assert_eq!(envelope.class, EnvelopeClass::Message as i32);
+        assert_ne!(
+            prepare_put(&mailbox, vec![1, 2, 3]).unwrap().id(),
+            prepared.id()
+        );
+        assert!(!format!("{prepared:?}").contains("7, 7, 7"));
+    }
+
+    #[test]
+    fn prepared_mailbox_write_rejects_wrong_address_and_tampering() {
+        assert!(matches!(
+            prepare_put(&[0; 31], vec![1]),
+            Err(Error::Input(_))
+        ));
+        let prepared = prepare_put(&[0; 32], vec![1]).unwrap();
+        let mut bytes = prepared.as_bytes().to_vec();
+        *bytes.last_mut().unwrap() ^= 1;
+        assert!(matches!(
+            PreparedEnvelope::from_bytes(bytes),
+            Err(Error::PreparedEnvelope)
+        ));
+    }
 }

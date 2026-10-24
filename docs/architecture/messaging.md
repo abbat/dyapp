@@ -15,6 +15,10 @@ and padded message as MLS bytes, one envelope per member device. Calls that chan
 return the deliveries instead of sending them, and `chat::receive` returns the envelope ids to
 ack, so the client seals the state first. The app does not use it yet. See
 [Encryption & Security Status](../security/encryption.md).
+`prepare_put` can sign a mailbox write before network activity and return exact bytes, mailbox
+and ID. `PreparedEnvelope::from_bytes` verifies a stored copy; `Node::put_prepared` reuses that
+record on retry. `Node::put` still prepares and sends in one call for existing callers. The
+durable outbox and receipt handling remain planned.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
