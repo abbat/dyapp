@@ -384,7 +384,19 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
         std::thread::sleep(std::time::Duration::from_millis(500));
         output = status(&[]);
     }
-    let running = String::from_utf8(output.stdout).unwrap();
+    assert!(output.status.success(), "{output:?}");
+    // A status scrape does not count as a protocol request. Make one before
+    // checking traffic, even when the first readiness probe already succeeds.
+    let fetched: serde_json::Value =
+        serde_json::from_str(&success(&dir, &["media-get", &listen, &hash_hex])).unwrap();
+    assert_eq!(fetched["status"], "STATUS_OK");
+    assert_eq!(
+        fetched["data"],
+        blob.iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
+    let running = String::from_utf8(status(&[]).stdout).unwrap();
     assert!(running.starts_with("node running\n"), "{running}");
     for name in [
         "uptime_seconds",
@@ -395,7 +407,7 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
         let line = running.lines().find(|l| l.starts_with(name)).unwrap();
         assert!(line[name.len() + 1..].parse::<u64>().is_ok(), "{line}");
     }
-    // The node answered the earlier probes, so their requests are counted.
+    // The media request was observed before its response, so it is counted.
     assert!(!running.contains("\nrequests 0\n"), "{running}");
 
     let output = status(&["--metrics.port", "0"]);
@@ -405,16 +417,6 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     assert!(
         unmetered.ends_with("wire_out_bytes unavailable\n"),
         "{unmetered}"
-    );
-
-    let fetched: serde_json::Value =
-        serde_json::from_str(&success(&dir, &["media-get", &listen, &hash_hex])).unwrap();
-    assert_eq!(fetched["status"], "STATUS_OK");
-    assert_eq!(
-        fetched["data"],
-        blob.iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
     );
 
     node.kill().unwrap();

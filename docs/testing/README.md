@@ -200,6 +200,8 @@ as a TOML date:
 
 Within 7 days, fix the test and remove the entry; an expired entry fails `make test`, CI and the
 Python suite in `make quality`, even when the test no longer flakes.
+For traffic assertions, first cause a protocol request and wait for its response: the
+`dyappd status` health/metrics scrape is not itself counted in `requests_total`.
 
 ## Mutation testing
 
