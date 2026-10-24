@@ -38,7 +38,7 @@ pulls anything).
 | Everything (pre-push) | `make test-all` | `tests/scripts/docker-test.sh all` |
 | Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim |
 | Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
-| fmt check | `make fmt` | `cargo fmt --all -- --check` |
+| fmt check | `make fmt` | `cargo fmt --all -- --check`; the Docker checkout is read-only, so apply its diffs with host `rustfmt --edition 2021 <files>` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
 | Security | `make security` (= `audit`, `deny`) | `tests/scripts/docker-test.sh security` |
