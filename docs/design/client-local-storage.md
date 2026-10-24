@@ -4,9 +4,10 @@ The Rust client currently keeps MLS state and mailbox work in memory. This desig
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
-schema. It persists the per-profile view-sending choice and local pass history; chat, MLS and
-outbound mailbox calls are not wired into the app yet. The store can atomically stage a sealed MLS
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-2
+schema and migrates version 1 in place after checking the identity binding. It persists the
+per-profile view-sending choice, local pass history and group ID catalog; chat, MLS and outbound
+mailbox calls are not wired into the app yet. The store can atomically stage a sealed MLS
 snapshot and exact signed outbox records, reopen due records and schedule retries. Inbox dedupe
 and pending ACKs are now atomic with a sealed MLS snapshot in the store API; chat has not been
 wired to them, and delivery receipts remain planned.
@@ -41,6 +42,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | --- | --- | --- |
 | `profile_binding` | Derived Peer ID and store format | Exactly one identity per database; mismatch fails closed. |
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
+| `conversation_groups` | Group ID and verified peer association (version 2) | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. |
 | `settings` | Typed, versioned values such as view sending and app lock preference | Per profile; documented defaults for absent values. |
@@ -86,9 +88,12 @@ recipient can miss an event; reconciliation remains necessary.
 ### Session recovery contract
 
 The app owns one active `Device`, its loaded `Group` handles, the selected identity slot, the MLS
-sealing key and the SQLite `Store` together. It opens the identity key first, then the matching
-database, then `Device::open` with the key unwrapped from the platform backend and `Group::load`
-for each conversation. A missing or inaccessible key does not start network work. Never keep a
+sealing key and the SQLite `Store` together. `stage_group` atomically records a new group's ID,
+its verified peer, the sealed Device and all prepared Welcome writes. On restart, `load_groups`
+uses the catalog to restore every group from the unsealed Device and refuses a missing group or
+one without its recorded peer. It opens the identity key first, then the matching database, then
+`Device::open` with the key unwrapped from the platform backend and `load_groups` for each
+conversation. A missing or inaccessible key does not start network work. Never keep a
 group handle from the previous device after reopening a snapshot.
 
 For **send**, `chat::message` advances MLS state in memory. Prepare one signed envelope for each

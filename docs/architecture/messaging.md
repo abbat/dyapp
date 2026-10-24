@@ -28,7 +28,7 @@ The planned like, unlike and view payload and match state are specified in the
 three kinds. A Rust test sends it through the existing MLS chat path and decodes the result. The
 client still lacks a short-padded signal sender, persistent interaction state and app integration;
 the codec alone does not publish a like or compute a match.
-`rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-2 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
@@ -36,8 +36,11 @@ default of no view signals; the schema also reserves inbox, outbox and MLS state
 chat operation uses yet. See the [client storage design](../design/client-local-storage.md).
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
-on an existing mailbox/ID with different signed bytes rolls the whole transaction back. The
-chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
+on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
+version-1 database migrates to version 2 after its identity binding is checked. The group catalog
+records group IDs and verified peer associations with the sealed Device and prepared Welcome
+writes; `load_groups` restores those groups after restart and refuses missing or mismatched entries.
+The chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the

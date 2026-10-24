@@ -3,10 +3,12 @@
 use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
 use dyapp_messaging::hlc::Timestamp;
+use dyapp_messaging::mls::{Device, Group};
+use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
-const VERSION: i64 = 1;
+const VERSION: i64 = 2;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -35,6 +37,15 @@ pub enum Error {
     /// A prepared write conflicts with stored bytes or an outbox row is corrupt.
     #[error("client store outbox record conflicts or is corrupt")]
     OutboxConflict,
+    /// A group ID is empty or already belongs to another peer.
+    #[error("client store group record conflicts or is corrupt")]
+    GroupConflict,
+    /// A cataloged group is absent from the sealed Device or lacks its recorded peer.
+    #[error("client store group is missing or belongs to another peer")]
+    GroupMismatch,
+    /// MLS rejected a stored group.
+    #[error("client store group: {0}")]
+    Mls(#[from] dyapp_messaging::mls::Error),
     /// A caller tried to persist an empty sealed MLS snapshot.
     #[error("client store MLS snapshot is empty")]
     EmptyMlsState,
@@ -49,6 +60,7 @@ pub enum Error {
 /// One profile's durable state; a second profile requires a separate database path.
 pub struct Store {
     db: Connection,
+    owner_peer_id: String,
 }
 
 /// The device mailbox and envelope ID that identify one received delivery.
@@ -108,7 +120,7 @@ impl Store {
                 )?;
                 tx.commit()?;
             }
-            VERSION => {}
+            1 | VERSION => {}
             other => return Err(Error::FutureVersion(other)),
         }
         let bound: String = db.query_row(
@@ -119,7 +131,15 @@ impl Store {
         if bound != identity.peer_id() {
             return Err(Error::WrongIdentity);
         }
-        Ok(Self { db })
+        if version < VERSION {
+            let tx = db.transaction()?;
+            tx.execute_batch(SCHEMA_V2)?;
+            tx.commit()?;
+        }
+        Ok(Self {
+            db,
+            owner_peer_id: bound,
+        })
     }
 
     /// Whether this profile sends optional view signals; absent means off.
@@ -187,10 +207,76 @@ impl Store {
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
     ) -> Result<(), Error> {
+        self.stage_outbound_inner(None, sealed_device, writes)
+    }
+
+    /// Register a new conversation in the same commit as its MLS state and Welcome writes.
+    pub fn stage_group(
+        &mut self,
+        group: &Group,
+        peer: &VerifiedProfile,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
+        if group.id().is_empty()
+            || peer.peer_id == self.owner_peer_id
+            || !group.members()?.contains(&peer.peer_id)
+        {
+            return Err(Error::GroupConflict);
+        }
+        self.stage_outbound_inner(Some((group.id(), &peer.peer_id)), sealed_device, writes)
+    }
+
+    /// IDs needed to reopen every conversation from the saved Device snapshot.
+    pub fn known_groups(&self) -> Result<Vec<(Vec<u8>, String)>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `group_id`, `peer_id` FROM `conversation_groups` ORDER BY `group_id`",
+        )?;
+        let rows = query.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        rows.collect::<Result<_, _>>().map_err(Error::from)
+    }
+
+    /// Reopen and check every cataloged group against the restored sealed Device.
+    pub fn load_groups(&self, device: &Device) -> Result<Vec<(Group, String)>, Error> {
+        self.known_groups()?
+            .into_iter()
+            .map(|(id, peer_id)| {
+                let group = Group::load(device, &id)?.ok_or(Error::GroupMismatch)?;
+                if peer_id == self.owner_peer_id || !group.members()?.contains(&peer_id) {
+                    return Err(Error::GroupMismatch);
+                }
+                Ok((group, peer_id))
+            })
+            .collect()
+    }
+
+    fn stage_outbound_inner(
+        &mut self,
+        group: Option<(&[u8], &str)>,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
         if sealed_device.is_empty() {
             return Err(Error::EmptyMlsState);
         }
         let tx = self.db.transaction()?;
+        if let Some((group_id, peer_id)) = group {
+            let inserted = tx.execute(
+                "INSERT INTO `conversation_groups` (`group_id`, `peer_id`) VALUES (?1, ?2)
+                 ON CONFLICT (`group_id`) DO NOTHING",
+                params![group_id, peer_id],
+            )?;
+            if inserted == 0 {
+                let saved: String = tx.query_row(
+                    "SELECT `peer_id` FROM `conversation_groups` WHERE `group_id` = ?1",
+                    [group_id],
+                    |row| row.get(0),
+                )?;
+                if saved != peer_id {
+                    return Err(Error::GroupConflict);
+                }
+            }
+        }
         tx.execute(
             "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
              ON CONFLICT (`slot`) DO UPDATE SET `sealed` = excluded.`sealed`,
@@ -402,14 +488,23 @@ CREATE TABLE `pass_history` (
 PRAGMA user_version = 1;
 ";
 
+const SCHEMA_V2: &str = r"
+CREATE TABLE `conversation_groups` (
+    `group_id` BLOB PRIMARY KEY CHECK (length(`group_id`) > 0),
+    `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0)
+) STRICT;
+PRAGMA user_version = 2;
+";
+
 #[cfg(test)]
 mod tests {
-    use super::{Error, InboxKey, InboxKind, Store};
+    use super::{Error, InboxKey, InboxKind, Store, SCHEMA_V1};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
     use dyapp_messaging::mls::Device;
     use dyapp_p2p_net::proto;
+    use dyapp_profile::{Profile, VerifiedProfile};
     use prost::Message as _;
     use rusqlite::Connection;
     use std::path::PathBuf;
@@ -443,11 +538,11 @@ mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 2").unwrap();
+        db.execute_batch("PRAGMA user_version = 3").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(2))
+            Err(Error::FutureVersion(3))
         ));
 
         let unknown = temp_db_path();
@@ -459,6 +554,46 @@ mod tests {
             Store::open(&unknown, &alice),
             Err(Error::Unversioned)
         ));
+    }
+
+    #[test]
+    fn migrates_bound_v1_database_without_losing_records() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(SCHEMA_V1).unwrap();
+        db.execute(
+            "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
+            [alice.peer_id()],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)",
+            rusqlite::params!["send_profile_views", vec![1_u8]],
+        )
+        .unwrap();
+        drop(db);
+        assert!(matches!(
+            Store::open(&path, &Identity::generate()),
+            Err(Error::WrongIdentity)
+        ));
+        let db = Connection::open(&path).unwrap();
+        assert_eq!(
+            db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            1
+        );
+        drop(db);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(store.send_profile_views().unwrap());
+        assert!(store.known_groups().unwrap().is_empty());
+        drop(store);
+        let db = Connection::open(&path).unwrap();
+        assert_eq!(
+            db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            2
+        );
     }
 
     #[test]
@@ -525,6 +660,87 @@ mod tests {
         assert!(matches!(
             store.send_profile_views(),
             Err(Error::InvalidSetting)
+        ));
+    }
+
+    fn person() -> (Identity, Device, VerifiedProfile) {
+        let identity = Identity::generate();
+        let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
+        let profile = Profile {
+            version: 1,
+            devices: vec![device.certificate().clone()],
+            ..Default::default()
+        }
+        .sign(&identity);
+        (identity, device, dyapp_profile::verify(&profile).unwrap())
+    }
+
+    #[test]
+    fn group_catalog_reopens_a_sealed_group_and_rejects_mismatches() {
+        let path = temp_db_path();
+        let (alice_id, alice, alice_profile) = person();
+        let (_, bob, bob_profile) = person();
+        let (_, _, carol_profile) = person();
+        let package = bob.key_package(false).unwrap();
+        let (group, welcome) = alice
+            .create_group(&[package], &[alice_profile.clone(), bob_profile.clone()])
+            .unwrap();
+        let group_id = group.id().to_vec();
+        let seal_key = [9; 32];
+        let sealed = alice.seal(&seal_key).unwrap();
+        let write = prepare_put(&[7; 32], welcome).unwrap();
+        let mut failed = Store::open(&temp_db_path(), &alice_id).unwrap();
+        failed
+            .db
+            .execute_batch(
+                "CREATE TRIGGER `fail_mls` BEFORE INSERT ON `mls_state`
+             BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+            )
+            .unwrap();
+        assert!(matches!(
+            failed.stage_group(&group, &bob_profile, &sealed, std::slice::from_ref(&write)),
+            Err(Error::Sql(_))
+        ));
+        assert!(failed.known_groups().unwrap().is_empty());
+        assert!(failed.due_outbound(0).unwrap().is_empty());
+        let mut store = Store::open(&path, &alice_id).unwrap();
+        assert!(matches!(
+            store.stage_group(&group, &carol_profile, &sealed, &[]),
+            Err(Error::GroupConflict)
+        ));
+        assert!(store.known_groups().unwrap().is_empty());
+        assert!(matches!(
+            store.stage_group(&group, &alice_profile, &sealed, &[]),
+            Err(Error::GroupConflict)
+        ));
+        store
+            .stage_group(&group, &bob_profile, &sealed, std::slice::from_ref(&write))
+            .unwrap();
+        drop(store);
+        let store = Store::open(&path, &alice_id).unwrap();
+        assert_eq!(
+            store.known_groups().unwrap(),
+            [(group_id.clone(), bob_profile.peer_id.clone())]
+        );
+        assert_eq!(
+            store.due_outbound(0).unwrap()[0].as_bytes(),
+            write.as_bytes()
+        );
+        let opened = Device::open(&store.sealed_device().unwrap().unwrap(), &seal_key).unwrap();
+        let loaded = store.load_groups(&opened).unwrap();
+        assert_eq!(loaded[0].0.id(), group_id);
+        assert_eq!(loaded[0].1, bob_profile.peer_id);
+        assert!(matches!(store.load_groups(&bob), Err(Error::GroupMismatch)));
+        store
+            .db
+            .execute(
+                "UPDATE `conversation_groups` SET `peer_id` = ?1 WHERE `group_id` = ?2",
+                rusqlite::params![carol_profile.peer_id, group_id],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.load_groups(&opened),
+            Err(Error::GroupMismatch)
         ));
     }
 
