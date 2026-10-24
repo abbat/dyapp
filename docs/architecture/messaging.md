@@ -15,6 +15,9 @@ and padded message as MLS bytes, one envelope per member device. Calls that chan
 return the deliveries instead of sending them, and `chat::receive` returns the envelope ids to
 ack, so the client seals the state first. The app does not use it yet. See
 [Encryption & Security Status](../security/encryption.md).
+The planned like and introduction signals need shorter plaintext padding than ordinary chat;
+the measured envelope sizes and 1 KiB limit are documented under
+[bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

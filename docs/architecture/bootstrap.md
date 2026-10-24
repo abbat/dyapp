@@ -815,6 +815,15 @@ expiry.
 signed payload is at most 1 KiB (else `TOO_LARGE` with `max_bytes` 1024) and counts against
 `limits.signal_max_kb`, not the mailbox's 10 MiB ([Limits and abuse](#limits-and-abuse)).
 
+The client signal sender is planned. Its size guard in `rust/client/src/chat.rs` encrypts real
+MLS application messages and measures the encoded envelope including a signed write token. With
+256-byte plaintext padding, a 16-byte like payload is 638 bytes. With 512-byte padding, an
+introduction carrying up to 508 bytes of total plaintext is 894 bytes. The four-byte length prefix
+is included in each padding bucket. The existing chat padding floor of 1 KiB makes even the small
+like envelope 1406 bytes, so the signal sender must use its own shorter padding and reject payloads
+that do not fit; it must never truncate ciphertext or raise the node's limit. These measurements
+use the current OpenMLS and protobuf versions and are guarded by a test rather than assumed stable.
+
 ### Signed profile
 
 Source: `rust/identity` (keys, `SignedRecord`) and `rust/profile` (`Profile`, checks).

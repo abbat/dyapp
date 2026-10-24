@@ -303,9 +303,11 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 mod tests {
     use super::{apply_all, message, pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
     use crate::Envelope;
-    use dyapp_identity::Identity;
+    use dyapp_identity::{Domain, Identity};
     use dyapp_messaging::mls::Device;
+    use dyapp_p2p_net::proto;
     use dyapp_profile::{Profile, VerifiedProfile};
+    use prost::Message as _;
 
     fn person() -> (Identity, Device, VerifiedProfile) {
         let identity = Identity::generate();
@@ -389,5 +391,51 @@ mod tests {
         assert_eq!(unpad(&[0, 0, 4, 1, 0]), None);
         assert_eq!(unpad(&[0, 0]), None);
         assert!(pad(b"").len() == MIN_PADDED_BYTES);
+    }
+
+    #[test]
+    fn short_signal_padding_fits_the_signed_payload_limit() {
+        let (alice_id, alice, alice_profile) = person();
+        let (bob_id, bob, bob_profile) = person();
+        let profiles = [alice_profile, bob_profile];
+        let package = bob.key_package(false).unwrap();
+        let (mut group, _) = alice.create_group(&[package], &profiles).unwrap();
+        let token = bob_id.sign(
+            Domain::WriteToken,
+            proto::WriteToken {
+                mailbox: vec![0; 32],
+                token_key: alice_id.public_key().to_vec(),
+                epoch: u32::MAX,
+            }
+            .encode_to_vec(),
+        );
+        let payload_size =
+            |group: &mut dyapp_messaging::mls::Group, plaintext_len: usize, floor| {
+                let size = (4 + plaintext_len).max(floor).next_power_of_two();
+                let mut padded = vec![0; size];
+                padded[..4].copy_from_slice(&(plaintext_len as u32).to_be_bytes());
+                let ciphertext = group.encrypt(&alice, &padded).unwrap();
+                proto::Envelope {
+                    id: vec![0; 16],
+                    mailbox: vec![0; 32],
+                    ciphertext,
+                    class: proto::EnvelopeClass::Signal.into(),
+                    write_token: Some(token.clone()),
+                }
+                .encoded_len()
+            };
+        let like = payload_size(&mut group, 16, 256);
+        // 508 bytes plus the length prefix fills the 512-byte padding bucket.
+        let introduction = payload_size(&mut group, 508, 256);
+        let ordinary_padding = payload_size(&mut group, 16, MIN_PADDED_BYTES);
+        assert!(like <= 1024, "like signed payload: {like}");
+        assert!(
+            introduction <= 1024,
+            "introduction signed payload: {introduction}"
+        );
+        assert!(
+            ordinary_padding > 1024,
+            "ordinary padding: {ordinary_padding}"
+        );
     }
 }
