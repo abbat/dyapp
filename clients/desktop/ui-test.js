@@ -28,6 +28,17 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     const style = getComputedStyle(ready);
     const { strings } = window;
     const peerId = document.getElementById('peer-id').textContent;
+    const peer = document.getElementById('peer-id');
+    const originalBodyWidth = document.body.style.width;
+    const peerLinesAt = (width) => {
+      document.body.style.width = `${width}px`;
+      const range = document.createRange();
+      range.selectNodeContents(peer);
+      return range.getClientRects().length;
+    };
+    const narrowLines = peerLinesAt(350);
+    const wideLines = peerLinesAt(960);
+    document.body.style.width = originalBodyWidth;
     const backup = document.getElementById('file-backup');
     const keyPath = document.getElementById('key-path').textContent;
     const backupMatches = mode === 'file'
@@ -45,6 +56,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       visibility: style.visibility === 'visible' && style.opacity !== '0',
       onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready,
       peerId: /^[0-9a-f]{64}$/.test(peerId),
+      peerIdReflows: narrowLines > 1 && wideLines === 1,
     };
     const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
     return invokeTest('ui_test_result', {

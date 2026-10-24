@@ -22,6 +22,9 @@ after a second launch. File-mode cases check the visible key-file path and backu
 system-mode cases check that no file path is shown. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
+The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
+wide layout widths: it must wrap when space is tight and return to one line
+when space grows, without changing the identifier.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
