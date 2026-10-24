@@ -46,8 +46,8 @@ Implementation checkpoints:
 1. In an isolated change, resolve the candidate provider and signer dependencies for the
    root and fuzz workspaces. Inspect `cargo tree -i crypto-bigint@0.5.5` and both locks;
    reject a candidate that retains the vulnerable crate or introduces another failing audit.
-2. Add a durable current-version sealed-state fixture and cross-provider tests for key,
-   group, KeyPackage, message, commit and Welcome continuity.
+2. Use the checked-in OpenMLS 0.9.1/RustCrypto 0.6.0 sealed-state fixture and add
+   cross-provider tests for key, group, KeyPackage, message, commit and Welcome continuity.
 3. Propose the dependency/provider decision in an ADR for human confirmation, as required
    by [the ADR process](../decisions/README.md). Only then switch implementation, update
    [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md), and run MLS tests,
@@ -56,3 +56,20 @@ Implementation checkpoints:
 The upstream release manifests are the immediate blocker to a version-only update. This
 investigation has **not** established that libcrux plus a custom signer will pass every audit
 or preserve the stored state; the checkpoints above decide that experimentally.
+
+## Current-provider fixture
+
+`rust/messaging/src/mls/fixtures/openmls-0.9-rust-crypto-0.6/` holds hex-encoded
+test-only state generated on 2026-10-24 with OpenMLS 0.9.1, RustCrypto 0.6.0,
+BasicCredential 0.6.0 and suite `0x0001`. It contains two sealed device states, their
+group ID, and an unused KeyPackage plus its hash reference. Identity secrets (`0x11` and
+`0x22`) and sealing keys (`0x41` and `0x42`) are fixed test values, never production
+secrets. The MLS signer, group and KeyPackage keys were created by the old provider.
+
+`current_provider_opens_saved_mls_state_fixture` reads the fixture on every test run.
+It checks both certified signers, loads both group states, exchanges a message, and
+retrieves the exact unused KeyPackage from storage. It uses the stored hash reference
+because KeyPackage validation would expire 30 days after capture. The ignored
+`write_current_provider_fixture` test generated the files into `/tmp/ai/mls-fixture`;
+do not regenerate or replace this baseline when changing providers. The new provider
+must pass this same fixture before the old implementation is removed.

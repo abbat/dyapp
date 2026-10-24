@@ -116,6 +116,9 @@ keeps wrapped by the platform KeyStore; `Device::open(sealed, key)` restores the
 `Group::load(device, id)` each group. The client must store a fresh seal after every call that
 changes state and before sending its output, since an older state would reuse message keys. The
 client and its store are planned.
+The checked-in [old-provider state fixture](../security/openmls-curve-migration.md#current-provider-fixture)
+tests that a future crypto-provider change can still read a saved signer, group and
+unused KeyPackage. A replacement provider has not yet passed that test.
 
 ## Hybrid Logical Clock Ordering
 

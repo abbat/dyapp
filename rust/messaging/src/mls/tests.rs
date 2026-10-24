@@ -468,6 +468,126 @@ fn key_package_published_before_restart_can_be_joined() {
     bob_device.join(&welcome, &profiles).unwrap();
 }
 
+// Run explicitly with DYAPP_MLS_FIXTURE_DIR=/tmp/ai/mls-fixture after changing the
+// current provider. The checked-in fixture must remain from OpenMLS 0.9.1/RustCrypto 0.6.0.
+#[test]
+#[ignore = "writes the current-provider compatibility fixture"]
+fn write_current_provider_fixture() {
+    let directory = std::env::var("DYAPP_MLS_FIXTURE_DIR").unwrap();
+    let alice = Identity::from_secret(&[0x11; 32]);
+    let bob = Identity::from_secret(&[0x22; 32]);
+    let alice_device = Device::new(&alice, [0x31; 32], 1).unwrap();
+    let bob_device = Device::new(&bob, [0x32; 32], 1).unwrap();
+    let profiles = [
+        profile(&alice, &[&alice_device]),
+        profile(&bob, &[&bob_device]),
+    ];
+    let (alice_group, welcome) = alice_device
+        .create_group(&[bob_device.key_package(false).unwrap()], &profiles)
+        .unwrap();
+    let bob_group = bob_device.join(&welcome, &profiles).unwrap();
+    assert_eq!(alice_group.id(), bob_group.id());
+    let unused_package = bob_device.key_package(false).unwrap();
+    let reference = KeyPackageIn::tls_deserialize_exact(&unused_package)
+        .unwrap()
+        .validate(bob_device.provider.crypto(), ProtocolVersion::Mls10)
+        .unwrap()
+        .hash_ref(bob_device.provider.crypto())
+        .unwrap()
+        .tls_serialize_detached()
+        .unwrap();
+    std::fs::create_dir_all(&directory).unwrap();
+    for (name, bytes) in [
+        ("alice.sealed", alice_device.seal(&[0x41; 32]).unwrap()),
+        ("bob.sealed", bob_device.seal(&[0x42; 32]).unwrap()),
+        ("group-id", alice_group.id().to_vec()),
+        ("unused-key-package", unused_package),
+        ("unused-key-package-ref", reference),
+    ] {
+        std::fs::write(std::path::Path::new(&directory).join(name), bytes).unwrap();
+    }
+}
+
+fn fixture_hex(source: &str) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for line in source.lines() {
+        assert_eq!(line.len() % 2, 0);
+        for index in (0..line.len()).step_by(2) {
+            bytes.push(u8::from_str_radix(&line[index..index + 2], 16).unwrap());
+        }
+    }
+    bytes
+}
+
+#[test]
+fn current_provider_opens_saved_mls_state_fixture() {
+    let alice_state = fixture_hex(include_str!(
+        "fixtures/openmls-0.9-rust-crypto-0.6/alice.sealed.hex"
+    ));
+    let bob_state = fixture_hex(include_str!(
+        "fixtures/openmls-0.9-rust-crypto-0.6/bob.sealed.hex"
+    ));
+    let group_id = fixture_hex(include_str!(
+        "fixtures/openmls-0.9-rust-crypto-0.6/group-id.hex"
+    ));
+    let unused = fixture_hex(include_str!(
+        "fixtures/openmls-0.9-rust-crypto-0.6/unused-key-package.hex"
+    ));
+    let reference = fixture_hex(include_str!(
+        "fixtures/openmls-0.9-rust-crypto-0.6/unused-key-package-ref.hex"
+    ));
+    let alice_device = Device::open(&alice_state, &[0x41; 32]).unwrap();
+    let bob_device = Device::open(&bob_state, &[0x42; 32]).unwrap();
+    let alice = Identity::from_secret(&[0x11; 32]);
+    let bob = Identity::from_secret(&[0x22; 32]);
+    assert_eq!(
+        alice_device
+            .certificate()
+            .verify(Domain::DeviceCertificate)
+            .unwrap(),
+        alice.peer_id()
+    );
+    assert_eq!(
+        bob_device
+            .certificate()
+            .verify(Domain::DeviceCertificate)
+            .unwrap(),
+        bob.peer_id()
+    );
+    let profiles = [
+        profile(&alice, &[&alice_device]),
+        profile(&bob, &[&bob_device]),
+    ];
+    let mut alice_group = Group::load(&alice_device, &group_id).unwrap().unwrap();
+    let mut bob_group = Group::load(&bob_device, &group_id).unwrap().unwrap();
+    assert_eq!(alice_group.members().unwrap().len(), 2);
+    assert_eq!(bob_group.members().unwrap().len(), 2);
+    let message = alice_group
+        .encrypt(&alice_device, b"fixture continuity")
+        .unwrap();
+    assert!(matches!(
+        bob_group.process(&bob_device, &message, &profiles),
+        Ok(Received::Message { plaintext, .. }) if plaintext == b"fixture continuity"
+    ));
+
+    // Inspect the stored package without joining: its 30-day validity will expire,
+    // but storage compatibility must remain testable after that date.
+    let reference = KeyPackageRef::tls_deserialize_exact(&reference).unwrap();
+    let stored: Option<KeyPackageBundle> = bob_device
+        .provider
+        .storage()
+        .key_package(&reference)
+        .unwrap();
+    assert_eq!(
+        stored
+            .unwrap()
+            .key_package()
+            .tls_serialize_detached()
+            .unwrap(),
+        unused
+    );
+}
+
 #[test]
 fn sealed_state_is_encrypted_and_authenticated() {
     let (_, device) = device();
