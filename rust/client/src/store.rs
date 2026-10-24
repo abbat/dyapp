@@ -67,21 +67,13 @@ impl std::fmt::Debug for InboxKey {
 }
 
 /// Whether the processed MLS envelope contained a visible message.
+#[repr(i64)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum InboxKind {
     /// A message whose versioned payload the app will show from local history.
-    Message,
+    Message = 1,
     /// A Welcome, commit or other MLS state change without visible message text.
-    StateChange,
-}
-
-impl InboxKind {
-    const fn code(self) -> i64 {
-        match self {
-            Self::Message => 1,
-            Self::StateChange => 2,
-        }
-    }
+    StateChange = 2,
 }
 
 impl Store {
@@ -317,7 +309,7 @@ impl Store {
             params![
                 key.mailbox.as_slice(),
                 key.id.as_slice(),
-                kind.code(),
+                kind as i64,
                 payload
             ],
         )?;
@@ -327,7 +319,7 @@ impl Store {
                 params![key.mailbox.as_slice(), key.id.as_slice()],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )?;
-            if saved.0 != kind.code() || saved.1 != payload {
+            if saved.0 != kind as i64 || saved.1 != payload {
                 return Err(Error::InboxConflict);
             }
             return Ok(false);
@@ -592,6 +584,7 @@ mod tests {
             mailbox: [4; 32],
             id: [5; 16],
         };
+        assert_eq!(format!("{key:?}"), "InboxKey { .. }");
         let mut store = Store::open(&path, &owner).unwrap();
         assert!(!store.has_inbox(&key).unwrap());
         assert!(store.pending_acks().unwrap().is_empty());
