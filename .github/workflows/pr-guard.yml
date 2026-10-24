@@ -28,13 +28,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 -B tests/scripts/pr-guard.py "$BASE_SHA" "$HEAD_SHA"
-      # Checkout the PR separately for static linting; no PR scripts are run.
-      - name: checkout PR files
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: pr-head
-          persist-credentials: false
+      # Extract only workflow data from the fetched PR commit; never check it out.
+      - name: extract PR workflows
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p pr-head
+          git archive --format=tar "$HEAD_SHA" .github/workflows | tar -xf - -C pr-head
       - name: install pinned workflow linters
         run: |
           container=$(docker create rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667)

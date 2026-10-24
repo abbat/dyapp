@@ -37,10 +37,11 @@ Docker `make` targets, with network disabled after dependencies are fetched.
 
 `pr-guard` compares the PR head with its merge base, checks path separation, lockfile sources
 and the age of changed crates.io versions. It reports dependency changes and warns when its own
-workflow or script changes. The checker
-runs from the base commit and lints PR workflows as data. A PR can change its workflow, so the
-check is a review aid; the maintainer's pre-run diff review is the boundary. GitHub Actions PR
-caches are read-only to PRs and cannot be written back to the cache used by `main`.
+workflow or script changes. The checker runs from the base commit. It fetches the PR commit for
+the diff, then extracts only its workflow files for static linting; the PR tree is never checked
+out or executed by this guard. A PR can change its workflow, so the check is a review aid; the
+maintainer's pre-run diff review is the boundary. GitHub Actions PR caches are read-only to PRs
+and cannot be written back to the cache used by `main`.
 
 The maintainer has a ruleset bypass for direct pushes until the first public release. The
 release hardening task removes it and requires signed commits. Protect the maintainer account

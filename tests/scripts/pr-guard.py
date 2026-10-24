@@ -104,8 +104,9 @@ def check(base, head, api=None, now=None):
                     f"{path}: cannot verify age of {name} {version}: {error}")
     lines = ["## Pull request guard", "", f"Changed paths: {len(paths)}.", ""]
     if warning:
-        lines += ["⚠️ This PR changes the guard itself; review its workflow "
-                  "and script manually.", ""]
+        warning_text = ("⚠️ This PR changes the guard itself; review its "
+                        "workflow and script manually.")
+        lines += [warning_text, ""]
     lines += ["### Dependency changes", ""]
     lines += [*(f"- {item}" for item in changed)] if changed else ["- None"]
     lines += ["", "### Result", ""]

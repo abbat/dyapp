@@ -1,6 +1,8 @@
 # Security Assurance
 
 How the project measures its own security practices and handles reported vulnerabilities.
+The `pr-guard` workflow runs its checker from the trusted base commit and extracts only PR
+workflow files for static linting; it does not check out or run the PR tree.
 
 The [exception audit inventory](../development/practices.md#exception-audit-inventory)
 lists every repository and GitHub-side waiver source. The

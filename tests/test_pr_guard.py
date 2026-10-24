@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest import mock
+import unittest.mock as mock
 
 SCRIPT = Path(__file__).parent / "scripts/pr-guard.py"
 spec = importlib.util.spec_from_file_location("pr_guard", SCRIPT)
