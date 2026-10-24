@@ -27,8 +27,9 @@ the codec alone does not publish a like or compute a match.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
-The schema reserves inbox, outbox, MLS state, settings and pass-history tables; no chat operation
-uses them yet. See the [client storage design](../design/client-local-storage.md).
+The store persists the view-sending choice and local pass/undo state with a privacy-preserving
+default of no view signals; the schema also reserves inbox, outbox and MLS state tables that no
+chat operation uses yet. See the [client storage design](../design/client-local-storage.md).
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

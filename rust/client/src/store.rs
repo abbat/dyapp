@@ -1,7 +1,8 @@
 //! Versioned, identity-bound local SQLite store. The app supplies its private absolute path.
 
 use dyapp_identity::Identity;
-use rusqlite::{params, Connection};
+use dyapp_messaging::hlc::Timestamp;
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
 const VERSION: i64 = 1;
@@ -24,6 +25,12 @@ pub enum Error {
     /// The selected identity differs from the database's bound identity.
     #[error("client store belongs to another identity")]
     WrongIdentity,
+    /// A stored setting has an unsupported format or value.
+    #[error("client store setting is invalid")]
+    InvalidSetting,
+    /// A clock value does not fit the SQLite integer representation.
+    #[error("client store clock value is out of range")]
+    ClockRange,
     /// SQLite refused the database or a migration.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
@@ -86,6 +93,65 @@ impl Store {
             .db
             .pragma_query_value(None, "user_version", |row| row.get(0))?)
     }
+
+    /// Whether this profile sends optional view signals; absent means off.
+    pub fn send_profile_views(&self) -> Result<bool, Error> {
+        let value: Option<(i64, Vec<u8>)> = self
+            .db
+            .query_row(
+                "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
+                ["send_profile_views"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        match value {
+            None => Ok(false),
+            Some((1, value)) if value == [0] => Ok(false),
+            Some((1, value)) if value == [1] => Ok(true),
+            _ => Err(Error::InvalidSetting),
+        }
+    }
+
+    /// Persist this profile's choice to send optional view signals.
+    pub fn set_send_profile_views(&self, enabled: bool) -> Result<(), Error> {
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+            params!["send_profile_views", [u8::from(enabled)]],
+        )?;
+        Ok(())
+    }
+
+    /// Whether this profile currently passes on `peer_id`; absent means no pass.
+    pub fn passed(&self, peer_id: &str) -> Result<bool, Error> {
+        let value: Option<i64> = self
+            .db
+            .query_row(
+                "SELECT `passed` FROM `pass_history` WHERE `peer_id` = ?1",
+                [peer_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        match value {
+            None | Some(0) => Ok(false),
+            Some(1) => Ok(true),
+            _ => Err(Error::InvalidSetting),
+        }
+    }
+
+    /// Set or undo a local pass. An older event cannot overwrite a newer one.
+    /// Returns whether the stored state changed.
+    pub fn set_pass(&self, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
+        let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
+        let changed = self.db.execute(
+            "INSERT INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`) VALUES (?1, ?2, ?3)
+             ON CONFLICT (`peer_id`) DO UPDATE SET `passed` = excluded.`passed`,
+             `updated_hlc` = excluded.`updated_hlc`
+             WHERE excluded.`updated_hlc` > `pass_history`.`updated_hlc`",
+            params![peer_id, i64::from(passed), at],
+        )?;
+        Ok(changed != 0)
+    }
 }
 
 const SCHEMA_V1: &str = r"
@@ -131,6 +197,7 @@ PRAGMA user_version = 1;
 mod tests {
     use super::{Error, Store, VERSION};
     use dyapp_identity::Identity;
+    use dyapp_messaging::hlc::Timestamp;
     use rusqlite::Connection;
     use std::path::PathBuf;
 
@@ -198,5 +265,45 @@ mod tests {
         let path = temp_db_path();
         std::fs::write(&path, b"not a SQLite database").unwrap();
         assert!(matches!(Store::open(&path, &alice), Err(Error::Sql(_))));
+    }
+
+    #[test]
+    fn settings_and_pass_history_survive_restart_without_crossing_profiles() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let bob = Identity::generate();
+        let peer = Identity::generate().peer_id();
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(!store.send_profile_views().unwrap());
+        assert!(!store.passed(&peer).unwrap());
+        store.set_send_profile_views(true).unwrap();
+        assert!(store.set_pass(&peer, true, Timestamp::new(10, 0)).unwrap());
+        assert!(!store.set_pass(&peer, false, Timestamp::new(9, 0)).unwrap());
+        drop(store);
+
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(store.send_profile_views().unwrap());
+        assert!(store.passed(&peer).unwrap());
+        assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
+        assert!(!store.passed(&peer).unwrap());
+        let other = Store::open(&temp_db_path(), &bob).unwrap();
+        assert!(!other.send_profile_views().unwrap());
+        assert!(!other.passed(&peer).unwrap());
+    }
+
+    #[test]
+    fn unknown_setting_format_fails_closed() {
+        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        store
+            .db
+            .execute(
+                "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 2, ?2)",
+                rusqlite::params!["send_profile_views", vec![1_u8]],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.send_profile_views(),
+            Err(Error::InvalidSetting)
+        ));
     }
 }

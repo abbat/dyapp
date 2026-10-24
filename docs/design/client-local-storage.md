@@ -5,7 +5,8 @@ local identity durable chats, preferences and pending delivery while preserving 
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
 page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
-schema; its tables are not populated by chat or settings code yet.
+schema. It persists the per-profile view-sending choice and local pass history; chat, MLS and
+outbound mailbox tables are not used yet.
 
 ## Ownership and location
 
@@ -41,6 +42,12 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. |
 | `settings` | Typed, versioned values such as view sending and app lock preference | Per profile; documented defaults for absent values. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
+
+`send_profile_views` defaults to false when absent. The stored value is versioned and must be a
+single byte 0 or 1; an unknown version or value returns an error rather than silently enabling
+signals. An absent pass record means no pass. Pass/undo updates carry a persisted HLC timestamp;
+an older update cannot overwrite a newer local choice. Each profile database owns its settings
+and pass history; neither is published to bootstrap.
 
 Like/unlike/view event ordering and match derivation belong to the
 [interaction state](private-interactions.md); a match is derived from durable events rather than a
