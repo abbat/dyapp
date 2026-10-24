@@ -70,6 +70,7 @@ place and gives **new** identities independent local slots:
 | Local slot | Random UUID, never derived from the public Peer ID or a user label. |
 | Lifecycle | `<app-config>/profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | File-backed key | `<app-config>/profiles/<slot>/identity.key`, with `storage-mode` = `file` in that directory. |
+| Client data (proposed) | `<app-config>/profiles/<slot>/client.sqlite3`; the virtual legacy slot keeps data at root `client.sqlite3`. See [local storage design](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |
 | Active selection | `<app-config>/active-profile` contains the slot UUID or `legacy-primary`. |
@@ -113,6 +114,8 @@ with `identity-storage`. Copying app files alone does not back up system credent
 must say this and may offer a separately designed export. On restore, inspect the key and
 derive its Peer ID before activation. If the incoming slot UUID already exists with a
 different key, import under a fresh slot after user confirmation; never overwrite either.
+Once the proposed SQLite client store exists, stop the app before a directory copy so its WAL is
+checkpointed; a future live export must use SQLite's backup mechanism.
 
 | Scenario to verify on Linux and Windows | Expected result |
 |---|---|

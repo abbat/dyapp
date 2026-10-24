@@ -61,5 +61,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0022](0022-desktop-system-credential-storage.md) | Optional desktop system credential storage |
 | [0023](0023-bootstrap-node-update-policy.md) | Opt-in unattended bootstrap updates for v0.0.1 |
 | [0024](0024-bootstrap-update-channel.md) | TUF channel with offline release signer and reserve root key |
+| [0025](0025-client-local-sqlite-storage.md) | Per-profile SQLite client storage |
 
 All listed ADRs are accepted.
