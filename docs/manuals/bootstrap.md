@@ -665,10 +665,32 @@ at a time:
 
 ### Rollback
 
-Stop the node, install the previous package and start it. If it exits with "has store format N,
-this dyappd knows up to M", stop it, restore the backup taken before the update and start again
-([First deployment](#first-deployment), step 4). Restore a
-[verified snapshot](#verified-pre-update-snapshot-planned) with `restore-bootstrap.py`.
+Roll the data back before the program. A newer `dyappd` upgrades older store files when it
+starts, and an older one refuses files a newer one has upgraded:
+
+| Store files | `dyappd` | Result |
+|---|---|---|
+| Older format | Newer | Upgraded in place on start; older versions can no longer open them |
+| Same format | Any | Runs |
+| Newer format | Older | Exits with "has store format N, this dyappd knows up to M" and changes nothing |
+
+So never install the previous package alone over upgraded files. After a failed update:
+
+1. `sudo systemctl stop dyappd`. The unit restarts a failing node every 5 seconds, and the
+   restore cannot take `dyappd.lock` while a start is under way. A stopped unit stays stopped,
+   and installing a package does not start it; do not retry the update until recovery is done.
+2. Restore the [verified snapshot](#verified-pre-update-snapshot-planned) taken before the update
+   with `restore-bootstrap.py`. Without one, restore the backup taken before the update
+   ([First deployment](#first-deployment), step 4).
+3. Install the previous package (`sudo apt install ./dyappd_<previous>.deb`) and
+   `sudo systemctl start dyappd`, or start the previous image or tarball binary.
+
+Writes are at risk only between the snapshot and the restore. The preflight holds
+`dyappd.lock`, so nothing is written while it runs; whatever the new version wrote after it
+started, and anything written if the node ran again after the snapshot, is lost. Other nodes keep
+replicas of profiles, mailboxes and media, and owners repair what a node missed on their next
+visit, but a single node has no other copy. The failed store stays in
+`<storage.dir>.failed-<UTC time>` until you delete it.
 
 ### Deny list
 
@@ -903,10 +925,10 @@ work difficulty, roles and external key setting.
 
 The preflight checks each SQLite database and asks `dyappd` to prove that the
 recovered key matches `node.id`. It never opens or replaces live storage. The
-unattended updater and fault tests remain planned. Keep the pre-update snapshot
+unattended updater remains planned. Keep the pre-update snapshot
 until the new version is accepted. A
-restore discards writes made after the snapshot; record that window and do not
-roll an upgraded SQLite store back in place. Fault tests are tracked separately.
+restore discards writes made after the snapshot ([Rollback](#rollback)); do not
+roll an upgraded SQLite store back in place.
 
 A `traffic` file left by an older version is no longer read and can be deleted. Example with the
 package layout:
