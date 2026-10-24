@@ -18,7 +18,9 @@ keep likes, view history or matching preferences private, or enforce rules such 
   profile gets a **country** field; income is compared only within one country.
 - **A like is a private P2P message** to the liked user, end-to-end encrypted like any message
   ([ADR 0009](0009-message-delivery-and-storage.md)). It is not stored in the profile or published
-  on bootstrap. The recipient sees who liked them immediately; a match is a mutual like.
+  on bootstrap. The recipient sees who liked them after delivery; a match is a mutual like. Undoing
+  a sent like sends an encrypted unlike signal so both sides remove the active match when it
+  arrives. Offline delivery can delay this, and an earlier notification cannot be erased.
 - **A profile view is an optional P2P signal** from the viewer to the viewed user. Whether to send it
   is a local setting of the viewer, not a profile field. There is no reciprocity: turning sending
   off does not stop receiving. Undelivered signals are stored on bootstrap like messages.
@@ -51,4 +53,5 @@ keep likes, view history or matching preferences private, or enforce rules such 
   verified (verification is low priority).
 - Implemented in the bootstrap: the signal class and the per-mailbox signal quota
   ([bootstrap](../architecture/bootstrap.md#limits-and-abuse)). Not implemented: the client that
-  sends likes and views.
+  sends likes and views. The planned client state and replay rules are in the
+  [private interaction design](../design/private-interactions.md).

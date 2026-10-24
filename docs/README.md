@@ -26,6 +26,7 @@ it are entry points that tools discover by path (see
 - [Platform integration](architecture/platform-integration.md)
 
 ### Product and operator design
+- [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX

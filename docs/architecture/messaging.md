@@ -18,6 +18,8 @@ ack, so the client seals the state first. The app does not use it yet. See
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
+The planned like, unlike and view payload and match state are specified in the
+[private interaction design](../design/private-interactions.md).
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence
