@@ -272,6 +272,10 @@ mod tests {
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
         assert!(!store.passed(&peer).unwrap());
+        store.set_send_profile_views(false).unwrap();
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(!store.send_profile_views().unwrap());
         let other = Store::open(&temp_db_path(), &bob).unwrap();
         assert!(!other.send_profile_views().unwrap());
         assert!(!other.passed(&peer).unwrap());
@@ -285,6 +289,17 @@ mod tests {
             .execute(
                 "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 2, ?2)",
                 rusqlite::params!["send_profile_views", vec![1_u8]],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.send_profile_views(),
+            Err(Error::InvalidSetting)
+        ));
+        store
+            .db
+            .execute(
+                "UPDATE `settings` SET `format_version` = 1, `value` = ?1 WHERE `key` = ?2",
+                rusqlite::params![vec![2_u8], "send_profile_views"],
             )
             .unwrap();
         assert!(matches!(
