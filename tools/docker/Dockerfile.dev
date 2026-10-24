@@ -9,29 +9,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 /usr/local/bin/actionlint /usr/local/bin/actionlint
 # Official gitleaks 8.30.1.
 COPY --from=zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f /usr/bin/gitleaks /usr/local/bin/gitleaks
-# typos 1.50.3, taplo 0.10.0, cargo-shear 1.14.0, SwiftLint 0.65.1, detekt 1.23.8 and zizmor 1.30.1 release
-# binaries, the same checksums as tools/scripts/ci-setup.sh.
+# typos 1.50.3, taplo 0.10.0, cargo-shear 1.14.0, SwiftLint 0.65.1, detekt 1.23.8, zizmor 1.30.1 and age 1.3.2
+# release binaries, the same checksums as tools/scripts/ci-setup.sh.
 RUN curl -fsSL -o /tmp/typos.tgz https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-unknown-linux-musl.tar.gz && \
     curl -fsSL -o /tmp/taplo.gz https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz && \
     curl -fsSL -o /tmp/shear.tgz https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-unknown-linux-musl.tar.gz && \
     curl -fsSL -o /tmp/swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip && \
     curl -fsSL -o /tmp/zizmor.tgz https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz && \
     curl -fsSL -o /usr/local/lib/detekt-cli.jar https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar && \
+    curl -fsSL -o /tmp/age.tgz https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz && \
     printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  /tmp/typos.tgz' \
         '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156  /tmp/taplo.gz' \
         '9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e  /tmp/shear.tgz' \
         'caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d  /tmp/swiftlint.zip' \
         'e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a  /tmp/zizmor.tgz' \
-        '2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1  /usr/local/lib/detekt-cli.jar' | sha256sum -c - && \
+        '2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1  /usr/local/lib/detekt-cli.jar' \
+        'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10  /tmp/age.tgz' | sha256sum -c - && \
     tar -xzf /tmp/typos.tgz -C /usr/local/bin ./typos && \
     tar -xzf /tmp/shear.tgz -C /usr/local/bin cargo-shear && \
     tar -xzf /tmp/zizmor.tgz -C /usr/local/bin zizmor && \
+    tar -xzf /tmp/age.tgz -C /usr/local/bin --strip-components=1 age/age age/age-keygen && \
     gunzip -c /tmp/taplo.gz > /usr/local/bin/taplo && \
     unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint && \
     chmod 755 /usr/local/bin/typos /usr/local/bin/taplo /usr/local/bin/cargo-shear /usr/local/bin/swiftlint \
-        /usr/local/bin/zizmor && \
+        /usr/local/bin/zizmor /usr/local/bin/age /usr/local/bin/age-keygen && \
     chmod 644 /usr/local/lib/detekt-cli.jar && \
-    rm -f /tmp/typos.tgz /tmp/taplo.gz /tmp/shear.tgz /tmp/swiftlint.zip /tmp/zizmor.tgz
+    rm -f /tmp/typos.tgz /tmp/taplo.gz /tmp/shear.tgz /tmp/swiftlint.zip /tmp/zizmor.tgz /tmp/age.tgz
 RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
 RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \
     cargo install --locked cargo-deny --version 0.20.2 && \

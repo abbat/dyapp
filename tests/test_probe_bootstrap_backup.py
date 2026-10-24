@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -97,6 +98,47 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.age_identity.write_bytes(b"wrong")
         with self.assertRaisesRegex(ValueError, "age decryption failed"):
             self.probe(age_identity=self.age_identity, age_binary=self.age)
+
+    def test_real_age_cli(self):
+        # Pinned age release from tools/docker/Dockerfile.dev and ci-setup.sh;
+        # no skip, so a missing binary fails the check instead of hiding it.
+        age = Path(shutil.which("age") or self.fail("age not on PATH"))
+        root = self.source.parent
+        identity, wrong = root / "real-identity", root / "wrong-identity"
+        for path in (identity, wrong):
+            subprocess.run(["age-keygen", "-o", str(path)], check=True,
+                           stderr=subprocess.DEVNULL)
+            path.chmod(0o600)
+        recipient = subprocess.run(
+            ["age-keygen", "-y", str(identity)], check=True,
+            capture_output=True, text=True).stdout.strip()
+        plain = root / "plain-key"
+        plain.write_bytes(b"good-key")
+
+        def snapshot(name, tamper=False):
+            encrypted = root / f"{name}.age"
+            subprocess.run([str(age), "--encrypt", "--recipient", recipient,
+                            "--output", str(encrypted), str(plain)],
+                           check=True)
+            if tamper:
+                data = bytearray(encrypted.read_bytes())
+                data[-1] ^= 1
+                encrypted.write_bytes(data)
+            (self.source / "node.key").unlink(missing_ok=True)
+            self.snapshot = root / name
+            BACKUP.snapshot(self.source, self.snapshot, "age", encrypted)
+
+        snapshot("real")
+        self.assertEqual(self.probe(age_identity=identity, age_binary=age),
+                         "peer-id")
+        with self.assertRaisesRegex(ValueError, "age decryption failed"):
+            self.probe(age_identity=wrong, age_binary=age)
+        with self.assertRaises(FileNotFoundError):
+            self.probe(age_identity=identity, age_binary=root / "no-age")
+        # Tampered before the snapshot, so only age's own MAC can catch it.
+        snapshot("tampered", tamper=True)
+        with self.assertRaisesRegex(ValueError, "age decryption failed"):
+            self.probe(age_identity=identity, age_binary=age)
 
     def test_wrong_key_and_corrupt_sqlite_fail(self):
         self.source.joinpath("node.key").write_bytes(b"wrong")

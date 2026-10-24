@@ -123,8 +123,9 @@ All jobs run directly on the runner, without Docker. Every check is a step of
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `tools/docker/Dockerfile.dev` uses;
 - downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1,
-  detekt 1.23.8 and zizmor 1.30.1 release files and checks them against the sha256 sums `tools/docker/Dockerfile.dev`
-  uses (detekt runs on the runner's Java; the dev image installs OpenJDK 21);
+  detekt 1.23.8, zizmor 1.30.1 and age 1.3.2 release files and checks them against the sha256 sums
+  `tools/docker/Dockerfile.dev` uses (detekt runs on the runner's Java; the dev image installs
+  OpenJDK 21; `age` and `age-keygen` serve the real-age backup preflight test);
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
   `RUSTUP_TOOLCHAIN`.
 

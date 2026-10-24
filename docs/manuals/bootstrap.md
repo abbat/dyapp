@@ -831,8 +831,9 @@ temporary directory and runs `dyappd probe-key` with an empty config and the
 original `network.id_pow_bits` value. For `external`, it uses the saved
 `recovery/node.key`; for `age`, pass `--age-identity <private-key-file>` and
 `--age-binary <age-executable>`. It decrypts the verified `recovery/node.key.age` copy into
-scratch before probing, and fails if `age` or the identity is unavailable. The
-preflight never opens or changes the source snapshot with SQLite.
+scratch before probing, and fails if `age` or the identity is unavailable, the identity is
+wrong or the ciphertext was altered. The tests run this against the official age 1.3.2
+release. The preflight never opens or changes the source snapshot with SQLite.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent
