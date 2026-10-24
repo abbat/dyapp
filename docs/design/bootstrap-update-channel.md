@@ -62,20 +62,23 @@ replayed/changed tags, mismatched provenance and lower package versions.
 
 ## Proposed implementation profile
 
-Use the Rust [`tough` client](https://docs.rs/tough/latest/tough/) and its
-[`tuftool` publisher](https://github.com/awslabs/tough/tree/develop/tuftool)
-for the first implementation. This is a stack choice under ADR 0024, not
-permission to generate production keys or enable installation. Pin reviewed
-versions before implementation. Verify that both build with the repository's
-Rust 1.99 toolchain, that the publisher can preserve distinct role keys and
-consistent snapshots, and that client and publisher pass the fixture matrix
-below. Replace the stack if those checks fail; do not relax the checks.
+The Rust [`tough` client](https://docs.rs/tough/latest/tough/) 0.24.0 builds
+with the repository's Rust 1.99 toolchain in an isolated Docker spike. Its
+publisher is **not selected**. Source inspection of [`tuftool` 0.17.0](https://github.com/awslabs/tough/tree/tuftool-v0.17.0/tuftool)
+shows that `create` and `update` pass one set of signing keys to
+`RepositoryEditor::sign`, which signs targets, snapshot and timestamp in one
+process. Requiring the offline targets key on the online publisher would
+violate ADR 0024. A full `tuftool` build attempt exhausted the 1 GiB local
+`/tmp` filesystem; that is an environment limit, not a compiler result.
+Keep the role separation requirement and prove a two-stage publisher with
+disposable keys before choosing a production stack.
 
 | Stack | Benefits | Costs and decision |
 |---|---|---|
-| `tough` + `tuftool` | Native Rust verifier, streaming target download, matching repository editor. | Not listed in the [TUF conformance results](https://theupdateframework.github.io/tuf-conformance/); persistent state and target staging require careful use. **Proposed**, contingent on independent fixtures and pinned-toolchain build. |
+| `tough` client + split-role publisher | Native Rust verifier and streaming target download; the client builds on Rust 1.99. | `tough` is not listed in the [TUF conformance results](https://theupdateframework.github.io/tuf-conformance/). The `tuftool` CLI cannot directly implement the selected offline/online custody split. A separate publisher and interoperability fixtures are required. **Client candidate only.** |
 | `sigstore-tuf` + separate publisher | Rust client passes the published conformance suite. | Its [target download](https://docs.rs/sigstore-tuf/latest/sigstore_tuf/client/struct.Updater.html) buffers the entire target; a Debian package would need a separately verified streaming path and publisher interoperability tests. Fallback if `tough` fails. |
 | `python-tuf` + separate updater process | Reference client passes the published conformance suite; mature repository tooling. | Adds a Python runtime and a process boundary to the privileged update path. Fallback if the Rust candidates cannot meet the gate. |
+| `python-tuf` metadata API for publishing | Its [metadata API](https://theupdateframework.readthedocs.io/en/stable/api/tuf.api.metadata.metadata.html) signs individual roles, so offline targets and online snapshot/timestamp stages can be separated. | Requires a small publisher program, reviewed key handling and interoperability tests with the chosen Rust client. **Next publisher candidate.** |
 
 The repository uses TUF 1.0 with root, targets, snapshot and timestamp; one
 signing key per role except root, which authorizes the active and separately
