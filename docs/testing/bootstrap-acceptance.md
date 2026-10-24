@@ -196,7 +196,7 @@ assertion changes.
 | Restore preflight checks key against saved peer ID on a separate copy, decrypts age recovery evidence with the pinned real `age` CLI and restores committed WAL data; absent/wrong key or identity, tampered ciphertext, missing `age` executable or corrupt file fails closed | Python unit, Rust CLI | `test_probe_bootstrap_backup.py`, `probe_key_checks_a_stopped_copy_without_changing_files` | exists; updater integration planned |
 | Update preflight holds `dyappd.lock`, refuses a running node, too little free space, a missing recovery key, a corrupt store or a key that does not match the saved peer ID, and leaves live storage unchanged | Python unit | `test_preflight_bootstrap_update.py` | exists; updater integration planned |
 | Restore holds `dyappd.lock`, re-probes the snapshot, refuses a running node, a corrupt or another node's snapshot and too little space before touching live storage, and swaps in the restored copy while keeping the failed store | Python unit | `test_restore_bootstrap.py` | exists |
-| Migrated-store rollback is rehearsed without touching live storage | Fault test | Migration recovery fixtures | planned |
+| Migrated-store rollback is rehearsed: a new binary migrates and fails to start, restore brings back the snapshot's data and identity, writes after the snapshot are lost and the migrated store is kept aside | Fault test | `test_restore_bootstrap.py::test_failed_migrated_update_is_rehearsed_end_to_end` | exists |
 
 ## Decisions
 

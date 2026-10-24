@@ -6,6 +6,7 @@ import importlib.util
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -86,6 +87,45 @@ class RestoreBootstrap(unittest.TestCase):
         fd = os.open(self.storage / "dyappd.lock", os.O_RDWR)
         self.addCleanup(os.close, fd)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_failed_migrated_update_is_rehearsed_end_to_end(self):
+        path = self.storage / "messages.db"
+        with closing(sqlite3.connect(path)) as database, database:
+            database.execute("INSERT INTO records VALUES (3)")
+        # The new dyappd migrates the store, then fails to start.
+        new = self.root / "dyappd-new"
+        new.write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, sqlite3, sys\n"
+            "args = dict(a.split('=', 1) for a in sys.argv "
+            "if a.startswith('--') and '=' in a)\n"
+            "path = pathlib.Path(args['--storage.dir']) / 'profiles.db'\n"
+            "database = sqlite3.connect(path)\n"
+            "database.execute('PRAGMA user_version = 99')\n"
+            "database.execute('INSERT INTO records VALUES (2)')\n"
+            "database.commit()\n"
+            "database.close()\n"
+            "sys.exit('migrated store rejected')\n")
+        new.chmod(0o700)
+        started = subprocess.run(
+            [new, f"--storage.dir={self.storage}"], capture_output=True,
+            check=False)
+        self.assertNotEqual(started.returncode, 0)
+        failed_state = self.live()
+
+        restored = subprocess.run(
+            [sys.executable, "-B", SCRIPT, self.snapshot, self.storage,
+             f"--dyappd={self.dyappd}", "--id-pow-bits=0",
+             f"--scratch={self.root}"],
+            capture_output=True, text=True, check=False)
+        self.assertEqual(restored.returncode, 0, restored.stderr)
+        failed = Path(restored.stdout.rsplit(" ", 1)[1].strip())
+        # Data and identity are the snapshot's; the write after it is lost.
+        self.assertEqual(self.live(), self.saved)
+        self.assertEqual(self.live(failed), failed_state)
+        with closing(sqlite3.connect(failed / "messages.db")) as database:
+            rows = database.execute("SELECT id FROM records ORDER BY id")
+            self.assertEqual(rows.fetchall(), [(1,), (3,)])
 
     def test_running_node_is_refused(self):
         fd = os.open(self.storage / "dyappd.lock", os.O_RDWR | os.O_CREAT)

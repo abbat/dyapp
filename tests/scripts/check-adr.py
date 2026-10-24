@@ -66,6 +66,9 @@ COVERED = {
     # The preview decoder dependency was committed before ADR 0002 was updated.
     "f7b6c8b7e2b40a4ad3176370da76e0526dba4615":
         "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
+    # Only a test's throwaway table; the store format stays ADR 0015's.
+    "282bf8c2e13a4f8a5e5da7cf1fd7b317f051d53e":
+        "docs/decisions/0015-sqlite-node-storage.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
