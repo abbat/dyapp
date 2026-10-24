@@ -69,7 +69,10 @@ docker compose -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml -
 Prefer `make test`, `make quality` and `make test-all` (or the equivalent helper commands
 below). Each captured Docker stage prints one `OK` line, or `FAIL`/`FIX`/`DETAILS`
 with selected diagnostics and a retained raw-log pointer.
-Set `DYAPP_VERBOSE=1` for live output. Interactive shells stream automatically. See
+Set `DYAPP_VERBOSE=1` for live output; without it a passing run prints only its `OK`
+line, not the command's own output (test names, counts). Runs take a host-wide lock
+(`dyapp-docker.lock` in the temp directory), so a second run waits until a long one,
+such as a mutation run, finishes. Interactive shells stream automatically. See
 [local check output](../agents/project.md#local-check-output) for capture limits and
 `--log-file`.
 
