@@ -1,5 +1,6 @@
 """Preflight passes the verified recovery key to dyappd on scratch data."""
 
+from contextlib import closing
 import importlib.util
 from pathlib import Path
 import shutil
@@ -36,7 +37,8 @@ class ProbeBootstrapBackup(unittest.TestCase):
                            "node.key": b"good-key"}.items():
             (self.source / name).write_bytes(data)
         for name in ("profiles.db", "messages.db"):
-            with sqlite3.connect(self.source / name) as database:
+            with closing(sqlite3.connect(self.source / name)) as database, \
+                    database:
                 database.execute("CREATE TABLE records (id INTEGER)")
         self.dyappd = root / "dyappd"
         self.dyappd.write_text(
@@ -173,7 +175,8 @@ class ProbeBootstrapBackup(unittest.TestCase):
         restored.mkdir()
         for name in ("profiles.db", "profiles.db-wal"):
             shutil.copy2(self.snapshot / "storage" / name, restored / name)
-        with sqlite3.connect(restored / "profiles.db") as copy:
+        with closing(sqlite3.connect(restored / "profiles.db")) as copy, \
+                copy:
             value = copy.execute("SELECT id FROM records").fetchone()
         self.assertEqual(value, (42,))
         self.assertEqual(source_bytes, {p.name: p.read_bytes()

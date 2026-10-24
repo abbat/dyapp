@@ -1,5 +1,6 @@
 """Update preflight snapshots and proves only a stopped node's storage."""
 
+from contextlib import closing
 import fcntl
 import importlib.util
 import os
@@ -29,7 +30,8 @@ class PreflightBootstrapUpdate(unittest.TestCase):
                            "node.key": b"good-key"}.items():
             (self.source / name).write_bytes(data)
         for name in ("profiles.db", "messages.db"):
-            with sqlite3.connect(self.source / name) as database:
+            with closing(sqlite3.connect(self.source / name)) as database, \
+                    database:
                 database.execute("CREATE TABLE records (id INTEGER)")
         self.dyappd = self.root / "dyappd"
         self.dyappd.write_text(

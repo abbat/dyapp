@@ -667,7 +667,8 @@ at a time:
 
 Stop the node, install the previous package and start it. If it exits with "has store format N,
 this dyappd knows up to M", stop it, restore the backup taken before the update and start again
-([First deployment](#first-deployment), step 4).
+([First deployment](#first-deployment), step 4). Restore a
+[verified snapshot](#verified-pre-update-snapshot-planned) with `restore-bootstrap.py`.
 
 ### Deny list
 
@@ -853,6 +854,23 @@ scratch directory, and the largest store with its WAL free on the `storage.dir` 
 since a store-format change may rebuild a table beside the old one; directories on one file
 system add up. A node older than the data-directory lock never takes `dyappd.lock`, so the
 preflight cannot tell that such a node is running: stop it first.
+
+To go back to such a snapshot, for example after a new version upgraded the store and then
+failed, stop the node and run the [restore](../../tools/scripts/restore-bootstrap.py) with the
+same key options as the preflight:
+
+```bash
+sudo python3 tools/scripts/restore-bootstrap.py /root/dyappd-backup-v2 /var/lib/dyappd \
+  --dyappd /usr/bin/dyappd --id-pow-bits 22
+```
+
+It takes `dyappd.lock`, runs both probes again and refuses a snapshot whose peer ID differs
+from the `node.id` in `storage.dir`. It then copies `storage/` beside `storage.dir`,
+checks every hash again, syncs it to disk with the directory's owner and mode, and swaps it in:
+the old directory is kept as `<storage.dir>.failed-<UTC time>` for inspection and is never
+deleted. Any failure before the swap leaves `storage.dir` unchanged. An external or sealed key
+is not touched; only the `storage.dir` contents come back. Writes made after the snapshot are
+lost.
 
 The first JSON Lines record contains schema `1`, the saved peer ID and network,
 the key mode (`inline`, `external` or `age`), and an explicit list of absent

@@ -1,5 +1,6 @@
 """SQLite backup probe opens scratch copies, not the source snapshot."""
 
+from contextlib import closing
 import importlib.util
 from pathlib import Path
 import sqlite3
@@ -33,7 +34,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
                             "node.key": b"key"}.items():
             (self.source / name).write_bytes(value)
         for name in ("profiles.db", "messages.db"):
-            with sqlite3.connect(self.source / name) as db:
+            with closing(sqlite3.connect(self.source / name)) as db, db:
                 db.execute("CREATE TABLE records (id INTEGER PRIMARY KEY)")
                 db.execute("INSERT INTO records DEFAULT VALUES")
 
@@ -52,7 +53,8 @@ class ProbeBootstrapSqlite(unittest.TestCase):
         self.assertEqual(after, before)
 
     def test_valid_wal_restores_from_copy(self):
-        with sqlite3.connect(self.source / "profiles.db") as db:
+        with closing(sqlite3.connect(self.source / "profiles.db")) as db, \
+                db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("INSERT INTO records DEFAULT VALUES")
             self.snapshot_now()
