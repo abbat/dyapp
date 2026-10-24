@@ -123,6 +123,21 @@ pub(super) fn temp_dir() -> PathBuf {
 }
 
 #[test]
+fn storage_lock_refuses_a_second_holder_until_dropped() {
+    let storage = StorageConfig {
+        dir: temp_dir(),
+        ..StorageConfig::default()
+    };
+    fs::create_dir_all(&storage.dir).unwrap();
+    let held = storage.lock().unwrap();
+    let error = storage.lock().unwrap_err().to_string();
+    assert!(error.contains("dyappd.lock"), "{error}");
+    drop(held);
+    storage.lock().unwrap();
+    fs::remove_dir_all(&storage.dir).unwrap();
+}
+
+#[test]
 fn file_then_env_overrides_and_unknown_keys() {
     let dir = temp_dir();
     fs::create_dir_all(&dir).unwrap();

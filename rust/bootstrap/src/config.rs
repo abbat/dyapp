@@ -767,6 +767,30 @@ impl StorageConfig {
         self.dir.join("deny.db")
     }
 
+    /// Holds `dyappd.lock` in [`Self::dir`] until the returned file is dropped, so a second node
+    /// or an offline backup cannot use the directory at the same time. The kernel releases it
+    /// when the process exits.
+    pub fn lock(&self) -> anyhow::Result<File> {
+        let path = self.dir.join("dyappd.lock");
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+        file.try_lock().map_err(|e| {
+            anyhow::anyhow!(
+                "{}: {e}; {}",
+                path.display(),
+                message(
+                    "another dyappd or a backup uses this storage.dir",
+                    "этот storage.dir занят другим dyappd или резервным копированием"
+                )
+            )
+        })?;
+        Ok(file)
+    }
+
     fn stores(&self) -> [PathBuf; 4] {
         [
             self.profiles_path(),

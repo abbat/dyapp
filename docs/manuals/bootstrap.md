@@ -794,6 +794,7 @@ node first.
 | `deny.db` | Yes: your deny list. |
 | `profiles-idx.db` or `profiles-idx-vN.db`, `search.lock` | No: the search index is disposable and refilled by catch-up. |
 | `peers`, `anchors` | No: the peer cache, rebuilt from the network. |
+| `dyappd.lock` | No: the running node holds it so that a second node or an offline backup cannot use the directory at the same time. |
 
 ### Verified pre-update snapshot (planned)
 
@@ -979,6 +980,7 @@ network grows, so lower it on a small disk) and 1 GiB of memory
 | `dyappd` exits with `has store format N, this dyappd knows up to M` | A newer `dyappd` upgraded that file; run that version or restore the backup taken before it ([Updates](#updates)) |
 | `dyappd` exits with `has search index format N, this dyappd knows up to M` | A newer `dyappd` rebuilt the search index; run that version, or delete the named `profiles-idx-vN.db`: catch-up refills it |
 | `dyappd` exits with `search.lock: ...; another dyappd uses this search index` | Two nodes share one `storage.dir`; give each its own directory |
+| `dyappd` exits with `dyappd.lock: ...; another dyappd or a backup uses this storage.dir` | Another node runs on this `storage.dir`, or a backup is still copying it; stop the other node or wait for the backup |
 | `not listening` warning or `no address could be opened` | The port is taken (another `dyappd`?) or IPv6 is disabled on the host; adjust `listen` |
 | Key refused with a `chmod 600` hint | The key file has group or other permission bits |
 | Disk keeps growing | Profiles stay for `limits.profile_ttl_days` after their owner's last request; lower it or the store quotas |

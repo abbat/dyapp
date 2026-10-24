@@ -40,6 +40,7 @@ class BackupBootstrap(unittest.TestCase):
         (self.source / "profiles.db-wal").write_bytes(b"committed")
         (self.source / "profiles.db-shm").write_bytes(b"rebuildable")
         (self.source / "profiles-idx.db").write_bytes(b"rebuildable")
+        (self.source / "dyappd.lock").write_bytes(b"")
         (self.source / "media.db").write_bytes(b"media")
         data = self.source / "data" / "nested"
         data.mkdir(parents=True)
@@ -58,6 +59,7 @@ class BackupBootstrap(unittest.TestCase):
         self.assertIn("storage/data/nested/blob", names)
         self.assertNotIn("storage/profiles.db-shm", names)
         self.assertNotIn("storage/profiles-idx.db", names)
+        self.assertNotIn("storage/dyappd.lock", names)
         for record in files:
             data = (self.destination / record["path"]).read_bytes()
             self.assertEqual(record["size"], len(data))

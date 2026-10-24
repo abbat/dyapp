@@ -178,6 +178,7 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     tracing::info!(file = ?file, "config");
+    let _lock = config.storage.lock()?;
     let keypair = config.node_key()?;
     config.bind_network()?;
     let scrapes = match config.metrics.addresses() {

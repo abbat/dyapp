@@ -17,7 +17,7 @@ import stat
 REQUIRED = {"node.id", "network", "profiles.db", "messages.db"}
 OPTIONAL = {"media.db", "deny.db", "data"}
 DATABASES = {"profiles.db", "messages.db", "media.db", "deny.db"}
-DISPOSABLE = {"search.lock", "peers", "anchors", "traffic"}
+DISPOSABLE = {"dyappd.lock", "search.lock", "peers", "anchors", "traffic"}
 INDEX = re.compile(r"profiles-idx(?:-v[0-9]+)?\.db(?:-(?:wal|shm|journal))?\Z")
 MAX_FILES = 1_000_000
 MAX_MANIFEST = 256 * 1024 * 1024
