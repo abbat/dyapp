@@ -1,7 +1,7 @@
 # 0022. Optional desktop system credential storage
 
 - **Status:** Accepted
-- **Date:** 2026-10-23
+- **Date:** 2026-10-24
 
 ## Context
 
@@ -19,11 +19,14 @@ locked, unsupported or denies access, disable this option with a specific reason
 user chooses a storage mode before key generation. Save the mode separately from the key.
 Never switch modes or generate a replacement identity after a save/open failure.
 
-On Linux use `secret-service` 5.2.0 with pure-Rust cryptography and the Secret Service
-default collection. The probe connects to the session bus, checks that collection's
-locked state, then writes, reads and removes an app-owned test item. Store the 32-byte identity
-secret as a 64-character hex string so both GNOME Keyring and KDE Wallet can handle it. A provider
-without a usable default collection is unavailable until a separately tested path is implemented.
+On Linux use `dbus-secret-service` with its pure-Rust cryptography feature and the Secret
+Service default collection through `libdbus`. The probe connects to the session bus, checks
+that collection's locked state, then writes, reads and removes an app-owned test item. Store
+the 32-byte identity secret as a 64-character hex string so both GNOME Keyring and KDE Wallet
+can handle it. Preserve existing `application`/`kind`/`slot` item attributes and the user's
+selected storage mode. A provider without a usable default collection is unavailable until a
+separately tested path is implemented. The Linux package declares its `libdbus` runtime
+requirement; CI builds with the development headers.
 
 On Windows use `keyring-core` 1.0.0 with `windows-native-keyring-store` 1.1.0. Set the
 credential's `persistence` modifier to `Local`; the store's default `Enterprise`
@@ -54,6 +57,10 @@ unsupported Secret Service implementations. Secret Service returns the stored se
 the application: this is protection at rest, not a non-exportable hardware key.
 Both platform backends add direct dependencies and lockfile changes. The real backend
 must create and reopen the same Peer ID in Linux and Windows CI before its option ships.
+A controlled Linux test must also read an identity item written by the previous
+`secret-service` backend without rewriting it. The `dbus-secret-service` migration is
+planned; the current Linux binary still uses `secret-service 5.2` until that compatibility
+test and the new dependency build pass.
 A temporary provider failure must leave the existing identity recoverable and must not
 silently create a new one.
 The per-identity layout permits independently chosen file and system storage, but its directory

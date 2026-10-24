@@ -1,7 +1,8 @@
 # Linux Secret Service backend migration
 
-Status: proposed, 2026-10-24. The current backend and [ADR 0022](../decisions/0022-desktop-system-credential-storage.md)
-remain in force until the maintainer chooses a replacement.
+Status: option A accepted on 2026-10-24; implementation pending. The current Linux
+binary still uses `secret-service 5.2` until the migration tests pass.
+See [ADR 0022](../decisions/0022-desktop-system-credential-storage.md).
 
 ## Problem and invariant
 
@@ -34,7 +35,7 @@ explains the merged crates and removed blocking API. The similarly named
 `zbus-secret-service-keyring-store 1.0.1` still uses `secret-service 5` and
 does not clear this dependency path.
 
-## Proposed ADR amendment for option A
+## Accepted ADR amendment for option A
 
 Replace ADR 0022's Linux paragraph with:
 
@@ -47,8 +48,8 @@ Replace ADR 0022's Linux paragraph with:
 > and the current user-selected storage mode. The Linux package declares its
 > `libdbus` runtime requirement; CI builds with the development headers.
 
-Update its date when accepted. Add an `ADR:` trailer in the dependency-change
-commit. Do not apply this paragraph before human confirmation.
+ADR 0022 was updated after maintainer confirmation. Add an `ADR:` trailer in
+the dependency-change commit.
 
 ## Acceptance checks
 
