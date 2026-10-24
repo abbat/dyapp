@@ -91,6 +91,13 @@ impl HybridClock {
         Self::default()
     }
 
+    /// Resumes a clock from a persisted timestamp so a restart never moves it backwards.
+    pub fn resume(last: Timestamp) -> Self {
+        Self {
+            last: Arc::new(Mutex::new(last)),
+        }
+    }
+
     /// Timestamp for a local event (sending a message).
     pub fn now(&self) -> Timestamp {
         self.now_at(wall_clock_ms())
@@ -101,13 +108,15 @@ impl HybridClock {
         self.observe_at(remote, wall_clock_ms())
     }
 
-    fn now_at(&self, wall_ms: u64) -> Timestamp {
+    /// [`Self::now`] at an explicit wall-clock time.
+    pub fn now_at(&self, wall_ms: u64) -> Timestamp {
         let mut last = self.last.lock().unwrap();
         *last = last.next(wall_ms);
         *last
     }
 
-    fn observe_at(&self, remote: Timestamp, wall_ms: u64) -> Result<Timestamp, ClockSkew> {
+    /// [`Self::observe`] at an explicit wall-clock time.
+    pub fn observe_at(&self, remote: Timestamp, wall_ms: u64) -> Result<Timestamp, ClockSkew> {
         if remote.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
             return Err(ClockSkew {
                 remote_ms: remote.wall_ms(),
@@ -160,6 +169,12 @@ mod tests {
         assert_eq!(ts.wall_ms(), 1_700_000_000_000);
         assert_eq!(ts.counter(), 7);
         assert!(Timestamp::new(5, 9) < Timestamp::new(6, 0));
+    }
+
+    #[test]
+    fn test_resumed_clock_continues_after_last() {
+        let clock = HybridClock::resume(Timestamp::new(500, 2));
+        assert_eq!(clock.now_at(100), Timestamp::new(500, 3));
     }
 
     #[test]

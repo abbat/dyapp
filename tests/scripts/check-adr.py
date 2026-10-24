@@ -26,6 +26,8 @@ SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
 # Pushed commits that lack the trailer and the ADR covering each;
 # history is not rewritten.
 COVERED = {
+    "bb5480092273b021e16221b11020826bc370bc79":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
     "499b4d3cff7d10a2b43202b322cba1469e9bc77c":
         "docs/decisions/0005-openmls-end-to-end-encryption.md",
     "3228a65c4cfe64d640c86bd958f9fce07314abeb":

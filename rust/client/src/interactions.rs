@@ -35,7 +35,7 @@ impl Kind {
     }
 }
 
-/// One event. The caller generates a fresh random ID and a persisted HLC value.
+/// One event with a fresh random ID and a persisted HLC value; `Store::interact` creates own ones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Interaction {
     /// Which action the sender took.

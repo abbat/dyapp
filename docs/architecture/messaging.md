@@ -27,9 +27,11 @@ The planned like, unlike and view payload and match state are specified in the
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. A Rust test sends it through the existing MLS chat path and decodes the result.
 `Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
-`Store::likes` derives a match from them. The client still lacks a short-padded signal sender, a
-persisted own clock, view-day records and app integration, so nothing publishes a like yet.
-`rust/client::store::Store::open` now creates or reopens an identity-bound, version-3 SQLite
+`Store::likes` derives a match from them. `Store::interact` creates own events from a persisted
+HLC and creates at most one view per peer per UTC day; `Store::receive_interaction` applies the
+60-second future-skew guard first. The client still lacks a short-padded signal sender and app
+integration, so nothing publishes a like yet.
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-4 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
@@ -38,7 +40,7 @@ chat operation uses yet. See the [client storage design](../design/client-local-
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1 or version-2 database migrates to version 3 after its identity binding is checked. The
+version-1, -2 or -3 database migrates to version 4 after its identity binding is checked. The
 group catalog records group IDs and verified peer associations with the sealed Device and
 prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
 or mismatched entries.

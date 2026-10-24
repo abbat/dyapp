@@ -4,8 +4,8 @@ The Rust client currently keeps MLS state and mailbox work in memory. This desig
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-3
-schema and migrates versions 1 and 2 in place after checking the identity binding. It persists the
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-4
+schema and migrates versions 1 to 3 in place after checking the identity binding. It persists the
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
@@ -50,6 +50,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
 | `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload (version 3) | `(sender, event ID)` is unique; a replay with other bytes is refused. |
 | `like_state` | Latest like or unlike per sender and target (version 3) | Replaced only by a greater `(HLC, device, event ID)`. |
+| `view_days` | UTC days on which one profile viewed another (version 4) | One sent view per peer per day; received views are recorded regardless of the send setting. |
 
 `send_profile_views` defaults to false when absent. The stored value is versioned and must be a
 single byte 0 or 1; an unknown version or value returns an error rather than silently enabling
@@ -136,8 +137,8 @@ signed bytes, and restart after a committed receive before ACK.
 1. Confirm the storage ADR and implement profile-bound open, schema migration and failure tests.
 2. Persist MLS state, inbox deduplication and exact outbound bytes in one transaction; test
    crashes immediately before and after commit, send and ack.
-3. Add per-profile settings and pass history with restart/default tests. Add interaction events
-   (done) and view-day deduplication under the separate private-interaction task.
+3. Add per-profile settings and pass history with restart/default tests. Add interaction events,
+   the persisted interaction HLC and view-day deduplication (done).
 4. Wire platform paths, permissions, backup exclusions and profile switching, then verify Linux
    and Android first; other platforms follow before release.
 

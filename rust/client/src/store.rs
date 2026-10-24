@@ -11,7 +11,7 @@ use std::path::Path;
 mod likes;
 pub use likes::Likes;
 
-const VERSION: i64 = 3;
+const VERSION: i64 = 4;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -58,6 +58,12 @@ pub enum Error {
     /// An interaction reuses an event ID with other bytes, or does not involve this profile.
     #[error("client store interaction conflicts or names another profile")]
     InteractionConflict,
+    /// A received timestamp is too far ahead of the local clock.
+    #[error("client store interaction: {0}")]
+    ClockSkew(#[from] dyapp_messaging::hlc::ClockSkew),
+    /// The system random source failed.
+    #[error("client store could not read the system random source")]
+    Random,
     /// SQLite refused the database or a migration.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
@@ -128,7 +134,7 @@ impl Store {
                 )?;
                 tx.commit()?;
             }
-            1 | 2 | VERSION => {}
+            1..=VERSION => {}
             other => return Err(Error::FutureVersion(other)),
         }
         let bound: String = db.query_row(
@@ -144,7 +150,10 @@ impl Store {
             if version < 2 {
                 tx.execute_batch(SCHEMA_V2)?;
             }
-            tx.execute_batch(SCHEMA_V3)?;
+            if version < 3 {
+                tx.execute_batch(SCHEMA_V3)?;
+            }
+            tx.execute_batch(SCHEMA_V4)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -547,9 +556,19 @@ CREATE TABLE `like_state` (
 PRAGMA user_version = 3;
 ";
 
+const SCHEMA_V4: &str = r"
+CREATE TABLE `view_days` (
+    `sender` TEXT NOT NULL,
+    `target` TEXT NOT NULL,
+    `day` INTEGER NOT NULL CHECK (`day` >= 0),
+    PRIMARY KEY (`sender`, `target`, `day`)
+) STRICT;
+PRAGMA user_version = 4;
+";
+
 #[cfg(test)]
 mod tests {
-    use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1};
+    use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1, VERSION};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -589,11 +608,11 @@ mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 4").unwrap();
+        db.execute_batch("PRAGMA user_version = 5").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(4))
+            Err(Error::FutureVersion(5))
         ));
 
         let unknown = temp_db_path();
@@ -644,7 +663,7 @@ mod tests {
         assert_eq!(
             db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            3
+            VERSION
         );
     }
 

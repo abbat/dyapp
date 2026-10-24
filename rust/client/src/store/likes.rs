@@ -2,7 +2,11 @@
 
 use super::{Error, Store};
 use crate::interactions::{Interaction, Kind};
-use rusqlite::{params, OptionalExtension};
+use dyapp_messaging::hlc::{HybridClock, Timestamp};
+use rusqlite::{params, OptionalExtension, Transaction};
+
+const DAY_MS: u64 = 86_400_000;
+const HLC_KEY: &str = "interaction_hlc";
 
 /// The latest like state in both directions with one peer.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -32,12 +36,92 @@ impl Store {
         device: &[u8],
         event: Interaction,
     ) -> Result<bool, Error> {
-        if (sender == self.owner_peer_id) == (target == self.owner_peer_id) {
+        let tx = self.db.transaction()?;
+        let changed = Self::apply(&tx, &self.owner_peer_id, sender, target, device, event)?;
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    /// Create and apply this profile's own like, unlike or view of `target` from `device`, with a
+    /// random event ID and the next persisted HLC value. A view is created only when view sending
+    /// is on and none was sent to `target` this UTC day; otherwise this returns `None`. The
+    /// caller sends the returned event and retries those exact bytes.
+    pub fn interact(
+        &mut self,
+        target: &str,
+        kind: Kind,
+        device: &[u8],
+        wall_ms: u64,
+    ) -> Result<Option<Interaction>, Error> {
+        if kind == Kind::View && !self.send_profile_views()? {
+            return Ok(None);
+        }
+        let mut event_id = [0; 16];
+        getrandom::fill(&mut event_id).map_err(|_| Error::Random)?;
+        let tx = self.db.transaction()?;
+        let hlc = HybridClock::resume(load_hlc(&tx)?).now_at(wall_ms);
+        save_hlc(&tx, hlc)?;
+        if kind == Kind::View && !record_view(&tx, &self.owner_peer_id, target, hlc)? {
+            return Ok(None);
+        }
+        let event = Interaction {
+            kind,
+            event_id,
+            hlc: hlc.into(),
+        };
+        let owner = self.owner_peer_id.as_str();
+        Self::apply(&tx, owner, owner, target, device, event)?;
+        tx.commit()?;
+        Ok(Some(event))
+    }
+
+    /// Apply an event `sender` sent to this profile from `device` after the 60-second
+    /// future-skew guard; a rejected timestamp changes nothing. A view is recorded for its UTC
+    /// day whatever the local send setting. Returns what [`Self::apply_interaction`] returns.
+    pub fn receive_interaction(
+        &mut self,
+        sender: &str,
+        device: &[u8],
+        event: Interaction,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        let tx = self.db.transaction()?;
+        let hlc = Timestamp::from(event.hlc);
+        let clock = HybridClock::resume(load_hlc(&tx)?);
+        save_hlc(&tx, clock.observe_at(hlc, wall_ms)?)?;
+        let owner = self.owner_peer_id.as_str();
+        let changed = Self::apply(&tx, owner, sender, owner, device, event)?;
+        if event.kind == Kind::View {
+            record_view(&tx, sender, owner, hlc)?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    /// Whether `sender` viewed `target` on the UTC day of `wall_ms`.
+    pub fn viewed_on(&self, sender: &str, target: &str, wall_ms: u64) -> Result<bool, Error> {
+        Ok(self.db.query_row(
+            "SELECT EXISTS (SELECT 1 FROM `view_days`
+             WHERE `sender` = ?1 AND `target` = ?2 AND `day` = ?3)",
+            params![sender, target, utc_day(wall_ms)?],
+            |row| row.get(0),
+        )?)
+    }
+
+    /// Apply one event inside `tx`; see [`Self::apply_interaction`].
+    fn apply(
+        tx: &Transaction<'_>,
+        owner: &str,
+        sender: &str,
+        target: &str,
+        device: &[u8],
+        event: Interaction,
+    ) -> Result<bool, Error> {
+        if (sender == owner) == (target == owner) {
             return Err(Error::InteractionConflict);
         }
         let hlc = i64::try_from(event.hlc).map_err(|_| Error::ClockRange)?;
         let payload = event.encode();
-        let tx = self.db.transaction()?;
         let inserted = tx.execute(
             "INSERT INTO `interaction_ledger` (`sender`, `event_id`, `target`, `device`, `payload`)
              VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT (`sender`, `event_id`) DO NOTHING",
@@ -71,10 +155,7 @@ impl Store {
         let liked = match event.kind {
             Kind::Like => true,
             Kind::Unlike => false,
-            Kind::View => {
-                tx.commit()?;
-                return Ok(false);
-            }
+            Kind::View => return Ok(false),
         };
         let changed = tx.execute(
             "INSERT INTO `like_state` (`sender`, `target`, `liked`, `hlc`, `device`, `event_id`)
@@ -92,7 +173,6 @@ impl Store {
                 event.event_id.as_slice()
             ],
         )?;
-        tx.commit()?;
         Ok(changed != 0)
     }
 
@@ -114,6 +194,51 @@ impl Store {
             theirs: liked(peer_id, &self.owner_peer_id)?,
         })
     }
+}
+
+/// The last own or observed interaction HLC; absent means zero.
+fn load_hlc(tx: &Transaction<'_>) -> Result<Timestamp, Error> {
+    let value: Option<(i64, Vec<u8>)> = tx
+        .query_row(
+            "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
+            [HLC_KEY],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    match value {
+        None => Ok(Timestamp::default()),
+        Some((1, value)) => {
+            Ok(u64::from_be_bytes(value.try_into().map_err(|_| Error::InvalidSetting)?).into())
+        }
+        Some(_) => Err(Error::InvalidSetting),
+    }
+}
+
+fn save_hlc(tx: &Transaction<'_>, hlc: Timestamp) -> Result<(), Error> {
+    tx.execute(
+        "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+         ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+        params![HLC_KEY, u64::from(hlc).to_be_bytes()],
+    )?;
+    Ok(())
+}
+
+/// Record that `sender` viewed `target` on the UTC day of `hlc`; false if already recorded.
+fn record_view(
+    tx: &Transaction<'_>,
+    sender: &str,
+    target: &str,
+    hlc: Timestamp,
+) -> Result<bool, Error> {
+    Ok(tx.execute(
+        "INSERT INTO `view_days` (`sender`, `target`, `day`) VALUES (?1, ?2, ?3)
+         ON CONFLICT DO NOTHING",
+        params![sender, target, utc_day(hlc.wall_ms())?],
+    )? != 0)
+}
+
+fn utc_day(wall_ms: u64) -> Result<i64, Error> {
+    i64::try_from(wall_ms / DAY_MS).map_err(|_| Error::ClockRange)
 }
 
 #[cfg(test)]
@@ -254,7 +379,8 @@ mod tests {
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
         db.execute_batch(
-            "DROP TABLE `interaction_ledger`; DROP TABLE `like_state`; PRAGMA user_version = 2;",
+            "DROP TABLE `interaction_ledger`; DROP TABLE `like_state`; DROP TABLE `view_days`;
+             PRAGMA user_version = 2;",
         )
         .unwrap();
         drop(db);
@@ -262,5 +388,79 @@ mod tests {
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(put(&mut store, &a, &b, b"a1", event(Kind::Like, 1, 1)));
         assert!(store.likes(&b).unwrap().ours);
+    }
+
+    fn hlc(wall_ms: u64, counter: u16) -> u64 {
+        Timestamp::new(wall_ms, counter).into()
+    }
+
+    fn own(store: &mut Store, target: &str, kind: Kind, wall_ms: u64) -> Option<Interaction> {
+        store.interact(target, kind, b"a1", wall_ms).unwrap()
+    }
+
+    #[test]
+    fn own_clock_survives_restart_and_skewed_events_change_nothing() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let b = Identity::generate().peer_id();
+        let mut store = Store::open(&path, &alice).unwrap();
+        let like = own(&mut store, &b, Kind::Like, 1_000).unwrap();
+        assert_eq!(like.hlc, hlc(1_000, 0));
+        drop(store);
+
+        let mut store = Store::open(&path, &alice).unwrap();
+        let unlike = own(&mut store, &b, Kind::Unlike, 500).unwrap();
+        assert_eq!(unlike.hlc, hlc(1_000, 1));
+        assert_ne!(unlike.event_id, like.event_id);
+        assert!(!store.likes(&b).unwrap().ours);
+
+        let ahead = event(Kind::Like, 1, hlc(61_001, 0));
+        assert!(matches!(
+            store.receive_interaction(&b, b"b1", ahead, 1_000),
+            Err(Error::ClockSkew(_))
+        ));
+        assert!(!store.likes(&b).unwrap().theirs);
+        assert_eq!(
+            own(&mut store, &b, Kind::Like, 1_000).unwrap().hlc,
+            hlc(1_000, 2)
+        );
+
+        let near = event(Kind::Like, 1, hlc(61_000, 0));
+        assert!(store.receive_interaction(&b, b"b1", near, 1_000).unwrap());
+        assert!(store.likes(&b).unwrap().matched());
+        assert_eq!(
+            own(&mut store, &b, Kind::Like, 2_000).unwrap().hlc,
+            hlc(61_000, 2)
+        );
+    }
+
+    #[test]
+    fn views_are_sent_once_per_peer_per_utc_day_and_always_received() {
+        const DAY: u64 = 86_400_000;
+        let alice = Identity::generate();
+        let (a, b, c) = (
+            alice.peer_id(),
+            Identity::generate().peer_id(),
+            Identity::generate().peer_id(),
+        );
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        assert_eq!(own(&mut store, &b, Kind::View, DAY), None);
+        assert!(!store.viewed_on(&a, &b, DAY).unwrap());
+
+        store.set_send_profile_views(true).unwrap();
+        assert!(own(&mut store, &b, Kind::View, DAY).is_some());
+        assert_eq!(own(&mut store, &b, Kind::View, 2 * DAY - 1), None);
+        assert!(own(&mut store, &c, Kind::View, 2 * DAY - 1).is_some());
+        assert!(own(&mut store, &b, Kind::View, 2 * DAY).is_some());
+        assert!(store.viewed_on(&a, &b, DAY).unwrap());
+        assert!(store.viewed_on(&a, &b, 2 * DAY).unwrap());
+        assert_eq!(store.likes(&b).unwrap(), Likes::default());
+
+        store.set_send_profile_views(false).unwrap();
+        let view = event(Kind::View, 1, hlc(3 * DAY, 0));
+        assert!(!store.receive_interaction(&b, b"b1", view, 3 * DAY).unwrap());
+        assert!(!store.receive_interaction(&b, b"b1", view, 3 * DAY).unwrap());
+        assert!(store.viewed_on(&b, &a, 3 * DAY).unwrap());
+        assert!(!store.viewed_on(&b, &a, 2 * DAY).unwrap());
     }
 }
