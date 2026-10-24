@@ -79,6 +79,8 @@ scored 7.0 with four findings: `RUSTSEC-2026-0387` is the
 `crypto-bigint` requires the `0.7.6` series, while the current OpenMLS crypto
 and credential crates still require `p256 0.13`. Scorecard and `cargo-deny`
 remain red; these paths need dependency migrations, not a lower baseline.
+The [OpenMLS curve migration investigation](openmls-curve-migration.md) records the three
+dependency paths and the compatibility checks required before changing providers.
 
 **Best Practices badge.** The project's entry on [bestpractices.dev](https://www.bestpractices.dev)
 is registered and currently at InProgress level. The maintainer keeps its answers current at

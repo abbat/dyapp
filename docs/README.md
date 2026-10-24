@@ -11,6 +11,7 @@ it are entry points that tools discover by path (see
 - [Privacy & Metadata Visibility](security/privacy.md): which observer sees which field, retention, residual risk
 - [Threat Model](security/threat-model.md): attackers, assets, and which defence covers each threat today
 - [Security Assurance](security/assurance.md): OpenSSF Scorecard ratchet, Best Practices badge, verification checklist catalogue, vulnerability disclosure
+- [OpenMLS curve dependency migration](security/openmls-curve-migration.md): audit failure, candidate migration and compatibility gates
 
 ### Architecture
 - [Overview](architecture/overview.md)
