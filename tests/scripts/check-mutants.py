@@ -2,9 +2,11 @@
 
 Reads the outcomes.json of every cargo-mutants shard. A mutant that timed out
 counts as caught (the tests noticed it); unviable mutants do not count.
+Every mutant in the [mutants.invariants] scope must be caught.
 """
 import json
 from pathlib import Path
+import re
 import sys
 import tomllib
 
@@ -35,13 +37,43 @@ def unbuildable(outcomes):
     return sorted(package for package, ok in viable.items() if not ok)
 
 
-def check(outcomes, baseline):
-    """The score line; fails below the baseline or on an unbuildable crate."""
+def invariants(outcomes, scope):
+    """Fails on a missed mutant in scope, or a scope entry no mutant matched.
+
+    scope maps a file to a regex searched in the mutated function's name.
+    """
+    missed, matched = [], set()
+    for item in outcomes:
+        for outcome in item.get("outcomes", []):
+            if not isinstance(outcome["scenario"], dict):
+                continue
+            mutant = outcome["scenario"]["Mutant"]
+            pattern = scope.get(mutant["file"])
+            function = (mutant.get("function") or {}).get("function_name")
+            if pattern is None or function is None \
+                    or not re.search(pattern, function):
+                continue
+            matched.add(mutant["file"])
+            if outcome["summary"] == "MissedMutant":
+                missed.append(mutant["name"])
+    if unmatched := sorted(set(scope) - matched):
+        raise ValueError("[mutants.invariants] entries match no mutant: "
+                         + ", ".join(unmatched))
+    if missed:
+        raise ValueError("Missed security-invariant mutants:\n"
+                         + "\n".join(sorted(missed)))
+
+
+def check(outcomes, baseline, scope=None):
+    """The score line; fails below the baseline, on an unbuildable crate, or
+    on a missed mutant in the security-invariant scope."""
     if packages := unbuildable(outcomes):
         raise ValueError(
             f"Every mutant in {', '.join(packages)} is unviable: "
             "cargo-mutants builds each package alone, so check `cargo test "
             "--package <name> --all-features` (a missing feature forward?)")
+    if scope:
+        invariants(outcomes, scope)
     percentage, counts = score(outcomes)
     if percentage < baseline:
         raise ValueError(f"Mutation score {percentage}% < baseline "
@@ -58,5 +90,5 @@ if __name__ == "__main__":
     from check_wrapper import wrap
     wrap("mutants")
     outcomes = [json.loads(Path(name).read_text()) for name in sys.argv[1:]]
-    baseline = tomllib.loads(BASELINES.read_text())["mutants"]["score"]
-    print(check(outcomes, baseline))
+    mutants = tomllib.loads(BASELINES.read_text())["mutants"]
+    print(check(outcomes, mutants["score"], mutants.get("invariants")))

@@ -35,6 +35,17 @@ score = 7.1
 # full run on 2026-10-19 caught 1582 and timed out 9 of 2205 viable mutants.
 score = 72.2
 
+[mutants.invariants]
+# Security invariants: every mutant here must be caught or time out, with no accepted survivors.
+# Keys are files, values regexes searched in the mutated function's name ("" = every function).
+"rust/identity/src/lib.rs" = "Identity::sign|SignedRecord::verify|signed_bytes|peer_id|key_hash|label"
+"rust/profile/src/lib.rs" = "verify|accept|validate|check_newer|pow_leading_bits|heartbeat_pow_bits|argon_bits|stored_version|fields"
+"rust/messaging/src/mls.rs" = "verify_member|verify_leaf|group_of|verify_key_package|join|process"
+"rust/bootstrap/src/service.rs" = "node_peer|^Service::media$|store_shard|store_media|authorization"
+"rust/bootstrap/src/service/media.rs" = "node_peer|^Service::media$|store_shard|store_media|authorization"
+"rust/bootstrap/src/media.rs" = "node_peer|^Service::media$|store_shard|store_media|authorization"
+"rust/bootstrap/src/media_repair.rs" = ""
+
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # tests/scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.

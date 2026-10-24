@@ -39,7 +39,8 @@ impl Schedule {
         }
         let (cursor, seen) = self.cursors.entry(owner).or_insert((0, now));
         *seen = now;
-        let start = *cursor % hashes.len();
+        // Only ever used modulo the length, so a cursor past a shrunken list still works.
+        let start = *cursor;
         let count = hashes.len().min(WINDOW);
         *cursor = (start + count) % hashes.len();
         let mut selected = Vec::new();

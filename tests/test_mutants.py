@@ -52,6 +52,27 @@ class Mutants(unittest.TestCase):
         report["outcomes"][-1]["summary"] = "MissedMutant"
         self.assertIn("80.0%", CHECK.check([report], 70))
 
+    def test_missed_invariant_mutant_fails_regardless_of_the_score(self):
+        def outcome(file, function, summary, line=1):
+            return {"scenario": {"Mutant": {
+                "name": f"{file}:{line}:1: replace in {function}",
+                "package": "p", "file": file,
+                "function": {"function_name": function}}},
+                "summary": summary}
+
+        scope = {"a.rs": "^verify$", "b.rs": ""}
+        report = shard(9, 1, 1) | {"outcomes": [
+            outcome("a.rs", "verify", "CaughtMutant"),
+            outcome("a.rs", "verify_more", "MissedMutant"),
+            outcome("b.rs", "any", "Timeout"),
+            outcome("c.rs", "verify", "MissedMutant")]}
+        self.assertIn("90.9%", CHECK.check([report], 50, scope))
+        report["outcomes"].append(outcome("b.rs", "any", "MissedMutant", 7))
+        with self.assertRaisesRegex(ValueError, "invariant mutants:\nb.rs:7:1"):
+            CHECK.check([report], 50, scope)
+        with self.assertRaisesRegex(ValueError, "match no mutant: d.rs"):
+            CHECK.check([report], 50, scope | {"d.rs": ""})
+
     def test_cli_reads_shards_and_the_repository_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "outcomes.json"
@@ -59,8 +80,10 @@ class Mutants(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, "-B", str(SCRIPT), "--raw", str(report)],
                 capture_output=True, text=True, check=False)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Mutation score 100.0%", result.stdout)
+        # The repository's invariant scope applies: these outcomes cover none of it.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rust/bootstrap/src/media_repair.rs",
+                      result.stdout + result.stderr)
 
     def test_mutants_attributes_need_a_reason(self):
         text = ("#[mutants::skip]\nfn a() {}\n"

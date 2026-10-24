@@ -245,6 +245,15 @@ alone (`cargo test --package <name> --all-features`), so a crate's `proptest` fe
 the `proptest` feature of each workspace crate whose types it derives `Arbitrary` over. Until
 2026-10-24 `dyapp-profile` did not, so its 76 mutants never ran.
 
+**Security invariants.** The weekly check also fails on any missed mutant in the functions listed
+under `[mutants.invariants]` in `tests/scripts/baselines.toml`: identity signing and verification,
+profile validation, MLS membership and Welcome handling, media authorization and storage, and all
+of `media_repair.rs`. There is no accepted-survivor list. Kill a new survivor with a test, or remove
+the code that makes it equivalent. A scope entry that matches no mutant also fails the check, so a
+rename cannot silently drop a function from the gate. This adds no CI time, because the full run
+already tests these mutants. To check a change locally, run cargo-mutants with `-f <file>` and
+`-F '<regex>'` from that table on a copy of the tree, as `rust-check.sh mutants` does.
+
 ## Fuzzing
 
 Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/Dockerfile.dev`,
