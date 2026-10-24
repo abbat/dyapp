@@ -57,6 +57,26 @@ The upstream release manifests are the immediate blocker to a version-only updat
 investigation has **not** established that libcrux plus a custom signer will pass every audit
 or preserve the stored state; the checkpoints above decide that experimentally.
 
+### Candidate source check (2026-10-24)
+
+The published [`openmls_libcrux_crypto 0.4.0` manifest](https://docs.rs/crate/openmls_libcrux_crypto/0.4.0/source/Cargo.toml)
+uses `hpke-rs-libcrux 0.7` and the same `openmls_memory_storage 0.6` API as the
+current provider. Its [crypto implementation](https://docs.rs/openmls_libcrux_crypto/latest/src/openmls_libcrux_crypto/crypto.rs.html)
+lists suite `0x0001` among the supported ciphersuites. The
+[`hpke-rs-libcrux 0.7` feature list](https://docs.rs/crate/hpke-rs-libcrux/0.7.0/features)
+shows its RustCrypto P-curves as optional, with no default features.
+These are reasons to **test** this provider; they do not establish the final resolved
+dependency tree or saved-state compatibility.
+
+An isolated `cargo metadata --offline` probe with OpenMLS 0.9.1, libcrux provider
+0.4.0, traits 0.6.0 and Ed25519 Dalek 3.0.0 stopped because
+`openmls_libcrux_crypto` is absent from the prepared Docker image's Cargo cache.
+No root or fuzz lockfile was changed. The next checkpoint must resolve the published
+crate in the approved dependency-build environment, inspect both resulting lockfiles
+and run the audits before treating this as a safe migration. The current
+`openmls_basic_credential` and `openmls_rust_crypto` direct dependencies must both be
+removed or the vulnerable chain remains.
+
 ## Current-provider fixture
 
 `rust/messaging/src/mls/fixtures/openmls-0.9-rust-crypto-0.6/` holds hex-encoded
