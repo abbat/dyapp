@@ -8,7 +8,10 @@ use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
-const VERSION: i64 = 2;
+mod likes;
+pub use likes::Likes;
+
+const VERSION: i64 = 3;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -52,6 +55,9 @@ pub enum Error {
     /// An inbox row has conflicting content or an invalid stored key.
     #[error("client store inbox record conflicts or is corrupt")]
     InboxConflict,
+    /// An interaction reuses an event ID with other bytes, or does not involve this profile.
+    #[error("client store interaction conflicts or names another profile")]
+    InteractionConflict,
     /// SQLite refused the database or a migration.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
@@ -122,7 +128,7 @@ impl Store {
                 )?;
                 tx.commit()?;
             }
-            1 | VERSION => {}
+            1 | 2 | VERSION => {}
             other => return Err(Error::FutureVersion(other)),
         }
         let bound: String = db.query_row(
@@ -135,7 +141,10 @@ impl Store {
         }
         if version < VERSION {
             let tx = db.transaction()?;
-            tx.execute_batch(SCHEMA_V2)?;
+            if version < 2 {
+                tx.execute_batch(SCHEMA_V2)?;
+            }
+            tx.execute_batch(SCHEMA_V3)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -517,9 +526,30 @@ CREATE TABLE `conversation_groups` (
 PRAGMA user_version = 2;
 ";
 
+const SCHEMA_V3: &str = r"
+CREATE TABLE `interaction_ledger` (
+    `sender` TEXT NOT NULL CHECK (length(`sender`) > 0),
+    `event_id` BLOB NOT NULL CHECK (length(`event_id`) = 16),
+    `target` TEXT NOT NULL CHECK (length(`target`) > 0),
+    `device` BLOB NOT NULL CHECK (length(`device`) > 0),
+    `payload` BLOB NOT NULL CHECK (length(`payload`) = 26),
+    PRIMARY KEY (`sender`, `event_id`)
+) STRICT;
+CREATE TABLE `like_state` (
+    `sender` TEXT NOT NULL,
+    `target` TEXT NOT NULL,
+    `liked` INTEGER NOT NULL CHECK (`liked` IN (0, 1)),
+    `hlc` INTEGER NOT NULL CHECK (`hlc` >= 0),
+    `device` BLOB NOT NULL,
+    `event_id` BLOB NOT NULL CHECK (length(`event_id`) = 16),
+    PRIMARY KEY (`sender`, `target`)
+) STRICT;
+PRAGMA user_version = 3;
+";
+
 #[cfg(test)]
 mod tests {
-    use super::{Error, InboxKey, InboxKind, Store, SCHEMA_V1};
+    use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -530,7 +560,7 @@ mod tests {
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    fn temp_db_path() -> PathBuf {
+    pub(super) fn temp_db_path() -> PathBuf {
         let mut random = [0; 16];
         getrandom::fill(&mut random).unwrap();
         std::env::temp_dir().join(format!(
@@ -559,11 +589,11 @@ mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 3").unwrap();
+        db.execute_batch("PRAGMA user_version = 4").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(3))
+            Err(Error::FutureVersion(4))
         ));
 
         let unknown = temp_db_path();
@@ -608,12 +638,13 @@ mod tests {
         let store = Store::open(&path, &alice).unwrap();
         assert!(store.send_profile_views().unwrap());
         assert!(store.known_groups().unwrap().is_empty());
+        assert_eq!(store.likes(&alice.peer_id()).unwrap(), Likes::default());
         drop(store);
         let db = Connection::open(&path).unwrap();
         assert_eq!(
             db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            2
+            3
         );
     }
 

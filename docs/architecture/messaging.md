@@ -25,10 +25,11 @@ the measured envelope sizes and 1 KiB limit are documented under
 The planned like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
-three kinds. A Rust test sends it through the existing MLS chat path and decodes the result. The
-client still lacks a short-padded signal sender, persistent interaction state and app integration;
-the codec alone does not publish a like or compute a match.
-`rust/client::store::Store::open` now creates or reopens an identity-bound, version-2 SQLite
+three kinds. A Rust test sends it through the existing MLS chat path and decodes the result.
+`Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
+`Store::likes` derives a match from them. The client still lacks a short-padded signal sender, a
+persisted own clock, view-day records and app integration, so nothing publishes a like yet.
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-3 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
@@ -37,9 +38,10 @@ chat operation uses yet. See the [client storage design](../design/client-local-
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1 database migrates to version 2 after its identity binding is checked. The group catalog
-records group IDs and verified peer associations with the sealed Device and prepared Welcome
-writes; `load_groups` restores those groups after restart and refuses missing or mismatched entries.
+version-1 or version-2 database migrates to version 3 after its identity binding is checked. The
+group catalog records group IDs and verified peer associations with the sealed Device and
+prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
+or mismatched entries.
 The chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
 `rust/client::session::Session` opens the sealed Device and cataloged Groups. Its send path
 encrypts one chat message, prepares every signed mailbox write, commits the new seal and all

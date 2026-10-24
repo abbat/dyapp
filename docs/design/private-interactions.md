@@ -1,8 +1,8 @@
 # Private interaction signals
 
 This is the planned client contract for [private likes and views](../decisions/0012-private-p2p-interactions.md).
-The bootstrap signal class and quota and the client plaintext codec exist; the interaction store,
-signal mailbox delivery and UI do not.
+The bootstrap signal class and quota, the client plaintext codec and the local like/unlike ledger
+exist; the own-event clock, view-day records, signal mailbox delivery and UI do not.
 
 ## Wire contract
 
@@ -87,3 +87,12 @@ an unnecessary preference signal.
 
 The codec covers the binary round-trip and malformed-input part of fixture 1. The local state and
 mailbox tasks must complete the size, state, replay, delivery and view fixtures.
+
+`rust/client::store::Store::apply_interaction` (schema version 3) covers the local state part of
+fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded
+event, and in one transaction records the event in a replay ledger keyed by sender identity and
+event ID and updates the latest like state of that direction. One of the two identities must be
+the store's own. A view is recorded but never changes likes. `Store::likes` returns both
+directions, and a match is both liked. The caller must still decode the payload and verify group,
+sender and device before applying; the future-skew guard, the persisted own HLC and view-day
+records are not implemented yet.
