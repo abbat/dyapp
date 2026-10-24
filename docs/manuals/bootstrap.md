@@ -384,7 +384,7 @@ the store sizes plus SQLite overhead:
 | `profiles_max_mb` | 1024 | Profile store size. |
 | `messages_max_mb` | 4096 | Mailbox store size. |
 | `signal_max_kb` | 2048 | Signals (likes, views) kept per mailbox, apart from the messages' 10 MiB; at the quota the oldest are deleted. At least 2. |
-| `require_write_tokens` | `false` | Messages without a mailbox write token go to a small per-mailbox pool instead of the 10 MiB mailbox quota ([write tokens](../architecture/bootstrap.md#mailbox-envelope)). |
+| `require_write_tokens` | `true` | Messages without a mailbox write token go to a small per-mailbox pool instead of the 10 MiB mailbox quota ([write tokens](../architecture/bootstrap.md#mailbox-envelope)). |
 | `mailbox_pool_kb` | 1024 | That pool, per mailbox, while `require_write_tokens` is on; when full, the oldest envelope of the sender group holding most bytes is deleted. At least 101. |
 | `tokenless_share_pct` | 20 | Tokenless envelope bytes kept store-wide, in percent of `messages_max_mb`. |
 | `media_max_mb` | 10240 | Media store size (media role); when full, cached assembled blobs go first, then unreleased attachments, then the oldest owners, down to 95 %. |

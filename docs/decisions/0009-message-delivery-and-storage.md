@@ -74,6 +74,6 @@ media is different: full copies are expensive, and a node should hold no object 
   threshold as whole copies and larger blobs up to 6 MiB as Reed-Solomon shards under a
   manifest; a signed `keep` repairs missing copies, manifests and shards on the current holders.
   Nodes check write tokens and revokes and keep the tokenless pool; the pool binds only under
-  `limits.require_write_tokens` (off by default), and clients do not issue tokens yet.
+  `limits.require_write_tokens` (on by default); client sessions trade tokens after a join.
   Holders republish hourly from their routing tables. Gets can ask for a piece of at most 1 MiB;
   a node keeps a blob it assembled from shards cached for the next pieces.

@@ -682,7 +682,7 @@ impl Default for Limits {
             signal_max_kb: 2048,
             mailbox_pool_kb: 1024,
             tokenless_share_pct: 20,
-            require_write_tokens: false,
+            require_write_tokens: true,
             media_max_mb: 10240,
             media_per_owner_mb: 10,
             attachment_retention_hours: 168,

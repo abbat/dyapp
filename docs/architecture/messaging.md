@@ -25,7 +25,9 @@ held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, th
 swapped for its replacement in the outbox in one commit before it is put again.
 `Session::receive` asks the group for a month of tokens after a join, answers a contact's
 `TokenRequest` and asks back, and stores a `TokenAnswer`; these bodies are kept as state changes,
-not history, and are not returned to the app. `Session::refill` is the daily top-up.
+not history, and are not returned to the app. `Session::refill` is the daily top-up. Nodes
+default to `limits.require_write_tokens`, so a contact's tokened write passes a mailbox whose
+tokenless pool a stranger has filled.
 `tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
 device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;

@@ -55,7 +55,7 @@
 # signal_max_kb = 2048                # signals per mailbox, the oldest evicted; at least 2
 # mailbox_pool_kb = 1024              # tokenless messages per mailbox with require_write_tokens; at least 101
 # tokenless_share_pct = 20            # tokenless bytes store-wide, percent of messages_max_mb
-# require_write_tokens = false        # tokenless messages go to the pool, not the 10 MiB
+# require_write_tokens = true         # tokenless messages go to the pool, not the 10 MiB
 # media_max_mb = 10240                # media role
 # media_per_owner_mb = 10             # media files of one user
 # min_free_mb = 512                   # writes stop while the disk of storage.dir has less free

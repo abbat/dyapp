@@ -224,9 +224,10 @@ async fn receive(
 }
 
 #[tokio::test]
-async fn two_sessions_trade_a_month_of_write_tokens_on_join_by_themselves() {
+async fn two_sessions_trade_tokens_on_join_and_a_message_passes_a_full_pool() {
     use dyapp_client::{chat, session::Session};
 
+    // Default limits: require_write_tokens is on.
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -273,6 +274,26 @@ async fn two_sessions_trade_a_month_of_write_tokens_on_join_by_themselves() {
     assert!(receive(&mut alice_session, &mut alice, &profiles)
         .await
         .is_empty());
+
+    // A stranger fills Bob's tokenless pool; Alice's tokened message still reaches him.
+    let mut stranger = Person::new(&address).await;
+    for _ in 0..12 {
+        stranger
+            .node
+            .put(&bob.mailbox(), vec![7; 90_000])
+            .await
+            .unwrap();
+    }
+    alice_session
+        .send_message(&mut alice.node, group.id(), b"hi", &SEAL)
+        .await
+        .unwrap();
+    let mut events = Vec::new();
+    for _ in 0..5 {
+        events.extend(receive(&mut bob_session, &mut bob, &profiles).await);
+    }
+    assert!(events.iter().any(|event| matches!(event,
+        chat::Event::Message { body: chat::Body::Text(text), .. } if text == b"hi")));
     drop((alice_session, bob_session));
 
     let today = (std::time::SystemTime::now()
