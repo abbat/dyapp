@@ -30,6 +30,7 @@ it are entry points that tools discover by path (see
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX
 - [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [accepted policy](decisions/0023-bootstrap-node-update-policy.md)
 - [Bootstrap update channel analysis](design/bootstrap-update-channel.md): signing boundary, key custody and anti-rollback options; [accepted channel](decisions/0024-bootstrap-update-channel.md)
+- [Linux Secret Service migration](design/linux-secret-service-migration.md): options and proposed ADR amendment for removing the zbus 5 advisory chain
 
 ### Development
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
