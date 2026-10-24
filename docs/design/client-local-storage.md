@@ -96,9 +96,10 @@ one without its recorded peer. It opens the identity key first, then the matchin
 conversation. A missing or inaccessible key does not start network work. Never keep a
 group handle from the previous device after reopening a snapshot.
 
-For **send**, `chat::message` advances MLS state in memory. Prepare one signed envelope for each
-device delivery, seal the changed `Device`, and call `stage_outbound` with *all* prepared envelopes
-before `Node::put_prepared`. If sealing or staging fails, send nothing and mark the in-memory
+For **send**, `Session::send_message` calls `chat::message` to advance MLS state in memory. It
+prepares one signed envelope for each device delivery, seals the changed `Device`, and calls
+`stage_outbound` with *all* prepared envelopes before `Node::put_prepared`. The app has not wired
+this adapter yet. If sealing or staging fails, send nothing and mark the in-memory
 session unusable. Reopen the last committed snapshot (or require a restart) before any further MLS
 operation; retrying encryption on the advanced in-memory group could reuse state or diverge from
 disk. A node's successful put only schedules the next delivery check; it does not remove the

@@ -41,6 +41,12 @@ version-1 database migrates to version 2 after its identity binding is checked. 
 records group IDs and verified peer associations with the sealed Device and prepared Welcome
 writes; `load_groups` restores those groups after restart and refuses missing or mismatched entries.
 The chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
+`rust/client::session::Session` opens the sealed Device and cataloged Groups. Its send path
+encrypts one chat message, prepares every signed mailbox write, commits the new seal and all
+writes, and only then calls `Node::put_prepared`. A preparation or local storage failure discards
+the advanced in-memory handles until `recover` reopens the last committed snapshot. Network
+failure leaves the exact signed writes in the outbox for retry. The app does not use this adapter
+yet, and delivery receipts are still planned.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the

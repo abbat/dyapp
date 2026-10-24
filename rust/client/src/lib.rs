@@ -8,6 +8,7 @@ pub mod chat;
 pub mod interactions;
 pub mod profiles;
 pub mod scores;
+pub mod session;
 pub mod store;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
