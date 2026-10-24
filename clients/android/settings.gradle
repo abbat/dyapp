@@ -7,8 +7,8 @@ pluginManagement {
 }
 // Redirect old AGP requests before Gradle reads their vulnerable module metadata.
 def safeBuildDependencies = {
-    substitute module('org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.10') using module('org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21')
-    substitute module('org.apache.httpcomponents:httpclient:4.5.6') using module('org.apache.httpcomponents:httpclient:4.5.14')
+    substitute module('org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21') using module('org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21')
+    substitute module('org.apache.httpcomponents:httpclient:4.5.14') using module('org.apache.httpcomponents:httpclient:4.5.14')
     substitute module('org.apache.commons:commons-lang3:3.16.0') using module('org.apache.commons:commons-lang3:3.18.0')
     substitute module('org.bitbucket.b_c:jose4j:0.9.5') using module('org.bitbucket.b_c:jose4j:0.9.6')
     substitute module('org.bouncycastle:bcpkix-jdk18on:1.80.2') using module('org.bouncycastle:bcpkix-jdk18on:1.85')
