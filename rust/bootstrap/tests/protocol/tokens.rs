@@ -81,3 +81,58 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
     };
     assert_eq!(sent(&store, today - 1).await.0, Some(expected));
 }
+
+#[tokio::test]
+async fn a_revoked_contact_token_is_denied_and_the_write_goes_tokenless() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut owner = Person::new(&address).await;
+    let mut contact = Person::new(&address).await;
+    let owner_store = Store::open(&store_path("revoking-owner"), &owner.identity).unwrap();
+    let mut store = Store::open(&store_path("revoked-contact"), &contact.identity).unwrap();
+    let mailbox = owner.mailbox();
+    let today = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        / 86_400) as u32;
+    let key = hold(&mut store, &owner.device_key, &mailbox, today);
+    owner_store
+        .record_issued("contact", &mailbox, &key, today)
+        .unwrap();
+    assert_eq!(
+        put(&mut owner, &mut contact, &store, today).await,
+        Some(today)
+    );
+
+    let revoked = tokens::revoke(
+        &mut owner.node,
+        &owner_store,
+        &owner.device_key,
+        "contact",
+        today,
+    )
+    .await
+    .unwrap();
+    assert_eq!(revoked, 1);
+    assert!(owner_store.issued_revoked(&key).unwrap());
+    assert_eq!(put(&mut owner, &mut contact, &store, today).await, None);
+}
+
+/// Sends one byte from `contact` to `owner` with `tokens::send` and fetches it; returns the day
+/// of the token the node took.
+async fn put(owner: &mut Person, contact: &mut Person, store: &Store, today: u32) -> Option<u32> {
+    let mailbox = owner.mailbox();
+    let epoch = tokens::send(&mut contact.node, store, &mailbox, &[1], today, &SEAL)
+        .await
+        .unwrap();
+    let (envelopes, _) = owner.node.fetch(&owner.device_key).await.unwrap();
+    assert_eq!(envelopes.len(), 1);
+    let ids = envelopes.iter().map(|e| e.id.clone()).collect();
+    owner.node.ack(&owner.device_key, ids).await.unwrap();
+    epoch
+}

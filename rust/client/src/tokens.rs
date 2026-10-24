@@ -116,6 +116,22 @@ pub async fn send(
     Ok(None)
 }
 
+/// Revokes every token key this device issued to `contact` (hex Peer ID), for example when the
+/// user blocks it: marks them revoked so they are never signed again, then tells the node to
+/// refuse those still valid from `today`. Returns how many keys the node revoked; a failed call
+/// can be repeated.
+pub async fn revoke(
+    node: &mut Node,
+    store: &Store,
+    device: &Identity,
+    contact: &str,
+    today: u32,
+) -> Result<usize, session::Error> {
+    let keys = store.revoke_issued(contact, today)?;
+    node.revoke_tokens(device, &keys).await?;
+    Ok(keys.len())
+}
+
 /// Signs the asks in `request` from `contact` (hex Peer ID of a verified group member) that name
 /// this device's mailbox and a day from `today - 1` to `today + AHEAD_DAYS`, records each issued
 /// key, and returns the answers to send, each fitting one envelope. Skips a key this profile

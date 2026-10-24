@@ -21,6 +21,8 @@ record on retry. `Node::put` still prepares and sends in one call for existing c
 durable outbox and receipt handling remain planned. `prepare_tokened_put` carries a held
 WriteToken and signs with its token key instead of a one-off key. `tokens::send` uses today's
 held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, then tokenless.
+`tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
+device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).

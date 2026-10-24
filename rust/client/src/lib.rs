@@ -390,6 +390,29 @@ impl Node {
         ok(response.status)
     }
 
+    /// Revokes write token `keys` of the mailbox of `device`, so nodes delete their envelopes and
+    /// refuse their puts. Sends one revoke per 64 keys, the most a node takes.
+    pub async fn revoke_tokens(
+        &mut self,
+        device: &Identity,
+        keys: &[[u8; 32]],
+    ) -> Result<(), Error> {
+        for chunk in keys.chunks(64) {
+            let revoke = proto::Revoke {
+                mailbox: mailbox(&device.public_key()).to_vec(),
+                token_keys: chunk.iter().map(|key| key.to_vec()).collect(),
+                created_at: i64::try_from(now()).unwrap_or(i64::MAX),
+                owner: None,
+            };
+            let record = device.sign(Domain::MailboxRevoke, revoke.encode_to_vec());
+            let response = self
+                .mailbox(mailbox_request::Request::Revoke(record))
+                .await?;
+            ok(response.status)?;
+        }
+        Ok(())
+    }
+
     async fn challenge(&mut self) -> Result<Vec<u8>, Error> {
         let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
         let response = self.mailbox(challenge).await?;
