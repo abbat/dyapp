@@ -86,6 +86,8 @@ pub enum InboxKind {
     Message = 1,
     /// A Welcome, commit or other MLS state change without visible message text.
     StateChange = 2,
+    /// An envelope no group accepted; only marks it processed so it is acknowledged once.
+    Refused = 3,
 }
 
 impl Store {
@@ -261,21 +263,7 @@ impl Store {
         }
         let tx = self.db.transaction()?;
         if let Some((group_id, peer_id)) = group {
-            let inserted = tx.execute(
-                "INSERT INTO `conversation_groups` (`group_id`, `peer_id`) VALUES (?1, ?2)
-                 ON CONFLICT (`group_id`) DO NOTHING",
-                params![group_id, peer_id],
-            )?;
-            if inserted == 0 {
-                let saved: String = tx.query_row(
-                    "SELECT `peer_id` FROM `conversation_groups` WHERE `group_id` = ?1",
-                    [group_id],
-                    |row| row.get(0),
-                )?;
-                if saved != peer_id {
-                    return Err(Error::GroupConflict);
-                }
-            }
+            catalog(&tx, group_id, peer_id)?;
         }
         tx.execute(
             "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
@@ -376,7 +364,8 @@ impl Store {
         Ok(found.is_some())
     }
 
-    /// Commit the new sealed MLS snapshot, processed delivery and pending ACK together.
+    /// Commit the new sealed MLS snapshot, processed delivery and pending ACK together, and the
+    /// `(group ID, peer ID)` catalog entry of a group a Welcome joined.
     /// Returns false for an identical duplicate without replacing the saved MLS state.
     pub fn stage_inbound(
         &mut self,
@@ -384,9 +373,13 @@ impl Store {
         key: &InboxKey,
         kind: InboxKind,
         payload: &[u8],
+        joined: Option<(&[u8], &str)>,
     ) -> Result<bool, Error> {
         if sealed_device.is_empty() {
             return Err(Error::EmptyMlsState);
+        }
+        if joined.is_some_and(|(id, peer_id)| id.is_empty() || peer_id == self.owner_peer_id) {
+            return Err(Error::GroupConflict);
         }
         let tx = self.db.transaction()?;
         let inserted = tx.execute(
@@ -409,6 +402,9 @@ impl Store {
                 return Err(Error::InboxConflict);
             }
             return Ok(false);
+        }
+        if let Some((group_id, peer_id)) = joined {
+            catalog(&tx, group_id, peer_id)?;
         }
         tx.execute(
             "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
@@ -447,6 +443,31 @@ impl Store {
             params![key.mailbox.as_slice(), key.id.as_slice()],
         )? == 1)
     }
+
+    /// The Peer ID this database is bound to.
+    pub fn owner_peer_id(&self) -> &str {
+        &self.owner_peer_id
+    }
+}
+
+/// Add a conversation, or confirm an existing one belongs to the same peer.
+fn catalog(tx: &rusqlite::Transaction, group_id: &[u8], peer_id: &str) -> Result<(), Error> {
+    let inserted = tx.execute(
+        "INSERT INTO `conversation_groups` (`group_id`, `peer_id`) VALUES (?1, ?2)
+         ON CONFLICT (`group_id`) DO NOTHING",
+        params![group_id, peer_id],
+    )?;
+    if inserted == 0 {
+        let saved: String = tx.query_row(
+            "SELECT `peer_id` FROM `conversation_groups` WHERE `group_id` = ?1",
+            [group_id],
+            |row| row.get(0),
+        )?;
+        if saved != peer_id {
+            return Err(Error::GroupConflict);
+        }
+    }
+    Ok(())
 }
 
 const SCHEMA_V1: &str = r"
@@ -805,14 +826,14 @@ mod tests {
         assert!(!store.has_inbox(&key).unwrap());
         assert!(store.pending_acks().unwrap().is_empty());
         assert!(store
-            .stage_inbound(b"sealed-v1", &key, InboxKind::Message, b"hi")
+            .stage_inbound(b"sealed-v1", &key, InboxKind::Message, b"hi", None)
             .unwrap());
         assert!(store.has_inbox(&key).unwrap());
         assert!(!store
-            .stage_inbound(b"stale", &key, InboxKind::Message, b"hi")
+            .stage_inbound(b"stale", &key, InboxKind::Message, b"hi", None)
             .unwrap());
         assert!(matches!(
-            store.stage_inbound(b"stale", &key, InboxKind::Message, b"different"),
+            store.stage_inbound(b"stale", &key, InboxKind::Message, b"different", None),
             Err(Error::InboxConflict)
         ));
         drop(store);
@@ -840,7 +861,7 @@ mod tests {
             id: [2; 16],
         };
         assert!(matches!(
-            store.stage_inbound(b"sealed", &key, InboxKind::StateChange, b""),
+            store.stage_inbound(b"sealed", &key, InboxKind::StateChange, b"", None),
             Err(Error::Sql(_))
         ));
         assert!(!store.has_inbox(&key).unwrap());

@@ -236,7 +236,7 @@ fn apply_all(
     (events, handled)
 }
 
-fn apply(
+pub(crate) fn apply(
     device: &Device,
     groups: &mut Vec<Group>,
     bytes: &[u8],
