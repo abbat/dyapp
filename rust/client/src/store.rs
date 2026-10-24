@@ -638,4 +638,30 @@ mod tests {
         assert!(store.pending_acks().unwrap().is_empty());
         assert!(store.sealed_device().unwrap().is_none());
     }
+
+    #[test]
+    fn outbox_rejects_a_mismatch_in_either_key_part() {
+        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let write = prepare_put(&[7; 32], vec![1]).unwrap();
+        store
+            .stage_outbound(b"sealed", std::slice::from_ref(&write))
+            .unwrap();
+        store
+            .db
+            .execute("UPDATE `outbox` SET `mailbox` = ?1", [vec![8_u8; 32]])
+            .unwrap();
+        assert!(matches!(store.due_outbound(0), Err(Error::OutboxConflict)));
+        store
+            .db
+            .execute(
+                "UPDATE `outbox` SET `mailbox` = ?1",
+                [write.mailbox().to_vec()],
+            )
+            .unwrap();
+        store
+            .db
+            .execute("UPDATE `outbox` SET `envelope_id` = ?1", [vec![9_u8; 16]])
+            .unwrap();
+        assert!(matches!(store.due_outbound(0), Err(Error::OutboxConflict)));
+    }
 }

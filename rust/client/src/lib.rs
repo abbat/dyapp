@@ -509,9 +509,15 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{prepare_put, Error, PreparedEnvelope};
+    use super::{prepare_put, Error, Node, PreparedEnvelope};
     use dyapp_p2p_net::proto::{self, EnvelopeClass};
+    use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
+    use libp2p::futures::StreamExt;
+    use libp2p::identity::Keypair;
+    use libp2p::request_response::{Event as RequestEvent, Message as RequestMessage};
+    use libp2p::swarm::SwarmEvent;
     use prost::Message as _;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn prepared_mailbox_write_reopens_with_exact_signed_bytes() {
@@ -529,7 +535,10 @@ mod tests {
             prepare_put(&mailbox, vec![1, 2, 3]).unwrap().id(),
             prepared.id()
         );
-        assert!(!format!("{prepared:?}").contains("7, 7, 7"));
+        assert_eq!(
+            format!("{prepared:?}"),
+            format!("PreparedEnvelope {{ bytes_len: {}, .. }}", bytes.len())
+        );
     }
 
     #[test]
@@ -545,5 +554,66 @@ mod tests {
             PreparedEnvelope::from_bytes(bytes),
             Err(Error::PreparedEnvelope)
         ));
+    }
+
+    #[tokio::test]
+    async fn node_put_and_prepared_retry_reach_the_mailbox() {
+        let mut server =
+            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+        server
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let address = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+                break address;
+            }
+        };
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let copy = Arc::clone(&received);
+        let task = tokio::spawn(async move {
+            loop {
+                if let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
+                    message:
+                        RequestMessage::Request {
+                            request, channel, ..
+                        },
+                    ..
+                })) = server.select_next_some().await
+                {
+                    let Some(proto::mailbox_request::Request::Put(record)) = request.request else {
+                        panic!("expected mailbox put");
+                    };
+                    copy.lock().unwrap().push(record);
+                    server
+                        .behaviour_mut()
+                        .mailbox
+                        .send_response(
+                            channel,
+                            proto::MailboxResponse {
+                                status: proto::Status::Ok.into(),
+                                ..Default::default()
+                            },
+                        )
+                        .unwrap();
+                }
+            }
+        });
+        let mut node = Node::connect(address, Arc::new(Protocols::public()))
+            .await
+            .unwrap();
+        let mailbox = [7; 32];
+        let prepared = prepare_put(&mailbox, vec![1]).unwrap();
+        node.put_prepared(&prepared).await.unwrap();
+        node.put_prepared(&prepared).await.unwrap();
+        let fresh_id = node.put(&mailbox, vec![2]).await.unwrap();
+        let records = received.lock().unwrap();
+        assert_eq!(records.len(), 3);
+        assert_eq!(records[0].encode_to_vec(), prepared.as_bytes());
+        assert_eq!(records[1].encode_to_vec(), prepared.as_bytes());
+        let fresh = proto::Envelope::decode(records[2].payload.as_slice()).unwrap();
+        assert_eq!(fresh.id, fresh_id);
+        assert_eq!(fresh.mailbox, mailbox);
+        assert_eq!(fresh.ciphertext, [2]);
+        task.abort();
     }
 }
