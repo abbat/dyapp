@@ -26,9 +26,11 @@ The planned like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
-interaction, `3` and `4` reserved for write tokens), so a text is never read as an interaction;
-an unknown tag is refused and acked. A Rust test sends an interaction through the existing MLS
-chat path and decodes the result.
+interaction, `3` write-token request, `4` write-token answer), so a text is never read as an
+interaction; an unknown tag is refused and acked. A request holds 1 to 1,920 asks (30 days for
+64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
+to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies. A Rust test
+sends an interaction through the existing MLS chat path and decodes the result.
 `Store::apply_interaction` keeps a replay ledger and the latest like state per direction, and
 `Store::likes` derives a match from them. `Store::interact` creates own events from a persisted
 HLC and creates at most one view per peer per UTC day; `Store::receive_interaction` applies the

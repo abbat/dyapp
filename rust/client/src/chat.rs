@@ -65,13 +65,51 @@ pub enum Event {
 }
 
 /// What an application message carries: the first plaintext byte names the kind, so a chat text
-/// is never read as an interaction. Tags 3 and 4 are kept for the write-token request and answer.
+/// is never read as an interaction.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Body {
     /// User text, tag 1.
     Text(Vec<u8>),
     /// A like, unlike or view, tag 2.
     Interaction(Interaction),
+    /// A contact device asks the owner for WriteTokens, tag 3.
+    TokenRequest(TokenRequest),
+    /// The owner's signed WriteTokens, tag 4.
+    TokenAnswer(TokenAnswer),
+}
+
+/// The most asks or tokens in one body: 30 days for each of 64 owner devices.
+pub const MAX_TOKENS: usize = 30 * 64;
+
+/// One day's write token wanted for one owner device mailbox.
+#[derive(Clone, PartialEq, Eq, prost::Message)]
+pub struct TokenAsk {
+    /// The owner device's 32-byte mailbox address.
+    #[prost(bytes = "vec", tag = "1")]
+    pub mailbox: Vec<u8>,
+    /// The UTC day, Unix seconds / 86400.
+    #[prost(uint32, tag = "2")]
+    pub epoch: u32,
+    /// The contact's 32-byte public token key for that day.
+    #[prost(bytes = "vec", tag = "3")]
+    pub token_key: Vec<u8>,
+}
+
+/// Write tokens a contact device asks for.
+#[derive(Clone, PartialEq, Eq, prost::Message)]
+pub struct TokenRequest {
+    /// One to [`MAX_TOKENS`] asks.
+    #[prost(message, repeated, tag = "1")]
+    pub asks: Vec<TokenAsk>,
+}
+
+/// The owner device's answer to a [`TokenRequest`].
+#[derive(Clone, PartialEq, Eq, prost::Message)]
+pub struct TokenAnswer {
+    /// One to [`MAX_TOKENS`] `SignedRecord` bytes, each a `WriteToken` under
+    /// `Domain::WriteToken`; the receiver verifies them.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub signed_tokens: Vec<Vec<u8>>,
 }
 
 impl Body {
@@ -80,16 +118,37 @@ impl Body {
         match self {
             Self::Text(text) => [&[1], text.as_slice()].concat(),
             Self::Interaction(event) => [&[2], event.encode().as_slice()].concat(),
+            Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
+            Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
         }
     }
 
-    /// Refuses an unknown or missing tag and a malformed interaction.
+    /// Refuses an unknown or missing tag, a malformed interaction and a token body that is empty,
+    /// too long or holds a field of the wrong length.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
             Some((1, text)) => Ok(Self::Text(text.to_vec())),
             Some((2, event)) => Interaction::decode(event)
                 .map(Self::Interaction)
                 .map_err(|_| Error::Reply("bad interaction")),
+            Some((3, request)) => TokenRequest::decode(request)
+                .ok()
+                .filter(|r| {
+                    (1..=MAX_TOKENS).contains(&r.asks.len())
+                        && r.asks
+                            .iter()
+                            .all(|a| a.mailbox.len() == 32 && a.token_key.len() == 32)
+                })
+                .map(Self::TokenRequest)
+                .ok_or(Error::Reply("bad token request")),
+            Some((4, answer)) => TokenAnswer::decode(answer)
+                .ok()
+                .filter(|a| {
+                    (1..=MAX_TOKENS).contains(&a.signed_tokens.len())
+                        && a.signed_tokens.iter().all(|t| !t.is_empty())
+                })
+                .map(Self::TokenAnswer)
+                .ok_or(Error::Reply("bad token answer")),
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
@@ -327,7 +386,10 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_all, message, pad, unpad, Body, Delivery, Event, MIN_PADDED_BYTES};
+    use super::{
+        apply_all, message, pad, unpad, Body, Delivery, Event, TokenAnswer, TokenAsk, TokenRequest,
+        MAX_TOKENS, MIN_PADDED_BYTES,
+    };
     use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
     use dyapp_identity::{Domain, Identity};
@@ -424,12 +486,56 @@ mod tests {
             assert!(Body::decode(&body.encode()).ok() == Some(body));
         }
         let tagged = Body::Interaction(like).encode();
-        for bad in [&b""[..], &[0], &[3], &[4, 1], &tagged[..tagged.len() - 1]] {
+        for bad in [
+            &b""[..],
+            &[0],
+            &[5],
+            &[3],
+            &[4],
+            &[2, 1],
+            &tagged[..tagged.len() - 1],
+        ] {
             assert!(Body::decode(bad).is_err(), "{bad:?}");
         }
         // A text that starts like an interaction stays text.
         let text = [&[1], &tagged[..]].concat();
         assert!(Body::decode(&text).ok() == Some(Body::Text(tagged)));
+    }
+
+    #[test]
+    fn token_bodies_are_strict() {
+        let ask = TokenAsk {
+            mailbox: vec![1; 32],
+            epoch: 20_000,
+            token_key: vec![2; 32],
+        };
+        let request = |asks: Vec<TokenAsk>| Body::TokenRequest(TokenRequest { asks });
+        let answer = |signed_tokens: Vec<Vec<u8>>| Body::TokenAnswer(TokenAnswer { signed_tokens });
+        for body in [
+            request(vec![ask.clone()]),
+            request(vec![ask.clone(); MAX_TOKENS]),
+            answer(vec![vec![9; 200]]),
+            answer(vec![vec![9]; MAX_TOKENS]),
+        ] {
+            assert!(Body::decode(&body.encode()).ok() == Some(body));
+        }
+        let short = |mailbox: usize, token_key: usize| TokenAsk {
+            mailbox: vec![1; mailbox],
+            token_key: vec![2; token_key],
+            ..ask.clone()
+        };
+        for bad in [
+            request(Vec::new()),
+            request(vec![ask.clone(); MAX_TOKENS + 1]),
+            request(vec![ask.clone(), short(31, 32)]),
+            request(vec![short(32, 33)]),
+            answer(Vec::new()),
+            answer(vec![vec![9]; MAX_TOKENS + 1]),
+            answer(vec![vec![9], Vec::new()]),
+        ] {
+            assert!(Body::decode(&bad.encode()).is_err());
+        }
+        assert!(Body::decode(&[3, 0xff]).is_err());
     }
 
     #[test]

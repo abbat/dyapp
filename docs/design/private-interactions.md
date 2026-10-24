@@ -27,7 +27,7 @@ profile. A group may contain several devices of either identity. A view uses the
 never affects likes or matches.
 
 Every chat plaintext starts with a one-byte body tag (`chat::Body`): `1` user text, `2` an
-interaction; `3` and `4` are reserved for the write-token request and answer, and other tags are
+interaction; `3` and `4` are the write-token request and answer, and other tags are
 refused and acked without changing state. A tagged interaction is 27 bytes and fits the 256-byte
 short padding bucket. An introduction is a separate one-message chat payload, not a v1
 interaction event; its delivery policy belongs to chat design.
