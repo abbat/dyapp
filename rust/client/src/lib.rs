@@ -5,6 +5,7 @@
 
 pub mod attachment;
 pub mod chat;
+pub mod interactions;
 pub mod profiles;
 pub mod scores;
 

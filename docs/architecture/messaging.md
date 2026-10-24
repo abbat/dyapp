@@ -20,6 +20,10 @@ the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
 The planned like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
+`rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
+three kinds. A Rust test sends it through the existing MLS chat path and decodes the result. The
+client still lacks a short-padded signal sender, persistent interaction state and app integration;
+the codec alone does not publish a like or compute a match.
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

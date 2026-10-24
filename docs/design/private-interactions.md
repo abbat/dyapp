@@ -1,7 +1,8 @@
 # Private interaction signals
 
 This is the planned client contract for [private likes and views](../decisions/0012-private-p2p-interactions.md).
-The bootstrap signal class and quota exist; the client codec, store, mailbox delivery and UI do not.
+The bootstrap signal class and quota and the client plaintext codec exist; the interaction store,
+signal mailbox delivery and UI do not.
 
 ## Wire contract
 
@@ -84,4 +85,5 @@ an unnecessary preference signal.
 6. With view sending disabled, no view is queued; enabled sending queues one per peer per UTC
    day. A recipient can receive a view regardless of its own send setting.
 
-The codec and local state tasks implement fixtures 1–3 and 6; mailbox integration covers 4–5.
+The codec covers the binary round-trip and malformed-input part of fixture 1. The local state and
+mailbox tasks must complete the size, state, replay, delivery and view fixtures.

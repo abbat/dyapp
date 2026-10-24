@@ -302,6 +302,7 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 #[cfg(test)]
 mod tests {
     use super::{apply_all, message, pad, unpad, Delivery, Event, MIN_PADDED_BYTES};
+    use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
     use dyapp_identity::{Domain, Identity};
     use dyapp_messaging::mls::Device;
@@ -356,6 +357,24 @@ mod tests {
                 }]
         );
         assert_eq!(acked, [vec![2]]);
+
+        let like = Interaction {
+            kind: Kind::Like,
+            event_id: [7; 16],
+            hlc: 42,
+        };
+        let sent = message(&mut group, &alice, &like.encode()).unwrap();
+        let (events, acked) = apply_all(
+            &bob,
+            &mut groups,
+            vec![envelope(3, sent[0].mls.clone())],
+            &profiles,
+        );
+        let [Event::Message { plaintext, .. }] = events.as_slice() else {
+            panic!("expected decrypted interaction");
+        };
+        assert_eq!(Interaction::decode(plaintext), Ok(like));
+        assert_eq!(acked, [vec![3]]);
     }
 
     #[test]
