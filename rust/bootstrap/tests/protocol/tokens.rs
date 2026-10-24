@@ -211,3 +211,86 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     assert_ne!(sent[0], key.to_vec());
     assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
 }
+
+async fn receive(
+    session: &mut dyapp_client::session::Session,
+    person: &mut Person,
+    profiles: &[dyapp_profile::VerifiedProfile],
+) -> Vec<dyapp_client::chat::Event> {
+    session
+        .receive(&mut person.node, &person.device_key, profiles, &SEAL)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn two_sessions_trade_a_month_of_write_tokens_on_join_by_themselves() {
+    use dyapp_client::{chat, session::Session};
+
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+        .await
+        .unwrap();
+    let mut profiles = Vec::new();
+    for owner in [alice.identity.peer_id(), bob_owner] {
+        profiles.push(alice.node.get_profile(&owner).await.unwrap());
+    }
+    let alice_mailbox = alice.mailbox();
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        .await
+        .unwrap();
+    chat::send(&mut alice.node, &welcome).await.unwrap();
+    let (alice_path, bob_path) = (store_path("trade-alice"), store_path("trade-bob"));
+    let mut store = Store::open(&alice_path, &alice.identity).unwrap();
+    let sealed = alice.device.seal(&SEAL).unwrap();
+    store
+        .stage_group(&group, &profiles[1], &sealed, &[])
+        .unwrap();
+    let mut alice_session = Session::open(store, &SEAL).unwrap();
+    let mut store = Store::open(&bob_path, &bob.identity).unwrap();
+    store
+        .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
+        .unwrap();
+    let mut bob_session = Session::open(store, &SEAL).unwrap();
+
+    // Bob joins and asks; Alice answers and asks back; Bob stores, answers; Alice stores.
+    let joined = receive(&mut bob_session, &mut bob, &profiles).await;
+    assert_eq!(joined, [chat::Event::Joined(group.id().to_vec())]);
+    assert!(receive(&mut alice_session, &mut alice, &profiles)
+        .await
+        .is_empty());
+    assert!(receive(&mut bob_session, &mut bob, &profiles)
+        .await
+        .is_empty());
+    assert!(receive(&mut alice_session, &mut alice, &profiles)
+        .await
+        .is_empty());
+    drop((alice_session, bob_session));
+
+    let today = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        / 86_400) as u32;
+    let month = (today..today + 30).collect::<Vec<_>>();
+    let alice_store = Store::open(&alice_path, &alice.identity).unwrap();
+    let bob_store = Store::open(&bob_path, &bob.identity).unwrap();
+    assert_eq!(
+        alice_store
+            .write_token_epochs(&bob.mailbox(), today)
+            .unwrap(),
+        month
+    );
+    assert_eq!(
+        bob_store.write_token_epochs(&alice_mailbox, today).unwrap(),
+        month
+    );
+}

@@ -134,7 +134,18 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let writes = self.stage_message(group_id, &Body::Text(text.to_vec()), seal_key)?;
+        self.send_body(node, group_id, &Body::Text(text.to_vec()), seal_key)
+            .await
+    }
+
+    async fn send_body(
+        &mut self,
+        node: &mut Node,
+        group_id: &[u8],
+        body: &Body,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let writes = self.stage_message(group_id, body, seal_key)?;
         let today = (crate::now() / 86_400) as u32;
         for mut write in writes {
             loop {
@@ -153,13 +164,94 @@ impl Session {
         Ok(())
     }
 
+    /// Ask every group's other devices for the write tokens this device is missing; the app calls
+    /// it once a day. A join and a contact's request ask by themselves.
+    pub async fn refill(&mut self, node: &mut Node, seal_key: &[u8; 32]) -> Result<(), Error> {
+        let ids = self
+            .groups
+            .iter()
+            .map(|g| g.id().to_vec())
+            .collect::<Vec<_>>();
+        for id in ids {
+            self.request_tokens(node, &id, seal_key).await?;
+        }
+        Ok(())
+    }
+
+    async fn request_tokens(
+        &mut self,
+        node: &mut Node,
+        group_id: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let group = self
+            .groups
+            .iter()
+            .find(|group| group.id() == group_id)
+            .ok_or(Error::UnknownGroup)?;
+        let mailboxes = group
+            .peer_device_keys()?
+            .iter()
+            .filter_map(|key| {
+                <&[u8; 32]>::try_from(key.as_slice())
+                    .ok()
+                    .map(crate::mailbox)
+            })
+            .collect::<Vec<_>>();
+        let today = (crate::now() / 86_400) as u32;
+        match tokens::request(&mut self.store, &mailboxes, today, seal_key)? {
+            Some(body) => self.send_body(node, group_id, &body, seal_key).await,
+            None => Ok(()),
+        }
+    }
+
+    /// Act on a committed token body or join instead of showing it: store a contact's tokens, or
+    /// answer its request and ask back; ask after a join. Returns the events the app sees.
+    // shortcut: a crash between the inbox commit and this step loses the answer or the stored
+    // tokens; the next refill asks again.
+    async fn control(
+        &mut self,
+        node: &mut Node,
+        device_key: &Identity,
+        event: Event,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Event>, Error> {
+        let today = (crate::now() / 86_400) as u32;
+        match event {
+            Event::Message {
+                group,
+                sender,
+                body: Body::TokenRequest(request),
+            } => {
+                for answer in tokens::answer(&self.store, device_key, &sender, &request, today)? {
+                    self.send_body(node, &group, &answer, seal_key).await?;
+                }
+                self.request_tokens(node, &group, seal_key).await?;
+                Ok(None)
+            }
+            Event::Message {
+                body: Body::TokenAnswer(answer),
+                ..
+            } => {
+                tokens::accept(&self.store, &answer, seal_key)?;
+                Ok(None)
+            }
+            Event::Joined(group) => {
+                self.request_tokens(node, &group, seal_key).await?;
+                Ok(Some(Event::Joined(group)))
+            }
+            event => Ok(Some(event)),
+        }
+    }
+
     /// Reopen exact signed bytes for the retry worker after a crash or failed node request.
     pub fn due_outbound(&self, now_ms: i64) -> Result<Vec<PreparedEnvelope>, Error> {
         Ok(self.store.due_outbound(now_ms)?)
     }
 
     /// Fetch the mailbox of `device_key`, commit each new envelope before returning it, then
-    /// acknowledge every committed ID, earlier ones whose ACK was lost included. On an error,
+    /// acknowledge every committed ID, earlier ones whose ACK was lost included. Write-token
+    /// bodies are handled here and not returned; a join also asks the group for tokens. On an error,
     /// events committed so far are in the inbox history and their ACKs stay pending.
     pub async fn receive(
         &mut self,
@@ -183,7 +275,11 @@ impl Session {
                 seen.push(key);
                 continue;
             }
-            events.extend(self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?);
+            if let Some(event) =
+                self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
+            {
+                events.extend(self.control(node, device_key, event, seal_key).await?);
+            }
         }
         let acks = self.acks(mailbox, seen)?;
         if !acks.is_empty() {
@@ -240,6 +336,11 @@ impl Session {
         } else {
             (|| {
                 let (kind, payload) = match &event {
+                    // Token bodies are acted on, not shown in history.
+                    Event::Message {
+                        body: Body::TokenRequest(_) | Body::TokenAnswer(_),
+                        ..
+                    } => (InboxKind::StateChange, Vec::new()),
                     Event::Message {
                         group,
                         sender,

@@ -23,6 +23,9 @@ WriteToken and signs with its token key instead of a one-off key. `tokens::send`
 held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, then tokenless.
 `Session::send_message` stages writes with today's held token the same way; a refused one is
 swapped for its replacement in the outbox in one commit before it is put again.
+`Session::receive` asks the group for a month of tokens after a join, answers a contact's
+`TokenRequest` and asks back, and stores a `TokenAnswer`; these bodies are kept as state changes,
+not history, and are not returned to the app. `Session::refill` is the daily top-up.
 `tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
 device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
