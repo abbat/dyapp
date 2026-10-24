@@ -57,11 +57,12 @@ def invariants(outcomes, scope):
             if outcome["summary"] == "MissedMutant":
                 missed.append(mutant["name"])
     if unmatched := sorted(set(scope) - matched):
-        raise ValueError("[mutants.invariants] entries match no mutant: "
-                         + ", ".join(unmatched))
+        names = ", ".join(unmatched)
+        raise ValueError(
+            f"[mutants.invariants] entries match no mutant: {names}")
     if missed:
-        raise ValueError("Missed security-invariant mutants:\n"
-                         + "\n".join(sorted(missed)))
+        names = "\n".join(sorted(missed))
+        raise ValueError(f"Missed security-invariant mutants:\n{names}")
 
 
 def check(outcomes, baseline, scope=None):

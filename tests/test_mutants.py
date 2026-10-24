@@ -68,7 +68,8 @@ class Mutants(unittest.TestCase):
             outcome("c.rs", "verify", "MissedMutant")]}
         self.assertIn("90.9%", CHECK.check([report], 50, scope))
         report["outcomes"].append(outcome("b.rs", "any", "MissedMutant", 7))
-        with self.assertRaisesRegex(ValueError, "invariant mutants:\nb.rs:7:1"):
+        with self.assertRaisesRegex(ValueError,
+                                    "invariant mutants:\nb.rs:7:1"):
             CHECK.check([report], 50, scope)
         with self.assertRaisesRegex(ValueError, "match no mutant: d.rs"):
             CHECK.check([report], 50, scope | {"d.rs": ""})
@@ -80,7 +81,7 @@ class Mutants(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, "-B", str(SCRIPT), "--raw", str(report)],
                 capture_output=True, text=True, check=False)
-        # The repository's invariant scope applies: these outcomes cover none of it.
+        # The repository's invariant scope applies; these outcomes miss it.
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("rust/bootstrap/src/media_repair.rs",
                       result.stdout + result.stderr)
