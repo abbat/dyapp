@@ -20,7 +20,7 @@ protox.workspace = true
 
 # Practice B3: `Arbitrary` for the round-trip properties; only bootstrap tests enable it.
 [features]
-proptest = ["dep:proptest", "dep:proptest-derive"]
+proptest = ["dep:proptest", "dep:proptest-derive", "dyapp-identity/proptest"]
 
 [lints]
 workspace = true

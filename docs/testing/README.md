@@ -240,6 +240,11 @@ below `[mutants] score` in `tests/scripts/baselines.toml`, and the job asks to r
 score is 0.5 points above it. The first full run (2026-10-19) scored 72.2%: 614 of 2205 viable
 mutants were missed, most of them in `node.rs`, `service.rs` and the client now in `bin/dyappd/client.rs`.
 
+The check also fails when every mutant of a package is unviable. cargo-mutants builds each package
+alone (`cargo test --package <name> --all-features`), so a crate's `proptest` feature must forward
+the `proptest` feature of each workspace crate whose types it derives `Arbitrary` over. Until
+2026-10-24 `dyapp-profile` did not, so its 76 mutants never ran.
+
 ## Fuzzing
 
 Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/Dockerfile.dev`,

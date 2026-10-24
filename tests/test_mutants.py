@@ -38,6 +38,20 @@ class Mutants(unittest.TestCase):
                       "tests/scripts/baselines.toml to "
                       "80.0", CHECK.check([shard(8, 0, 2)], 79.5))
 
+    def test_package_with_only_unviable_mutants_fails(self):
+        def outcome(package, summary):
+            return {"scenario": {"Mutant": {"package": package}},
+                    "summary": summary}
+
+        report = shard(8, 0, 2, 2) | {"outcomes": [
+            {"scenario": "Baseline", "summary": "Success"},
+            outcome("a", "Unviable"), outcome("a", "CaughtMutant"),
+            outcome("b", "Unviable")]}
+        with self.assertRaisesRegex(ValueError, "Every mutant in b is"):
+            CHECK.check([report], 70)
+        report["outcomes"][-1]["summary"] = "MissedMutant"
+        self.assertIn("80.0%", CHECK.check([report], 70))
+
     def test_cli_reads_shards_and_the_repository_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "outcomes.json"
