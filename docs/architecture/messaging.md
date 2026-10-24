@@ -38,6 +38,10 @@ The store can now commit a caller-provided sealed MLS snapshot and exact prepare
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. The
 chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
+It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
+snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
+acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the
+saved MLS snapshot. Wiring this sequence into the network receive path is still planned.
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

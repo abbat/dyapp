@@ -38,6 +38,9 @@ pub enum Error {
     /// A caller tried to persist an empty sealed MLS snapshot.
     #[error("client store MLS snapshot is empty")]
     EmptyMlsState,
+    /// An inbox row has conflicting content or an invalid stored key.
+    #[error("client store inbox record conflicts or is corrupt")]
+    InboxConflict,
     /// SQLite refused the database or a migration.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
@@ -46,6 +49,39 @@ pub enum Error {
 /// One profile's durable state; a second profile requires a separate database path.
 pub struct Store {
     db: Connection,
+}
+
+/// The device mailbox and envelope ID that identify one received delivery.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct InboxKey {
+    /// The receiving device's mailbox address.
+    pub mailbox: [u8; 32],
+    /// The sender's envelope ID.
+    pub id: [u8; 16],
+}
+
+impl std::fmt::Debug for InboxKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InboxKey").finish_non_exhaustive()
+    }
+}
+
+/// Whether the processed MLS envelope contained a visible message.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum InboxKind {
+    /// A message whose versioned payload the app will show from local history.
+    Message,
+    /// A Welcome, commit or other MLS state change without visible message text.
+    StateChange,
+}
+
+impl InboxKind {
+    const fn code(self) -> i64 {
+        match self {
+            Self::Message => 1,
+            Self::StateChange => 2,
+        }
+    }
 }
 
 impl Store {
@@ -248,6 +284,91 @@ impl Store {
         }
         Ok(())
     }
+
+    /// Check before processing MLS bytes so a repeated fetch cannot apply or display them twice.
+    pub fn has_inbox(&self, key: &InboxKey) -> Result<bool, Error> {
+        let found: Option<i64> = self
+            .db
+            .query_row(
+                "SELECT 1 FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![key.mailbox.as_slice(), key.id.as_slice()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(found.is_some())
+    }
+
+    /// Commit the new sealed MLS snapshot, processed delivery and pending ACK together.
+    /// Returns false for an identical duplicate without replacing the saved MLS state.
+    pub fn stage_inbound(
+        &mut self,
+        sealed_device: &[u8],
+        key: &InboxKey,
+        kind: InboxKind,
+        payload: &[u8],
+    ) -> Result<bool, Error> {
+        if sealed_device.is_empty() {
+            return Err(Error::EmptyMlsState);
+        }
+        let tx = self.db.transaction()?;
+        let inserted = tx.execute(
+            "INSERT INTO `inbox` (`mailbox`, `envelope_id`, `kind`, `payload`, `ack_pending`)
+             VALUES (?1, ?2, ?3, ?4, 1) ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
+            params![
+                key.mailbox.as_slice(),
+                key.id.as_slice(),
+                kind.code(),
+                payload
+            ],
+        )?;
+        if inserted == 0 {
+            let saved: (i64, Vec<u8>) = tx.query_row(
+                "SELECT `kind`, `payload` FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![key.mailbox.as_slice(), key.id.as_slice()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            if saved.0 != kind.code() || saved.1 != payload {
+                return Err(Error::InboxConflict);
+            }
+            return Ok(false);
+        }
+        tx.execute(
+            "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
+             ON CONFLICT (`slot`) DO UPDATE SET `sealed` = excluded.`sealed`,
+             `revision` = `mls_state`.`revision` + 1",
+            [sealed_device],
+        )?;
+        tx.commit()?;
+        Ok(true)
+    }
+
+    /// Delivery IDs to acknowledge after the MLS snapshot and deduplication row are durable.
+    pub fn pending_acks(&self) -> Result<Vec<InboxKey>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `mailbox`, `envelope_id` FROM `inbox` WHERE `ack_pending` = 1
+             ORDER BY `mailbox`, `envelope_id`",
+        )?;
+        let rows = query.query_map([], |row| {
+            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+        })?;
+        rows.map(|row| {
+            let (mailbox, id) = row?;
+            Ok(InboxKey {
+                mailbox: mailbox.try_into().map_err(|_| Error::InboxConflict)?,
+                id: id.try_into().map_err(|_| Error::InboxConflict)?,
+            })
+        })
+        .collect()
+    }
+
+    /// Mark an ACK completed only after the node confirms it; repeated calls are harmless.
+    pub fn mark_acked(&self, key: &InboxKey) -> Result<bool, Error> {
+        Ok(self.db.execute(
+            "UPDATE `inbox` SET `ack_pending` = 0 WHERE `mailbox` = ?1
+             AND `envelope_id` = ?2 AND `ack_pending` = 1",
+            params![key.mailbox.as_slice(), key.id.as_slice()],
+        )? == 1)
+    }
 }
 
 const SCHEMA_V1: &str = r"
@@ -291,7 +412,7 @@ PRAGMA user_version = 1;
 
 #[cfg(test)]
 mod tests {
-    use super::{Error, Store};
+    use super::{Error, InboxKey, InboxKind, Store};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -461,5 +582,60 @@ mod tests {
             store.due_outbound(100).unwrap()[0].as_bytes(),
             write.as_bytes()
         );
+    }
+
+    #[test]
+    fn inbound_ack_waits_for_durable_mls_and_deduplication() {
+        let path = temp_db_path();
+        let owner = Identity::generate();
+        let key = InboxKey {
+            mailbox: [4; 32],
+            id: [5; 16],
+        };
+        let mut store = Store::open(&path, &owner).unwrap();
+        assert!(!store.has_inbox(&key).unwrap());
+        assert!(store.pending_acks().unwrap().is_empty());
+        assert!(store
+            .stage_inbound(b"sealed-v1", &key, InboxKind::Message, b"hi")
+            .unwrap());
+        assert!(store.has_inbox(&key).unwrap());
+        assert!(!store
+            .stage_inbound(b"stale", &key, InboxKind::Message, b"hi")
+            .unwrap());
+        assert!(matches!(
+            store.stage_inbound(b"stale", &key, InboxKind::Message, b"different"),
+            Err(Error::InboxConflict)
+        ));
+        drop(store);
+
+        let store = Store::open(&path, &owner).unwrap();
+        assert_eq!(store.sealed_device().unwrap().unwrap(), b"sealed-v1");
+        assert_eq!(store.pending_acks().unwrap(), [key]);
+        assert!(store.mark_acked(&key).unwrap());
+        assert!(!store.mark_acked(&key).unwrap());
+        assert!(store.pending_acks().unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_mls_write_rolls_back_inbox_and_ack() {
+        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        store
+            .db
+            .execute_batch(
+                "CREATE TRIGGER `fail_mls` BEFORE INSERT ON `mls_state`
+                 BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+            )
+            .unwrap();
+        let key = InboxKey {
+            mailbox: [1; 32],
+            id: [2; 16],
+        };
+        assert!(matches!(
+            store.stage_inbound(b"sealed", &key, InboxKind::StateChange, b""),
+            Err(Error::Sql(_))
+        ));
+        assert!(!store.has_inbox(&key).unwrap());
+        assert!(store.pending_acks().unwrap().is_empty());
+        assert!(store.sealed_device().unwrap().is_none());
     }
 }

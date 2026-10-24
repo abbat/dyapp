@@ -8,7 +8,8 @@ page is wired into an app yet. The Rust store foundation creates the identity-bo
 schema. It persists the per-profile view-sending choice and local pass history; chat, MLS and
 outbound mailbox calls are not wired into the app yet. The store can atomically stage a sealed MLS
 snapshot and exact signed outbox records, reopen due records and schedule retries. Inbox dedupe
-and delivery receipts remain planned.
+and pending ACKs are now atomic with a sealed MLS snapshot in the store API; chat has not been
+wired to them, and delivery receipts remain planned.
 
 ## Ownership and location
 
