@@ -1,3 +1,5 @@
 # cargo audit in security.yml. The reasons are in deny.toml, which ignores the same ids.
 [advisories]
-ignore = ["RUSTSEC-2026-0330", "RUSTSEC-2026-0331"]
+# Temporary RUSTSEC-2026-0387 acceptance: P-curve dependency outside MLS suite 0x0001;
+# reachability is not proven absent. Review by 2026-11-24 (GH issue #25).
+ignore = ["RUSTSEC-2026-0330", "RUSTSEC-2026-0331", "RUSTSEC-2026-0387"]

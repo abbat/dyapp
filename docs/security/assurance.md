@@ -82,10 +82,13 @@ scored 7.0 with four findings: `RUSTSEC-2026-0387` is the
 `zbus_names` and `zvariant_derive` crates as unmaintained; the Linux client's
 `secret-service 5.2` depends on `zbus 5`, which still uses them. A fixed
 `crypto-bigint` requires the `0.7.6` series, while the current OpenMLS crypto
-and credential crates still require `p256 0.13`. Scorecard and `cargo-deny`
-remain red; these paths need dependency migrations, not a lower baseline.
-The [OpenMLS curve migration investigation](openmls-curve-migration.md) records the three
-dependency paths and the compatibility checks required before changing providers.
+and credential crates still require `p256 0.13`. The maintainer accepted a
+temporary, advisory-specific exception for `RUSTSEC-2026-0387` on 2026-10-24;
+[issue #25](https://github.com/abbat/dyapp/issues/25) schedules its review by
+2026-11-24. The [OpenMLS curve migration investigation](openmls-curve-migration.md)
+records the dependency paths, rejected alternatives and compatibility gates.
+A fresh CI/Scorecard run must confirm the exception is applied; its earlier red
+result is not evidence of the new configuration's status.
 The [Linux Secret Service migration analysis](../design/linux-secret-service-migration.md)
 compares replacements for the separate zbus 5 advisory chain. The maintainer accepted
 `dbus-secret-service`, but the code migration and audit are still pending; no exception
