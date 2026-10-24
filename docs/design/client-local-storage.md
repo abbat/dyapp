@@ -6,7 +6,9 @@ local identity durable chats, preferences and pending delivery while preserving 
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
 page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
 schema. It persists the per-profile view-sending choice and local pass history; chat, MLS and
-outbound mailbox tables are not used yet.
+outbound mailbox calls are not wired into the app yet. The store can atomically stage a sealed MLS
+snapshot and exact signed outbox records, reopen due records and schedule retries. Inbox dedupe
+and delivery receipts remain planned.
 
 ## Ownership and location
 

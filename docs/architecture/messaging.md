@@ -34,6 +34,10 @@ unversioned objects, corrupt data and future schema versions. WAL uses full sync
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
 default of no view signals; the schema also reserves inbox, outbox and MLS state tables that no
 chat operation uses yet. See the [client storage design](../design/client-local-storage.md).
+The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
+in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
+on an existing mailbox/ID with different signed bytes rolls the whole transaction back. The
+chat API is not wired to this store yet; no receipt currently removes a pending outbox row.
 
 **What exists vs planned:**
 - In-memory queue (`VecDeque`): lost on restart, no persistence

@@ -1,5 +1,6 @@
 //! Versioned, identity-bound local SQLite store. The app supplies its private absolute path.
 
+use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
 use dyapp_messaging::hlc::Timestamp;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -31,6 +32,12 @@ pub enum Error {
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,
+    /// A prepared write conflicts with stored bytes or an outbox row is corrupt.
+    #[error("client store outbox record conflicts or is corrupt")]
+    OutboxConflict,
+    /// A caller tried to persist an empty sealed MLS snapshot.
+    #[error("client store MLS snapshot is empty")]
+    EmptyMlsState,
     /// SQLite refused the database or a migration.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
@@ -145,6 +152,102 @@ impl Store {
         )?;
         Ok(changed != 0)
     }
+
+    /// Commit a new sealed MLS snapshot and exact mailbox writes before any network send.
+    pub fn stage_outbound(
+        &mut self,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
+        if sealed_device.is_empty() {
+            return Err(Error::EmptyMlsState);
+        }
+        let tx = self.db.transaction()?;
+        tx.execute(
+            "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
+             ON CONFLICT (`slot`) DO UPDATE SET `sealed` = excluded.`sealed`,
+             `revision` = `mls_state`.`revision` + 1",
+            [sealed_device],
+        )?;
+        for write in writes {
+            let inserted = tx.execute(
+                "INSERT INTO `outbox` (`mailbox`, `envelope_id`, `signed_envelope`,
+                 `retry_at_ms`, `attempts`) VALUES (?1, ?2, ?3, 0, 0)
+                 ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
+                params![
+                    write.mailbox().as_slice(),
+                    write.id().as_slice(),
+                    write.as_bytes()
+                ],
+            )?;
+            if inserted == 0 {
+                let saved: Vec<u8> = tx.query_row(
+                    "SELECT `signed_envelope` FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                    params![write.mailbox().as_slice(), write.id().as_slice()],
+                    |row| row.get(0),
+                )?;
+                if saved != write.as_bytes() {
+                    return Err(Error::OutboxConflict);
+                }
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The last sealed MLS snapshot, if one was stored; unwrap its key outside SQLite.
+    pub fn sealed_device(&self) -> Result<Option<Vec<u8>>, Error> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT `sealed` FROM `mls_state` WHERE `slot` = 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Pending writes due by `now_ms`, reopened from exact signed bytes.
+    pub fn due_outbound(&self, now_ms: i64) -> Result<Vec<PreparedEnvelope>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `mailbox`, `envelope_id`, `signed_envelope` FROM `outbox`
+             WHERE `retry_at_ms` <= ?1 ORDER BY `retry_at_ms`, `mailbox`, `envelope_id`",
+        )?;
+        let rows = query.query_map([now_ms], |row| {
+            Ok((
+                row.get::<_, Vec<u8>>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, Vec<u8>>(2)?,
+            ))
+        })?;
+        rows.map(|row| {
+            let (mailbox, id, bytes) = row?;
+            let write = PreparedEnvelope::from_bytes(bytes).map_err(|_| Error::OutboxConflict)?;
+            if write.mailbox().as_slice() != mailbox || write.id().as_slice() != id {
+                return Err(Error::OutboxConflict);
+            }
+            Ok(write)
+        })
+        .collect()
+    }
+
+    /// Schedule a retry after a failed attempt; node acceptance is not final delivery.
+    pub fn schedule_retry(&self, write: &PreparedEnvelope, retry_at_ms: i64) -> Result<(), Error> {
+        let changed = self.db.execute(
+            "UPDATE `outbox` SET `retry_at_ms` = ?1, `attempts` = `attempts` + 1
+             WHERE `mailbox` = ?2 AND `envelope_id` = ?3 AND `signed_envelope` = ?4",
+            params![
+                retry_at_ms,
+                write.mailbox().as_slice(),
+                write.id().as_slice(),
+                write.as_bytes()
+            ],
+        )?;
+        if changed != 1 {
+            return Err(Error::OutboxConflict);
+        }
+        Ok(())
+    }
 }
 
 const SCHEMA_V1: &str = r"
@@ -189,8 +292,12 @@ PRAGMA user_version = 1;
 #[cfg(test)]
 mod tests {
     use super::{Error, Store};
-    use dyapp_identity::Identity;
+    use crate::{prepare_put, PreparedEnvelope};
+    use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
+    use dyapp_messaging::mls::Device;
+    use dyapp_p2p_net::proto;
+    use prost::Message as _;
     use rusqlite::Connection;
     use std::path::PathBuf;
 
@@ -306,5 +413,53 @@ mod tests {
             store.send_profile_views(),
             Err(Error::InvalidSetting)
         ));
+    }
+
+    #[test]
+    fn outbound_and_mls_snapshot_survive_restart_and_roll_back_together() {
+        let path = temp_db_path();
+        let owner = Identity::generate();
+        let device = Device::new(&owner, Identity::generate().public_key(), 1).unwrap();
+        device.key_package(false).unwrap();
+        let seal_key = [3; 32];
+        let sealed = device.seal(&seal_key).unwrap();
+        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+        let mut store = Store::open(&path, &owner).unwrap();
+        store
+            .stage_outbound(&sealed, std::slice::from_ref(&write))
+            .unwrap();
+        assert_eq!(
+            store.due_outbound(0).unwrap()[0].as_bytes(),
+            write.as_bytes()
+        );
+        store.schedule_retry(&write, 100).unwrap();
+        drop(store);
+
+        let mut store = Store::open(&path, &owner).unwrap();
+        let saved = store.sealed_device().unwrap().unwrap();
+        assert_eq!(
+            Device::open(&saved, &seal_key).unwrap().certificate(),
+            device.certificate()
+        );
+        assert!(store.due_outbound(99).unwrap().is_empty());
+        assert_eq!(
+            store.due_outbound(100).unwrap()[0].as_bytes(),
+            write.as_bytes()
+        );
+
+        let record = SignedRecord::decode(write.as_bytes()).unwrap();
+        let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
+        envelope.ciphertext = vec![9];
+        let conflicting = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
+        assert!(matches!(
+            store.stage_outbound(b"different state", &[conflicting]),
+            Err(Error::OutboxConflict)
+        ));
+        assert_eq!(store.sealed_device().unwrap(), Some(sealed));
+        assert_eq!(
+            store.due_outbound(100).unwrap()[0].as_bytes(),
+            write.as_bytes()
+        );
     }
 }
