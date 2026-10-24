@@ -349,13 +349,17 @@ fn certified_commit_advances_the_epoch() {
     let commit = commit.to_bytes().unwrap();
     let epoch = p.bob_group.epoch();
     assert_eq!(epoch_of(&commit).unwrap(), Some((epoch, true)));
+    let id = p.bob_group.id().to_vec();
+    assert_eq!(group_of(&commit).unwrap(), Some(id.clone()));
     let welcome = welcome.to_bytes().unwrap();
     assert_eq!(epoch_of(&welcome).unwrap(), None);
+    assert_eq!(group_of(&welcome).unwrap(), None);
     let mut carol_group = carol_device.join(&welcome, &p.profiles).unwrap();
     assert_eq!(carol_group.members().unwrap().len(), 3);
     let sealed = carol_group.encrypt(&carol_device, b"hey").unwrap();
     // Bob sees a message from an epoch ahead of his: he missed the commit.
     assert_eq!(epoch_of(&sealed).unwrap(), Some((epoch + 1, false)));
+    assert_eq!(group_of(&sealed).unwrap(), Some(id));
 
     assert_eq!(
         p.bob_group
