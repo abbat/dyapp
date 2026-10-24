@@ -118,6 +118,49 @@ release changes. Provision separate online snapshot and timestamp keys. The
 publisher must not possess root or targets private keys. Record the exact
 expiry periods, ownership and recovery procedure before production keys exist.
 
+### Two-stage publisher handoff (fixture contract)
+
+Use the low-level `tuf.api.metadata` API from the published
+[`python-tuf` 7.0.1 release](https://pypi.org/project/tuf/7.0.1/) as the
+first publisher candidate. Its `Metadata` object signs one role at a time;
+the repository API is not yet a stable public API. Signing needs the
+`securesystemslib` cryptographic backend as well as `tuf`; pin their exact
+versions and package hashes only after the disposable fixture builds. The
+[Go TUF low-level metadata API](https://github.com/theupdateframework/go-tuf)
+is an alternative with individual role signing, but adds a second toolchain
+and still needs the same custody and interoperability proof. Neither is an
+accepted publisher yet.
+
+The **offline stage** receives a reviewed immutable `.deb`, its attestation,
+the previous signed targets metadata and a trusted public root. It validates
+the package and provenance, rejects a reused version/tag or changed bytes at
+an existing target path, increments the targets version, sets a bounded expiry,
+and signs only `targets.json` with the offline targets key. Its output bundle
+contains the exact signed metadata bytes and immutable target bytes. The
+offline root key is needed only to establish or rotate root metadata, never
+for an ordinary release. No online role private key is mounted in this stage.
+
+The **online stage** receives that bundle and trusted public root, but only
+the snapshot and timestamp private keys. It verifies the targets signature
+against the root role, expiry and monotonically increasing version; compares
+all target hashes and lengths against the actual bytes; and refuses path
+replacement or removal from the previously published targets set. It computes
+snapshot hashes and lengths from the *exact received `targets.json` bytes*,
+without reserializing them, then signs snapshot and timestamp separately.
+It must reject a missing, unsigned or rolled-back handoff rather than repair
+it. Timestamp-only renewal reuses the already published snapshot; it has no
+targets signing path.
+
+Publish immutable target bytes and versioned targets metadata first, then the
+versioned snapshot, and make `timestamp.json` visible last. A failure before
+the final step leaves the old timestamp serving the old consistent repository.
+The fixture must mount disjoint private-key directories into two separate
+processes, assert the online stage cannot read root/targets private keys, and
+load the resulting repository with `tough 0.24.0`. It must also reject a
+forged signature, altered target byte, lower role version, expired handoff and
+replaced existing path. These are requirements for the next implementation
+checkpoint, not completed tests.
+
 The client is unprivileged. It pins HTTPS metadata and target origins, limits
 downloads and redirects, enforces metadata expiry with a trustworthy clock,
 and persists TUF state across restarts. In `tough`, explicitly configure a
