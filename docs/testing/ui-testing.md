@@ -203,9 +203,10 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   sets it.
 - Product-level UI flows (onboarding, profiles, matching, messaging) have no tests yet.
 - Desktop window and tray behaviour
-  ([state table](../design/v0.0.1-client-screens.md#desktop-window-and-tray)) needs a real session: the Docker Xvfb has no tray host, so the Linux suite can check only the
-  saved-state file and the “no tray” path; tray menus, display changes and the macOS Dock are
-  checked by hand on each OS.
+  ([state table](../design/v0.0.1-client-screens.md#desktop-window-and-tray)) needs a real
+  session: the Docker Xvfb has no tray host, so the Linux suite can check only the saved-state
+  file and the “no tray” path; tray menus, display changes and the macOS Dock are checked by
+  hand on each OS.
 
 ## Troubleshooting
 
