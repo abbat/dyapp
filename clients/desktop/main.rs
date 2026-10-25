@@ -10,6 +10,10 @@ use tauri::Manager;
 
 #[path = "file_store.rs"]
 mod file_store;
+// shortcut: test-only until the app opens identities through slots.
+#[cfg(test)]
+#[path = "slots.rs"]
+mod slots;
 #[path = "system_store.rs"]
 mod system_store;
 

@@ -63,7 +63,8 @@ choice and its trade-offs.
 
 The current implementation has only the root `identity.key` and `identity-storage` or the
 system credential named `primary`. The proposed layout keeps that installation readable in
-place and gives **new** identities independent local slots:
+place and gives **new** identities independent local slots. `clients/desktop/slots.rs` lists,
+reserves and selects these slots, but the app does not open identities through it yet:
 
 | Item | Planned location / name |
 |---|---|
