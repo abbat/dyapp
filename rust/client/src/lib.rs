@@ -1,5 +1,5 @@
-//! Client network core: one libp2p connection to a node and the profile, KeyPackage and mailbox
-//! requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
+//! Client network core: one libp2p connection to a node and the profile, search, KeyPackage and
+//! mailbox requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
 //! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
 //! [`scores`] ranks nodes by the faults the client saw.
 
@@ -14,7 +14,8 @@ pub mod tokens;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
-    self, key_package_request, mailbox_request, media_request, profile_request, Status,
+    self, key_package_request, mailbox_request, media_request, profile_request, search_request,
+    Status,
 };
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
 use dyapp_p2p_net::{SwarmOptions, REPLICAS};
@@ -31,6 +32,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// How long a dial or one request may take.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
+/// Hardest search puzzle a client solves, in leading zero bits; a node asking more is skipped.
+pub const MAX_PUZZLE_BITS: u32 = 24;
 // Expiry of a published KeyPackage record, below the node's 30-day bound for clock skew.
 const KEY_PACKAGE_RECORD_SECONDS: u64 = dyapp_messaging::mls::KEY_PACKAGE_LIFETIME_SECONDS - 3_600;
 
@@ -73,6 +76,9 @@ pub enum Error {
     /// A profile after its owner's tombstone; a deletion is final.
     #[error("profile deleted")]
     Deleted,
+    /// A search node is busy; ask again after this long.
+    #[error("rate limited for {0:?}")]
+    RateLimited(Duration),
 }
 
 /// One fetched envelope: the id to ack and the MLS bytes.
@@ -518,6 +524,99 @@ impl Node {
         Ok(response.nonce)
     }
 
+    /// Search index hits (key hash, version) for `conditions`, at most `limit` (0 means 50,
+    /// at most 200), with the conditions the node applied.
+    pub async fn search_query(
+        &mut self,
+        conditions: Vec<proto::Condition>,
+        limit: u32,
+    ) -> Result<proto::SearchResponse, Error> {
+        self.search_puzzled(|puzzle| {
+            search_request::Request::Query(proto::SearchQuery {
+                conditions: conditions.clone(),
+                limit,
+                puzzle,
+            })
+        })
+        .await
+    }
+
+    /// Signed search profiles of up to 50 key hashes; `partial` when the node cut the
+    /// reply at 1 MiB, so the keys it left out need another request.
+    pub async fn search_get(&mut self, keys: Vec<Vec<u8>>) -> Result<proto::SearchResponse, Error> {
+        self.search_puzzled(|puzzle| {
+            search_request::Request::Get(proto::SearchGet {
+                keys: keys.clone(),
+                puzzle,
+            })
+        })
+        .await
+    }
+
+    /// Publishes a signed profile to the search index.
+    pub async fn search_publish(&mut self, record: SignedRecord) -> Result<(), Error> {
+        search_ok(
+            self.search(search_request::Request::Publish(record))
+                .await?,
+        )
+        .map(drop)
+    }
+
+    /// Sends a signed heartbeat that keeps the owner's search profile listed.
+    pub async fn search_heartbeat(&mut self, record: SignedRecord) -> Result<(), Error> {
+        search_ok(
+            self.search(search_request::Request::Heartbeat(record))
+                .await?,
+        )
+        .map(drop)
+    }
+
+    // Sends `request` without a puzzle, and once more with a solution when the node asks.
+    async fn search_puzzled(
+        &mut self,
+        request: impl Fn(Option<proto::Puzzle>) -> search_request::Request,
+    ) -> Result<proto::SearchResponse, Error> {
+        let mut response = self.search(request(None)).await?;
+        if response.status == i32::from(Status::Puzzle) {
+            if response.puzzle_bits > MAX_PUZZLE_BITS {
+                return Err(Error::Reply("puzzle too hard"));
+            }
+            let challenge: [u8; 16] = response
+                .puzzle_challenge
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Reply("bad puzzle challenge"))?;
+            // shortcut: solves on the calling task (under a second at 20 bits); move to a
+            // blocking thread if the UI thread ever awaits this.
+            let peer = self.swarm.local_peer_id().to_base58();
+            let nonce = dyapp_p2p_net::puzzle::solve(&challenge, &peer, response.puzzle_bits);
+            let puzzle = proto::Puzzle {
+                challenge: challenge.to_vec(),
+                nonce,
+            };
+            response = self.search(request(Some(puzzle))).await?;
+        }
+        search_ok(response)
+    }
+
+    async fn search(
+        &mut self,
+        request: search_request::Request,
+    ) -> Result<proto::SearchResponse, Error> {
+        let request = proto::SearchRequest {
+            request: Some(request),
+        };
+        self.swarm
+            .behaviour_mut()
+            .search
+            .send_request(&self.peer, request);
+        self.wait(|event| match event {
+            BehaviourEvent::Search(event) => reply(event),
+            _ => None,
+        })
+        .await
+    }
+
     async fn profile(
         &mut self,
         request: profile_request::Request,
@@ -651,6 +750,15 @@ fn ok(status: i32) -> Result<(), Error> {
     }
 }
 
+fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, Error> {
+    if response.status == i32::from(Status::RateLimited) {
+        return Err(Error::RateLimited(Duration::from_secs(
+            response.retry_after,
+        )));
+    }
+    ok(response.status).map(|()| response)
+}
+
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -672,149 +780,4 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{prepare, prepare_put, prepare_tokened_put, Error, Node, PreparedEnvelope};
-    use dyapp_p2p_net::proto::{self, EnvelopeClass};
-    use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
-    use libp2p::futures::StreamExt;
-    use libp2p::identity::Keypair;
-    use libp2p::request_response::{Event as RequestEvent, Message as RequestMessage};
-    use libp2p::swarm::SwarmEvent;
-    use prost::Message as _;
-    use std::sync::{Arc, Mutex};
-
-    #[test]
-    fn a_signal_over_the_node_limit_is_refused_not_truncated() {
-        let signal = prepare(&[7; 32], vec![0; 900], EnvelopeClass::Signal, None).unwrap();
-        assert_eq!(signal.envelope().class(), EnvelopeClass::Signal);
-        assert!(matches!(
-            prepare(&[7; 32], vec![0; 1024], EnvelopeClass::Signal, None),
-            Err(Error::Input(_))
-        ));
-        prepare(&[7; 32], vec![0; 1024], EnvelopeClass::Message, None).unwrap();
-    }
-
-    #[test]
-    fn prepared_mailbox_write_reopens_with_exact_signed_bytes() {
-        let mailbox = [7; 32];
-        let prepared = prepare_put(&mailbox, vec![1, 2, 3]).unwrap();
-        let bytes = prepared.as_bytes().to_vec();
-        let reopened = PreparedEnvelope::from_bytes(bytes.clone()).unwrap();
-        assert_eq!(reopened.as_bytes(), bytes);
-        assert_eq!(reopened.mailbox(), &mailbox);
-        assert_eq!(reopened.id(), prepared.id());
-        let envelope = proto::Envelope::decode(reopened.record.payload.as_slice()).unwrap();
-        assert_eq!(envelope.ciphertext, [1, 2, 3]);
-        assert_eq!(envelope.class, EnvelopeClass::Message as i32);
-        assert_ne!(
-            prepare_put(&mailbox, vec![1, 2, 3]).unwrap().id(),
-            prepared.id()
-        );
-        assert_eq!(
-            format!("{prepared:?}"),
-            format!("PreparedEnvelope {{ bytes_len: {}, .. }}", bytes.len())
-        );
-    }
-
-    #[test]
-    fn a_tokened_write_carries_the_token_and_is_signed_by_its_key() {
-        let token_key = dyapp_identity::Identity::generate();
-        let token = dyapp_identity::Identity::generate()
-            .sign(dyapp_identity::Domain::WriteToken, vec![1])
-            .encode_to_vec();
-        let prepared = prepare_tokened_put(&[7; 32], vec![1], &token_key, &token).unwrap();
-        assert_eq!(prepared.record.public_key, token_key.public_key());
-        let envelope = proto::Envelope::decode(prepared.record.payload.as_slice()).unwrap();
-        assert_eq!(envelope.write_token.unwrap().encode_to_vec(), token);
-        assert!(proto::Envelope::decode(
-            prepare_put(&[7; 32], vec![1])
-                .unwrap()
-                .record
-                .payload
-                .as_slice()
-        )
-        .unwrap()
-        .write_token
-        .is_none());
-        assert!(matches!(
-            prepare_tokened_put(&[7; 32], vec![1], &token_key, &[0xff]),
-            Err(Error::Input(_))
-        ));
-    }
-
-    #[test]
-    fn prepared_mailbox_write_rejects_wrong_address_and_tampering() {
-        assert!(matches!(
-            prepare_put(&[0; 31], vec![1]),
-            Err(Error::Input(_))
-        ));
-        let prepared = prepare_put(&[0; 32], vec![1]).unwrap();
-        let mut bytes = prepared.as_bytes().to_vec();
-        *bytes.last_mut().unwrap() ^= 1;
-        assert!(matches!(
-            PreparedEnvelope::from_bytes(bytes),
-            Err(Error::PreparedEnvelope)
-        ));
-    }
-
-    #[tokio::test]
-    async fn node_put_and_prepared_retry_reach_the_mailbox() {
-        let mut server =
-            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
-        server
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        let address = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-                break address;
-            }
-        };
-        let received = Arc::new(Mutex::new(Vec::new()));
-        let copy = Arc::clone(&received);
-        let task = tokio::spawn(async move {
-            loop {
-                if let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
-                    message:
-                        RequestMessage::Request {
-                            request, channel, ..
-                        },
-                    ..
-                })) = server.select_next_some().await
-                {
-                    let Some(proto::mailbox_request::Request::Put(record)) = request.request else {
-                        panic!("expected mailbox put");
-                    };
-                    copy.lock().unwrap().push(record);
-                    server
-                        .behaviour_mut()
-                        .mailbox
-                        .send_response(
-                            channel,
-                            proto::MailboxResponse {
-                                status: proto::Status::Ok.into(),
-                                ..Default::default()
-                            },
-                        )
-                        .unwrap();
-                }
-            }
-        });
-        let mut node = Node::connect(address, Arc::new(Protocols::public()))
-            .await
-            .unwrap();
-        let mailbox = [7; 32];
-        let prepared = prepare_put(&mailbox, vec![1]).unwrap();
-        node.put_prepared(&prepared).await.unwrap();
-        node.put_prepared(&prepared).await.unwrap();
-        let fresh_id = node.put(&mailbox, vec![2]).await.unwrap();
-        let records = received.lock().unwrap();
-        assert_eq!(records.len(), 3);
-        assert_eq!(records[0].encode_to_vec(), prepared.as_bytes());
-        assert_eq!(records[1].encode_to_vec(), prepared.as_bytes());
-        let fresh = proto::Envelope::decode(records[2].payload.as_slice()).unwrap();
-        assert_eq!(fresh.id, fresh_id);
-        assert_eq!(fresh.mailbox, mailbox);
-        assert_eq!(fresh.ciphertext, [2]);
-        task.abort();
-    }
-}
+mod tests;

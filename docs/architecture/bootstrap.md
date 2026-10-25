@@ -534,7 +534,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `puzzle_challenge` and `puzzle_bits`, and no strike. `info` reports both too. The 16-byte
   challenge rotates every 60 s and the previous one is still accepted; a solution is used up
   when the request enters the queue, so one refused there still counts on retry. Connected
-  search nodes are never asked. Solving it on the client is planned.
+  search nodes are never asked. The client (`dyapp_client::Node::search_query` and
+  `search_get`) solves it with `dyapp_p2p_net::puzzle::solve` and resends once; it skips a node
+  asking more than `MAX_PUZZLE_BITS` (24).
 - **Results are a sample.** A reply is the node's local sample: possibly partial (a warming or
   evicted index, gossip it missed, `partial` set or not) and untrusted, since any operator can
   run a search node and omit or reorder hits. An empty reply does not mean nothing matches. The
