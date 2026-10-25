@@ -330,4 +330,4 @@ mod platform {
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-pub use platform::{load_slot, probe, save_slot, Unavailable};
+pub use platform::{load_slot, probe, save_slot};

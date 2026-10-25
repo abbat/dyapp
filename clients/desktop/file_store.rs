@@ -33,7 +33,7 @@ pub fn load(path: &Path) -> Result<Identity, String> {
     if metadata.permissions().mode() & 0o077 != 0 {
         return Err("Identity file is accessible to other users".into());
     }
-    let mut file = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .open(path)
         .map_err(|e| e.to_string())?;
