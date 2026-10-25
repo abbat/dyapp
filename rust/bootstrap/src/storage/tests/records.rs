@@ -68,7 +68,6 @@ fn eviction_takes_the_oldest_first() {
     let publish = |owner: &Identity, version| {
         let profile = Profile {
             version,
-            age: 35,
             ..Profile::default()
         };
         store.put_profile(&profile.sign(owner)).unwrap();
@@ -222,7 +221,6 @@ fn signed_profile_versions_and_tombstone() {
     let owner = Identity::generate();
     let profile = |version| Profile {
         version,
-        age: 35,
         ..Profile::default()
     };
 
@@ -282,7 +280,6 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
     for owner in &owners {
         let profile = Profile {
             version: 1,
-            age: 35,
             ..Profile::default()
         };
         store.put_profile(&profile.sign(owner)).unwrap();
@@ -308,7 +305,6 @@ fn data_survives_reopen() {
         .put_profile(
             &Profile {
                 version: 1,
-                age: 35,
                 ..Profile::default()
             }
             .sign(&owner),

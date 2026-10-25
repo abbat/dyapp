@@ -110,16 +110,8 @@ impl Profile {
         if self.deleted && *self != Self::tombstone(self.version, self.pow_nonce, self.pow_bits) {
             return Err(Error::Invalid("tombstone carries data"));
         }
-        if (1..18).contains(&self.age) {
-            return Err(Error::Invalid("age under 18"));
-        }
         if !self.valid_birth_parts() {
             return Err(Error::Invalid("invalid birth date"));
-        }
-        if self.age != 0
-            && (self.birth_year.is_some() || self.birth_month.is_some() || self.birth_day.is_some())
-        {
-            return Err(Error::Invalid("age and birth date both published"));
         }
         if !self.country.is_empty()
             && !(self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))
@@ -385,7 +377,7 @@ mod tests {
     fn sample(version: u64) -> Profile {
         Profile {
             version,
-            age: 34,
+            birth_year: Some(1992),
             country: "DE".into(),
             income_from: Some(50_000),
             income_to: Some(70_000),
@@ -404,7 +396,7 @@ mod tests {
         original.extend_from_slice(&unknown_bytes);
 
         let mut edited = Profile::decode(original.as_slice()).unwrap();
-        edited.age = 35;
+        edited.birth_month = Some(5);
         let output = edited.encode_preserving(&original).unwrap();
         assert!(output
             .windows(unknown_varint.len())
@@ -412,7 +404,10 @@ mod tests {
         assert!(output
             .windows(unknown_bytes.len())
             .any(|w| w == unknown_bytes));
-        assert_eq!(Profile::decode(output.as_slice()).unwrap().age, 35);
+        assert_eq!(
+            Profile::decode(output.as_slice()).unwrap().birth_month,
+            Some(5)
+        );
         assert_eq!(
             sample(2)
                 .encode_preserving(&sample(1).encode_to_vec())
@@ -434,10 +429,13 @@ mod tests {
         original.extend_from_slice(&nested);
 
         let mut edited = Profile::decode(original.as_slice()).unwrap();
-        edited.age = 35;
+        edited.birth_month = Some(5);
         let output = edited.encode_preserving(&original).unwrap();
         assert!(output.windows(nested.len()).any(|w| w == nested));
-        assert_eq!(Profile::decode(output.as_slice()).unwrap().age, 35);
+        assert_eq!(
+            Profile::decode(output.as_slice()).unwrap().birth_month,
+            Some(5)
+        );
 
         edited.photos = vec![Photo {
             thumbnail: vec![3; 32],
@@ -799,12 +797,6 @@ mod tests {
         assert!(verify(&place.sign(&owner)).is_err());
 
         assert!(verify(&sample(0).sign(&owner)).is_err());
-
-        let mut age = sample(1);
-        for (years, ok) in [(0, true), (1, false), (17, false), (18, true)] {
-            age.age = years;
-            assert_eq!(verify(&age.sign(&owner)).is_ok(), ok, "age {years}");
-        }
 
         let mut gender = sample(1);
         gender.gender = "woman".into();

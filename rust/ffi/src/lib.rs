@@ -308,11 +308,13 @@ impl ProfileService {
         Arc::new(Self {})
     }
 
-    /// Returns the constant placeholder ID, age zero and unverified status.
+    /// Returns the constant placeholder ID, unknown birth date and unverified status.
     pub fn get_profile(&self) -> Result<UserProfile, CoreError> {
         Ok(UserProfile {
             user_id: "placeholder".to_string(),
-            age: 0,
+            birth_year: None,
+            birth_month: None,
+            birth_day: None,
             verified: false,
         })
     }
@@ -329,8 +331,12 @@ impl ProfileService {
 pub struct UserProfile {
     /// User label; the placeholder service returns `placeholder`.
     pub user_id: String,
-    /// Age field; the placeholder service returns zero.
-    pub age: i32,
+    /// Public birth year, if shared by the owner.
+    pub birth_year: Option<u32>,
+    /// Public birth month, if shared by the owner.
+    pub birth_month: Option<u32>,
+    /// Public birth day, if shared by the owner.
+    pub birth_day: Option<u32>,
     /// Verification flag; the placeholder service returns false.
     pub verified: bool,
 }

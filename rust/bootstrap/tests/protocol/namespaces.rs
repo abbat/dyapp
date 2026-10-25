@@ -229,7 +229,6 @@ async fn named_node_serves_profile_search_and_configured_gossip_topics() {
     assert_eq!(status(client.info().await.status), Status::Ok);
     let record = Profile {
         version: 1,
-        age: 28,
         ..Default::default()
     }
     .sign(&owner);

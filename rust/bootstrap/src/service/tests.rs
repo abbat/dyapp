@@ -214,7 +214,6 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     let owner = Identity::generate();
     let profile = Profile {
         version: 1,
-        age: 28,
         ..Default::default()
     };
     let exact = padded_profile(&owner, &profile, PROFILE_SEND_BYTES);
@@ -368,7 +367,6 @@ fn publish_get_stale_and_errors() {
         .collect();
     let v2 = Profile {
         version: 2,
-        age: 30,
         ..Profile::default()
     }
     .sign(&identity);
@@ -775,7 +773,6 @@ fn heartbeat_keeps_the_profile_seen() {
     assert_eq!(send(beat(now, &identity)), Status::NotFound);
     let profile = Profile {
         version: 1,
-        age: 30,
         ..Profile::default()
     };
     assert_eq!(send(publish(profile.sign(&identity))), Status::Ok);

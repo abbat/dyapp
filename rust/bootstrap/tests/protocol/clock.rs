@@ -129,7 +129,6 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         .profile(profile_request::Request::Publish(
             Profile {
                 version: 1,
-                age: 28,
                 ..Default::default()
             }
             .sign(&owner),

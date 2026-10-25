@@ -5,14 +5,14 @@ package dyapp.profile;
 import "identity.proto";
 
 // Public profile, the payload of a `SignedRecord` signed by the owner's identity key.
-// Every field is public. Empty strings, unset optionals and an age of 0 mean "not published".
+// Every field is public. Empty strings and unset optionals mean "not published".
 message Profile {
   // Starts at 1; the highest validly signed version wins.
   uint64 version = 1;
   // Tombstone: every other field except the proof of work is empty.
   bool deleted = 2;
-  // Self-declared and unverified; 1 to 17 is rejected.
-  uint32 age = 3;
+  // Retired before the first release; never reuse this field number.
+  reserved 3;
   // ISO 3166-1 alpha-2 code; income is compared only within one country.
   string country = 4;
   // Held coordinates.

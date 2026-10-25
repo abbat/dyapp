@@ -540,11 +540,10 @@ mod tests {
                 birth_year: None,
                 birth_month: None,
                 birth_day: None,
-                age: 21,
                 ..leap.clone()
             },
         ] {
-            // A broad partial date, no year, or a stale integer age cannot prove age 21.
+            // A broad partial date or no year cannot prove age 21.
             assert!(check(&after, 0, &[vec![profile.sign(&owner)]]).is_empty());
         }
         assert!(!passes(

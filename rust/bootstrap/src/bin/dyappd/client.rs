@@ -199,7 +199,6 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
 fn sign_profile(identity: &Identity, version: u64) -> Value {
     let record = Profile {
         version,
-        age: 26,
         ..Profile::default()
     }
     .sign(identity);

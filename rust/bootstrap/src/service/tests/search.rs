@@ -231,7 +231,6 @@ fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network(
     let owner = Identity::generate();
     let profile = Profile {
         version: 1,
-        age: 28,
         ..Default::default()
     };
     let record = padded_profile(&owner, &profile, 8192);
@@ -554,7 +553,6 @@ fn search_peers_sync_on_their_own_budget() {
         &id,
         Profile {
             version: 2,
-            age: 40,
             ..Profile::default()
         },
         2,

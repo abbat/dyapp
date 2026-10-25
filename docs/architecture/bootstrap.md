@@ -525,9 +525,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   matches when the profile's earliest possible birth date is above the lower
   bound and its latest possible date is at most the upper bound. A profile
   without a birth year has no indexed bounds and cannot match. Search nodes
-  advertise field 1001. The temporary profile integer age at tag 3 is no
-  longer indexed or usable as a search condition; it will be removed. The
-  client helper builds field 1001 from an explicit UTC civil date and rechecks
+  advertise field 1001. Profile tag 3 is reserved; the retired integer age
+  is neither published nor searchable. The client helper builds field 1001 from an explicit UTC civil date and rechecks
   each verified profile against its birth bounds.
   Multi-node search marks the result partial if any node skips field 1001 or
   fails, or if a query or fetch reply leaves results out.
@@ -870,10 +869,10 @@ pub struct SignedRecord {          // protobuf, sent and stored as is
 ```
 
 The peer ID is the hex SHA-256 of `public_key`; the server derives it, the client
-never sends it. `Profile` holds `version`, `deleted` and the public fields (temporary
-integer age, country, place (city or district, no coordinates), income range, kids,
-goals, interests, profession, company, industry, career stage and work-life balance,
-and independently optional birth year, month and day); every field is optional
+never sends it. `Profile` holds `version`, `deleted` and the public fields (country,
+place (city or district, no coordinates), income range, kids, goals, interests,
+profession, company, industry, career stage, work-life balance, and independently
+optional birth year, month and day); every field is optional
 and public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
@@ -884,8 +883,7 @@ and public by design
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
   `education_level` at most 6, each supplied birth component in range and together
-  describing a possible Gregorian date, and no birth component combined with the
-  temporary integer `age`; place at most 1024 characters,
+  describing a possible Gregorian date; place at most 1024 characters,
   other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
@@ -1111,9 +1109,9 @@ then trusts it as the owner's own claim, not as fact:
 
 - **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete
   (tombstone) a profile. A replayed old version is rejected.
-- **Age.** Birth-date parts and the temporary integer age are self-declared. The
-  node rejects integer values 1–17 but cannot prove adulthood from a date. Client
-  18+ self-attestation and the conservative year-based gate are planned; 30+ is
+- **Age.** Birth-date parts are self-declared. The node validates their calendar
+  ranges but cannot prove adulthood. Client 18+ self-attestation and the
+  conservative year-based gate are planned; 30+ is
   only the target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)).
 
 ### Client commands

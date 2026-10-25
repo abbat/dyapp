@@ -182,16 +182,8 @@ import DYAppCore
 let message = initializeApp()
 print(message)
 
-// Create user profile
-let profile = UserProfile(
-    userId: "user-123",
-    name: "Alice",
-    bio: "Software engineer",
-    age: 28
-)
-
-// Search profiles
-let results = searchProfiles(minAge: 25, maxAge: 35)
+// Read the current placeholder profile; all birth-date parts are absent.
+let profile = try ProfileService().getProfile()
 
 // Send message
 let msg = ChatMessage(
@@ -219,16 +211,8 @@ import com.dyapp.core.*
 val message = initializeApp()
 Log.d("D", message)
 
-// Create user profile
-val profile = UserProfile(
-    userId = "user-123",
-    name = "Alice",
-    bio = "Software engineer",
-    age = 28
-)
-
-// Search profiles
-val results = searchProfiles(minAge = 25, maxAge = 35)
+// Read the current placeholder profile; all birth-date parts are absent.
+val profile = ProfileService().getProfile()
 
 // Send message
 val msg = ChatMessage(

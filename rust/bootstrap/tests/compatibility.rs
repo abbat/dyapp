@@ -1,9 +1,8 @@
 //! Fixed v1 contracts; generated round-trips alone cannot detect format changes.
 use dyapp_bootstrap::NodeConfig;
-use dyapp_identity::{Domain, Identity, SignedRecord};
+use dyapp_identity::{Domain, SignedRecord};
 use dyapp_messaging::{Message, MessageStatus};
 use dyapp_p2p_net::proto;
-use dyapp_profile::Profile;
 use prost::Message as _;
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -87,7 +86,7 @@ fn server_clock_hints_keep_fixed_tags_and_legacy_decoding() {
 }
 
 #[test]
-fn signed_profile_v1_bytes_remain_compatible() {
+fn retired_age_tag_is_ignored() {
     let hex = include_str!("fixtures/signed-profile-v1.hex").trim();
     assert_eq!(hex.len() % 2, 0);
     let bytes: Vec<u8> = hex
@@ -100,16 +99,12 @@ fn signed_profile_v1_bytes_remain_compatible() {
     let record = SignedRecord::decode(bytes.as_slice()).unwrap();
     let verified = dyapp_profile::verify(&record).unwrap();
     assert_eq!(verified.profile.version, 1);
-    assert_eq!(verified.profile.age, 26);
+    assert_eq!(verified.profile.birth_year, None);
+    assert_eq!(verified.profile.birth_month, None);
+    assert_eq!(verified.profile.birth_day, None);
     assert!(record.verify(Domain::MediaKeep).is_err());
-    let current = Profile {
-        version: 1,
-        age: 26,
-        ..Default::default()
-    }
-    .sign(&Identity::from_secret(&[0; 32]));
-    assert_eq!(current, record);
-    assert_eq!(current.encode_to_vec(), bytes);
+    // Re-encoding drops retired tag 3; its former value cannot become a birth date.
+    assert_ne!(verified.profile.encode_to_vec(), record.payload);
 }
 
 #[test]

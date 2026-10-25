@@ -64,9 +64,9 @@ or returns constants.
 | | method | `cancel()` | `cancel-check`: the running `run` fails with `Cancelled`; the files stay as they were. |
 | | method | `activate() -> Result<NetworkSettings, CheckError>` | `activate-connection`: saves the last draft that reached a node as `Active`; `NotChecked` before that. |
 | `ProfileService` | Object | `new()` | Stub. |
-| | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
+| | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `placeholder`, no birth-date parts, and `verified = false`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
-| `UserProfile` | Record | `user_id: String`, `age: i32`, `verified: bool` | Copied by value. |
+| `UserProfile` | Record | `user_id: String`, optional `birth_year`, `birth_month`, `birth_day` (`u32`), `verified: bool` | Copied by value. |
 
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.

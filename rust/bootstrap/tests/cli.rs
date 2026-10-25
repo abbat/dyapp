@@ -72,7 +72,6 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
         .put_profile(
             &dyapp_profile::Profile {
                 version: 1,
-                age: 35,
                 ..Default::default()
             }
             .sign(&owner),

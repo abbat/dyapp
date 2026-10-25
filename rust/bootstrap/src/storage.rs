@@ -560,7 +560,6 @@ mod tests {
         let owner = Identity::generate();
         let profile = Profile {
             version: 1,
-            age: 35,
             ..Profile::default()
         };
         store.put_profile(&profile.sign(&owner)).unwrap();

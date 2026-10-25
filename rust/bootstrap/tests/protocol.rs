@@ -737,7 +737,6 @@ async fn every_request_type() {
     assert_eq!(status(refused.status), Status::Invalid);
     let record = Profile {
         version: 1,
-        age: 31,
         ..Profile::default()
     }
     .sign(&identity);

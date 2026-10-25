@@ -189,12 +189,6 @@ mod tests {
                 Err(Error::Invalid("invalid birth date"))
             );
         }
-        let mut both = profile(None, Some(2), Some(29));
-        both.age = 26;
-        assert_eq!(
-            verify(&both.sign(&owner)),
-            Err(Error::Invalid("age and birth date both published"))
-        );
         let mut tombstone = profile(Some(2000), None, None);
         tombstone.deleted = true;
         assert_eq!(
