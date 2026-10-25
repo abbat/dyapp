@@ -1177,15 +1177,18 @@ dependencies = [
 name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
+ "argon2",
  "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
  "dyapp-profile",
  "dyapp-video",
+ "getrandom 0.4.3",
  "image",
  "jpeg-decoder",
  "prost",
+ "subtle",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

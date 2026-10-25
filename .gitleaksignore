@@ -4,3 +4,5 @@
 # The crate name "libcrux-secrets" in a dependency list.
 a2c931fa6340d96af1b16ef97915c20d9041b30a:Cargo.lock:generic-api-key:2652
 64f65d011e8b6602194c28f732639f9b8deaa7e0:tests/fuzz/Cargo.lock:generic-api-key:2440
+ac6b8e85ce336df3d35050fdae7a1883fff481d3:clients/linux/Cargo.lock:generic-api-key:3350
+ac6b8e85ce336df3d35050fdae7a1883fff481d3:clients/windows/Cargo.lock:generic-api-key:3252
