@@ -77,6 +77,14 @@ COVERED = {
     # Only a test's throwaway table; the store format stays ADR 0015's.
     "282bf8c2e13a4f8a5e5da7cf1fd7b317f051d53e":
         "docs/decisions/0015-sqlite-node-storage.md",
+    # A nullable search index column at a new index version; the format stays ADR 0015's.
+    "2184b62b515703e08f931a4e2b6759271690a25f":
+        "docs/decisions/0015-sqlite-node-storage.md",
+    # Proto comments only: a new search condition field and the TURN username contents.
+    "e26f8d11b981e86e57b97fe3315a6083646527f8":
+        "docs/decisions/0016-protocol-evolution.md",
+    "94365d7035a3af82594be109d70236d10ab96e5c":
+        "docs/decisions/0016-protocol-evolution.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
