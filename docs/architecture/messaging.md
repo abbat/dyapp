@@ -67,7 +67,8 @@ events of one identity. `Session::interact` creates an own like, unlike or view 
 owner of a group and sends it through the outbox, so a failed put retries the same event;
 `Session::receive` applies a received one to the ledger before acking it, refuses one from the
 future and skips one from another own device until device sync exists. `Session::likes` reads the
-match state. A protocol test covers a match, a replayed put, an offline unlike and the signal class.
+match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the
+signal class.
 No app shows a like yet.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-5 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown

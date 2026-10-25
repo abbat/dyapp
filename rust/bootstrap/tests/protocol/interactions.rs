@@ -52,6 +52,7 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let group_id = group.id().to_vec();
     let mut store = Store::open(&store_path("likes-alice"), &alice.identity).unwrap();
+    store.set_send_profile_views(true).unwrap();
     let sealed = alice.device.seal(&SEAL).unwrap();
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
@@ -143,4 +144,29 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
         [Event::Interaction { event, .. }] if event.kind == Kind::Unlike
     ));
     assert!(!alice_session.likes(&bob_owner).unwrap().matched());
+
+    // Alice sends one view a day; Bob receives it without sending views himself.
+    let view = alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::View, &SEAL)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::View, &SEAL)
+        .await
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        receive(&mut bob_session, &mut bob, &profiles).await,
+        [liked(
+            &alice_owner,
+            alice.device.device_key().unwrap(),
+            view
+        )]
+    );
+    assert!(bob_session
+        .interact(&mut [], &group_id, Kind::View, &SEAL)
+        .await
+        .unwrap()
+        .is_none());
 }

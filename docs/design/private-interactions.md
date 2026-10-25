@@ -90,7 +90,7 @@ an unnecessary preference signal.
 
 The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
 and `Session::receive` connect the codec, the store and short-padded signal delivery; a protocol
-test covers a match, an unlike, a replayed put and an offline retry end to end. Concurrent own devices (fixture 5) wait for device sync, and
+test covers a match, an unlike, a replayed put, an offline retry and the daily view end to end. Concurrent own devices (fixture 5) wait for device sync, and
 no app shows a like yet.
 
 `rust/client::store::Store::apply_interaction` (schema version 4) covers the local state part of
