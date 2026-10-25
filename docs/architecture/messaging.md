@@ -8,8 +8,10 @@ bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 Message edits and deletion follow a [staged design](../design/message-edits-and-deletion.md).
 The chat codec carries a logical text ID and parses edit/delete operations. `Session::stage_text`
 returns a new ID with its exact queued writes before network delivery; `send_message` is the
-convenience path that immediately attempts those writes. A separate local projection persists
-initial text by that ID and applies edits/deletes, including operations that arrive before the original within a 64-operation pending limit. `Session` now commits received
+convenience path that immediately attempts those writes. `stage_edit` and `stage_delete` use
+the same path for an own, present text; `send_edit` and `send_delete` attempt delivery after
+staging. A separate local projection persists initial text by that ID and applies edits/deletes,
+including operations that arrive before the original within a 64-operation pending limit. `Session` now commits received
 text, edits and deletes with sealed MLS, inbox dedupe and ACK intent in one transaction. UI remains
 planned. The recipient device alone can sign its mailbox `Ack`, so deletion cannot be
 presented as guaranteed remote erasure.

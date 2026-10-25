@@ -124,9 +124,11 @@ For **send**, `Session::stage_text` creates a caller-visible logical ID, calls `
 advance MLS state in memory, prepares one signed envelope for each device delivery, seals the
 changed `Device`, and calls `stage_chat_outbound` with the own text projection and *all* prepared
 envelopes before any network put. `Session::send_message` stages this first, then attempts
-`Node::put_prepared`; `retry_due` sends queued writes after a failed put. The app has not wired this
-adapter yet. If sealing or staging fails, send nothing and mark the in-memory
-session unusable. Reopen the last committed snapshot (or require a restart) before any further MLS
+`Node::put_prepared`; `retry_due` sends queued writes after a failed put. `stage_edit` and
+`stage_delete` similarly draft an operation ID/HLC and commit the new current projection with MLS
+and exact outbox writes; the send wrappers then attempt delivery. `Session::chat_message` reads the
+current state. The app has not wired this adapter yet. If sealing or staging fails, send nothing
+and mark the in-memory session unusable. Reopen the last committed snapshot (or require a restart) before any further MLS
 operation; retrying encryption on the advanced in-memory group could reuse state or diverge from
 disk. A node's successful put (`Store::accepted`) only schedules the next delivery check, 1 h
 later and doubling up to a day; it does not remove the outbox entry. `Store::receipted` removes it

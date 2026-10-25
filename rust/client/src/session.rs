@@ -4,7 +4,7 @@ use crate::attachment::Attachment;
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
-use crate::store::messages::VerifiedChatSender;
+use crate::store::messages::{CurrentMessage, MessageKey, VerifiedChatSender};
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
@@ -39,6 +39,9 @@ pub enum Error {
     /// The requested conversation is absent from the catalog.
     #[error("unknown MLS conversation")]
     UnknownGroup,
+    /// An edit or delete target is absent or already deleted from this sender's current chat.
+    #[error("message is absent or already deleted")]
+    UnknownMessage,
     /// The sealed MLS state could not be opened.
     #[error(transparent)]
     Mls(#[from] dyapp_messaging::mls::Error),
@@ -79,6 +82,11 @@ impl Session {
     /// The scores of the nodes this session used.
     pub fn scores(&self) -> &Scores {
         &self.scores
+    }
+
+    /// Read one current logical message, including its edited or deleted state.
+    pub fn chat_message(&self, key: &MessageKey) -> Result<Option<CurrentMessage>, Error> {
+        Ok(self.store.chat_message(key)?)
     }
 
     /// The latest like state in both directions with `peer_id`.
@@ -232,6 +240,91 @@ impl Session {
     ) -> Result<(), Error> {
         let (_, writes) = self.stage_text(group_id, text, seal_key)?;
         self.send_staged(nodes, writes, seal_key).await
+    }
+
+    /// Stage an edit of this profile's current text and return its operation ID and exact writes.
+    pub fn stage_edit(
+        &mut self,
+        group_id: &[u8],
+        target: [u8; 16],
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
+        self.stage_chat_operation(group_id, target, Some(text), seal_key)
+    }
+
+    /// Stage a terminal deletion of this profile's current text and return its operation ID.
+    pub fn stage_delete(
+        &mut self,
+        group_id: &[u8],
+        target: [u8; 16],
+        seal_key: &[u8; 32],
+    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
+        self.stage_chat_operation(group_id, target, None, seal_key)
+    }
+
+    fn stage_chat_operation(
+        &mut self,
+        group_id: &[u8],
+        target: [u8; 16],
+        replacement: Option<&[u8]>,
+        seal_key: &[u8; 32],
+    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
+        let key = MessageKey {
+            group: group_id.to_vec(),
+            author: self.store.owner_peer_id().to_owned(),
+            id: target,
+        };
+        let current = self
+            .store
+            .chat_message(&key)?
+            .ok_or(Error::UnknownMessage)?;
+        if current.deleted {
+            return Err(Error::UnknownMessage);
+        }
+        let (operation, hlc) = self.store.draft_chat_operation(crate::now() * 1000)?;
+        let body = match replacement {
+            Some(text) => Body::Edit {
+                target,
+                operation,
+                hlc,
+                text: text.to_vec(),
+            },
+            None => Body::Delete {
+                target,
+                operation,
+                hlc,
+            },
+        };
+        let writes = self.stage_message(group_id, &body, seal_key)?;
+        Ok((operation, writes))
+    }
+
+    /// Send an edit after staging its exact encrypted writes and local current text.
+    pub async fn send_edit(
+        &mut self,
+        nodes: &mut [Node],
+        group_id: &[u8],
+        target: [u8; 16],
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<[u8; 16], Error> {
+        let (operation, writes) = self.stage_edit(group_id, target, text, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await?;
+        Ok(operation)
+    }
+
+    /// Send a terminal delete after staging its exact encrypted writes and local placeholder.
+    pub async fn send_delete(
+        &mut self,
+        nodes: &mut [Node],
+        group_id: &[u8],
+        target: [u8; 16],
+        seal_key: &[u8; 32],
+    ) -> Result<[u8; 16], Error> {
+        let (operation, writes) = self.stage_delete(group_id, target, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await?;
+        Ok(operation)
     }
 
     /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the

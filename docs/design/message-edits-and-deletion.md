@@ -52,10 +52,11 @@ for received text, edits and deletes. Physical remnants in SQLite WAL, backups o
 cannot be reliably erased.
 The UI must not promise that.
 
-The Store can atomically stage own text/edit/delete state, sealed MLS state and exact outbound
-envelopes. Session uses it for own text before the first network put; edit/delete send APIs are
-planned. Incoming operations and pending mailbox ACKs must be committed before acknowledging
-receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
+The Store atomically stages own text/edit/delete state, sealed MLS state and exact outbound
+envelopes. Session uses it before the first network put. `stage_edit` and `stage_delete` return the
+operation ID and exact writes while offline; `send_edit` and `send_delete` attempt delivery after
+staging. Only a present own text in the same group can be targeted; deletion is terminal. Incoming
+operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
 locally before delivery is pending on the peer until its receipt.
 
 ## Best-effort node removal

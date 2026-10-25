@@ -77,24 +77,51 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
         .iter()
         .any(|write| write.as_bytes() == offline_writes[0].as_bytes()));
     drop(session);
-    let session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
+    let mut session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
     assert_eq!(
-        session
-            .store
-            .chat_message(&own)
-            .unwrap()
-            .unwrap()
-            .text
-            .as_deref(),
+        session.chat_message(&own).unwrap().unwrap().text.as_deref(),
         Some(&b"offline"[..])
     );
+    let before_invalid = session.store.sealed_device().unwrap();
+    assert!(matches!(
+        session.stage_edit(&[9], offline_id, b"wrong group", &seal_key),
+        Err(Error::UnknownMessage)
+    ));
+    assert!(matches!(
+        session.stage_delete(&group_id, [9; 16], &seal_key),
+        Err(Error::UnknownMessage)
+    ));
+    assert_eq!(session.store.sealed_device().unwrap(), before_invalid);
+    let (edit_id, edit_writes) = session
+        .stage_edit(&group_id, offline_id, b"revised", &seal_key)
+        .unwrap();
+    assert_ne!(edit_id, [0; 16]);
+    assert_eq!(
+        session.chat_message(&own).unwrap().unwrap().text.as_deref(),
+        Some(&b"revised"[..])
+    );
+    let (delete_id, delete_writes) = session
+        .stage_delete(&group_id, offline_id, &seal_key)
+        .unwrap();
+    assert_ne!(delete_id, edit_id);
+    assert!(matches!(
+        session.stage_edit(&group_id, offline_id, b"restore", &seal_key),
+        Err(Error::UnknownMessage)
+    ));
+    let current = session.chat_message(&own).unwrap().unwrap();
+    assert!(current.edited && current.deleted && current.text.is_none());
+    drop(session);
+    let session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
+    assert!(session.chat_message(&own).unwrap().unwrap().deleted);
     let due = session.due_outbound(0).unwrap();
-    assert!(due
-        .iter()
-        .any(|write| write.as_bytes() == writes[0].as_bytes()));
-    assert!(due
-        .iter()
-        .any(|write| write.as_bytes() == offline_writes[0].as_bytes()));
+    for exact in [
+        &writes[0],
+        &offline_writes[0],
+        &edit_writes[0],
+        &delete_writes[0],
+    ] {
+        assert!(due.iter().any(|write| write.as_bytes() == exact.as_bytes()));
+    }
 }
 
 fn temp_path() -> std::path::PathBuf {
