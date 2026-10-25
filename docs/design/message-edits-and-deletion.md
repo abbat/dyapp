@@ -2,10 +2,10 @@
 
 This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
 No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and parses tags 8 and
-9; the client Store has a separate current-text projection keyed by logical message ID but still
-stores received inbox payloads by mailbox envelope ID and does not apply operations. The
-recipient device alone can sign a mailbox `Ack`. Operation application and UI work below remain
-planned.
+9; the client Store has a separate current-text projection keyed by logical message ID and can
+apply edits/deletes to known originals. It still stores received inbox payloads by mailbox
+envelope ID. Early-operation handling, Session wiring and UI remain planned. The recipient device
+alone can sign a mailbox `Ack`.
 
 ## Identity and wire
 
@@ -30,11 +30,11 @@ Only the author of the original text, in the same group, may edit or delete it. 
 received before its original text waits under its claimed `(group, author, target ID)`; when the
 text arrives, an author mismatch discards the pending operation. Distinct operations order by
 `(HLC, sender device key, operation ID)`, as private interactions do. The existing 60-second
-future-clock guard applies before state changes. An identical operation ID and body is a no-op;
-the same ID with different bytes is invalid. A later edit replaces the current text and sets an
-`edited` flag. Delete is terminal: it removes current text, leaves a placeholder, and neither an
-older text delivery nor a later edit restores it. Two devices converge after receiving the same
-operations, subject to the existing device-sync work.
+future-clock guard applies before state changes. An identical operation ID, body and sender
+device is a no-op; the same ID with different bytes or device is invalid. A later edit replaces
+the current text and sets an `edited` flag. Delete is terminal: it removes current text and leaves
+a placeholder. Older text and later edits cannot restore it. Two devices converge after receiving
+the same operations, subject to the existing device-sync work.
 
 The local store retains one current text or deletion placeholder, the ordering tuple, and a
 digest of each applied operation for replay conflict checks. It does not retain prior revisions

@@ -7,9 +7,9 @@ bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 
 Message edits and deletion follow a [staged design](../design/message-edits-and-deletion.md).
 The chat codec carries a logical text ID and parses edit/delete operations. A separate local
-projection can persist initial text by that ID; applying operations with MLS and showing them in
-the UI remain planned. The recipient device alone can sign its mailbox `Ack`, so
-deletion cannot be presented as guaranteed remote erasure.
+projection persists initial text by that ID and applies edits/deletes when the original is known.
+Early operations, atomic MLS/inbox integration and UI remain planned. The recipient device alone
+can sign its mailbox `Ack`, so deletion cannot be presented as guaranteed remote erasure.
 
 Message model and hybrid logical clock in `rust/messaging`. The only delivery path is the MLS
 `Session` with its SQLite outbox in `rust/client`; the earlier in-memory plaintext queue was

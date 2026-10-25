@@ -4,6 +4,8 @@ use super::{Error, Store};
 use crate::chat::MAX_TEXT_BYTES;
 use rusqlite::{params, OptionalExtension};
 
+mod operations;
+
 // This table is part of the fresh pre-release schema; no migration/version bump is needed.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
@@ -13,8 +15,22 @@ CREATE TABLE `chat_messages` (
     `text` BLOB,
     `edited` INTEGER NOT NULL CHECK (`edited` IN (0, 1)),
     `deleted` INTEGER NOT NULL CHECK (`deleted` IN (0, 1)),
+    `last_hlc` INTEGER,
+    `last_device` BLOB,
+    `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
+    CHECK ((`last_hlc` IS NULL AND `last_device` IS NULL AND `last_operation` IS NULL)
+        OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),
     CHECK ((`deleted` = 0 AND `text` IS NOT NULL) OR (`deleted` = 1 AND `text` IS NULL)),
     PRIMARY KEY (`group_id`, `author`, `message_id`)
+) STRICT;
+CREATE TABLE `chat_operations` (
+    `group_id` BLOB NOT NULL,
+    `author` TEXT NOT NULL,
+    `operation_id` BLOB NOT NULL CHECK (length(`operation_id`) = 16),
+    `target_id` BLOB NOT NULL CHECK (length(`target_id`) = 16),
+    `device` BLOB NOT NULL CHECK (length(`device`) = 32),
+    `digest` BLOB NOT NULL CHECK (length(`digest`) = 32),
+    PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
 ";
 
