@@ -9,3 +9,26 @@ reason = "glib 0.18 VariantStrIter in the Tauri apps: gtk 0.18 pins it and no fi
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"
 reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of the gtk-rs crates under Tauri"
+
+# The seed check links dyapp-client, so the workspace exceptions in ../../osv-scanner.toml apply here
+# for the same reasons.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0173"
+reason = "proc-macro-error2 is unmaintained, no fix: a compile-time proc macro via openmls -> hpke-rs -> libcrux -> hax-lib (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0330"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0331"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0387"
+reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"

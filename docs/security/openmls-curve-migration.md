@@ -30,8 +30,9 @@ The application permits only MLS suite `0x0001` (X25519/Ed25519), whereas the
 vulnerable crate is retained by P-curve dependencies. That limits the intended
 runtime path; it does **not** prove that vulnerable operations are unreachable.
 The exception names only `RUSTSEC-2026-0387` in `deny.toml`, `.cargo/audit.toml`,
-and the OSV configurations beside the root and fuzz Cargo locks. Other advisories,
-thresholds and duplicate-version checks remain in force. Remove all four entries
+and the OSV configurations beside the root, fuzz, Linux and Windows client Cargo locks
+(the desktop clients link `dyapp-client`). Other advisories, thresholds and
+duplicate-version checks remain in force. Remove all six entries
 when a compatible replacement passes the migration gates below; if still blocked
 at the review date, record the upstream reason and set a new date.
 
@@ -57,8 +58,9 @@ unchanged MLS wire ciphersuite alone.
 Implementation checkpoints:
 
 1. In an isolated change, resolve the candidate provider and signer dependencies for the
-   root and fuzz workspaces. Inspect `cargo tree -i crypto-bigint@0.5.5` and both locks;
-   reject a candidate that retains the vulnerable crate or introduces another failing audit.
+   root, fuzz and desktop client workspaces. Inspect `cargo tree -i crypto-bigint@0.5.5`
+   and every lock; reject a candidate that retains the vulnerable crate or introduces another
+   failing audit.
 2. Use the checked-in OpenMLS 0.9.1/RustCrypto 0.6.0 sealed-state fixture and add
    cross-provider tests for key, group, KeyPackage, message, commit and Welcome continuity.
 3. Propose the dependency/provider decision in an ADR for human confirmation, as required
