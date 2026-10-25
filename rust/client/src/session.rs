@@ -496,11 +496,13 @@ impl Session {
         let acks = self.acks(mailbox, seen)?;
         if !acks.is_empty() {
             let node = nodes.iter_mut().find(|node| node.peer() == at);
-            node.expect("fetched from one of nodes")
-                .ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
-                .await?;
-            for key in &acks {
-                self.store.mark_acked(key)?;
+            // Always found: `at` is the one of `nodes` that answered the fetch.
+            if let Some(node) = node {
+                node.ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
+                    .await?;
+                for key in &acks {
+                    self.store.mark_acked(key)?;
+                }
             }
         }
         // shortcut: a duplicate is not receipted again, its group is unknown here, so a lost
