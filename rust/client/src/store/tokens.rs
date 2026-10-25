@@ -154,29 +154,25 @@ impl Store {
         refused: &PreparedEnvelope,
         next: &PreparedEnvelope,
     ) -> Result<(), Error> {
-        let tx = self.db.transaction()?;
-        let deleted = tx.execute(
-            "DELETE FROM `outbox`
+        if refused.mailbox() != next.mailbox() {
+            return Err(Error::OutboxConflict);
+        }
+        // An in-place update keeps whether the row waits for a receipt.
+        let updated = self.db.execute(
+            "UPDATE `outbox` SET `envelope_id` = ?4, `signed_envelope` = ?5, `retry_at_ms` = 0,
+             `attempts` = 0
              WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `signed_envelope` = ?3",
             params![
                 refused.mailbox().as_slice(),
                 refused.id().as_slice(),
-                refused.as_bytes()
-            ],
-        )?;
-        if deleted != 1 || refused.mailbox() != next.mailbox() {
-            return Err(Error::OutboxConflict);
-        }
-        tx.execute(
-            "INSERT INTO `outbox` (`mailbox`, `envelope_id`, `signed_envelope`, `retry_at_ms`,
-             `attempts`) VALUES (?1, ?2, ?3, 0, 0)",
-            params![
-                next.mailbox().as_slice(),
+                refused.as_bytes(),
                 next.id().as_slice(),
                 next.as_bytes()
             ],
         )?;
-        tx.commit()?;
+        if updated != 1 {
+            return Err(Error::OutboxConflict);
+        }
         Ok(())
     }
 
@@ -252,7 +248,9 @@ mod tests {
         drop(store);
         let db = Connection::open(&path).unwrap();
         db.execute_batch(
-            "DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`; PRAGMA user_version = 4;",
+            "DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
+             ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
+             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`; PRAGMA user_version = 4;",
         )
         .unwrap();
         drop(db);

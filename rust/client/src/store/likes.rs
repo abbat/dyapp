@@ -380,7 +380,9 @@ mod tests {
         let db = Connection::open(&path).unwrap();
         db.execute_batch(
             "DROP TABLE `interaction_ledger`; DROP TABLE `like_state`; DROP TABLE `view_days`;
-             DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`; PRAGMA user_version = 2;",
+             DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
+             ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
+             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`; PRAGMA user_version = 2;",
         )
         .unwrap();
         drop(db);

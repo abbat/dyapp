@@ -13,7 +13,7 @@ mod outbox;
 mod tokens;
 pub use likes::Likes;
 
-const VERSION: i64 = 5;
+const VERSION: i64 = 6;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -161,7 +161,10 @@ impl Store {
             if version < 4 {
                 tx.execute_batch(SCHEMA_V4)?;
             }
-            tx.execute_batch(SCHEMA_V5)?;
+            if version < 5 {
+                tx.execute_batch(SCHEMA_V5)?;
+            }
+            tx.execute_batch(outbox::SCHEMA_V6)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -235,7 +238,7 @@ impl Store {
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
     ) -> Result<(), Error> {
-        self.stage_outbound_inner(None, sealed_device, writes)
+        self.stage_outbound_inner(None, sealed_device, writes, true)
     }
 
     /// Register a new conversation in the same commit as its MLS state and Welcome writes.
@@ -252,7 +255,12 @@ impl Store {
         {
             return Err(Error::GroupConflict);
         }
-        self.stage_outbound_inner(Some((group.id(), &peer.peer_id)), sealed_device, writes)
+        self.stage_outbound_inner(
+            Some((group.id(), &peer.peer_id)),
+            sealed_device,
+            writes,
+            true,
+        )
     }
 
     /// IDs needed to reopen every conversation from the saved Device snapshot.
@@ -283,6 +291,7 @@ impl Store {
         group: Option<(&[u8], &str)>,
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
+        awaits_receipt: bool,
     ) -> Result<(), Error> {
         if sealed_device.is_empty() {
             return Err(Error::EmptyMlsState);
@@ -300,12 +309,13 @@ impl Store {
         for write in writes {
             let inserted = tx.execute(
                 "INSERT INTO `outbox` (`mailbox`, `envelope_id`, `signed_envelope`,
-                 `retry_at_ms`, `attempts`) VALUES (?1, ?2, ?3, 0, 0)
+                 `retry_at_ms`, `attempts`, `awaits_receipt`) VALUES (?1, ?2, ?3, 0, 0, ?4)
                  ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
                 params![
                     write.mailbox().as_slice(),
                     write.id().as_slice(),
-                    write.as_bytes()
+                    write.as_bytes(),
+                    awaits_receipt
                 ],
             )?;
             if inserted == 0 {
@@ -618,11 +628,11 @@ pub(crate) mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 6").unwrap();
+        db.execute_batch("PRAGMA user_version = 7").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(6))
+            Err(Error::FutureVersion(7))
         ));
 
         let unknown = temp_db_path();
