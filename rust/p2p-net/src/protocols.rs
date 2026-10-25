@@ -64,15 +64,7 @@ impl Protocols {
         if name.is_empty() {
             return Ok(Self::public());
         }
-        if let Some(c) = name.chars().find(|c| !(' '..='~').contains(c)) {
-            anyhow::bail!("network name: {c:?} is not printable ASCII");
-        }
-        if name.len() > 64 {
-            anyhow::bail!("network name: {} bytes, at most 64", name.len());
-        }
-        if name.starts_with(' ') || name.ends_with(' ') {
-            anyhow::bail!("network name: leading or trailing space");
-        }
+        dyapp_identity::network::check_name(name).map_err(anyhow::Error::msg)?;
         let hash = dyapp_identity::sha256(&[b"dyapp/network/", name.as_bytes()].concat());
         let namespace: String = hash[..8].iter().map(|b| format!("{b:02x}")).collect();
         let prefix = format!("/dyapp/net-{namespace}");

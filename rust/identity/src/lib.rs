@@ -8,6 +8,7 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+pub mod network;
 pub mod safety;
 
 /// Why a signed record or key was rejected.

@@ -10,6 +10,17 @@ use dyapp_identity::Identity;
 /// The virtual slot of the root `identity.key` / `identity-storage` installation.
 pub const LEGACY: &str = "legacy-primary";
 
+/// What may remain in a slot folder once its key is gone: markers and network settings.
+const REMOVABLE: [&str; 7] = [
+    "storage-mode",
+    "state",
+    "state.tmp",
+    "network",
+    "network.tmp",
+    "network-draft",
+    "network-draft.tmp",
+];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum State {
     Pending,
@@ -380,7 +391,7 @@ pub fn remove(
     }
     for entry in fs::read_dir(&slot.dir).map_err(|e| e.to_string())? {
         let name = entry.map_err(|e| e.to_string())?.file_name();
-        if !matches!(name.to_str(), Some("storage-mode" | "state" | "state.tmp")) {
+        if !name.to_str().is_some_and(|name| REMOVABLE.contains(&name)) {
             return Err("The identity folder holds other files".into());
         }
     }
@@ -559,6 +570,8 @@ mod tests {
         assert!(remove(&root, &second.id, Some(&bob), &load, &erase).is_err());
         assert_eq!(state(&second.id), Some(State::Deleting));
         working.set(true);
+        // Network settings go with the slot.
+        fs::write(second.dir.join("network-draft"), "dyapp-network 1\nname \n").unwrap();
         remove(&root, &second.id, Some(&bob), &load, &erase).unwrap();
         assert_eq!(state(&second.id), None);
         assert_eq!(active(&root), None);

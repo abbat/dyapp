@@ -73,13 +73,15 @@ lost (not for a missing key or one another slot also holds). Remove stays disabl
 confirmation box is ticked. The `remove_identity` command then removes the slot as described
 below and returns to the picker, or to the storage choice when none is left. It refuses the
 legacy slot, which needs the migration below, and a damaged slot, whose files it cannot
-interpret. It also refuses a slot folder that holds files other than its markers.
+interpret. It also refuses a slot folder that holds files other than its markers and network
+settings.
 
 | Item | Planned location / name |
 |---|---|
 | Local slot | Random UUID, never derived from the public Peer ID or a user label. |
 | Lifecycle | `<app-config>/profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | File-backed key | `<app-config>/profiles/<slot>/identity.key`, with `storage-mode` = `file` in that directory. |
+| Network settings | `<app-config>/profiles/<slot>/network-draft` and `network`, written by `dyapp_identity::network`; the legacy slot keeps them at the root. |
 | Client data (proposed) | `<app-config>/profiles/<slot>/client.sqlite3`; the virtual legacy slot keeps data at root `client.sqlite3`. See [local storage design](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |
