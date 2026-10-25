@@ -2,6 +2,7 @@
 
 use super::{Error, Store};
 use crate::chat::MAX_TEXT_BYTES;
+use dyapp_identity::sha256;
 use rusqlite::{params, OptionalExtension};
 
 mod operations;
@@ -13,6 +14,7 @@ CREATE TABLE `chat_messages` (
     `author` TEXT NOT NULL CHECK (length(`author`) > 0),
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
     `text` BLOB,
+    `original_digest` BLOB NOT NULL CHECK (length(`original_digest`) = 32),
     `edited` INTEGER NOT NULL CHECK (`edited` IN (0, 1)),
     `deleted` INTEGER NOT NULL CHECK (`deleted` IN (0, 1)),
     `last_hlc` INTEGER,
@@ -90,22 +92,24 @@ impl Store {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(Error::InboxConflict);
         }
+        let digest = sha256(text);
         let tx = self.db.transaction()?;
         let inserted = tx.execute(
-            "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `edited`, `deleted`)
-             VALUES (?1, ?2, ?3, ?4, 0, 0) ON CONFLICT (`group_id`, `author`, `message_id`) DO NOTHING",
-            params![&key.group, &key.author, key.id.as_slice(), text],
+            "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`)
+             VALUES (?1, ?2, ?3, ?4, ?5, 0, 0) ON CONFLICT (`group_id`, `author`, `message_id`) DO NOTHING",
+            params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice()],
         )?;
         if inserted == 0 {
-            let old: (Option<Vec<u8>>, i64) = tx.query_row(
-                "SELECT `text`, `deleted` FROM `chat_messages`
+            let original_digest: Vec<u8> = tx.query_row(
+                "SELECT `original_digest` FROM `chat_messages`
                  WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![&key.group, &key.author, key.id.as_slice()],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )?;
-            if old.1 != 0 || old.0.as_deref() != Some(text) {
+            if original_digest != digest {
                 return Err(Error::InboxConflict);
             }
+            // The original may arrive again after an edit/delete. Keep the current projection.
             return Ok(false);
         }
         tx.commit()?;

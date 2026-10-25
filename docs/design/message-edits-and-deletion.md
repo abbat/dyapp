@@ -36,11 +36,11 @@ the current text and sets an `edited` flag. Delete is terminal: it removes curre
 a placeholder. Older text and later edits cannot restore it. Two devices converge after receiving
 the same operations, subject to the existing device-sync work.
 
-The local store retains one current text or deletion placeholder, the ordering tuple, and a
-digest of each applied operation for replay conflict checks. It does not retain prior revisions
-as app history. Once a received text is applied, its original inbox payload must no longer be
-an alternate plaintext history. Physical remnants in SQLite WAL, device backups, screenshots or
-another person's storage cannot be reliably erased; the UI must not promise that.
+The local store retains one current text or deletion placeholder, a digest of the original text,
+the ordering tuple, and a digest of each applied operation for replay conflict checks. It does
+not retain prior revisions as app history. Once a received text is applied, its original inbox
+payload must no longer be an alternate plaintext history. Physical remnants in SQLite WAL,
+backups or screenshots cannot be reliably erased. The UI must not promise that.
 
 Text and operation state, sealed MLS state and exact outbound envelopes must be staged durably
 before the first network put. Incoming operations and pending mailbox ACKs must be committed

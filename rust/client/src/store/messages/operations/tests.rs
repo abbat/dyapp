@@ -62,6 +62,11 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
         store.chat_message(&key).unwrap().unwrap().text.as_deref(),
         Some(&b"newer"[..])
     );
+    assert!(!store.record_chat_text(&key, b"original").unwrap());
+    assert_eq!(
+        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        Some(&b"newer"[..])
+    );
 
     // The sending device breaks equal HLC ties, followed by operation ID.
     assert!(store
@@ -93,15 +98,17 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
     assert!(!store
         .apply_chat_operation(&key, &[3; 32], &edit(key.id, 7, 500, b"revive"), 1_000)
         .unwrap());
+    assert!(!store.record_chat_text(&key, b"original").unwrap());
     assert!(matches!(
-        store.record_chat_text(&key, b"original"),
+        store.record_chat_text(&key, b"forged original"),
         Err(Error::InboxConflict)
     ));
     let message = store.chat_message(&key).unwrap().unwrap();
     assert!(message.text.is_none() && message.deleted);
     drop(store);
 
-    let store = Store::open(&path, &alice).unwrap();
+    let mut store = Store::open(&path, &alice).unwrap();
+    assert!(!store.record_chat_text(&key, b"original").unwrap());
     let message = store.chat_message(&key).unwrap().unwrap();
     assert!(message.text.is_none() && message.deleted);
 }
