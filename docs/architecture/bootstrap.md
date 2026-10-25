@@ -449,7 +449,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `record` table apart from the store's profiles; catch-up refills a lost or dropped file
   ([rebuild](#storage-on-a-node)). The search role needs the store role, since a
   node without it serves no protocol. It holds typed columns for every
-  `Profile` field except photos, plus key, version, heartbeat time and a random u64 `r`, and a
+  searchable `Profile` field (`search_fields`: all but `name`, photos, devices and proof of work), plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
   and (r). A `place_count` table keeps the number of indexed profiles per (country, place),
   updated on every put and removal; `key` also keeps `first_seen` (the first put, never
@@ -465,9 +465,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   past that quota evicts other newcomers, oldest heartbeat first. Keys received by inventory
   catch-up while the file is younger than `search.newcomer_days` are stored as established, so a
   new node fills from its neighbours. Every profile also leaves when no heartbeat came within
-  `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such keys per run. Planned: a new indexed field bumps the index version; the node builds the new
-  index next to the old one, keeps answering from the old one and switches when the new one is
-  ready.
+  `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such keys per run. A new indexed field bumps the index version; the node builds the new
+  generation next to the old one, keeps answering from the old one and switches when the new one
+  is ready ([generations](#storage-on-a-node)). Version 2 added `gender`.
   A derived `digest` table stores, per (topic, bucket), the XOR of
   SHA-256(key || version as eight big-endian bytes), including tombstones. Each topic has
   256 contiguous buckets and each bucket 256 sub-buckets, selected by the first 16 key bits

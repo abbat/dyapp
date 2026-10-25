@@ -5,6 +5,8 @@ use crate::maintenance::RebuildBudget;
 use dyapp_identity::Identity;
 use rusqlite::types::Value;
 
+const NEXT: u32 = INDEX_VERSION + 1;
+
 /// Every row of the tables a generation holds, in key order.
 fn dump(db: &Connection) -> Vec<Vec<Value>> {
     let mut all = vec![];
@@ -60,10 +62,10 @@ async fn changes_during_the_copy_reach_the_candidate() {
         fill(&index, 5, at);
         assert_eq!(index.expire(t + 10).unwrap(), 10);
     };
-    let (built, ()) = tokio::join!(index.build(2, &budget, 0), changes);
+    let (built, ()) = tokio::join!(index.build(NEXT, &budget, 0), changes);
     let candidate = built.unwrap();
-    assert_eq!(candidate.version, 2);
-    assert!(candidate.path.ends_with("profiles-idx-v2.db"));
+    assert_eq!(candidate.version, NEXT);
+    assert!(candidate.path.ends_with(format!("profiles-idx-v{NEXT}.db")));
     let copy = Connection::open(&candidate.path).unwrap();
     let source = dump(&lock(&index.db).unwrap());
     assert_eq!(dump(&copy), source);
@@ -77,7 +79,7 @@ async fn changes_during_the_copy_reach_the_candidate() {
             Ok((row.get(0)?, row.get(1)?))
         })
         .unwrap();
-    assert_eq!(generation, (2, false));
+    assert_eq!(generation, (NEXT, false));
     let created: i64 = copy
         .query_row(
             "SELECT `value` FROM `meta` WHERE `name` = 'created'",
@@ -94,9 +96,9 @@ async fn overflow_aborts_and_deletes_the_candidate() {
     fill(&index, 300, index.created());
     let budget = RebuildBudget::new(64);
     let flood = async { mark(&index, (0..=writer::DIRTY_KEYS as u32).map(fake)) };
-    let (built, ()) = tokio::join!(index.build(2, &budget, 0), flood);
+    let (built, ()) = tokio::join!(index.build(NEXT, &budget, 0), flood);
     assert!(matches!(built, Err(Abort::Overflow)));
-    assert!(!index.generation_path(2).exists());
+    assert!(!index.generation_path(NEXT).exists());
     // Tracking stopped: nothing is collected for a candidate that is gone.
     fill(&index, 1, 0);
     assert_eq!(index.take_dirty().unwrap(), Ok(vec![]));
@@ -106,9 +108,9 @@ async fn overflow_aborts_and_deletes_the_candidate() {
 async fn low_disk_aborts_before_the_copy() {
     let index = index();
     fill(&index, 3, index.created());
-    let built = index.build(2, &RebuildBudget::new(64), u64::MAX).await;
+    let built = index.build(NEXT, &RebuildBudget::new(64), u64::MAX).await;
     assert!(matches!(built, Err(Abort::Disk)));
-    assert!(!index.generation_path(2).exists());
+    assert!(!index.generation_path(NEXT).exists());
 }
 
 #[tokio::test]
@@ -127,7 +129,7 @@ async fn continuous_changes_postpone_then_replay_settles() {
     // the load before the next round takes the changed keys.
     let built = tokio::select! {
         biased;
-        built = index.build(2, &budget, 0) => built,
+        built = index.build(NEXT, &budget, 0) => built,
         () = load => unreachable!(),
     };
     let Err(Abort::Postpone(candidate)) = built else {

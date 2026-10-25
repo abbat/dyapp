@@ -21,10 +21,13 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (17, "employment_status", false),
     (18, "fitness_level", false),
     (20, "place", false),
+    (25, "gender", false),
 ];
 const INTERESTS: u32 = 19;
 /// Profile field numbers a query may filter on.
-pub const SEARCH_FIELDS: &[u32] = &[3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+pub const SEARCH_FIELDS: &[u32] = &[
+    3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25,
+];
 
 /// Result of a query.
 #[derive(Debug)]

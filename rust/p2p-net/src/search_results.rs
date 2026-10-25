@@ -81,6 +81,7 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
             profile.interests.iter().map(String::as_str).collect(),
         )),
         20 => text(&profile.place),
+        25 => text(&profile.gender),
         _ => None,
     }
 }
@@ -227,6 +228,7 @@ mod tests {
             fitness_level: "f18".into(),
             interests: vec!["chess".into(), "go".into()],
             place: "f20".into(),
+            gender: "f25".into(),
             ..Profile::default()
         };
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
@@ -236,7 +238,7 @@ mod tests {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
-        let texts = (10..=18).chain([20]).map(|f| (f, format!("f{f}")));
+        let texts = (10..=18).chain([20, 25]).map(|f| (f, format!("f{f}")));
         let fixed = [(4, "DE".to_string()), (19, "go".into())];
         for (field, v) in fixed.into_iter().chain(texts) {
             assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");

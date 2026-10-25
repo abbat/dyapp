@@ -12,7 +12,8 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
     }
 }
 
-/// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd.
+/// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd, gender
+/// "f" on every 2nd.
 /// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
 const SIX: [&str; 6] = [
     "2950159", "2911298", "2867714", "2886242", "2925533", "2825297",
@@ -32,6 +33,7 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             age: u32::try_from(20 + i % 60).unwrap(),
             country: "DE".into(),
             place: SIX[(i % 6) as usize].into(),
+            gender: if i % 2 == 0 { "f" } else { "m" }.into(),
             interests: if i % 3 == 0 {
                 vec!["chess".into()]
             } else {
@@ -46,6 +48,20 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
         }
     }
     (index, p03)
+}
+
+#[test]
+fn query_filters_gender() {
+    let (index, p03) = population();
+    let q = [
+        cond(25, Op::Eq, vec![], vec!["f"]),
+        cond(19, Op::Eq, vec![], vec!["chess"]),
+    ];
+    let found = index.query(&q, 200, 10_000).unwrap().unwrap();
+    assert_eq!(found.applied, vec![25, 19]);
+    // Chess and "f" is i % 6 == 0: the 100 chess players in SIX[0].
+    assert_eq!(found.hits.len(), 100);
+    assert!(found.hits.iter().all(|h| p03.contains(&h.0)));
 }
 
 #[test]
