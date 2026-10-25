@@ -15,6 +15,18 @@ with the first-half maximum. See [the harness and reports](bootstrap-acceptance.
 | Initial failure | 113 | 28032 → 29896 | 27876 → 31232 | Not printed after node 2 raised | Node 2 +12.04%, failed |
 | First retained repeat | 114 | 30168 → 31932 | 28428 → 29884 | 26004 → 28428 | Passed |
 | Second retained repeat | 115 | 28028 → 29576 | 27172 → 29004 | 28372 → 29900 | Passed |
+| Third series, run 1 | 134 | 31376 → 33588 | 29376 → 31932 | 30540 → 32988 | Passed |
+| Third series, run 2 | 128 | 31104 → 35520 | 31136 → 32432 | 30856 → 32268 | Node 1 +14.20%, failed |
+| Third series, run 3 | 132 | 33368 → 35184 | 32692 → 35052 | 31212 → 32528 | Passed |
+| Third series, run 4 | 132 | 34504 → 37868 | 32176 → 35748 | 35116 → 37596 | Node 2 +11.10%, failed |
+| Third series, run 5 | 137 | 31820 → 33116 | 32592 → 33888 | 31684 → 34300 | Passed |
+| Third series, run 6 | 131 | 31800 → 34356 | 28656 → 30732 | 30556 → 32496 | Passed |
+
+The third series ran six back-to-back windows on 2026-10-25 with one release binary,
+SHA-256 `bf1dd0aaa071b99e97fcdb4d5852b2187ddb810640e7f511d8a3ca666851748d`; two of six
+failed, on different nodes. In every run every node's per-quarter maximum rose, by
+1–6 MiB over the window, so the gate passes or fails on the size of a steady rise rather
+than on noise around a plateau.
 
 The first retained repeat measured 302.43 seconds. Its release binary SHA-256 was
 `11a4593d41dfb21e4984e8d70ae3f34de867f3ab084c56a0cbba4ea08f62d906`.
@@ -42,6 +54,11 @@ distinguish live allocations from retained allocator pages.
   connection maps and watches on close and forgets unrouted trust after the
   last connection (`node/run.rs`, `ConnectionClosed`). This does not prove every
   lifetime or allocation is bounded.
+- Hypothesis: SQLite page caches. Nodes open their databases without a
+  `cache_size` or `mmap_size` pragma (`storage.rs`, `open`), so each connection
+  may cache up to SQLite's default of about 2 MiB, and the workload writes new
+  mailbox and media rows every round. A few connections filling their caches
+  would match the 1–6 MiB rise; the cache bound would make it level off.
 - Unknown: which allocations explain RSS growth. Anonymous memory, retained
   allocator pages, SQLite caches and application maps are competing candidates.
   Existing node-state logs do not expose limiter-map sizes. A passing rerun
@@ -49,6 +66,9 @@ distinguish live allocations from retained allocator pages.
 
 ## Next discriminating check
 
+A cheap first check: run the same workload for several windows in one process
+and see whether RSS levels off near the sum of the connection cache limits; a
+second run with a small `cache_size` should cut the rise if caches explain it.
 Retain repeated full-window reports with the same binary and policy, then
 correlate anonymous RSS with live map/queue/cache sizes or allocation profiles.
 Targeted counters have the advantage of observing existing bounds, but require
