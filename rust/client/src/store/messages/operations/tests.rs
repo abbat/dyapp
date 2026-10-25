@@ -92,6 +92,17 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
         store.chat_message(&key).unwrap().unwrap().text.as_deref(),
         Some(&b"tie winner"[..])
     );
+    let wrong_group = MessageKey {
+        group: vec![9],
+        ..key.clone()
+    };
+    assert!(store
+        .apply_chat_operation(&wrong_group, &[2; 32], &newer, 1_000)
+        .unwrap());
+    assert_eq!(
+        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        Some(&b"tie winner"[..])
+    );
     assert!(matches!(
         store.apply_chat_operation(&key, &[2; 32], &edit(key.id, 5, 100_000, b"future"), 1_000),
         Err(Error::ClockSkew(_))

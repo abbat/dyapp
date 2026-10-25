@@ -91,6 +91,16 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
             .as_deref(),
         Some(&b"private first text"[..])
     );
+    // A local operation must target this sender's text in this exact group.
+    assert!(matches!(
+        alice_session.stage_edit(b"wrong group", id, b"forged", &alice_key),
+        Err(dyapp_client::session::Error::UnknownMessage)
+    ));
+    assert!(matches!(
+        bob_session.stage_delete(&group_id, id, &bob_key),
+        Err(dyapp_client::session::Error::UnknownMessage)
+    ));
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
     // Stage while offline, reopen the saved MLS state, then retry the exact signed write.
     let (edit_operation, edit_writes) = alice_session
@@ -163,6 +173,25 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         let current = session.chat_message(&key).unwrap().unwrap();
         assert!(current.edited && current.deleted && current.text.is_none());
     }
+    assert!(matches!(
+        alice_session.stage_edit(&group_id, id, b"revive", &alice_key),
+        Err(dyapp_client::session::Error::UnknownMessage)
+    ));
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    // The node may accept the same signed envelope after an ACK; inbox dedupe shows nothing.
+    alice.node.put_prepared(&delete_writes[0]).await.unwrap();
+    assert!(bob_session
+        .receive(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &bob_key
+        )
+        .await
+        .unwrap()
+        .is_empty());
+    let current = bob_session.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
     let (count, shortest, longest): (i64, i64, i64) =
         rusqlite::Connection::open(&bob_path)

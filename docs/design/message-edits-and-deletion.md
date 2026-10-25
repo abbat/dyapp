@@ -75,6 +75,9 @@ This is a request through the recipient, not a claim of remote erasure.
 | One-time sender removal capability per envelope | Can request removal while the recipient is offline without revealing profile identity. | Adds envelope metadata, locally retained secrets, replica tombstones and a new abuse surface. | Reconsider only if offline pre-delivery removal becomes a requirement. |
 | Profile-signed sender tombstone | Straightforward owner signature. | Links a private message to the public profile at the node, defeating sealed sender. | Reject. |
 
-Verification needs codec malformed-input tests; local author, ordering, replay, restart and
-no-history tests; and two-client tests for edit, delete, out-of-order delivery, offline retry and
-recipient ACK. UI tests should confirm the edited mark, deletion placeholder and honest warning.
+Codec tests cover malformed inputs. Store tests cover author/group isolation, operation ordering,
+replay conflicts, early operations, restart, the pending limit and terminal deletion; the node test
+covers wrong-group/author local send rejection, duplicate encrypted delivery, offline retry and
+recipient ACK. Out-of-order operations are exercised at the Store boundary, where the projection
+must converge regardless of envelope arrival order. UI tests remain planned for the edited mark,
+deletion placeholder and honest warning.
