@@ -142,7 +142,7 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/search`** (search role): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
   as on `/dyapp/profile`; `Heartbeat.version` names the owner's current profile version, and a
   search node holding an older one answers `STATUS_NOT_FOUND` (store nodes ignore the field).
-  `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 8 values,
+  `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 16 values,
   inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and
   `partial` when the scan budget ran out; `get(SearchGet)` returns up to 50 records, cut at 1 MiB.
 - **`/dyapp/inventory`** (search role): node to node, `InventoryRequest(topic, after, before)`

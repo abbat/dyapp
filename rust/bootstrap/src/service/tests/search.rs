@@ -107,6 +107,24 @@ fn search_publish_query_get() {
     assert_eq!(r.hits.len(), 1);
     assert_eq!(r.applied, vec![crate::search::BIRTH_AGE]);
     assert_eq!(r.index_version, crate::search::INDEX_VERSION);
+    let mut countries = vec!["other".to_owned(); 15];
+    countries.push("DE".into());
+    let in_query = |strings| {
+        search_request::Request::Query(proto::SearchQuery {
+            conditions: vec![proto::Condition {
+                field: 4,
+                op: proto::Op::In.into(),
+                ints: vec![],
+                strings,
+            }],
+            ..Default::default()
+        })
+    };
+    let r = search(&s, in_query(countries.clone()));
+    assert_eq!(r.hits.len(), 1);
+    countries.push("extra".into());
+    let r = search(&s, in_query(countries));
+    assert_eq!(search_status(&r), Status::Invalid);
     let bad = proto::SearchQuery {
         conditions: vec![proto::Condition::default(); 17],
         limit: 0,

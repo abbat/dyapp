@@ -11,6 +11,8 @@ use std::collections::HashMap;
 pub const ACTIVE_DAY: u32 = 1000;
 /// Current-age interval over public birth-date bounds, rechecked from signed profiles.
 pub const BIRTH_AGE: u32 = 1001;
+/// Maximum values in one `in` condition, shared by client checks and bootstrap execution.
+pub const MAX_IN_VALUES: usize = 16;
 
 /// The profiles in `replies` (one list per search node) that match every condition, one per
 /// owner, in first-seen order. Of each owner only the highest validly signed version counts, so
@@ -129,7 +131,9 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
             match op {
                 Op::Unspecified => true,
                 Op::Eq if wants.len() == 1 => have.contains(&wants[0]),
-                Op::In if (1..=8).contains(&wants.len()) => have.iter().any(|v| wants.contains(v)),
+                Op::In if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
+                    have.iter().any(|v| wants.contains(v))
+                }
                 Op::Range if wants.len() == 2 && wants[0] <= wants[1] => {
                     have.iter().any(|v| (wants[0]..=wants[1]).contains(v))
                 }
@@ -144,7 +148,7 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
             match op {
                 Op::Unspecified | Op::Range => true,
                 Op::Eq if wants.len() == 1 => have.contains(&wants[0].as_str()),
-                Op::In if (1..=8).contains(&wants.len()) => {
+                Op::In if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
                     have.iter().any(|v| wants.iter().any(|w| w == v))
                 }
                 _ => false,
@@ -186,7 +190,7 @@ pub struct Filter {
 /// Why [`Filter::conditions`] refused a filter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FilterError {
-    /// More than 8 values for one field.
+    /// More than [`MAX_IN_VALUES`] values for one field.
     TooManyValues,
     /// Places or income without a country.
     NeedsCountry,
@@ -264,7 +268,7 @@ impl Filter {
             (25, &self.genders),
         ];
         for (field, values) in lists {
-            if values.len() > 8 {
+            if values.len() > MAX_IN_VALUES {
                 return Err(FilterError::TooManyValues);
             }
             if !values.is_empty() {
@@ -407,21 +411,27 @@ mod tests {
             assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");
             assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
         }
-        let nine = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let sixteen: Vec<i64> = (0..16).collect();
+        let seventeen: Vec<i64> = (0..17).collect();
         assert!(hits(27, Op::Unspecified, &[], &[]));
         assert!(!hits(27, Op::Eq, &[4, 5], &[]));
         assert!(hits(27, Op::In, &[3, 4], &[]));
         assert!(!hits(27, Op::In, &[], &[]));
-        assert!(!hits(27, Op::In, &nine, &[]));
+        assert!(hits(27, Op::In, &sixteen, &[]));
+        assert!(!hits(27, Op::In, &seventeen, &[]));
         assert!(hits(27, Op::Range, &[3, 5], &[]));
         assert!(!hits(27, Op::Range, &[3, 4, 5], &[]));
-        let nine = ["a", "b", "c", "d", "e", "f", "g", "h", "DE"];
+        let mut sixteen = vec!["other"; 15];
+        sixteen.push("DE");
+        let mut seventeen = sixteen.clone();
+        seventeen.push("other");
         assert!(hits(4, Op::Unspecified, &[], &[]));
         assert!(hits(4, Op::Range, &[], &[]));
         assert!(!hits(4, Op::Eq, &[], &["DE", "FR"]));
         assert!(hits(4, Op::In, &[], &["FR", "DE"]));
         assert!(!hits(4, Op::In, &[], &["FR"]));
-        assert!(!hits(4, Op::In, &[], &nine));
+        assert!(hits(4, Op::In, &[], &sixteen));
+        assert!(!hits(4, Op::In, &[], &seventeen));
     }
 
     #[test]
@@ -591,17 +601,17 @@ mod tests {
             assert_eq!(open(level), FilterError::EmptyRange);
         }
         let many = Filter {
-            genders: (0..9).map(|i| i.to_string()).collect(),
+            genders: (0..17).map(|i| i.to_string()).collect(),
             ..Filter::default()
         };
         assert_eq!(open(many), FilterError::TooManyValues);
-        let eight = Filter {
-            genders: (0..8).map(|i| i.to_string()).collect(),
+        let sixteen = Filter {
+            genders: (0..16).map(|i| i.to_string()).collect(),
             age: Some((18, 18)),
             country: "DE".into(),
             income: Some((1, 1)),
             ..Filter::default()
         };
-        assert_eq!(eight.conditions(today).unwrap().len(), 5);
+        assert_eq!(sixteen.conditions(today).unwrap().len(), 5);
     }
 }

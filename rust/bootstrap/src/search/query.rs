@@ -214,7 +214,8 @@ fn invalid_conditions() {
         cond(BIRTH_AGE, Op::Range, vec![1, 2], vec![]),
         cond(BIRTH_AGE, Op::Range, vec![3, 4], vec![])
     ]));
-    assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 9])]));
+    assert!(!bad(vec![cond(4, Op::In, vec![], vec!["a"; 16])]));
+    assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 17])]));
     assert!(bad((0..17)
         .map(|f| cond(100 + f, Op::Eq, vec![1], vec![]))
         .collect()));

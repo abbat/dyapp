@@ -508,7 +508,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
   pays for these gets and inventories out of its own budget of `maintenance.io_mb_per_s` reply
   bytes per second instead of request units.
 - **Conditions.** A condition is (`Profile` field number, op, values), at most 16 per query and
-  one per field. Ops: `eq`; `in` with up to 8 values (for interests: any of them); `range`,
+  one per field. Ops: `eq`; `in` with up to 16 values (for interests: any of them); `range`,
   inclusive, for numbers. Values are int64 or strings; strings match exactly. Income "at least X"
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is

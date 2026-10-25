@@ -2,6 +2,7 @@
 
 use super::*;
 use dyapp_p2p_net::proto::{Condition, Op};
+use dyapp_p2p_net::search_results::MAX_IN_VALUES;
 
 /// Profile field number → column and whether it holds integers. Constant identifiers only.
 const COLUMNS: &[(u32, &str, bool)] = &[
@@ -104,7 +105,7 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
         Op::Unspecified => return Ok(None),
         Op::Range if !int => return Ok(None),
         Op::Eq if n == 1 => format!("{target} = ?{close}"),
-        Op::In if (1..=8).contains(&n) => {
+        Op::In if (1..=MAX_IN_VALUES).contains(&n) => {
             format!("{target} IN ({}){close}", vec!["?"; n].join(", "))
         }
         Op::Range if n == 2 && c.ints[0] <= c.ints[1] => format!("{target} BETWEEN ? AND ?{close}"),
@@ -148,8 +149,8 @@ impl SearchIndex {
             n => n.min(200),
         } as usize;
         // Scopes: (country, place) pairs on the index prefix; the rest filters inside the scan.
-        // ponytail: 8 × 8 statements per query; a country `in` with many places multiplies
-        // scans, cap holds.
+        // Two `in` filters on country and place make at most 256 scoped statements;
+        // the scan-row budget caps rows, while preparation remains bounded separately.
         let take = |field: u32, filters: &mut Vec<Filter>| {
             filters
                 .iter()
