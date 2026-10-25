@@ -1,10 +1,12 @@
 //! Client network core: one libp2p connection to a node and the profile, search, KeyPackage and
 //! mailbox requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
 //! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
-//! [`scores`] ranks nodes by the faults the client saw.
+//! [`scores`] ranks nodes by the faults the client saw; [`compatibility`] compares verified
+//! public profiles locally.
 
 pub mod attachment;
 pub mod chat;
+pub mod compatibility;
 pub mod interactions;
 pub mod profiles;
 pub mod scores;
