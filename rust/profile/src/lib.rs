@@ -137,6 +137,11 @@ impl Profile {
             &self.fitness_level,
             &self.gender,
             &self.name,
+            &self.profession,
+            &self.company,
+            &self.industry,
+            &self.career_stage,
+            &self.work_life_balance,
         ];
         let short = |text: &&String| text.chars().count() <= MAX_FIELD_CHARS && is_clean_text(text);
         if !fields.iter().all(short) {
@@ -664,6 +669,41 @@ mod tests {
         println!(
             "{ms:.1} ms per hash, ~{:.0} s for 11 bits",
             ms * 2048.0 / 1000.0
+        );
+    }
+
+    #[test]
+    fn optional_career_fields_are_signed_and_validated() {
+        let owner = Identity::generate();
+        let mut profile = sample(1);
+        assert!(profile.profession.is_empty());
+        assert!(verify(&profile.sign(&owner)).is_ok());
+
+        profile.profession = "Engineer".into();
+        profile.company = "Example Co".into();
+        profile.industry = "Technology".into();
+        profile.career_stage = "Senior".into();
+        profile.work_life_balance = "Flexible".into();
+        assert_eq!(verify(&profile.sign(&owner)).unwrap().profile, profile);
+
+        for invalid in ["x".repeat(MAX_FIELD_CHARS + 1), "bad\u{200B}".into()] {
+            for field in 0..5 {
+                let mut bad = profile.clone();
+                *[
+                    &mut bad.profession,
+                    &mut bad.company,
+                    &mut bad.industry,
+                    &mut bad.career_stage,
+                    &mut bad.work_life_balance,
+                ][field] = invalid.clone();
+                assert!(verify(&bad.sign(&owner)).is_err());
+            }
+        }
+
+        profile.deleted = true;
+        assert_eq!(
+            verify(&profile.sign(&owner)),
+            Err(Error::Invalid("tombstone carries data"))
         );
     }
 

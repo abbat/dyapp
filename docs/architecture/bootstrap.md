@@ -857,7 +857,8 @@ pub struct SignedRecord {          // protobuf, sent and stored as is
 
 The peer ID is the hex SHA-256 of `public_key`; the server derives it, the client
 never sends it. `Profile` holds `version`, `deleted` and the public fields (age,
-country, place (city or district, no coordinates), income range, kids, goals, interests, …); every field is
+country, place (city or district, no coordinates), income range, kids, goals, interests,
+profession, company, industry, career stage and work-life balance); every field is
 optional and public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
