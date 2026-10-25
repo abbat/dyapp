@@ -63,8 +63,12 @@ HLC and creates at most one view per peer per UTC day; `Store::receive_interacti
 signal whose signed payload is over 1 KiB is refused before staging, never truncated.
 `chat::apply` returns a received interaction as `Event::Interaction` with the sending device's
 mailbox key from its certificate (`mls::Received::Message::device`), which orders concurrent
-events of one identity. Nothing
-creates and sends a like through `Session` yet, and no app shows one.
+events of one identity. `Session::interact` creates an own like, unlike or view for the other
+owner of a group and sends it through the outbox, so a failed put retries the same event;
+`Session::receive` applies a received one to the ledger before acking it, refuses one from the
+future and skips one from another own device until device sync exists. `Session::likes` reads the
+match state. A protocol test covers a match, a replayed put, an offline unlike and the signal class.
+No app shows a like yet.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-5 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.

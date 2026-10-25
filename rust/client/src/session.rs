@@ -1,6 +1,7 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
+use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
@@ -76,6 +77,11 @@ impl Session {
     /// The scores of the nodes this session used.
     pub fn scores(&self) -> &Scores {
         &self.scores
+    }
+
+    /// The latest like state in both directions with `peer_id`.
+    pub fn likes(&self, peer_id: &str) -> Result<crate::store::Likes, Error> {
+        Ok(self.store.likes(peer_id)?)
     }
 
     /// Block `contact` (hex Peer ID): record it, sign it no more tokens, and revoke those it holds
@@ -179,6 +185,33 @@ impl Session {
     ) -> Result<(), Error> {
         self.send_body(nodes, group_id, &Body::Text(text.to_vec()), seal_key)
             .await
+    }
+
+    /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
+    /// [`Store::interact`] creates it; `None` when no view is due. Like a text, a failed put stays
+    /// in the outbox, and every retry carries the same event.
+    // shortcut: a crash between the ledger commit and the outbox commit keeps the event local
+    // only; stage both in one transaction once the store has a combined call.
+    pub async fn interact(
+        &mut self,
+        nodes: &mut [Node],
+        group_id: &[u8],
+        kind: Kind,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Interaction>, Error> {
+        let target = self.partner(group_id).ok_or(Error::UnknownGroup)?;
+        let device = self
+            .device
+            .as_ref()
+            .ok_or(Error::Invalidated)?
+            .device_key()?;
+        let wall_ms = crate::now() * 1000;
+        let Some(event) = self.store.interact(&target, kind, &device, wall_ms)? else {
+            return Ok(None);
+        };
+        self.send_body(nodes, group_id, &Body::Interaction(event), seal_key)
+            .await?;
+        Ok(Some(event))
     }
 
     async fn send_body(
@@ -491,6 +524,30 @@ impl Session {
             }
             _ => false,
         };
+        // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
+        // shortcut: another device of this owner sent it; it waits for device sync.
+        if let Event::Interaction {
+            sender,
+            device,
+            event: interaction,
+            ..
+        } = &event
+        {
+            if !blocked && sender != self.store.owner_peer_id() {
+                let wall_ms = crate::now() * 1000;
+                match self
+                    .store
+                    .receive_interaction(sender, device, *interaction, wall_ms)
+                {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        event = Event::Refused("interaction from the future".into());
+                    }
+                    applied => {
+                        applied?;
+                    }
+                }
+            }
+        }
         let staged = if matches!(event, Event::Refused(_)) {
             // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
             (|| {
@@ -562,7 +619,10 @@ fn receipted_group(event: &Event) -> Option<&Vec<u8>> {
             body: Body::Receipt(_),
             ..
         } => None,
-        Event::Message { group, .. } | Event::Joined(group) | Event::Commit(group) => Some(group),
+        Event::Message { group, .. }
+        | Event::Interaction { group, .. }
+        | Event::Joined(group)
+        | Event::Commit(group) => Some(group),
         _ => None,
     }
 }

@@ -88,8 +88,10 @@ an unnecessary preference signal.
 6. With view sending disabled, no view is queued; enabled sending queues one per peer per UTC
    day. A recipient can receive a view regardless of its own send setting.
 
-The codec covers the binary round-trip and malformed-input part of fixture 1. The local state and
-mailbox tasks must complete the size, state, replay, delivery and view fixtures.
+The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
+and `Session::receive` connect the codec, the store and short-padded signal delivery; a protocol
+test covers a match, an unlike, a replayed put and an offline retry end to end. Concurrent own devices (fixture 5) wait for device sync, and
+no app shows a like yet.
 
 `rust/client::store::Store::apply_interaction` (schema version 4) covers the local state part of
 fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded

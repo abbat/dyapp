@@ -887,3 +887,6 @@ mod tokens;
 
 #[path = "protocol/delivery.rs"]
 mod delivery;
+
+#[path = "protocol/interactions.rs"]
+mod interactions;
