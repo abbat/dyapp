@@ -85,4 +85,30 @@ class AppUITests {
         compose.activityRule.scenario.recreate()
         check(shownPeerId() == first) { "The chosen identity was lost on relaunch" }
     }
+
+    @Test
+    fun interruptedSaveIsRecoveryNotANewIdentity() {
+        shownPeerId()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val slots = RustBridge.slots(context)
+        val active = checkNotNull(slots.active())
+        // A crash after the slot was reserved: `pending` and no key yet.
+        val id = "00000000-0000-4000-8000-000000000000"
+        val dir = File(context.noBackupFilesDir, "profiles/$id")
+        try {
+            check(dir.mkdirs())
+            File(dir, "state").writeText("pending\n")
+            val incomplete = string(R.string.recovery_incomplete)
+            compose.onNodeWithTag("switch").performClick()
+            compose.onNode(hasTestTag("identity") and hasText(incomplete)).performScrollTo()
+                .performClick()
+            compose.onNodeWithTag("recovery-reason").assertTextEquals(incomplete)
+            compose.onNodeWithTag("retry").performClick()
+            compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_recovery))
+            check(!PlatformKeyStore.exists("dyapp-identity-wrap:$id")) { "Retry made a key" }
+        } finally {
+            dir.deleteRecursively()
+            slots.setActive(active)
+        }
+    }
 }

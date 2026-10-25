@@ -28,7 +28,7 @@ when space grows, without changing the identifier.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 2 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`) | 6 instrumented (`AppUITests.kt` ×3, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 2 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`) | 7 instrumented (`AppUITests.kt` ×4, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 16 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 16 smoke cases | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
