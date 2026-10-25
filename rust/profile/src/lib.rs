@@ -132,6 +132,7 @@ impl Profile {
             &self.employment_status,
             &self.fitness_level,
             &self.gender,
+            &self.name,
         ];
         let short = |text: &&String| text.chars().count() <= MAX_FIELD_CHARS && is_clean_text(text);
         if !fields.iter().all(short) {
@@ -703,6 +704,14 @@ mod tests {
         profile.interests = vec!["x".repeat(MAX_FIELD_CHARS + 1)];
         assert!(verify(&profile.sign(&owner)).is_err());
         profile.interests = vec!["\u{E000}".into()];
+        assert!(verify(&profile.sign(&owner)).is_err());
+
+        let mut profile = sample(1);
+        profile.name = "Анна 🙂".into();
+        assert_eq!(verify(&profile.sign(&owner)).unwrap().profile, profile);
+        profile.name = "x".repeat(MAX_FIELD_CHARS + 1);
+        assert!(verify(&profile.sign(&owner)).is_err());
+        profile.name = "Ann\u{202E}a".into();
         assert!(verify(&profile.sign(&owner)).is_err());
     }
 

@@ -44,6 +44,9 @@ message Profile {
   repeated dyapp.identity.SignedRecord devices = 24;
   // Free text, like `orientation`.
   string gender = 25;
+  // Optional public name, at most 64 characters like `orientation`; never proof of identity:
+  // clients show it with the verified or unverified mark, and a contact's local name replaces it.
+  string name = 26;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

@@ -307,7 +307,10 @@ resent from the sender's retry queue.
   format (bidi, zero-width) or private-use characters except ZWNJ and ZWJ; enum-like strings hold
   at most 64 characters and `interests` at most 32 items of 64; `publish` refuses a profile that
   breaks it ([ADR 0026](../decisions/0026-profile-text-rules.md),
-  [Threat Model](../security/threat-model.md#spoofing)). An optional public `name` is planned.
+  [Threat Model](../security/threat-model.md#spoofing)). The optional public `name` follows the
+  same rule as an enum-like string; it proves nothing, so clients show it with the verified or
+  unverified mark and a contact's local name replaces it
+  ([ADR 0027](../decisions/0027-optional-public-profile-name.md)).
 - The identity-signed profile can carry a validated device directory. The node's KeyPackage
   rendezvous and the sender workflow are still planned. The directory is public, including the
   device count. See [Device directory and KeyPackages](#device-directory-and-keypackages).
