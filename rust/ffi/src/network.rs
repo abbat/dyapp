@@ -8,7 +8,7 @@ use dyapp_client::seeds::{self, Row};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::seed::SeedError;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -175,7 +175,7 @@ impl ConnectionCheck {
         let draft = Network::from(draft);
         network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
         let (stop, stopped) = oneshot::channel();
-        *self.cancel.lock().unwrap() = Some(stop);
+        *self.cancel.lock().unwrap_or_else(PoisonError::into_inner) = Some(stop);
         let rows = self.runtime.block_on(async {
             tokio::select! {
                 rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
@@ -191,7 +191,7 @@ impl ConnectionCheck {
             Err(error) => return Err(failed(error)),
         };
         if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-            *self.checked.lock().unwrap() = Some(draft);
+            *self.checked.lock().unwrap_or_else(PoisonError::into_inner) = Some(draft);
         }
         Ok(rows.into_iter().map(Into::into).collect())
     }
@@ -199,14 +199,23 @@ impl ConnectionCheck {
     /// Stops a running check, which then fails with `Cancelled`; the saved files stay as they
     /// were.
     pub fn cancel(&self) {
-        if let Some(stop) = self.cancel.lock().unwrap().take() {
+        if let Some(stop) = self
+            .cancel
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
             let _ = stop.send(());
         }
     }
 
     /// Makes the last draft that reached a node the identity's active configuration.
     pub fn activate(&self) -> Result<NetworkSettings, CheckError> {
-        let checked = self.checked.lock().unwrap().clone();
+        let checked = self
+            .checked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
         let network = checked.ok_or(CheckError::NotChecked)?;
         network::save(&self.dir, Settings::Active, &network).map_err(failed)?;
         Ok(network.into())
