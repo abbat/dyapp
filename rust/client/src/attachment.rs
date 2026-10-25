@@ -96,6 +96,20 @@ pub fn open(attachment: &Attachment, blob: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(plaintext)
 }
 
+/// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. It
+/// does not release the blob: another device of the recipient may still need it, so the app calls
+/// [`crate::Node::release_media`] once every device has it.
+pub async fn fetch(nodes: &mut [crate::Node], attachment: &Attachment) -> Result<Vec<u8>, Error> {
+    let mut last = Error::Request("no node".into());
+    for node in nodes {
+        match node.get_media(&attachment.blob_sha256).await {
+            Ok(blob) => return open(attachment, &blob),
+            Err(error) => last = error,
+        }
+    }
+    Err(last)
+}
+
 // The 96-bit GCM nonce: the chunk index, big-endian. Safe because every key is used once.
 fn nonce(index: usize) -> Nonce<aes_gcm::aead::consts::U12> {
     let mut nonce = [0; 12];

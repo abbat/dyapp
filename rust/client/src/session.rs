@@ -1,5 +1,6 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
+use crate::attachment::{self, Attachment};
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
@@ -185,6 +186,48 @@ impl Session {
     ) -> Result<(), Error> {
         self.send_body(nodes, group_id, &Body::Text(text.to_vec()), seal_key)
             .await
+    }
+
+    /// Encrypt `plaintext`, upload its blob, signed by the owner `identity`, to the first of `nodes`
+    /// that takes it, then send its [`Attachment`] like a text. Nothing is staged when no node
+    /// takes the blob.
+    pub async fn send_attachment(
+        &mut self,
+        nodes: &mut [Node],
+        identity: &Identity,
+        group_id: &[u8],
+        plaintext: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<Attachment, Error> {
+        let (attachment, blob) = attachment::seal(plaintext)?;
+        let mut last = crate::Error::Request("no node".into());
+        let mut uploaded = false;
+        for node in nodes.iter_mut() {
+            let upload = async {
+                if !node.attach_media(identity, &attachment).await?.is_empty() {
+                    node.put_media(&identity.peer_id(), blob.clone()).await?;
+                }
+                Ok(())
+            };
+            match upload.await {
+                Ok(()) => {
+                    uploaded = true;
+                    break;
+                }
+                Err(error) => last = error,
+            }
+        }
+        if !uploaded {
+            return Err(last.into());
+        }
+        self.send_body(
+            nodes,
+            group_id,
+            &Body::Attachment(attachment.clone()),
+            seal_key,
+        )
+        .await?;
+        Ok(attachment)
     }
 
     /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
