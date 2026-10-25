@@ -15,7 +15,7 @@ use std::sync::Mutex;
 /// Gossip topics of the search index (`/dyapp/profiles/<n>`).
 pub const SEARCH_TOPICS: u32 = 16;
 /// Index format version, reported in search replies.
-pub const INDEX_VERSION: u32 = 2;
+pub const INDEX_VERSION: u32 = 3;
 /// Least seconds between indexed versions of one key.
 pub const UPDATE_SECONDS: i64 = 600;
 /// Heartbeats of one key accepted per UTC day.
@@ -29,7 +29,7 @@ const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NULL,
   `version` INTEGER NOT NULL, `age` INTEGER, `country` TEXT, `income_from` INTEGER,
   `income_to` INTEGER, `has_kids` INTEGER, `wants_more_kids` INTEGER, `relationship_goal` TEXT,
-  `career_ambition` TEXT, `education` TEXT, `orientation` TEXT, `role_preference` TEXT,
+  `career_ambition` TEXT, `education_level` INTEGER, `orientation` TEXT, `role_preference` TEXT,
   `zodiac` TEXT, `financial_philosophy` TEXT, `employment_status` TEXT, `fitness_level` TEXT,
   `place` TEXT, `gender` TEXT, `r` INTEGER NOT NULL) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
@@ -140,7 +140,7 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             p.wants_more_kids,
             p.relationship_goal,
             p.career_ambition,
-            p.education,
+            p.education_level,
             p.orientation,
             p.role_preference,
             p.zodiac,

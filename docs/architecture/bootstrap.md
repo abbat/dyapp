@@ -467,7 +467,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
   new node fills from its neighbours. Every profile also leaves when no heartbeat came within
   `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such keys per run. A new indexed field bumps the index version; the node builds the new
   generation next to the old one, keeps answering from the old one and switches when the new one
-  is ready ([generations](#storage-on-a-node)). Version 2 added `gender`.
+  is ready ([generations](#storage-on-a-node)). Version 2 added `gender`; version 3 replaced `education` with `education_level`.
   A derived `digest` table stores, per (topic, bucket), the XOR of
   SHA-256(key || version as eight big-endian bytes), including tombstones. Each topic has
   256 contiguous buckets and each bucket 256 sub-buckets, selected by the first 16 key bits
@@ -508,8 +508,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is
   `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
-  genders, orientations, goals, children, country, places and income, the last two only with a
-  country); income matches when the profile's range overlaps the wanted one
+  genders, orientations, goals, children, least education level, country, places and income, the
+  last two only with a country); income matches when the profile's range overlaps the wanted one
   (`income_from ≤ max`, `income_to ≥ min`).
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
@@ -857,7 +857,7 @@ optional and public by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  place at most 1024 characters, other strings at most 64 and at most 32 `interests`, every
+  `education_level` at most 6, place at most 1024 characters, other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`).

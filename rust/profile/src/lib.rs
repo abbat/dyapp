@@ -36,6 +36,8 @@ pub enum Error {
 pub const MAX_PLACE_CHARS: usize = 1024;
 /// Longest accepted enum-like string, such as `gender`, in Unicode code points.
 pub const MAX_FIELD_CHARS: usize = 64;
+/// Highest `education_level`, a doctorate.
+pub const MAX_EDUCATION_LEVEL: u32 = 6;
 /// Most `interests` a profile lists; each is at most `MAX_FIELD_CHARS` long.
 pub const MAX_INTERESTS: usize = 32;
 /// Most photos a profile links.
@@ -118,13 +120,15 @@ impl Profile {
                 return Err(Error::Invalid("income range is reversed"));
             }
         }
+        if self.education_level > MAX_EDUCATION_LEVEL {
+            return Err(Error::Invalid("education level is not on the scale"));
+        }
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
         }
         let fields = [
             &self.relationship_goal,
             &self.career_ambition,
-            &self.education,
             &self.orientation,
             &self.role_preference,
             &self.zodiac,
@@ -690,11 +694,16 @@ mod tests {
         profile.place = "Mit\u{202E}te".into();
         assert!(verify(&profile.sign(&owner)).is_err());
         let mut profile = sample(1);
-        profile.education = "x".repeat(MAX_FIELD_CHARS);
+        profile.career_ambition = "x".repeat(MAX_FIELD_CHARS);
         assert!(verify(&profile.sign(&owner)).is_ok());
-        profile.education.push('x');
+        profile.career_ambition.push('x');
         assert!(verify(&profile.sign(&owner)).is_err());
-        profile.education = "phd\u{200B}".into();
+        profile.career_ambition = "high\u{200B}".into();
+        assert!(verify(&profile.sign(&owner)).is_err());
+        let mut profile = sample(1);
+        profile.education_level = MAX_EDUCATION_LEVEL;
+        assert!(verify(&profile.sign(&owner)).is_ok());
+        profile.education_level += 1;
         assert!(verify(&profile.sign(&owner)).is_err());
         let mut profile = sample(1);
         profile.interests = vec!["x".repeat(MAX_FIELD_CHARS); MAX_INTERESTS];

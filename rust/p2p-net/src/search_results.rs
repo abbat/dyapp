@@ -70,7 +70,6 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         9 => int(profile.wants_more_kids.map(i64::from)),
         10 => text(&profile.relationship_goal),
         11 => text(&profile.career_ambition),
-        12 => text(&profile.education),
         13 => text(&profile.orientation),
         14 => text(&profile.role_preference),
         15 => text(&profile.zodiac),
@@ -82,6 +81,7 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         )),
         20 => text(&profile.place),
         25 => text(&profile.gender),
+        27 => int(Some(profile.education_level.into())),
         _ => None,
     }
 }
@@ -146,6 +146,8 @@ pub struct Filter {
     pub places: Vec<String>,
     /// Inclusive; matches a profile whose own income range overlaps it. Needs `country`.
     pub income: Option<(u64, u64)>,
+    /// Least `education_level`, from 1 to 6; a profile that leaves it unset does not match.
+    pub min_education: Option<u32>,
 }
 
 /// Why [`Filter::conditions`] refused a filter.
@@ -160,7 +162,7 @@ pub enum FilterError {
 }
 
 impl Filter {
-    /// The conditions for a query and for [`check`]: at most 10, one per field.
+    /// The conditions for a query and for [`check`]: at most 11, one per field.
     pub fn conditions(&self) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
@@ -194,6 +196,12 @@ impl Filter {
             }
             out.push(ints(6, Op::Range, vec![0, wide(max)]));
             out.push(ints(7, Op::Range, vec![wide(min), i64::MAX]));
+        }
+        if let Some(min) = self.min_education {
+            if !(1..=6).contains(&min) {
+                return Err(FilterError::EmptyRange);
+            }
+            out.push(ints(27, Op::Range, vec![min.into(), 6]));
         }
         for (field, v) in [(8, self.has_kids), (9, self.wants_more_kids)] {
             if let Some(v) = v {
@@ -318,7 +326,6 @@ mod tests {
             wants_more_kids: Some(false),
             relationship_goal: "f10".into(),
             career_ambition: "f11".into(),
-            education: "f12".into(),
             orientation: "f13".into(),
             role_preference: "f14".into(),
             zodiac: "f15".into(),
@@ -328,16 +335,21 @@ mod tests {
             interests: vec!["chess".into(), "go".into()],
             place: "f20".into(),
             gender: "f25".into(),
+            education_level: 4,
             ..Profile::default()
         };
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
             matches(&condition(field, op, ints, strings), &p)
         };
-        for (field, v) in [(3, 30), (6, 10), (7, i64::MAX), (8, 1), (9, 0)] {
+        for (field, v) in [(3, 30), (6, 10), (7, i64::MAX), (8, 1), (9, 0), (27, 4)] {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
-        let texts = (10..=18).chain([20, 25]).map(|f| (f, format!("f{f}")));
+        let texts = [10, 11]
+            .into_iter()
+            .chain(13..=18)
+            .chain([20, 25])
+            .map(|f| (f, format!("f{f}")));
         let fixed = [(4, "DE".to_string()), (19, "go".into())];
         for (field, v) in fixed.into_iter().chain(texts) {
             assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");
@@ -375,6 +387,7 @@ mod tests {
             place: "2950159".into(),
             income_from: Some(40_000),
             income_to: Some(60_000),
+            education_level: 4,
             ..Profile::default()
         };
         let strings = |v: &[&str]| v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
@@ -388,13 +401,14 @@ mod tests {
             country: "DE".into(),
             places: strings(&["2950159"]),
             income: Some((55_000, u64::MAX)),
+            min_education: Some(3),
         };
         let conditions = filter.conditions().unwrap();
-        assert_eq!(conditions.len(), 10);
+        assert_eq!(conditions.len(), 11);
         assert_eq!(conditions[0].ints, [18, 35]);
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
         assert!(kept(&fit));
-        let misses: [fn(&mut Profile); 10] = [
+        let misses: [fn(&mut Profile); 11] = [
             |p| p.age = 36,
             |p| p.gender = "m".into(),
             |p| p.orientation = "gay".into(),
@@ -405,6 +419,7 @@ mod tests {
             |p| p.place = "2867714".into(),
             |p| p.income_to = Some(50_000),
             |p| p.income_from = None,
+            |p| p.education_level = 0,
         ];
         for (i, miss) in misses.iter().enumerate() {
             let mut p = fit.clone();
@@ -442,6 +457,13 @@ mod tests {
             ..Filter::default()
         };
         assert_eq!(open(poor), FilterError::EmptyRange);
+        for min in [0, 7] {
+            let level = Filter {
+                min_education: Some(min),
+                ..Filter::default()
+            };
+            assert_eq!(open(level), FilterError::EmptyRange);
+        }
         let many = Filter {
             genders: (0..9).map(|i| i.to_string()).collect(),
             ..Filter::default()
