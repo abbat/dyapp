@@ -78,7 +78,8 @@ signal whose signed payload is over 1 KiB is refused before staging, never trunc
 `chat::apply` returns a received interaction as `Event::Interaction` with the sending device's
 mailbox key from its certificate (`mls::Received::Message::device`), which orders concurrent
 events of one identity. `Session::interact` creates an own like, unlike or view for the other
-owner of a group and sends it through the outbox, so a failed put retries the same event;
+owner of a group, commits the event with sealed MLS state and exact outbox bytes, then sends it,
+so a failed put retries the same event even after restart;
 `Session::receive` applies a received one to the ledger before acking it, refuses one from the
 future and skips one from another own device until device sync exists. `Session::likes` reads the
 match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the

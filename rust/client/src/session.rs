@@ -134,6 +134,14 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Vec<PreparedEnvelope>, Error> {
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let interaction = match body {
+            Body::Interaction(event) => Some((
+                self.partner(group_id).ok_or(Error::UnknownGroup)?,
+                device.device_key()?,
+                *event,
+            )),
+            _ => None,
+        };
         let group = self
             .groups
             .iter_mut()
@@ -160,7 +168,10 @@ impl Session {
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let sealed = device.seal(seal_key)?;
-            if matches!(body, Body::Receipt(_)) {
+            if let Some((target, source_device, event)) = interaction {
+                self.store
+                    .stage_interaction(&target, &source_device, event, &sealed, &writes)?;
+            } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
             } else {
                 self.store.stage_outbound(&sealed, &writes)?;
@@ -231,10 +242,8 @@ impl Session {
     }
 
     /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
-    /// [`Store::interact`] creates it; `None` when no view is due. Like a text, a failed put stays
+    /// [`Store::draft_interaction`] creates it; `None` when no view is due. Like a text, a failed put stays
     /// in the outbox, and every retry carries the same event.
-    // shortcut: a crash between the ledger commit and the outbox commit keeps the event local
-    // only; stage both in one transaction once the store has a combined call.
     pub async fn interact(
         &mut self,
         nodes: &mut [Node],
@@ -243,13 +252,8 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Option<Interaction>, Error> {
         let target = self.partner(group_id).ok_or(Error::UnknownGroup)?;
-        let device = self
-            .device
-            .as_ref()
-            .ok_or(Error::Invalidated)?
-            .device_key()?;
         let wall_ms = crate::now() * 1000;
-        let Some(event) = self.store.interact(&target, kind, &device, wall_ms)? else {
+        let Some(event) = self.store.draft_interaction(&target, kind, wall_ms)? else {
             return Ok(None);
         };
         self.send_body(nodes, group_id, &Body::Interaction(event), seal_key)

@@ -9,8 +9,8 @@ schema and migrates versions 1 to 6 in place after checking the identity binding
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
-retries. It also has a transactional API for an own interaction event, its HLC, like/view state,
-sealed MLS snapshot and exact outbox writes; the session has not switched to that API yet.
+retries. It also commits an own interaction event, its HLC, like/view state, sealed MLS snapshot
+and exact outbox writes in one transaction before network delivery.
 Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
 `Session::receive` uses them for one-to-one chat and sends delivery receipts; the app does not
 call the session yet.

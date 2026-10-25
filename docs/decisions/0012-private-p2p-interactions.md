@@ -55,5 +55,5 @@ keep likes, view history or matching preferences private, or enforce rules such 
 - The bootstrap implements the signal class and per-mailbox quota
   ([bootstrap](../architecture/bootstrap.md#limits-and-abuse)). The Rust client implements the
   interaction codec, local state and encrypted mailbox send/receive path. App UI and own-device
-  sync remain planned; the known outbox atomicity gap and replay rules are in the
+  sync remain planned; the outbox commit and replay rules are in the
   [private interaction design](../design/private-interactions.md).

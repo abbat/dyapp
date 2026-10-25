@@ -93,9 +93,9 @@ an unnecessary preference signal.
 The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
 and `Session::receive` connect the codec, store and short-padded signal delivery; the protocol
 test covers match, unlike, replayed put, offline retry and daily view. Concurrent own devices
-(fixture 5) wait for device sync, and no app shows a like yet. `Session::interact` currently commits
-the local event before staging its encrypted outbox write; a crash between those commits can leave
-a local-only like or unlike. That durability gap remains before the full delivery contract is complete.
+(fixture 5) wait for device sync, and no app shows a like yet. `Session::interact` now commits the
+local event, sealed MLS state and encrypted outbox together before sending; offline retry after a
+restart reuses the exact staged signal.
 
 `rust/client::store::Store::apply_interaction` (schema version 4) covers the local state part of
 fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded
@@ -105,10 +105,10 @@ the store's own. A view is recorded but never changes likes. `Store::likes` retu
 directions, and a match is both liked. The caller must still decode the payload and verify group,
 sender and device before applying.
 
-`Store::interact` creates an own event with a random event ID and the next HLC value, persisted in
-`settings` so a restart never moves it back, and applies it in the same transaction. A view is
-created only when view sending is on and none went to that peer on the HLC's UTC day; otherwise it
-returns `None` and changes nothing. The caller sends the returned event and retries those bytes.
+The test-only `Store::interact` helper applies a local event directly. Production sends use
+`Store::draft_interaction` and `Store::stage_interaction` so an event cannot be committed without
+its exact outbox signal. A view is drafted only when view sending is on and none went to that peer
+on the HLC's UTC day; otherwise it returns `None` and changes nothing.
 `Store::receive_interaction` observes a received HLC with the 60-second future-skew guard first,
 so a rejected timestamp changes nothing, then applies it and records a received view's UTC day
 whatever the send setting. An event from a peer this profile blocked is dropped before its HLC
@@ -116,5 +116,5 @@ is observed. `Store::viewed_on` reads those `view_days` records for both directi
 
 `Store::draft_interaction` can choose an event without changing durable state.
 `Store::stage_interaction` then commits that event, HLC, like/view state, sealed MLS snapshot and
-exact outbound writes in one transaction; a failure rolls them all back. `Session::interact` still
-uses the older two-commit path until the session integration is switched.
+exact outbound writes in one transaction; a failure rolls them all back. `Session::interact` uses
+this path and invalidates advanced MLS handles on a local staging failure.

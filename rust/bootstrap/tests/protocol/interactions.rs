@@ -58,7 +58,8 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
     let mut alice_session = Session::open(store, &SEAL).unwrap();
-    let mut store = Store::open(&store_path("likes-bob"), &bob.identity).unwrap();
+    let bob_path = store_path("likes-bob");
+    let mut store = Store::open(&bob_path, &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
@@ -129,6 +130,10 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
             .await,
         Err(Error::Client(_))
     ));
+    assert!(!bob_session.likes(&alice_owner).unwrap().matched());
+    drop(bob_session);
+    let store = Store::open(&bob_path, &bob.identity).unwrap();
+    let mut bob_session = Session::open(store, &SEAL).unwrap();
     assert!(!bob_session.likes(&alice_owner).unwrap().matched());
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

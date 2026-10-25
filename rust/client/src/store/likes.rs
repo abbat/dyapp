@@ -103,10 +103,9 @@ impl Store {
         Ok(changed)
     }
 
-    /// Create and apply this profile's own like, unlike or view of `target` from `device`, with a
-    /// random event ID and the next persisted HLC value. A view is created only when view sending
-    /// is on and none was sent to `target` this UTC day; otherwise this returns `None`. The
-    /// caller sends the returned event and retries those exact bytes.
+    /// Test-only local event helper. Production sends use [`Self::draft_interaction`] and
+    /// [`Self::stage_interaction`] so event state and encrypted outbox are committed together.
+    #[cfg(test)]
     pub fn interact(
         &mut self,
         target: &str,
