@@ -66,7 +66,10 @@ tries the resolved addresses in turn. `dyappd` takes `host:port` or `host:port/<
 and dials each over `/tcp/<port>` and `/udp/<port>/quic-v1`. An optional peer ID appends
 `/p2p/<id>` to both addresses and rejects a different transport key; mismatches are logged at
 warn. Plain seeds still learn the ID on connect. Bad peer IDs and raw multiaddrs are refused at
-startup. `join` dials every seed and adds
+startup. Clients parse the same rows (`dyapp_p2p_net::seed`) and check them before activating
+them with `dyapp_client::seeds::check`: from a throwaway key, never the identity key, each row
+is connected, invalid, a duplicate, unreachable, a wrong pin, or a wrong network (the node's
+identify version differs). `join` dials every seed and adds
 the cached peers (`.../p2p/<id>` addresses) to the routing table; Kademlia then bootstraps on its
 own. `known_peers` lists the routing table for the cache. `dyappd` reads seeds from the
 `seeds` config key and keeps the cache in `<storage.dir>/peers`, written hourly with store
