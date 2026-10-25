@@ -43,8 +43,10 @@ The planned like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
-interaction, `3` write-token request, `4` write-token answer), so a text is never read as an
-interaction; an unknown tag is refused and acked. A request holds 1 to 1,920 asks (30 days for
+interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
+attachment), so a text is never read as an interaction; an unknown tag is refused and acked. An
+attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
+release secret, 32 bytes each, and the plaintext size; any other length is refused. A request holds 1 to 1,920 asks (30 days for
 64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
 to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.
 `tokens::answer` signs, with the device mailbox key, only asks for its own mailbox and a day from

@@ -8,6 +8,7 @@
 //! store the device state ([`Device::seal`]) first, then [`send`] it. Likewise [`receive`]
 //! returns the envelope ids to [`Node::ack`] once the new state is stored.
 
+use crate::attachment::Attachment;
 use crate::interactions::Interaction;
 use crate::scores::Scores;
 use crate::{mailbox, Envelope, Error, Node};
@@ -94,6 +95,35 @@ pub enum Body {
     TokenAnswer(TokenAnswer),
     /// A device received writes in its mailbox, tag 5.
     Receipt(Receipt),
+    /// An encrypted blob on `/dyapp/media` and what opens it, tag 6.
+    Attachment(Attachment),
+}
+
+// The wire form of an `Attachment`; previews and media types may take later tags.
+#[derive(Clone, PartialEq, Eq, prost::Message)]
+struct AttachmentWire {
+    #[prost(bytes = "vec", tag = "1")]
+    key: Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    plaintext_sha256: Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    blob_sha256: Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    release_secret: Vec<u8>,
+    #[prost(uint64, tag = "5")]
+    size: u64,
+}
+
+impl AttachmentWire {
+    fn open(self) -> Option<Attachment> {
+        Some(Attachment {
+            key: self.key.try_into().ok()?,
+            plaintext_sha256: self.plaintext_sha256.try_into().ok()?,
+            blob_sha256: self.blob_sha256.try_into().ok()?,
+            release_secret: self.release_secret.try_into().ok()?,
+            size: self.size,
+        })
+    }
 }
 
 /// The most write IDs one receipt names, above a node's fetch page.
@@ -153,11 +183,21 @@ impl Body {
             Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
             Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
             Self::Receipt(receipt) => [&[5], receipt.encode_to_vec().as_slice()].concat(),
+            Self::Attachment(attachment) => {
+                let wire = AttachmentWire {
+                    key: attachment.key.to_vec(),
+                    plaintext_sha256: attachment.plaintext_sha256.to_vec(),
+                    blob_sha256: attachment.blob_sha256.to_vec(),
+                    release_secret: attachment.release_secret.to_vec(),
+                    size: attachment.size,
+                };
+                [&[6], wire.encode_to_vec().as_slice()].concat()
+            }
         }
     }
 
-    /// Refuses an unknown or missing tag, a malformed interaction and a token body that is empty,
-    /// too long or holds a field of the wrong length.
+    /// Refuses an unknown or missing tag, a malformed interaction, a token body that is empty or
+    /// too long, and a token, receipt or attachment field of the wrong length.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
             Some((1, text)) => Ok(Self::Text(text.to_vec())),
@@ -191,6 +231,11 @@ impl Body {
                 })
                 .map(Self::Receipt)
                 .ok_or(Error::Reply("bad receipt")),
+            Some((6, attachment)) => AttachmentWire::decode(attachment)
+                .ok()
+                .and_then(AttachmentWire::open)
+                .map(Self::Attachment)
+                .ok_or(Error::Reply("bad attachment")),
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
@@ -453,8 +498,8 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_all, message, pad, unpad, Body, Delivery, Event, Receipt, TokenAnswer, TokenAsk,
-        TokenRequest, MAX_RECEIPT_IDS, MAX_TOKENS, MIN_PADDED_BYTES,
+        apply_all, message, pad, unpad, AttachmentWire, Body, Delivery, Event, Receipt,
+        TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TOKENS, MIN_PADDED_BYTES,
     };
     use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
@@ -633,6 +678,22 @@ mod tests {
         ] {
             assert!(Body::decode(&bad.encode()).is_err());
         }
+    }
+
+    #[test]
+    fn attachments_round_trip_and_refuse_wrong_lengths() {
+        let (attachment, _) = crate::attachment::seal(b"photo").unwrap();
+        let body = Body::Attachment(attachment);
+        assert!(Body::decode(&body.encode()).ok() == Some(body));
+        let wire = AttachmentWire {
+            key: vec![1; 31],
+            plaintext_sha256: vec![2; 32],
+            blob_sha256: vec![3; 32],
+            release_secret: vec![4; 32],
+            size: 5,
+        };
+        assert!(Body::decode(&[&[6], wire.encode_to_vec().as_slice()].concat()).is_err());
+        assert!(Body::decode(&[6, 0xff]).is_err());
     }
 
     #[test]

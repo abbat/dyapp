@@ -25,6 +25,8 @@ pub struct Attachment {
     pub blob_sha256: [u8; 32],
     /// 32 random bytes; the node holds only their SHA-256, [`Attachment::release_hash`].
     pub release_secret: [u8; 32],
+    /// Plaintext length in bytes, so a member can decide before fetching.
+    pub size: u64,
 }
 
 impl std::fmt::Debug for Attachment {
@@ -63,6 +65,7 @@ pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
         plaintext_sha256: sha256(plaintext),
         blob_sha256: sha256(&blob),
         release_secret: random()?,
+        size: plaintext.len() as u64,
     };
     Ok((attachment, blob))
 }
