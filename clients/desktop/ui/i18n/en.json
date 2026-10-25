@@ -3,6 +3,8 @@
   "status.loading": "Checking identity storage…",
   "status.choose": "Choose where to store your identity key",
   "status.ready": "Ready",
+  "status.pick": "Choose an identity",
+  "status.recovery": "This identity cannot be opened",
   "status.error": "Identity storage could not be opened",
   "storage.title": "Identity key storage",
   "storage.system.choice": "Use system credential storage (recommended)",
@@ -16,5 +18,15 @@
   "storage.file.warning": "Anyone who can read this file can copy your identity key. Protect your user profile and backups.",
   "storage.file.backup": "Back up this key file now, along with storage-mode in the same folder. Keep the backup private.",
   "storage.peerId": "Your Peer ID",
-  "storage.error": "Check the selected storage and restart the app. Your identity was not replaced."
+  "storage.error": "Check the selected storage and restart the app. Your identity was not replaced.",
+  "identity.switch": "Switch or add an identity",
+  "identity.add": "Add a new identity",
+  "identity.mode.system": "system storage",
+  "identity.mode.file": "app data file",
+  "recovery.missing": "Its key is missing from the selected storage. Restore the key, then retry. No new key was created.",
+  "recovery.incomplete": "Creating this identity was interrupted before it finished.",
+  "recovery.deleting": "Removing this identity was interrupted.",
+  "recovery.damaged": "Its local files are unreadable or were changed.",
+  "recovery.unavailable": "Its storage cannot be opened now.",
+  "recovery.retry": "Retry"
 }

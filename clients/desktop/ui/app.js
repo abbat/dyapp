@@ -28,47 +28,91 @@ const systemChoice = document.getElementById('system-choice');
 const fileChoice = document.getElementById('file-choice');
 const storageError = document.getElementById('storage-error');
 
+const switchIdentity = document.getElementById('switch-identity');
+const sections = [setup, identity, document.getElementById('picker'),
+  document.getElementById('recovery')];
+
+// Shows one section (or none) with its status line.
+const show = (section, status) => {
+  for (const each of sections) each.hidden = each !== section;
+  switchIdentity.hidden = section !== identity && section !== sections[3];
+  storageError.hidden = true;
+  ready.textContent = window.strings[status];
+};
+
 const showError = () => {
-  setup.hidden = true;
-  identity.hidden = true;
-  ready.textContent = window.strings['status.error'];
+  show(null, 'status.error');
+  switchIdentity.hidden = true;
   storageError.textContent = window.strings['storage.error'];
   storageError.hidden = false;
 };
 
-const render = (state) => {
+const reasonText = (reason) => window.strings[`recovery.${reason}`]
+  || window.strings['recovery.unavailable'];
+
+const act = async (pending) => {
+  try {
+    return await render(await pending);
+  } catch (_) {
+    showError();
+    return { status: 'error' };
+  }
+};
+
+const identityButton = (item) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  const name = item.status === 'ready' ? item.peerId : reasonText(item.reason);
+  const mode = window.strings[`identity.mode.${item.mode}`];
+  button.textContent = mode ? `${name} — ${mode}` : name;
+  button.addEventListener('click', () => act(invoke('select_identity', { slot: item.slot })));
+  const entry = document.createElement('li');
+  entry.append(button);
+  return entry;
+};
+
+async function render(state) {
   if (state.status === 'ready') {
-    setup.hidden = true;
-    identity.hidden = false;
-    ready.textContent = window.strings['status.ready'];
     document.getElementById('peer-id').textContent = state.peerId;
-    const backup = document.getElementById('file-backup');
-    backup.hidden = state.mode !== 'file';
+    document.getElementById('file-backup').hidden = state.mode !== 'file';
     document.getElementById('key-path').textContent = state.keyPath || '';
+    show(identity, 'status.ready');
+    return state;
+  }
+  if (state.status === 'picker') {
+    const items = await invoke('list_identities');
+    document.getElementById('identities').replaceChildren(...items.map(identityButton));
+    show(sections[2], 'status.pick');
+    return state;
+  }
+  if (state.status === 'recovery') {
+    document.getElementById('recovery-reason').textContent = reasonText(state.reason);
+    document.getElementById('recovery-peer').textContent = state.peerId || '';
+    show(sections[3], 'status.recovery');
     return state;
   }
   if (state.status !== 'setup') throw new Error('Unknown identity state');
-  setup.hidden = false;
-  identity.hidden = true;
-  ready.textContent = window.strings['status.choose'];
   systemChoice.disabled = state.systemAvailable !== 'true';
+  fileChoice.disabled = false;
   document.getElementById('system-reason').textContent = systemChoice.disabled
     ? window.strings[state.systemReason] : '';
+  show(setup, 'status.choose');
   return state;
-};
+}
 
-const choose = async (mode) => {
+const choose = (mode) => {
   systemChoice.disabled = true;
   fileChoice.disabled = true;
-  try {
-    render(await invoke('create_identity', { mode }));
-  } catch (_) {
-    showError();
-  }
+  return act(invoke('create_identity', { mode }));
 };
 
 systemChoice.addEventListener('click', () => choose('system'));
 fileChoice.addEventListener('click', () => choose('file'));
+switchIdentity.addEventListener('click', () => act({ status: 'picker' }));
+document.getElementById('add-identity')
+  .addEventListener('click', () => act(invoke('storage_options')));
+document.getElementById('retry')
+  .addEventListener('click', () => act(invoke('identity_state')));
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
   .then(render)

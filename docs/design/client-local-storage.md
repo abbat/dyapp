@@ -2,7 +2,7 @@
 
 The Rust client currently keeps MLS state and mailbox work in memory. This design gives each
 local identity durable chats, preferences and pending delivery while preserving the existing
-[per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
+[per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
 page is wired into an app yet. The Rust store foundation creates the identity-bound version-7
 schema and migrates versions 1 to 6 in place after checking the identity binding. It persists the

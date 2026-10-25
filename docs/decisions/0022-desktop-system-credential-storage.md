@@ -48,7 +48,7 @@ UUID slot, independent of their public Peer ID. File keys live at
 name. A discoverable profile directory records its mode before key creation. The existing
 `identity.key`/`identity-storage` pair and `primary` system credential remain an in-place
 legacy slot: adopting them must not move, overwrite or regenerate the key. The local active-slot
-pointer is separate from every key. See the [storage layout and recovery rules](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
+pointer is separate from every key. See the [storage layout and recovery rules](../development/desktop-identity-storage.md#multiple-identity-layout).
 
 ## Consequences
 

@@ -81,13 +81,14 @@ def smoke(executable):
     reports.mkdir(parents=True, exist_ok=True)
     results = []
 
-    def case(name, extra, profile, broken=False):
+    def case(name, extra, profile, broken=False, peer=True):
         arguments = [executable, "--ui-test", *extra]
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
         process = run(arguments, env=env)
-        match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})", process.stdout)
+        match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)
+        found = match is not None and (match[1] is not None or not peer)
         marker_found = ("UI_SMOKE_FAIL" in process.stdout
-                        if broken else match is not None)
+                        if broken else found)
         passed = process.returncode == int(broken) and marker_found
         if not passed:
             raise RuntimeError(
@@ -99,6 +100,25 @@ def smoke(executable):
                         "passed": True})
         return match.group(1) if match else None
 
+    def several(flags, profile, first):
+        # Add a second identity, pick one, then lose its key.
+        second = case("file-add", [*flags, "--ui-test-step=add"], profile)
+        if second == first:
+            raise RuntimeError("added identity reused the Peer ID")
+        root = Path(profile)
+        (root / "active-profile").unlink()
+        picked = case("file-pick", [*flags, "--ui-test-step=pick"],
+                      profile)
+        if picked not in (first, second):
+            raise RuntimeError("picked an unknown identity")
+        if case("file-pick-restart", [*flags, "--ui-test-existing"],
+                profile) != picked:
+            raise RuntimeError("picked identity was not reopened")
+        slot = (root / "active-profile").read_text().strip()
+        (root / "profiles" / slot / "identity.key").unlink()
+        case("file-missing-key", [*flags, "--ui-test-step=recovery"],
+             profile, peer=False)
+
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             flags = ["--ui-test-file"] if mode == "file" else []
@@ -108,6 +128,8 @@ def smoke(executable):
             if reopened != peer_id:
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
+            if mode == "file":
+                several(flags, profile, peer_id)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:

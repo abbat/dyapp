@@ -289,7 +289,11 @@ pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
     let Some(index) = index else {
         return Ok(Opened::Picker);
     };
-    let slot = slots.swap_remove(index);
+    open_slot(slots.swap_remove(index), load)
+}
+
+/// Opens one listed slot; a provider error is returned, not turned into a recovery reason.
+pub fn open_slot(slot: Slot, load: Load<'_>) -> Result<Opened, String> {
     let reason = match slot.state {
         State::Ready => match load(&slot)? {
             Some(identity) => return Ok(Opened::Ready(slot, identity)),

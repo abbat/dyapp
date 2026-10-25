@@ -46,7 +46,7 @@ keep likes, view history or matching preferences private, or enforce rules such 
 - A user with several profiles gets no cross-profile features: no shared inbox, no switching
   conversations between profiles.
 - On desktop, each planned local identity slot chooses its own key backend; the
-  [storage layout](../development/desktop-identity-storage.md#multiple-identity-layout-planned)
+  [storage layout](../development/desktop-identity-storage.md#multiple-identity-layout)
   preserves an existing single-profile key in place. This does not link the profiles on the
   network.
 - Age, income and every other field are claims, not facts; the UI must not present them as

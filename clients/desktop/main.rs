@@ -57,21 +57,17 @@ fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str
     result
 }
 
-#[tauri::command]
-async fn identity_state(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, IdentityState>,
-) -> Result<HashMap<&'static str, String>, String> {
-    let dir = config_dir(&app)?;
-    let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
-        .await
-        .map_err(|e| e.to_string())??;
+/// The page's view of an opened slot and the identity it unlocked, if any.
+fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<Identity>) {
     let mut result = HashMap::new();
     match opened {
         Opened::Ready(slot, identity) => {
             result = ready_result(slot.mode.unwrap_or_default(), identity.peer_id(), &slot.dir);
             result.insert("slot", slot.id);
-            *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
+            return (result, Some(identity));
+        }
+        Opened::Setup => {
+            result.insert("status", "setup".into());
         }
         Opened::Picker => {
             result.insert("status", "picker".into());
@@ -83,23 +79,100 @@ async fn identity_state(
             result.extend(slot.mode.map(|mode| ("mode", mode.into())));
             result.extend(peer_id.map(|peer_id| ("peerId", peer_id)));
         }
-        Opened::Setup => {
-            let availability = tauri::async_runtime::spawn_blocking(system_store::probe)
-                .await
-                .map_err(|e| e.to_string())?;
-            result.insert("status", "setup".into());
-            match availability {
-                Ok(()) => {
-                    result.insert("systemAvailable", "true".into());
-                }
-                Err(reason) => {
-                    result.insert("systemAvailable", "false".into());
-                    result.insert("systemReason", reason.key().into());
-                }
-            }
+    }
+    (result, None)
+}
+
+/// Makes `opened` the current identity; a picker or recovery state leaves none open.
+fn respond(
+    opened: Opened,
+    state: &IdentityState,
+) -> Result<HashMap<&'static str, String>, String> {
+    let (result, identity) = describe(opened);
+    *state.0.lock().map_err(|e| e.to_string())? = identity;
+    Ok(result)
+}
+
+#[tauri::command]
+async fn identity_state(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+) -> Result<HashMap<&'static str, String>, String> {
+    let dir = config_dir(&app)?;
+    let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
+        .await
+        .map_err(|e| e.to_string())??;
+    if let Opened::Setup = opened {
+        return storage_options().await;
+    }
+    respond(opened, &state)
+}
+
+/// The storage choice for a new identity.
+#[tauri::command]
+async fn storage_options() -> Result<HashMap<&'static str, String>, String> {
+    let availability = tauri::async_runtime::spawn_blocking(system_store::probe)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut result = describe(Opened::Setup).0;
+    match availability {
+        Ok(()) => {
+            result.insert("systemAvailable", "true".into());
+        }
+        Err(reason) => {
+            result.insert("systemAvailable", "false".into());
+            result.insert("systemReason", reason.key().into());
         }
     }
     Ok(result)
+}
+
+/// Every local identity as the picker shows it; listing opens keys but changes nothing.
+#[tauri::command]
+async fn list_identities(
+    app: tauri::AppHandle,
+) -> Result<Vec<HashMap<&'static str, String>>, String> {
+    let dir = config_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(slots::list(&dir)?
+            .into_iter()
+            .map(|slot| {
+                let (id, mode) = (slot.id.clone(), slot.mode);
+                let mut result = match slots::open_slot(slot, &load) {
+                    Ok(opened) => describe(opened).0,
+                    Err(_) => HashMap::from([
+                        ("status", "recovery".into()),
+                        ("reason", "unavailable".into()),
+                    ]),
+                };
+                result.insert("slot", id);
+                result.extend(mode.map(|mode| ("mode", mode.into())));
+                result
+            })
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn select_identity(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+    slot: String,
+) -> Result<HashMap<&'static str, String>, String> {
+    let dir = config_dir(&app)?;
+    let opened = tauri::async_runtime::spawn_blocking(move || {
+        let slot = slots::list(&dir)?
+            .into_iter()
+            .find(|listed| listed.id == slot)
+            .ok_or("Unknown identity")?;
+        slots::set_active(&dir, &slot.id)?;
+        slots::open_slot(slot, &load)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    respond(opened, &state)
 }
 
 #[tauri::command]
@@ -155,6 +228,14 @@ fn ui_test_existing() -> bool {
     std::env::args().any(|arg| arg == "--ui-test-existing")
 }
 
+/// The extra flow a UI test drives: `add`, `pick` or `recovery`.
+#[tauri::command]
+fn ui_test_step() -> String {
+    std::env::args()
+        .find_map(|arg| arg.strip_prefix("--ui-test-step=").map(str::to_owned))
+        .unwrap_or_default()
+}
+
 #[tauri::command]
 fn ui_test_result(
     app: tauri::AppHandle,
@@ -183,11 +264,15 @@ fn main() {
         .manage(IdentityState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             identity_state,
+            storage_options,
+            list_identities,
+            select_identity,
             create_identity,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,
             ui_test_existing,
+            ui_test_step,
             ui_test_result
         ])
         .on_page_load(move |webview, payload| {

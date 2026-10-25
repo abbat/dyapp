@@ -3,24 +3,47 @@ const invokeTest = window.__TAURI__.core.invoke;
 const fail = (error) => invokeTest('ui_test_result', {
   passed: false, peerId: '', reason: String(error),
 });
-const waitForIdentity = () => new Promise((resolve, reject) => {
-  const section = document.getElementById('identity');
+const waitFor = (id) => new Promise((resolve, reject) => {
+  const section = document.getElementById(id);
   if (!section.hidden) { resolve(); return; }
   const observer = new MutationObserver(() => {
     if (!section.hidden) { observer.disconnect(); clearTimeout(timeout); resolve(); }
   });
   observer.observe(section, { attributes: true, attributeFilter: ['hidden'] });
-  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('identity not shown')); }, 10000);
+  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`${id} not shown`)); }, 10000);
 });
-Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing')])
-  .then(async ([state, mode, existing]) => {
-    if (existing && state.status !== 'ready') throw new Error('identity not reopened');
-    if (!existing) {
+const chooseStorage = async (mode) => {
+  const choice = document.getElementById(`${mode}-choice`);
+  if (!choice || choice.disabled || choice.hidden) throw new Error('storage choice unavailable');
+  choice.click();
+  await waitFor('identity');
+};
+Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
+  invokeTest('ui_test_step')])
+  .then(async ([state, mode, existing, step]) => {
+    if (step === 'recovery') {
+      const passed = state.status === 'recovery' && state.reason === 'missing'
+        && !document.getElementById('recovery').hidden
+        && document.getElementById('recovery-reason').textContent
+          === window.strings['recovery.missing'];
+      return invokeTest('ui_test_result', { passed, peerId: '', reason: 'recovery not shown' });
+    }
+    if (step === 'add') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      document.getElementById('switch-identity').click();
+      await waitFor('picker');
+      document.getElementById('add-identity').click();
+      await waitFor('setup');
+      await chooseStorage(mode);
+    } else if (step === 'pick') {
+      if (state.status !== 'picker') throw new Error('identity picker not shown');
+      document.querySelector('#identities button').click();
+      await waitFor('identity');
+    } else if (existing && state.status !== 'ready') {
+      throw new Error('identity not reopened');
+    } else if (!existing) {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
-      const choice = document.getElementById(`${mode}-choice`);
-      if (!choice || choice.disabled || choice.hidden) throw new Error('storage choice unavailable');
-      choice.click();
-      await waitForIdentity();
+      await chooseStorage(mode);
     }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const ready = document.getElementById('app-ready');

@@ -60,12 +60,13 @@ remain limits of the current coverage.
 [ADR 0022](../decisions/0022-desktop-system-credential-storage.md) records the system-store
 choice and its trade-offs.
 
-## Multiple identity layout (planned)
+## Multiple identity layout
 
 The app opens and creates identities through `clients/desktop/slots.rs`: it keeps an older
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
-**new** identities in independent local slots. The picker, recovery, add and remove screens are
-not built yet; the app reports those states as an error:
+**new** identities in independent local slots. The window shows a picker (each slot by Peer ID
+or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
+identity" from the ready or recovery screen. The remove screen is not built yet:
 
 | Item | Planned location / name |
 |---|---|
