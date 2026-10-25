@@ -124,6 +124,105 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
     }
 }
 
+/// What a person searches for, turned into node conditions by [`Filter::conditions`]. An empty
+/// list or `None` leaves that field open.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Filter {
+    /// Inclusive; the lower bound is raised to 18.
+    pub age: Option<(u32, u32)>,
+    /// Any of these `gender` values.
+    pub genders: Vec<String>,
+    /// Any of these `orientation` values.
+    pub orientations: Vec<String>,
+    /// Any of these `relationship_goal` values.
+    pub relationship_goals: Vec<String>,
+    /// `has_kids` as stated; a profile that leaves it unset does not match.
+    pub has_kids: Option<bool>,
+    /// `wants_more_kids` as stated; a profile that leaves it unset does not match.
+    pub wants_more_kids: Option<bool>,
+    /// ISO 3166-1 alpha-2 code, or empty for any country.
+    pub country: String,
+    /// GeoNames IDs as profiles state them; needs `country`.
+    pub places: Vec<String>,
+    /// Inclusive; matches a profile whose own income range overlaps it. Needs `country`.
+    pub income: Option<(u64, u64)>,
+}
+
+/// Why [`Filter::conditions`] refused a filter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterError {
+    /// More than 8 values for one field.
+    TooManyValues,
+    /// Places or income without a country.
+    NeedsCountry,
+    /// A range whose lower bound is above its upper one.
+    EmptyRange,
+}
+
+impl Filter {
+    /// The conditions for a query and for [`check`]: at most 10, one per field.
+    pub fn conditions(&self) -> Result<Vec<Condition>, FilterError> {
+        if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
+            return Err(FilterError::NeedsCountry);
+        }
+        let ints = |field, op: Op, ints: Vec<i64>| Condition {
+            field,
+            op: op.into(),
+            ints,
+            strings: Vec::new(),
+        };
+        let wide = |v: u64| i64::try_from(v).unwrap_or(i64::MAX);
+        let mut out = Vec::new();
+        if let Some((min, max)) = self.age {
+            let min = min.max(18);
+            if min > max {
+                return Err(FilterError::EmptyRange);
+            }
+            out.push(ints(3, Op::Range, vec![min.into(), max.into()]));
+        }
+        if !self.country.is_empty() {
+            out.push(Condition {
+                field: 4,
+                op: Op::Eq.into(),
+                ints: Vec::new(),
+                strings: vec![self.country.clone()],
+            });
+        }
+        if let Some((min, max)) = self.income {
+            if min > max {
+                return Err(FilterError::EmptyRange);
+            }
+            out.push(ints(6, Op::Range, vec![0, wide(max)]));
+            out.push(ints(7, Op::Range, vec![wide(min), i64::MAX]));
+        }
+        for (field, v) in [(8, self.has_kids), (9, self.wants_more_kids)] {
+            if let Some(v) = v {
+                out.push(ints(field, Op::Eq, vec![v.into()]));
+            }
+        }
+        let lists = [
+            (10, &self.relationship_goals),
+            (13, &self.orientations),
+            (20, &self.places),
+            (25, &self.genders),
+        ];
+        for (field, values) in lists {
+            if values.len() > 8 {
+                return Err(FilterError::TooManyValues);
+            }
+            if !values.is_empty() {
+                out.push(Condition {
+                    field,
+                    op: Op::In.into(),
+                    ints: Vec::new(),
+                    strings: values.clone(),
+                });
+            }
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,5 +358,102 @@ mod tests {
         assert!(hits(4, Op::In, &[], &["FR", "DE"]));
         assert!(!hits(4, Op::In, &[], &["FR"]));
         assert!(!hits(4, Op::In, &[], &nine));
+    }
+
+    #[test]
+    fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch() {
+        let a = Identity::generate();
+        let fit = Profile {
+            version: 1,
+            age: 30,
+            gender: "f".into(),
+            orientation: "straight".into(),
+            relationship_goal: "family".into(),
+            has_kids: Some(false),
+            wants_more_kids: Some(true),
+            country: "DE".into(),
+            place: "2950159".into(),
+            income_from: Some(40_000),
+            income_to: Some(60_000),
+            ..Profile::default()
+        };
+        let strings = |v: &[&str]| v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
+        let filter = Filter {
+            age: Some((0, 35)),
+            genders: strings(&["f", "nb"]),
+            orientations: strings(&["straight"]),
+            relationship_goals: strings(&["family", "long"]),
+            has_kids: Some(false),
+            wants_more_kids: Some(true),
+            country: "DE".into(),
+            places: strings(&["2950159"]),
+            income: Some((55_000, u64::MAX)),
+        };
+        let conditions = filter.conditions().unwrap();
+        assert_eq!(conditions.len(), 10);
+        assert_eq!(conditions[0].ints, [18, 35]);
+        let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
+        assert!(kept(&fit));
+        let misses: [fn(&mut Profile); 10] = [
+            |p| p.age = 36,
+            |p| p.gender = "m".into(),
+            |p| p.orientation = "gay".into(),
+            |p| p.relationship_goal = "casual".into(),
+            |p| p.has_kids = Some(true),
+            |p| p.wants_more_kids = None,
+            |p| p.country = "FR".into(),
+            |p| p.place = "2867714".into(),
+            |p| p.income_to = Some(50_000),
+            |p| p.income_from = None,
+        ];
+        for (i, miss) in misses.iter().enumerate() {
+            let mut p = fit.clone();
+            miss(&mut p);
+            assert!(!kept(&p), "{i}");
+        }
+        // The income ranges overlap at one end only.
+        let mut p = fit.clone();
+        p.income_to = Some(55_000);
+        assert!(kept(&p));
+        assert_eq!(Filter::default().conditions().unwrap(), []);
+    }
+
+    #[test]
+    fn a_filter_refuses_what_a_node_would_not_take() {
+        let open = |filter: Filter| filter.conditions().unwrap_err();
+        let places = Filter {
+            places: vec!["1".into()],
+            ..Filter::default()
+        };
+        assert_eq!(open(places), FilterError::NeedsCountry);
+        let income = Filter {
+            income: Some((1, 2)),
+            ..Filter::default()
+        };
+        assert_eq!(open(income), FilterError::NeedsCountry);
+        let young = Filter {
+            age: Some((10, 17)),
+            ..Filter::default()
+        };
+        assert_eq!(open(young), FilterError::EmptyRange);
+        let poor = Filter {
+            country: "DE".into(),
+            income: Some((2, 1)),
+            ..Filter::default()
+        };
+        assert_eq!(open(poor), FilterError::EmptyRange);
+        let many = Filter {
+            genders: (0..9).map(|i| i.to_string()).collect(),
+            ..Filter::default()
+        };
+        assert_eq!(open(many), FilterError::TooManyValues);
+        let eight = Filter {
+            genders: (0..8).map(|i| i.to_string()).collect(),
+            age: Some((18, 18)),
+            country: "DE".into(),
+            income: Some((1, 1)),
+            ..Filter::default()
+        };
+        assert_eq!(eight.conditions().unwrap().len(), 5);
     }
 }

@@ -507,7 +507,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
   inclusive, for numbers. Values are int64 or strings; strings match exactly. Income "at least X"
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is
-  `INVALID`.
+  `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
+  genders, orientations, goals, children, country, places and income, the last two only with a
+  country); income matches when the profile's range overlaps the wanted one
+  (`income_from ≤ max`, `income_to ≥ min`).
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
   come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;
