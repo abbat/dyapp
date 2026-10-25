@@ -5,8 +5,8 @@
 use crate::profiles::Profiles;
 use crate::store::{self, Store};
 use crate::{Error, Node};
-use dyapp_identity::SignedRecord;
-use dyapp_p2p_net::proto::{Condition, Status};
+use dyapp_identity::{Domain, Identity, SignedRecord};
+use dyapp_p2p_net::proto::{self, Condition, Status};
 use dyapp_p2p_net::search_results;
 use dyapp_profile::VerifiedProfile;
 
@@ -109,6 +109,51 @@ async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> Vec<SignedRecord> {
         }
     }
     records
+}
+
+/// Sends `identity`'s heartbeat for its profile `version` to every node in `nodes` unless a node
+/// took one on the UTC day of Unix second `now`, which keeps the profile listed. `bits` is the
+/// nodes' `NodeInfo.min_heartbeat_pow`. Returns whether a node took it; `RATE_LIMITED` means it
+/// has two for today. On `NOT_FOUND` a node lacks this version, which the next publish fixes.
+pub async fn beat_due(
+    store: &Store,
+    identity: &Identity,
+    version: u64,
+    bits: u32,
+    nodes: &mut [Node],
+    now: u64,
+) -> Result<bool, store::Error> {
+    if !store.search_heartbeat_due(now)? {
+        return Ok(false);
+    }
+    let Ok(day) = u32::try_from(now / 86_400) else {
+        return Ok(false);
+    };
+    // shortcut: solves on the calling task (seconds at the default 8 bits); move to a blocking
+    // thread if the UI thread ever awaits this.
+    let Ok(nonce) = dyapp_profile::solve_heartbeat(&identity.public_key(), day, bits, 0, u64::MAX)
+    else {
+        return Ok(false);
+    };
+    let beat = proto::Heartbeat {
+        time: now,
+        version,
+        pow_nonce: nonce,
+        pow_bits: bits,
+        pow_day: day,
+    };
+    let record = identity.sign(Domain::Heartbeat, prost::Message::encode_to_vec(&beat));
+    let mut taken = false;
+    for node in nodes {
+        match node.search_heartbeat(record.clone()).await {
+            Ok(()) | Err(Error::RateLimited(_)) => taken = true,
+            Err(_) => {}
+        }
+    }
+    if taken {
+        store.search_heartbeat_sent(now)?;
+    }
+    Ok(taken)
 }
 
 #[cfg(test)]
@@ -351,5 +396,35 @@ mod tests {
             })
             .collect();
         assert_eq!(sent, [first.clone(), first, second]);
+    }
+
+    #[tokio::test]
+    async fn beats_once_a_day_with_a_proof_for_the_day() {
+        let alice = Identity::generate();
+        let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
+        let answers = [Status::Denied, Status::RateLimited, Status::Ok];
+        let mut answers = answers.map(|s| status(s, 60)).into_iter();
+        let (node, asked) = fake(move |_| answers.next().unwrap()).await;
+        let mut nodes = [node];
+        let (day, now) = (20_000, 20_000 * 86_400 + 5);
+        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, now)).await);
+        // Two already today: done for the day.
+        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, now)).await);
+        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, now + 86_394)).await);
+        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, now + 86_395)).await);
+        let asked = asked.lock().unwrap();
+        assert_eq!(asked.len(), 3);
+        let Request::Heartbeat(record) = &asked[2] else {
+            panic!("not a heartbeat");
+        };
+        let beat: proto::Heartbeat = prost::Message::decode(record.payload.as_slice()).unwrap();
+        assert_eq!(
+            (beat.time, beat.version, beat.pow_day),
+            (now + 86_395, 3, day + 1)
+        );
+        let key = alice.public_key();
+        assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
+        assert_eq!(beat.pow_bits, 2);
+        assert_eq!(record.public_key, key.to_vec());
     }
 }

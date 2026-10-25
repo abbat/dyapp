@@ -8,6 +8,7 @@ use rusqlite::{params, OptionalExtension};
 use std::time::Duration;
 
 const KEY: &str = "search_publish";
+const BEAT_KEY: &str = "search_heartbeat";
 /// Seconds between two profile publishes to search.
 const WINDOW: u64 = 600;
 
@@ -70,6 +71,33 @@ impl Store {
         let state = self.search_publish()?;
         let left = state.ready_at().saturating_sub(now).div_ceil(60);
         Ok(state.pending.map(|_| left))
+    }
+
+    /// Whether no search heartbeat was accepted on the UTC day of Unix second `now`.
+    pub fn search_heartbeat_due(&self, now: u64) -> Result<bool, Error> {
+        let value: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 1",
+                [BEAT_KEY],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(value) = value else {
+            return Ok(true);
+        };
+        let day: [u8; 8] = value.try_into().map_err(|_| Error::InvalidSetting)?;
+        Ok(u64::from_be_bytes(day) < now / 86_400)
+    }
+
+    /// Record that a search node accepted a heartbeat at `now`.
+    pub fn search_heartbeat_sent(&self, now: u64) -> Result<(), Error> {
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+            params![BEAT_KEY, (now / 86_400).to_be_bytes().to_vec()],
+        )?;
+        Ok(())
     }
 
     fn search_publish(&self) -> Result<State, Error> {
@@ -190,6 +218,26 @@ mod tests {
             .unwrap();
         assert_eq!(store.due_search_profile(1799).unwrap(), None);
         assert!(store.due_search_profile(1800).unwrap().is_some());
+    }
+
+    #[test]
+    fn heartbeat_is_due_once_per_utc_day() {
+        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        assert!(store.search_heartbeat_due(86_400).unwrap());
+        store.search_heartbeat_sent(86_400).unwrap();
+        assert!(!store.search_heartbeat_due(2 * 86_400 - 1).unwrap());
+        assert!(store.search_heartbeat_due(2 * 86_400).unwrap());
+        store
+            .db
+            .execute(
+                "UPDATE `settings` SET `value` = x'00' WHERE `key` = 'search_heartbeat'",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.search_heartbeat_due(0),
+            Err(Error::InvalidSetting)
+        ));
     }
 
     #[test]
