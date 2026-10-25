@@ -31,14 +31,23 @@ pub fn solve_from(challenge: &[u8; 16], peer: &str, bits: u32, start: u64) -> u6
 mod tests {
     use super::*;
 
+    // A broken solver may never return: fail instead of hanging the test run.
+    fn bounded(solve: impl FnOnce() -> u64 + Send + 'static) -> u64 {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(solve()));
+        receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("the solver returns")
+    }
+
     #[test]
     fn a_solution_is_the_first_nonce_and_bound_to_its_inputs() {
         let challenge = [3; 16];
-        assert_eq!(solve(&challenge, "peer", 0), 0);
-        let nonce = solve(&challenge, "peer", 10);
+        assert_eq!(bounded(move || solve(&challenge, "peer", 0)), 0);
+        let nonce = bounded(move || solve(&challenge, "peer", 10));
         assert!(solved(&challenge, "peer", nonce, 10));
         assert!((0..nonce).all(|n| !solved(&challenge, "peer", n, 10)));
-        assert!(solve_from(&challenge, "peer", 10, nonce + 1) > nonce);
+        assert!(bounded(move || solve_from(&challenge, "peer", 10, nonce + 1)) > nonce);
         assert!(!solved(&challenge, "other", nonce, 10) || !solved(&[4; 16], "peer", nonce, 10));
         // Leading zeros count across the whole first 128 bits.
         assert!(!solved(&challenge, "peer", nonce, 128));
