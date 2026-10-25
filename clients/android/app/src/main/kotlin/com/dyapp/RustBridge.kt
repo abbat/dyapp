@@ -1,28 +1,26 @@
 package com.dyapp
 
 import android.content.Context
-import java.io.File
-import uniffi.dyapp.IdentityKey
 
 /** Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings. */
 object RustBridge {
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
     /**
-     * Peer ID of this install's identity key. The first call creates the key and stores it
-     * wrapped by [PlatformKeyStore] in `noBackupFilesDir`, which backups skip: the wrapping key
-     * never leaves this device, so a restored blob could not be opened anyway.
+     * Peer ID of the active identity. The first launch creates one in a slot under
+     * `noBackupFilesDir`, which backups skip: its wrapping key never leaves this device, so a
+     * restored blob could not be opened anyway. An upgrade keeps the root key as the legacy slot.
      */
     @Synchronized
-    fun peerId(context: Context): String = identity(context).use { it.peerId() }
+    fun peerId(context: Context): String =
+        when (val opened = slots(context).open()) {
+            is Opened.Ready -> opened.peerId
+            Opened.Setup -> slots(context).create().peerId
+            // shortcut: no picker or recovery screen yet, so these fail visibly; the identity
+            // screens replace this.
+            Opened.Picker -> error("Several identities and no active one")
+            is Opened.Recovery -> error("Identity needs recovery: ${opened.reason}")
+        }
 
-    private fun identity(context: Context): IdentityKey {
-        val file = File(context.noBackupFilesDir, "identity.key")
-        if (file.exists()) return IdentityKey.unwrap(PlatformKeyStore, file.readBytes())
-        val key = IdentityKey.generate()
-        val temp = File(file.path + ".tmp")
-        temp.writeBytes(key.wrap(PlatformKeyStore))
-        check(temp.renameTo(file)) { "cannot store the identity key" }
-        return key
-    }
+    fun slots(context: Context) = Slots(context.noBackupFilesDir, PlatformKeyStore)
 }

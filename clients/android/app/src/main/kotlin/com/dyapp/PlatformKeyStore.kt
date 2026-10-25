@@ -9,20 +9,34 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.KeyStore
 import uniffi.dyapp.WrapException
 
 /**
- * The core's `KeyStore` over a non-exportable AES-256-GCM key in the Android Keystore. A wrapped
- * blob is the 12-byte IV followed by the ciphertext and its tag.
+ * The core's `KeyStore` over the non-exportable AES-256-GCM key [alias] in the Android Keystore,
+ * one per identity. A wrapped blob is the 12-byte IV followed by the ciphertext and its tag.
  */
-object PlatformKeyStore : KeyStore {
-    private const val PROVIDER = "AndroidKeyStore"
-    private const val ALIAS = "dyapp-identity-wrap"
-    private const val TRANSFORMATION = "AES/GCM/NoPadding"
-    private const val IV_SIZE = 12
-    private const val TAG_BITS = 128
-    private const val KEY_BITS = 256
+class PlatformKeyStore(private val alias: String) : KeyStore {
+    companion object : SlotKeys {
+        private const val PROVIDER = "AndroidKeyStore"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val IV_SIZE = 12
+        private const val TAG_BITS = 128
+        private const val KEY_BITS = 256
+
+        private fun keystore() = java.security.KeyStore.getInstance(PROVIDER).apply { load(null) }
+
+        override fun exists(alias: String): Boolean = keystore().containsAlias(alias)
+
+        override fun generate(alias: String): Pair<ByteArray, String> =
+            IdentityKey.generate().use { Pair(it.wrap(PlatformKeyStore(alias)), it.peerId()) }
+
+        override fun peerId(alias: String, wrapped: ByteArray): String =
+            IdentityKey.unwrap(PlatformKeyStore(alias), wrapped).use { it.peerId() }
+
+        override fun delete(alias: String) = keystore().deleteEntry(alias)
+    }
 
     override fun wrap(secret: ByteArray): ByteArray = keystoreCall {
         try {
@@ -43,13 +57,11 @@ object PlatformKeyStore : KeyStore {
         cipher.doFinal(wrapped, IV_SIZE, wrapped.size - IV_SIZE)
     }
 
-    private fun key(): SecretKey? =
-        java.security.KeyStore.getInstance(PROVIDER).apply { load(null) }
-            .getKey(ALIAS, null) as SecretKey?
+    private fun key(): SecretKey? = keystore().getKey(alias, null) as SecretKey?
 
     private fun createKey(): SecretKey {
         val purposes = KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-        val spec = KeyGenParameterSpec.Builder(ALIAS, purposes)
+        val spec = KeyGenParameterSpec.Builder(alias, purposes)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(KEY_BITS)

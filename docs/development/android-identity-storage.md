@@ -4,8 +4,10 @@ The Android app keeps several local identities in independent slots, mirroring t
 [desktop layout](desktop-identity-storage.md#multiple-identity-layout). Each slot has its own
 non-exportable AES-256-GCM key in the Android Keystore that wraps that identity's key file.
 No key requires user authentication, so opening or switching an identity never asks for a
-PIN or biometrics; an app lock is a separate feature. This page is the design; the app still
-has only the single legacy key until the per-slot storage is implemented.
+PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this layout and
+`SlotsTests` covers it on the JVM with a fake Keystore. The app has no picker or recovery
+screen yet: it opens the active or only slot, creates the first one, and fails visibly in
+any other state.
 
 ## Layout
 
@@ -56,7 +58,10 @@ Opening a slot unwraps its file with its alias and derives the Peer ID every tim
 | Keystore or unwrap error | Recovery `unavailable`; the slot and its files stay. |
 | `pending` with or without a key | Recovery `incomplete`: show the Peer ID when the key opens; Retry or Remove. |
 | `deleting` | Recovery `deleting`: show the Peer ID when the key still opens; Remove finishes. |
-| Bad `state`, symlink, malformed name or extra files | Recovery `damaged`; Remove refuses it. |
+| Bad or missing `state`, or a slot path that is not a directory | Recovery `damaged`; Remove refuses it. |
+
+Names under `profiles/` that are not UUIDs are ignored. `Slots.openSlot` throws on a Keystore
+or unwrap error; the screens map that to `unavailable`.
 
 Android has no locked-provider case the desktop has: the keys are not bound to user
 authentication and `noBackupFilesDir` is credential-encrypted storage, so the app cannot run
@@ -66,8 +71,10 @@ identity.
 ## Remove
 
 Removal follows the desktop rules: the user confirms the exact Peer ID, with a warning when it
-is the last local copy. Then write `state` = `deleting`, delete the alias, delete
-`identity.key`, delete `state` and the directory. A failure keeps the slot and shows the error.
+is the last local copy. Then write `state` = `deleting`, delete the alias, check it is gone,
+delete `identity.key`, rename the directory to `profiles/.<slot>.removed` (which drops it from
+the list) and delete it. Removal refuses a folder holding anything but `state`. A failure
+keeps the slot and shows the error; a crash after the rename leaves only the hidden folder.
 After a crash the slot shows as `deleting`; cleanup resumes only after the user confirms again
 or the alias is confirmed absent. Removing the active slot returns to the picker. Removal
 refuses `legacy-primary` and damaged slots, as on desktop.

@@ -60,6 +60,8 @@ class AppUITests {
         check(shownPeerId() == before) { "Peer ID changed on recreation" }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         check(RustBridge.peerId(context) == before) { "Stored identity differs from the shown one" }
-        check(File(context.noBackupFilesDir, "identity.key").length() > 32) { "Key not wrapped" }
+        val opened = RustBridge.slots(context).open() as Opened.Ready
+        check(opened.slot.keyFile.length() > 32) { "Key not wrapped" }
+        check(PlatformKeyStore.exists(opened.slot.alias)) { "No wrapping key for the slot" }
     }
 }
