@@ -110,7 +110,7 @@ ASVS prefix, and they are never renumbered; a new revision is a new catalogue.
 
 | Scope | Standard | Pinned source | Rows |
 |-------|----------|---------------|------|
-| `dyappd` | [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.0.0_release), levels 1 and 2 | `OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json` | 60 |
+| `dyappd` | [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/releases/tag/v5.0.0_release), levels 1 and 2 | `OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json` | 64 |
 | `apps` | [OWASP MASVS 2.1.0](https://github.com/OWASP/masvs/releases/tag/v2.1.0), all controls | `OWASP_MASVS.yaml` | 24 |
 
 Release asset sha256: ASVS `8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311`,
@@ -126,10 +126,14 @@ C2 was written against ASVS 4 chapters; in ASVS 5 they map by meaning, not numbe
 | configuration | V14 Configuration | V13 Configuration |
 
 ASVS 5's V5, V9 and V14 (file handling, tokens, data protection) are other topics and are not in
-scope. MASVS 2 has no levels: the level is the [MASTG](https://github.com/OWASP/mastg) testing
-profile, pinned to MASTG 2.0.0 profiles L2 and P (privacy). The RESILIENCE controls are tested
-mainly under profile R, so their status records whether L2 or P tests apply. A status is
-reviewed per platform (Android, iOS) once the apps exist; the completeness check is planned.
+scope. Two sections join beyond C2: V4.2 HTTP message structure validation, because the [metrics
+listener](../architecture/bootstrap.md#metrics-listener) parses HTTP itself, and V15.2 dependencies,
+which the vulnerability checks below already cover. MASVS 2 has no levels: the level is the
+[MASTG](https://github.com/OWASP/mastg) testing profile, pinned to MASTG 2.0.0 profiles L2 and P
+(privacy). The RESILIENCE controls are tested under profile R, which is not chosen, so their status
+is `out-of-profile`: the code is open, and no secret or protocol guarantee may depend on an
+untampered client. A status is reviewed per platform (Android, iOS) once the apps exist; the
+completeness check is planned.
 
 ## Vulnerability disclosure
 
