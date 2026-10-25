@@ -57,6 +57,17 @@ const submitCheck = async (rows) => {
   return status === strings['network.empty'] ? 'empty'
     : [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status);
 };
+// A reachable node enables Continue, which activates the checked draft.
+const connectNetwork = async (seed) => {
+  const rows = await submitCheck(seed);
+  if (rows.join() !== 'connected') throw new Error(`rows ${rows}`);
+  const next = document.getElementById('continue-connection');
+  if (next.disabled) throw new Error('continue disabled after a connected check');
+  next.click();
+  await window.connectionActivated;
+  if (document.getElementById('network-status').textContent
+    !== window.strings['network.active']) throw new Error('connection not activated');
+};
 // An empty list is refused, then a refused and a malformed row keep Continue disabled.
 const checkNetwork = async () => {
   if (await submitCheck('') !== 'empty') throw new Error('empty list not reported');
@@ -93,6 +104,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'network') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkNetwork();
+    } else if (step.startsWith('connect:')) {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await connectNetwork(step.slice('connect:'.length));
     } else if (step === 'network-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');

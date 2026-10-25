@@ -5,9 +5,11 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def display_diagnostics():
@@ -169,6 +171,43 @@ def smoke(executable):
                 profile) != peer_id:
             raise RuntimeError("the network step replaced the identity")
 
+    def connect(profile):
+        """A loopback dyappd connects the form; Continue activates it."""
+        node, storage = Path(executable).with_name("dyappd"), Path(profile)
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            seed = "127.0.0.1:%d" % probe.getsockname()[1]
+        env = dict(os.environ, DYAPPD_LISTEN=f'["{seed}"]',
+                   DYAPPD_EXTERNAL=f'["{seed}"]',
+                   DYAPPD_STORAGE_DIR=str(storage / "node"))
+        subprocess.run([node, "keygen"], env=env, check=True,
+                       stdout=subprocess.DEVNULL, timeout=600)
+        log = storage / "node.log"
+        with log.open("w") as out:
+            server = subprocess.Popen([node], env=env, stdout=out,
+                                      stderr=subprocess.STDOUT)
+        try:
+            host, port = seed.split(":")
+            for _ in range(60):
+                try:
+                    socket.create_connection((host, int(port)), 1).close()
+                    break
+                except OSError:
+                    time.sleep(1)
+            else:
+                raise RuntimeError(f"dyappd did not start:\n"
+                                   f"{log.read_text()[-4096:]}")
+            file = ["--ui-test-file"]
+            case("connect-create", file, profile)
+            case("network-connect", [*file, f"--ui-test-step=connect:{seed}"],
+                 profile)
+        finally:
+            server.terminate()
+            server.wait(timeout=30)
+        slot = (storage / "active-profile").read_text().strip()
+        if not (storage / "profiles" / slot / "network").is_file():
+            raise RuntimeError("Continue did not activate the checked draft")
+
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             flags = ["--ui-test-file"] if mode == "file" else []
@@ -181,6 +220,10 @@ def smoke(executable):
             (legacy if mode == "file" else mixed)(profile, peer_id)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         network(profile)
+    # dyappd runs on Linux only; linux-test.sh builds it beside the app.
+    if sys.platform.startswith("linux"):
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            connect(profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:

@@ -2,6 +2,9 @@ FROM dyapp:linux-base
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11 gnome-keyring
 RUN cargo test --manifest-path clients/linux/Cargo.toml --locked --no-run --message-format=json > /app/build/unit-build.json
+# The desktop smoke checks the connection form against a loopback dyappd.
+COPY Cargo.lock ./
+RUN CARGO_NET_OFFLINE=false cargo fetch --locked && cargo build --locked -p dyapp-bootstrap --bin dyappd
 COPY tools/scripts tools/scripts
 COPY tests/scripts tests/scripts
 RUN mkdir -p /reports && chown 1000:1000 /reports

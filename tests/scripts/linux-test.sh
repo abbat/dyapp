@@ -21,6 +21,9 @@ if [[ ! -f $units ]]; then
     cargo build --manifest-path "$manifest" --locked
     cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"
 fi
+if [[ ! -x $root/build/debug/dyappd ]]; then
+    cargo build --manifest-path "$root/Cargo.toml" --locked -p dyapp-bootstrap --bin dyappd
+fi
 mkdir -p /tmp/ai
 export DYAPP_XVFB_DIAGNOSTICS=1
 exec xvfb-run -a -e /dev/stderr -s '-screen 0 1024x768x24' dbus-run-session -- \

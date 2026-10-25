@@ -166,7 +166,7 @@ network.addEventListener('change', () => invoke('save_network_draft', { draft: d
 cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 continueButton.addEventListener('click', () => {
   continueButton.disabled = true;
-  invoke('activate_connection')
+  window.connectionActivated = invoke('activate_connection')
     .then(() => networkStatus('network.active'))
     .catch((error) => networkStatus('network.failed', String(error)));
 });
