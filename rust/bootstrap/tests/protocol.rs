@@ -890,6 +890,8 @@ mod search;
 
 #[path = "protocol/chat.rs"]
 mod chat;
+#[path = "protocol/chat_edits.rs"]
+mod chat_edits;
 
 #[path = "protocol/replicas.rs"]
 mod replicas;

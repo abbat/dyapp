@@ -136,8 +136,10 @@ inbox; other visible bodies still use protobuf `StoredMessage`) and only then re
 and ACKs every pending ID of that mailbox. Gap and unknown-owner envelopes stay unrecorded and
 unacked; a refused envelope stores only a marker, keeps the previous MLS snapshot and reopens
 it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
-A node test runs two such sessions against a mailbox node through restarts and injected storage
-faults at both boundaries; see the [acceptance matrix](../testing/bootstrap-acceptance.md).
+Node tests run two such sessions against a mailbox node: one covers restarts and injected storage
+faults at both boundaries, and another delivers text, edit and terminal delete, checks both local
+projections, ACKs and digest-only receiver inbox records. See the
+[acceptance matrix](../testing/bootstrap-acceptance.md).
 The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)
 specifies that a storage error invalidates the current in-memory MLS session, and that receive
 must process one envelope per transaction before UI display or ACK; `Session::receive` is that
