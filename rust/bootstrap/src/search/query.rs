@@ -12,7 +12,7 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
     }
 }
 
-/// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd, gender
+/// 600 profiles: places p0..p5 in "DE", ages 20..79 on 2026-10-25, interest "chess" on every 3rd, gender
 /// "f" on every 2nd, education level `i % 7`, one photo on every 4th.
 /// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
 const SIX: [&str; 6] = [
@@ -30,7 +30,9 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
         let id = Identity::generate();
         let p = Profile {
             version: 1,
-            age: u32::try_from(20 + i % 60).unwrap(),
+            birth_year: Some(2026 - u32::try_from(20 + i % 60).unwrap()),
+            birth_month: Some(1),
+            birth_day: Some(1),
             country: "DE".into(),
             place: SIX[(i % 6) as usize].into(),
             gender: if i % 2 == 0 { "f" } else { "m" }.into(),
@@ -170,12 +172,12 @@ fn query_filters_place_in_and_budget() {
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
         cond(20, Op::In, vec![], vec![SIX[1], SIX[2]]),
-        cond(3, Op::Range, vec![30, 39], vec![]),
+        cond(BIRTH_AGE, Op::Range, vec![19861025, 19961025], vec![]),
         cond(19, Op::In, vec![], vec!["chess", "go"]),
         cond(99, Op::Eq, vec![1], vec![]),
     ];
     let found = index.query(&q, 200, 10_000).unwrap().unwrap();
-    assert_eq!(found.applied, vec![4, 20, 3, 19]);
+    assert_eq!(found.applied, vec![4, 20, BIRTH_AGE, 19]);
     assert!(!found.partial);
     // Places p1/p2 are i % 6 in {1, 2}, so i % 3 != 0: nobody there plays chess.
     assert!(found.hits.is_empty());
@@ -201,12 +203,17 @@ fn query_filters_place_in_and_budget() {
 fn invalid_conditions() {
     let (index, _) = population();
     let bad = |q: Vec<Condition>| index.query(&q, 50, 10_000).unwrap().is_err();
-    assert!(bad(vec![cond(3, Op::Eq, vec![], vec!["thirty"])]));
+    assert!(bad(vec![cond(
+        BIRTH_AGE,
+        Op::Range,
+        vec![],
+        vec!["thirty"]
+    )]));
     assert!(bad(vec![cond(4, Op::Eq, vec![1], vec![])]));
-    assert!(bad(vec![cond(3, Op::Range, vec![40, 30], vec![])]));
+    assert!(bad(vec![cond(BIRTH_AGE, Op::Range, vec![40, 30], vec![])]));
     assert!(bad(vec![
-        cond(3, Op::Eq, vec![1], vec![]),
-        cond(3, Op::Eq, vec![2], vec![])
+        cond(BIRTH_AGE, Op::Range, vec![1, 2], vec![]),
+        cond(BIRTH_AGE, Op::Range, vec![3, 4], vec![])
     ]));
     assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 9])]));
     assert!(bad((0..17)
@@ -218,7 +225,7 @@ fn invalid_conditions() {
         .unwrap();
     assert!(skipped.applied.is_empty());
     let unknown_op = Condition {
-        field: 3,
+        field: BIRTH_AGE,
         op: 42,
         ints: vec![1],
         strings: vec![],

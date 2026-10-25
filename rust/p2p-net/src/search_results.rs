@@ -74,7 +74,6 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
     let int = |v: Option<i64>| Some(Value::Ints(v.into_iter().collect()));
     let wide = |v: Option<u64>| int(v.map(|v| i64::try_from(v).unwrap_or(i64::MAX)));
     match field {
-        3 => int(Some(profile.age.into())),
         4 => text(&profile.country),
         6 => wide(profile.income_from),
         7 => wide(profile.income_to),
@@ -289,7 +288,9 @@ mod tests {
     fn record(identity: &Identity, version: u64, age: u32, interests: &[&str]) -> SignedRecord {
         Profile {
             version,
-            age,
+            birth_year: Some(2026 - age),
+            birth_month: Some(1),
+            birth_day: Some(1),
             country: "DE".into(),
             interests: interests.iter().map(|s| (*s).to_string()).collect(),
             ..Profile::default()
@@ -320,14 +321,14 @@ mod tests {
             record(&a, 2, 31, &["chess"]),
         ];
         let conditions = [
-            condition(3, Op::Range, &[25, 35], &[]),
+            condition(BIRTH_AGE, Op::Range, &[19901025, 20011025], &[]),
             condition(19, Op::In, &[], &["chess", "ski"]),
             condition(4, Op::Eq, &[], &["DE"]),
             condition(99, Op::Eq, &[1], &[]),
         ];
         let found = check(&conditions, 0, &[honest, lying]);
-        let ages: Vec<_> = found.iter().map(|v| v.profile.age).collect();
-        assert_eq!(ages, [33]);
+        let years: Vec<_> = found.iter().map(|v| v.profile.birth_year).collect();
+        assert_eq!(years, [Some(1993)]);
         assert_eq!(found[0].peer_id, a.peer_id());
         // A newer version that misses the conditions hides an older one that matches.
         let newer = vec![record(&a, 4, 60, &["chess"])];
@@ -339,9 +340,9 @@ mod tests {
     fn malformed_conditions_match_nothing_and_pow_is_checked() {
         let a = Identity::generate();
         let replies = [vec![record(&a, 1, 30, &[])]];
-        let bad = condition(3, Op::Eq, &[], &["30"]);
+        let bad = condition(BIRTH_AGE, Op::Range, &[], &["30"]);
         assert!(check(&[bad], 0, &replies).is_empty());
-        let reversed = condition(3, Op::Range, &[40, 20], &[]);
+        let reversed = condition(BIRTH_AGE, Op::Range, &[40, 20], &[]);
         assert!(check(&[reversed], 0, &replies).is_empty());
         assert_eq!(check(&[], 0, &replies).len(), 1);
         assert!(check(&[], 1, &replies).is_empty());
@@ -368,7 +369,7 @@ mod tests {
     #[test]
     fn every_field_and_op_is_checked() {
         let p = Profile {
-            age: 30,
+            birth_year: Some(1996),
             country: "DE".into(),
             income_from: Some(10),
             income_to: Some(u64::MAX),
@@ -392,15 +393,7 @@ mod tests {
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
             matches(&condition(field, op, ints, strings), &p)
         };
-        for (field, v) in [
-            (3, 30),
-            (6, 10),
-            (7, i64::MAX),
-            (8, 1),
-            (9, 0),
-            (21, 1),
-            (27, 4),
-        ] {
+        for (field, v) in [(6, 10), (7, i64::MAX), (8, 1), (9, 0), (21, 1), (27, 4)] {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
@@ -414,14 +407,14 @@ mod tests {
             assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");
             assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
         }
-        let nine = [22, 23, 24, 25, 26, 27, 28, 29, 30];
-        assert!(hits(3, Op::Unspecified, &[], &[]));
-        assert!(!hits(3, Op::Eq, &[30, 31], &[]));
-        assert!(hits(3, Op::In, &[29, 30], &[]));
-        assert!(!hits(3, Op::In, &[], &[]));
-        assert!(!hits(3, Op::In, &nine, &[]));
-        assert!(hits(3, Op::Range, &[20, 40], &[]));
-        assert!(!hits(3, Op::Range, &[20, 40, 50], &[]));
+        let nine = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        assert!(hits(27, Op::Unspecified, &[], &[]));
+        assert!(!hits(27, Op::Eq, &[4, 5], &[]));
+        assert!(hits(27, Op::In, &[3, 4], &[]));
+        assert!(!hits(27, Op::In, &[], &[]));
+        assert!(!hits(27, Op::In, &nine, &[]));
+        assert!(hits(27, Op::Range, &[3, 5], &[]));
+        assert!(!hits(27, Op::Range, &[3, 4, 5], &[]));
         let nine = ["a", "b", "c", "d", "e", "f", "g", "h", "DE"];
         assert!(hits(4, Op::Unspecified, &[], &[]));
         assert!(hits(4, Op::Range, &[], &[]));

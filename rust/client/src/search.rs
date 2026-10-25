@@ -210,7 +210,9 @@ mod tests {
     fn record(identity: &Identity, version: u64, age: u32) -> SignedRecord {
         Profile {
             version,
-            age,
+            birth_year: Some(2026 - age),
+            birth_month: Some(1),
+            birth_day: Some(1),
             ..Profile::default()
         }
         .sign(identity)
@@ -416,9 +418,9 @@ mod tests {
         })
         .await;
         let conditions = [Condition {
-            field: 3,
+            field: search_results::BIRTH_AGE,
             op: Op::Range.into(),
-            ints: vec![25, 35],
+            ints: vec![19901025, 20011025],
             strings: Vec::new(),
         }];
         let mut nodes = [one, two, down];

@@ -525,9 +525,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
   matches when the profile's earliest possible birth date is above the lower
   bound and its latest possible date is at most the upper bound. A profile
   without a birth year has no indexed bounds and cannot match. Search nodes
-  advertise field 1001. Temporary integer age field 3 remains available until
-  its removal checkpoint. The client helper builds field 1001 from an explicit
-  UTC civil date and rechecks each verified profile against its birth bounds.
+  advertise field 1001. The temporary profile integer age at tag 3 is no
+  longer indexed or usable as a search condition; it will be removed. The
+  client helper builds field 1001 from an explicit UTC civil date and rechecks
+  each verified profile against its birth bounds.
   Multi-node search marks the result partial if any node skips field 1001 or
   fails, or if a query or fetch reply leaves results out.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
@@ -1102,16 +1103,18 @@ then trusts it as the owner's own claim, not as fact:
 |-------|-------------|----------------------|
 | profile peer ID | node | derived from the signing key |
 | profile fields | owner | signature, version order, format checks above |
-| `age` | owner | nothing beyond `u32`; no minimum, so an age below 30 or 18 is stored |
+| birth-year/month/day parts | owner | possible Gregorian combination; no proof of real age |
+| temporary integer `age` | owner | values 1–17 rejected; still only a self-declared claim |
 | envelope `mailbox`, `id` | sender | lengths only; any key may put into any mailbox |
 | envelope `write_token` | recipient device key | signature, mailbox, envelope signer and day; optional |
 | envelope `ciphertext` | sender | size only; the recipient checks the sender inside it |
 
 - **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete
   (tombstone) a profile. A replayed old version is rejected.
-- **Age.** Age is self-declared; the client refuses users under 18 in its UI, and 30+ is only the
-  target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)). The node checks
-  nothing beyond the signature: it would accept `17`.
+- **Age.** Birth-date parts and the temporary integer age are self-declared. The
+  node rejects integer values 1–17 but cannot prove adulthood from a date. Client
+  18+ self-attestation and the conservative year-based gate are planned; 30+ is
+  only the target audience ([ADR 0012](../decisions/0012-private-p2p-interactions.md)).
 
 ### Client commands
 

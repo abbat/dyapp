@@ -53,7 +53,7 @@ pub(super) fn signed(identity: &Identity, profile: Profile) -> ([u8; 32], Profil
 pub(super) fn profile(version: u64) -> Profile {
     Profile {
         version,
-        age: 30,
+        birth_year: Some(1996),
         country: "DE".into(),
         place: "2950159".into(),
         interests: vec!["chess".into()],

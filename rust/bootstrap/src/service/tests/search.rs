@@ -72,7 +72,9 @@ fn search_publish_query_get() {
         &id,
         Profile {
             version: 1,
-            age: 33,
+            birth_year: Some(1993),
+            birth_month: Some(1),
+            birth_day: Some(1),
             country: "DE".into(),
             ..Profile::default()
         },
@@ -93,9 +95,9 @@ fn search_publish_query_get() {
     assert!(r.retry_after > 0 && r.retry_after <= 600);
     let q = proto::SearchQuery {
         conditions: vec![proto::Condition {
-            field: 3,
-            op: proto::Op::Eq.into(),
-            ints: vec![33],
+            field: crate::search::BIRTH_AGE,
+            op: proto::Op::Range.into(),
+            ints: vec![19921025, 19931025],
             strings: vec![],
         }],
         limit: 0,
@@ -103,7 +105,7 @@ fn search_publish_query_get() {
     };
     let r = search(&s, search_request::Request::Query(q));
     assert_eq!(r.hits.len(), 1);
-    assert_eq!(r.applied, vec![3]);
+    assert_eq!(r.applied, vec![crate::search::BIRTH_AGE]);
     assert_eq!(r.index_version, crate::search::INDEX_VERSION);
     let bad = proto::SearchQuery {
         conditions: vec![proto::Condition::default(); 17],
@@ -113,7 +115,7 @@ fn search_publish_query_get() {
     let r = search(&s, search_request::Request::Query(bad));
     assert_eq!(search_status(&r), Status::Invalid);
     let get = |keys| search_request::Request::Get(proto::SearchGet { keys, puzzle: None });
-    let key = r_key(&s, 33);
+    let key = r_key(&s);
     let r = search(&s, get(vec![key.clone()]));
     assert_eq!(r.records, vec![record]);
     assert_eq!(
@@ -153,13 +155,13 @@ fn search_publish_query_get() {
     assert!(store_only.info().search_fields.is_empty());
 }
 
-/// The key of the one profile aged `age`.
-fn r_key(s: &Service, age: i64) -> Vec<u8> {
+/// The key of the one profile with birth year 1993.
+fn r_key(s: &Service) -> Vec<u8> {
     let q = proto::SearchQuery {
         conditions: vec![proto::Condition {
-            field: 3,
-            op: proto::Op::Eq.into(),
-            ints: vec![age],
+            field: crate::search::BIRTH_AGE,
+            op: proto::Op::Range.into(),
+            ints: vec![19921025, 19931025],
             strings: vec![],
         }],
         limit: 0,

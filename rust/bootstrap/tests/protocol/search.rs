@@ -20,12 +20,12 @@ async fn start_search(seed: Option<&Multiaddr>) -> Multiaddr {
     .await
 }
 
-fn age_query(age: i64) -> proto::search_request::Request {
+fn year_query(year: i64) -> proto::search_request::Request {
     proto::search_request::Request::Query(proto::SearchQuery {
         conditions: vec![proto::Condition {
-            field: 3,
-            op: proto::Op::Eq.into(),
-            ints: vec![age],
+            field: dyapp_p2p_net::search_results::BIRTH_AGE,
+            op: proto::Op::Range.into(),
+            ints: vec![year * 10_000, year * 10_000 + 1231],
             strings: vec![],
         }],
         limit: 0,
@@ -49,12 +49,12 @@ async fn search_profile_spreads_between_nodes() {
             tokio::time::Instant::now() < deadline,
             "no profile reached B"
         );
-        let age = 20 + published.len() as i64;
+        let year = 2000 + published.len() as i64;
         let identity = Identity::generate();
         let pow_nonce = dyapp_profile::solve(&identity.public_key(), 2, 0, 100_000).unwrap();
         let record = Profile {
             version: 1,
-            age: age as u32,
+            birth_year: Some(year as u32),
             pow_nonce,
             pow_bits: 2,
             ..Profile::default()
@@ -64,7 +64,7 @@ async fn search_profile_spreads_between_nodes() {
         assert_eq!(status(r.status), Status::Ok);
         published.push(record);
         tokio::time::sleep(Duration::from_millis(500)).await;
-        let r = to_b.search(age_query(age)).await;
+        let r = to_b.search(year_query(year)).await;
         if let Some(hit) = r.hits.into_iter().next() {
             break hit;
         }
@@ -105,11 +105,11 @@ async fn digest_answers_256_bucket_hashes() {
 async fn search_queries_do_not_hold_up_the_node() {
     let addr = start_search(None).await;
     let mut client = Client::connect(&addr).await;
-    for age in 0..8 {
+    for year in 2000..2008 {
         client.swarm.behaviour_mut().search.send_request(
             &client.server,
             proto::SearchRequest {
-                request: Some(age_query(age)),
+                request: Some(year_query(year)),
             },
         );
     }
@@ -162,11 +162,11 @@ fn search_worker_saturation_retries_without_stalling_info() {
         });
         started.await.unwrap();
         // Two queries take the workers, four wait in the group's queue and the last is refused.
-        for age in 0..7 {
+        for year in 2000..2007 {
             client.swarm.behaviour_mut().search.send_request(
                 &client.server,
                 proto::SearchRequest {
-                    request: Some(age_query(age)),
+                    request: Some(year_query(year)),
                 },
             );
         }
@@ -242,9 +242,9 @@ async fn a_client_finds_and_queries_search_nodes() {
             .unwrap();
         peers.insert(search.peer());
         let nobody = proto::Condition {
-            field: 3,
-            op: proto::Op::Eq.into(),
-            ints: vec![99],
+            field: dyapp_p2p_net::search_results::BIRTH_AGE,
+            op: proto::Op::Range.into(),
+            ints: vec![990000, 991231],
             strings: vec![],
         };
         let response = search.search_query(vec![nobody], 0).await.unwrap();

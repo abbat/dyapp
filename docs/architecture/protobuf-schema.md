@@ -44,7 +44,8 @@ Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encryp
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, unset
 optionals and an age of 0 mean "not published". The integer `age` at tag 3 is
 self-declared, unverified and temporarily retained in this unreleased protocol;
-values 1–17 are rejected. Three independent optional fields publish `birth_year`
+values 1–17 are rejected, and the field is no longer indexed for search.
+Three independent optional fields publish `birth_year`
 (tag 33), `birth_month` (34) and `birth_day` (35). All may be absent; a year is
 needed to derive age, while month and day may be published without one. Explicit
 zero or an impossible Gregorian combination is rejected, as is combining any

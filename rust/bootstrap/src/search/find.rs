@@ -5,7 +5,6 @@ use dyapp_p2p_net::proto::{Condition, Op};
 
 /// Profile field number → column and whether it holds integers. Constant identifiers only.
 const COLUMNS: &[(u32, &str, bool)] = &[
-    (3, "age", true),
     (4, "country", false),
     (6, "income_from", true),
     (7, "income_to", true),
@@ -30,7 +29,7 @@ const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
 pub const BIRTH_AGE: u32 = dyapp_p2p_net::search_results::BIRTH_AGE;
 /// Profile field numbers a query may filter on, plus virtual fields.
 pub const SEARCH_FIELDS: &[u32] = &[
-    3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY, BIRTH_AGE,
+    4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY, BIRTH_AGE,
 ];
 
 /// Result of a query.

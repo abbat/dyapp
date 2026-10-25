@@ -27,7 +27,7 @@ const EXPIRE_BATCHES: u32 = 64;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NULL,
-  `version` INTEGER NOT NULL, `age` INTEGER, `country` TEXT, `income_from` INTEGER,
+  `version` INTEGER NOT NULL, `country` TEXT, `income_from` INTEGER,
   `income_to` INTEGER, `has_kids` INTEGER, `wants_more_kids` INTEGER, `relationship_goal` TEXT,
   `career_ambition` TEXT, `education_level` INTEGER, `orientation` TEXT, `role_preference` TEXT,
   `zodiac` TEXT, `financial_philosophy` TEXT, `employment_status` TEXT, `fitness_level` TEXT,
@@ -129,12 +129,11 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
     let birth = p.birth_bounds();
     tx.execute(
         "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
         params![
             &key[..],
             topic(key),
             sql(p.version),
-            p.age,
             p.country,
             p.income_from.and_then(sql),
             p.income_to.and_then(sql),
