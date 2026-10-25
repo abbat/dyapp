@@ -25,9 +25,10 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (27, "education_level", true),
 ];
 const INTERESTS: u32 = 19;
-/// Profile field numbers a query may filter on.
+const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
+/// Profile field numbers a query may filter on, and [`ACTIVE_DAY`].
 pub const SEARCH_FIELDS: &[u32] = &[
-    3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27,
+    3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY,
 ];
 
 /// Result of a query.
@@ -54,10 +55,12 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     use rusqlite::types::Value;
     let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
     let interests = c.field == INTERESTS;
+    let active = c.field == ACTIVE_DAY;
     let Some(&(_, column, int)) = COLUMNS
         .iter()
         .find(|(f, ..)| *f == c.field)
         .or(interests.then_some(&(INTERESTS, "", false)))
+        .or(active.then_some(&(ACTIVE_DAY, "", true)))
     else {
         return Ok(None);
     };
@@ -76,10 +79,13 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     let target = if interests {
         "EXISTS (SELECT 1 FROM `interest` AS `i` WHERE `i`.`key` = `p`.`key` AND `i`.`interest`"
             .to_string()
+    } else if active {
+        "EXISTS (SELECT 1 FROM `key` AS `k` WHERE `k`.`key` = `p`.`key` AND `k`.`heartbeat` / 86400"
+            .to_string()
     } else {
         format!("`p`.`{column}`")
     };
-    let close = if interests { ")" } else { "" };
+    let close = if interests || active { ")" } else { "" };
     let sql = match op {
         Op::Unspecified => return Ok(None),
         Op::Range if !int => return Ok(None),
@@ -87,7 +93,7 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
         Op::In if (1..=8).contains(&n) => {
             format!("{target} IN ({}){close}", vec!["?"; n].join(", "))
         }
-        Op::Range if n == 2 && c.ints[0] <= c.ints[1] => format!("{target} BETWEEN ? AND ?"),
+        Op::Range if n == 2 && c.ints[0] <= c.ints[1] => format!("{target} BETWEEN ? AND ?{close}"),
         _ => return Err(()),
     };
     Ok(Some(Filter {

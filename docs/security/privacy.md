@@ -85,7 +85,9 @@ not "safe" data. The target design therefore needs:
 - photo metadata (EXIF, GPS, device) stripped on the client before any upload: `strip_metadata` in the core
   (see [FFI design](../architecture/ffi-design.md)); the app setting, on by default, and the call before
   upload are not wired yet;
-- a heartbeat at most once a day at a random time, so `last_seen` does not track app use;
+- a heartbeat at most once a day at a random time, so `last_seen` does not track app use; the
+  "active since" search filter still lets any searcher learn, to about a day, when a profile last
+  sent a heartbeat or update;
 - push notifications (not designed) that only wake the app, with no sender or content.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).

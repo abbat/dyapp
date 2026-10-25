@@ -513,7 +513,8 @@ enum Op {
 }
 
 message Condition {
-  // `dyapp.profile.Profile` field number.
+  // `dyapp.profile.Profile` field number, or 1000: the UTC day (days since the epoch) of the
+  // node's last accepted heartbeat or publish of the key, which the client cannot re-check.
   uint32 field = 1;
   Op op = 2;
   repeated int64 ints = 3;

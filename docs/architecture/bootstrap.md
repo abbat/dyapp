@@ -510,10 +510,13 @@ fetch reveal device count and contact interest to store nodes; no private direct
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is
   `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
-  genders, orientations, goals, children, least education level, with a photo, country, places
-  and income, the last two only with a country); income matches when the profile's range
-  overlaps the wanted one
-  (`income_from ≤ max`, `income_to ≥ min`).
+  genders, orientations, goals, children, least education level, with a photo, active since a
+  day, country, places and income, the last two only with a country); income matches when the
+  profile's range overlaps the wanted one
+  (`income_from ≤ max`, `income_to ≥ min`). Field 1000 (`search_results::ACTIVE_DAY`, listed in
+  `search_fields`) is no `Profile` field: it is the UTC day of the key's `heartbeat` time, its
+  last heartbeat or the time this node stored its profile, also from gossip or catch-up. The
+  client cannot re-check it, so it drops the replies of a node that did not apply it.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
   come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;

@@ -30,6 +30,13 @@ pub async fn search(
         let Ok(reply) = node.search_query(conditions.to_vec(), limit).await else {
             continue;
         };
+        // The client cannot re-check activity, so a node that skipped it adds nothing.
+        let active = conditions
+            .iter()
+            .any(|c| c.field == search_results::ACTIVE_DAY);
+        if active && !reply.applied.contains(&search_results::ACTIVE_DAY) {
+            continue;
+        }
         let mut keys = Vec::new();
         for hit in reply.hits {
             let peer_id: String = hit.key.iter().map(|byte| format!("{byte:02x}")).collect();
@@ -251,6 +258,31 @@ mod tests {
             _ => None,
         });
         gets.collect()
+    }
+
+    #[tokio::test]
+    async fn drops_nodes_that_skip_the_activity_condition() {
+        let [a, b] = [(); 2].map(|()| Identity::generate());
+        let mut nodes = Vec::new();
+        for (identity, applied) in [(&a, vec![search_results::ACTIVE_DAY]), (&b, vec![])] {
+            let mut query = ok(vec![hit(key(identity), 1)], Vec::new(), false);
+            query.applied = applied;
+            let mut answers = vec![ok(Vec::new(), vec![record(identity, 1, 30)], false), query];
+            nodes.push(fake(move |_| answers.pop().unwrap()).await.0);
+        }
+        let conditions = [Condition {
+            field: search_results::ACTIVE_DAY,
+            op: Op::Range.into(),
+            ints: vec![2, i64::MAX],
+            strings: Vec::new(),
+        }];
+        let cache = Profiles::default();
+        let search = search(&mut nodes, &conditions, 0, 0, &cache);
+        let found = tokio::time::timeout(Duration::from_secs(10), search)
+            .await
+            .unwrap();
+        let found: Vec<_> = found.iter().map(|p| p.peer_id.clone()).collect();
+        assert_eq!(found, [a.peer_id()]);
     }
 
     #[tokio::test]

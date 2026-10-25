@@ -6,6 +6,10 @@ use dyapp_identity::SignedRecord;
 use dyapp_profile::{Profile, VerifiedProfile};
 use std::collections::HashMap;
 
+/// The condition field of the UTC day of a key's last heartbeat or publish on the node. A record
+/// does not carry it, so [`check`] skips it and the client trusts the nodes that applied it.
+pub const ACTIVE_DAY: u32 = 1000;
+
 /// The profiles in `replies` (one list per search node) that match every condition, one per
 /// owner, in first-seen order. Of each owner only the highest validly signed version counts, so
 /// a node cannot bring back an older matching version; it is dropped when it is a tombstone,
@@ -157,6 +161,8 @@ pub struct Filter {
     pub min_education: Option<u32>,
     /// Only profiles with at least one photo.
     pub with_photo: bool,
+    /// Only profiles active (a heartbeat or publish) on the UTC day of this Unix second or later.
+    pub active_since: Option<u64>,
 }
 
 /// Why [`Filter::conditions`] refused a filter.
@@ -171,7 +177,7 @@ pub enum FilterError {
 }
 
 impl Filter {
-    /// The conditions for a query and for [`check`]: at most 12, one per field.
+    /// The conditions for a query and for [`check`]: at most 13, one per field.
     pub fn conditions(&self) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
@@ -214,6 +220,13 @@ impl Filter {
         }
         if self.with_photo {
             out.push(ints(21, Op::Range, vec![1, i64::MAX]));
+        }
+        if let Some(since) = self.active_since {
+            out.push(ints(
+                ACTIVE_DAY,
+                Op::Range,
+                vec![wide(since / 86_400), i64::MAX],
+            ));
         }
         for (field, v) in [(8, self.has_kids), (9, self.wants_more_kids)] {
             if let Some(v) = v {
@@ -428,9 +441,11 @@ mod tests {
             income: Some((55_000, u64::MAX)),
             min_education: Some(3),
             with_photo: true,
+            active_since: Some(86_400 * 3 - 1),
         };
         let conditions = filter.conditions().unwrap();
-        assert_eq!(conditions.len(), 12);
+        assert_eq!(conditions.len(), 13);
+        assert_eq!(conditions[6].ints, [2, i64::MAX]);
         assert_eq!(conditions[0].ints, [18, 35]);
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
         assert!(kept(&fit));

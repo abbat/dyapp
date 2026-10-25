@@ -80,6 +80,32 @@ fn query_filters_photos() {
 }
 
 #[test]
+fn query_filters_activity_by_day() {
+    let index = index();
+    let day = 86_400;
+    let mut keys = Vec::new();
+    for now in [10 * day, 12 * day - 1, 12 * day] {
+        let (key, p, r) = signed(&Identity::generate(), Profile::default());
+        index.put(&key, &p, &r, now, true).unwrap();
+        keys.push(key);
+    }
+    index.heartbeat(&keys[1], 0, 13 * day).unwrap();
+    let since = |first: i64| {
+        let q = [cond(1000, Op::Range, vec![first, i64::MAX], vec![])];
+        let found = index.query(&q, 200, 10_000).unwrap().unwrap();
+        assert_eq!(found.applied, vec![1000]);
+        let mut hits: Vec<_> = found.hits.iter().map(|h| h.0).collect();
+        hits.sort_unstable();
+        hits
+    };
+    let mut want = vec![keys[1], keys[2]];
+    want.sort_unstable();
+    assert_eq!(since(12), want);
+    assert_eq!(since(13), [keys[1]]);
+    assert_eq!(since(10).len(), 3);
+}
+
+#[test]
 fn query_filters_gender() {
     let (index, p03) = population();
     let q = [
