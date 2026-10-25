@@ -35,6 +35,7 @@ class DesktopOutput(unittest.TestCase):
                     env=dict(os.environ, RUNNER_TEMP=str(reports),
                              DYAPP_CHECK_LOG_DIR=str(root / "logs"),
                              DYAPP_XVFB_DIAGNOSTICS="1",
+                             DYAPP_SMOKE_FIXTURE="1",
                              DYAPP_FIXTURE_BROKEN=broken))
                 if broken == "0":
                     self.assertEqual(result.returncode, 0, result.stdout)
@@ -117,6 +118,7 @@ class DesktopOutput(unittest.TestCase):
                 env=dict(os.environ, RUNNER_TEMP=str(root),
                          DYAPP_CHECK_LOG_DIR=str(root / "logs"),
                          DYAPP_XVFB_DIAGNOSTICS="1", DISPLAY=":99",
+                         DYAPP_SMOKE_FIXTURE="1",
                          XAUTHORITY="secret-cookie-path",
                          DBUS_SESSION_BUS_ADDRESS="secret-session-address",
                          PRIVATE_TOKEN="secret-token"))
@@ -141,6 +143,9 @@ class DesktopOutput(unittest.TestCase):
             target = root / "build"
             target.mkdir(parents=True)
             (target / "unit-build.json").write_text("")
+            (target / "debug").mkdir()
+            (target / "debug/dyappd").write_text("")
+            (target / "debug/dyappd").chmod(0o755)
             xvfb = root / "xvfb-run"
             xvfb.write_text(
                 "#!/bin/sh\n"

@@ -76,7 +76,9 @@ def run(arguments, timeout=60, env=None):
         arguments, process.returncode, stdout, stderr)
 
 
-def smoke(executable):
+def smoke(executable, flows=True):
+    """flows=False skips the stateful identity and network flows, which a
+    stateless fixture app cannot pass; only tests of this script use it."""
     report_root = os.environ.get("RUNNER_TEMP")
     if not report_root:
         report_root = f"/reports/{os.environ['HOSTNAME']}"
@@ -217,11 +219,13 @@ def smoke(executable):
             if reopened != peer_id:
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
-            (legacy if mode == "file" else mixed)(profile, peer_id)
-    with tempfile.TemporaryDirectory(dir=reports) as profile:
-        network(profile)
+            if flows:
+                (legacy if mode == "file" else mixed)(profile, peer_id)
+    if flows:
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            network(profile)
     # dyappd runs on Linux only; linux-test.sh builds it beside the app.
-    if sys.platform.startswith("linux"):
+    if flows and sys.platform.startswith("linux"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             connect(profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
@@ -240,7 +244,7 @@ if __name__ == "__main__":
     from check_wrapper import wrap
     wrap("desktop-smoke")
     try:
-        smoke(sys.argv[1])
+        smoke(sys.argv[1], os.environ.get("DYAPP_SMOKE_FIXTURE") != "1")
     except (RuntimeError, OSError) as error:
         if os.environ.get("DYAPP_XVFB_DIAGNOSTICS") == "1":
             raise RuntimeError(f"{error}\n{display_diagnostics()}") from None

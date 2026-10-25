@@ -389,7 +389,7 @@ class Runners(unittest.TestCase):
             environment = {"RUNNER_TEMP": directory}
             with patch.dict(os.environ, environment, clear=True):
                 with patch.object(desktop, "run", side_effect=outcomes):
-                    desktop.smoke("windows.exe")
+                    desktop.smoke("windows.exe", flows=False)
             report = json.loads(
                 (Path(directory) / "desktop-ui-results.json").read_text())
             self.assertEqual(len(report), 7)
