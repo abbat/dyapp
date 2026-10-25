@@ -1,6 +1,6 @@
 # iOS client
 
-The `DYApp` client for iOS runs on iOS 14 or later. This first version is a minimal shell: it
+The `DYApp` client for iOS runs on iOS 15 or later. This first version is a minimal shell: it
 starts, renders and closes. Profiles, search and chats are planned.
 
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not

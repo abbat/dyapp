@@ -12,7 +12,7 @@ fi
 shift
 out=build/apple
 # An unoptimised core with debuginfo is hundreds of MB per target.
-export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=14.0 MACOSX_DEPLOYMENT_TARGET=11.0
+export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=15.0 MACOSX_DEPLOYMENT_TARGET=12.0
 case ${1:-all} in
     ios) slices=(ios ios-simulator) ;;
     ios-device) slices=(ios) ;;

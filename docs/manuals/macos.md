@@ -1,6 +1,6 @@
 # macOS client
 
-The `DYApp` client for macOS is a universal app (Apple silicon and Intel) for macOS 11 or later.
+The `DYApp` client for macOS is a universal app (Apple silicon and Intel) for macOS 12 or later.
 This first version is a minimal shell: it starts, renders and quits. Profiles, search and chats are
 planned.
 

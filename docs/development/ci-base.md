@@ -73,7 +73,8 @@ Secret Service backend of [ADR 0022](../decisions/0022-desktop-system-credential
 grew the client by 44.8%. The device IPA and macOS ZIP budgets were measured again in the
 [2026-10-25 release-sizes run](https://github.com/abbat/dyapp/actions/runs/40179680688): Swift 6
 language mode with deployment targets below iOS 15 and macOS 12 embeds the back-deployed
-`libswift_Concurrency.dylib` in the app, growing the IPA by 84.7% and the ZIP by 14.3%.
+`libswift_Concurrency.dylib` in the app, growing the IPA by 84.7% and the ZIP by 14.3%. The targets were then raised to
+iOS 15 and macOS 12, which use the system runtime; the budgets were kept, not measured again.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as

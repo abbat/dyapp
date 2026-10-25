@@ -67,7 +67,7 @@ binding generator stays in the dev profile. Outputs land in `build/apple`:
 | XCFramework | `xcodebuild -create-xcframework` with one `-library`/`-headers` pair per slice | `DyappFFI.xcframework` |
 
 The default libraries are unoptimised dev builds without debuginfo; `release`
-uses the workspace release profile. Both target iOS 14 and macOS 11 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
+uses the workspace release profile. Both target iOS 15 and macOS 12 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
 deployment targets. `clients/ios/project.yml` and `clients/macos/project.yml` compile
 `build/apple/swift/dyapp.swift` into the app and link the XCFramework without
 embedding it, so run the script before XcodeGen. There is no Xcode build phase:

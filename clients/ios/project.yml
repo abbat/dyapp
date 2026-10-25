@@ -3,7 +3,7 @@ options:
   minimumXcodeGenVersion: 2.44.1
   developmentLanguage: en
   deploymentTarget:
-    iOS: "14.0"
+    iOS: "15.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
