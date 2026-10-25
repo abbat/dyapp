@@ -59,6 +59,7 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
             == [Event::Message {
                 group: group.id().to_vec(),
                 sender: alice_identity.peer_id(),
+                device: alice.device_key().unwrap(),
                 body: Body::text_with_id([1; 16], b"hi".to_vec()),
             }]
     );
@@ -81,6 +82,7 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
             == [Event::Message {
                 group: group.id().to_vec(),
                 sender: alice_identity.peer_id(),
+                device: alice.device_key().unwrap(),
                 body: forward,
             }]
     );
@@ -313,6 +315,7 @@ fn debug_shows_no_text_sender_or_mailbox() {
     let event = Event::Message {
         group: vec![1],
         sender: "peer-of-bob".into(),
+        device: vec![2; 32],
         body: Body::text_with_id([1; 16], b"secret text".to_vec()),
     };
     assert_eq!(format!("{event:?}"), "Message { group: [1], .. }");

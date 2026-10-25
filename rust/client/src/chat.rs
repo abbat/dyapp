@@ -59,6 +59,8 @@ pub enum Event {
         group: Vec<u8>,
         /// Peer ID of the sender's identity.
         sender: String,
+        /// MLS-authenticated sender device key.
+        device: Vec<u8>,
         /// What the message carries; never an interaction.
         body: Body,
     },
@@ -591,6 +593,7 @@ pub(crate) fn apply(
             body => Event::Message {
                 group: id,
                 sender,
+                device,
                 body,
             },
         },

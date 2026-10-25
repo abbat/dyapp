@@ -146,7 +146,8 @@ adapter, and the app does not call it yet.
 - Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
 - E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
   implemented in `mls.rs`, [below](#e2e-encryption-mls); delivered by `rust/client`
-- Sender authenticity: MLS signs every message with the sender device's certified key
+- Sender authenticity: MLS signs every message with the sender device's certified key; the Rust
+  chat event exposes this verified key alongside the author Peer ID for edit/delete ordering
 
 ## Message Model
 

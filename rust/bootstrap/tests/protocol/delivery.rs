@@ -106,7 +106,7 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
     let mut bob_second = connect(&second).await;
     let has_text = |events: &[chat::Event], expected: &[u8]| {
         matches!(events,
-        [chat::Event::Message { group, sender, body: Body::Text { text, .. } }]
+        [chat::Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
         if group == &group_id && sender == &alice.identity.peer_id() && text == expected)
     };
     assert!(has_text(

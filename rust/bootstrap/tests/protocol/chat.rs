@@ -143,6 +143,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
+                device: alice.device.device_key().unwrap(),
                 body: Body::text_with_id([1; 16], hello.to_vec()),
             },
         ]
@@ -173,6 +174,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         vec![Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
+            device: bob.device.device_key().unwrap(),
             body: Body::text_with_id([1; 16], b"hi alice".to_vec()),
         }]
     );
@@ -426,6 +428,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         Some(&Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
+            device: bob.device.device_key().unwrap(),
             body: Body::text_with_id([1; 16], secret.to_vec()),
         })
     );
@@ -540,6 +543,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
+                device: alice.device.device_key().unwrap(),
                 body: Body::text_with_id([1; 16], b"carol is gone".to_vec()),
             },
         ]
@@ -726,7 +730,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .await
         .unwrap();
     assert!(matches!(events.as_slice(),
-        [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. } }]
+        [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
         if joined == &group_id && group == &group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
@@ -788,7 +792,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .await
         .unwrap();
     assert!(matches!(events.as_slice(),
-        [Event::Message { group, sender, body: Body::Text { text, .. } }]
+        [Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
         if group == &group_id && sender == &bob_owner && text == b"hi alice"));
 }
 

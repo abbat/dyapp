@@ -414,6 +414,7 @@ impl Session {
                 group,
                 sender,
                 body: Body::TokenRequest(request),
+                ..
             } => {
                 for answer in tokens::answer(&self.store, device_key, &sender, &request, today)? {
                     self.send_body(nodes, &group, &answer, seal_key).await?;
@@ -626,6 +627,7 @@ impl Session {
                         group,
                         sender,
                         body,
+                        ..
                     } => (
                         InboxKind::Message,
                         prost::Message::encode_to_vec(&StoredMessage {
