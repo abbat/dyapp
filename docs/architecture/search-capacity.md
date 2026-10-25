@@ -171,7 +171,8 @@ Defences, implemented on the node:
   it; newcomers hold at most `search.newcomer_share` (10 %) of `search.max_bytes`, and a new key
   past the quota evicts the newcomer with the oldest heartbeat. Keys a new node receives from
   other search nodes in its own first 30 days count as established, so it can fill from its
-  neighbours. The `node status` log line counts newcomer evictions.
+  neighbours. The `node status` log line and `dyapp_search_newcomer_evictions_total` count
+  newcomer evictions.
 - **Water-filling eviction.** A full node evicts established keys from the place with the most
   profiles, highest random rank `r` first, so each node keeps its own subsample of big places and
   small places stay whole; the country bucket goes first. Tombstones leave by TTL only. If 16

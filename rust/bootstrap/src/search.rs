@@ -223,8 +223,10 @@ pub struct SearchIndex {
     newcomer_bytes: AtomicU64,
     /// When `newcomer_bytes` was last recounted.
     newcomer_checked: AtomicI64,
-    /// Newcomers evicted by the quota since the last status line.
+    /// Newcomers evicted by the quota since the index opened.
     newcomer_evictions: AtomicU64,
+    /// `newcomer_evictions` at the last status line.
+    newcomer_evictions_taken: AtomicU64,
 }
 
 /// i64 for SQLite; `put` refuses versions above i64::MAX as stale.

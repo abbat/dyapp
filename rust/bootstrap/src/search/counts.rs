@@ -117,9 +117,18 @@ pub(super) fn select_keys(
 const PLACE_TRIES: u32 = 16;
 
 impl SearchIndex {
-    /// Newcomers evicted by the quota since the last call.
+    /// Newcomers evicted by the quota since the index opened.
+    pub fn newcomer_evictions(&self) -> u64 {
+        self.newcomer_evictions.load(Ordering::Relaxed)
+    }
+
+    /// Newcomers evicted by the quota since the last call; the total goes on.
     pub fn take_newcomer_evictions(&self) -> u64 {
-        self.newcomer_evictions.swap(0, Ordering::Relaxed)
+        let total = self.newcomer_evictions();
+        let taken = self
+            .newcomer_evictions_taken
+            .fetch_max(total, Ordering::Relaxed);
+        total.saturating_sub(taken)
     }
 
     /// Adds `delta` record bytes of newcomer `key`; past the quota, evicts other newcomers,

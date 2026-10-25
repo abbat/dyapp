@@ -31,6 +31,7 @@ fn newcomers_past_the_quota_evict_the_oldest_heartbeat() {
     assert_eq!(held(&index, &first[5..]), 15);
     assert_eq!(index.take_newcomer_evictions(), 5);
     assert_eq!(index.take_newcomer_evictions(), 0);
+    assert_eq!(index.newcomer_evictions(), 5);
 }
 
 #[test]

@@ -217,6 +217,7 @@ impl SearchIndex {
             newcomer_bytes: AtomicU64::new(0),
             newcomer_checked: AtomicI64::new(i64::MIN),
             newcomer_evictions: AtomicU64::new(0),
+            newcomer_evictions_taken: AtomicU64::new(0),
         };
         index.rebuild_digest()?;
         Ok(index)

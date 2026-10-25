@@ -1567,6 +1567,7 @@ with traffic.
 | `search_index_version` | gauge | — (search nodes) |
 | `search_phase` | gauge | `phase`: refilling, rebuilding, serving; 1 for the current one (search nodes) |
 | `search_rebuild_events_total` | counter | `event`: postpone, overflow, drop_refill, stop_the_world (search nodes) |
+| `search_newcomer_evictions_total` | counter | — (search nodes) |
 | `snapshot_timestamp_seconds` | gauge | — ; 0 before the first storage read |
 | `storage_read_ok` | gauge | `store`: profiles, messages, media (configured stores only) |
 | `storage_used_bytes`, `storage_free_bytes` | gauge | `store`; absent for a store whose last read failed |

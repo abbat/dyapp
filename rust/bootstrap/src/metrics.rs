@@ -282,6 +282,16 @@ pub fn render(service: &Service) -> String {
             let labels = format!("{{event=\"{event}\"}}");
             out.sample("search_rebuild_events_total", &labels, count);
         }
+        out.family(
+            "search_newcomer_evictions_total",
+            "counter",
+            "Newcomer keys the search quota evicted.",
+        );
+        out.sample(
+            "search_newcomer_evictions_total",
+            "",
+            index.newcomer_evictions(),
+        );
     }
 
     let snapshot = metrics.snapshot.lock().map(|s| *s).unwrap_or_default();
