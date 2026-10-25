@@ -11,6 +11,7 @@ use std::path::Path;
 mod likes;
 mod outbox;
 mod peers;
+mod search_publish;
 mod tokens;
 pub use likes::Likes;
 pub use peers::ContactName;

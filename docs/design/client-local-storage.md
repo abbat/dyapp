@@ -63,6 +63,11 @@ signals. An absent pass record means no pass. Pass/undo updates carry a persiste
 an older update cannot overwrite a newer local choice. Each profile database owns its settings
 and pass history; neither is published to bootstrap.
 
+`search_publish` holds the search publish window: the last time search nodes accepted the profile,
+the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
+signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
+the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)).
+
 Like/unlike/view event ordering and match derivation belong to the
 [interaction state](private-interactions.md); a match is derived from durable events rather than a
 separately authoritative boolean. Chat history and outgoing work share this store so a failed
