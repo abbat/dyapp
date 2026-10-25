@@ -1156,11 +1156,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyapp-client"
+version = "0.0.1"
+dependencies = [
+ "aes-gcm",
+ "dyapp-identity",
+ "dyapp-messaging",
+ "dyapp-p2p-net",
+ "dyapp-profile",
+ "getrandom 0.4.3",
+ "libp2p",
+ "prost",
+ "rusqlite",
+ "thiserror 2.0.21",
+ "tokio",
+ "zeroize",
+]
+
+[[package]]
 name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
+ "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
+ "dyapp-p2p-net",
  "dyapp-profile",
  "dyapp-video",
  "image",
