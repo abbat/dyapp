@@ -229,7 +229,10 @@ test code alone produce no mutants.
 because it makes the code hang, mark the item `#[mutants::skip]` (or narrower,
 `#[mutants::exclude_re("...")]`) with a `//` reason on the same line or the line above; the crate
 then needs a regular dependency on the `mutants` crate. `check-repository.py` rejects a mutants
-attribute without a reason.
+attribute without a reason. `exclude_re` in `.cargo/mutants.toml` skips the `Session` methods that
+need a live node: only `rust/bootstrap/tests/protocol` runs them, and cargo-mutants tests a
+mutant with its own package's tests. The exclusion is reviewed by 2026-12-25
+([#26](https://github.com/abbat/dyapp/issues/26)).
 
 **Full run, weekly.** `.github/workflows/mutants.yml` (Sundays 05:23 UTC, or manually) tests all
 mutants in 16 shards, two at a time each, and `tests/scripts/check-mutants.py` adds up their

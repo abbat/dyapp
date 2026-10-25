@@ -38,6 +38,12 @@ COVERED = {
         "docs/decisions/0014-libp2p-only-node-protocol.md",
     "47d3207e88219a2eb6619f108aa43fd307a70804":
         "docs/decisions/0016-protocol-evolution.md",
+    "03aea551f60ed4dbdbe077ea9be1d7759817e1f6":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
+    "af0506a85feb8df4d3d4f7fdf06d59503ca4f7fb":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
+    "30d2b0cfee1b6c00ef0f587dc98a78cf2f28c530":
+        "docs/decisions/0015-sqlite-node-storage.md",
     "491a1d7a03ab0dd8e4ef3bb763ee21a580525e88":
         "docs/decisions/0016-protocol-evolution.md",
     "64f65d011e8b6602194c28f732639f9b8deaa7e0":

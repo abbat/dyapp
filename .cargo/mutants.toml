@@ -1,2 +1,7 @@
 # cargo-mutants (practice B2, docs/testing/README.md#mutation-testing).
 all_features = true
+# Session methods that need a live node are tested only by rust/bootstrap/tests/protocol, which
+# cargo-mutants does not run for dyapp-client mutants. Review by 2026-12-25: issue #26.
+exclude_re = [
+    "Session::(block|send_message|send_attachment|interact|send_body|retry_due|deliver|refill|request_tokens|control|receive)\\b",
+]
