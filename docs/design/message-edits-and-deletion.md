@@ -2,9 +2,10 @@
 
 This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
 No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and parses tags 8 and
-9; the client store still indexes received messages by mailbox envelope ID and does not apply
-operations. The recipient device alone can sign a mailbox `Ack`. Persistence and UI work below
-remain planned.
+9; the client Store has a separate current-text projection keyed by logical message ID but still
+stores received inbox payloads by mailbox envelope ID and does not apply operations. The
+recipient device alone can sign a mailbox `Ack`. Operation application and UI work below remain
+planned.
 
 ## Identity and wire
 

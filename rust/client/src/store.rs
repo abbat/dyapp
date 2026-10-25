@@ -9,6 +9,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
 mod likes;
+pub mod messages;
 mod outbox;
 mod peers;
 mod search_publish;
@@ -57,8 +58,8 @@ pub enum Error {
     /// A caller tried to persist an empty sealed MLS snapshot.
     #[error("client store MLS snapshot is empty")]
     EmptyMlsState,
-    /// An inbox row has conflicting content or an invalid stored key.
-    #[error("client store inbox record conflicts or is corrupt")]
+    /// A chat message or inbox row conflicts or is corrupt.
+    #[error("client store message or inbox record conflicts or is corrupt")]
     InboxConflict,
     /// An interaction reuses an event ID with other bytes, or does not involve this profile.
     #[error("client store interaction conflicts or names another profile")]
@@ -139,6 +140,7 @@ impl Store {
                 }
                 let tx = db.transaction()?;
                 tx.execute_batch(SCHEMA_V1)?;
+                tx.execute_batch(messages::SCHEMA)?;
                 tx.execute(
                     "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
                     params![identity.peer_id()],

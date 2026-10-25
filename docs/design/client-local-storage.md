@@ -4,8 +4,8 @@ The Rust client keeps active MLS handles in memory and seals them to SQLite. Thi
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-7
-schema and migrates versions 1 to 6 in place after checking the identity binding. It persists the
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-10
+schema and retains earlier migration code after checking the identity binding. It persists the
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
@@ -49,6 +49,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
 | `conversation_groups` | Group ID and verified peer association (version 2) | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
+| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Fresh pre-release schema only, without a version bump or migration. Initial text is deduplicated by logical ID; edit ordering and atomic inbox integration are planned. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it (version 6); which node accepted the latest copy and when (version 7) | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. |
 | `settings` | Typed, versioned values such as view sending and app lock preference | Per profile; documented defaults for absent values. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
