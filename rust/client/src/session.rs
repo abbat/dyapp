@@ -4,6 +4,7 @@ use crate::attachment::Attachment;
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
+use crate::store::messages::VerifiedChatSender;
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
@@ -11,8 +12,8 @@ use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
 
-/// A received message as kept in the inbox for the app's history; protobuf, so fields can be
-/// added without a new format.
+/// A received non-projected message kept in the inbox (for example, an attachment or forward).
+/// Text, edit and delete use the current chat projection instead.
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct StoredMessage {
     /// The group ID.
@@ -616,6 +617,35 @@ impl Session {
             })()
         } else {
             (|| {
+                let sealed = device.seal(seal_key)?;
+                if !blocked {
+                    if let Event::Message {
+                        group,
+                        sender,
+                        device,
+                        body,
+                    } = &event
+                    {
+                        if matches!(
+                            body,
+                            Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
+                        ) {
+                            let verified = VerifiedChatSender {
+                                group,
+                                author: sender,
+                                device,
+                            };
+                            self.store.stage_chat_inbound(
+                                &sealed,
+                                key,
+                                verified,
+                                body,
+                                crate::now() * 1000,
+                            )?;
+                            return Ok(());
+                        }
+                    }
+                }
                 let (kind, payload) = match &event {
                     _ if blocked => (InboxKind::StateChange, Vec::new()),
                     // Token bodies are acted on, not shown in history.
@@ -642,7 +672,6 @@ impl Session {
                     (Event::Joined(id), Some(peer)) => Some((id.as_slice(), peer.as_str())),
                     _ => None,
                 };
-                let sealed = device.seal(seal_key)?;
                 self.store
                     .stage_inbound(&sealed, key, kind, &payload, joined)?;
                 Ok(())

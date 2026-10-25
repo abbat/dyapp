@@ -8,8 +8,9 @@ bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 Message edits and deletion follow a [staged design](../design/message-edits-and-deletion.md).
 The chat codec carries a logical text ID and parses edit/delete operations. A separate local
 projection persists initial text by that ID and applies edits/deletes, including operations that
-arrive before the original within a 64-operation pending limit. Atomic MLS/inbox integration and
-UI remain planned. The recipient device alone can sign its mailbox `Ack`, so deletion cannot be
+arrive before the original within a 64-operation pending limit. `Session` now commits received
+text, edits and deletes with sealed MLS, inbox dedupe and ACK intent in one transaction. UI remains
+planned. The recipient device alone can sign its mailbox `Ack`, so deletion cannot be
 presented as guaranteed remote erasure.
 
 Message model and hybrid logical clock in `rust/messaging`. The only delivery path is the MLS
@@ -127,10 +128,11 @@ snapshot in one transaction. The caller checks the ID before applying MLS; after
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the
 saved MLS snapshot. `Session::receive` wires this sequence to a fetched mailbox: it skips known
 IDs, applies one envelope at a time, commits it (a Welcome also records its group and peer in the
-catalog, a message stores a protobuf `StoredMessage`) and only then returns the event and ACKs
-every pending ID of that mailbox. Gap and unknown-owner envelopes stay unrecorded and unacked; a
-refused envelope stores only a marker, keeps the previous MLS snapshot and reopens it. Only
-one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
+catalog; text, edit and delete update the current projection and leave only a body digest in the
+inbox; other visible bodies still use protobuf `StoredMessage`) and only then returns the event
+and ACKs every pending ID of that mailbox. Gap and unknown-owner envelopes stay unrecorded and
+unacked; a refused envelope stores only a marker, keeps the previous MLS snapshot and reopens
+it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
 A node test runs two such sessions against a mailbox node through restarts and injected storage
 faults at both boundaries; see the [acceptance matrix](../testing/bootstrap-acceptance.md).
 The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)

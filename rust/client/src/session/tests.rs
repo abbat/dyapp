@@ -1,5 +1,6 @@
-use super::{Error, Session, StoredMessage};
+use super::{Error, Session};
 use crate::chat::{self, Body, Event};
+use crate::store::messages::MessageKey;
 use crate::store::{InboxKey, InboxKind, Store};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
@@ -150,13 +151,24 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
             |row| row.get(0),
         )
         .unwrap();
-    assert!(
-        <StoredMessage as prost::Message>::decode(payload.as_slice()).unwrap()
-            == StoredMessage {
-                group: group.id().to_vec(),
-                sender: alice_id.peer_id(),
-                body: Body::text_with_id([1; 16], b"hi".to_vec()).encode(),
-            }
+    assert_eq!(
+        payload,
+        dyapp_identity::sha256(&Body::text_with_id([1; 16], b"hi".to_vec()).encode())
+    );
+    let message = MessageKey {
+        group: group.id().to_vec(),
+        author: alice_id.peer_id(),
+        id: [1; 16],
+    };
+    assert_eq!(
+        session
+            .store
+            .chat_message(&message)
+            .unwrap()
+            .unwrap()
+            .text
+            .as_deref(),
+        Some(&b"hi"[..])
     );
     drop(session);
 
@@ -164,10 +176,20 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
     let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
     assert!(session.store.has_inbox(&key(2)).unwrap());
     assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1), key(2)]);
+    assert_eq!(
+        session
+            .store
+            .chat_message(&message)
+            .unwrap()
+            .unwrap()
+            .text
+            .as_deref(),
+        Some(&b"hi"[..])
+    );
     let again = chat::message(
         &mut group,
         &alice,
-        &Body::text_with_id([1; 16], b"again".to_vec()),
+        &Body::text_with_id([2; 16], b"again".to_vec()),
     )
     .unwrap();
     let Some(Event::Message { body, .. }) = session
@@ -176,7 +198,7 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
     else {
         panic!("expected the next message");
     };
-    assert!(body == Body::text_with_id([1; 16], b"again".to_vec()));
+    assert!(body == Body::text_with_id([2; 16], b"again".to_vec()));
 
     // A duplicate seen after its ACK is acknowledged again; another mailbox is not.
     for id in [1, 2, 3] {
@@ -258,6 +280,7 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     let seal_key = [6; 32];
     let Invite {
         mut session,
+        alice_id,
         alice,
         mut group,
         welcome,
@@ -284,6 +307,12 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
         Err(Error::Store(_))
     ));
     assert!(!session.store.has_inbox(&key(2)).unwrap());
+    let message = MessageKey {
+        group: group.id().to_vec(),
+        author: alice_id.peer_id(),
+        id: [1; 16],
+    };
+    assert!(session.store.chat_message(&message).unwrap().is_none());
     assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1)]);
     assert!(matches!(
         session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key),
@@ -299,6 +328,86 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
         panic!("expected the message after recovery");
     };
     assert!(body == Body::text_with_id([1; 16], b"hi".to_vec()));
+    assert_eq!(
+        session
+            .store
+            .chat_message(&message)
+            .unwrap()
+            .unwrap()
+            .text
+            .as_deref(),
+        Some(&b"hi"[..])
+    );
+}
+
+#[test]
+fn received_edit_and_delete_keep_only_current_projection() {
+    let path = temp_path();
+    let seal_key = [8; 32];
+    let Invite {
+        mut session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&path, &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let message = MessageKey {
+        group: group.id().to_vec(),
+        author: alice_id.peer_id(),
+        id: [4; 16],
+    };
+    let bodies = [
+        Body::text_with_id(message.id, b"original private text".to_vec()),
+        Body::Edit {
+            target: message.id,
+            operation: [5; 16],
+            hlc: dyapp_messaging::hlc::Timestamp::new(100, 0).into(),
+            text: b"replacement private text".to_vec(),
+        },
+        Body::Delete {
+            target: message.id,
+            operation: [6; 16],
+            hlc: dyapp_messaging::hlc::Timestamp::new(200, 0).into(),
+        },
+    ];
+    for (i, body) in bodies.iter().enumerate() {
+        let sent = chat::message(&mut group, &alice, body).unwrap();
+        assert!(matches!(
+            session.stage_envelope(&key(i as u8 + 2), &sent[0].mls, &profiles, &seal_key),
+            Ok(Some(Event::Message { .. }))
+        ));
+        let payload: Vec<u8> = rusqlite::Connection::open(&path)
+            .unwrap()
+            .query_row(
+                "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
+                [key(i as u8 + 2).id.as_slice()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(payload, dyapp_identity::sha256(&body.encode()));
+        let current = session.store.chat_message(&message).unwrap().unwrap();
+        match i {
+            0 => assert_eq!(current.text.as_deref(), Some(&b"original private text"[..])),
+            1 => assert_eq!(
+                current.text.as_deref(),
+                Some(&b"replacement private text"[..])
+            ),
+            _ => assert!(current.deleted && current.text.is_none()),
+        }
+    }
+    drop(session);
+    let session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+    let current = session.store.chat_message(&message).unwrap().unwrap();
+    assert!(current.edited && current.deleted && current.text.is_none());
+    assert_eq!(
+        session.acks([9; 32], vec![]).unwrap(),
+        [key(1), key(2), key(3), key(4)]
+    );
 }
 
 #[test]

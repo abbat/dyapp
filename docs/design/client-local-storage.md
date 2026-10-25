@@ -49,7 +49,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
 | `conversation_groups` | Group ID and verified peer association (version 2) | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
-| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Fresh pre-release schema only, without a version bump or migration. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. `stage_chat_inbound` atomically commits this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest. Session routing to this method is planned. |
+| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Fresh pre-release schema only, without a version bump or migration. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. |
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it (version 6); which node accepted the latest copy and when (version 7) | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. |
 | `settings` | Typed, versioned values such as view sending and app lock preference | Per profile; documented defaults for absent values. |
@@ -138,8 +138,9 @@ Receipts themselves are staged with `stage_receipt` and leave on acceptance.
 For **receive**, compute the device mailbox from its key and check `Store::has_inbox` before any
 MLS processing. An already processed ID only needs a pending ACK retry. Process **one** new
 envelope, seal the changed `Device`, then commit its inbox record, application event and ACK intent
-with `stage_inbound`. Only after that commit may the UI show the event or `Node::ack` the ID. On a
-storage failure, neither show nor ACK it and invalidate/reopen the in-memory session.
+with `stage_inbound` (or `stage_chat_inbound` for text, edit and delete). Only after that commit
+may the UI show the event or `Node::ack` the ID. On a storage failure, neither show nor ACK it and
+invalidate/reopen the in-memory session.
 `Session::receive` implements this per envelope; the batch `chat::receive`/`apply_all` must not be
 wired to `stage_inbound`, because it applies several MLS mutations before returning ACK IDs. A
 Welcome's group and its single other owner enter the catalog in the same commit; a group with any

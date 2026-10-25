@@ -5,8 +5,9 @@ No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and p
 9; the client Store has a separate current-text projection keyed by logical message ID and can
 apply edits/deletes even before originals arrive. Its atomic chat staging method saves only a
 body digest in the inbox alongside the current projection, sealed MLS state and ACK intent.
-Session routing to that method and UI remain planned; the existing Session path still stores
-received bodies in the inbox. The recipient device alone can sign a mailbox `Ack`.
+Session routes received text, edit and delete through that method. Attachment and forwarded
+bodies still use inbox payloads; UI remains planned. The recipient device alone can sign a
+mailbox `Ack`.
 
 ## Identity and wire
 
@@ -42,8 +43,9 @@ the same operations, subject to the existing device-sync work.
 The local store retains one current text or deletion placeholder, a digest of the original text,
 the ordering tuple, and a digest of each applied operation for replay conflict checks. It does
 not retain prior revisions as app history. The atomic chat staging method stores only a body
-digest in the inbox, so its payload is not an alternate plaintext history. Session still needs to
-use that method. Physical remnants in SQLite WAL, backups or screenshots cannot be reliably erased.
+digest in the inbox, so its payload is not an alternate plaintext history. Session uses that method
+for received text, edits and deletes. Physical remnants in SQLite WAL, backups or screenshots
+cannot be reliably erased.
 The UI must not promise that.
 
 Text and operation state, sealed MLS state and exact outbound envelopes must be staged durably
