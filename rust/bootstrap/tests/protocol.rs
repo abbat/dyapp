@@ -901,3 +901,6 @@ mod delivery;
 
 #[path = "protocol/interactions.rs"]
 mod interactions;
+
+#[path = "protocol/media.rs"]
+mod media;

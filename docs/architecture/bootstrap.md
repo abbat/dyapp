@@ -214,6 +214,8 @@ Media currently shares the store DHT: all selected holders must serve media, oth
 release each holder separately. A holder keeps a released attachment's release hash until the
 attachment's expiry and answers an `attach`, replica put or repair carrying it with `REFUSED`. A successful keep starts media repair; list forwarding without
 missing data remains planned, so refresh keeps on their holders.
+`dyapp_client::Node` makes the client calls: `keep_media`, `put_media`, `attach_media` for an
+`Attachment`'s blob, `get_media` for a whole blob checked against its hash, and `release_media`.
 
 Repair is driven by the owner's presence; mailbox, profile and media repair are implemented.
 When a user comes online, the nodes

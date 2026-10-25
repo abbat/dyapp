@@ -13,7 +13,9 @@ pub mod store;
 pub mod tokens;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_p2p_net::proto::{self, key_package_request, mailbox_request, profile_request, Status};
+use dyapp_p2p_net::proto::{
+    self, key_package_request, mailbox_request, media_request, profile_request, Status,
+};
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
 use dyapp_p2p_net::{SwarmOptions, REPLICAS};
 use dyapp_profile::VerifiedProfile;
@@ -438,6 +440,77 @@ impl Node {
         Ok(())
     }
 
+    /// Replaces `owner`'s complete blob list on this node with `hashes` at `version`; returns
+    /// the hashes the node could not recover or check.
+    pub async fn keep_media(
+        &mut self,
+        owner: &Identity,
+        version: u64,
+        hashes: Vec<Vec<u8>>,
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        let keep = proto::MediaKeep {
+            version,
+            hashes,
+            time: now(),
+        };
+        let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
+        let response = self.media(media_request::Request::Keep(record)).await?;
+        ok(response.status)?;
+        Ok(response.missing)
+    }
+
+    /// Uploads a blob that a keep or attachment of `owner` (hex Peer ID) lists on this node.
+    pub async fn put_media(&mut self, owner: &str, data: Vec<u8>) -> Result<(), Error> {
+        let put = proto::MediaPut {
+            owner: unhex(owner)?,
+            data,
+        };
+        let response = self.media(media_request::Request::Put(put)).await?;
+        ok(response.status)
+    }
+
+    /// Announces the blob of `attachment`, signed by `sender`, so this node accepts its put;
+    /// returns the hashes the node does not hold yet.
+    pub async fn attach_media(
+        &mut self,
+        sender: &Identity,
+        attachment: &attachment::Attachment,
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        let attach = proto::MediaAttach {
+            release: attachment.release_hash().to_vec(),
+            hashes: vec![attachment.blob_sha256.to_vec()],
+            created: now(),
+        };
+        let record = sender.sign(Domain::MediaAttach, attach.encode_to_vec());
+        let response = self.media(media_request::Request::Attach(record)).await?;
+        ok(response.status)?;
+        Ok(response.missing)
+    }
+
+    /// The whole blob whose SHA-256 is `hash`, checked against it.
+    // shortcut: one request for the whole blob, at most 6 MiB; read pieces once blobs grow.
+    pub async fn get_media(&mut self, hash: &[u8; 32]) -> Result<Vec<u8>, Error> {
+        let get = proto::GetMedia {
+            hash: hash.to_vec(),
+            ..Default::default()
+        };
+        let response = self.media(media_request::Request::Get(get)).await?;
+        ok(response.status)?;
+        if dyapp_identity::sha256(&response.data) != *hash {
+            return Err(Error::Reply("blob of another hash"));
+        }
+        Ok(response.data)
+    }
+
+    /// Drops the blobs of the attachment released by `secret` from this node.
+    pub async fn release_media(&mut self, secret: &[u8; 32]) -> Result<(), Error> {
+        let release = proto::MediaRelease {
+            secret: secret.to_vec(),
+        };
+        let response = self.media(media_request::Request::Release(release)).await?;
+        ok(response.status)
+    }
+
     async fn challenge(&mut self) -> Result<Vec<u8>, Error> {
         let challenge = mailbox_request::Request::Challenge(proto::ChallengeRequest {});
         let response = self.mailbox(challenge).await?;
@@ -495,6 +568,24 @@ impl Node {
             .send_request(&self.peer, request);
         self.wait(|event| match event {
             BehaviourEvent::Mailbox(event) => reply(event),
+            _ => None,
+        })
+        .await
+    }
+
+    async fn media(
+        &mut self,
+        request: media_request::Request,
+    ) -> Result<proto::MediaResponse, Error> {
+        let request = proto::MediaRequest {
+            request: Some(request),
+        };
+        self.swarm
+            .behaviour_mut()
+            .media
+            .send_request(&self.peer, request);
+        self.wait(|event| match event {
+            BehaviourEvent::Media(event) => reply(event),
             _ => None,
         })
         .await
