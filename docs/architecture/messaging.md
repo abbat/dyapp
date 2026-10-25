@@ -34,6 +34,8 @@ device-signed `revoke`, 64 keys at a time, so that contact's later writes fall b
 first node by score and signs the contact no more tokens; a failed revoke keeps the block and can
 be repeated. `Session::unblock` clears the flag only: revoked keys stay revoked, and the contact
 gets tokens again for the days it asks anew.
+On receive, a blocked owner's Welcome is refused, and its messages advance MLS state and are
+acknowledged but get no history, receipt or token answer; its likes and views are dropped too.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).

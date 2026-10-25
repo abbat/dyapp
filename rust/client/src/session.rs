@@ -451,7 +451,9 @@ impl Session {
     }
 
     /// Apply one new envelope and commit the result with its pending ACK. A Gap, an unknown
-    /// owner or group is neither recorded nor acknowledged, so it is fetched again.
+    /// owner or group is neither recorded nor acknowledged, so it is fetched again. A blocked
+    /// owner's Welcome is refused; its message advances MLS state, is acknowledged and returns
+    /// `None`: no history, no receipt, no token answer.
     fn stage_envelope(
         &mut self,
         key: &InboxKey,
@@ -469,10 +471,18 @@ impl Session {
         let mut peer = None;
         if let Event::Joined(id) = &event {
             peer = self.partner(id);
-            if peer.is_none() {
-                event = Event::Refused("not a one-to-one conversation".into());
+            match &peer {
+                None => event = Event::Refused("not a one-to-one conversation".into()),
+                Some(owner) if self.store.blocked(owner)? => {
+                    event = Event::Refused("blocked owner".into());
+                }
+                Some(_) => {}
             }
         }
+        let blocked = match &event {
+            Event::Message { sender, .. } => self.store.blocked(sender)?,
+            _ => false,
+        };
         let staged = if matches!(event, Event::Refused(_)) {
             // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
             (|| {
@@ -484,6 +494,7 @@ impl Session {
         } else {
             (|| {
                 let (kind, payload) = match &event {
+                    _ if blocked => (InboxKind::StateChange, Vec::new()),
                     // Token bodies are acted on, not shown in history.
                     Event::Message {
                         body: Body::TokenRequest(_) | Body::TokenAnswer(_) | Body::Receipt(_),
@@ -517,7 +528,7 @@ impl Session {
             self.device = None;
             self.groups.clear();
         }
-        staged.map(|()| Some(event))
+        staged.map(|()| (!blocked).then_some(event))
     }
 
     /// The one other owner in a joined group.
@@ -729,6 +740,55 @@ mod tests {
             .stage_inbound(b"sealed", &other, InboxKind::StateChange, b"", None)
             .unwrap();
         assert_eq!(session.acks([9; 32], vec![key(2)]).unwrap(), [key(2)]);
+    }
+
+    #[test]
+    fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
+        let seal_key = [7; 32];
+        let invite = bob_invited(&temp_path(), &seal_key);
+        let mut session = invite.session;
+        session
+            .store
+            .set_blocked(&invite.alice_id.peer_id(), true)
+            .unwrap();
+        assert!(matches!(
+            session.stage_envelope(&key(1), &invite.welcome, &invite.profiles, &seal_key),
+            Ok(Some(Event::Refused(_)))
+        ));
+        assert!(session.store.known_groups().unwrap().is_empty());
+
+        let Invite {
+            mut session,
+            alice_id,
+            alice,
+            mut group,
+            welcome,
+            profiles,
+            ..
+        } = bob_invited(&temp_path(), &seal_key);
+        session
+            .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+            .unwrap();
+        session
+            .store
+            .set_blocked(&alice_id.peer_id(), true)
+            .unwrap();
+        let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
+        assert!(session
+            .stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key)
+            .unwrap()
+            .is_none());
+        assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1), key(2)]);
+        // The ratchet moved on: after an unblock the next message still opens.
+        session
+            .store
+            .set_blocked(&alice_id.peer_id(), false)
+            .unwrap();
+        let again = chat::message(&mut group, &alice, &Body::Text(b"again".to_vec())).unwrap();
+        assert!(matches!(
+            session.stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key),
+            Ok(Some(Event::Message { .. }))
+        ));
     }
 
     #[test]
