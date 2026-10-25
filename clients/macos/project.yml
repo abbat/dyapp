@@ -23,6 +23,8 @@ targets:
       # Built by tools/scripts/build-apple-core.sh before XcodeGen runs.
       - framework: ../../build/apple/DyappFFI.xcframework
         embed: false
+      # libp2p in the static core reads network state through SystemConfiguration.
+      - sdk: SystemConfiguration.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.macos
