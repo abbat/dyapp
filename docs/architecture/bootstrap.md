@@ -517,6 +517,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `search_fields`) is no `Profile` field: it is the UTC day of the key's `heartbeat` time, its
   last heartbeat or the time this node stored its profile, also from gossip or catch-up. The
   client cannot re-check it, so it drops the replies of a node that did not apply it.
+  [ADR 0029](../decisions/0029-partial-public-birth-date.md) plans a separate virtual
+  age condition over indexed birth-date bounds. The current index and field 3 still use
+  the published integer age; the new condition and index generation are not implemented.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
   come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;
