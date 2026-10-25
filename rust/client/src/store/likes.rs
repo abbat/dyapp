@@ -382,7 +382,9 @@ mod tests {
             "DROP TABLE `interaction_ledger`; DROP TABLE `like_state`; DROP TABLE `view_days`;
              DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
              ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`; PRAGMA user_version = 2;",
+             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
+             ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
+             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; PRAGMA user_version = 2;",
         )
         .unwrap();
         drop(db);

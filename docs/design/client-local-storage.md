@@ -4,8 +4,8 @@ The Rust client currently keeps MLS state and mailbox work in memory. This desig
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout-planned).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-6
-schema and migrates versions 1 to 5 in place after checking the identity binding. It persists the
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-7
+schema and migrates versions 1 to 6 in place after checking the identity binding. It persists the
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
@@ -47,7 +47,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
 | `conversation_groups` | Group ID and verified peer association (version 2) | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
-| `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it (version 6) | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. |
+| `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it (version 6); which node accepted the latest copy and when (version 7) | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. |
 | `settings` | Typed, versioned values such as view sending and app lock preference | Per profile; documented defaults for absent values. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
 | `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload (version 3) | `(sender, event ID)` is unique; a replay with other bytes is refused. |
@@ -113,7 +113,10 @@ operation; retrying encryption on the advanced in-memory group could reuse state
 disk. A node's successful put (`Store::accepted`) only schedules the next delivery check, 1 h
 later and doubling up to a day; it does not remove the outbox entry. `Store::receipted` removes it
 when the recipient's receipt arrives, and `expire_outbound` gives it up 30 days after the first
-acceptance. Receipts themselves are staged with `stage_receipt` and leave on acceptance.
+acceptance. A receipt also names the nodes that dropped earlier writes to the same mailbox: rows
+still waiting whose latest copy was accepted over a minute before the first acceptance of a
+receipted write. Those rows become due at once and each copy blames its node only once.
+Receipts themselves are staged with `stage_receipt` and leave on acceptance.
 
 For **receive**, compute the device mailbox from its key and check `Store::has_inbox` before any
 MLS processing. An already processed ID only needs a pending ACK retry. Process **one** new

@@ -191,7 +191,10 @@ impl Session {
         let today = (now_ms / 86_400_000) as u32;
         loop {
             match node.put_prepared(&write).await {
-                Ok(()) => return Ok(self.store.accepted(&write, now_ms)?),
+                Ok(()) => {
+                    let peer = node.peer().to_string();
+                    return Ok(self.store.accepted(&write, now_ms, &peer)?);
+                }
                 Err(crate::Error::Status(status)) => {
                     let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
                         .ok_or(crate::Error::Status(status))?;

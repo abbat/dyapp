@@ -250,7 +250,9 @@ mod tests {
         db.execute_batch(
             "DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
              ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`; PRAGMA user_version = 4;",
+             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
+             ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
+             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; PRAGMA user_version = 4;",
         )
         .unwrap();
         drop(db);

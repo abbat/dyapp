@@ -13,7 +13,7 @@ mod outbox;
 mod tokens;
 pub use likes::Likes;
 
-const VERSION: i64 = 6;
+const VERSION: i64 = 7;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -164,7 +164,10 @@ impl Store {
             if version < 5 {
                 tx.execute_batch(SCHEMA_V5)?;
             }
-            tx.execute_batch(outbox::SCHEMA_V6)?;
+            if version < 6 {
+                tx.execute_batch(outbox::SCHEMA_V6)?;
+            }
+            tx.execute_batch(outbox::SCHEMA_V7)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -628,11 +631,11 @@ pub(crate) mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 7").unwrap();
+        db.execute_batch("PRAGMA user_version = 8").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(7))
+            Err(Error::FutureVersion(8))
         ));
 
         let unknown = temp_db_path();
