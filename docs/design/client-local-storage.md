@@ -115,7 +115,8 @@ later and doubling up to a day; it does not remove the outbox entry. `Store::rec
 when the recipient's receipt arrives, and `expire_outbound` gives it up 30 days after the first
 acceptance. A receipt also names the nodes that dropped earlier writes to the same mailbox: rows
 still waiting whose latest copy was accepted over a minute before the first acceptance of a
-receipted write. Those rows become due at once and each copy blames its node only once.
+receipted write. Those rows become due at once and each copy blames its node only once;
+`Session` lowers that node's score. `Store::accepted_by` tells a resend which node to try last.
 Receipts themselves are staged with `stage_receipt` and leave on acceptance.
 
 For **receive**, compute the device mailbox from its key and check `Store::has_inbox` before any

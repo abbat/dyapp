@@ -643,7 +643,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .unwrap()
         .as_millis() as i64;
     alice_session
-        .retry_due(&mut alice.node, now_ms, &alice_key)
+        .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
         .await
         .unwrap();
     // Accepted, it waits an hour for Bob's receipt before the next put.
@@ -657,20 +657,35 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     break_mls_writes(&alice_path);
     assert!(matches!(
         alice_session
-            .send_message(&mut alice.node, &group_id, b"never sent", &alice_key)
+            .send_message(
+                std::slice::from_mut(&mut alice.node),
+                &group_id,
+                b"never sent",
+                &alice_key
+            )
             .await,
         Err(Error::Store(_))
     ));
     assert!(matches!(
         alice_session
-            .send_message(&mut alice.node, &group_id, b"never sent", &alice_key)
+            .send_message(
+                std::slice::from_mut(&mut alice.node),
+                &group_id,
+                b"never sent",
+                &alice_key
+            )
             .await,
         Err(Error::Invalidated)
     ));
     heal(&alice_path);
     alice_session.recover(&alice_key).unwrap();
     alice_session
-        .send_message(&mut alice.node, &group_id, b"hello bob", &alice_key)
+        .send_message(
+            std::slice::from_mut(&mut alice.node),
+            &group_id,
+            b"hello bob",
+            &alice_key,
+        )
         .await
         .unwrap();
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
@@ -681,7 +696,12 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     break_mls_writes(&bob_path);
     assert!(matches!(
         bob_session
-            .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+            .receive(
+                std::slice::from_mut(&mut bob.node),
+                &bob.device_key,
+                &profiles,
+                &bob_key
+            )
             .await,
         Err(Error::Store(_))
     ));
@@ -698,7 +718,12 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
     assert_eq!(
         bob_session
-            .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+            .receive(
+                std::slice::from_mut(&mut bob.node),
+                &bob.device_key,
+                &profiles,
+                &bob_key
+            )
             .await
             .unwrap(),
         [Event::Joined(group_id.clone()), hello]
@@ -714,7 +739,12 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     )
     .unwrap();
     alice_session
-        .receive(&mut alice.node, &alice.device_key, &profiles, &alice_key)
+        .receive(
+            std::slice::from_mut(&mut alice.node),
+            &alice.device_key,
+            &profiles,
+            &alice_key,
+        )
         .await
         .unwrap();
     assert!(alice_session
@@ -727,7 +757,12 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
     assert!(bob_session
-        .receive(&mut bob.node, &bob.device_key, &profiles, &bob_key)
+        .receive(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &bob_key
+        )
         .await
         .unwrap()
         .is_empty());
@@ -735,12 +770,22 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
 
     // The restored group keeps working in both directions.
     bob_session
-        .send_message(&mut bob.node, &group_id, b"hi alice", &bob_key)
+        .send_message(
+            std::slice::from_mut(&mut bob.node),
+            &group_id,
+            b"hi alice",
+            &bob_key,
+        )
         .await
         .unwrap();
     assert_eq!(
         alice_session
-            .receive(&mut alice.node, &alice.device_key, &profiles, &alice_key)
+            .receive(
+                std::slice::from_mut(&mut alice.node),
+                &alice.device_key,
+                &profiles,
+                &alice_key
+            )
             .await
             .unwrap(),
         [Event::Message {

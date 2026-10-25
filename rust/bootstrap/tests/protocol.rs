@@ -884,3 +884,6 @@ mod gossip;
 
 #[path = "protocol/tokens.rs"]
 mod tokens;
+
+#[path = "protocol/delivery.rs"]
+mod delivery;

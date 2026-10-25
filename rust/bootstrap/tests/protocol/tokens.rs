@@ -189,7 +189,12 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     let mut session = Session::open(store, &SEAL).unwrap();
 
     session
-        .send_message(&mut alice.node, &group_id, b"one", &SEAL)
+        .send_message(
+            std::slice::from_mut(&mut alice.node),
+            &group_id,
+            b"one",
+            &SEAL,
+        )
         .await
         .unwrap();
     assert_eq!(senders(&mut bob).await, [key.to_vec()]);
@@ -203,7 +208,12 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
         .await
         .unwrap();
     session
-        .send_message(&mut alice.node, &group_id, b"two", &SEAL)
+        .send_message(
+            std::slice::from_mut(&mut alice.node),
+            &group_id,
+            b"two",
+            &SEAL,
+        )
         .await
         .unwrap();
     let sent = senders(&mut bob).await;
@@ -224,7 +234,12 @@ async fn receive(
     profiles: &[dyapp_profile::VerifiedProfile],
 ) -> Vec<dyapp_client::chat::Event> {
     session
-        .receive(&mut person.node, &person.device_key, profiles, &SEAL)
+        .receive(
+            std::slice::from_mut(&mut person.node),
+            &person.device_key,
+            profiles,
+            &SEAL,
+        )
         .await
         .unwrap()
 }
@@ -291,7 +306,12 @@ async fn two_sessions_trade_tokens_on_join_and_a_message_passes_a_full_pool() {
             .unwrap();
     }
     alice_session
-        .send_message(&mut alice.node, group.id(), b"hi", &SEAL)
+        .send_message(
+            std::slice::from_mut(&mut alice.node),
+            group.id(),
+            b"hi",
+            &SEAL,
+        )
         .await
         .unwrap();
     let mut events = Vec::new();

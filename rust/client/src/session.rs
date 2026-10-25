@@ -1,6 +1,7 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
+use crate::scores::{self, Scores};
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
@@ -50,6 +51,7 @@ pub struct Session {
     store: Store,
     device: Option<Device>,
     groups: Vec<Group>,
+    scores: Scores,
 }
 
 impl Session {
@@ -66,7 +68,13 @@ impl Session {
             store,
             device: Some(device),
             groups,
+            scores: Scores::default(),
         })
+    }
+
+    /// The scores of the nodes this session used.
+    pub fn scores(&self) -> &Scores {
+        &self.scores
     }
 
     /// Reopen the committed snapshot after a local failure; never reuse the advanced handles.
@@ -133,18 +141,18 @@ impl Session {
     /// replaced in the outbox as in [`tokens::send`] and put again.
     pub async fn send_message(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         group_id: &[u8],
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        self.send_body(node, group_id, &Body::Text(text.to_vec()), seal_key)
+        self.send_body(nodes, group_id, &Body::Text(text.to_vec()), seal_key)
             .await
     }
 
     async fn send_body(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         group_id: &[u8],
         body: &Body,
         seal_key: &[u8; 32],
@@ -152,7 +160,7 @@ impl Session {
         let writes = self.stage_message(group_id, body, seal_key)?;
         let now_ms = crate::now() as i64 * 1000;
         for write in writes {
-            self.deliver(node, write, now_ms, seal_key).await?;
+            self.deliver(nodes, write, now_ms, seal_key).await?;
         }
         Ok(())
     }
@@ -162,13 +170,13 @@ impl Session {
     /// again until its receipt, 1 h later and then up to a day apart, for 30 days.
     pub async fn retry_due(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         now_ms: i64,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         self.store.expire_outbound(now_ms)?;
         for write in self.store.due_outbound(now_ms)? {
-            match self.deliver(node, write.clone(), now_ms, seal_key).await {
+            match self.deliver(nodes, write.clone(), now_ms, seal_key).await {
                 Err(Error::Client(_)) => match self.store.schedule_retry(&write, now_ms) {
                     // A token swap replaced the row, so it is due again at once.
                     Err(crate::store::Error::OutboxConflict) => {}
@@ -180,49 +188,72 @@ impl Session {
         Ok(())
     }
 
-    /// Put `write`, swapping a refused tokened copy for its fallback in the outbox.
+    /// Put `write` through the first of `nodes` by score that accepts it, the node that accepted
+    /// it last tried last, swapping a refused tokened copy for its fallback in the outbox. Every
+    /// node that fails is scored; the last error is returned when all fail.
     async fn deliver(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         mut write: PreparedEnvelope,
         now_ms: i64,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         let today = (now_ms / 86_400_000) as u32;
-        loop {
-            match node.put_prepared(&write).await {
-                Ok(()) => {
-                    let peer = node.peer().to_string();
-                    return Ok(self.store.accepted(&write, now_ms, &peer)?);
-                }
-                Err(crate::Error::Status(status)) => {
-                    let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
-                        .ok_or(crate::Error::Status(status))?;
-                    self.store.replace_outbound(&write, &next)?;
-                    write = next;
-                }
-                Err(error) => return Err(error.into()),
+        let now = (now_ms / 1000) as u64;
+        let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+        let mut order = self.scores.ranked(&peers, now);
+        if let Some(by) = self.store.accepted_by(&write)? {
+            if let Some(at) = order.iter().position(|&i| peers[i].to_string() == by) {
+                let i = order.remove(at);
+                order.push(i);
             }
         }
+        let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
+        for i in order {
+            loop {
+                match nodes[i].put_prepared(&write).await {
+                    Ok(()) => {
+                        let peer = peers[i].to_string();
+                        return Ok(self.store.accepted(&write, now_ms, &peer)?);
+                    }
+                    Err(crate::Error::Status(status)) => {
+                        match tokens::fallback(&self.store, &write, status, today, seal_key)? {
+                            Some(next) => {
+                                self.store.replace_outbound(&write, &next)?;
+                                write = next;
+                                continue;
+                            }
+                            None => last = crate::Error::Status(status),
+                        }
+                    }
+                    Err(error) => last = error,
+                }
+                break;
+            }
+            if scores::faulty(&last) {
+                self.scores.fault(peers[i], now);
+            }
+        }
+        Err(last.into())
     }
 
     /// Ask every group's other devices for the write tokens this device is missing; the app calls
     /// it once a day. A join and a contact's request ask by themselves.
-    pub async fn refill(&mut self, node: &mut Node, seal_key: &[u8; 32]) -> Result<(), Error> {
+    pub async fn refill(&mut self, nodes: &mut [Node], seal_key: &[u8; 32]) -> Result<(), Error> {
         let ids = self
             .groups
             .iter()
             .map(|g| g.id().to_vec())
             .collect::<Vec<_>>();
         for id in ids {
-            self.request_tokens(node, &id, seal_key).await?;
+            self.request_tokens(nodes, &id, seal_key).await?;
         }
         Ok(())
     }
 
     async fn request_tokens(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         group_id: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
@@ -242,7 +273,7 @@ impl Session {
             .collect::<Vec<_>>();
         let today = (crate::now() / 86_400) as u32;
         match tokens::request(&mut self.store, &mailboxes, today, seal_key)? {
-            Some(body) => self.send_body(node, group_id, &body, seal_key).await,
+            Some(body) => self.send_body(nodes, group_id, &body, seal_key).await,
             None => Ok(()),
         }
     }
@@ -253,7 +284,7 @@ impl Session {
     // tokens; the next refill asks again.
     async fn control(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         device_key: &Identity,
         event: Event,
         seal_key: &[u8; 32],
@@ -266,9 +297,9 @@ impl Session {
                 body: Body::TokenRequest(request),
             } => {
                 for answer in tokens::answer(&self.store, device_key, &sender, &request, today)? {
-                    self.send_body(node, &group, &answer, seal_key).await?;
+                    self.send_body(nodes, &group, &answer, seal_key).await?;
                 }
-                self.request_tokens(node, &group, seal_key).await?;
+                self.request_tokens(nodes, &group, seal_key).await?;
                 Ok(None)
             }
             Event::Message {
@@ -290,11 +321,16 @@ impl Session {
                     .iter()
                     .filter_map(|id| id.as_slice().try_into().ok())
                     .collect::<Vec<_>>();
-                self.store.receipted(&mailbox, &ids)?;
+                let now = crate::now();
+                for peer in self.store.receipted(&mailbox, &ids)?.1 {
+                    if let Ok(peer) = peer.parse() {
+                        self.scores.fault(peer, now);
+                    }
+                }
                 Ok(None)
             }
             Event::Joined(group) => {
-                self.request_tokens(node, &group, seal_key).await?;
+                self.request_tokens(nodes, &group, seal_key).await?;
                 Ok(Some(Event::Joined(group)))
             }
             event => Ok(Some(event)),
@@ -306,19 +342,23 @@ impl Session {
         Ok(self.store.due_outbound(now_ms)?)
     }
 
-    /// Fetch the mailbox of `device_key`, commit each new envelope before returning it, then
+    /// Fetch the mailbox of `device_key` from the first of `nodes` by score that answers, commit each new envelope before returning it, then
     /// acknowledge every committed ID, earlier ones whose ACK was lost included, and send each
     /// group one receipt for its new envelopes. Write-token and receipt bodies are handled here
     /// and not returned; a join also asks the group for tokens. On an error, events committed so
     /// far are in the inbox history and their ACKs stay pending.
     pub async fn receive(
         &mut self,
-        node: &mut Node,
+        nodes: &mut [Node],
         device_key: &Identity,
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
     ) -> Result<Vec<Event>, Error> {
-        let (envelopes, _more) = node.fetch(device_key).await?;
+        let (at, (envelopes, _more)) =
+            scores::first(&mut self.scores, nodes, Node::peer, async |node| {
+                Ok((node.peer(), node.fetch(device_key).await?))
+            })
+            .await?;
         let mailbox = crate::mailbox(&device_key.public_key());
         let mut events = Vec::new();
         let mut seen = Vec::new();
@@ -343,12 +383,14 @@ impl Session {
                         None => receipts.push((group.clone(), vec![id.to_vec()])),
                     }
                 }
-                events.extend(self.control(node, device_key, event, seal_key).await?);
+                events.extend(self.control(nodes, device_key, event, seal_key).await?);
             }
         }
         let acks = self.acks(mailbox, seen)?;
         if !acks.is_empty() {
-            node.ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
+            let node = nodes.iter_mut().find(|node| node.peer() == at);
+            node.expect("fetched from one of nodes")
+                .ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
                 .await?;
             for key in &acks {
                 self.store.mark_acked(key)?;
@@ -364,7 +406,7 @@ impl Session {
                     ids: ids.to_vec(),
                 });
                 // A receipt the node refused stays in the outbox for retry_due.
-                match self.send_body(node, &group, &receipt, seal_key).await {
+                match self.send_body(nodes, &group, &receipt, seal_key).await {
                     Err(Error::Client(_)) | Ok(()) => {}
                     Err(error) => return Err(error),
                 }

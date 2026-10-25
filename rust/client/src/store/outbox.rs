@@ -89,6 +89,19 @@ impl Store {
         exactly_one(changed)
     }
 
+    /// The node that last accepted `write`, unless a receipt blamed it since.
+    pub fn accepted_by(&self, write: &PreparedEnvelope) -> Result<Option<String>, Error> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT `accepted_by` FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![write.mailbox().as_slice(), write.id().as_slice()],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
     /// The owner of `mailbox` received writes `ids`: drop those still waiting. Returns how many,
     /// and the nodes that dropped earlier writes to `mailbox`: those writes still wait though
     /// their latest copy was accepted before the received ones. They become due at once.
@@ -252,8 +265,10 @@ mod tests {
         store.accepted(&elsewhere, 0, "z").unwrap();
         store.accepted(&close, 180_000 - GRACE_MS, "c").unwrap();
         store.accepted(&recent, 180_000, "y").unwrap();
+        assert_eq!(store.accepted_by(&early).unwrap().as_deref(), Some("x"));
         assert_eq!(blamed(&store, &[*recent.id()]), (1, vec!["x".to_owned()]));
         assert_eq!(due_bytes(&store, 0), [early.as_bytes()]);
+        assert_eq!(store.accepted_by(&early).unwrap(), None);
         assert_eq!(blamed(&store, &[*recent.id()]), (0, vec![]));
 
         // x is blamed once for its copy; the resend's node only for its own.

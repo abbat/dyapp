@@ -76,8 +76,12 @@ again, and a failed retry waits 1 s, then twice as long each time, up to an hour
 write stays until its delivery receipt: `Session::receive` sends each group one `Body::Receipt`
 naming the envelope IDs it committed, and the sender's outbox drops them. Without a receipt it
 is put again 1 h after acceptance, then up to a day apart, and given up after 30 days. A receipt
-leaves the outbox once a node accepts it and is not receipted itself. The app does not use this
-adapter yet.
+leaves the outbox once a node accepts it and is not receipted itself. Each `Session` call takes
+the caller's nodes, e.g. one per replica key: a put tries them lowest penalty first
+([scores](bootstrap.md#replication-and-repair)), the node that accepted the write last tried
+last, and each failure counts against its node; `receive` fetches from the first that answers. A
+receipt for a later write to the same mailbox counts against the node that accepted a
+still-waiting earlier one, which is resent at once. The app does not use this adapter yet.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the

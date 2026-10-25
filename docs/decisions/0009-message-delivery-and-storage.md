@@ -20,6 +20,12 @@ media is different: full copies are expensive, and a node should hold no object 
   not publish their addresses in the DHT; a direct connection that already exists (for example
   during a call) is only an optimisation. The device acknowledges, the node forwards the ack to
   the other replicas; the sender keeps an offline queue and retries.
+- **Delivery receipts:** a node's `ok` does not prove delivery, so the recipient answers each
+  group's new messages with one receipt inside MLS, and the sender keeps every write until its
+  receipt: resent 1 h after acceptance, then up to a day apart, and given up after 30 days. A
+  resend goes to another node first; a receipt for a later write counts against the node that
+  accepted an earlier one still waiting, in the client's local node scores. Details:
+  [Messaging](../architecture/messaging.md).
 - **Bootstrap storage is a cache, nothing is kept forever:** the node operator sets a retention
   TTL (default 30 days) after which old data, tombstones included, is deleted, and may delete any
   data at any time. Under a full quota the data of the profiles inactive longest is evicted first.
