@@ -13,8 +13,9 @@ mod outbox;
 mod peers;
 mod tokens;
 pub use likes::Likes;
+pub use peers::ContactName;
 
-const VERSION: i64 = 8;
+const VERSION: i64 = 9;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -67,6 +68,9 @@ pub enum Error {
     /// A token row is missing, opens under another key, or names another contact.
     #[error("client store write token is missing, conflicts or is corrupt")]
     TokenConflict,
+    /// A local contact name is longer than 64 characters or has hidden characters.
+    #[error("client store local name is too long or not clean text")]
+    InvalidName,
     /// The system random source failed.
     #[error("client store could not read the system random source")]
     Random,
@@ -171,7 +175,10 @@ impl Store {
             if version < 7 {
                 tx.execute_batch(outbox::SCHEMA_V7)?;
             }
-            tx.execute_batch(peers::SCHEMA_V8)?;
+            if version < 8 {
+                tx.execute_batch(peers::SCHEMA_V8)?;
+            }
+            tx.execute_batch(peers::SCHEMA_V9)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -635,11 +642,11 @@ pub(crate) mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 9").unwrap();
+        db.pragma_update(None, "user_version", VERSION + 1).unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(9))
+            Err(Error::FutureVersion(v)) if v == VERSION + 1
         ));
 
         let unknown = temp_db_path();
