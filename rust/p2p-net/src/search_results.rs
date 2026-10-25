@@ -86,6 +86,7 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
             profile.interests.iter().map(String::as_str).collect(),
         )),
         20 => text(&profile.place),
+        21 => int(i64::try_from(profile.photos.len()).ok()),
         25 => text(&profile.gender),
         27 => int(Some(profile.education_level.into())),
         _ => None,
@@ -154,6 +155,8 @@ pub struct Filter {
     pub income: Option<(u64, u64)>,
     /// Least `education_level`, from 1 to 6; a profile that leaves it unset does not match.
     pub min_education: Option<u32>,
+    /// Only profiles with at least one photo.
+    pub with_photo: bool,
 }
 
 /// Why [`Filter::conditions`] refused a filter.
@@ -168,7 +171,7 @@ pub enum FilterError {
 }
 
 impl Filter {
-    /// The conditions for a query and for [`check`]: at most 11, one per field.
+    /// The conditions for a query and for [`check`]: at most 12, one per field.
     pub fn conditions(&self) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
@@ -208,6 +211,9 @@ impl Filter {
                 return Err(FilterError::EmptyRange);
             }
             out.push(ints(27, Op::Range, vec![min.into(), 6]));
+        }
+        if self.with_photo {
+            out.push(ints(21, Op::Range, vec![1, i64::MAX]));
         }
         for (field, v) in [(8, self.has_kids), (9, self.wants_more_kids)] {
             if let Some(v) = v {
@@ -342,12 +348,21 @@ mod tests {
             place: "f20".into(),
             gender: "f25".into(),
             education_level: 4,
+            photos: vec![dyapp_profile::Photo::default()],
             ..Profile::default()
         };
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
             matches(&condition(field, op, ints, strings), &p)
         };
-        for (field, v) in [(3, 30), (6, 10), (7, i64::MAX), (8, 1), (9, 0), (27, 4)] {
+        for (field, v) in [
+            (3, 30),
+            (6, 10),
+            (7, i64::MAX),
+            (8, 1),
+            (9, 0),
+            (21, 1),
+            (27, 4),
+        ] {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
@@ -394,6 +409,10 @@ mod tests {
             income_from: Some(40_000),
             income_to: Some(60_000),
             education_level: 4,
+            photos: vec![dyapp_profile::Photo {
+                full: vec![vec![1; 32]],
+                thumbnail: vec![2; 32],
+            }],
             ..Profile::default()
         };
         let strings = |v: &[&str]| v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
@@ -408,13 +427,14 @@ mod tests {
             places: strings(&["2950159"]),
             income: Some((55_000, u64::MAX)),
             min_education: Some(3),
+            with_photo: true,
         };
         let conditions = filter.conditions().unwrap();
-        assert_eq!(conditions.len(), 11);
+        assert_eq!(conditions.len(), 12);
         assert_eq!(conditions[0].ints, [18, 35]);
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
         assert!(kept(&fit));
-        let misses: [fn(&mut Profile); 11] = [
+        let misses: [fn(&mut Profile); 12] = [
             |p| p.age = 36,
             |p| p.gender = "m".into(),
             |p| p.orientation = "gay".into(),
@@ -426,6 +446,7 @@ mod tests {
             |p| p.income_to = Some(50_000),
             |p| p.income_from = None,
             |p| p.education_level = 0,
+            |p| p.photos.clear(),
         ];
         for (i, miss) in misses.iter().enumerate() {
             let mut p = fit.clone();

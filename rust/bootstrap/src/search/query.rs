@@ -13,7 +13,7 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
 }
 
 /// 600 profiles: places p0..p5 in "DE", ages 20..79, interest "chess" on every 3rd, gender
-/// "f" on every 2nd, education level `i % 7`.
+/// "f" on every 2nd, education level `i % 7`, one photo on every 4th.
 /// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
 const SIX: [&str; 6] = [
     "2950159", "2911298", "2867714", "2886242", "2925533", "2825297",
@@ -35,6 +35,11 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             place: SIX[(i % 6) as usize].into(),
             gender: if i % 2 == 0 { "f" } else { "m" }.into(),
             education_level: u32::try_from(i % 7).unwrap(),
+            photos: if i % 4 == 0 {
+                vec![dyapp_profile::Photo::default()]
+            } else {
+                vec![]
+            },
             interests: if i % 3 == 0 {
                 vec!["chess".into()]
             } else {
@@ -61,6 +66,17 @@ fn query_filters_least_education() {
     assert_eq!(found.applied, vec![27]);
     // i % 7 in {5, 6}: 85 + 85 of the 600 (i = 5, 12, ..., 593 and 6, ..., 594).
     assert_eq!(found.hits.len(), 170);
+}
+
+#[test]
+fn query_filters_photos() {
+    let (index, _) = population();
+    let found = index
+        .query(&[cond(21, Op::Range, vec![1, 16], vec![])], 200, 10_000)
+        .unwrap()
+        .unwrap();
+    assert_eq!(found.applied, vec![21]);
+    assert_eq!(found.hits.len(), 150);
 }
 
 #[test]
