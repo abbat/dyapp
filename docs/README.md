@@ -39,6 +39,7 @@ it are entry points that tools discover by path (see
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
 - [Pull request review](development/pr-review.md): checks and human review of untrusted PRs
 - [Desktop identity storage](development/desktop-identity-storage.md): user choice, runtime capability checks and persistence
+- [Android identity storage](development/android-identity-storage.md): per-identity Keystore aliases, slots and recovery
 - [Build automation](development/build.md)
 - [FFI bindings (UniFFI)](development/ffi-bindings.md)
 - [Protobuf code generation](development/protobuf-codegen.md)
