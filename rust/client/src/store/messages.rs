@@ -2,12 +2,15 @@
 
 use super::{Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
+use crate::PreparedEnvelope;
 use dyapp_identity::sha256;
 use rusqlite::{params, OptionalExtension, Transaction};
 
 #[cfg(test)]
 mod inbound_tests;
 mod operations;
+#[cfg(test)]
+mod outbound_tests;
 
 // This table is part of the fresh pre-release schema; no migration/version bump is needed.
 pub(super) const SCHEMA: &str = r"
@@ -77,6 +80,49 @@ pub struct CurrentMessage {
 }
 
 impl Store {
+    /// Stage an own chat body, current projection, sealed MLS state and exact writes together.
+    /// The caller supplies its certified device key; the author must be this store's owner.
+    pub fn stage_chat_outbound(
+        &mut self,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        wall_ms: u64,
+    ) -> Result<(), Error> {
+        if sender.author != self.owner_peer_id
+            || sender.group.is_empty()
+            || sender.device.len() != 32
+        {
+            return Err(Error::InboxConflict);
+        }
+        let id = match body {
+            Body::Text { id, .. } => id,
+            Body::Edit { target, .. } | Body::Delete { target, .. } => target,
+            _ => return Err(Error::InboxConflict),
+        };
+        let key = MessageKey {
+            group: sender.group.to_vec(),
+            author: sender.author.to_owned(),
+            id: *id,
+        };
+        let tx = self.db.transaction()?;
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        let changed = match body {
+            Body::Text { text, .. } => Self::record_chat_text_tx(&tx, &key, text)?,
+            Body::Edit { .. } | Body::Delete { .. } => {
+                Self::apply_chat_operation_tx(&tx, &key, sender.device, body, wall_ms)?
+            }
+            _ => unreachable!(),
+        };
+        // An outbound action must change local state; replay uses the exact existing outbox write.
+        if !changed {
+            return Err(Error::InboxConflict);
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
     /// The inbox retains only a body digest, never a second copy of chat text.
     pub fn stage_chat_inbound(

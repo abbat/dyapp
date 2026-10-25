@@ -48,9 +48,9 @@ for received text, edits and deletes. Physical remnants in SQLite WAL, backups o
 cannot be reliably erased.
 The UI must not promise that.
 
-Text and operation state, sealed MLS state and exact outbound envelopes must be staged durably
-before the first network put. Incoming operations and pending mailbox ACKs must be committed
-before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted
+The Store can atomically stage own text/edit/delete state, sealed MLS state and exact outbound
+envelopes. Session send APIs still need to use this path before the first network put. Incoming
+operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted
 envelopes. A delete shown locally before delivery is pending on the peer until its receipt.
 
 ## Best-effort node removal
