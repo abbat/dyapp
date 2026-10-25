@@ -299,24 +299,22 @@ pub fn open_slot(slot: Slot, load: Load<'_>) -> Result<Opened, String> {
             Some(identity) => return Ok(Opened::Ready(slot, identity)),
             None => "missing",
         },
-        State::Pending => {
+        State::Pending | State::Deleting => {
+            let reason = if slot.state == State::Pending {
+                "incomplete"
+            } else {
+                "deleting"
+            };
             let peer_id = load(&slot)?.map(|identity| identity.peer_id());
-            return Ok(Opened::Recovery(slot, "incomplete", peer_id));
+            return Ok(Opened::Recovery(slot, reason, peer_id));
         }
-        State::Deleting => "deleting",
         State::Broken => "damaged",
     };
     Ok(Opened::Recovery(slot, reason, None))
 }
 
-/// Creates an identity in a fresh slot and makes it active. The slot is marked ready only after
-/// its key reopens with the same Peer ID; `profiles.lock` serializes concurrent app instances.
-pub fn create(
-    root: &Path,
-    mode: &'static str,
-    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
-    load: Load<'_>,
-) -> Result<(Slot, Identity), String> {
+/// Holds `profiles.lock`, which serializes slot changes across app instances, until dropped.
+fn lock(root: &Path) -> Result<fs::File, String> {
     fs::create_dir_all(root).map_err(|e| e.to_string())?;
     let lock = OpenOptions::new()
         .create(true)
@@ -325,6 +323,18 @@ pub fn create(
         .open(root.join("profiles.lock"))
         .map_err(|e| e.to_string())?;
     lock.lock().map_err(|e| e.to_string())?;
+    Ok(lock)
+}
+
+/// Creates an identity in a fresh slot and makes it active. The slot is marked ready only after
+/// its key reopens with the same Peer ID.
+pub fn create(
+    root: &Path,
+    mode: &'static str,
+    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
+    load: Load<'_>,
+) -> Result<(Slot, Identity), String> {
+    let _lock = lock(root)?;
     let mut slot = reserve(root, mode)?;
     let identity = Identity::generate();
     save(&slot, &identity)?;
@@ -335,6 +345,53 @@ pub fn create(
     set_state(&mut slot, State::Ready)?;
     set_active(root, &slot.id)?;
     Ok((slot, identity))
+}
+
+/// Removes slot `id`. A key that still exists must yield `peer_id`, the Peer ID the user
+/// confirmed. The slot is marked `deleting` before `erase` and its files go only once `load`
+/// confirms the key is absent, so any failure keeps a slot that a retry can finish. The legacy
+/// slot and damaged slots are refused: they need a migration or hold files we cannot interpret.
+pub fn remove(
+    root: &Path,
+    id: &str,
+    peer_id: Option<&str>,
+    load: Load<'_>,
+    erase: &dyn Fn(&Slot) -> Result<(), String>,
+) -> Result<(), String> {
+    let _lock = lock(root)?;
+    let mut slot = list(root)?
+        .into_iter()
+        .find(|slot| slot.id == id)
+        .ok_or("Unknown identity")?;
+    if slot.id == LEGACY || slot.state == State::Broken {
+        return Err("This identity cannot be removed".into());
+    }
+    if let Some(identity) = load(&slot)? {
+        if Some(identity.peer_id().as_str()) != peer_id {
+            return Err("The key does not match the confirmed Peer ID".into());
+        }
+    }
+    if slot.state != State::Deleting {
+        set_state(&mut slot, State::Deleting)?;
+    }
+    erase(&slot)?;
+    if load(&slot)?.is_some() {
+        return Err("The key is still present after removal".into());
+    }
+    for entry in fs::read_dir(&slot.dir).map_err(|e| e.to_string())? {
+        let name = entry.map_err(|e| e.to_string())?.file_name();
+        if !matches!(name.to_str(), Some("storage-mode" | "state" | "state.tmp")) {
+            return Err("The identity folder holds other files".into());
+        }
+    }
+    // The rename drops the slot from `list` at once; a crash after it leaves only hidden markers.
+    let removed = slot.dir.with_file_name(format!(".{id}.removed"));
+    fs::rename(&slot.dir, &removed).map_err(|e| e.to_string())?;
+    fs::remove_dir_all(&removed).map_err(|e| e.to_string())?;
+    if active(root).as_deref() == Some(id) {
+        fs::remove_file(root.join("active-profile")).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -459,8 +516,64 @@ mod tests {
         let peer = Some(alice.peer_id());
         assert_eq!(state(&only), format!("incomplete {} {peer:?}", pending.id));
         set_state(&mut pending, State::Deleting).unwrap();
-        assert_eq!(state(&only), format!("deleting {} None", pending.id));
+        assert_eq!(state(&only), format!("deleting {} {peer:?}", pending.id));
         fs::remove_dir_all(only).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn remove_erases_only_the_confirmed_key() {
+        use std::cell::{Cell, RefCell};
+        use std::collections::HashMap;
+        let root = temp_root();
+        let keys = RefCell::new(HashMap::new());
+        let save = |slot: &Slot, identity: &Identity| {
+            keys.borrow_mut()
+                .insert(slot.system_name(), *identity.secret());
+            Ok::<_, String>(())
+        };
+        let load = |slot: &Slot| {
+            Ok::<_, String>(keys
+                .borrow()
+                .get(&slot.system_name())
+                .map(Identity::from_secret))
+        };
+        let working = Cell::new(false);
+        let erase = |slot: &Slot| {
+            if working.get() {
+                keys.borrow_mut().remove(&slot.system_name());
+            }
+            Ok::<_, String>(())
+        };
+        let state = |id: &str| {
+            list(&root).unwrap().into_iter().find(|s| s.id == id).map(|s| s.state)
+        };
+        let (first, alice) = create(&root, "system", &save, &load).unwrap();
+        let (second, bob) = create(&root, "file", &save, &load).unwrap();
+        let (alice, bob) = (alice.peer_id(), bob.peer_id());
+        // Another identity's Peer ID or none at all leaves the slot untouched.
+        assert!(remove(&root, &second.id, Some(&alice), &load, &erase).is_err());
+        assert!(remove(&root, &second.id, None, &load, &erase).is_err());
+        assert_eq!(state(&second.id), Some(State::Ready));
+        // An erase that leaves the key keeps the slot, now deleting, for a retry.
+        assert!(remove(&root, &second.id, Some(&bob), &load, &erase).is_err());
+        assert_eq!(state(&second.id), Some(State::Deleting));
+        working.set(true);
+        remove(&root, &second.id, Some(&bob), &load, &erase).unwrap();
+        assert_eq!(state(&second.id), None);
+        assert_eq!(active(&root), None);
+        assert_eq!(fs::read_dir(root.join("profiles")).unwrap().count(), 1);
+        assert!(keys.borrow().contains_key(&first.system_name()));
+        // A key already gone needs no Peer ID; foreign files keep the slot.
+        let notes = reserve(&root, "file").unwrap();
+        fs::write(notes.dir.join("notes.txt"), "mine").unwrap();
+        assert!(remove(&root, &notes.id, None, &load, &erase).is_err());
+        assert_eq!(state(&notes.id), Some(State::Deleting));
+        keys.borrow_mut().remove(&first.system_name());
+        remove(&root, &first.id, None, &load, &erase).unwrap();
+        assert_eq!(state(&first.id), None);
+        fs::write(root.join("identity-storage"), "file\n").unwrap();
+        assert!(remove(&root, LEGACY, None, &load, &erase).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 

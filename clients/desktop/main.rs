@@ -45,6 +45,17 @@ fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
     }
 }
 
+fn erase(slot: &Slot) -> Result<(), String> {
+    match slot.mode {
+        Some("system") => system_store::delete_slot(&slot.system_name()),
+        Some(_) => match fs::remove_file(slot.key_path()) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            result => result.map_err(|e| e.to_string()),
+        },
+        None => Err("Unknown identity storage mode".into()),
+    }
+}
+
 fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str, String> {
     let mut result = HashMap::from([
         ("status", "ready".into()),
@@ -202,6 +213,29 @@ async fn create_identity(
     Ok(response)
 }
 
+/// Removes a slot whose key yields the Peer ID the user confirmed, then shows the picker, or the
+/// storage choice when no identity is left, so removal never switches identities silently.
+#[tauri::command]
+async fn remove_identity(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+    slot: String,
+    peer_id: Option<String>,
+) -> Result<HashMap<&'static str, String>, String> {
+    let dir = config_dir(&app)?;
+    let remaining = tauri::async_runtime::spawn_blocking(move || {
+        slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
+        slots::list(&dir).map(|slots| slots.len())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    *state.0.lock().map_err(|e| e.to_string())? = None;
+    if remaining == 0 {
+        return storage_options().await;
+    }
+    Ok(describe(Opened::Picker).0)
+}
+
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -268,6 +302,7 @@ fn main() {
             list_identities,
             select_identity,
             create_identity,
+            remove_identity,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

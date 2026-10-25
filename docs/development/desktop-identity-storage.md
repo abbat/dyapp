@@ -66,7 +66,10 @@ The app opens and creates identities through `clients/desktop/slots.rs`: it keep
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID
 or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
-identity" from the ready or recovery screen. The remove screen is not built yet:
+identity" from the ready or recovery screen. The `remove_identity` command removes a slot as
+described below; the remove screen that calls it is not built yet. It refuses the legacy slot,
+which needs the migration below, and a damaged slot, whose files it cannot interpret. It also
+refuses a slot folder that holds files other than its markers.
 
 | Item | Planned location / name |
 |---|---|

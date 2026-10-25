@@ -130,6 +130,24 @@ mod platform {
         Ok(())
     }
 
+    /// Deletes the slot's item; an absent item is already deleted.
+    pub fn delete_slot(slot: &str) -> Result<(), String> {
+        let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
+        let collection = service
+            .get_default_collection()
+            .map_err(|e| e.to_string())?;
+        if collection.is_locked().map_err(|e| e.to_string())? {
+            return Err("Secret Service collection is locked".into());
+        }
+        for item in collection
+            .search_items(attributes(slot))
+            .map_err(|e| e.to_string())?
+        {
+            item.delete().map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     fn encode_identity(identity: &Identity) -> Zeroizing<String> {
         let mut result = Zeroizing::new(String::with_capacity(64));
         let secret = identity.secret();
@@ -188,6 +206,9 @@ mod platform {
                 load_slot(slot).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
+            delete_slot(slot).unwrap();
+            assert!(load_slot(slot).unwrap().is_none());
+            delete_slot(slot).unwrap();
         }
 
         #[test]
@@ -298,6 +319,14 @@ mod platform {
         Ok(())
     }
 
+    /// Deletes the slot's credential; an absent credential is already deleted.
+    pub fn delete_slot(user: &str) -> Result<(), String> {
+        match entry(user).map_err(|e| e.to_string())?.delete_credential() {
+            Ok(()) | Err(Error::NoEntry) => Ok(()),
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -325,9 +354,12 @@ mod platform {
                 entry(user).unwrap().get_attributes().unwrap()["persistence"],
                 "Local"
             );
+            delete_slot(user).unwrap();
+            assert!(load_slot(user).unwrap().is_none());
+            delete_slot(user).unwrap();
         }
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-pub use platform::{load_slot, probe, save_slot};
+pub use platform::{delete_slot, load_slot, probe, save_slot};
