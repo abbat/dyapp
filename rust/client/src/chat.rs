@@ -112,17 +112,31 @@ struct AttachmentWire {
     release_secret: Vec<u8>,
     #[prost(uint64, tag = "5")]
     size: u64,
+    #[prost(bytes = "vec", tag = "6")]
+    preview: Vec<u8>,
+    #[prost(string, tag = "7")]
+    mime: String,
+    #[prost(uint32, tag = "8")]
+    width: u32,
+    #[prost(uint32, tag = "9")]
+    height: u32,
 }
 
 impl AttachmentWire {
     fn open(self) -> Option<Attachment> {
-        Some(Attachment {
+        let attachment = Attachment {
             key: self.key.try_into().ok()?,
             plaintext_sha256: self.plaintext_sha256.try_into().ok()?,
             blob_sha256: self.blob_sha256.try_into().ok()?,
             release_secret: self.release_secret.try_into().ok()?,
             size: self.size,
-        })
+            preview: self.preview,
+            mime: self.mime,
+            width: self.width,
+            height: self.height,
+        };
+        attachment.check().ok()?;
+        Some(attachment)
     }
 }
 
@@ -190,6 +204,10 @@ impl Body {
                     blob_sha256: attachment.blob_sha256.to_vec(),
                     release_secret: attachment.release_secret.to_vec(),
                     size: attachment.size,
+                    preview: attachment.preview.clone(),
+                    mime: attachment.mime.clone(),
+                    width: attachment.width,
+                    height: attachment.height,
                 };
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }
@@ -501,6 +519,7 @@ mod tests {
         apply_all, message, pad, unpad, AttachmentWire, Body, Delivery, Event, Receipt,
         TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TOKENS, MIN_PADDED_BYTES,
     };
+    use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
     use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
     use dyapp_identity::{Domain, Identity};
@@ -682,17 +701,32 @@ mod tests {
 
     #[test]
     fn attachments_round_trip_and_refuse_wrong_lengths() {
-        let (attachment, _) = crate::attachment::seal(b"photo").unwrap();
+        let (mut attachment, _) = crate::attachment::seal(b"photo").unwrap();
+        attachment.preview = vec![0xff; MAX_PREVIEW_BYTES];
+        attachment.mime = "image/jpeg".into();
+        (attachment.width, attachment.height) = (4000, 3000);
         let body = Body::Attachment(attachment);
         assert!(Body::decode(&body.encode()).ok() == Some(body));
-        let wire = AttachmentWire {
-            key: vec![1; 31],
-            plaintext_sha256: vec![2; 32],
-            blob_sha256: vec![3; 32],
-            release_secret: vec![4; 32],
-            size: 5,
+        let wire = |change: fn(&mut AttachmentWire)| {
+            let mut wire = AttachmentWire {
+                key: vec![1; 32],
+                plaintext_sha256: vec![2; 32],
+                blob_sha256: vec![3; 32],
+                release_secret: vec![4; 32],
+                size: 5,
+                preview: Vec::new(),
+                mime: String::new(),
+                width: 0,
+                height: 0,
+            };
+            change(&mut wire);
+            Body::decode(&[&[6], wire.encode_to_vec().as_slice()].concat())
         };
-        assert!(Body::decode(&[&[6], wire.encode_to_vec().as_slice()].concat()).is_err());
+        assert!(wire(|_| {}).is_ok());
+        assert!(wire(|wire| wire.key.pop().map(drop).unwrap()).is_err());
+        assert!(wire(|wire| wire.preview = vec![0; MAX_PREVIEW_BYTES + 1]).is_err());
+        assert!(wire(|wire| wire.mime = "a".repeat(MAX_MIME_BYTES + 1)).is_err());
+        assert!(wire(|wire| wire.mime = "image/jpeg\n".into()).is_err());
         assert!(Body::decode(&[6, 0xff]).is_err());
     }
 

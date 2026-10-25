@@ -104,17 +104,20 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         .unwrap();
 
     let photo = b"a photo only bob may see".repeat(4096);
-    let sent = alice_session
+    let (mut sent, blob) = attachment::seal(&photo).unwrap();
+    sent.preview = b"preview".to_vec();
+    sent.mime = "image/jpeg".into();
+    alice_session
         .send_attachment(
             from_mut(&mut alice.node),
             &alice.identity,
             &group_id,
-            &photo,
+            &sent,
+            &blob,
             &SEAL,
         )
         .await
         .unwrap();
-    assert_eq!(sent.size, photo.len() as u64);
     let blob = bob.node.get_media(&sent.blob_sha256).await.unwrap();
     assert!(!blob.windows(16).any(|window| photo.starts_with(window)));
     assert!(!blob.windows(32).any(|window| window == sent.key));

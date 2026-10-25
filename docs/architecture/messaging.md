@@ -46,7 +46,10 @@ three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` tex
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
 attachment), so a text is never read as an interaction; an unknown tag is refused and acked. An
 attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
-release secret, 32 bytes each, and the plaintext size; any other length is refused. `Session::send_attachment` uploads the
+release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
+printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length
+is refused. A message carries at most 64 KiB of previews: each of `n` images gets
+`attachment::preview_budget(n)`, min(24 KiB, 64 KiB / n). `Session::send_attachment` uploads the
 sealed blob to the first node that takes it before it stages the message, and `attachment::fetch`
 reads and opens it on receipt. Neither releases the blob: a release drops it for every device of
 the recipient, so the app releases once all its devices have it. A request holds 1 to 1,920 asks (30 days for

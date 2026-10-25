@@ -14,6 +14,15 @@ const TAG_BYTES: usize = 16;
 const LAST: &[u8] = &[1];
 const MORE: &[u8] = &[0];
 
+/// Largest preview, the same bound as `dyapp_ffi::preview::MAX_BYTES`.
+pub const MAX_PREVIEW_BYTES: usize = 24 * 1024;
+/// Preview bytes one message carries across all its attachments.
+pub const MESSAGE_PREVIEW_BYTES: usize = 64 * 1024;
+/// Longest MIME type.
+pub const MAX_MIME_BYTES: usize = 64;
+// Widest and tallest aspect ratio a layout reserves before download.
+const MAX_ASPECT: u64 = 20;
+
 /// What a member needs to fetch, check and open an attachment; sent inside the MLS message.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Attachment {
@@ -27,6 +36,14 @@ pub struct Attachment {
     pub release_secret: [u8; 32],
     /// Plaintext length in bytes, so a member can decide before fetching.
     pub size: u64,
+    /// A JPEG preview of at most [`MAX_PREVIEW_BYTES`] from `make_preview`; empty when none.
+    pub preview: Vec<u8>,
+    /// The sender's MIME type, printable ASCII of at most [`MAX_MIME_BYTES`]; may be empty.
+    pub mime: String,
+    /// The sender's claimed width, only to reserve layout space; see [`layout_size`].
+    pub width: u32,
+    /// The sender's claimed height, like `width`.
+    pub height: u32,
 }
 
 impl std::fmt::Debug for Attachment {
@@ -42,6 +59,32 @@ impl Attachment {
     pub fn release_hash(&self) -> [u8; 32] {
         sha256(&self.release_secret)
     }
+
+    /// Refuses a preview or MIME type over its bound or a MIME type that is not printable ASCII.
+    pub fn check(&self) -> Result<(), Error> {
+        if self.preview.len() > MAX_PREVIEW_BYTES {
+            return Err(Error::Attachment("preview too large"));
+        }
+        if self.mime.len() > MAX_MIME_BYTES || !self.mime.bytes().all(|b| b.is_ascii_graphic()) {
+            return Err(Error::Attachment("bad MIME type"));
+        }
+        Ok(())
+    }
+}
+
+/// `max_bytes` for each preview of a message with `count` images.
+pub fn preview_budget(count: usize) -> usize {
+    MAX_PREVIEW_BYTES.min(MESSAGE_PREVIEW_BYTES / count.max(1))
+}
+
+/// The layout size for claimed dimensions: the aspect ratio clamped to 1:20..20:1, a zero side
+/// counted as 1. The decoded image's real dimensions replace it after download.
+pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
+    let (width, height) = (u64::from(width.max(1)), u64::from(height.max(1)));
+    let width = width.min(height * MAX_ASPECT);
+    let height = height.min(width * MAX_ASPECT);
+    // Both stay at most the claimed u32 values.
+    (width as u32, height as u32)
 }
 
 /// Encrypts `plaintext` under a fresh key; returns its [`Attachment`] and the blob to upload.
@@ -66,6 +109,10 @@ pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
         blob_sha256: sha256(&blob),
         release_secret: random()?,
         size: plaintext.len() as u64,
+        preview: Vec::new(),
+        mime: String::new(),
+        width: 0,
+        height: 0,
     };
     Ok((attachment, blob))
 }
@@ -137,6 +184,23 @@ mod tests {
         change(&mut blob);
         attachment.blob_sha256 = sha256(&blob);
         open(&attachment, &blob)
+    }
+
+    #[test]
+    fn an_album_of_sixteen_previews_fits_one_message() {
+        assert_eq!(preview_budget(0), MAX_PREVIEW_BYTES);
+        assert_eq!(preview_budget(2), MAX_PREVIEW_BYTES);
+        assert_eq!(preview_budget(16) * 16, MESSAGE_PREVIEW_BYTES);
+        assert!(preview_budget(1000) * 1000 <= MESSAGE_PREVIEW_BYTES);
+    }
+
+    #[test]
+    fn layout_clamps_the_claimed_aspect_ratio() {
+        assert_eq!(layout_size(4000, 3000), (4000, 3000));
+        assert_eq!(layout_size(10_000, 1), (20, 1));
+        assert_eq!(layout_size(1, u32::MAX), (1, 20));
+        assert_eq!(layout_size(0, 0), (1, 1));
+        assert_eq!(layout_size(u32::MAX, u32::MAX), (u32::MAX, u32::MAX));
     }
 
     #[test]
