@@ -67,5 +67,6 @@ precisely than an age or year.
 
 The three optional fields, validation and age-bound helper are implemented.
 The search index version is reset to 1 with no birth-date migration. The
-temporary integer age field, client predicate and UI remain to be updated.
+temporary integer age field, multi-node partial-result reporting and UI remain
+to be updated; the client predicate already verifies signed birth bounds.
 This unreleased prototype needs no compatibility migration.

@@ -27,7 +27,7 @@ const COLUMNS: &[(u32, &str, bool)] = &[
 const INTERESTS: u32 = 19;
 const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
 /// Virtual condition: inclusive birth-date bounds at the query's UTC date.
-pub const BIRTH_AGE: u32 = 1001;
+pub const BIRTH_AGE: u32 = dyapp_p2p_net::search_results::BIRTH_AGE;
 /// Profile field numbers a query may filter on, plus virtual fields.
 pub const SEARCH_FIELDS: &[u32] = &[
     3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY, BIRTH_AGE,

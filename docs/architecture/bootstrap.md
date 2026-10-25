@@ -526,8 +526,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   bound and its latest possible date is at most the upper bound. A profile
   without a birth year has no indexed bounds and cannot match. Search nodes
   advertise field 1001. Temporary integer age field 3 remains available until
-  its removal checkpoint; the client age-query builder and verifier for field
-  1001 are still planned.
+  its removal checkpoint. The client helper builds field 1001 from an explicit
+  UTC civil date and rechecks each verified profile against its birth bounds;
+  reporting incomplete coverage when a node skips the field remains planned.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
   come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;

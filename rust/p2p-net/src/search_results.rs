@@ -3,12 +3,14 @@
 
 use crate::proto::{Condition, Op};
 use dyapp_identity::SignedRecord;
-use dyapp_profile::{Profile, VerifiedProfile};
+use dyapp_profile::{CivilDate, Profile, VerifiedProfile};
 use std::collections::HashMap;
 
 /// The condition field of the UTC day of a key's last heartbeat or publish on the node. A record
 /// does not carry it, so [`check`] skips it and the client trusts the nodes that applied it.
 pub const ACTIVE_DAY: u32 = 1000;
+/// Current-age interval over public birth-date bounds, rechecked from signed profiles.
+pub const BIRTH_AGE: u32 = 1001;
 
 /// The profiles in `replies` (one list per search node) that match every condition, one per
 /// owner, in first-seen order. Of each owner only the highest validly signed version counts, so
@@ -97,8 +99,25 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
     }
 }
 
+fn birth_age_matches(c: &Condition, profile: &Profile, op: Op) -> bool {
+    if op == Op::Unspecified {
+        return true;
+    }
+    if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
+        return false;
+    }
+    let Some(bounds) = profile.birth_bounds() else {
+        return false;
+    };
+    i64::from(bounds.earliest.yyyymmdd()) > c.ints[0]
+        && i64::from(bounds.latest.yyyymmdd()) <= c.ints[1]
+}
+
 fn matches(c: &Condition, profile: &Profile) -> bool {
     let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
+    if c.field == BIRTH_AGE {
+        return birth_age_matches(c, profile, op);
+    }
     let Some(value) = value(profile, c.field) else {
         return true;
     };
@@ -177,8 +196,9 @@ pub enum FilterError {
 }
 
 impl Filter {
-    /// The conditions for a query and for [`check`]: at most 13, one per field.
-    pub fn conditions(&self) -> Result<Vec<Condition>, FilterError> {
+    /// The conditions for a query and for [`check`] at an explicit UTC date:
+    /// at most 13, one per field.
+    pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
         }
@@ -195,7 +215,12 @@ impl Filter {
             if min > max {
                 return Err(FilterError::EmptyRange);
             }
-            out.push(ints(3, Op::Range, vec![min.into(), max.into()]));
+            let lower = max.checked_add(1).map_or(0, |age| today.age_cutoff(age));
+            let upper = today.age_cutoff(min);
+            if lower >= upper {
+                return Err(FilterError::EmptyRange);
+            }
+            out.push(ints(BIRTH_AGE, Op::Range, vec![lower.into(), upper.into()]));
         }
         if !self.country.is_empty() {
             out.push(Condition {
@@ -409,9 +434,12 @@ mod tests {
     #[test]
     fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch() {
         let a = Identity::generate();
+        let today = CivilDate::new(2026, 10, 25).unwrap();
         let fit = Profile {
             version: 1,
-            age: 30,
+            birth_year: Some(1996),
+            birth_month: Some(5),
+            birth_day: Some(1),
             gender: "f".into(),
             orientation: "straight".into(),
             relationship_goal: "family".into(),
@@ -443,14 +471,15 @@ mod tests {
             with_photo: true,
             active_since: Some(86_400 * 3 - 1),
         };
-        let conditions = filter.conditions().unwrap();
+        let conditions = filter.conditions(today).unwrap();
         assert_eq!(conditions.len(), 13);
         assert_eq!(conditions[6].ints, [2, i64::MAX]);
-        assert_eq!(conditions[0].ints, [18, 35]);
+        assert_eq!(conditions[0].field, BIRTH_AGE);
+        assert_eq!(conditions[0].ints, [19901025, 20081025]);
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
         assert!(kept(&fit));
         let misses: [fn(&mut Profile); 12] = [
-            |p| p.age = 36,
+            |p| p.birth_year = Some(1990),
             |p| p.gender = "m".into(),
             |p| p.orientation = "gay".into(),
             |p| p.relationship_goal = "casual".into(),
@@ -472,12 +501,75 @@ mod tests {
         let mut p = fit.clone();
         p.income_to = Some(55_000);
         assert!(kept(&p));
-        assert_eq!(Filter::default().conditions().unwrap(), []);
+        assert_eq!(Filter::default().conditions(today).unwrap(), []);
+    }
+
+    #[test]
+    fn current_age_uses_birth_bounds_and_leap_anniversary() {
+        let owner = Identity::generate();
+        let filter = Filter {
+            age: Some((21, 21)),
+            ..Filter::default()
+        };
+        let leap = Profile {
+            version: 1,
+            birth_year: Some(2004),
+            birth_month: Some(2),
+            birth_day: Some(29),
+            ..Profile::default()
+        };
+        let before = filter
+            .conditions(CivilDate::new(2025, 2, 28).unwrap())
+            .unwrap();
+        assert_eq!(before[0].ints, [20030228, 20040228]);
+        assert!(check(&before, 0, &[vec![leap.sign(&owner)]]).is_empty());
+        let after = filter
+            .conditions(CivilDate::new(2025, 3, 1).unwrap())
+            .unwrap();
+        assert_eq!(after[0].ints, [20030301, 20040301]);
+        assert_eq!(check(&after, 0, &[vec![leap.sign(&owner)]]).len(), 1);
+
+        for profile in [
+            Profile {
+                birth_month: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_year: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_month: None,
+                birth_day: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_year: None,
+                birth_month: None,
+                birth_day: None,
+                age: 21,
+                ..leap.clone()
+            },
+        ] {
+            // A broad partial date, no year, or a stale integer age cannot prove age 21.
+            assert!(check(&after, 0, &[vec![profile.sign(&owner)]]).is_empty());
+        }
+        assert!(!passes(
+            &[condition(BIRTH_AGE, Op::Eq, &[21], &[])],
+            0,
+            &leap
+        ));
+        assert!(!passes(
+            &[condition(BIRTH_AGE, Op::Range, &[1, 1], &[])],
+            0,
+            &leap
+        ));
     }
 
     #[test]
     fn a_filter_refuses_what_a_node_would_not_take() {
-        let open = |filter: Filter| filter.conditions().unwrap_err();
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let open = |filter: Filter| filter.conditions(today).unwrap_err();
         let places = Filter {
             places: vec!["1".into()],
             ..Filter::default()
@@ -518,6 +610,6 @@ mod tests {
             income: Some((1, 1)),
             ..Filter::default()
         };
-        assert_eq!(eight.conditions().unwrap().len(), 5);
+        assert_eq!(eight.conditions(today).unwrap().len(), 5);
     }
 }

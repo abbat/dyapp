@@ -50,8 +50,10 @@ needed to derive age, while month and day may be published without one. Explicit
 zero or an impossible Gregorian combination is rejected, as is combining any
 component with integer `age`. The profile core derives possible birth-date and
 age bounds at an explicit UTC date ([ADR 0029](../decisions/0029-partial-public-birth-date.md));
-search nodes index the bounds and apply virtual age field 1001. Client filtering
-and UI use, and removal of tag 3, are planned. `gender` is free
+search nodes index the bounds and apply virtual age field 1001. The client
+filter helper constructs that condition for an explicit UTC date and rechecks
+verified profiles; multi-node partial-result reporting, UI use and removal of
+tag 3 remain planned. `gender` is free
 text like `orientation`; `name` is an optional public name under the same rule,
 which proves nothing ([ADR 0027](../decisions/0027-optional-public-profile-name.md)). `version` orders updates (the highest validly
 signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and

@@ -25,6 +25,17 @@ impl CivilDate {
         self.year * 10_000 + u32::from(self.month) * 100 + u32::from(self.day)
     }
 
+    /// Latest birth date whose age is at least `years` on this date; zero if out of range.
+    pub fn age_cutoff(self, years: u32) -> u32 {
+        let Some(year) = self.year.checked_sub(years).filter(|year| *year > 0) else {
+            return 0;
+        };
+        // A leap-day query in a non-leap target year ends on February 28.
+        CivilDate::new(year, self.month, self.day)
+            .or_else(|| CivilDate::new(year, 2, 28))
+            .map_or(0, CivilDate::yyyymmdd)
+    }
+
     fn age_on(self, today: Self) -> Option<u32> {
         if self > today {
             return None;
@@ -190,6 +201,14 @@ mod tests {
             verify(&tombstone.sign(&owner)),
             Err(Error::Invalid("tombstone carries data"))
         );
+    }
+
+    #[test]
+    fn age_cutoff_clamps_february_29_and_underflow() {
+        let leap_day = CivilDate::new(2024, 2, 29).unwrap();
+        assert_eq!(leap_day.age_cutoff(18), 20060228);
+        assert_eq!(leap_day.age_cutoff(2024), 0);
+        assert_eq!(CivilDate::new(2025, 3, 1).unwrap().age_cutoff(21), 20040301);
     }
 
     #[test]
