@@ -260,8 +260,8 @@ impl Store {
     }
 }
 
-/// The last own or observed interaction HLC; absent means zero.
-fn load_hlc(db: &Connection) -> Result<Timestamp, Error> {
+/// The last own or observed private interaction or chat operation HLC; absent means zero.
+pub(super) fn load_hlc(db: &Connection) -> Result<Timestamp, Error> {
     let value: Option<(i64, Vec<u8>)> = db
         .query_row(
             "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
@@ -278,7 +278,7 @@ fn load_hlc(db: &Connection) -> Result<Timestamp, Error> {
     }
 }
 
-fn save_hlc(tx: &Transaction<'_>, hlc: Timestamp) -> Result<(), Error> {
+pub(super) fn save_hlc(tx: &Transaction<'_>, hlc: Timestamp) -> Result<(), Error> {
     tx.execute(
         "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
          ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",

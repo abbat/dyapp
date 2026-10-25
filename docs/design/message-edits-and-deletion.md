@@ -31,7 +31,9 @@ limit; the codec must not silently truncate it.
 Only the author of the original text, in the same group, may edit or delete it. An operation
 received before its original text waits under its claimed `(group, author, target ID)`; when the
 text arrives, an author mismatch discards the pending operation. Distinct operations order by
-`(HLC, sender device key, operation ID)`, as private interactions do. The existing 60-second
+`(HLC, sender device key, operation ID)`, as private interactions do. Chat operations and private
+interactions share the persisted HLC: incoming operations advance it in the same transaction as
+the projection, and an outgoing operation drafts from it before encryption. The existing 60-second
 future-clock guard applies before state changes. An identical operation ID, body and sender
 device is a no-op; the same ID with different bytes or device is invalid. A later edit replaces
 the current text and sets an `edited` flag. Delete is terminal: it removes current text and leaves

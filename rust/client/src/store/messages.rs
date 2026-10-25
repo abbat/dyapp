@@ -1,9 +1,11 @@
 //! Current chat text projection. Inbox envelope IDs remain a separate transport dedupe key.
 
+use super::likes::load_hlc;
 use super::{Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
 use crate::PreparedEnvelope;
 use dyapp_identity::sha256;
+use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 #[cfg(test)]
@@ -80,6 +82,15 @@ pub struct CurrentMessage {
 }
 
 impl Store {
+    /// Draft a fresh operation ID and HLC without changing durable state. Encrypt this exact
+    /// operation before committing it with `stage_chat_outbound`.
+    pub fn draft_chat_operation(&self, wall_ms: u64) -> Result<([u8; 16], u64), Error> {
+        let hlc = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
+        let mut operation = [0; 16];
+        getrandom::fill(&mut operation).map_err(|_| Error::Random)?;
+        Ok((operation, hlc.into()))
+    }
+
     /// Stage an own chat body, current projection, sealed MLS state and exact writes together.
     /// The caller supplies its certified device key; the author must be this store's owner.
     pub fn stage_chat_outbound(
@@ -107,6 +118,11 @@ impl Store {
             id: *id,
         };
         let tx = self.db.transaction()?;
+        if let Body::Edit { hlc, .. } | Body::Delete { hlc, .. } = body {
+            if Timestamp::from(*hlc) <= load_hlc(&tx)? {
+                return Err(Error::InboxConflict);
+            }
+        }
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
         let changed = match body {
             Body::Text { text, .. } => Self::record_chat_text_tx(&tx, &key, text)?,

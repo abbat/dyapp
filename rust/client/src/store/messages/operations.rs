@@ -2,6 +2,7 @@
 
 use super::MessageKey;
 use crate::chat::{Body, MAX_TEXT_BYTES};
+use crate::store::likes::{load_hlc, save_hlc};
 use crate::store::{Error, Store};
 use dyapp_identity::sha256;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
@@ -66,8 +67,11 @@ impl Store {
         {
             return Err(Error::InboxConflict);
         }
-        // Reject future events before changing any durable state.
-        HybridClock::new().observe_at(Timestamp::from(hlc), wall_ms)?;
+        // Observe the verified operation in the shared clock in this transaction. A rollback
+        // also rolls back the clock, so an invalid envelope cannot advance future drafts.
+        let observed =
+            HybridClock::resume(load_hlc(tx)?).observe_at(Timestamp::from(hlc), wall_ms)?;
+        save_hlc(tx, observed)?;
         let hlc = i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
         let digest = sha256(&body.encode());
         let row: Option<OrderRow> = tx
