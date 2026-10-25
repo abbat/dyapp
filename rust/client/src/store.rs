@@ -15,7 +15,7 @@ mod tokens;
 pub use likes::Likes;
 pub use peers::ContactName;
 
-const VERSION: i64 = 9;
+const VERSION: i64 = 10;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -178,7 +178,10 @@ impl Store {
             if version < 8 {
                 tx.execute_batch(peers::SCHEMA_V8)?;
             }
-            tx.execute_batch(peers::SCHEMA_V9)?;
+            if version < 9 {
+                tx.execute_batch(peers::SCHEMA_V9)?;
+            }
+            tx.execute_batch(peers::SCHEMA_V10)?;
             tx.commit()?;
         }
         Ok(Self {
