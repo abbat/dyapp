@@ -3,9 +3,10 @@
 //! record with [`search_results::check`].
 
 use crate::profiles::Profiles;
-use crate::Node;
+use crate::store::{self, Store};
+use crate::{Error, Node};
 use dyapp_identity::SignedRecord;
-use dyapp_p2p_net::proto::Condition;
+use dyapp_p2p_net::proto::{Condition, Status};
 use dyapp_p2p_net::search_results;
 use dyapp_profile::VerifiedProfile;
 
@@ -54,6 +55,35 @@ pub async fn search(
     }
     found.retain(|profile| search_results::passes(conditions, min_pow_bits, &profile.profile));
     found
+}
+
+/// Sends the profile [`Store::hold_search_profile`] holds to every node in `nodes` (search nodes
+/// from [`Node::providers`] with [`dyapp_p2p_net::SEARCH_KEY`], two are enough since they gossip
+/// it on) once its window has ended at Unix second `now`. Returns whether a node took it; else
+/// it stays held, for the `RATE_LIMITED` wait if a node gave one, and is sent on a later call.
+pub async fn publish_due(
+    store: &Store,
+    nodes: &mut [Node],
+    now: u64,
+) -> Result<bool, store::Error> {
+    let Some(record) = store.due_search_profile(now)? else {
+        return Ok(false);
+    };
+    let (mut taken, mut wait) = (false, None);
+    for node in nodes {
+        match node.search_publish(record.clone()).await {
+            // A node that holds this version already took it.
+            Ok(()) | Err(Error::Status(Status::Stale)) => taken = true,
+            Err(Error::RateLimited(after)) => wait = wait.max(Some(after)),
+            Err(_) => {}
+        }
+    }
+    if taken {
+        store.search_profile_sent(&record, now)?;
+    } else if let Some(after) = wait {
+        store.search_profile_rate_limited(now, after)?;
+    }
+    Ok(taken)
 }
 
 // The records of `keys` that `node` returns, asking again for those a cut reply left out.
@@ -257,5 +287,69 @@ mod tests {
         let two_gets = gets(&two_asked);
         assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);
         assert!(!two_gets.concat().contains(&key(&e)));
+    }
+
+    async fn within(
+        publish: impl std::future::Future<Output = Result<bool, store::Error>>,
+    ) -> bool {
+        tokio::time::timeout(Duration::from_secs(10), publish)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn status(status: Status, retry_after: u64) -> SearchResponse {
+        SearchResponse {
+            status: status.into(),
+            retry_after,
+            ..SearchResponse::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn publishes_the_held_profile_once_due_and_waits_out_rate_limits() {
+        let alice = Identity::generate();
+        let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
+        let first = record(&alice, 1, 30);
+        let busy = [
+            (Status::RateLimited, 60),
+            (Status::Denied, 0),
+            (Status::Ok, 0),
+        ];
+        let mut busy = busy.map(|(s, after)| status(s, after)).into_iter();
+        let (busy, busy_asked) = fake(move |_| busy.next().unwrap()).await;
+        let slow = [
+            (Status::RateLimited, 120),
+            (Status::Stale, 0),
+            (Status::Denied, 0),
+        ];
+        let mut slow = slow.map(|(s, after)| status(s, after)).into_iter();
+        let (slow, _) = fake(move |_| slow.next().unwrap()).await;
+        let mut nodes = [busy, slow];
+        // Nothing held: no node is asked.
+        assert!(!within(publish_due(&store, &mut nodes, 1000)).await);
+        store.hold_search_profile(&first).unwrap();
+        // Both nodes busy: held for the longer wait.
+        assert!(!within(publish_due(&store, &mut nodes, 1000)).await);
+        assert_eq!(store.due_search_profile(1119).unwrap(), None);
+        assert_eq!(store.due_search_profile(1120).unwrap(), Some(first.clone()));
+        // One fails and the other has it already: the window starts.
+        assert!(within(publish_due(&store, &mut nodes, 1120)).await);
+        assert_eq!(store.search_profile_minutes_left(1120).unwrap(), None);
+        let second = record(&alice, 2, 30);
+        store.hold_search_profile(&second).unwrap();
+        assert_eq!(store.due_search_profile(1719).unwrap(), None);
+        // One takes it.
+        assert!(within(publish_due(&store, &mut nodes, 1720)).await);
+        assert_eq!(store.due_search_profile(9999).unwrap(), None);
+        let asked = busy_asked.lock().unwrap();
+        let sent: Vec<_> = asked
+            .iter()
+            .map(|r| match r {
+                Request::Publish(sent) => sent.clone(),
+                _ => panic!("not a publish"),
+            })
+            .collect();
+        assert_eq!(sent, [first.clone(), first, second]);
     }
 }

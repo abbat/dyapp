@@ -67,6 +67,8 @@ and pass history; neither is published to bootstrap.
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
 the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)).
+`search::publish_due` sends it to the given search nodes; a `STALE` reply counts as accepted, and
+with no node accepting, the longest `RATE_LIMITED` wait holds it.
 
 Like/unlike/view event ordering and match derivation belong to the
 [interaction state](private-interactions.md); a match is derived from durable events rather than a
