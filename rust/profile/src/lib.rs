@@ -113,13 +113,13 @@ impl Profile {
         if (1..18).contains(&self.age) {
             return Err(Error::Invalid("age under 18"));
         }
-        if !self.birth_date.is_empty() {
-            if self.age != 0 {
-                return Err(Error::Invalid("age and birth date both published"));
-            }
-            if self.birth_bounds().is_none() {
-                return Err(Error::Invalid("invalid birth date"));
-            }
+        if !self.valid_birth_parts() {
+            return Err(Error::Invalid("invalid birth date"));
+        }
+        if self.age != 0
+            && (self.birth_year.is_some() || self.birth_month.is_some() || self.birth_day.is_some())
+        {
+            return Err(Error::Invalid("age and birth date both published"));
         }
         if !self.country.is_empty()
             && !(self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))

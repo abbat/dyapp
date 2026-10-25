@@ -65,7 +65,6 @@ precisely than an age or year.
 
 ## Consequences
 
-The first implementation still uses a tag-33 string, a legacy age field, and
-an index built from them. The three optional fields, updated validation and age
-helper, adjusted search index, client predicate and UI remain planned. This
-unreleased prototype may be changed without a compatibility migration.
+The three optional fields, validation and age-bound helper are implemented.
+The temporary integer age field, search index version, client predicate and UI
+remain to be updated. This unreleased prototype needs no compatibility migration.

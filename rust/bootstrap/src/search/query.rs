@@ -60,11 +60,19 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
 fn virtual_age_condition_contains_the_whole_birth_interval() {
     let index = index();
     let mut keys = Vec::new();
-    for birth_date in ["2000", "2000-02", "2000-02-29", "2001", ""] {
+    for (year, month, day, age) in [
+        (Some(2000), None, None, 0),
+        (Some(2000), Some(2), None, 0),
+        (Some(2000), Some(2), Some(29), 0),
+        (Some(2001), None, None, 0),
+        (None, None, None, 26),
+    ] {
         let profile = Profile {
             version: 1,
-            birth_date: birth_date.into(),
-            age: if birth_date.is_empty() { 26 } else { 0 },
+            birth_year: year,
+            birth_month: month,
+            birth_day: day,
+            age,
             ..Profile::default()
         };
         let (key, p, record) = signed(&Identity::generate(), profile);

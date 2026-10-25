@@ -42,13 +42,16 @@ as received, so a node keeps fields it does not understand.
 
 Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, unset
-optionals and an age of 0 mean "not published"; `age` is self-declared and unverified, and 1 to 17
-is rejected. The optional `birth_date` (tag 33) accepts `YYYY`, `YYYY-MM` or
-`YYYY-MM-DD`; empty means unknown, and it cannot be published with legacy `age`.
-The profile core derives possible birth-date and age bounds at an explicit UTC
-date ([ADR 0029](../decisions/0029-partial-public-birth-date.md)); search nodes
-now index its bounds and apply virtual age field 1001, while client filtering and UI
-use are planned. Tag 3 remains a readable legacy age snapshot. `gender` is free
+optionals and an age of 0 mean "not published". The integer `age` at tag 3 is
+self-declared, unverified and temporarily retained in this unreleased protocol;
+values 1–17 are rejected. Three independent optional fields publish `birth_year`
+(tag 33), `birth_month` (34) and `birth_day` (35). All may be absent; a year is
+needed to derive age, while month and day may be published without one. Explicit
+zero or an impossible Gregorian combination is rejected, as is combining any
+component with integer `age`. The profile core derives possible birth-date and
+age bounds at an explicit UTC date ([ADR 0029](../decisions/0029-partial-public-birth-date.md));
+search nodes index the bounds and apply virtual age field 1001. Client filtering
+and UI use, and removal of tag 3, are planned. `gender` is free
 text like `orientation`; `name` is an optional public name under the same rule,
 which proves nothing ([ADR 0027](../decisions/0027-optional-public-profile-name.md)). `version` orders updates (the highest validly
 signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and

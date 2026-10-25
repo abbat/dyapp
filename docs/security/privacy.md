@@ -61,14 +61,14 @@ nodes honour best effort, without a guarantee ([ADR 0011](../decisions/0011-best
 
 ## Age and location
 
-The current integer age is self-declared and unverified. Clients and nodes reject a profile
-with an age of 1 to 17 (`rust/profile`), but nothing stops a minor from declaring 18 or leaving
-it empty. [ADR 0029](../decisions/0029-partial-public-birth-date.md) plans an optional public
-partial birth date instead. The signed profile schema and validator now accept a year,
-year-month or full date and can derive a possible-age range; no app publishes it yet.
-A full date reveals more than an age or year; even a year can help identify someone
-when combined with location and other fields. The planned client defaults to no date,
-asks for explicit 18+ self-attestation, and does not infer missing parts.
+The unreleased integer age field is self-declared and unverified; values 1–17 are
+rejected, but a false value cannot be detected. It will be removed before release
+([ADR 0029](../decisions/0029-partial-public-birth-date.md)). The signed profile
+now accepts independent optional birth year, month and day. Month/day without a
+year reveals a birthday but leaves age unknown; with a year, the core derives a
+possible-age range. No app publishes the new fields yet. A full date reveals
+more than a year or month/day alone. The planned client defaults all parts to
+absent, asks for explicit 18+ self-attestation and never infers missing parts.
 
 Search canonicalizes a supplied place against its embedded GeoNames country/place set.
 A profile with no place, or an unknown country/place pair, is indexed in the country
