@@ -58,6 +58,9 @@ message Profile {
   string industry = 30;
   string career_stage = 31;
   string work_life_balance = 32;
+  // Optional public birth date: YYYY, YYYY-MM or YYYY-MM-DD; empty means unknown.
+  // New clients leave legacy `age` unset when publishing this field.
+  string birth_date = 33;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

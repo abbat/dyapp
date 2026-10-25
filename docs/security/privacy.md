@@ -24,7 +24,7 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`.
 | Envelope `ciphertext` | Operator, the device holding the mailbox key | MLS ciphertext from `rust/client`; the node cannot check what other clients put | Until acked or the TTL (default 24 h; repair can extend it, see [Retention](#retention)) | E2E AEAD, only recipient decrypts; plaintext padded to the next power of two from 1 KiB | Size bucket and timing |
 | Envelope `class` (message or signal) | Operator, mailbox replicas | None; the node needs it for the signal quota | Same as body | Same | Operator counts a mailbox's signals, not which kind |
 | Mailbox address, sender key, put time | Operator | Only the device can fetch or ack ([bootstrap](../architecture/bootstrap.md#served-protocol)) | Same as body | Sealed sender: a fresh key per envelope, the sender only inside the ciphertext | Operator learns which mailbox gets mail and when, and the sender's IP |
-| Profile fields (optional name, age, country, location, income, kids, goals, gender, orientation, profession, company, industry, career stage, work-life balance, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after a newer profile publish or fresh signed heartbeat, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
+| Profile fields (optional name, legacy age or partial birth date, country, location, income, kids, goals, gender, orientation, profession, company, industry, career stage, work-life balance, interests, photo hashes, …) | Operator, any client (`/dyapp/profile` `get`), network | Public by design, signed by the owner ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); empty fields are not published | Until 30 days (`limits.profile_ttl_days`) after a newer profile publish or fresh signed heartbeat, tombstone included | Same; location is a place name (city or district), never coordinates, and optional (see below) | Everything published is readable by anyone and cannot be reliably withdrawn; combined with peer ID and IP it can identify a person |
 | Profile `peer_id` | Operator, any client, network | Derived from the identity public key | Same as profile | Same | Stable identifier links all activity of one user |
 | Client IP address | Operator (TCP connection), network | None | Not stored by app code (bootstrap has no logging); reverse proxies/hosting may log it | A client proxy or Tor is research, not designed | Nodes link the IP to identity on publish, heartbeat, fetch and media requests, so several profiles of one person are linkable; calls with verified contacts reveal IPs to the peer |
 | Video frame content | Peer; network once transport exists | None: SFrame exists in `rust/video` but no media path uses it | Not stored | SFrame | — |
@@ -64,9 +64,11 @@ nodes honour best effort, without a guarantee ([ADR 0011](../decisions/0011-best
 The current integer age is self-declared and unverified. Clients and nodes reject a profile
 with an age of 1 to 17 (`rust/profile`), but nothing stops a minor from declaring 18 or leaving
 it empty. [ADR 0029](../decisions/0029-partial-public-birth-date.md) plans an optional public
-partial birth date instead. A full date reveals more than an age or year; even a year can help
-identify someone when combined with location and other fields. The planned client defaults
-to no date, asks for explicit 18+ self-attestation, and does not infer missing parts.
+partial birth date instead. The signed profile schema and validator now accept a year,
+year-month or full date and can derive a possible-age range; no app publishes it yet.
+A full date reveals more than an age or year; even a year can help identify someone
+when combined with location and other fields. The planned client defaults to no date,
+asks for explicit 18+ self-attestation, and does not infer missing parts.
 
 Search canonicalizes a supplied place against its embedded GeoNames country/place set.
 A profile with no place, or an unknown country/place pair, is indexed in the country

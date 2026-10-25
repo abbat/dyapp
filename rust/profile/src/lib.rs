@@ -55,6 +55,9 @@ mod generated {
 }
 pub use generated::{DeviceCertificate, Photo, Profile};
 
+mod birth_date;
+pub use birth_date::{BirthBounds, CivilDate};
+
 impl Profile {
     /// A deletion marker: version and proof of work set, every other field empty.
     pub fn tombstone(version: u64, pow_nonce: u64, pow_bits: u32) -> Self {
@@ -109,6 +112,14 @@ impl Profile {
         }
         if (1..18).contains(&self.age) {
             return Err(Error::Invalid("age under 18"));
+        }
+        if !self.birth_date.is_empty() {
+            if self.age != 0 {
+                return Err(Error::Invalid("age and birth date both published"));
+            }
+            if self.birth_bounds().is_none() {
+                return Err(Error::Invalid("invalid birth date"));
+            }
         }
         if !self.country.is_empty()
             && !(self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))

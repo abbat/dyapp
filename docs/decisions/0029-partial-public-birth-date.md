@@ -56,8 +56,9 @@ precisely than an age or year.
 
 ## Consequences
 
-This is planned until the profile schema, verifier, search index, client predicate,
-and UI are updated. Tests need old signed bytes, leap dates, all three precisions,
-missing dates, age-boundary searches and the conservative 18+ gate. Existing public
+The profile schema, verifier and age-bound helper are implemented; the search index,
+client predicate and UI remain planned. Core tests cover old signed bytes, leap dates,
+all three precisions and missing dates; search and UI tests still need age-boundary
+queries and the conservative 18+ gate. Existing public
 age values remain readable, but the protocol does not silently turn them into a
 birth date or a guaranteed current age.

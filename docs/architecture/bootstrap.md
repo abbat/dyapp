@@ -861,8 +861,8 @@ pub struct SignedRecord {          // protobuf, sent and stored as is
 The peer ID is the hex SHA-256 of `public_key`; the server derives it, the client
 never sends it. `Profile` holds `version`, `deleted` and the public fields (age,
 country, place (city or district, no coordinates), income range, kids, goals, interests,
-profession, company, industry, career stage and work-life balance); every field is
-optional and public by design
+profession, company, industry, career stage and work-life balance, and optional
+partial birth date); every field is optional and public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
 `/dyapp/profile` `publish` stores a record only if:
@@ -871,7 +871,9 @@ optional and public by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  `education_level` at most 6, place at most 1024 characters, other strings at most 64 and at most 32 `interests`, every
+  `education_level` at most 6, `birth_date` either empty or a valid `YYYY`, `YYYY-MM`
+  or `YYYY-MM-DD` and not combined with legacy `age`, place at most 1024 characters,
+  other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`).
