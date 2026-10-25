@@ -68,10 +68,11 @@ the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds,
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
 the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)).
 `search::publish_due` sends it to the given search nodes; a `STALE` reply counts as accepted, and
-with no node accepting, the longest `RATE_LIMITED` wait holds it. `search_heartbeat` holds the
-UTC day (big-endian days since the epoch) a search node last accepted a heartbeat;
-`search::beat_due` sends one with that day's proof of work only on a later day, and a
-`RATE_LIMITED` reply (two already that day) counts as accepted.
+with no node accepting, the longest `RATE_LIMITED` wait holds it. `search_heartbeat` (format 2)
+holds the big-endian Unix second at which the next heartbeat is due: a random second of the UTC
+day after a node last accepted one, so app opens do not set the time. `search::beat_due` sends
+one with that day's proof of work only once it is due, and a `RATE_LIMITED` reply (two already
+that day) counts as accepted.
 
 Like/unlike/view event ordering and match derivation belong to the
 [interaction state](private-interactions.md); a match is derived from durable events rather than a

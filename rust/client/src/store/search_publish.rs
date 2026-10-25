@@ -73,12 +73,13 @@ impl Store {
         Ok(state.pending.map(|_| left))
     }
 
-    /// Whether no search heartbeat was accepted on the UTC day of Unix second `now`.
+    /// Whether a search heartbeat is due at Unix second `now`: the first one at once, then one at
+    /// a random second of each next UTC day, so the time a node sees does not follow app use.
     pub fn search_heartbeat_due(&self, now: u64) -> Result<bool, Error> {
         let value: Option<Vec<u8>> = self
             .db
             .query_row(
-                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 1",
+                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 2",
                 [BEAT_KEY],
                 |row| row.get(0),
             )
@@ -86,16 +87,20 @@ impl Store {
         let Some(value) = value else {
             return Ok(true);
         };
-        let day: [u8; 8] = value.try_into().map_err(|_| Error::InvalidSetting)?;
-        Ok(u64::from_be_bytes(day) < now / 86_400)
+        let next: [u8; 8] = value.try_into().map_err(|_| Error::InvalidSetting)?;
+        Ok(now >= u64::from_be_bytes(next))
     }
 
-    /// Record that a search node accepted a heartbeat at `now`.
+    /// Record that a search node accepted a heartbeat at `now`; the next one is due at a random
+    /// second of the next UTC day.
     pub fn search_heartbeat_sent(&self, now: u64) -> Result<(), Error> {
+        let mut random = [0; 8];
+        getrandom::fill(&mut random).map_err(|_| Error::Random)?;
+        let next = (now / 86_400 + 1) * 86_400 + u64::from_be_bytes(random) % 86_400;
         self.db.execute(
-            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
-             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
-            params![BEAT_KEY, (now / 86_400).to_be_bytes().to_vec()],
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 2, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 2, `value` = excluded.`value`",
+            params![BEAT_KEY, next.to_be_bytes().to_vec()],
         )?;
         Ok(())
     }
@@ -221,12 +226,22 @@ mod tests {
     }
 
     #[test]
-    fn heartbeat_is_due_once_per_utc_day() {
+    fn heartbeat_is_due_once_a_day_at_a_random_time() {
         let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         assert!(store.search_heartbeat_due(86_400).unwrap());
-        store.search_heartbeat_sent(86_400).unwrap();
-        assert!(!store.search_heartbeat_due(2 * 86_400 - 1).unwrap());
-        assert!(store.search_heartbeat_due(2 * 86_400).unwrap());
+        for day in 1..4 {
+            // Ten app opens a day, the last one at the day's final second, send exactly one.
+            let mut sent = 0;
+            for now in (0..10).map(|n| day * 86_400 + n * 8_640 + 8_639) {
+                if store.search_heartbeat_due(now).unwrap() {
+                    store.search_heartbeat_sent(now).unwrap();
+                    sent += 1;
+                }
+            }
+            assert_eq!(sent, 1, "day {day}");
+            assert!(!store.search_heartbeat_due((day + 1) * 86_400 - 1).unwrap());
+        }
+        assert!(store.search_heartbeat_due(5 * 86_400).unwrap());
         store
             .db
             .execute(

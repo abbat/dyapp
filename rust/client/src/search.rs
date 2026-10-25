@@ -126,8 +126,9 @@ async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> Vec<SignedRecord> {
     records
 }
 
-/// Sends `identity`'s heartbeat for its profile `version` to every node in `nodes` unless a node
-/// took one on the UTC day of Unix second `now`, which keeps the profile listed. `bits` is the
+/// Sends `identity`'s heartbeat for its profile `version` to every node in `nodes` once one is
+/// due at Unix second `now` (at a random second of the day after the last), which keeps the
+/// profile listed. `bits` is the
 /// nodes' `NodeInfo.min_heartbeat_pow`. Returns whether a node took it; `RATE_LIMITED` means it
 /// has two for today. On `NOT_FOUND` a node lacks this version, which the next publish fixes.
 pub async fn beat_due(
@@ -448,17 +449,16 @@ mod tests {
         // Two already today: done for the day.
         assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, now)).await);
         assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, now + 86_394)).await);
-        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, now + 86_395)).await);
+        // Due at a random second of the next day, so by its last second.
+        let next = u64::from(day + 2) * 86_400 - 1;
+        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, next)).await);
         let asked = asked.lock().unwrap();
         assert_eq!(asked.len(), 3);
         let Request::Heartbeat(record) = &asked[2] else {
             panic!("not a heartbeat");
         };
         let beat: proto::Heartbeat = prost::Message::decode(record.payload.as_slice()).unwrap();
-        assert_eq!(
-            (beat.time, beat.version, beat.pow_day),
-            (now + 86_395, 3, day + 1)
-        );
+        assert_eq!((beat.time, beat.version, beat.pow_day), (next, 3, day + 1));
         let key = alice.public_key();
         assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
         assert_eq!(beat.pow_bits, 2);
