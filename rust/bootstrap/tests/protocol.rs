@@ -877,6 +877,9 @@ async fn connections_over_the_memory_limit_are_refused() {
 #[path = "protocol/clock.rs"]
 mod clock;
 
+#[path = "protocol/seed_check.rs"]
+mod seed_check;
+
 #[path = "protocol/namespaces.rs"]
 mod namespaces;
 
