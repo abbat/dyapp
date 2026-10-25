@@ -66,6 +66,5 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0027](0027-optional-public-profile-name.md) | Optional public profile name, replaced by local names |
 | [0028](0028-ordered-education-level.md) | Ordered education level instead of free-text education |
 | [0029](0029-partial-public-birth-date.md) | Optional partial public birth date and derived age |
-| [0030](0030-private-web-of-trust.md) | Private web of trust from aggregated acquaintance vouches |
 
 All listed ADRs are accepted.
