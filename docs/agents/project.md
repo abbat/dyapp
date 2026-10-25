@@ -46,6 +46,11 @@ pulls anything).
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
+UI test services run source baked into their Docker images, not the current checkout. After editing
+Android UI or JVM tests, `make ui-test-android` alone may test stale code. Rebuild
+`android-unit-test` (subject to the no-install rule) or run the existing image with the changed
+sources mounted and Gradle/Cargo offline; the same snapshot rule applies to other UI services.
+
 There are no other targets (no `ui-test-all`, no npm). Details: [testing](../testing/README.md),
 [Docker](../testing/docker.md), [CI](../development/ci-matrix.md).
 

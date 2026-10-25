@@ -105,6 +105,9 @@ COVERED = {
         "docs/decisions/0025-client-local-sqlite-storage.md",
     "3e9d25890415b76aee70aa0a63e5233861d68a25":
         "docs/decisions/0025-client-local-sqlite-storage.md",
+    # Shared Argon2id PIN verification through UniFFI follows the Rust-core decision.
+    "d55d219dc5c7e7bbabe5e6fd80f5f1e62d70b5d8":
+        "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

@@ -12,6 +12,18 @@ Remove opens a confirmation screen for the shown identity (see [Remove](#remove)
 screen also says that uninstalling the app or clearing its data erases the key without warning:
 the OS gives the app no chance to warn, and the non-exportable key cannot be backed up yet.
 
+## App-lock record (storage component)
+
+`AppLockStore` persists an app-wide `app-lock` file beside the identity slots in
+`noBackupFilesDir`. Its dedicated Android Keystore alias is `dyapp-app-lock`; it does not
+change or authenticate the per-slot identity wrapping keys. The 49-byte Rust Argon2id verifier
+record and a failure count share one AES-GCM wrapped blob, replaced atomically after each attempt.
+The count is persisted before checking a PIN; five failures require an OS device-credential
+check. Corrupt or unreadable files fail closed and are never treated as a fresh install.
+The UI and OS credential gate are still planned; `AppLockStore` exposes a recovery method that
+must only be called after that gate succeeds. `onDevice` uses `PlatformKeyStore` with a dedicated
+alias and the common Rust FFI Argon2id functions; JVM tests inject fake implementations.
+
 ## Layout
 
 All files live in `noBackupFilesDir`, which device backup and device-to-device transfer skip
