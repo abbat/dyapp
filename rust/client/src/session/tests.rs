@@ -49,16 +49,52 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
         )
         .unwrap();
     assert_eq!(writes.len(), 1);
+    let (offline_id, offline_writes) = session
+        .stage_text(&group_id, b"offline", &seal_key)
+        .unwrap();
+    assert_ne!(offline_id, [1; 16]);
+    assert_eq!(offline_writes.len(), 1);
+    let own = MessageKey {
+        group: group_id.clone(),
+        author: alice_id.peer_id(),
+        id: offline_id,
+    };
     assert_eq!(
-        session.due_outbound(0).unwrap()[0].as_bytes(),
-        writes[0].as_bytes()
+        session
+            .store
+            .chat_message(&own)
+            .unwrap()
+            .unwrap()
+            .text
+            .as_deref(),
+        Some(&b"offline"[..])
     );
+    let due = session.due_outbound(0).unwrap();
+    assert!(due
+        .iter()
+        .any(|write| write.as_bytes() == writes[0].as_bytes()));
+    assert!(due
+        .iter()
+        .any(|write| write.as_bytes() == offline_writes[0].as_bytes()));
     drop(session);
     let session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
     assert_eq!(
-        session.due_outbound(0).unwrap()[0].as_bytes(),
-        writes[0].as_bytes()
+        session
+            .store
+            .chat_message(&own)
+            .unwrap()
+            .unwrap()
+            .text
+            .as_deref(),
+        Some(&b"offline"[..])
     );
+    let due = session.due_outbound(0).unwrap();
+    assert!(due
+        .iter()
+        .any(|write| write.as_bytes() == writes[0].as_bytes()));
+    assert!(due
+        .iter()
+        .any(|write| write.as_bytes() == offline_writes[0].as_bytes()));
 }
 
 fn temp_path() -> std::path::PathBuf {

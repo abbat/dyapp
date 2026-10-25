@@ -174,6 +174,24 @@ impl Session {
                     .stage_interaction(&target, &source_device, event, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
+            } else if matches!(
+                body,
+                Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
+            ) {
+                let author = self.store.owner_peer_id().to_owned();
+                let source_device = device.device_key()?;
+                let sender = VerifiedChatSender {
+                    group: group_id,
+                    author: &author,
+                    device: &source_device,
+                };
+                self.store.stage_chat_outbound(
+                    &sealed,
+                    &writes,
+                    sender,
+                    body,
+                    crate::now() * 1000,
+                )?;
             } else {
                 self.store.stage_outbound(&sealed, &writes)?;
             }
@@ -186,6 +204,22 @@ impl Session {
         staged
     }
 
+    /// Stage a new text with a caller-visible logical ID before any network request. The returned
+    /// exact writes stay in the outbox across an offline period; `retry_due` sends them later.
+    pub fn stage_text(
+        &mut self,
+        group_id: &[u8],
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
+        let mut id = [0; 16];
+        getrandom::fill(&mut id)
+            .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
+        let writes =
+            self.stage_message(group_id, &Body::text_with_id(id, text.to_vec()), seal_key)?;
+        Ok((id, writes))
+    }
+
     /// Send a text only after the new MLS state and every signed envelope are durable. Each write
     /// carries this device's token for today when it holds one; a write refused for its token is
     /// replaced in the outbox as in [`tokens::send`] and put again.
@@ -196,16 +230,8 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let mut id = [0; 16];
-        getrandom::fill(&mut id)
-            .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        self.send_body(
-            nodes,
-            group_id,
-            &Body::text_with_id(id, text.to_vec()),
-            seal_key,
-        )
-        .await
+        let (_, writes) = self.stage_text(group_id, text, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await
     }
 
     /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the
@@ -278,6 +304,15 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         let writes = self.stage_message(group_id, body, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await
+    }
+
+    async fn send_staged(
+        &mut self,
+        nodes: &mut [Node],
+        writes: Vec<PreparedEnvelope>,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
         let now_ms = crate::now() as i64 * 1000;
         for write in writes {
             self.deliver(nodes, write, now_ms, seal_key).await?;

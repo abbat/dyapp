@@ -120,10 +120,12 @@ one without its recorded peer. It opens the identity key first, then the matchin
 conversation. A missing or inaccessible key does not start network work. Never keep a
 group handle from the previous device after reopening a snapshot.
 
-For **send**, `Session::send_message` calls `chat::message` to advance MLS state in memory. It
-prepares one signed envelope for each device delivery, seals the changed `Device`, and calls
-`stage_outbound` with *all* prepared envelopes before `Node::put_prepared`. The app has not wired
-this adapter yet. If sealing or staging fails, send nothing and mark the in-memory
+For **send**, `Session::stage_text` creates a caller-visible logical ID, calls `chat::message` to
+advance MLS state in memory, prepares one signed envelope for each device delivery, seals the
+changed `Device`, and calls `stage_chat_outbound` with the own text projection and *all* prepared
+envelopes before any network put. `Session::send_message` stages this first, then attempts
+`Node::put_prepared`; `retry_due` sends queued writes after a failed put. The app has not wired this
+adapter yet. If sealing or staging fails, send nothing and mark the in-memory
 session unusable. Reopen the last committed snapshot (or require a restart) before any further MLS
 operation; retrying encryption on the advanced in-memory group could reuse state or diverge from
 disk. A node's successful put (`Store::accepted`) only schedules the next delivery check, 1 h

@@ -13,8 +13,10 @@ mailbox `Ack`.
 
 Each text send gets a random 16-byte logical message ID before MLS encryption. The same ID goes
 to every device in the conversation; the message key is `(group ID, author Peer ID, message ID)`.
-The send path must persist and expose this ID even when a network put fails. The envelope ID is
-not a message ID: a separate envelope is prepared for each recipient device.
+`Session::stage_text` persists the text, MLS state and exact outbox writes and returns this ID
+before any network put; callers can retain it while offline and use `retry_due` later. The
+`send_message` convenience method still reports a network error after durable staging. The
+envelope ID is not a message ID: a separate envelope is prepared for each recipient device.
 
 The existing first-byte chat body tag remains the type boundary. Before the first release, tag 1
 has changed from raw text to `message ID (16 bytes) || text`. Text and replacement text are
@@ -51,9 +53,10 @@ cannot be reliably erased.
 The UI must not promise that.
 
 The Store can atomically stage own text/edit/delete state, sealed MLS state and exact outbound
-envelopes. Session send APIs still need to use this path before the first network put. Incoming
-operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted
-envelopes. A delete shown locally before delivery is pending on the peer until its receipt.
+envelopes. Session uses it for own text before the first network put; edit/delete send APIs are
+planned. Incoming operations and pending mailbox ACKs must be committed before acknowledging
+receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
+locally before delivery is pending on the peer until its receipt.
 
 ## Best-effort node removal
 
