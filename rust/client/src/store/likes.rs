@@ -384,7 +384,8 @@ mod tests {
              ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
              ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
              ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
-             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; PRAGMA user_version = 2;",
+             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; DROP TABLE `peers`;
+             PRAGMA user_version = 2;",
         )
         .unwrap();
         drop(db);

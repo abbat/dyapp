@@ -55,6 +55,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `view_days` | UTC days on which one profile viewed another (version 4) | One sent view per peer per day; received views are recorded regardless of the send setting. |
 | `held_tokens` | Own token key per owner mailbox and UTC day, sealed, and the owner's signed WriteToken (version 5) | `(mailbox, epoch)` is unique; a retry returns the same key. |
 | `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit (version 5) | `(mailbox, token key, epoch)` belongs to one contact. |
+| `peers` | Local block and mute flags per peer identity (version 8) | Never published or included in a signal; absent means neither. |
 
 `send_profile_views` defaults to false when absent. The stored value is versioned and must be a
 single byte 0 or 1; an unknown version or value returns an error rather than silently enabling

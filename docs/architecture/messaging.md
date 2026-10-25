@@ -63,7 +63,7 @@ chat operation uses yet. See the [client storage design](../design/client-local-
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1 to -6 database migrates to version 7 after its identity binding is checked. The
+version-1 to -7 database migrates to version 8 after its identity binding is checked. The
 group catalog records group IDs and verified peer associations with the sealed Device and
 prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
 or mismatched entries.

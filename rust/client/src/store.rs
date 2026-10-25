@@ -10,10 +10,11 @@ use std::path::Path;
 
 mod likes;
 mod outbox;
+mod peers;
 mod tokens;
 pub use likes::Likes;
 
-const VERSION: i64 = 7;
+const VERSION: i64 = 8;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -167,7 +168,10 @@ impl Store {
             if version < 6 {
                 tx.execute_batch(outbox::SCHEMA_V6)?;
             }
-            tx.execute_batch(outbox::SCHEMA_V7)?;
+            if version < 7 {
+                tx.execute_batch(outbox::SCHEMA_V7)?;
+            }
+            tx.execute_batch(peers::SCHEMA_V8)?;
             tx.commit()?;
         }
         Ok(Self {
@@ -631,11 +635,11 @@ pub(crate) mod tests {
         let alice = Identity::generate();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
-        db.execute_batch("PRAGMA user_version = 8").unwrap();
+        db.execute_batch("PRAGMA user_version = 9").unwrap();
         drop(db);
         assert!(matches!(
             Store::open(&path, &alice),
-            Err(Error::FutureVersion(8))
+            Err(Error::FutureVersion(9))
         ));
 
         let unknown = temp_db_path();
