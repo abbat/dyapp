@@ -301,11 +301,11 @@ resent from the sender's retry queue.
   at most a few tens of thousands of IDs. A release refreshes the file with
   `tools/scripts/geonames-places.py`. The search index stores a place outside the set, or an empty
   one, as `""`: such a profile is found by its country only.
-- Planned: an optional public `name`, and one rule for every profile string: NFC, no control,
-  format (bidi, zero-width) or private-use characters, a character limit per string and a count
-  limit for `interests`; `publish` refuses a profile that breaks it. Today only `place` is checked,
-  for length and control characters
-  ([Threat Model](../security/threat-model.md#spoofing)).
+- Every profile string follows one rule, `dyapp_profile::is_clean_text`: NFC, no control,
+  format (bidi, zero-width) or private-use characters except ZWNJ and ZWJ; enum-like strings hold
+  at most 64 characters and `interests` at most 32 items of 64; `publish` refuses a profile that
+  breaks it ([ADR 0026](../decisions/0026-profile-text-rules.md),
+  [Threat Model](../security/threat-model.md#spoofing)). An optional public `name` is planned.
 - The identity-signed profile can carry a validated device directory. The node's KeyPackage
   rendezvous and the sender workflow are still planned. The directory is public, including the
   device count. See [Device directory and KeyPackages](#device-directory-and-keypackages).
@@ -848,7 +848,8 @@ optional and public by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  place at most 1024 characters without control characters, at most 16 `photos`, each a
+  place at most 1024 characters, other strings at most 64 and at most 32 `interests`, every
+  string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`).
 

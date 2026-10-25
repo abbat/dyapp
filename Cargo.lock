@@ -1294,6 +1294,8 @@ version = "0.0.1"
 dependencies = [
  "argon2",
  "dyapp-identity",
+ "icu_normalizer",
+ "icu_properties",
  "proptest",
  "proptest-derive",
  "prost",

@@ -7,6 +7,8 @@
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use dyapp_identity::{key_hash, Domain, Identity, SignedRecord};
+use icu_normalizer::ComposingNormalizerBorrowed;
+use icu_properties::{props::GeneralCategory, CodePointMapData};
 use prost::Message;
 use std::collections::HashSet;
 
@@ -32,6 +34,10 @@ pub enum Error {
 
 /// Longest accepted `place`, in Unicode code points.
 pub const MAX_PLACE_CHARS: usize = 1024;
+/// Longest accepted enum-like string, such as `gender`, in Unicode code points.
+pub const MAX_FIELD_CHARS: usize = 64;
+/// Most `interests` a profile lists; each is at most `MAX_FIELD_CHARS` long.
+pub const MAX_INTERESTS: usize = 32;
 /// Most photos a profile links.
 pub const MAX_PHOTOS: usize = 16;
 /// Most blobs one full photo is split into.
@@ -112,9 +118,29 @@ impl Profile {
                 return Err(Error::Invalid("income range is reversed"));
             }
         }
-        let place = &self.place;
-        if place.chars().count() > MAX_PLACE_CHARS || place.chars().any(char::is_control) {
+        if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
+        }
+        let fields = [
+            &self.relationship_goal,
+            &self.career_ambition,
+            &self.education,
+            &self.orientation,
+            &self.role_preference,
+            &self.zodiac,
+            &self.financial_philosophy,
+            &self.employment_status,
+            &self.fitness_level,
+            &self.gender,
+        ];
+        let short = |text: &&String| text.chars().count() <= MAX_FIELD_CHARS && is_clean_text(text);
+        if !fields.iter().all(short) {
+            return Err(Error::Invalid("a field is too long or not printable"));
+        }
+        if self.interests.len() > MAX_INTERESTS || !self.interests.iter().all(|i| short(&i)) {
+            return Err(Error::Invalid(
+                "too many interests, or one is too long or not printable",
+            ));
         }
         let hash = |h: &Vec<u8>| h.len() == 32;
         if self.photos.len() > MAX_PHOTOS
@@ -159,6 +185,22 @@ impl Profile {
         }
         Ok(())
     }
+}
+
+/// Whether `text` may appear in a profile string: NFC, with no control, format (bidi, zero-width)
+/// or private-use characters except ZWNJ and ZWJ, which emoji sequences and several scripts need.
+pub fn is_clean_text(text: &str) -> bool {
+    let category = CodePointMapData::<GeneralCategory>::new();
+    ComposingNormalizerBorrowed::new_nfc().is_normalized(text)
+        && text.chars().all(|c| {
+            matches!(c, '\u{200C}' | '\u{200D}')
+                || !matches!(
+                    category.get(c),
+                    GeneralCategory::Control
+                        | GeneralCategory::Format
+                        | GeneralCategory::PrivateUse
+                )
+        })
 }
 
 /// A profile whose signature and content have been checked.
@@ -618,6 +660,50 @@ mod tests {
             "{ms:.1} ms per hash, ~{:.0} s for 11 bits",
             ms * 2048.0 / 1000.0
         );
+    }
+
+    #[test]
+    fn profile_strings_are_nfc_without_hidden_characters_and_bounded() {
+        for text in [
+            "Berlin",
+            "Москва",
+            "東京",
+            "🙂",
+            "👨\u{200D}👩\u{200D}👧",
+            "می\u{200C}خواهم",
+        ] {
+            assert!(is_clean_text(text), "{text}");
+        }
+        for text in [
+            "a\u{202E}b",
+            "a\u{200B}b",
+            "a\u{E000}b",
+            "e\u{301}",
+            "a\u{7}",
+        ] {
+            assert!(!is_clean_text(text), "{text:?}");
+        }
+
+        let owner = Identity::generate();
+        let mut profile = sample(1);
+        profile.place = "Mit\u{202E}te".into();
+        assert!(verify(&profile.sign(&owner)).is_err());
+        let mut profile = sample(1);
+        profile.education = "x".repeat(MAX_FIELD_CHARS);
+        assert!(verify(&profile.sign(&owner)).is_ok());
+        profile.education.push('x');
+        assert!(verify(&profile.sign(&owner)).is_err());
+        profile.education = "phd\u{200B}".into();
+        assert!(verify(&profile.sign(&owner)).is_err());
+        let mut profile = sample(1);
+        profile.interests = vec!["x".repeat(MAX_FIELD_CHARS); MAX_INTERESTS];
+        assert!(verify(&profile.sign(&owner)).is_ok());
+        profile.interests.push("chess".into());
+        assert!(verify(&profile.sign(&owner)).is_err());
+        profile.interests = vec!["x".repeat(MAX_FIELD_CHARS + 1)];
+        assert!(verify(&profile.sign(&owner)).is_err());
+        profile.interests = vec!["\u{E000}".into()];
+        assert!(verify(&profile.sign(&owner)).is_err());
     }
 
     #[test]

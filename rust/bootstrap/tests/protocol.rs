@@ -722,6 +722,17 @@ async fn every_request_type() {
     assert_eq!(info.max_message_bytes, 100 * 1024);
 
     let identity = Identity::generate();
+    // A bidi override in any profile string is refused before it is stored.
+    let hidden = Profile {
+        version: 1,
+        place: "Mit\u{202E}te".into(),
+        ..Profile::default()
+    }
+    .sign(&identity);
+    let refused = client
+        .profile(profile_request::Request::Publish(hidden))
+        .await;
+    assert_eq!(status(refused.status), Status::Invalid);
     let record = Profile {
         version: 1,
         age: 31,

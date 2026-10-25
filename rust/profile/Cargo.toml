@@ -9,6 +9,8 @@ license.workspace = true
 [dependencies]
 argon2 = { version = "0.5.3", default-features = false, features = ["alloc"] }
 dyapp-identity = { path = "../identity" }
+icu_normalizer = { version = "2.3", default-features = false, features = ["compiled_data"] }
+icu_properties = { version = "2.3", default-features = false, features = ["compiled_data"] }
 prost.workspace = true
 thiserror = "2"
 proptest = { workspace = true, optional = true }

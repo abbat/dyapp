@@ -65,7 +65,7 @@ defences already in place. Nodes are untrusted by design
 | 2 | Supply chain: dependencies, build, CI, releases, update channel | Critical | High | ⚠️ Partial: lock files, dependency audit, pinned CI; the age check and signed releases are planned ([below](#supply-chain)) |
 | 3 | MITM on end-to-end keys and on joining (seed list, DNS) | Critical | Medium | ⚠️ Partial: transport is authenticated and node seeds can pin peer IDs; client key verification and a pinned built-in seed list are planned ([below](#mitm-and-key-verification)) |
 | 4 | Traffic analysis and deanonymization of users | Critical | High | ⚠️ Partial: transport encryption, E2E signals, padding and sealed sender in `rust/client`; relay-only calls are planned ([below](#traffic-analysis), [privacy](privacy.md)) |
-| 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work; the search result check is implemented as a library function; text rules, local names and the client that runs the check are planned ([below](#spoofing)) |
+| 5 | Spoofing: impersonated users, lookalike names and peer IDs, fake nodes | High | High | ⚠️ Partial: owner signatures, node-ID proof of work, profile text rules; the search result check is implemented as a library function; local names and the client that runs the check are planned ([below](#spoofing)) |
 | 6 | Hijack of AI agents and developer tooling (prompt injection) | Critical | Medium | ⚠️ Partial: agent rules, no agents in CI; a narrow token, secret scanning, protected `main` and signed commits are planned ([below](#ai-agents-and-developer-tooling)) |
 | 7 | Hostile pull requests | Critical | Medium | ⚠️ Partial: external CI approval, pinned-head review, a PR guard and branch rules; the maintainer bypass and PR-editable workflows remain ([below](#hostile-pull-requests)) |
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
@@ -187,15 +187,16 @@ who writes to whom and when.
 
 Class 5 in detail. In place: profiles are signed by the owner's identity key and the Peer ID is
 its hash, so a profile cannot be forged, only copied under a new key; node IDs carry proof of
-work. The profile has no name field yet, and only `place` is checked for control characters,
-which lets bidi overrides and invisible characters through.
+work. The profile has no name field yet; every profile string is NFC and refuses control, format
+(bidi, zero-width) and private-use characters except ZWNJ and ZWJ
+([ADR 0026](../decisions/0026-profile-text-rules.md)).
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | A clone: a new key with someone's photos, fields and name | Search, profile links | High × high | Accept: a contact is shown as unverified until the safety number or QR code is compared; reports are class 14 |
 | A preview that does not match the original (bait) | Chat previews, profile thumbnails | Medium × medium | Accept: no worse than sending the image itself; a stranger's original downloads only on a tap |
 | A clone lists the same photo blob hashes | Profile photos | Medium × high | Accept: an exact-hash check is defeated by re-encoding; the unverified mark is the defence |
-| A lookalike name: homoglyphs, invisible characters, bidi overrides | Profile strings | High × high | Fix: an optional public `name`; every profile string is NFC and refuses control, format (bidi, zero-width) and private-use characters, checked by the node on publish and by the client on input and display |
+| A lookalike name: homoglyphs, invisible characters, bidi overrides | Profile strings | High × high | In place: every profile string is NFC and refuses control, format (bidi, zero-width, except ZWNJ and ZWJ) and private-use characters, checked by `verify` on node publish and client display, and `is_clean_text` for client input. Fix: an optional public `name` under the same rule; homoglyphs stay, the unverified mark is the defence |
 | A public name passes for an identity | Contacts, chats | High × high | Fix: a local name the user gives a contact replaces the public one; a public name is always shown with the verified or unverified mark |
 | A Peer ID ground to share a visible prefix or suffix | Contact list, links | High × medium | Fix: the UI never shows part of a Peer ID as identity; contacts are checked only by the full safety number or QR code |
 | A search node claims the role and returns profiles that do not match, or hides those that do | Search | Medium × medium | Fix: the client checks the conditions on the signed profiles it gets, drops mismatches and older versions and asks 2 search nodes ([results](../architecture/bootstrap.md#search); the check is implemented, the client calling it is planned); withholding is class 8 |
@@ -492,7 +493,7 @@ by the hex hash of their content; no node code runs a command; peer-supplied tex
 | Command injection | Packaging scripts, systemd unit, Makefile | High × low | Accept: no node code runs a command and the scripts take no network input |
 | Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML, autolinks or WebView, and register no URL schemes ([code quality](../development/code-quality.md)) |
 | A malicious preview or profile thumbnail exploits or crashes the image decoder | Chat previews, `Photo.thumbnail` | High × medium | Fix (core done, no client calls it yet): `check_preview` refuses over 24 KiB, a non-JPEG or a frame header over 320 × 320 before decoding, caps decoded JPEG bytes at 1 MiB, accepts RGB and grayscale pixels, and turns a decoder panic into an error (`rust/ffi`, `preview.rs`); the crash found in `zune-jpeg` AVX2 is retained in the fuzz corpus |
-| Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | Fix: every profile string gets a character limit and the text rule planned in [Spoofing](#spoofing); `interests` gets a count limit. Today only `place` is checked |
+| Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | In place: every profile string has a character limit and the text rule in [Spoofing](#spoofing); `interests` has a count limit |
 
 ### Downgrade
 
