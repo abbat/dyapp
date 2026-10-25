@@ -638,7 +638,15 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     let due = alice_session.due_outbound(i64::MAX).unwrap();
     assert_eq!(due.len(), 1);
     assert_eq!(due[0].as_bytes(), writes[0].as_bytes());
-    alice.node.put_prepared(&due[0]).await.unwrap();
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    alice_session
+        .retry_due(&mut alice.node, now_ms, &alice_key)
+        .await
+        .unwrap();
+    assert!(alice_session.due_outbound(i64::MAX).unwrap().is_empty());
 
     // A failed local commit sends nothing and needs the saved snapshot reopened.
     break_mls_writes(&alice_path);
@@ -692,18 +700,15 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     );
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
-    // Alice retries every saved write with its exact bytes; Bob shows nothing twice.
+    // Accepted writes left the outbox; a repeated put of the exact Welcome shows nothing twice.
     drop(alice_session);
     let mut alice_session = Session::open(
         Store::open(&alice_path, &alice.identity).unwrap(),
         &alice_key,
     )
     .unwrap();
-    let due = alice_session.due_outbound(i64::MAX).unwrap();
-    assert_eq!(due.len(), 2);
-    for write in &due {
-        alice.node.put_prepared(write).await.unwrap();
-    }
+    assert!(alice_session.due_outbound(i64::MAX).unwrap().is_empty());
+    alice.node.put_prepared(&writes[0]).await.unwrap();
     drop(bob_session);
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();

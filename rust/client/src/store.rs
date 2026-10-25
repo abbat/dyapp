@@ -9,6 +9,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
 mod likes;
+mod outbox;
 mod tokens;
 pub use likes::Likes;
 
@@ -356,24 +357,6 @@ impl Store {
             Ok(write)
         })
         .collect()
-    }
-
-    /// Schedule a retry after a failed attempt; node acceptance is not final delivery.
-    pub fn schedule_retry(&self, write: &PreparedEnvelope, retry_at_ms: i64) -> Result<(), Error> {
-        let changed = self.db.execute(
-            "UPDATE `outbox` SET `retry_at_ms` = ?1, `attempts` = `attempts` + 1
-             WHERE `mailbox` = ?2 AND `envelope_id` = ?3 AND `signed_envelope` = ?4",
-            params![
-                retry_at_ms,
-                write.mailbox().as_slice(),
-                write.id().as_slice(),
-                write.as_bytes()
-            ],
-        )?;
-        if changed != 1 {
-            return Err(Error::OutboxConflict);
-        }
-        Ok(())
     }
 
     /// Check before processing MLS bytes so a repeated fetch cannot apply or display them twice.
@@ -860,7 +843,7 @@ pub(crate) mod tests {
             store.due_outbound(0).unwrap()[0].as_bytes(),
             write.as_bytes()
         );
-        store.schedule_retry(&write, 100).unwrap();
+        store.schedule_retry(&write, 0).unwrap();
         drop(store);
 
         let mut store = Store::open(&path, &owner).unwrap();
@@ -869,9 +852,9 @@ pub(crate) mod tests {
             Device::open(&saved, &seal_key).unwrap().certificate(),
             device.certificate()
         );
-        assert!(store.due_outbound(99).unwrap().is_empty());
+        assert!(store.due_outbound(999).unwrap().is_empty());
         assert_eq!(
-            store.due_outbound(100).unwrap()[0].as_bytes(),
+            store.due_outbound(1_000).unwrap()[0].as_bytes(),
             write.as_bytes()
         );
 
@@ -886,7 +869,7 @@ pub(crate) mod tests {
         ));
         assert_eq!(store.sealed_device().unwrap(), Some(sealed));
         assert_eq!(
-            store.due_outbound(100).unwrap()[0].as_bytes(),
+            store.due_outbound(1_000).unwrap()[0].as_bytes(),
             write.as_bytes()
         );
     }

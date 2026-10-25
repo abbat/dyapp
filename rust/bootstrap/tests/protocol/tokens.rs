@@ -209,7 +209,7 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     let sent = senders(&mut bob).await;
     assert_eq!(sent.len(), 1);
     assert_ne!(sent[0], key.to_vec());
-    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
+    assert!(session.due_outbound(i64::MAX).unwrap().is_empty());
 }
 
 async fn receive(

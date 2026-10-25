@@ -147,21 +147,56 @@ impl Session {
     ) -> Result<(), Error> {
         let writes = self.stage_message(group_id, body, seal_key)?;
         let today = (crate::now() / 86_400) as u32;
-        for mut write in writes {
-            loop {
-                match node.put_prepared(&write).await {
-                    Ok(()) => break,
-                    Err(crate::Error::Status(status)) => {
-                        let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
-                            .ok_or(crate::Error::Status(status))?;
-                        self.store.replace_outbound(&write, &next)?;
-                        write = next;
-                    }
-                    Err(error) => return Err(error.into()),
-                }
+        for write in writes {
+            self.deliver(node, write, today, seal_key).await?;
+        }
+        Ok(())
+    }
+
+    /// Put every outbox write due by `now_ms` again, as the app does after a restart or a lost
+    /// connection; a failed one waits longer each time, up to an hour.
+    pub async fn retry_due(
+        &mut self,
+        node: &mut Node,
+        now_ms: i64,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let today = (now_ms / 86_400_000) as u32;
+        for write in self.store.due_outbound(now_ms)? {
+            match self.deliver(node, write.clone(), today, seal_key).await {
+                Err(Error::Client(_)) => match self.store.schedule_retry(&write, now_ms) {
+                    // A token swap replaced the row, so it is due again at once.
+                    Err(crate::store::Error::OutboxConflict) => {}
+                    other => other?,
+                },
+                other => other?,
             }
         }
         Ok(())
+    }
+
+    /// Put `write`, swapping a refused tokened copy for its fallback in the outbox.
+    async fn deliver(
+        &mut self,
+        node: &mut Node,
+        mut write: PreparedEnvelope,
+        today: u32,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        loop {
+            match node.put_prepared(&write).await {
+                // shortcut: node acceptance drops the row, not a receipt from the recipient;
+                // move the removal to the receipt once end-to-end receipts exist.
+                Ok(()) => return Ok(self.store.remove_outbound(&write)?),
+                Err(crate::Error::Status(status)) => {
+                    let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
+                        .ok_or(crate::Error::Status(status))?;
+                    self.store.replace_outbound(&write, &next)?;
+                    write = next;
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
     }
 
     /// Ask every group's other devices for the write tokens this device is missing; the app calls
