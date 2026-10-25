@@ -203,6 +203,12 @@ Start when every participant posted "phase 2 complete" and no spike under `Q` is
 
 ## A6 delivery gate
 
+Temporary maintainer policy until the first v0.0.1 release: quorum is optional.
+Run the detector and record its result in the bead, but a missing-quorum result
+alone does not block delivery. Do not invent quorum evidence or use
+`--checks-tightening` for other changes. From the first release onward, apply
+the blocking rule below. The checker has not been changed to model this policy.
+
 Before pushing or merging, run the local read-only gate over the exact delivery
 range from the current upstream base to the reviewed head:
 

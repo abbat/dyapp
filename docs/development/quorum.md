@@ -8,6 +8,11 @@ In the commands below, `<model>` is the participant's name with its version, e.g
 `claude-opus-5.5` or `codex-gpt-5.2`; use the same name everywhere for one participant. `<Q>` is
 the quorum epic's ID.
 
+Until the first v0.0.1 release, the maintainer permits delivery without a quorum;
+the agent records any A6 detector result in its bead. The procedure below still
+applies whenever a quorum is requested, and the A6 gate becomes blocking at release
+(see [agent policy](../agents/quorum.md#a6-delivery-gate)).
+
 ## 0. Prepare
 
 - Pick the question, at least two participants and the synthesizer (the strongest model you
