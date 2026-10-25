@@ -13,12 +13,18 @@ use dyapp_profile::VerifiedProfile;
 /// Keys one get request may carry.
 const GET_KEYS: usize = 50;
 
+/// Verified profiles and whether search coverage may be incomplete.
+pub struct SearchResults {
+    /// Matches, one per owner at the highest seen version, in no set order.
+    pub profiles: Vec<VerifiedProfile>,
+    /// A node failed, skipped an uncheckable condition, omitted an age filter, or cut a reply.
+    pub partial: bool,
+}
+
 /// Profiles matching every condition, from up to `limit` hits (0 means 50) of each node in
-/// `nodes`, with at least `min_pow_bits` of profile proof of work: one per owner at the highest
-/// version seen, in no set order. A hit whose version `cache` already holds is taken from the
-/// cache, not fetched, and its proof of work is not hashed again. A node that fails is skipped,
-/// so the result may miss profiles, as each node's sample may anyway. Peers in `blocked`
-/// ([`Store::blocked_peers`]) are neither fetched nor returned.
+/// `nodes`, with at least `min_pow_bits` of profile proof of work. A hit whose version `cache`
+/// already holds is taken from the cache, not fetched, and its proof of work is not hashed again.
+/// Peers in `blocked` ([`Store::blocked_peers`]) are neither fetched nor returned.
 pub async fn search(
     nodes: &mut [Node],
     conditions: &[Condition],
@@ -26,17 +32,24 @@ pub async fn search(
     min_pow_bits: u32,
     cache: &Profiles,
     blocked: &[String],
-) -> Vec<VerifiedProfile> {
+) -> SearchResults {
     let (mut replies, mut cached) = (Vec::new(), Vec::new());
+    let mut partial = nodes.is_empty();
+    let active = conditions
+        .iter()
+        .any(|c| c.field == search_results::ACTIVE_DAY);
+    let age = conditions
+        .iter()
+        .any(|c| c.field == search_results::BIRTH_AGE);
     for node in nodes {
         let Ok(reply) = node.search_query(conditions.to_vec(), limit).await else {
+            partial = true;
             continue;
         };
+        partial |= reply.partial || (age && !reply.applied.contains(&search_results::BIRTH_AGE));
         // The client cannot re-check activity, so a node that skipped it adds nothing.
-        let active = conditions
-            .iter()
-            .any(|c| c.field == search_results::ACTIVE_DAY);
         if active && !reply.applied.contains(&search_results::ACTIVE_DAY) {
+            partial = true;
             continue;
         }
         let mut keys = Vec::new();
@@ -50,7 +63,9 @@ pub async fn search(
                 _ => keys.push(hit.key),
             }
         }
-        replies.push(fetch(node, keys).await);
+        let (records, incomplete) = fetch(node, keys).await;
+        partial |= incomplete;
+        replies.push(records);
     }
     let mut found = search_results::check(conditions, min_pow_bits, &replies);
     // A node may serve an older version than the cache holds.
@@ -69,7 +84,10 @@ pub async fn search(
         !blocked.contains(&profile.peer_id)
             && search_results::passes(conditions, min_pow_bits, &profile.profile)
     });
-    found
+    SearchResults {
+        profiles: found,
+        partial,
+    }
 }
 
 /// Sends the profile [`Store::hold_search_profile`] holds to every node in `nodes` (search nodes
@@ -102,12 +120,14 @@ pub async fn publish_due(
 }
 
 // The records of `keys` that `node` returns, asking again for those a cut reply left out.
-async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> Vec<SignedRecord> {
+async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> (Vec<SignedRecord>, bool) {
     let mut records = Vec::new();
+    let mut incomplete = false;
     for chunk in keys.chunks(GET_KEYS) {
         let mut wanted = chunk.to_vec();
         while !wanted.is_empty() {
             let Ok(reply) = node.search_get(wanted.clone()).await else {
+                incomplete = true;
                 break;
             };
             let asked = wanted.len();
@@ -119,11 +139,12 @@ async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> Vec<SignedRecord> {
                 }
             }
             if !reply.partial || wanted.len() == asked {
+                incomplete |= !wanted.is_empty();
                 break;
             }
         }
     }
-    records
+    (records, incomplete)
 }
 
 /// Sends `identity`'s heartbeat for its profile `version` to every node in `nodes` once one is
@@ -270,6 +291,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn age_filter_marks_skipped_node_partial_and_rechecks_its_records() {
+        let [a, b, c] = [(); 3].map(|()| Identity::generate());
+        let dated = |identity: &Identity| {
+            Profile {
+                version: 1,
+                birth_year: Some(2000),
+                ..Profile::default()
+            }
+            .sign(identity)
+        };
+        let yearless = Profile {
+            version: 1,
+            birth_month: Some(2),
+            birth_day: Some(29),
+            ..Profile::default()
+        }
+        .sign(&b);
+        let mut nodes = Vec::new();
+        for (hits, records, applied) in [
+            (
+                vec![hit(key(&a), 1), hit(key(&b), 1)],
+                vec![dated(&a), yearless],
+                vec![search_results::BIRTH_AGE],
+            ),
+            (vec![hit(key(&c), 1)], vec![dated(&c)], vec![]),
+        ] {
+            let mut query = ok(hits, Vec::new(), false);
+            query.applied = applied;
+            let mut answers = vec![ok(Vec::new(), records, false), query];
+            nodes.push(fake(move |_| answers.pop().unwrap()).await.0);
+        }
+        let conditions = [Condition {
+            field: search_results::BIRTH_AGE,
+            op: Op::Range.into(),
+            ints: vec![19991231, 20001231],
+            strings: Vec::new(),
+        }];
+        let result = tokio::time::timeout(
+            Duration::from_secs(10),
+            search(&mut nodes, &conditions, 0, 0, &Profiles::default(), &[]),
+        )
+        .await
+        .unwrap();
+        assert!(result.partial);
+        let mut peers: Vec<_> = result.profiles.iter().map(|p| p.peer_id.clone()).collect();
+        peers.sort();
+        let mut expected = vec![a.peer_id(), c.peer_id()];
+        expected.sort();
+        assert_eq!(peers, expected);
+    }
+
+    #[tokio::test]
     async fn drops_nodes_that_skip_the_activity_condition() {
         let [a, b] = [(); 2].map(|()| Identity::generate());
         let mut nodes = Vec::new();
@@ -290,8 +363,9 @@ mod tests {
         let found = tokio::time::timeout(Duration::from_secs(10), search)
             .await
             .unwrap();
-        let found: Vec<_> = found.iter().map(|p| p.peer_id.clone()).collect();
-        assert_eq!(found, [a.peer_id()]);
+        assert!(found.partial);
+        let peers: Vec<_> = found.profiles.iter().map(|p| p.peer_id.clone()).collect();
+        assert_eq!(peers, [a.peer_id()]);
     }
 
     #[tokio::test]
@@ -354,7 +428,9 @@ mod tests {
         let found = tokio::time::timeout(Duration::from_secs(10), search)
             .await
             .unwrap();
+        assert!(found.partial); // One node failed and two get replies omitted keys.
         let mut found: Vec<_> = found
+            .profiles
             .iter()
             .map(|p| (p.peer_id.clone(), p.profile.version))
             .collect();
