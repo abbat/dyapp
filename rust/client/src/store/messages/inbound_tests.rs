@@ -106,3 +106,67 @@ fn chat_projection_and_delivery_commit_atomically() {
         Some(&b"mls-3"[..])
     );
 }
+
+#[test]
+fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
+    let mut random = [0; 16];
+    getrandom::fill(&mut random).unwrap();
+    let path = std::env::temp_dir().join(format!(
+        "dyapp-chat-late-original-{:032x}.db",
+        u128::from_be_bytes(random)
+    ));
+    let owner = Identity::generate();
+    let key = MessageKey {
+        group: vec![3],
+        author: Identity::generate().peer_id(),
+        id: [4; 16],
+    };
+    let device = [5; 32];
+    let sender = VerifiedChatSender {
+        group: &key.group,
+        author: &key.author,
+        device: &device,
+    };
+    let delete = Body::Delete {
+        target: key.id,
+        operation: [7; 16],
+        hlc: Timestamp::new(200, 0).into(),
+    };
+    let original = Body::Text {
+        id: key.id,
+        text: b"late private original".to_vec(),
+    };
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert!(store
+        .stage_chat_inbound(b"mls-delete", &inbox(1), sender, &delete, 1_000)
+        .unwrap());
+    let current = store.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1)]);
+
+    // The body was authenticated by MLS but its original arrived after the delete.
+    assert!(store
+        .stage_chat_inbound(b"mls-original", &inbox(2), sender, &original, 1_000)
+        .unwrap());
+    let current = store.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1), inbox(2)]);
+    assert!(!store
+        .stage_chat_inbound(b"unused", &inbox(2), sender, &original, 1_000)
+        .unwrap());
+    drop(store);
+
+    let store = Store::open(&path, &owner).unwrap();
+    let current = store.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1), inbox(2)]);
+    let saved: Vec<u8> = store
+        .db
+        .query_row(
+            "SELECT `payload` FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+            [inbox(2).mailbox.as_slice(), inbox(2).id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(saved, sha256(&original.encode()));
+}

@@ -66,7 +66,8 @@ the text and sends its existing device-signed `Ack` for any known original mailb
 Normal receive already ACKs envelopes after durable processing and retries a known duplicate's
 ACK, so a delivered original is usually gone from cooperating nodes. If the original arrives
 later, the recipient keeps the placeholder, discards the text and ACKs that envelope. A recipient
-that is offline cannot make nodes remove an unread original; node TTL and operator behavior still apply.
+that is offline cannot make nodes remove an unread original; the node keeps it until recipient ACK or
+expiry, and a missed forwarding peer, uncooperative operator or backup can retain ciphertext.
 This is a request through the recipient, not a claim of remote erasure.
 
 | Mechanism | Pros | Cons | Decision |

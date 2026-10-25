@@ -221,3 +221,99 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
             .unwrap();
     assert_eq!((count, shortest, longest), (3, 32, 32));
 }
+
+#[tokio::test]
+async fn offline_recipient_acknowledges_original_and_delete_after_reconnect() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let (alice_path, bob_path) = (
+        store_path("alice-offline-delete"),
+        store_path("bob-offline-delete"),
+    );
+    let (alice_key, bob_key) = ([1; 32], [2; 32]);
+    let alice_owner = alice.identity.peer_id();
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+        .await
+        .unwrap();
+    let mut profiles = Vec::new();
+    for owner in [&alice_owner, &bob_owner] {
+        profiles.push(alice.node.get_profile(owner).await.unwrap());
+    }
+    Store::open(&bob_path, &bob.identity)
+        .unwrap()
+        .stage_outbound(&bob.device.seal(&bob_key).unwrap(), &[])
+        .unwrap();
+    let alice_mailbox = alice.mailbox();
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        .await
+        .unwrap();
+    let group_id = group.id().to_vec();
+    let welcome = welcome
+        .into_iter()
+        .map(|delivery| dyapp_client::prepare_put(&delivery.mailbox, delivery.mls).unwrap())
+        .collect::<Vec<_>>();
+    Store::open(&alice_path, &alice.identity)
+        .unwrap()
+        .stage_group(
+            &group,
+            &profiles[1],
+            &alice.device.seal(&alice_key).unwrap(),
+            &welcome,
+        )
+        .unwrap();
+    let mut alice_session = Session::open(
+        Store::open(&alice_path, &alice.identity).unwrap(),
+        &alice_key,
+    )
+    .unwrap();
+    let mut bob_session =
+        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
+    alice.node.put_prepared(&welcome[0]).await.unwrap();
+    assert!(matches!(
+        bob_session
+            .receive(std::slice::from_mut(&mut bob.node), &bob.device_key, &profiles, &bob_key)
+            .await
+            .unwrap()
+            .as_slice(),
+        [Event::Joined(id)] if id == &group_id
+    ));
+
+    let (id, text_writes) = alice_session
+        .stage_text(&group_id, b"unread original", &alice_key)
+        .unwrap();
+    alice.node.put_prepared(&text_writes[0]).await.unwrap();
+    let (delete_operation, delete_writes) = alice_session
+        .stage_delete(&group_id, id, &alice_key)
+        .unwrap();
+    alice.node.put_prepared(&delete_writes[0]).await.unwrap();
+    // An offline recipient has signed no ACK; the node still holds both ciphertext envelopes.
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
+    let events = bob_session
+        .receive(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &bob_key,
+        )
+        .await
+        .unwrap();
+    assert!(matches!(events.as_slice(),
+        [Event::Message { body: Body::Text { id: original, .. }, .. },
+         Event::Message { body: Body::Delete { target, operation, .. }, .. }]
+        if original == &id && target == &id && operation == &delete_operation));
+    let key = MessageKey {
+        group: group_id,
+        author: alice_owner,
+        id,
+    };
+    let current = bob_session.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+}

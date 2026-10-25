@@ -36,7 +36,10 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`.
 The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until the device acks
 it or the TTL passes, and `dyappd` deletes expired envelopes every hour. Exception: mailbox
 repair gives a repaired copy a new TTL, so an envelope its device never acks can outlive the TTL
-([lifecycle](../architecture/bootstrap.md#mailbox-envelope)). A chat attachment
+([lifecycle](../architecture/bootstrap.md#mailbox-envelope)). An encrypted delete cannot remove
+an unread original while its recipient is offline: only that device can sign the mailbox ACK.
+A node that misses a forwarded ACK, an uncooperative node, backups and screenshots may keep copies;
+there is no guaranteed remote erasure. A chat attachment
 is kept until `limits.attachment_retention_hours` (default 168) passes, also deleted hourly;
 recipients do not release it, so every device of the chat can still fetch it. Its preview travels
 inside the encrypted message, and the client downloads a stranger's original only on a tap
