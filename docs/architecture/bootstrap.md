@@ -387,7 +387,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
   republishes the record every 12 hours. Clients and new search nodes find search nodes with
-  `get_providers` on that key. A peer that lists `/dyapp/search-kad` in identify joins the
+  `get_providers` on that key; the client's `dyapp_client::Node::providers` dials each provider
+  once while the lookup runs, because kad keeps a provider's addresses only for the query, and
+  returns the addresses for `Node::connect`. A peer that lists `/dyapp/search-kad` in identify joins the
   node's search Kademlia, which links the search nodes to each other, under the same node-ID
   proof of work and IP-group limits as the main routing table
   ([routing defences](p2p-networking.md)).
@@ -1045,8 +1047,8 @@ The current protocol replies are:
   `turn.urls`; the [manual](../manuals/bootstrap.md#turn-relay) has a coturn example with its quotas.
   The request is rate-limited like a profile get. Once its routing table has a peer the
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
-  12 hours. Clients find relays with `get_providers` on that key; using them for call ICE is
-  planned.
+  12 hours. Clients find relays with `get_providers` on that key (`dyapp_client::Node::providers`);
+  using them for call ICE is planned.
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group:
   client puts cost five units and other requests one, with mailbox puts also limited per sender
   key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).

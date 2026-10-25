@@ -144,6 +144,75 @@ async fn node_put_and_prepared_retry_reach_the_mailbox() {
 }
 
 #[tokio::test]
+async fn providers_are_dialed_for_their_addresses() {
+    use libp2p::kad::{self, store::RecordStore};
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let mut server =
+        build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+    server
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+            break address;
+        }
+    };
+    // A confirmed address puts Auto-mode Kademlia in server mode, so it answers lookups.
+    server.add_external_address(address.clone());
+    let key = kad::RecordKey::new(&dyapp_p2p_net::SEARCH_KEY);
+    server
+        .behaviour_mut()
+        .kad
+        .start_providing(key.clone())
+        .unwrap();
+    // A second provider that refuses connections.
+    let gone = kad::ProviderRecord::new(
+        key,
+        libp2p::PeerId::random(),
+        vec!["/ip4/127.0.0.1/tcp/1".parse().unwrap()],
+    );
+    server
+        .behaviour_mut()
+        .kad
+        .store_mut()
+        .add_provider(gone)
+        .unwrap();
+    let task = tokio::spawn(async move {
+        loop {
+            server.select_next_some().await;
+        }
+    });
+    let mut node = Node::connect(address.clone(), Arc::new(Protocols::public()))
+        .await
+        .unwrap();
+    let address = address.with(libp2p::multiaddr::Protocol::P2p(node.peer()));
+
+    // The refused dial ends the lookup well before the timeout.
+    let started = std::time::Instant::now();
+    assert_eq!(
+        node.providers(dyapp_p2p_net::SEARCH_KEY, 3).await,
+        std::slice::from_ref(&address)
+    );
+    assert_eq!(
+        node.providers(dyapp_p2p_net::SEARCH_KEY, 1).await,
+        [address]
+    );
+    assert!(node
+        .providers(dyapp_p2p_net::SEARCH_KEY, 0)
+        .await
+        .is_empty());
+    assert!(node.providers(dyapp_p2p_net::TURN_KEY, 3).await.is_empty());
+    assert!(started.elapsed() < super::TIMEOUT);
+    // A node without the node-ID proof of work is not dialed.
+    dyapp_p2p_net::set_id_pow_bits(200);
+    assert!(node
+        .providers(dyapp_p2p_net::SEARCH_KEY, 3)
+        .await
+        .is_empty());
+    task.abort();
+}
+
+#[tokio::test]
 async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
     use proto::{search_request::Request, SearchResponse, Status};
     let reply = |status: Status| SearchResponse {

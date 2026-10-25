@@ -104,6 +104,8 @@ async fn start_config_in_protocols(
             break address;
         }
     };
+    // A confirmed address puts Auto-mode Kademlia in server mode, so it answers DHT lookups.
+    swarm.add_external_address(addr.clone());
     let wire = service.wire.clone();
     let service = std::sync::Arc::new(service);
     tokio::spawn(node::run(swarm, service.clone()));

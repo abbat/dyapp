@@ -213,3 +213,43 @@ fn search_worker_saturation_retries_without_stalling_info() {
         }
     });
 }
+
+#[tokio::test]
+async fn a_client_finds_and_queries_search_nodes() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let a = start_search(None).await;
+    start_search(Some(&a)).await;
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let mut node = dyapp_client::Node::connect(a, protocols.clone())
+        .await
+        .unwrap();
+    // B announces itself once it has joined A, so look again until both are found.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    let found = loop {
+        let found = node.providers(dyapp_p2p_net::SEARCH_KEY, 3).await;
+        if found.len() == 2 || tokio::time::Instant::now() > deadline {
+            break found;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    };
+    assert_eq!(found.len(), 2, "search nodes found: {found:?}");
+    assert_eq!(node.providers(dyapp_p2p_net::SEARCH_KEY, 1).await.len(), 1);
+
+    let mut peers = std::collections::HashSet::new();
+    for address in found {
+        let mut search = dyapp_client::Node::connect(address, protocols.clone())
+            .await
+            .unwrap();
+        peers.insert(search.peer());
+        let nobody = proto::Condition {
+            field: 3,
+            op: proto::Op::Eq.into(),
+            ints: vec![99],
+            strings: vec![],
+        };
+        let response = search.search_query(vec![nobody], 0).await.unwrap();
+        assert!(response.hits.is_empty());
+    }
+    assert!(peers.contains(&node.peer()));
+    assert_eq!(peers.len(), 2);
+}

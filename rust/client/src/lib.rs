@@ -18,14 +18,19 @@ use dyapp_p2p_net::proto::{
     Status,
 };
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
+use dyapp_p2p_net::{id_has_pow, id_pow_bits};
 use dyapp_p2p_net::{SwarmOptions, REPLICAS};
 use dyapp_profile::VerifiedProfile;
+use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
+use libp2p::kad;
 use libp2p::request_response::{Event, Message as RrMessage};
+use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
+use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -232,12 +237,14 @@ impl Node {
         let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options)
             .map_err(|error| Error::Connect(error.to_string()))?;
         swarm
-            .dial(addr)
+            .dial(addr.clone())
             .map_err(|error| Error::Connect(error.to_string()))?;
         timeout(async {
             loop {
                 match swarm.select_next_some().await {
                     SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        // A DHT lookup starts from this node.
+                        swarm.behaviour_mut().kad.add_address(&peer_id, addr);
                         return Ok(peer_id);
                     }
                     SwarmEvent::OutgoingConnectionError { error, .. } => {
@@ -254,6 +261,78 @@ impl Node {
     /// The node's Peer ID, the key of its [`scores::Scores`] entry.
     pub fn peer(&self) -> PeerId {
         self.peer
+    }
+
+    /// Addresses of up to `max` nodes providing `key` in the DHT
+    /// ([`dyapp_p2p_net::SEARCH_KEY`], [`dyapp_p2p_net::TURN_KEY`]) for [`Node::connect`], in no
+    /// set order; fewer when the lookup or [`TIMEOUT`] ends first. Each is dialed once to learn
+    /// a working address, since the DHT keeps a provider's addresses only during the lookup.
+    pub async fn providers(&mut self, key: &[u8], max: usize) -> Vec<Multiaddr> {
+        let swarm = &mut self.swarm;
+        let query = swarm
+            .behaviour_mut()
+            .kad
+            .get_providers(kad::RecordKey::new(&key));
+        let (mut found, mut seen, mut dials, mut closing, mut done) = (
+            Vec::new(),
+            HashSet::new(),
+            HashSet::new(),
+            HashSet::new(),
+            false,
+        );
+        let lookup = async {
+            // Kademlia may send the next lookup down a closing connection, where it goes
+            // unanswered: return only once the swarm has dropped them.
+            while (found.len() < max && !(done && dials.is_empty())) || !closing.is_empty() {
+                match swarm.select_next_some().await {
+                    SwarmEvent::Behaviour(BehaviourEvent::Kad(
+                        kad::Event::OutboundQueryProgressed {
+                            id,
+                            result: kad::QueryResult::GetProviders(result),
+                            step,
+                            ..
+                        },
+                    )) if id == query => {
+                        if let Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) = result {
+                            for provider in providers {
+                                if !seen.insert(provider) || !id_has_pow(&provider, id_pow_bits()) {
+                                    continue;
+                                }
+                                // A second connection even to the node we are on: its address.
+                                let dial = DialOpts::peer_id(provider)
+                                    .condition(PeerCondition::Always)
+                                    .build();
+                                let connection = dial.connection_id();
+                                if swarm.dial(dial).is_ok() {
+                                    dials.insert(connection);
+                                }
+                            }
+                        }
+                        done |= step.last;
+                    }
+                    SwarmEvent::ConnectionEstablished {
+                        connection_id,
+                        endpoint: ConnectedPoint::Dialer { address, .. },
+                        ..
+                    } if dials.remove(&connection_id) => {
+                        swarm.close_connection(connection_id);
+                        closing.insert(connection_id);
+                        found.push(address);
+                    }
+                    SwarmEvent::ConnectionClosed { connection_id, .. } => {
+                        closing.remove(&connection_id);
+                    }
+                    SwarmEvent::OutgoingConnectionError { connection_id, .. } => {
+                        dials.remove(&connection_id);
+                    }
+                    _ => {}
+                }
+            }
+        };
+        let _ = tokio::time::timeout(TIMEOUT, lookup).await;
+        // Dials may still connect while the others close.
+        found.truncate(max);
+        found
     }
 
     /// Publishes a signed profile.
