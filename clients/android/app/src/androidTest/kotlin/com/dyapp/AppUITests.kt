@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
@@ -84,6 +85,27 @@ class AppUITests {
         // A relaunch reads the active pointer again.
         compose.activityRule.scenario.recreate()
         check(shownPeerId() == first) { "The chosen identity was lost on relaunch" }
+    }
+
+    @Test
+    fun removingTheActiveIdentityErasesItsKeyAndReturnsToThePicker() {
+        val first = shownPeerId()
+        compose.onNodeWithTag("switch").performClick()
+        compose.onNodeWithTag("add-identity").performScrollTo().performClick()
+        val second = shownPeerId()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val alias = (RustBridge.slots(context).open() as Opened.Ready).slot.alias
+        compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
+        compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.remove_title))
+        compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()
+        compose.onNodeWithTag("remove-action").assertIsNotEnabled()
+        compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
+        compose.onNodeWithTag("remove-action").performScrollTo().performClick()
+        compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
+        compose.onNode(hasTestTag("identity") and hasText(second)).assertDoesNotExist()
+        check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
+        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        check(shownPeerId() == first) { "The remaining identity did not open" }
     }
 
     @Test

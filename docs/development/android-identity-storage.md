@@ -8,7 +8,7 @@ PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this
 `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
-The app has no remove screen yet.
+Remove opens a confirmation screen for the shown identity (see [Remove](#remove)).
 
 ## Layout
 
@@ -70,14 +70,17 @@ identity.
 
 ## Remove
 
-Removal follows the desktop rules: the user confirms the exact Peer ID, with a warning when it
-is the last local copy. Then write `state` = `deleting`, delete the alias, check it is gone,
-delete `identity.key`, rename the directory to `profiles/.<slot>.removed` (which drops it from
-the list) and delete it. Removal refuses a folder holding anything but `state`. A failure
-keeps the slot and shows the error; a crash after the rename leaves only the hidden folder.
-After a crash the slot shows as `deleting`; cleanup resumes only after the user confirms again
-or the alias is confirmed absent. Removing the active slot returns to the picker. Removal
-refuses `legacy-primary` and damaged slots, as on desktop.
+Removal follows the desktop rules: the remove screen shows the exact Peer ID, says whether it
+is the last local copy, and enables Remove only after the user ticks the confirmation;
+`Slots.remove` then refuses a key whose Peer ID differs from the confirmed one. It writes
+`state` = `deleting`, deletes the alias, checks it is gone, deletes `identity.key`, renames the
+directory to `profiles/.<slot>.removed` (which drops it from the list) and deletes it. Removal
+refuses a folder holding anything but `state`. A failure keeps the slot and shows the error; a
+crash after the rename leaves only the hidden folder. After a crash the slot shows as
+`deleting`; cleanup resumes only after the user confirms again or the alias is confirmed
+absent. Removing the active slot returns to the picker, which may then hold only Add: no
+identity is created on its own. Removal refuses `legacy-primary` and damaged slots, as on
+desktop.
 
 ## Legacy key
 

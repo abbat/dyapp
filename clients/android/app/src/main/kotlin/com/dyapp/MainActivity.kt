@@ -5,11 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -23,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dyapp.ui.theme.DYAppTheme
 
@@ -54,7 +58,16 @@ fun MainScreen() {
     val context = LocalContext.current.applicationContext
     val slots = remember { RustBridge.slots(context) }
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
-    val act = { action: () -> Opened -> shown = RustBridge.show(slots, action) }
+    // The identity the remove screen asks about; null when it is closed.
+    var removing by remember { mutableStateOf<Opened?>(null) }
+    val act = { action: () -> Opened ->
+        removing = null
+        shown = RustBridge.show(slots, action)
+    }
+    removing?.let {
+        RemoveScreen(slots, it, act)
+        return
+    }
     val opened = shown.opened
     val status = when (opened) {
         null -> R.string.status_error
@@ -99,10 +112,74 @@ fun MainScreen() {
                 }
             }
         }
+        if (opened != null && removable(opened)) {
+            OutlinedButton(onClick = { removing = opened }, Modifier.testTag("remove-identity")) {
+                Text(stringResource(R.string.identity_remove))
+            }
+        }
         if (opened is Opened.Ready || opened is Opened.Recovery) {
             OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
                 Text(stringResource(R.string.identity_switch))
             }
+        }
+    }
+}
+
+/** [Slots.remove] refuses the legacy slot and damaged or unreadable ones. */
+private fun removable(opened: Opened) = when (opened) {
+    is Opened.Ready -> opened.slot.id != Slots.LEGACY
+    is Opened.Recovery -> opened.slot.id != Slots.LEGACY &&
+        opened.reason in setOf("missing", "incomplete", "deleting")
+    else -> false
+}
+
+/**
+ * Second confirmation: Remove stays disabled until the checkbox is ticked. Afterwards the
+ * picker shows the remaining identities; a new one is never created on its own.
+ */
+@Composable
+private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Unit) {
+    val (slot, peerId) = when (target) {
+        is Opened.Ready -> target.slot to target.peerId
+        is Opened.Recovery -> target.slot to target.peerId
+        else -> return
+    }
+    val copies = remember {
+        peerId != null && runCatching {
+            slots.list().filter { it.id != slot.id }.map(slots::openSlot)
+                .any { it is Opened.Ready && it.peerId == peerId }
+        }.getOrDefault(false)
+    }
+    var confirmed by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(stringResource(R.string.remove_title), Modifier.testTag("app-ready"))
+        Text(peerId ?: reasonText((target as Opened.Recovery).reason))
+        if (peerId != null) {
+            val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
+            Text(stringResource(copy))
+        }
+        Text(stringResource(R.string.remove_warning))
+        Row(
+            Modifier.toggleable(confirmed, role = Role.Checkbox) { confirmed = it }
+                .testTag("remove-confirm"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(confirmed, onCheckedChange = null)
+            Text(stringResource(R.string.remove_confirm))
+        }
+        Button(
+            onClick = { act { slots.remove(slot.id, peerId); Opened.Picker } },
+            Modifier.testTag("remove-action"),
+            enabled = confirmed
+        ) {
+            Text(stringResource(R.string.remove_action))
+        }
+        OutlinedButton(onClick = { act(slots::open) }, Modifier.testTag("remove-cancel")) {
+            Text(stringResource(R.string.remove_cancel))
         }
     }
 }

@@ -16,4 +16,12 @@
     <string name="recovery_damaged">Its local files are unreadable or were changed.</string>
     <string name="recovery_unavailable">Its key cannot be opened now.</string>
     <string name="recovery_retry">Retry</string>
+    <string name="identity_remove">Remove this identity</string>
+    <string name="remove_title">Remove an identity</string>
+    <string name="remove_last_copy">This is the only copy of this key on this device.</string>
+    <string name="remove_other_copy">Another identity on this device holds the same key.</string>
+    <string name="remove_warning">Removing deletes the key from this device. Without a backup of the key this Peer ID cannot be restored.</string>
+    <string name="remove_confirm">I understand that this cannot be undone without a backup</string>
+    <string name="remove_action">Remove</string>
+    <string name="remove_cancel">Cancel</string>
 </resources>
