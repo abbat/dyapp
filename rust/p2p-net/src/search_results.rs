@@ -38,14 +38,20 @@ pub fn check(
             let verified = newest.remove(&owner)?;
             let p = &verified.profile;
             // Argon2 last: the cheap checks drop most records first.
-            let keep = !p.deleted
-                && conditions.iter().all(|c| matches(c, p))
-                && p.pow_bits >= min_pow_bits
+            let keep = passes(conditions, min_pow_bits, p)
                 && (p.pow_bits == 0
                     || dyapp_profile::pow_leading_bits(&owner, p.pow_nonce) >= p.pow_bits);
             keep.then_some(verified)
         })
         .collect()
+}
+
+/// Whether `profile` is no tombstone, matches every condition and claims at least `min_pow_bits`
+/// of proof of work, as in [`check`], which also confirms the claim with the Argon2 hash.
+pub fn passes(conditions: &[Condition], min_pow_bits: u32, profile: &Profile) -> bool {
+    !profile.deleted
+        && conditions.iter().all(|c| matches(c, profile))
+        && profile.pow_bits >= min_pow_bits
 }
 
 /// A profile field as the search index stores it: integers, strings, or absent (SQL NULL).

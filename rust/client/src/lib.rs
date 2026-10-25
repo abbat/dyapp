@@ -8,6 +8,7 @@ pub mod chat;
 pub mod interactions;
 pub mod profiles;
 pub mod scores;
+pub mod search;
 pub mod session;
 pub mod store;
 pub mod tokens;

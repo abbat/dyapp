@@ -548,8 +548,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
   drops it when it is a tombstone, misses a condition, or its profile proof of work is below the
   client's minimum or not confirmed by the Argon2 hash; and skips the conditions a node skips
   (unknown field or op, `range` on a string field). `place` is compared as the profile states
-  it. The check is implemented; the client runtime that queries the nodes and calls it is
-  planned. Replies carry no coverage hints.
+  it. `dyapp_client::search::search` runs this over the given nodes: it fetches only the hits
+  whose version the client's profile cache lacks, in gets of 50 keys, asks again for the keys a
+  `partial` reply left out, skips a failing node and returns the profiles in no set order.
+  Replies carry no coverage hints.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
   by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and

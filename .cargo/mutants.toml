@@ -8,4 +8,6 @@ exclude_re = [
     # event of an earlier lookup, which a unit test cannot time.
     "replace < with <= in Node::providers",
     "replace match guard id == query with true in Node::providers",
+    # Equal versions: the fetched record and the cached one are equally valid answers.
+    "replace > with >= in search\\b",
 ]

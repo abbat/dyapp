@@ -132,7 +132,10 @@ capture per port across restarts. Raw failure evidence includes node-port header
   local pre-commit hook do not run this check, only `make quality` on the committed history.
 - cargo-mutants counts a mutant that makes a loop endless (a hash solver, a retry loop) as
   TIMEOUT, which fails CI. Have the test run such a call in a thread and fail on
-  `recv_timeout`, so the mutant counts as caught.
+  `recv_timeout`, so the mutant counts as caught. A local cargo-mutants baseline build in the
+  dev container may die with `rustc interrupted by SIGSEGV` in a random dependency; run it with
+  `RUST_MIN_STACK=67108864`. A new untracked file needs `git add -N` to enter the copied tree
+  and the `--in-diff` diff.
 - libp2p-kad: a node in `Mode::Auto` answers DHT lookups only after
   `swarm.add_external_address`; test nodes must confirm their listen address. Provider addresses
   live only in the running query, so dial providers while it runs. After `close_connection`, wait
