@@ -87,6 +87,8 @@ fun MainScreen() {
             is Opened.Ready -> {
                 Text(stringResource(R.string.storage_peer_id))
                 Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
+                // The OS gives the app no chance to warn before these erase the key.
+                Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"))
             }
             is Opened.Recovery -> {
                 Text(reasonText(opened.reason), modifier = Modifier.testTag("recovery-reason"))
@@ -162,7 +164,10 @@ private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Un
             val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
             Text(stringResource(copy))
         }
-        Text(stringResource(R.string.remove_warning))
+        // A missing key or another copy means nothing irreplaceable is lost.
+        if (peerId != null && !copies) {
+            Text(stringResource(R.string.remove_warning), Modifier.testTag("remove-warning"))
+        }
         Row(
             Modifier.toggleable(confirmed, role = Role.Checkbox) { confirmed = it }
                 .testTag("remove-confirm"),

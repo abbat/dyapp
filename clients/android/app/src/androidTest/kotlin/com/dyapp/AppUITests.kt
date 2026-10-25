@@ -34,6 +34,7 @@ class AppUITests {
         // The peer ID comes from the Rust core through the UniFFI bindings.
         val peerId = shownPeerId()
         check(Regex("[0-9a-f]{64}").matches(peerId)) { "Unexpected peer ID: $peerId" }
+        compose.onNodeWithTag("os-loss").assertTextEquals(string(R.string.storage_os_loss))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val ownsActiveWindow = {
             instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() ==
@@ -98,6 +99,7 @@ class AppUITests {
         compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.remove_title))
         compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()
+        compose.onNodeWithTag("remove-warning").assertIsDisplayed()
         compose.onNodeWithTag("remove-action").assertIsNotEnabled()
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
         compose.onNodeWithTag("remove-action").performScrollTo().performClick()
@@ -128,6 +130,11 @@ class AppUITests {
             compose.onNodeWithTag("retry").performClick()
             compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_recovery))
             check(!PlatformKeyStore.exists("dyapp-identity-wrap:$id")) { "Retry made a key" }
+            // No key exists, so removing loses nothing and shows no loss warning.
+            compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
+            compose.onNodeWithTag("remove-confirm").assertExists()
+            compose.onNodeWithTag("remove-warning").assertDoesNotExist()
+            compose.onNodeWithTag("remove-cancel").performScrollTo().performClick()
         } finally {
             dir.deleteRecursively()
             slots.setActive(active)

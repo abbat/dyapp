@@ -8,7 +8,9 @@ PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this
 `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
-Remove opens a confirmation screen for the shown identity (see [Remove](#remove)).
+Remove opens a confirmation screen for the shown identity (see [Remove](#remove)). The ready
+screen also says that uninstalling the app or clearing its data erases the key without warning:
+the OS gives the app no chance to warn, and the non-exportable key cannot be backed up yet.
 
 ## Layout
 
@@ -71,7 +73,9 @@ identity.
 ## Remove
 
 Removal follows the desktop rules: the remove screen shows the exact Peer ID, says whether it
-is the last local copy, and enables Remove only after the user ticks the confirmation;
+is the last local copy, warns that removal cannot be undone only when a key would be lost (not
+for a missing key or one another slot also holds), and enables Remove only after the user ticks
+the confirmation;
 `Slots.remove` then refuses a key whose Peer ID differs from the confirmed one. It writes
 `state` = `deleting`, deletes the alias, checks it is gone, deletes `identity.key`, renames the
 directory to `profiles/.<slot>.removed` (which drops it from the list) and deletes it. Removal

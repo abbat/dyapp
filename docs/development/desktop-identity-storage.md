@@ -68,7 +68,8 @@ root `identity.key` / `identity-storage` or `primary` credential readable in pla
 or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
 identity" from the ready or recovery screen. "Remove this identity" on the ready screen
 or a missing, incomplete or deleting recovery screen shows the Peer ID, storage mode, key file
-path, whether it is the last local copy and a no-undo warning; Remove stays disabled until a
+path and whether it is the last local copy; a no-undo warning appears only when a key would be
+lost (not for a missing key or one another slot also holds). Remove stays disabled until a
 confirmation box is ticked. The `remove_identity` command then removes the slot as described
 below and returns to the picker, or to the storage choice when none is left. It refuses the
 legacy slot, which needs the migration below, and a damaged slot, whose files it cannot

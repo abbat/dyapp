@@ -35,6 +35,10 @@ const removeOpened = async (state, mode) => {
     !== (state.peerId || strings[`recovery.${state.reason}`])) throw new Error('wrong Peer ID');
   if (state.peerId && document.getElementById('remove-copies').textContent
     !== strings['remove.lastCopy']) throw new Error('last copy not shown');
+  // The loss warning shows only when this removal erases the last copy of a key.
+  if (document.getElementById('remove-warning').hidden === Boolean(state.peerId)) {
+    throw new Error('loss warning shown when no key is lost, or missing for the last copy');
+  }
   if (!action.disabled) throw new Error('remove enabled before confirmation');
   document.getElementById('remove-confirm').click();
   if (action.disabled) throw new Error('confirmation did not enable remove');

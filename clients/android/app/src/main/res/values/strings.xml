@@ -7,6 +7,7 @@
     <string name="status_recovery">This identity cannot be opened</string>
     <string name="status_error">Identity storage could not be opened</string>
     <string name="storage_peer_id">Your Peer ID</string>
+    <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
     <string name="storage_error">Restart the app. Your identity was not replaced.</string>
     <string name="identity_switch">Switch or add an identity</string>
     <string name="identity_add">Add a new identity</string>

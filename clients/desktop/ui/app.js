@@ -138,6 +138,8 @@ const showRemove = async () => {
   path.querySelector('code').textContent = current.keyPath || '';
   document.getElementById('remove-copies').textContent = !current.peerId ? ''
     : window.strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
+  // A missing key or another copy means nothing irreplaceable is lost.
+  document.getElementById('remove-warning').hidden = !current.peerId || copies;
   removeConfirm.checked = false;
   removeAction.disabled = true;
   show(sections[4], 'remove.title');
