@@ -77,6 +77,31 @@ impl Session {
         &self.scores
     }
 
+    /// Block `contact` (hex Peer ID): record it, sign it no more tokens, and revoke those it holds
+    /// through the first node that answers. The block stays if the revoke fails; call again to
+    /// repeat it.
+    pub async fn block(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        contact: &str,
+    ) -> Result<(), Error> {
+        self.store.set_blocked(contact, true)?;
+        let keys = self
+            .store
+            .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
+        scores::first(&mut self.scores, nodes, Node::peer, async |node| {
+            node.revoke_tokens(device_key, &keys).await
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Unblock `contact`. Revoked keys stay revoked; it gets tokens again for days it asks anew.
+    pub fn unblock(&mut self, contact: &str) -> Result<(), Error> {
+        Ok(self.store.set_blocked(contact, false)?)
+    }
+
     /// Reopen the committed snapshot after a local failure; never reuse the advanced handles.
     pub fn recover(&mut self, seal_key: &[u8; 32]) -> Result<(), Error> {
         self.device = None;

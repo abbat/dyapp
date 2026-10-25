@@ -199,12 +199,21 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
         .unwrap();
     assert_eq!(senders(&mut bob).await, [key.to_vec()]);
 
-    // Bob revokes the key: the refused write is swapped in the outbox and goes tokenless.
-    let bob_store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
+    // Bob blocks Alice: the refused write is swapped in the outbox and goes tokenless.
+    let mut bob_store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
     bob_store
         .record_issued("alice", &bob_mailbox, &key, today)
         .unwrap();
-    tokens::revoke(&mut bob.node, &bob_store, &bob.device_key, "alice", today)
+    bob_store
+        .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
+        .unwrap();
+    let mut bob_session = Session::open(bob_store, &SEAL).unwrap();
+    bob_session
+        .block(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            "alice",
+        )
         .await
         .unwrap();
     session

@@ -30,6 +30,10 @@ default to `limits.require_write_tokens`, so a contact's tokened write passes a 
 tokenless pool a stranger has filled.
 `tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
 device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
+`Session::block` records a local block (store `peers` table), sends that revoke through the
+first node by score and signs the contact no more tokens; a failed revoke keeps the block and can
+be repeated. `Session::unblock` clears the flag only: revoked keys stay revoked, and the contact
+gets tokens again for the days it asks anew.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).

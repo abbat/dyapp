@@ -185,7 +185,7 @@ pub async fn revoke(
 /// Signs the asks in `request` from `contact` (hex Peer ID of a verified group member) that name
 /// this device's mailbox and a day from `today - 1` to `today + AHEAD_DAYS`, records each issued
 /// key, and returns the answers to send, each fitting one envelope. Skips a key this profile
-/// revoked or issued to another contact.
+/// revoked or issued to another contact, and answers nothing to a blocked contact.
 pub fn answer(
     store: &Store,
     device_key: &Identity,
@@ -193,6 +193,9 @@ pub fn answer(
     request: &TokenRequest,
     today: u32,
 ) -> Result<Vec<Body>, Error> {
+    if store.blocked(contact)? {
+        return Ok(Vec::new());
+    }
     let mailbox = crate::mailbox(&device_key.public_key());
     let days = today.saturating_sub(1)..=today.saturating_add(AHEAD_DAYS);
     let mut answers = Vec::new();
@@ -301,6 +304,19 @@ mod tests {
         assert!(answer(&store, &device_key, "bob", &again, today)
             .unwrap()
             .is_empty());
+        // A blocked contact gets no key signed, not even a fresh one.
+        let fresh = TokenRequest {
+            asks: vec![ask(own, today, 6)],
+        };
+        store.set_blocked("bob", true).unwrap();
+        assert!(answer(&store, &device_key, "bob", &fresh, today)
+            .unwrap()
+            .is_empty());
+        store.set_blocked("bob", false).unwrap();
+        assert_eq!(
+            tokens(&answer(&store, &device_key, "bob", &fresh, today).unwrap()).len(),
+            1
+        );
     }
 
     #[test]
