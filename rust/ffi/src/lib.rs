@@ -15,6 +15,8 @@ pub use network::{
     load_network, save_network_draft, CheckError, ConnectionCheck, NetworkFile, NetworkSettings,
     SeedRow,
 };
+mod pin;
+pub use pin::{hash_app_pin, verify_app_pin};
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
 mod strip;
