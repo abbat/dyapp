@@ -1056,8 +1056,8 @@ The current protocol replies are:
   address. Rotating `turn.secret` renews every pseudonym.
   The request is rate-limited like a profile get. Once its routing table has a peer the
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
-  12 hours. Clients find relays with `get_providers` on that key (`dyapp_client::Node::providers`);
-  using them for call ICE is planned.
+  12 hours. Clients find relays with `get_providers` on that key (`dyapp_client::Node::providers`)
+  and ask one for credentials with `dyapp_client::Node::turn`; using them for call ICE is planned.
 - **Profile and mailbox requests are rate-limited** per remote libp2p peer ID and IP group:
   client puts cost five units and other requests one, with mailbox puts also limited per sender
   key (`RATE_LIMITED`); a banned peer is disconnected ([Rate Limiting](#rate-limiting)).

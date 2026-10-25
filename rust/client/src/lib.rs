@@ -15,8 +15,8 @@ pub mod tokens;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
-    self, key_package_request, mailbox_request, media_request, profile_request, search_request,
-    Status,
+    self, key_package_request, mailbox_request, media_request, node_request, profile_request,
+    search_request, Status,
 };
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
 use dyapp_p2p_net::{id_has_pow, id_pow_bits};
@@ -649,6 +649,26 @@ impl Node {
                 .await?,
         )
         .map(drop)
+    }
+
+    /// TURN credentials for a call's ICE servers from a node with the turn role; find such
+    /// nodes with [`Self::providers`] on [`dyapp_p2p_net::TURN_KEY`]. Ask again before `expires`.
+    pub async fn turn(&mut self) -> Result<proto::TurnCredentials, Error> {
+        let request = proto::NodeRequest {
+            request: Some(node_request::Request::Turn(proto::TurnRequest {})),
+        };
+        self.swarm
+            .behaviour_mut()
+            .node
+            .send_request(&self.peer, request);
+        let response = self
+            .wait(|event| match event {
+                BehaviourEvent::Node(event) => reply(event),
+                _ => None,
+            })
+            .await?;
+        ok(response.status)?;
+        response.turn.ok_or(Error::Reply("no TURN credentials"))
     }
 
     // Sends `request` without a puzzle, and once more with a solution when the node asks.
