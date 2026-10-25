@@ -84,18 +84,19 @@ impl Store {
         let Some((format, value)) = value else {
             return Ok(State::default());
         };
-        if format != 1 || value.len() < 16 {
+        if format != 1 {
             return Err(Error::InvalidSetting);
         }
-        let (times, record) = value.split_at(16);
+        let (last_sent, rest) = value.split_first_chunk().ok_or(Error::InvalidSetting)?;
+        let (hold_until, record) = rest.split_first_chunk().ok_or(Error::InvalidSetting)?;
         let pending = if record.is_empty() {
             None
         } else {
             Some(SignedRecord::decode(record).map_err(|_| Error::InvalidSetting)?)
         };
         Ok(State {
-            last_sent: u64::from_be_bytes(times[..8].try_into().unwrap()),
-            hold_until: u64::from_be_bytes(times[8..].try_into().unwrap()),
+            last_sent: u64::from_be_bytes(*last_sent),
+            hold_until: u64::from_be_bytes(*hold_until),
             pending,
         })
     }
@@ -107,7 +108,7 @@ impl Store {
         ]
         .concat();
         if let Some(record) = &state.pending {
-            record.encode(&mut value).expect("a Vec grows");
+            value.extend(record.encode_to_vec());
         }
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
