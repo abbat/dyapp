@@ -31,6 +31,19 @@ impl Store {
         body: &Body,
         wall_ms: u64,
     ) -> Result<bool, Error> {
+        let tx = self.db.transaction()?;
+        let changed = Self::apply_chat_operation_tx(&tx, key, device, body, wall_ms)?;
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    pub(super) fn apply_chat_operation_tx(
+        tx: &Transaction<'_>,
+        key: &MessageKey,
+        device: &[u8],
+        body: &Body,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
         let (target, operation, hlc, replacement) = match body {
             Body::Edit {
                 target,
@@ -53,11 +66,10 @@ impl Store {
         {
             return Err(Error::InboxConflict);
         }
-        // Reject future events before opening a write transaction or changing any state.
+        // Reject future events before changing any durable state.
         HybridClock::new().observe_at(Timestamp::from(hlc), wall_ms)?;
         let hlc = i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
         let digest = sha256(&body.encode());
-        let tx = self.db.transaction()?;
         let row: Option<OrderRow> = tx
             .query_row(
                 "SELECT `deleted`, `original_digest`, `last_hlc`, `last_device`, `last_operation`
@@ -126,13 +138,11 @@ impl Store {
                     params![&key.group, &key.author, key.id.as_slice()],
                 )?;
             }
-            tx.commit()?;
             return Ok(true);
         }
         let (deleted, _, last_hlc, last_device, last_operation) =
             row.ok_or(Error::InboxConflict)?;
         if deleted == 1 {
-            tx.commit()?;
             return Ok(false);
         }
         if deleted != 0 {
@@ -148,7 +158,6 @@ impl Store {
                 (hlc, device, operation.as_slice()) <= (*h, d.as_slice(), o.as_slice())
             })
         {
-            tx.commit()?;
             return Ok(false);
         }
         match replacement {
@@ -180,7 +189,6 @@ impl Store {
                 ],
             )?,
         };
-        tx.commit()?;
         Ok(true)
     }
 }

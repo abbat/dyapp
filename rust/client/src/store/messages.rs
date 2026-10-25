@@ -1,10 +1,12 @@
 //! Current chat text projection. Inbox envelope IDs remain a separate transport dedupe key.
 
-use super::{Error, Store};
-use crate::chat::MAX_TEXT_BYTES;
+use super::{Error, InboxKey, InboxKind, Store};
+use crate::chat::{Body, MAX_TEXT_BYTES};
 use dyapp_identity::sha256;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
 
+#[cfg(test)]
+mod inbound_tests;
 mod operations;
 
 // This table is part of the fresh pre-release schema; no migration/version bump is needed.
@@ -52,6 +54,17 @@ pub struct MessageKey {
     pub id: [u8; 16],
 }
 
+/// Sender metadata that the caller verified through MLS before staging a chat body.
+#[derive(Clone, Copy)]
+pub struct VerifiedChatSender<'a> {
+    /// Group ID from the processed MLS application message.
+    pub group: &'a [u8],
+    /// Verified sender Peer ID.
+    pub author: &'a str,
+    /// Verified sender device key used for operation ordering.
+    pub device: &'a [u8],
+}
+
 /// The sole current content of one message; prior revisions are not app history.
 #[derive(Clone, PartialEq, Eq)]
 pub struct CurrentMessage {
@@ -64,6 +77,51 @@ pub struct CurrentMessage {
 }
 
 impl Store {
+    /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
+    /// The inbox retains only a body digest, never a second copy of chat text.
+    pub fn stage_chat_inbound(
+        &mut self,
+        sealed_device: &[u8],
+        inbox: &InboxKey,
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        let id = match body {
+            Body::Text { id, .. } => id,
+            Body::Edit { target, .. } | Body::Delete { target, .. } => target,
+            _ => return Err(Error::InboxConflict),
+        };
+        if sender.group.is_empty() || sender.author.is_empty() || sender.device.len() != 32 {
+            return Err(Error::InboxConflict);
+        }
+        let key = MessageKey {
+            group: sender.group.to_vec(),
+            author: sender.author.to_owned(),
+            id: *id,
+        };
+        let digest = sha256(&body.encode());
+        self.stage_inbound_with(
+            sealed_device,
+            inbox,
+            InboxKind::Message,
+            &digest,
+            None,
+            |tx| {
+                match body {
+                    Body::Text { text, .. } => {
+                        Self::record_chat_text_tx(tx, &key, text)?;
+                    }
+                    Body::Edit { .. } | Body::Delete { .. } => {
+                        Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?;
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(())
+            },
+        )
+    }
+
     /// Read one logical message from this profile's current projection.
     pub fn chat_message(&self, key: &MessageKey) -> Result<Option<CurrentMessage>, Error> {
         let row: Option<(Option<Vec<u8>>, i64, i64)> = self
@@ -94,11 +152,21 @@ impl Store {
     /// Store first text once. A repeated body is harmless; a different body with the same
     /// logical key is a conflict. The caller has already verified the author through MLS.
     pub fn record_chat_text(&mut self, key: &MessageKey, text: &[u8]) -> Result<bool, Error> {
+        let tx = self.db.transaction()?;
+        let changed = Self::record_chat_text_tx(&tx, key, text)?;
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    pub(super) fn record_chat_text_tx(
+        tx: &Transaction<'_>,
+        key: &MessageKey,
+        text: &[u8],
+    ) -> Result<bool, Error> {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(Error::InboxConflict);
         }
         let digest = sha256(text);
-        let tx = self.db.transaction()?;
         let saved: Option<Option<Vec<u8>>> = tx
             .query_row(
                 "SELECT `original_digest` FROM `chat_messages`
@@ -127,8 +195,7 @@ impl Store {
                         digest.as_slice()
                     ],
                 )?;
-                operations::resolve_pending(&tx, key, true)?;
-                tx.commit()?;
+                operations::resolve_pending(tx, key, true)?;
                 Ok(false)
             }
             None => {
@@ -137,8 +204,7 @@ impl Store {
                      VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
                     params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice()],
                 )?;
-                operations::resolve_pending(&tx, key, false)?;
-                tx.commit()?;
+                operations::resolve_pending(tx, key, false)?;
                 Ok(true)
             }
         }
