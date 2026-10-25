@@ -77,7 +77,8 @@ impl Store {
 
     /// Apply an event `sender` sent to this profile from `device` after the 60-second
     /// future-skew guard; a rejected timestamp changes nothing. A view is recorded for its UTC
-    /// day whatever the local send setting. Returns what [`Self::apply_interaction`] returns.
+    /// day whatever the local send setting. Returns what [`Self::apply_interaction`] returns;
+    /// an event from a blocked sender is dropped, clock included, and returns false.
     pub fn receive_interaction(
         &mut self,
         sender: &str,
@@ -85,6 +86,9 @@ impl Store {
         event: Interaction,
         wall_ms: u64,
     ) -> Result<bool, Error> {
+        if self.blocked(sender)? {
+            return Ok(false);
+        }
         let tx = self.db.transaction()?;
         let hlc = Timestamp::from(event.hlc);
         let clock = HybridClock::resume(load_hlc(&tx)?);
@@ -437,6 +441,26 @@ mod tests {
             own(&mut store, &b, Kind::Like, 2_000).unwrap().hlc,
             hlc(61_000, 2)
         );
+    }
+
+    #[test]
+    fn a_blocked_sender_changes_nothing() {
+        let alice = Identity::generate();
+        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        store.set_blocked(&b, true).unwrap();
+        let like = event(Kind::Like, 1, hlc(5_000, 0));
+        assert!(!store.receive_interaction(&b, b"b1", like, 5_000).unwrap());
+        let view = event(Kind::View, 2, hlc(5_000, 0));
+        assert!(!store.receive_interaction(&b, b"b1", view, 5_000).unwrap());
+        assert_eq!(store.likes(&b).unwrap(), Likes::default());
+        assert!(!store.viewed_on(&b, &a, 5_000).unwrap());
+        assert_eq!(
+            own(&mut store, &b, Kind::Like, 1_000).unwrap().hlc,
+            hlc(1_000, 0)
+        );
+        store.set_blocked(&b, false).unwrap();
+        assert!(store.receive_interaction(&b, b"b1", like, 5_000).unwrap());
     }
 
     #[test]

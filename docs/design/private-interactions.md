@@ -105,4 +105,5 @@ created only when view sending is on and none went to that peer on the HLC's UTC
 returns `None` and changes nothing. The caller sends the returned event and retries those bytes.
 `Store::receive_interaction` observes a received HLC with the 60-second future-skew guard first,
 so a rejected timestamp changes nothing, then applies it and records a received view's UTC day
-whatever the send setting. `Store::viewed_on` reads those `view_days` records for both directions.
+whatever the send setting. An event from a peer this profile blocked is dropped before its HLC
+is observed. `Store::viewed_on` reads those `view_days` records for both directions.
