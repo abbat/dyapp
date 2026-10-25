@@ -15,6 +15,10 @@
       overflow-wrap: anywhere;
     }
     #identities { list-style: none; padding: 0; }
+    #network { text-align: start; }
+    #network label { display: block; margin-top: 1rem; }
+    #seeds, #network-name { box-sizing: border-box; width: 100%; font: inherit; }
+    #seed-rows { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -35,6 +39,19 @@
         <p data-i18n="storage.file.backup"></p>
         <p><code id="key-path"></code></p>
       </div>
+      <form id="network" novalidate>
+        <h2 data-i18n="network.title"></h2>
+        <label for="seeds" data-i18n="network.seeds"></label>
+        <textarea id="seeds" rows="3" spellcheck="false"></textarea>
+        <label for="network-name" data-i18n="network.name"></label>
+        <input id="network-name" spellcheck="false">
+        <button id="check-connection" type="submit" data-i18n="network.check"></button>
+        <button id="cancel-check" type="button" data-i18n="network.cancel" hidden></button>
+        <button id="continue-connection" type="button" data-i18n="network.continue"
+          disabled></button>
+        <p id="network-status" role="status"></p>
+        <ol id="seed-rows"></ol>
+      </form>
     </section>
     <section id="picker" hidden>
       <ul id="identities"></ul>

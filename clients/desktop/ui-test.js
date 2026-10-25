@@ -46,6 +46,28 @@ const removeOpened = async (state, mode) => {
   await waitFor('picker');
   await pickReady(mode);
 };
+// Nothing listens on port 1, so that row is refused at once; `seed` has no port.
+const testSeeds = '127.0.0.1:1\nseed';
+const submitCheck = async (rows) => {
+  const { strings } = window;
+  document.getElementById('seeds').value = rows;
+  document.getElementById('check-connection').click();
+  await window.connectionChecked;
+  const status = document.getElementById('network-status').textContent;
+  return status === strings['network.empty'] ? 'empty'
+    : [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status);
+};
+// An empty list is refused, then a refused and a malformed row keep Continue disabled.
+const checkNetwork = async () => {
+  if (await submitCheck('') !== 'empty') throw new Error('empty list not reported');
+  const rows = await submitCheck(testSeeds);
+  if (rows.join() !== 'unreachable,invalidAddress') throw new Error(`rows ${rows}`);
+  if (document.getElementById('network-status').textContent
+    !== window.strings['network.invalidAddress']) throw new Error('row problem not summarized');
+  if (!document.getElementById('continue-connection').disabled) {
+    throw new Error('continue enabled without a connected node');
+  }
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -68,6 +90,14 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await pickReady(mode);
     } else if (step === 'remove') {
       await removeOpened(state, mode);
+    } else if (step === 'network') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkNetwork();
+    } else if (step === 'network-restart') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
+      if (document.getElementById('network-status').textContent
+        !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

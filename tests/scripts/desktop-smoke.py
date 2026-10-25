@@ -154,6 +154,21 @@ def smoke(executable):
                 profile) != peer_id:
             raise RuntimeError("legacy key changed Peer ID")
 
+    def network(profile):
+        """Failed checks keep the draft but never activate it."""
+        file = ["--ui-test-file"]
+        peer_id = case("network-create", file, profile)
+        case("network-check", [*file, "--ui-test-step=network"], profile)
+        slot = (Path(profile) / "active-profile").read_text().strip()
+        folder = Path(profile) / "profiles" / slot
+        if not (folder / "network-draft").is_file():
+            raise RuntimeError("the checked draft was not saved")
+        if (folder / "network").exists():
+            raise RuntimeError("a failed check activated the draft")
+        if case("network-restart", [*file, "--ui-test-step=network-restart"],
+                profile) != peer_id:
+            raise RuntimeError("the network step replaced the identity")
+
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             flags = ["--ui-test-file"] if mode == "file" else []
@@ -164,6 +179,8 @@ def smoke(executable):
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
             (legacy if mode == "file" else mixed)(profile, peer_id)
+    with tempfile.TemporaryDirectory(dir=reports) as profile:
+        network(profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:

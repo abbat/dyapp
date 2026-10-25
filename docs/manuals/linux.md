@@ -3,6 +3,15 @@
 The `dyapp` desktop client for Linux is a WebKitGTK window. This first version is a minimal shell:
 it starts, renders and closes. Profiles, search and chats in the window are planned.
 
+## Connect to a network
+
+After the identity opens, enter the bootstrap nodes you were given, one `host:port` per line
+(IPv6 in brackets, optionally `/<peer ID>` to pin the node), and the network name, blank for the
+public network. **Check connection** saves the rows and dials each one; every row shows its own
+result, and **Continue** turns on only when at least one node of that network answered. Continue
+makes these the active settings. The rows and settings belong to the open identity and stay in its
+folder; checking never changes the identity key.
+
 ## Build
 
 ```sh
