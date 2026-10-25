@@ -8,6 +8,8 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+pub mod safety;
+
 /// Why a signed record or key was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
