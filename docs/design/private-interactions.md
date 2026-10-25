@@ -1,8 +1,10 @@
 # Private interaction signals
 
 This is the planned client contract for [private likes and views](../decisions/0012-private-p2p-interactions.md).
-The bootstrap signal class and quota, the client plaintext codec, the local like/unlike ledger, the
-own-event clock and view-day records exist; signal mailbox delivery and UI do not.
+The bootstrap signal class and quota, client plaintext codec, persisted like/unlike ledger,
+own-event clock and view-day records exist. `Session::interact` and `Session::receive` send and
+apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
+unlike, replay, offline retry and daily view. App UI and own-device event sync do not exist.
 
 ## Wire contract
 
@@ -89,9 +91,11 @@ an unnecessary preference signal.
    day. A recipient can receive a view regardless of its own send setting.
 
 The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
-and `Session::receive` connect the codec, the store and short-padded signal delivery; a protocol
-test covers a match, an unlike, a replayed put, an offline retry and the daily view end to end. Concurrent own devices (fixture 5) wait for device sync, and
-no app shows a like yet.
+and `Session::receive` connect the codec, store and short-padded signal delivery; the protocol
+test covers match, unlike, replayed put, offline retry and daily view. Concurrent own devices
+(fixture 5) wait for device sync, and no app shows a like yet. `Session::interact` currently commits
+the local event before staging its encrypted outbox write; a crash between those commits can leave
+a local-only like or unlike. That durability gap remains before the full delivery contract is complete.
 
 `rust/client::store::Store::apply_interaction` (schema version 4) covers the local state part of
 fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded

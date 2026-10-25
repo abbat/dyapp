@@ -31,7 +31,8 @@ keep likes, view history or matching preferences private, or enforce rules such 
 - **Multiple profiles are separate identities:** each has its own identity key
   ([ADR 0004](0004-identity-keys.md)), they are not linked to each other, and each has its own
   conversations.
-- **Age is self-declared.** The client refuses users under 18 in its UI; 30+ is the target audience,
+- **Birth-date parts are self-declared.** The planned client requires an 18+ attestation and,
+  when a year is given, checks the youngest possible age; 30+ is the target audience,
   not a rule. Nothing can enforce either on the network.
 - **Moderation in v1 is local:** block and mute on the device, and a node operator may refuse to
   store any content. Network-wide weighted voting comes only after the Sybil-resistance work
@@ -51,7 +52,8 @@ keep likes, view history or matching preferences private, or enforce rules such 
   network.
 - Age, income and every other field are claims, not facts; the UI must not present them as
   verified (verification is low priority).
-- Implemented in the bootstrap: the signal class and the per-mailbox signal quota
-  ([bootstrap](../architecture/bootstrap.md#limits-and-abuse)). Not implemented: the client that
-  sends likes and views. The planned client state and replay rules are in the
+- The bootstrap implements the signal class and per-mailbox quota
+  ([bootstrap](../architecture/bootstrap.md#limits-and-abuse)). The Rust client implements the
+  interaction codec, local state and encrypted mailbox send/receive path. App UI and own-device
+  sync remain planned; the known outbox atomicity gap and replay rules are in the
   [private interaction design](../design/private-interactions.md).

@@ -37,10 +37,10 @@ gets tokens again for the days it asks anew.
 On receive, a blocked owner's Welcome is refused, and its messages advance MLS state and are
 acknowledged but get no history, receipt or token answer; its likes and views are dropped too.
 `search::search` takes `Store::blocked_peers` and neither fetches nor returns their profiles.
-The planned like and introduction signals need shorter plaintext padding than ordinary chat;
-the measured envelope sizes and 1 KiB limit are documented under
+Like signals use shorter plaintext padding than ordinary chat. Introductions remain planned.
+The measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
-The planned like, unlike and view payload and match state are specified in the
+The like, unlike and view payload and match state are specified in the
 [private interaction design](../design/private-interactions.md).
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
@@ -88,8 +88,7 @@ No app shows a like yet.
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
-default of no view signals; the schema also reserves inbox, outbox and MLS state tables that no
-chat operation uses yet. See the [client storage design](../design/client-local-storage.md).
+default of no view signals. See the [client storage design](../design/client-local-storage.md).
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
