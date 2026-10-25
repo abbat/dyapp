@@ -136,11 +136,7 @@ impl SearchIndex {
             return Ok(Err(()));
         }
         let mut filters = Vec::new();
-        let birth_age_ready = self.index_version() >= 5;
         for c in conditions {
-            if c.field == BIRTH_AGE && !birth_age_ready {
-                continue;
-            }
             match filter(c) {
                 Ok(Some(f)) => filters.push(f),
                 Ok(None) => {}

@@ -11,7 +11,7 @@ use crate::{
     media::{Attached, MediaStore, Put},
     pow::PowCheck,
     rate_limit::{Memory, PeerRateLimiter, Reputation, Traffic},
-    search::{SearchIndex, BIRTH_AGE, SEARCH_FIELDS},
+    search::{SearchIndex, SEARCH_FIELDS},
     BootstrapError, BootstrapStore, NodeConfig,
 };
 use dyapp_identity::{Domain, SignedRecord};
@@ -458,12 +458,8 @@ impl Service {
             mailbox_pool_bytes: if store { self.mailbox_pool() } else { 0 },
             require_write_tokens: store && self.config.limits.require_write_tokens,
             retention_seconds: if store { self.retention() } else { 0 },
-            search_fields: if let Some(index) = &self.search {
-                let mut fields = SEARCH_FIELDS.to_vec();
-                if index.index_version() < 5 {
-                    fields.retain(|&field| field != BIRTH_AGE);
-                }
-                fields
+            search_fields: if self.search.is_some() {
+                SEARCH_FIELDS.to_vec()
             } else {
                 vec![]
             },

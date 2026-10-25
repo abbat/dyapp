@@ -14,8 +14,8 @@ use std::sync::Mutex;
 
 /// Gossip topics of the search index (`/dyapp/profiles/<n>`).
 pub const SEARCH_TOPICS: u32 = 16;
-/// Index format version, reported in search replies.
-pub const INDEX_VERSION: u32 = 5;
+/// Pre-release index format; keep at 1 through v0.0.1.
+pub const INDEX_VERSION: u32 = 1;
 /// Least seconds between indexed versions of one key.
 pub const UPDATE_SECONDS: i64 = 600;
 /// Heartbeats of one key accepted per UTC day.
@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS `key_topic` ON `key` (`topic`, `key`);
 CREATE TABLE IF NOT EXISTS `digest` (`topic` INTEGER, `bucket` INTEGER, `hash` BLOB,
   PRIMARY KEY (`topic`, `bucket`)) WITHOUT ROWID;
 ";
-const STEPS: &[Step] = &[counts::newcomers_and_places, counts::birth_bounds];
+const STEPS: &[Step] = &[counts::newcomers_and_places];
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
 pub fn topic(key: &[u8; 32]) -> u32 {

@@ -66,6 +66,7 @@ fn virtual_age_condition_contains_the_whole_birth_interval() {
         (Some(2000), Some(2), Some(29), 0),
         (Some(2001), None, None, 0),
         (None, None, None, 26),
+        (None, Some(2), Some(29), 0),
     ] {
         let profile = Profile {
             version: 1,

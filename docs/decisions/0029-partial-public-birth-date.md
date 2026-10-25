@@ -66,5 +66,6 @@ precisely than an age or year.
 ## Consequences
 
 The three optional fields, validation and age-bound helper are implemented.
-The temporary integer age field, search index version, client predicate and UI
-remain to be updated. This unreleased prototype needs no compatibility migration.
+The search index version is reset to 1 with no birth-date migration. The
+temporary integer age field, client predicate and UI remain to be updated.
+This unreleased prototype needs no compatibility migration.
