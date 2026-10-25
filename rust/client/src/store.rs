@@ -311,12 +311,25 @@ impl Store {
         writes: &[PreparedEnvelope],
         awaits_receipt: bool,
     ) -> Result<(), Error> {
+        let tx = self.db.transaction()?;
+        Self::stage_outbound_tx(&tx, group, sealed_device, writes, awaits_receipt)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Stage the sealed MLS snapshot and exact writes inside a caller-owned transaction.
+    fn stage_outbound_tx(
+        tx: &rusqlite::Transaction<'_>,
+        group: Option<(&[u8], &str)>,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+        awaits_receipt: bool,
+    ) -> Result<(), Error> {
         if sealed_device.is_empty() {
             return Err(Error::EmptyMlsState);
         }
-        let tx = self.db.transaction()?;
         if let Some((group_id, peer_id)) = group {
-            catalog(&tx, group_id, peer_id)?;
+            catalog(tx, group_id, peer_id)?;
         }
         tx.execute(
             "INSERT INTO `mls_state` (`slot`, `sealed`, `revision`) VALUES (1, ?1, 1)
@@ -347,7 +360,6 @@ impl Store {
                 }
             }
         }
-        tx.commit()?;
         Ok(())
     }
 

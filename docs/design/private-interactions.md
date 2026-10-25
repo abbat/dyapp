@@ -113,3 +113,8 @@ returns `None` and changes nothing. The caller sends the returned event and retr
 so a rejected timestamp changes nothing, then applies it and records a received view's UTC day
 whatever the send setting. An event from a peer this profile blocked is dropped before its HLC
 is observed. `Store::viewed_on` reads those `view_days` records for both directions.
+
+`Store::draft_interaction` can choose an event without changing durable state.
+`Store::stage_interaction` then commits that event, HLC, like/view state, sealed MLS snapshot and
+exact outbound writes in one transaction; a failure rolls them all back. `Session::interact` still
+uses the older two-commit path until the session integration is switched.

@@ -1,6 +1,6 @@
 # Client local storage design
 
-The Rust client currently keeps MLS state and mailbox work in memory. This design gives each
+The Rust client keeps active MLS handles in memory and seals them to SQLite. This design gives each
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
@@ -9,7 +9,9 @@ schema and migrates versions 1 to 6 in place after checking the identity binding
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
-retries. Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
+retries. It also has a transactional API for an own interaction event, its HLC, like/view state,
+sealed MLS snapshot and exact outbox writes; the session has not switched to that API yet.
+Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
 `Session::receive` uses them for one-to-one chat and sends delivery receipts; the app does not
 call the session yet.
 

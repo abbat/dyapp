@@ -2,8 +2,9 @@
 
 use super::{Error, Store};
 use crate::interactions::{Interaction, Kind};
+use crate::PreparedEnvelope;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 const DAY_MS: u64 = 86_400_000;
 const HLC_KEY: &str = "interaction_hlc";
@@ -25,6 +26,66 @@ impl Likes {
 }
 
 impl Store {
+    /// Choose an event without changing the store. The caller encrypts this exact event, then
+    /// commits it with the sealed MLS state and prepared outbound writes via [`Self::stage_interaction`].
+    /// A disabled or already-sent daily view returns `None`.
+    pub fn draft_interaction(
+        &self,
+        target: &str,
+        kind: Kind,
+        wall_ms: u64,
+    ) -> Result<Option<Interaction>, Error> {
+        if target == self.owner_peer_id {
+            return Err(Error::InteractionConflict);
+        }
+        if kind == Kind::View && !self.send_profile_views()? {
+            return Ok(None);
+        }
+        let hlc = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
+        if kind == Kind::View && self.viewed_on(&self.owner_peer_id, target, hlc.wall_ms())? {
+            return Ok(None);
+        }
+        let mut event_id = [0; 16];
+        getrandom::fill(&mut event_id).map_err(|_| Error::Random)?;
+        Ok(Some(Interaction {
+            kind,
+            event_id,
+            hlc: hlc.into(),
+        }))
+    }
+
+    /// Commit an own event and the exact encrypted outbound signal in one transaction. A stale
+    /// draft, duplicate daily view or failed outbox write leaves every local state unchanged.
+    pub fn stage_interaction(
+        &mut self,
+        target: &str,
+        device: &[u8],
+        event: Interaction,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
+        if target == self.owner_peer_id
+            || writes.is_empty()
+            || (event.kind == Kind::View && !self.send_profile_views()?)
+        {
+            return Err(Error::InteractionConflict);
+        }
+        let tx = self.db.transaction()?;
+        let hlc = Timestamp::from(event.hlc);
+        if hlc <= load_hlc(&tx)? {
+            return Err(Error::InteractionConflict);
+        }
+        let owner = self.owner_peer_id.as_str();
+        if event.kind == Kind::View && !record_view(&tx, owner, target, hlc)? {
+            return Err(Error::InteractionConflict);
+        }
+        save_hlc(&tx, hlc)?;
+        Self::apply(&tx, owner, owner, target, device, event)?;
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Apply one verified like, unlike or view exactly once. Exactly one of `sender` and `target`
     /// must be this profile. The latest like state per direction is ordered by
     /// `(HLC, device, event ID)`, so an unlike stays a tombstone against an older like.
@@ -201,8 +262,8 @@ impl Store {
 }
 
 /// The last own or observed interaction HLC; absent means zero.
-fn load_hlc(tx: &Transaction<'_>) -> Result<Timestamp, Error> {
-    let value: Option<(i64, Vec<u8>)> = tx
+fn load_hlc(db: &Connection) -> Result<Timestamp, Error> {
+    let value: Option<(i64, Vec<u8>)> = db
         .query_row(
             "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
             [HLC_KEY],
@@ -251,8 +312,11 @@ mod tests {
     use crate::interactions::{Interaction, Kind};
     use crate::store::tests::temp_db_path;
     use crate::store::{Error, Store};
-    use dyapp_identity::Identity;
+    use crate::{prepare_put, PreparedEnvelope};
+    use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
+    use dyapp_p2p_net::proto;
+    use prost::Message as _;
     use rusqlite::Connection;
 
     fn event(kind: Kind, id: u8, hlc: u64) -> Interaction {
@@ -313,6 +377,84 @@ mod tests {
         assert!(store.likes(&b).unwrap().matched());
         assert!(!put(&mut store, &b, &a, b"b1", event(Kind::View, 8, 99)));
         assert!(store.likes(&b).unwrap().matched());
+    }
+
+    #[test]
+    fn staged_interaction_rolls_back_with_outbox_and_survives_restart() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let bob = Identity::generate().peer_id();
+        let mut store = Store::open(&path, &alice).unwrap();
+        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+        let first = store
+            .draft_interaction(&bob, Kind::Like, 1_000)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            store.stage_interaction(&bob, b"device", first, b"", std::slice::from_ref(&write)),
+            Err(Error::EmptyMlsState)
+        ));
+        assert!(!store.likes(&bob).unwrap().ours);
+        assert!(store.due_outbound(0).unwrap().is_empty());
+        assert!(store.sealed_device().unwrap().is_none());
+        let retry = store
+            .draft_interaction(&bob, Kind::Like, 1_000)
+            .unwrap()
+            .unwrap();
+        assert_eq!(retry.hlc, first.hlc);
+        store
+            .stage_interaction(
+                &bob,
+                b"device",
+                retry,
+                b"sealed",
+                std::slice::from_ref(&write),
+            )
+            .unwrap();
+        let unlike = store
+            .draft_interaction(&bob, Kind::Unlike, 1_000)
+            .unwrap()
+            .unwrap();
+        let record = SignedRecord::decode(write.as_bytes()).unwrap();
+        let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
+        envelope.ciphertext = vec![9];
+        let conflicting = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
+        assert!(matches!(
+            store.stage_interaction(&bob, b"device", unlike, b"changed", &[conflicting]),
+            Err(Error::OutboxConflict)
+        ));
+        assert!(store.likes(&bob).unwrap().ours);
+        assert_eq!(store.sealed_device().unwrap(), Some(b"sealed".to_vec()));
+        assert_eq!(
+            store
+                .draft_interaction(&bob, Kind::Unlike, 1_000)
+                .unwrap()
+                .unwrap()
+                .hlc,
+            unlike.hlc
+        );
+        drop(store);
+
+        let mut store = Store::open(&path, &alice).unwrap();
+        assert!(store.likes(&bob).unwrap().ours);
+        assert_eq!(store.sealed_device().unwrap(), Some(b"sealed".to_vec()));
+        assert_eq!(
+            store.due_outbound(0).unwrap()[0].as_bytes(),
+            write.as_bytes()
+        );
+        assert!(
+            store
+                .draft_interaction(&bob, Kind::Like, 1_000)
+                .unwrap()
+                .unwrap()
+                .hlc
+                > retry.hlc
+        );
+        assert!(matches!(
+            store.stage_interaction(&bob, b"device", retry, b"sealed", &[write]),
+            Err(Error::InteractionConflict)
+        ));
     }
 
     #[test]
