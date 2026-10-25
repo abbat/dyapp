@@ -646,7 +646,12 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .retry_due(&mut alice.node, now_ms, &alice_key)
         .await
         .unwrap();
-    assert!(alice_session.due_outbound(i64::MAX).unwrap().is_empty());
+    // Accepted, it waits an hour for Bob's receipt before the next put.
+    assert!(alice_session
+        .due_outbound(now_ms + 3_599_999)
+        .unwrap()
+        .is_empty());
+    assert_eq!(alice_session.due_outbound(i64::MAX).unwrap().len(), 1);
 
     // A failed local commit sends nothing and needs the saved snapshot reopened.
     break_mls_writes(&alice_path);
@@ -700,14 +705,23 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     );
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
-    // Accepted writes left the outbox; a repeated put of the exact Welcome shows nothing twice.
+    // Bob's receipt drops the Welcome from Alice's outbox; a repeated put of the exact Welcome
+    // shows nothing twice.
     drop(alice_session);
     let mut alice_session = Session::open(
         Store::open(&alice_path, &alice.identity).unwrap(),
         &alice_key,
     )
     .unwrap();
-    assert!(alice_session.due_outbound(i64::MAX).unwrap().is_empty());
+    alice_session
+        .receive(&mut alice.node, &alice.device_key, &profiles, &alice_key)
+        .await
+        .unwrap();
+    assert!(alice_session
+        .due_outbound(i64::MAX)
+        .unwrap()
+        .iter()
+        .all(|write| write.id() != writes[0].id()));
     alice.node.put_prepared(&writes[0]).await.unwrap();
     drop(bob_session);
     let mut bob_session =

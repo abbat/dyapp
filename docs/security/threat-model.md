@@ -257,7 +257,7 @@ clients score the nodes they use and cross-check their mailbox at a second repli
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
-| The accepting node drops an envelope or claims two holders it does not have | `mailbox.put` | High × high | Fix: the recipient answers with a delivery receipt inside MLS; without it in time the sender's retry queue resends through another replica key and the node loses client reputation |
+| The accepting node drops an envelope or claims two holders it does not have | `mailbox.put` | High × high | ⚠️ Partial: `Session::receive` answers with a delivery receipt inside MLS, and without it the sender's outbox resends 1 h after acceptance, then up to a day apart, for 30 days. Planned: resend through another replica key and lower the node's client reputation |
 | A node hides part of a mailbox from its owner | `mailbox.fetch` | High × high | In place in `rust/client`: `chat::cross_check` fetches from one node and from a node of another replica key on an MLS gap and once a day, and an envelope only the second holds counts against the first ([messaging](../architecture/messaging.md#mailbox-delivery--planned)). Fix: the app calling it on that schedule is planned with the client store |
 | A node refuses one user | put, fetch, get | High × medium | Fix: the client moves to another replica key ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)) |
 | A node serves an older signed profile | `profile.get` | High × medium | Fix: the client keeps the newest version seen and asks several replicas ([above](#mitm-and-key-verification)) |

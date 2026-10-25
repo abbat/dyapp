@@ -97,20 +97,6 @@ impl Store {
             [now_ms.saturating_sub(GIVE_UP_MS)],
         )?)
     }
-
-    /// Drop a write the node accepted.
-    pub fn remove_outbound(&self, write: &PreparedEnvelope) -> Result<(), Error> {
-        let changed = self.db.execute(
-            "DELETE FROM `outbox`
-             WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `signed_envelope` = ?3",
-            params![
-                write.mailbox().as_slice(),
-                write.id().as_slice(),
-                write.as_bytes()
-            ],
-        )?;
-        exactly_one(changed)
-    }
 }
 
 fn exactly_one(changed: usize) -> Result<(), Error> {
@@ -129,7 +115,7 @@ mod tests {
     use dyapp_identity::Identity;
 
     #[test]
-    fn failed_writes_back_off_and_accepted_ones_leave() {
+    fn failed_writes_back_off_up_to_an_hour() {
         let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         let write = prepare_put(&[1; 32], vec![9]).unwrap();
         store
@@ -148,10 +134,9 @@ mod tests {
         assert!(store.due_outbound(now + 3_599_999).unwrap().is_empty());
         assert_eq!(store.due_outbound(now + 3_600_000).unwrap().len(), 1);
 
-        store.remove_outbound(&write).unwrap();
-        assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
+        let other = prepare_put(&[1; 32], vec![8]).unwrap();
         assert!(matches!(
-            store.remove_outbound(&write),
+            store.schedule_retry(&other, now),
             Err(Error::OutboxConflict)
         ));
     }

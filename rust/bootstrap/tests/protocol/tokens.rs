@@ -209,7 +209,13 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     let sent = senders(&mut bob).await;
     assert_eq!(sent.len(), 1);
     assert_ne!(sent[0], key.to_vec());
-    assert!(session.due_outbound(i64::MAX).unwrap().is_empty());
+    // Both accepted writes wait for Bob's receipt and are not due yet.
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    assert!(session.due_outbound(now_ms).unwrap().is_empty());
+    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
 }
 
 async fn receive(

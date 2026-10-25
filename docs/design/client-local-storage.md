@@ -10,8 +10,8 @@ per-profile view-sending choice, local pass history, group ID catalog and like/u
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
 retries. Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
-`Session::receive` uses them for one-to-one chat; the app does not call the session yet, and
-delivery receipts remain planned.
+`Session::receive` uses them for one-to-one chat and sends delivery receipts; the app does not
+call the session yet.
 
 ## Ownership and location
 

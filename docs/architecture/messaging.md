@@ -17,8 +17,8 @@ ack, so the client seals the state first. The app does not use it yet. See
 [Encryption & Security Status](../security/encryption.md).
 `prepare_put` can sign a mailbox write before network activity and return exact bytes, mailbox
 and ID. `PreparedEnvelope::from_bytes` verifies a stored copy; `Node::put_prepared` reuses that
-record on retry. `Node::put` still prepares and sends in one call for existing callers. Receipt
-handling remains planned. `prepare_tokened_put` carries a held
+record on retry. `Node::put` still prepares and sends in one call for existing callers.
+`prepare_tokened_put` carries a held
 WriteToken and signs with its token key instead of a one-off key. `tokens::send` uses today's
 held token, resends tokenless on DENIED, and on STALE tries tomorrow's token, then tokenless.
 `Session::send_message` stages writes with today's held token the same way; a refused one is
@@ -63,18 +63,21 @@ chat operation uses yet. See the [client storage design](../design/client-local-
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
 on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1 to -4 database migrates to version 5 after its identity binding is checked. The
+version-1 to -5 database migrates to version 6 after its identity binding is checked. The
 group catalog records group IDs and verified peer associations with the sealed Device and
 prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
 or mismatched entries.
-Until delivery receipts exist, a write leaves the outbox once a node accepts it.
 `rust/client::session::Session` opens the sealed Device and cataloged Groups. Its send path
 encrypts one chat message, prepares every signed mailbox write, commits the new seal and all
 writes, and only then calls `Node::put_prepared`. A preparation or local storage failure discards
 the advanced in-memory handles until `recover` reopens the last committed snapshot. Network
 failure leaves the exact signed writes in the outbox: `Session::retry_due` puts every due one
-again, and a failed retry waits 1 s, then twice as long each time, up to an hour. The app does
-not use this adapter yet, and delivery receipts are still planned.
+again, and a failed retry waits 1 s, then twice as long each time, up to an hour. An accepted
+write stays until its delivery receipt: `Session::receive` sends each group one `Body::Receipt`
+naming the envelope IDs it committed, and the sender's outbox drops them. Without a receipt it
+is put again 1 h after acceptance, then up to a day apart, and given up after 30 days. A receipt
+leaves the outbox once a node accepts it and is not receipted itself. The app does not use this
+adapter yet.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the

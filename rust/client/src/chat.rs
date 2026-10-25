@@ -76,6 +76,22 @@ pub enum Body {
     TokenRequest(TokenRequest),
     /// The owner's signed WriteTokens, tag 4.
     TokenAnswer(TokenAnswer),
+    /// A device received writes in its mailbox, tag 5.
+    Receipt(Receipt),
+}
+
+/// The most write IDs one receipt names, above a node's fetch page.
+pub const MAX_RECEIPT_IDS: usize = 256;
+
+/// Envelope IDs a device committed from its mailbox, so the sender drops them from its outbox.
+#[derive(Clone, PartialEq, Eq, prost::Message)]
+pub struct Receipt {
+    /// The receiving device's 32-byte mailbox address.
+    #[prost(bytes = "vec", tag = "1")]
+    pub mailbox: Vec<u8>,
+    /// One to [`MAX_RECEIPT_IDS`] 16-byte envelope IDs.
+    #[prost(bytes = "vec", repeated, tag = "2")]
+    pub ids: Vec<Vec<u8>>,
 }
 
 /// The most asks or tokens in one body: 30 days for each of 64 owner devices.
@@ -120,6 +136,7 @@ impl Body {
             Self::Interaction(event) => [&[2], event.encode().as_slice()].concat(),
             Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
             Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
+            Self::Receipt(receipt) => [&[5], receipt.encode_to_vec().as_slice()].concat(),
         }
     }
 
@@ -149,6 +166,15 @@ impl Body {
                 })
                 .map(Self::TokenAnswer)
                 .ok_or(Error::Reply("bad token answer")),
+            Some((5, receipt)) => Receipt::decode(receipt)
+                .ok()
+                .filter(|r| {
+                    r.mailbox.len() == 32
+                        && (1..=MAX_RECEIPT_IDS).contains(&r.ids.len())
+                        && r.ids.iter().all(|id| id.len() == 16)
+                })
+                .map(Self::Receipt)
+                .ok_or(Error::Reply("bad receipt")),
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
@@ -387,8 +413,8 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_all, message, pad, unpad, Body, Delivery, Event, TokenAnswer, TokenAsk, TokenRequest,
-        MAX_TOKENS, MIN_PADDED_BYTES,
+        apply_all, message, pad, unpad, Body, Delivery, Event, Receipt, TokenAnswer, TokenAsk,
+        TokenRequest, MAX_RECEIPT_IDS, MAX_TOKENS, MIN_PADDED_BYTES,
     };
     use crate::interactions::{Interaction, Kind};
     use crate::Envelope;
@@ -536,6 +562,30 @@ mod tests {
             assert!(Body::decode(&bad.encode()).is_err());
         }
         assert!(Body::decode(&[3, 0xff]).is_err());
+    }
+
+    #[test]
+    fn receipts_are_strict() {
+        let receipt = |mailbox: usize, ids: Vec<Vec<u8>>| {
+            Body::Receipt(Receipt {
+                mailbox: vec![1; mailbox],
+                ids,
+            })
+        };
+        for body in [
+            receipt(32, vec![vec![2; 16]]),
+            receipt(32, vec![vec![2; 16]; MAX_RECEIPT_IDS]),
+        ] {
+            assert!(Body::decode(&body.encode()).ok() == Some(body));
+        }
+        for bad in [
+            receipt(31, vec![vec![2; 16]]),
+            receipt(32, Vec::new()),
+            receipt(32, vec![vec![2; 16]; MAX_RECEIPT_IDS + 1]),
+            receipt(32, vec![vec![2; 16], vec![2; 15]]),
+        ] {
+            assert!(Body::decode(&bad.encode()).is_err());
+        }
     }
 
     #[test]

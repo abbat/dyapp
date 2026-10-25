@@ -1,6 +1,6 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
-use crate::chat::{self, Body, Event};
+use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
@@ -114,7 +114,11 @@ impl Session {
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let sealed = device.seal(seal_key)?;
-            self.store.stage_outbound(&sealed, &writes)?;
+            if matches!(body, Body::Receipt(_)) {
+                self.store.stage_receipt(&sealed, &writes)?;
+            } else {
+                self.store.stage_outbound(&sealed, &writes)?;
+            }
             Ok(writes)
         })();
         if staged.is_err() {
@@ -146,24 +150,25 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         let writes = self.stage_message(group_id, body, seal_key)?;
-        let today = (crate::now() / 86_400) as u32;
+        let now_ms = crate::now() as i64 * 1000;
         for write in writes {
-            self.deliver(node, write, today, seal_key).await?;
+            self.deliver(node, write, now_ms, seal_key).await?;
         }
         Ok(())
     }
 
     /// Put every outbox write due by `now_ms` again, as the app does after a restart or a lost
-    /// connection; a failed one waits longer each time, up to an hour.
+    /// connection; a failed one waits longer each time, up to an hour. An accepted write is put
+    /// again until its receipt, 1 h later and then up to a day apart, for 30 days.
     pub async fn retry_due(
         &mut self,
         node: &mut Node,
         now_ms: i64,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let today = (now_ms / 86_400_000) as u32;
+        self.store.expire_outbound(now_ms)?;
         for write in self.store.due_outbound(now_ms)? {
-            match self.deliver(node, write.clone(), today, seal_key).await {
+            match self.deliver(node, write.clone(), now_ms, seal_key).await {
                 Err(Error::Client(_)) => match self.store.schedule_retry(&write, now_ms) {
                     // A token swap replaced the row, so it is due again at once.
                     Err(crate::store::Error::OutboxConflict) => {}
@@ -180,14 +185,13 @@ impl Session {
         &mut self,
         node: &mut Node,
         mut write: PreparedEnvelope,
-        today: u32,
+        now_ms: i64,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
+        let today = (now_ms / 86_400_000) as u32;
         loop {
             match node.put_prepared(&write).await {
-                // shortcut: node acceptance drops the row, not a receipt from the recipient;
-                // move the removal to the receipt once end-to-end receipts exist.
-                Ok(()) => return Ok(self.store.remove_outbound(&write)?),
+                Ok(()) => return Ok(self.store.accepted(&write, now_ms)?),
                 Err(crate::Error::Status(status)) => {
                     let next = tokens::fallback(&self.store, &write, status, today, seal_key)?
                         .ok_or(crate::Error::Status(status))?;
@@ -271,6 +275,21 @@ impl Session {
                 tokens::accept(&self.store, &answer, seal_key)?;
                 Ok(None)
             }
+            // IDs are random per write, so only their recipient can name them; a repeat or a
+            // stranger's ID drops nothing.
+            Event::Message {
+                body: Body::Receipt(receipt),
+                ..
+            } => {
+                let mailbox = receipt.mailbox.as_slice().try_into().unwrap_or([0; 32]);
+                let ids = receipt
+                    .ids
+                    .iter()
+                    .filter_map(|id| id.as_slice().try_into().ok())
+                    .collect::<Vec<_>>();
+                self.store.receipted(&mailbox, &ids)?;
+                Ok(None)
+            }
             Event::Joined(group) => {
                 self.request_tokens(node, &group, seal_key).await?;
                 Ok(Some(Event::Joined(group)))
@@ -285,9 +304,10 @@ impl Session {
     }
 
     /// Fetch the mailbox of `device_key`, commit each new envelope before returning it, then
-    /// acknowledge every committed ID, earlier ones whose ACK was lost included. Write-token
-    /// bodies are handled here and not returned; a join also asks the group for tokens. On an error,
-    /// events committed so far are in the inbox history and their ACKs stay pending.
+    /// acknowledge every committed ID, earlier ones whose ACK was lost included, and send each
+    /// group one receipt for its new envelopes. Write-token and receipt bodies are handled here
+    /// and not returned; a join also asks the group for tokens. On an error, events committed so
+    /// far are in the inbox history and their ACKs stay pending.
     pub async fn receive(
         &mut self,
         node: &mut Node,
@@ -299,6 +319,7 @@ impl Session {
         let mailbox = crate::mailbox(&device_key.public_key());
         let mut events = Vec::new();
         let mut seen = Vec::new();
+        let mut receipts: Vec<(Vec<u8>, Vec<Vec<u8>>)> = Vec::new();
         for envelope in envelopes {
             // Nodes only store 16-byte IDs; leave anything else alone.
             let Ok(id) = envelope.id.as_slice().try_into() else {
@@ -313,6 +334,12 @@ impl Session {
             if let Some(event) =
                 self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
             {
+                if let Some(group) = receipted_group(&event) {
+                    match receipts.iter_mut().find(|(g, _)| g == group) {
+                        Some((_, ids)) => ids.push(id.to_vec()),
+                        None => receipts.push((group.clone(), vec![id.to_vec()])),
+                    }
+                }
                 events.extend(self.control(node, device_key, event, seal_key).await?);
             }
         }
@@ -322,6 +349,22 @@ impl Session {
                 .await?;
             for key in &acks {
                 self.store.mark_acked(key)?;
+            }
+        }
+        // shortcut: a duplicate is not receipted again, its group is unknown here, so a lost
+        // receipt costs about 35 resends over 30 days; receipt duplicates once the inbox keeps
+        // their group.
+        for (group, ids) in receipts {
+            for ids in ids.chunks(MAX_RECEIPT_IDS) {
+                let receipt = Body::Receipt(Receipt {
+                    mailbox: mailbox.to_vec(),
+                    ids: ids.to_vec(),
+                });
+                // A receipt the node refused stays in the outbox for retry_due.
+                match self.send_body(node, &group, &receipt, seal_key).await {
+                    Err(Error::Client(_)) | Ok(()) => {}
+                    Err(error) => return Err(error),
+                }
             }
         }
         Ok(events)
@@ -373,7 +416,7 @@ impl Session {
                 let (kind, payload) = match &event {
                     // Token bodies are acted on, not shown in history.
                     Event::Message {
-                        body: Body::TokenRequest(_) | Body::TokenAnswer(_),
+                        body: Body::TokenRequest(_) | Body::TokenAnswer(_) | Body::Receipt(_),
                         ..
                     } => (InboxKind::StateChange, Vec::new()),
                     Event::Message {
@@ -420,6 +463,18 @@ impl Session {
             Ok([peer]) => Some(peer),
             Err(_) => None,
         }
+    }
+}
+
+/// The group whose sender waits for a receipt of this committed event: any but a receipt.
+fn receipted_group(event: &Event) -> Option<&Vec<u8>> {
+    match event {
+        Event::Message {
+            body: Body::Receipt(_),
+            ..
+        } => None,
+        Event::Message { group, .. } | Event::Joined(group) | Event::Commit(group) => Some(group),
+        _ => None,
     }
 }
 
