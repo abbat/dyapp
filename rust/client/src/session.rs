@@ -6,6 +6,7 @@ use crate::store::{InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::{Device, Group};
+use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
 
 /// A received message as kept in the inbox for the app's history; protobuf, so fields can be
@@ -134,6 +135,10 @@ impl Session {
         let staged = (|| {
             let deliveries = chat::message(group, device, body)?;
             let today = (crate::now() / 86_400) as u32;
+            let class = match body {
+                Body::Interaction(_) => EnvelopeClass::Signal,
+                _ => EnvelopeClass::Message,
+            };
             let writes = deliveries
                 .into_iter()
                 .map(|delivery| {
@@ -141,6 +146,7 @@ impl Session {
                         &self.store,
                         &delivery.mailbox,
                         delivery.mls,
+                        class,
                         today,
                         seal_key,
                     )

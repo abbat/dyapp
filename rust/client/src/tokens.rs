@@ -6,7 +6,7 @@ use crate::chat::{Body, TokenAnswer, TokenAsk, TokenRequest, MAX_TOKENS};
 use crate::store::{Error, Store};
 use crate::{session, Node, PreparedEnvelope};
 use dyapp_identity::{Domain, Identity, SignedRecord};
-use dyapp_p2p_net::proto::{self, Status};
+use dyapp_p2p_net::proto::{self, EnvelopeClass, Status};
 use prost::Message as _;
 
 /// How many days after today a contact holds tokens for.
@@ -100,7 +100,14 @@ pub async fn send(
     today: u32,
     seal_key: &[u8; 32],
 ) -> Result<Option<u32>, session::Error> {
-    let mut write = prepare(store, mailbox, ciphertext.to_vec(), today, seal_key)?;
+    let mut write = prepare(
+        store,
+        mailbox,
+        ciphertext.to_vec(),
+        EnvelopeClass::Message,
+        today,
+        seal_key,
+    )?;
     loop {
         match node.put_prepared(&write).await {
             Ok(()) => return Ok(epoch(&write)),
@@ -115,12 +122,13 @@ pub async fn send(
     }
 }
 
-/// A put of `ciphertext` to `mailbox` with this device's token for `epoch`, or tokenless without
-/// one.
+/// A put of `class` with `ciphertext` to `mailbox` with this device's token for `epoch`, or
+/// tokenless without one.
 pub(crate) fn prepare(
     store: &Store,
     mailbox: &[u8],
     ciphertext: Vec<u8>,
+    class: EnvelopeClass,
     epoch: u32,
     seal_key: &[u8; 32],
 ) -> Result<PreparedEnvelope, session::Error> {
@@ -128,10 +136,8 @@ pub(crate) fn prepare(
         Ok(mailbox) => store.write_token(mailbox, epoch, seal_key)?,
         Err(_) => None,
     };
-    Ok(match held {
-        Some((key, token)) => crate::prepare_tokened_put(mailbox, ciphertext, &key, &token)?,
-        None => crate::prepare_put(mailbox, ciphertext)?,
-    })
+    let token = held.as_ref().map(|(key, token)| (key, token.as_slice()));
+    Ok(crate::prepare(mailbox, ciphertext, class, token)?)
 }
 
 /// The day of the token `write` carries.
@@ -155,12 +161,18 @@ pub(crate) fn fallback(
     let Some(epoch) = epoch(write) else {
         return Ok(None);
     };
-    let ciphertext = write.envelope().ciphertext;
+    let envelope = write.envelope();
+    let (class, ciphertext) = (envelope.class(), envelope.ciphertext);
     let next = match status {
-        Status::Stale if epoch < today.saturating_add(1) => {
-            prepare(store, write.mailbox(), ciphertext, epoch + 1, seal_key)?
-        }
-        Status::Stale | Status::Denied => crate::prepare_put(write.mailbox(), ciphertext)?,
+        Status::Stale if epoch < today.saturating_add(1) => prepare(
+            store,
+            write.mailbox(),
+            ciphertext,
+            class,
+            epoch + 1,
+            seal_key,
+        )?,
+        Status::Stale | Status::Denied => crate::prepare(write.mailbox(), ciphertext, class, None)?,
         _ => return Ok(None),
     };
     Ok(Some(next))

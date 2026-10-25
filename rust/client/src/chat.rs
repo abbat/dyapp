@@ -1,7 +1,8 @@
 //! Chats as MLS groups delivered through device mailboxes. Every Welcome, commit and message is
 //! MLS bytes in an envelope, one envelope per recipient device, so a node stores only
 //! ciphertext. A message's plaintext is padded to the next power of two from 1 KiB before
-//! encryption, so its size tells little about its content.
+//! encryption, so its size tells little about its content; a like, unlike or view pads from
+//! 256 bytes so its envelope fits the node's 1 KiB signal limit.
 //!
 //! Calls that change MLS state return the [`Delivery`] list instead of sending it: seal and
 //! store the device state ([`Device::seal`]) first, then [`send`] it. Likewise [`receive`]
@@ -17,6 +18,10 @@ use prost::Message as _;
 
 /// The smallest padded plaintext.
 pub const MIN_PADDED_BYTES: usize = 1024;
+/// The smallest padded interaction plaintext.
+pub const SIGNAL_PADDED_BYTES: usize = 256;
+/// Largest signed payload of a signal envelope the node accepts.
+pub const MAX_SIGNAL_BYTES: usize = 1024;
 // The big-endian plaintext length that starts a padded plaintext.
 const LENGTH_BYTES: usize = 4;
 
@@ -249,7 +254,11 @@ pub async fn invite(
 
 /// Pads and encrypts `body` for every other device in `group`.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
-    let message = group.encrypt(device, &pad(&body.encode()))?;
+    let floor = match body {
+        Body::Interaction(_) => SIGNAL_PADDED_BYTES,
+        _ => MIN_PADDED_BYTES,
+    };
+    let message = group.encrypt(device, &pad_from(&body.encode(), floor))?;
     to_members(group, &message)
 }
 
@@ -393,8 +402,12 @@ fn device_mailbox(certificate: &SignedRecord) -> Result<Vec<u8>, Error> {
 /// `plaintext` after its length, zero-filled to the next power of two from
 /// [`MIN_PADDED_BYTES`].
 pub fn pad(plaintext: &[u8]) -> Vec<u8> {
+    pad_from(plaintext, MIN_PADDED_BYTES)
+}
+
+fn pad_from(plaintext: &[u8], floor: usize) -> Vec<u8> {
     let size = (LENGTH_BYTES + plaintext.len())
-        .max(MIN_PADDED_BYTES)
+        .max(floor)
         .next_power_of_two();
     let length = u32::try_from(plaintext.len()).unwrap_or(u32::MAX);
     let mut padded = Vec::with_capacity(size);
@@ -478,6 +491,12 @@ mod tests {
             hlc: 42,
         };
         let sent = message(&mut group, &alice, &Body::Interaction(like)).unwrap();
+        // Padded from 256 bytes, not 1 KiB.
+        assert!(
+            sent[0].mls.len() < MIN_PADDED_BYTES,
+            "{}",
+            sent[0].mls.len()
+        );
         let (events, acked) = apply_all(
             &bob,
             &mut groups,

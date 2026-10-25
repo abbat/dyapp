@@ -150,7 +150,7 @@ impl std::fmt::Debug for PreparedEnvelope {
 
 /// Sign an ordinary MLS mailbox message with a fresh one-off key, before any network write.
 pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelope, Error> {
-    prepare(mailbox, ciphertext, &Identity::generate(), None)
+    prepare(mailbox, ciphertext, proto::EnvelopeClass::Message, None)
 }
 
 /// Like [`prepare_put`], but carrying `token`, a signed WriteToken for `mailbox`, and signed by
@@ -161,16 +161,33 @@ pub fn prepare_tokened_put(
     token_key: &Identity,
     token: &[u8],
 ) -> Result<PreparedEnvelope, Error> {
-    let token = SignedRecord::decode(token).map_err(|_| Error::Input("bad write token"))?;
-    prepare(mailbox, ciphertext, token_key, Some(token))
+    prepare(
+        mailbox,
+        ciphertext,
+        proto::EnvelopeClass::Message,
+        Some((token_key, token)),
+    )
 }
 
-fn prepare(
+/// A put of `class`, tokenless or with `(token_key, token)`. A signal whose signed payload is
+/// over [`chat::MAX_SIGNAL_BYTES`] is refused here, never truncated.
+pub(crate) fn prepare(
     mailbox: &[u8],
     ciphertext: Vec<u8>,
-    signer: &Identity,
-    write_token: Option<SignedRecord>,
+    class: proto::EnvelopeClass,
+    token: Option<(&Identity, &[u8])>,
 ) -> Result<PreparedEnvelope, Error> {
+    let one_off;
+    let (signer, write_token) = match token {
+        Some((key, token)) => (
+            key,
+            Some(SignedRecord::decode(token).map_err(|_| Error::Input("bad write token"))?),
+        ),
+        None => {
+            one_off = Identity::generate();
+            (&one_off, None)
+        }
+    };
     let mailbox: [u8; 32] = mailbox
         .try_into()
         .map_err(|_| Error::Input("mailbox must be 32 bytes"))?;
@@ -180,9 +197,12 @@ fn prepare(
         id: id.to_vec(),
         mailbox: mailbox.to_vec(),
         ciphertext,
+        class: class.into(),
         write_token,
-        ..Default::default()
     };
+    if class == proto::EnvelopeClass::Signal && envelope.encoded_len() > chat::MAX_SIGNAL_BYTES {
+        return Err(Error::Input("signal envelope over 1 KiB"));
+    }
     let record = signer.sign(Domain::Envelope, envelope.encode_to_vec());
     PreparedEnvelope::from_bytes(record.encode_to_vec())
 }
@@ -562,7 +582,7 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{prepare_put, prepare_tokened_put, Error, Node, PreparedEnvelope};
+    use super::{prepare, prepare_put, prepare_tokened_put, Error, Node, PreparedEnvelope};
     use dyapp_p2p_net::proto::{self, EnvelopeClass};
     use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
     use libp2p::futures::StreamExt;
@@ -571,6 +591,17 @@ mod tests {
     use libp2p::swarm::SwarmEvent;
     use prost::Message as _;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn a_signal_over_the_node_limit_is_refused_not_truncated() {
+        let signal = prepare(&[7; 32], vec![0; 900], EnvelopeClass::Signal, None).unwrap();
+        assert_eq!(signal.envelope().class(), EnvelopeClass::Signal);
+        assert!(matches!(
+            prepare(&[7; 32], vec![0; 1024], EnvelopeClass::Signal, None),
+            Err(Error::Input(_))
+        ));
+        prepare(&[7; 32], vec![0; 1024], EnvelopeClass::Message, None).unwrap();
+    }
 
     #[test]
     fn prepared_mailbox_write_reopens_with_exact_signed_bytes() {
