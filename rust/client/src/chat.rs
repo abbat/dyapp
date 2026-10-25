@@ -97,6 +97,9 @@ pub enum Body {
     Receipt(Receipt),
     /// An encrypted blob on `/dyapp/media` and what opens it, tag 6.
     Attachment(Attachment),
+    /// A text or attachment the sender forwards, tag 7. It names no original author: the MLS
+    /// sender is the only sender, so forwarded words never pass for another member's.
+    Forwarded(Box<Body>),
 }
 
 // The wire form of an `Attachment`; previews and media types may take later tags.
@@ -211,11 +214,13 @@ impl Body {
                 };
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }
+            Self::Forwarded(body) => [&[7], body.encode().as_slice()].concat(),
         }
     }
 
     /// Refuses an unknown or missing tag, a malformed interaction, a token body that is empty or
-    /// too long, and a token, receipt or attachment field of the wrong length.
+    /// too long, a token, receipt or attachment field of the wrong length, and a forward of
+    /// anything but a text or attachment.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
             Some((1, text)) => Ok(Self::Text(text.to_vec())),
@@ -254,6 +259,10 @@ impl Body {
                 .and_then(AttachmentWire::open)
                 .map(Self::Attachment)
                 .ok_or(Error::Reply("bad attachment")),
+            Some((7, body)) => match body.first() {
+                Some(1 | 6) => Ok(Self::Forwarded(Box::new(Self::decode(body)?))),
+                _ => Err(Error::Reply("bad forward")),
+            },
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
@@ -576,6 +585,24 @@ mod tests {
         );
         assert_eq!(acked, [vec![2]]);
 
+        // A forward arrives marked as forwarded, from the forwarder.
+        let forward = Body::Forwarded(Box::new(Body::Text(b"carol's words".to_vec())));
+        let sent = message(&mut group, &alice, &forward).unwrap();
+        let (events, _) = apply_all(
+            &bob,
+            &mut groups,
+            vec![envelope(9, sent[0].mls.clone())],
+            &profiles,
+        );
+        assert!(
+            events
+                == [Event::Message {
+                    group: group.id().to_vec(),
+                    sender: alice_identity.peer_id(),
+                    body: forward,
+                }]
+        );
+
         let like = Interaction {
             kind: Kind::Like,
             event_id: [7; 16],
@@ -619,10 +646,13 @@ mod tests {
             Body::Text(Vec::new()),
             Body::Text(b"hi".to_vec()),
             Body::Interaction(like),
+            Body::Forwarded(Box::new(Body::Text(b"hi".to_vec()))),
         ] {
             assert!(Body::decode(&body.encode()).ok() == Some(body));
         }
         let tagged = Body::Interaction(like).encode();
+        // Only a text or attachment is forwarded.
+        let forwarded_like = [&[7], &tagged[..]].concat();
         for bad in [
             &b""[..],
             &[0],
@@ -631,6 +661,9 @@ mod tests {
             &[4],
             &[2, 1],
             &tagged[..tagged.len() - 1],
+            &[7],
+            &[7, 7, 1],
+            &forwarded_like,
         ] {
             assert!(Body::decode(bad).is_err(), "{bad:?}");
         }

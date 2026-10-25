@@ -45,7 +45,9 @@ The planned like, unlike and view payload and match state are specified in the
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
-attachment), so a text is never read as an interaction; an unknown tag is refused and acked. An
+attachment, `7` forwarded text or attachment), so a text is never read as an interaction; an
+unknown tag is refused and acked. A forward wraps the tagged text or attachment and names no
+original author: apps show it as forwarded from the MLS sender, never as another member's words. An
 attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
 release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
 printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length
