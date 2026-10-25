@@ -2,20 +2,25 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use dyapp_identity::Identity;
+use network::{Draft, NetworkState};
 use slots::{Opened, Slot};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
 #[path = "file_store.rs"]
 mod file_store;
+#[path = "network.rs"]
+mod network;
 #[path = "slots.rs"]
 mod slots;
 #[path = "system_store.rs"]
 mod system_store;
 
-struct IdentityState(Mutex<Option<Identity>>);
+/// The open identity and its slot folder.
+struct IdentityState(Mutex<Option<(Identity, PathBuf)>>);
 
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if std::env::args().any(|arg| arg == "--ui-test") {
@@ -69,13 +74,13 @@ fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str
 }
 
 /// The page's view of an opened slot and the identity it unlocked, if any.
-fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<Identity>) {
+fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<(Identity, PathBuf)>) {
     let mut result = HashMap::new();
     match opened {
         Opened::Ready(slot, identity) => {
             result = ready_result(slot.mode.unwrap_or_default(), identity.peer_id(), &slot.dir);
             result.insert("slot", slot.id);
-            return (result, Some(identity));
+            return (result, Some((identity, slot.dir)));
         }
         Opened::Setup => {
             result.insert("status", "setup".into());
@@ -209,7 +214,7 @@ async fn create_identity(
     .map_err(|e| e.to_string())??;
     let mut response = ready_result(mode, identity.peer_id(), &slot.dir);
     response.insert("slot", slot.id);
-    *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
+    *state.0.lock().map_err(|e| e.to_string())? = Some((identity, slot.dir));
     Ok(response)
 }
 
@@ -234,6 +239,62 @@ async fn remove_identity(
         return storage_options().await;
     }
     Ok(describe(Opened::Picker).0)
+}
+
+fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
+    let open = state.0.lock().map_err(|e| e.to_string())?;
+    open.as_ref()
+        .map(|(_, dir)| dir.clone())
+        .ok_or_else(|| "No identity is open".into())
+}
+
+/// The open identity's `draft` or `active` bootstrap settings, `null` when never saved.
+#[tauri::command]
+async fn load_network(
+    state: tauri::State<'_, IdentityState>,
+    file: String,
+) -> Result<Option<Draft>, String> {
+    let dir = identity_dir(&state)?;
+    tauri::async_runtime::spawn_blocking(move || network::load(&dir, &file))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn save_network_draft(
+    state: tauri::State<'_, IdentityState>,
+    draft: Draft,
+) -> Result<(), String> {
+    let dir = identity_dir(&state)?;
+    tauri::async_runtime::spawn_blocking(move || network::save_draft(&dir, draft))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Saves the draft and reports every seed row; see `network::check` for the errors.
+#[tauri::command]
+async fn check_connection(
+    state: tauri::State<'_, IdentityState>,
+    checks: tauri::State<'_, NetworkState>,
+    draft: Draft,
+    wait_ms: u32,
+) -> Result<Vec<HashMap<&'static str, String>>, String> {
+    let dir = identity_dir(&state)?;
+    network::check(&checks, dir, draft, Duration::from_millis(wait_ms.into())).await
+}
+
+#[tauri::command]
+fn cancel_connection_check(checks: tauri::State<'_, NetworkState>) {
+    network::cancel(&checks);
+}
+
+#[tauri::command]
+async fn activate_connection(
+    state: tauri::State<'_, IdentityState>,
+    checks: tauri::State<'_, NetworkState>,
+) -> Result<Draft, String> {
+    let dir = identity_dir(&state)?;
+    network::activate(&checks, &dir)
 }
 
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
@@ -296,6 +357,7 @@ fn main() {
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     tauri::Builder::default()
         .manage(IdentityState(Mutex::new(None)))
+        .manage(NetworkState::default())
         .invoke_handler(tauri::generate_handler![
             identity_state,
             storage_options,
@@ -303,6 +365,11 @@ fn main() {
             select_identity,
             create_identity,
             remove_identity,
+            load_network,
+            save_network_draft,
+            check_connection,
+            cancel_connection_check,
+            activate_connection,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

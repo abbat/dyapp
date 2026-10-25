@@ -6,11 +6,18 @@ rust-version = "1.99"
 
 [dependencies]
 tauri = { version = "=2.12.3", features = [] }
+dyapp-client = { path = "../../rust/client" }
 dyapp-identity = { path = "../../rust/identity" }
+dyapp-p2p-net = { path = "../../rust/p2p-net" }
 secret-service = { version = "=5.2.0", default-features = false, features = [
     "rt-tokio-crypto-rust",
 ] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "sync"] }
 zeroize = "1.9"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "time"] }
 
 [build-dependencies]
 tauri-build = { version = "=2.7.2", features = [] }
