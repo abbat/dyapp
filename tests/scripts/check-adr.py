@@ -87,6 +87,24 @@ COVERED = {
         "docs/decisions/0016-protocol-evolution.md",
     "94365d7035a3af82594be109d70236d10ab96e5c":
         "docs/decisions/0016-protocol-evolution.md",
+    # The FFI seed check reuses the libp2p stack clients already speak.
+    "c3e9bd7a3454615663abd977eddaaae211e1cd02":
+        "docs/decisions/0014-libp2p-only-node-protocol.md",
+    # Tauri desktop clients gain serde and tokio for their commands.
+    "ac6b8e85ce336df3d35050fdae7a1883fff481d3":
+        "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
+    # More optional public profile fields under the signed public profile.
+    "cb17ea7e72b0233d9fbc8240d6768dd48eab0c87":
+        "docs/decisions/0003-public-signed-profile-encrypted-private-data.md",
+    # Chat edit and delete projection tables in the per-profile client store.
+    "6f592ec765eb66a53a48463b841f4af1dca42962":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
+    "f32c3bd6ddf1e43672299eb42f46fc92627e96fe":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
+    "720d7f72a3f1ea7cac94c3f8db7b3b3fb0ed6120":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
+    "3e9d25890415b76aee70aa0a63e5233861d68a25":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
