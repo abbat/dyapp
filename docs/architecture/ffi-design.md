@@ -141,6 +141,10 @@ depends on the native side not using a handle after freeing it.
 - Typed `uniffi::Error` enums with per-case variants instead of the single `CoreError::Failed`.
 - Blocking calls are acceptable for the prototype; if push-style updates are
   needed, prefer polling (`poll_new_messages`) over foreign callbacks.
+- Status metrics follow the same rule: the UI polls a record of traffic in and
+  out since start (all `WireBytes` slots summed) and the store's bytes used, as
+  the [desktop storage and status](../design/v0.0.1-client-screens.md#desktop-storage-and-status)
+  table defines; an absent value is `None`, never zero.
 
 ## Testing
 
