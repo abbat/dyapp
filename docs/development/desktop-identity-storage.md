@@ -128,6 +128,11 @@ checkpointed; a future live export must use SQLite's backup mechanism.
 | Restore a duplicate slot or corrupt the active pointer | No overwrite; picker or collision error preserves both keys. |
 | Back up and restore a file slot; copy only app files for a system slot | File Peer ID returns; system slot reports missing credential instead of generating one. |
 
+`tests/scripts/desktop-smoke.py` covers on Linux and Windows: a file legacy upgrade, a pending
+slot beside the active one, system and file identities with switch and restart, a corrupt
+pointer and a missing file key. A locked provider, deletion, duplicate restore and backup are
+not covered yet.
+
 This layout favors directory discovery over a single registry: it survives interrupted
 registry writes and exposes incomplete slots, at the cost of visible local metadata and a
 directory scan. Naming files by Peer ID would simplify lookup but require generating a key

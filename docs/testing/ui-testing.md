@@ -29,8 +29,8 @@ when space grows, without changing the identifier.
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 1 JUnit (`app/src/test/.../AppTests.kt`) | 5 instrumented (`AppUITests.kt` ×2, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 11 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 11 smoke cases | same |
+| Linux | Docker (local + CI) | 6 cargo tests (shell, system-store backend, bundled frontend) | 13 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | same 13 smoke cases | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 1 XCTest | 5 XCUITest | `check-apple-results.py` (≥3) |
 
@@ -43,10 +43,12 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs eleven app
-instances: system create/restart, file create/restart, then in the file profile add a second
-identity, pick one without a valid `active-profile`, reopen it and show recovery after its key
-is removed; then Russian, pseudo-locale and an injected hidden-ready rejection. The restart in
+(`android instrumentation` when a failed run lists none). The desktop smoke runs 13 app
+instances: system create/restart, then in that profile add a file identity, restart past a
+pending slot left by a simulated crash, pick from the picker after `active-profile` is
+corrupted, reopen it and show recovery after its key is removed; file create/restart, then
+reopen the same key moved to the pre-slot root layout; then Russian, pseudo-locale and an
+injected hidden-ready rejection. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print
 `UI_SMOKE_PASS:<peer-id>` (empty for the recovery case) and exit 0; failures print
 `UI_SMOKE_FAIL:` with the failed UI check or error before exiting 1.

@@ -463,7 +463,7 @@ ready-screen render, identity and close only. Details, test counts and report ex
 | Linux (6 cargo tests + 7 Xvfb smoke cases) | `make ui-test-linux` | Docker, local + CI |
 | All three Docker suites | `make ui-test` | Docker |
 | iOS / macOS (1 XCTest + 5 XCUITest each) | none locally (`apple-test-in-ci.sh` exits 2 outside Actions) | CI, macos-15 |
-| Windows (4 cargo tests + 11 smoke cases) | `cargo test --manifest-path clients/windows/Cargo.toml --locked` | CI, windows-2022 |
+| Windows (4 cargo tests + 13 smoke cases) | `cargo test --manifest-path clients/windows/Cargo.toml --locked` | CI, windows-2022 |
 
 There are no GLib/ctest, .NET or FFI wrapper test suites.
 

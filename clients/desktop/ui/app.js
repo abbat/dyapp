@@ -62,6 +62,7 @@ const act = async (pending) => {
 const identityButton = (item) => {
   const button = document.createElement('button');
   button.type = 'button';
+  Object.assign(button.dataset, { status: item.status, mode: item.mode || '' });
   const name = item.status === 'ready' ? item.peerId : reasonText(item.reason);
   const mode = window.strings[`identity.mode.${item.mode}`];
   button.textContent = mode ? `${name} — ${mode}` : name;

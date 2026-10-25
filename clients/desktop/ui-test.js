@@ -37,7 +37,10 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chooseStorage(mode);
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
-      document.querySelector('#identities button').click();
+      const pick = document.querySelector(
+        `#identities button[data-status="ready"][data-mode="${mode}"]`);
+      if (!pick) throw new Error('no ready identity in the picker');
+      pick.click();
       await waitFor('identity');
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');

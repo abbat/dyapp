@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -100,24 +101,45 @@ def smoke(executable):
                         "passed": True})
         return match.group(1) if match else None
 
-    def several(flags, profile, first):
-        # Add a second identity, pick one, then lose its key.
-        second = case("file-add", [*flags, "--ui-test-step=add"], profile)
+    def mixed(profile, first):
+        """Add a file identity to a system one, then crash, bad pointer."""
+        root = Path(profile)
+        file = ["--ui-test-file"]
+        second = case("mixed-add", [*file, "--ui-test-step=add"], profile)
         if second == first:
             raise RuntimeError("added identity reused the Peer ID")
-        root = Path(profile)
-        (root / "active-profile").unlink()
-        picked = case("file-pick", [*flags, "--ui-test-step=pick"],
-                      profile)
-        if picked not in (first, second):
-            raise RuntimeError("picked an unknown identity")
-        if case("file-pick-restart", [*flags, "--ui-test-existing"],
-                profile) != picked:
+        added = (root / "active-profile").read_text().strip()
+        # A crash after reservation leaves a pending slot without a key.
+        pending = root / "profiles" / "00000000-0000-4000-8000-000000000000"
+        pending.mkdir()
+        (pending / "storage-mode").write_bytes(b"file\n")
+        (pending / "state").write_bytes(b"pending\n")
+        if case("crash-restart", [*file, "--ui-test-existing"],
+                profile) != second:
+            raise RuntimeError("pending slot replaced the active identity")
+        (root / "active-profile").write_bytes(b"../escape\n")
+        if case("corrupt-pointer-pick", [*file, "--ui-test-step=pick"],
+                profile) != second:
+            raise RuntimeError("picker did not reopen the file identity")
+        if case("pick-restart", [*file, "--ui-test-existing"],
+                profile) != second:
             raise RuntimeError("picked identity was not reopened")
+        (root / "profiles" / added / "identity.key").unlink()
+        case("missing-key", [*file, "--ui-test-step=recovery"], profile,
+             peer=False)
+
+    def legacy(profile, peer_id):
+        """Turn the file slot into a pre-slot root key and reopen it."""
+        root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
-        (root / "profiles" / slot / "identity.key").unlink()
-        case("file-missing-key", [*flags, "--ui-test-step=recovery"],
-             profile, peer=False)
+        (root / "profiles" / slot / "identity.key").rename(
+            root / "identity.key")
+        (root / "identity-storage").write_bytes(b"file\n")
+        shutil.rmtree(root / "profiles")
+        (root / "active-profile").unlink()
+        if case("legacy-upgrade", ["--ui-test-file", "--ui-test-existing"],
+                profile) != peer_id:
+            raise RuntimeError("legacy key changed Peer ID")
 
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
@@ -128,8 +150,7 @@ def smoke(executable):
             if reopened != peer_id:
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
-            if mode == "file":
-                several(flags, profile, peer_id)
+            (legacy if mode == "file" else mixed)(profile, peer_id)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
