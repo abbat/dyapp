@@ -91,6 +91,8 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
             .as_deref(),
         Some(&b"private first text"[..])
     );
+    // The recipient's signed ACK removed the original from this cooperating node.
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
     // A local operation must target this sender's text in this exact group.
     assert!(matches!(
         alice_session.stage_edit(b"wrong group", id, b"forged", &alice_key),
@@ -180,6 +182,21 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
     // The node may accept the same signed envelope after an ACK; inbox dedupe shows nothing.
     alice.node.put_prepared(&delete_writes[0]).await.unwrap();
+    assert!(bob_session
+        .receive(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &bob_key
+        )
+        .await
+        .unwrap()
+        .is_empty());
+    let current = bob_session.chat_message(&key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    // A node may receive the original again after its ACK; replay stays invisible and is ACKed.
+    alice.node.put_prepared(&text_writes[0]).await.unwrap();
     assert!(bob_session
         .receive(
             std::slice::from_mut(&mut bob.node),

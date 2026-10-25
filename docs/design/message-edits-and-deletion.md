@@ -63,10 +63,10 @@ locally before delivery is pending on the peer until its receipt.
 
 The sender sends the delete as an encrypted MLS operation. On receipt, the recipient replaces
 the text and sends its existing device-signed `Ack` for any known original mailbox envelopes.
-Normal receive already ACKs envelopes after durable processing, so a delivered original is
-usually gone from cooperating nodes. If the original arrives after the delete operation, the
-recipient keeps the placeholder, discards the text and ACKs that envelope. A recipient that is
-offline cannot make nodes remove an unread original; node TTL and operator behavior still apply.
+Normal receive already ACKs envelopes after durable processing and retries a known duplicate's
+ACK, so a delivered original is usually gone from cooperating nodes. If the original arrives
+later, the recipient keeps the placeholder, discards the text and ACKs that envelope. A recipient
+that is offline cannot make nodes remove an unread original; node TTL and operator behavior still apply.
 This is a request through the recipient, not a claim of remote erasure.
 
 | Mechanism | Pros | Cons | Decision |

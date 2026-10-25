@@ -992,7 +992,9 @@ The current protocol replies are:
   `replica_key(mailbox, i)` and sends it the signed ack as `replica_ack` if the node trusts it
   ([Rate Limiting](#rate-limiting)); replies are ignored.
   Only the closest node per key gets it, and a node that missed it keeps the envelope until its
-  TTL. A replayed `replica_ack` can only delete ids the device already acked.
+  TTL. This is also how a recipient removes a known original chat envelope before or after seeing
+  an encrypted delete; the sender cannot ACK someone else's mailbox. A replayed `replica_ack` can
+  only delete ids the device already acked.
 - **Mailbox repair.** A valid `fetch` with `watch` starts a repair of that mailbox, at most once
   an hour per node and only below 75 % of the traffic cap. The node looks up the closest node of
   each `replica_key(mailbox, i)`, skipping keys it is closer to itself, and sends it an

@@ -133,9 +133,10 @@ saved MLS snapshot. `Session::receive` wires this sequence to a fetched mailbox:
 IDs, applies one envelope at a time, commits it (a Welcome also records its group and peer in the
 catalog; text, edit and delete update the current projection and leave only a body digest in the
 inbox; other visible bodies still use protobuf `StoredMessage`) and only then returns the event
-and ACKs every pending ID of that mailbox. Gap and unknown-owner envelopes stay unrecorded and
-unacked; a refused envelope stores only a marker, keeps the previous MLS snapshot and reopens
-it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
+and ACKs every pending ID of that mailbox. An original text already received is therefore ACKed
+before a later delete; a repeated original is ACKed again without restoring deleted text. Gap
+and unknown-owner envelopes stay unrecorded and unacked; a refused envelope stores only a marker,
+keeps the previous MLS snapshot and reopens it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
 Node tests run two such sessions against a mailbox node: one covers restarts and injected storage
 faults at both boundaries, and another stages edit and terminal delete while offline, reopens the
 sender's store, retries the original encrypted writes, and checks both local projections, ACKs and
