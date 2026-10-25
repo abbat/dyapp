@@ -81,11 +81,7 @@ mod platform {
         }
     }
 
-    pub fn load() -> Result<Option<Identity>, String> {
-        load_slot("primary")
-    }
-
-    fn load_slot(slot: &str) -> Result<Option<Identity>, String> {
+    pub fn load_slot(slot: &str) -> Result<Option<Identity>, String> {
         let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
         let collection = service
             .get_default_collection()
@@ -106,11 +102,7 @@ mod platform {
         }
     }
 
-    pub fn save(identity: &Identity) -> Result<(), String> {
-        save_slot("primary", identity)
-    }
-
-    fn save_slot(slot: &str, identity: &Identity) -> Result<(), String> {
+    pub fn save_slot(slot: &str, identity: &Identity) -> Result<(), String> {
         let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
         let collection = service
             .get_default_collection()
@@ -226,7 +218,6 @@ mod platform {
     use zeroize::Zeroizing;
 
     const SERVICE: &str = "com.dyapp.identity";
-    const USER: &str = "primary";
 
     #[derive(Debug, PartialEq, Eq)]
     pub enum Unavailable {
@@ -277,11 +268,7 @@ mod platform {
         }
     }
 
-    pub fn load() -> Result<Option<Identity>, String> {
-        load_user(USER)
-    }
-
-    fn load_user(user: &str) -> Result<Option<Identity>, String> {
+    pub fn load_slot(user: &str) -> Result<Option<Identity>, String> {
         let entry = entry(user).map_err(|e| e.to_string())?;
         let secret = match entry.get_secret() {
             Ok(secret) => Zeroizing::new(secret),
@@ -295,11 +282,7 @@ mod platform {
         Ok(Some(Identity::from_secret(bytes)))
     }
 
-    pub fn save(identity: &Identity) -> Result<(), String> {
-        save_user(USER, identity)
-    }
-
-    fn save_user(user: &str, identity: &Identity) -> Result<(), String> {
+    pub fn save_slot(user: &str, identity: &Identity) -> Result<(), String> {
         let entry = entry(user).map_err(|e| e.to_string())?;
         match entry.get_secret() {
             Err(Error::NoEntry) => (),
@@ -326,16 +309,16 @@ mod platform {
             }
             assert_eq!(probe(), Ok(()));
             let user = "controlled-test";
-            assert!(load_user(user).unwrap().is_none());
+            assert!(load_slot(user).unwrap().is_none());
             let identity = Identity::generate();
-            save_user(user, &identity).unwrap();
+            save_slot(user, &identity).unwrap();
             assert_eq!(
-                load_user(user).unwrap().unwrap().peer_id(),
+                load_slot(user).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
-            assert!(save_user(user, &Identity::generate()).is_err());
+            assert!(save_slot(user, &Identity::generate()).is_err());
             assert_eq!(
-                load_user(user).unwrap().unwrap().peer_id(),
+                load_slot(user).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
             assert_eq!(
@@ -347,4 +330,4 @@ mod platform {
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-pub use platform::{load, probe, save, Unavailable};
+pub use platform::{load_slot, probe, save_slot, Unavailable};

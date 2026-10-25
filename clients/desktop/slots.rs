@@ -263,6 +263,76 @@ pub fn choose<'a>(root: &Path, slots: &'a [Slot]) -> Option<&'a Slot> {
     }
 }
 
+/// Reads a slot's key: `None` when its backend confirms there is no key.
+pub type Load<'a> = &'a dyn Fn(&Slot) -> Result<Option<Identity>, String>;
+
+pub enum Opened {
+    /// No slot yet: offer the storage choice.
+    Setup,
+    Ready(Slot, Identity),
+    /// Several slots and no valid pointer.
+    Picker,
+    /// The slot to open cannot be used as it is; the Peer ID is known when its key opens.
+    Recovery(Slot, &'static str, Option<String>),
+}
+
+/// Opens the slot `choose` picks. A missing key or incomplete slot is a recovery state, never a
+/// reason to create a new identity.
+pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
+    let mut slots = list(root)?;
+    let index = match choose(root, &slots) {
+        Some(slot) => slots.iter().position(|s| s.id == slot.id),
+        None if slots.len() == 1 => Some(0),
+        None if slots.is_empty() => return Ok(Opened::Setup),
+        None => None,
+    };
+    let Some(index) = index else {
+        return Ok(Opened::Picker);
+    };
+    let slot = slots.swap_remove(index);
+    let reason = match slot.state {
+        State::Ready => match load(&slot)? {
+            Some(identity) => return Ok(Opened::Ready(slot, identity)),
+            None => "missing",
+        },
+        State::Pending => {
+            let peer_id = load(&slot)?.map(|identity| identity.peer_id());
+            return Ok(Opened::Recovery(slot, "incomplete", peer_id));
+        }
+        State::Deleting => "deleting",
+        State::Broken => "damaged",
+    };
+    Ok(Opened::Recovery(slot, reason, None))
+}
+
+/// Creates an identity in a fresh slot and makes it active. The slot is marked ready only after
+/// its key reopens with the same Peer ID; `profiles.lock` serializes concurrent app instances.
+pub fn create(
+    root: &Path,
+    mode: &'static str,
+    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
+    load: Load<'_>,
+) -> Result<(Slot, Identity), String> {
+    fs::create_dir_all(root).map_err(|e| e.to_string())?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(root.join("profiles.lock"))
+        .map_err(|e| e.to_string())?;
+    lock.lock().map_err(|e| e.to_string())?;
+    let mut slot = reserve(root, mode)?;
+    let identity = Identity::generate();
+    save(&slot, &identity)?;
+    match load(&slot)? {
+        Some(saved) if saved.peer_id() == identity.peer_id() => {}
+        _ => return Err("Saved identity does not reopen".into()),
+    }
+    set_state(&mut slot, State::Ready)?;
+    set_active(root, &slot.id)?;
+    Ok((slot, identity))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,6 +406,57 @@ mod tests {
         assert_eq!(active(&root), None);
         set_active(&root, &new_uuid()).unwrap();
         assert!(choose(&root, &list(&root).unwrap()).is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn open_and_create_never_replace_a_key() {
+        use std::cell::RefCell;
+        use std::collections::HashMap;
+        let root = temp_root();
+        let keys = RefCell::new(HashMap::new());
+        let save = |slot: &Slot, identity: &Identity| {
+            keys.borrow_mut()
+                .insert(slot.system_name(), *identity.secret());
+            Ok::<_, String>(())
+        };
+        let load = |slot: &Slot| {
+            Ok::<_, String>(keys
+                .borrow()
+                .get(&slot.system_name())
+                .map(Identity::from_secret))
+        };
+        let state = |root: &Path| match open(root, &load).unwrap() {
+            Opened::Setup => "setup".to_owned(),
+            Opened::Ready(slot, identity) => format!("ready {} {}", slot.id, identity.peer_id()),
+            Opened::Picker => "picker".to_owned(),
+            Opened::Recovery(slot, reason, peer) => format!("{reason} {} {peer:?}", slot.id),
+        };
+        assert_eq!(state(&root), "setup");
+        let (first, alice) = create(&root, "system", &save, &load).unwrap();
+        assert_eq!(state(&root), format!("ready {} {}", first.id, alice.peer_id()));
+        let (second, bob) = create(&root, "file", &save, &load).unwrap();
+        assert_eq!(state(&root), format!("ready {} {}", second.id, bob.peer_id()));
+        fs::remove_file(root.join("active-profile")).unwrap();
+        assert_eq!(state(&root), "picker");
+        set_active(&root, &first.id).unwrap();
+        keys.borrow_mut().remove(&first.system_name());
+        assert_eq!(state(&root), format!("missing {} None", first.id));
+        // A save that does not reopen leaves a pending slot and keeps the prior pointer.
+        let lost = |_: &Slot, _: &Identity| Ok::<_, String>(());
+        assert!(create(&root, "file", &lost, &load).is_err());
+        assert_eq!(active(&root), Some(first.id.clone()));
+        assert_eq!(list(&root).unwrap().len(), 3);
+        // The sole slot opens for recovery even when incomplete, with its Peer ID if saved.
+        let only = temp_root();
+        let mut pending = reserve(&only, "system").unwrap();
+        assert_eq!(state(&only), format!("incomplete {} None", pending.id));
+        save(&pending, &alice).unwrap();
+        let peer = Some(alice.peer_id());
+        assert_eq!(state(&only), format!("incomplete {} {peer:?}", pending.id));
+        set_state(&mut pending, State::Deleting).unwrap();
+        assert_eq!(state(&only), format!("deleting {} None", pending.id));
+        fs::remove_dir_all(only).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

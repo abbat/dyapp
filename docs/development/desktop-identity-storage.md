@@ -14,16 +14,17 @@ session succeeds. Otherwise it is disabled with a specific, localized reason. No
 operation has occurred at that point, so the screen shows an unavailable option rather than an
 operation error.
 
-The file option writes exactly 32 secret bytes to `identity.key` in the app configuration
-directory. On Linux it creates the file with mode `0600` and refuses to open files accessible to
-other users. On Windows it inherits the app-data directory's ACL; the app does not enforce a
-private ACL, so the UI warns that anyone who can read the file can copy the identity. No backend
-is selected silently. The non-secret `identity-storage` file in the same directory contains
-`system` or `file` and is written before the identity key. An interrupted save can leave the
-selection in place without a key; the app then shows an error rather than generating another.
+The file option writes exactly 32 secret bytes to `identity.key` in a new
+`profiles/<slot>/` directory of the app configuration directory. On Linux it creates the file
+with mode `0600` and refuses to open files accessible to other users. On Windows it inherits
+the app-data directory's ACL; the app does not enforce a private ACL, so the UI warns that
+anyone who can read the file can copy the identity. No backend is selected silently. The
+non-secret `storage-mode` file in the same directory contains `system` or `file` and is
+written before the identity key. An interrupted save leaves an
+incomplete slot without a key; the app then reports it rather than generating another.
 After choosing file storage, the ready screen shows the exact `identity.key` path from the
-running app and asks the user to back it up together with `identity-storage` in the same
-folder. System storage never shows a file path. The screen does not reveal key bytes.
+running app and asks the user to back up its whole folder. System storage never shows a file
+path. The screen does not reveal key bytes.
 
 After selection, failure to open the chosen backend never generates a replacement identity or
 switches storage. Restore access to that backend and restart the app. Changing backends later
@@ -61,10 +62,10 @@ choice and its trade-offs.
 
 ## Multiple identity layout (planned)
 
-The current implementation has only the root `identity.key` and `identity-storage` or the
-system credential named `primary`. The proposed layout keeps that installation readable in
-place and gives **new** identities independent local slots. `clients/desktop/slots.rs` lists,
-reserves and selects these slots, but the app does not open identities through it yet:
+The app opens and creates identities through `clients/desktop/slots.rs`: it keeps an older
+root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
+**new** identities in independent local slots. The picker, recovery, add and remove screens are
+not built yet; the app reports those states as an error:
 
 | Item | Planned location / name |
 |---|---|

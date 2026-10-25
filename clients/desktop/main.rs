@@ -1,17 +1,15 @@
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use dyapp_identity::Identity;
+use slots::{Opened, Slot};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
 #[path = "file_store.rs"]
 mod file_store;
-// shortcut: test-only until the app opens identities through slots.
-#[cfg(test)]
 #[path = "slots.rs"]
 mod slots;
 #[path = "system_store.rs"]
@@ -28,21 +26,22 @@ fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map_err(|e| e.to_string())
 }
 
-fn read_mode(dir: &Path) -> Result<Option<String>, String> {
-    let path = dir.join("identity-storage");
-    let mut file = match fs::File::open(path) {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
-    };
-    let mut value = String::new();
-    Read::by_ref(&mut file)
-        .take(16)
-        .read_to_string(&mut value)
-        .map_err(|e| e.to_string())?;
-    match value.as_str() {
-        "system\n" | "file\n" => Ok(Some(value.trim_end().to_owned())),
-        _ => Err("Unknown identity storage mode".into()),
+fn load(slot: &Slot) -> Result<Option<Identity>, String> {
+    match slot.mode {
+        Some("system") => system_store::load_slot(&slot.system_name()),
+        Some(_) => match fs::symlink_metadata(slot.key_path()) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            _ => file_store::load(&slot.key_path()).map(Some),
+        },
+        None => Err("Unknown identity storage mode".into()),
+    }
+}
+
+fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
+    match slot.mode {
+        Some("system") => system_store::save_slot(&slot.system_name(), identity),
+        Some(_) => file_store::save(&slot.key_path(), identity),
+        None => Err("Unknown identity storage mode".into()),
     }
 }
 
@@ -58,44 +57,33 @@ fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str
     result
 }
 
-fn write_mode(dir: &Path, mode: &str) -> Result<(), String> {
-    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(dir.join("identity-storage"))
-        .map_err(|e| e.to_string())?;
-    file.write_all(format!("{mode}\n").as_bytes())
-        .map_err(|e| e.to_string())?;
-    file.sync_all().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 #[tauri::command]
 async fn identity_state(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
 ) -> Result<HashMap<&'static str, String>, String> {
     let dir = config_dir(&app)?;
+    let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
+        .await
+        .map_err(|e| e.to_string())??;
     let mut result = HashMap::new();
-    match read_mode(&dir)? {
-        Some(mode) => {
-            let identity = tauri::async_runtime::spawn_blocking({
-                let dir = dir.clone();
-                let mode = mode.clone();
-                move || match mode.as_str() {
-                    "system" => system_store::load()?
-                        .ok_or_else(|| "Identity key is missing in system storage".into()),
-                    "file" => file_store::load(&dir.join("identity.key")),
-                    _ => Err("Unknown identity storage mode".into()),
-                }
-            })
-            .await
-            .map_err(|e| e.to_string())??;
-            result = ready_result(&mode, identity.peer_id(), &dir);
+    match opened {
+        Opened::Ready(slot, identity) => {
+            result = ready_result(slot.mode.unwrap_or_default(), identity.peer_id(), &slot.dir);
+            result.insert("slot", slot.id);
             *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
         }
-        None => {
+        Opened::Picker => {
+            result.insert("status", "picker".into());
+        }
+        Opened::Recovery(slot, reason, peer_id) => {
+            result.insert("status", "recovery".into());
+            result.insert("reason", reason.into());
+            result.insert("slot", slot.id);
+            result.extend(slot.mode.map(|mode| ("mode", mode.into())));
+            result.extend(peer_id.map(|peer_id| ("peerId", peer_id)));
+        }
+        Opened::Setup => {
             let availability = tauri::async_runtime::spawn_blocking(system_store::probe)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -120,27 +108,23 @@ async fn create_identity(
     state: tauri::State<'_, IdentityState>,
     mode: String,
 ) -> Result<HashMap<&'static str, String>, String> {
-    if mode != "system" && mode != "file" {
-        return Err("Unknown identity storage mode".into());
-    }
+    let mode = match mode.as_str() {
+        "system" => "system",
+        "file" => "file",
+        _ => return Err("Unknown identity storage mode".into()),
+    };
     let dir = config_dir(&app)?;
-    let (identity, mode, dir) = tauri::async_runtime::spawn_blocking(move || {
+    let (slot, identity) = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
             system_store::probe()
                 .map_err(|reason| format!("System storage unavailable: {:?}", reason))?;
         }
-        write_mode(&dir, &mode)?;
-        let identity = Identity::generate();
-        match mode.as_str() {
-            "system" => system_store::save(&identity)?,
-            "file" => file_store::save(&dir.join("identity.key"), &identity)?,
-            _ => unreachable!(),
-        }
-        Ok::<_, String>((identity, mode, dir))
+        slots::create(&dir, mode, &save, &load)
     })
     .await
     .map_err(|e| e.to_string())??;
-    let response = ready_result(&mode, identity.peer_id(), &dir);
+    let mut response = ready_result(mode, identity.peer_id(), &slot.dir);
+    response.insert("slot", slot.id);
     *state.0.lock().map_err(|e| e.to_string())? = Some(identity);
     Ok(response)
 }
