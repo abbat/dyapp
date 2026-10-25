@@ -405,7 +405,8 @@ impl Service {
         }
     }
 
-    /// Credentials on the coturn relay next to this node, bound to the asking peer's ID.
+    /// Credentials on the coturn relay next to this node, bound to the asking peer's IP group so
+    /// that coturn's `user-quota` counts per group, not per free peer ID.
     fn turn(&self, peer: &Peer) -> NodeResponse {
         if !self.config.roles.contains(&Role::Turn) {
             return node_status(Status::Unsupported);
@@ -418,7 +419,11 @@ impl Service {
         }
         let now = chrono::Utc::now().timestamp().unsigned_abs();
         NodeResponse {
-            turn: Some(turn_credentials(&self.config.turn, &peer.id, now)),
+            turn: Some(turn_credentials(
+                &self.config.turn,
+                &turn_user(&self.config.turn, &peer.group),
+                now,
+            )),
             ..node_status(Status::Ok)
         }
     }
@@ -842,12 +847,20 @@ fn node_status(status: Status) -> NodeResponse {
     }
 }
 
+/// A stable pseudonym of an IP group: the username leaks no address, and rotating `turn.secret`
+/// renews every pseudonym.
+fn turn_user(turn: &Turn, group: &str) -> String {
+    hex(&turn
+        .secret
+        .hmac_sha1(format!("ip-group:{group}").as_bytes())[..8])
+}
+
 /// TURN REST credentials as coturn's `use-auth-secret` checks them: username
-/// `<expiry>:<peer>`, password base64(HMAC-SHA1(secret, username)).
-fn turn_credentials(turn: &Turn, peer: &str, now: u64) -> TurnCredentials {
+/// `<expiry>:<user>`, password base64(HMAC-SHA1(secret, username)).
+fn turn_credentials(turn: &Turn, user: &str, now: u64) -> TurnCredentials {
     use base64::Engine;
     let expires = now + u64::from(turn.credential_minutes) * 60;
-    let username = format!("{expires}:{peer}");
+    let username = format!("{expires}:{user}");
     let mac = turn.secret.hmac_sha1(username.as_bytes());
     TurnCredentials {
         password: base64::engine::general_purpose::STANDARD.encode(mac),

@@ -784,9 +784,10 @@ single addresses or `a-b` ranges here, not CIDR. Relaying to public addresses st
 bounded by the quotas.
 
 Size the quotas from the relay's uplink. `max-bps` caps each session in bytes per second (1000000
-is about 8 Mbit/s); `user-quota` caps the concurrent allocations of one username, that is one
-credential of one peer; `total-quota` caps all allocations, so set it to about the uplink divided
-by `max-bps`. The example fits a 1 Gbit/s uplink with headroom.
+is about 8 Mbit/s); `user-quota` caps the concurrent allocations of one username without its
+expiry, which the node derives from the client's IP group, so clients behind one address share it;
+`total-quota` caps all allocations, so set it to about the uplink divided by `max-bps`. The
+example fits a 1 Gbit/s uplink with headroom.
 
 Give the node the secret as a file through `turn.secret_file` (or `DYAPPD_TURN_SECRET` in a
 systemd `EnvironmentFile=` with mode 0600). Open the

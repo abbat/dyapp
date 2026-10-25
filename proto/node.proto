@@ -73,8 +73,9 @@ message NodeResponse {
   TurnCredentials turn = 4;
 }
 
-// TURN REST credentials (coturn `use-auth-secret`): username `<expires>:<peer id>`, password
-// base64(HMAC-SHA1(shared secret, username)).
+// TURN REST credentials (coturn `use-auth-secret`): username `<expires>:<pseudonym>`, where the
+// pseudonym is keyed by the asker's IP group, and password base64(HMAC-SHA1(shared secret,
+// username)).
 message TurnCredentials {
   string username = 1;
   string password = 2;

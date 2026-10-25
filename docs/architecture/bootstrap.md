@@ -1048,9 +1048,12 @@ The current protocol replies are:
   shows them to the operator. A unit test checks the signature, the signer and the replacement.
 - <a id="turn-credentials"></a>**TURN credentials.** A node with the `turn` role (it needs
   `store`) hands out credentials for the coturn relay its operator runs, in coturn's
-  `use-auth-secret` scheme: username `<expires>:<peer id>`, password base64(HMAC-SHA1(`turn.secret`,
+  `use-auth-secret` scheme: username `<expires>:<group>`, password base64(HMAC-SHA1(`turn.secret`,
   username)), valid `turn.credential_minutes` (default 60), with the `turn:`/`turns:` URLs from
   `turn.urls`; the [manual](../manuals/bootstrap.md#turn-relay) has a coturn example with its quotas.
+  `<group>` is the first 8 bytes, in hex, of HMAC-SHA1(`turn.secret`, `ip-group:` and the asker's IP
+  group): fresh peer IDs from one group share coturn's `user-quota`, and the username shows no
+  address. Rotating `turn.secret` renews every pseudonym.
   The request is rate-limited like a profile get. Once its routing table has a peer the
   node announces itself as a Kademlia provider of `/dyapp/turn`; kad republishes the record every
   12 hours. Clients find relays with `get_providers` on that key (`dyapp_client::Node::providers`);

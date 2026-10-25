@@ -580,7 +580,17 @@ fn rate_limit_and_info() {
     service.config.roles.push(Role::Turn);
     service.config.turn.secret = "secret".into();
     let credentials = service.node(&peer("t"), turn).turn.unwrap();
-    assert!(credentials.username.ends_with(":t"));
+    // The user is a pseudonym of the IP group, not the peer ID.
+    let user = credentials.username.split_once(':').unwrap().1.to_owned();
+    assert_eq!(user.len(), 16);
+    let again = service.node(&peer("u"), turn).turn.unwrap();
+    assert!(again.username.ends_with(&format!(":{user}")));
+    let other = Peer {
+        group: "h".into(),
+        ..peer("v")
+    };
+    let other = service.node(&other, turn).turn.unwrap();
+    assert!(!other.username.ends_with(&format!(":{user}")));
     // Vector from Python: base64(hmac.new(b"secret", user, sha1).digest()).
     let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
     assert_eq!(known.username, "1003600:12D3KooWpeer");
