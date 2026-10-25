@@ -376,11 +376,11 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
         .stderr(std::process::Stdio::null())
         .spawn()
         .unwrap();
+    // A loaded host can start the node slowly; an exited node fails at once.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
     let mut output = status(&[]);
-    for _ in 0..60 {
-        if output.status.success() {
-            break;
-        }
+    while !output.status.success() && std::time::Instant::now() < deadline {
+        assert!(node.try_wait().unwrap().is_none(), "dyappd exited");
         std::thread::sleep(std::time::Duration::from_millis(500));
         output = status(&[]);
     }
