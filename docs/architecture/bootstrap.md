@@ -994,7 +994,10 @@ The current protocol replies are:
   Only the closest node per key gets it, and a node that missed it keeps the envelope until its
   TTL. This is also how a recipient removes a known original chat envelope before or after seeing
   an encrypted delete; the sender cannot ACK someone else's mailbox. A replayed `replica_ack` can
-  only delete ids the device already acked.
+  only delete ids the device already acked. The multi-node network check
+  `network_checks.py::acked_everywhere` puts the same opaque envelope on each replica and checks
+  that one recipient ACK clears every cooperating node. It applies equally to encrypted originals;
+  nodes cannot tell a chat original from other ciphertext.
 - **Mailbox repair.** A valid `fetch` with `watch` starts a repair of that mailbox, at most once
   an hour per node and only below 75 % of the traffic cap. The node looks up the closest node of
   each `replica_key(mailbox, i)`, skipping keys it is closer to itself, and sends it an
