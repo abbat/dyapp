@@ -66,7 +66,11 @@ The signed profile accepts independent optional birth year, month and day
 year reveals a birthday but leaves age unknown; with a year, the core derives a
 possible-age range. No app publishes the new fields yet. A full date reveals
 more than a year or month/day alone. The planned client defaults all parts to
-absent, asks for explicit 18+ self-attestation and never infers missing parts.
+absent, previews exactly what will be published, and warns about a full date.
+Every publish requires explicit 18+ self-attestation. With a year, the youngest
+possible age must also be at least 18 on the current UTC date; without a year,
+age remains unknown and the attestation alone is used. Missing parts are never
+inferred. No app has a profile editor or publish action yet.
 
 Search canonicalizes a supplied place against its embedded GeoNames country/place set.
 A profile with no place, or an unknown country/place pair, is indexed in the country
