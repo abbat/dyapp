@@ -27,8 +27,8 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Web / JS | — | none | — | — | not configured |
 
 The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
-`make check`, `tests/scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`; the `pre-commit` hook would too, but it
-does not run today, see [code-quality.md](code-quality.md#git-hooks).
+`make check`, `tests/scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`. Git hooks run only
+the fast staged checks, see [code-quality.md](code-quality.md#git-hooks).
 
 ## Rust
 
