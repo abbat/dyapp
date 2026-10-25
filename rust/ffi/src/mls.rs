@@ -217,7 +217,9 @@ impl MlsGroup {
             &verified(&profiles)?,
         )?;
         Ok(match received {
-            Received::Message { sender, plaintext } => MlsReceived::Message { sender, plaintext },
+            Received::Message {
+                sender, plaintext, ..
+            } => MlsReceived::Message { sender, plaintext },
             Received::Commit => MlsReceived::Commit,
         })
     }

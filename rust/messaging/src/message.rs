@@ -143,6 +143,7 @@ mod tests {
         }
         let received = crate::mls::Received::Message {
             sender: "alice".into(),
+            device: vec![7; 32],
             plaintext: b"secret".to_vec(),
         };
         assert_eq!(format!("{received:?}"), "Message { .. }");

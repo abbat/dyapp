@@ -76,6 +76,13 @@ fn certified(
     Ok((peer_id, signed))
 }
 
+/// The device mailbox key a device certificate names.
+fn device_key(certificate: &SignedRecord) -> Result<Vec<u8>, Error> {
+    Ok(DeviceCertificate::decode(certificate.payload.as_slice())
+        .map_err(|_| Error::Credential)?
+        .device_key)
+}
+
 /// Checks that `credential` is a device certificate signed by an identity key for
 /// `signature_key` and listed in that identity's profile in `profiles`, the newest the caller
 /// holds; returns the identity's Peer ID.
@@ -247,6 +254,11 @@ impl Device {
         &self.certificate
     }
 
+    /// This device's mailbox key, as its certificate names it.
+    pub fn device_key(&self) -> Result<Vec<u8>, Error> {
+        device_key(&self.certificate)
+    }
+
     /// A TLS-serialized KeyPackage valid for [`KEY_PACKAGE_LIFETIME_SECONDS`]. A single-use one
     /// is gone after its first Welcome; a last-resort one stays.
     pub fn key_package(&self, last_resort: bool) -> Result<Vec<u8>, Error> {
@@ -382,6 +394,8 @@ pub enum Received {
     Message {
         /// Peer ID of the sender's identity.
         sender: String,
+        /// The sending device's mailbox key, from its certificate.
+        device: Vec<u8>,
         /// The decrypted bytes.
         plaintext: Vec<u8>,
     },
@@ -438,9 +452,7 @@ impl Group {
             .filter(|member| member.index != own)
             .map(|member| {
                 let (_, signed) = certified(&member.credential, &member.signature_key)?;
-                Ok(DeviceCertificate::decode(signed.payload.as_slice())
-                    .map_err(|_| Error::Credential)?
-                    .device_key)
+                device_key(&signed)
             })
             .collect()
     }
@@ -508,8 +520,11 @@ impl Group {
                     return Err(Error::Unexpected);
                 };
                 let member = self.group.member_at(index).ok_or(Error::Credential)?;
+                let sender = verify_member(&member.credential, &member.signature_key, profiles)?;
+                let (_, signed) = certified(&member.credential, &member.signature_key)?;
                 Ok(Received::Message {
-                    sender: verify_member(&member.credential, &member.signature_key, profiles)?,
+                    sender,
+                    device: device_key(&signed)?,
                     plaintext: message.into_bytes(),
                 })
             }

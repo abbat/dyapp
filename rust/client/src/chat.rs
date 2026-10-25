@@ -54,8 +54,19 @@ pub enum Event {
         group: Vec<u8>,
         /// Peer ID of the sender's identity.
         sender: String,
-        /// What the message carries.
+        /// What the message carries; never an interaction.
         body: Body,
+    },
+    /// A member's like, unlike or view.
+    Interaction {
+        /// The group ID.
+        group: Vec<u8>,
+        /// Peer ID of the sender's identity.
+        sender: String,
+        /// The sending device's mailbox key, which orders concurrent events.
+        device: Vec<u8>,
+        /// The decoded event.
+        event: Interaction,
     },
     /// A commit moved the group with this ID to its next epoch.
     Commit(Vec<u8>),
@@ -192,6 +203,10 @@ impl std::fmt::Debug for Event {
             Self::Joined(group) => f.debug_tuple("Joined").field(group).finish(),
             Self::Message { group, .. } => f
                 .debug_struct("Message")
+                .field("group", group)
+                .finish_non_exhaustive(),
+            Self::Interaction { group, .. } => f
+                .debug_struct("Interaction")
                 .field("group", group)
                 .finish_non_exhaustive(),
             Self::Commit(group) => f.debug_tuple("Commit").field(group).finish(),
@@ -380,10 +395,22 @@ pub(crate) fn apply(
         return Ok(Some(Event::Gap(id)));
     }
     Ok(Some(match group.process(device, bytes, profiles)? {
-        Received::Message { sender, plaintext } => Event::Message {
-            group: id,
+        Received::Message {
             sender,
-            body: Body::decode(unpad(&plaintext).ok_or(Error::Reply("bad padding"))?)?,
+            device,
+            plaintext,
+        } => match Body::decode(unpad(&plaintext).ok_or(Error::Reply("bad padding"))?)? {
+            Body::Interaction(event) => Event::Interaction {
+                group: id,
+                sender,
+                device,
+                event,
+            },
+            body => Event::Message {
+                group: id,
+                sender,
+                body,
+            },
         },
         Received::Commit => Event::Commit(id),
     }))
@@ -503,10 +530,11 @@ mod tests {
             vec![envelope(3, sent[0].mls.clone())],
             &profiles,
         );
-        let [Event::Message { body, .. }] = events.as_slice() else {
+        let [Event::Interaction { device, event, .. }] = events.as_slice() else {
             panic!("expected decrypted interaction");
         };
-        assert!(*body == Body::Interaction(like));
+        assert!(*event == like);
+        assert_eq!(*device, alice.device_key().unwrap());
         assert_eq!(acked, [vec![3]]);
 
         // An untagged plaintext, as before the frame, is refused and still acked.

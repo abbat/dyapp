@@ -486,7 +486,9 @@ impl Session {
             }
         }
         let blocked = match &event {
-            Event::Message { sender, .. } => self.store.blocked(sender)?,
+            Event::Message { sender, .. } | Event::Interaction { sender, .. } => {
+                self.store.blocked(sender)?
+            }
             _ => false,
         };
         let staged = if matches!(event, Event::Refused(_)) {

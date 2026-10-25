@@ -74,6 +74,7 @@ fn members_exchange_messages_both_ways() {
             .unwrap(),
         Received::Message {
             sender: p.alice.peer_id(),
+            device: p.alice_device.device_key().unwrap(),
             plaintext: b"hello".to_vec()
         }
     );
@@ -84,6 +85,7 @@ fn members_exchange_messages_both_ways() {
             .unwrap(),
         Received::Message {
             sender: p.bob.peer_id(),
+            device: p.bob_device.device_key().unwrap(),
             plaintext: b"hi".to_vec()
         }
     );
@@ -447,6 +449,7 @@ fn device_restarted_between_messages_still_decrypts() {
             .unwrap(),
         Received::Message {
             sender: p.alice.peer_id(),
+            device: p.alice_device.device_key().unwrap(),
             plaintext: b"two".to_vec()
         }
     );

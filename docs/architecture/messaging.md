@@ -60,7 +60,10 @@ sends an interaction through the existing MLS chat path and decodes the result.
 HLC and creates at most one view per peer per UTC day; `Store::receive_interaction` applies the
 60-second future-skew guard first. `chat::message` pads an interaction body from 256 bytes, not
 1 KiB, and `Session` puts it with `class = signal`, keeping the class on a token fallback; a
-signal whose signed payload is over 1 KiB is refused before staging, never truncated. Nothing
+signal whose signed payload is over 1 KiB is refused before staging, never truncated.
+`chat::apply` returns a received interaction as `Event::Interaction` with the sending device's
+mailbox key from its certificate (`mls::Received::Message::device`), which orders concurrent
+events of one identity. Nothing
 creates and sends a like through `Session` yet, and no app shows one.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-5 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
