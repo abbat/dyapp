@@ -28,7 +28,6 @@ Located in `#[cfg(test)]` modules within each crate.
 
 **Messaging** (rust/messaging)
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
-- MessageQueue: enqueue/dequeue, pending filtering, mark/remove delivered (no TTL; `retry_failed` only in integration tests, first retry)
 - MLS: roundtrip, tampered, replayed and foreign messages, single-use Welcome, forged
   certificates, revoked devices, suite and lifetime checks, commits, exporter,
   restart from sealed state, wrong key and tampered seal
@@ -60,7 +59,6 @@ Located in `#[cfg(test)]` modules within each crate.
 Located in `tests/integration_tests.rs`.
 
 Multi-peer scenario testing:
-- **Message relay**: offline queue, delivery, retry with exponential backoff
 - **Video session**: offer/answer, ICE gathering, codec negotiation
 - **Reputation**: peer tracking, trust scoring
 - **Bootstrap**: replication fault tolerance; the node protocol end to end is in
@@ -405,7 +403,7 @@ make coverage
 ```bash
 # Fast subset
 cargo test --lib messaging  # Just the messaging crate
-cargo test --test integration_tests -- message_offline
+cargo test --test integration_tests -- hybrid_clock
 ```
 
 ## Test Naming
@@ -417,7 +415,7 @@ test_<module>_<behavior>_<outcome>
 ```
 
 Examples:
-- `test_message_queue_enqueue_adds_entry`
+- `test_hybrid_clock_ordering`
 - `test_video_session_state_transitions`
 - `test_bootstrap_cleanup_removes_expired`
 - `test_hybrid_clock_observe_moves_past_remote`
@@ -429,7 +427,7 @@ Examples:
 RUST_LOG=debug cargo test -- --nocapture
 
 # Run single test
-cargo test test_message_queue_enqueue -- --exact
+cargo test test_hybrid_clock_ordering -- --exact
 
 # Run with backtrace
 RUST_BACKTRACE=1 cargo test
@@ -441,10 +439,9 @@ Benchmarks using `criterion`:
 
 ```rust
 #[bench]
-fn bench_message_queue_dequeue(b: &mut Bencher) {
-    let mut queue = MessageQueue::new();
-    queue.enqueue(msg);
-    b.iter(|| queue.dequeue());
+fn bench_hybrid_clock_now(b: &mut Bencher) {
+    let clock = HybridClock::new();
+    b.iter(|| clock.now());
 }
 ```
 

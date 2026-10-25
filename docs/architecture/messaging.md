@@ -1,13 +1,13 @@
 # Messaging Architecture (Offline-First)
 
-Authored Rust APIs document local status changes, plaintext retention and queue retry
-bookkeeping. Queueing and attaching encrypted bytes do not by themselves encrypt,
-verify receipts or send messages; the service's sender label is currently `self_id`.
+Authored Rust APIs document local status changes and plaintext retention. Attaching encrypted
+bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 
 ## Overview
 
-Message model, in-memory queue and hybrid logical clock in `rust/messaging`. The queue is not
-wired to the network: it sends, retries on a timer and persists nothing.
+Message model and hybrid logical clock in `rust/messaging`. The only delivery path is the MLS
+`Session` with its SQLite outbox in `rust/client`; the earlier in-memory plaintext queue was
+removed so it cannot become a second, unencrypted one.
 
 Delivery of MLS chats lives in `rust/client` (`dyapp-client`): `Node` speaks the profile,
 KeyPackage and mailbox protocols to one bootstrap node, and `chat` sends every Welcome, commit
@@ -115,15 +115,13 @@ must process one envelope per transaction before UI display or ACK; `Session::re
 adapter, and the app does not call it yet.
 
 **What exists vs planned:**
-- In-memory queue (`VecDeque`): lost on restart, no persistence
-- Retry bookkeeping (`retry_failed()`), called by the owner; no background worker
+- Durable outbox and retries: `rust/client` `Session`; no background worker yet
 - Hybrid logical clock timestamps with a peer-ID tie-break for ordering
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
   planned
 - Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
 - E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
-  implemented in `mls.rs`, [below](#e2e-encryption-mls); delivered by `rust/client`, not by the
-  queue
+  implemented in `mls.rs`, [below](#e2e-encryption-mls); delivered by `rust/client`
 - Sender authenticity: MLS signs every message with the sender device's certified key
 
 ## Message Model
@@ -147,38 +145,8 @@ the current state, so any transition is possible. Intended flow:
 ```
 Pending → Sent → Delivered → Read
     ↓
-  Failed → (retry_failed) → Pending
+  Failed
 ```
-
-## Offline Queue
-
-```rust
-pub struct QueueEntry { pub message: Message, pub retry_count: u32, pub next_retry_at: i64 }
-
-pub struct MessageQueue {
-    entries: VecDeque<QueueEntry>,  // in memory only
-    max_retries: u32,               // 5, not configurable
-}
-```
-
-**Operations** (all synchronous; none sends anything):
-- `enqueue(message)`: append with `retry_count = 0`, `next_retry_at = 0`
-- `dequeue()`, `peek()`, `size()`, `is_empty()`, `clear()`
-- `get_pending()`: clones of messages with status `Pending`
-- `mark_delivered(id)`: set status `Delivered`; `Err` if the id is unknown
-- `remove_delivered()`: drop `Delivered` and `Read` entries
-- `retry_failed()`: for each `Failed` entry with `retry_count < 5` and `next_retry_at <= now`:
-  increment `retry_count`, set status back to `Pending`, set
-  `next_retry_at = now + 1000 ms × 2^(retry_count − 1)`, and return a clone
-
-**Backoff, as computed:** the first retry is allowed immediately; after retries 1–4 the next one
-is allowed no earlier than 1, 2, 4 and 8 s later (15 s minimum span for 5 retries). The 16 s value
-set after the 5th retry is never used, because the limit is reached. These are earliest times:
-something must call `retry_failed()`, and there is no queue method to mark an entry `Failed`, so
-only a message enqueued already `Failed` can be retried today.
-
-`MessagingService` (in `lib.rs`) wraps the queue: `send_message` increments the clock and enqueues
-a message from the hard-coded sender `"self_id"`; it does not deliver it.
 
 ## E2E Encryption (MLS)
 
@@ -246,7 +214,7 @@ What this gives and what it does not:
 ## Mailbox Delivery — planned
 
 Only the single-node mailbox is implemented ([bootstrap](bootstrap.md#served-protocol)): there
-is no transport in `rust/messaging`, and nothing wires the queue to it. Decision:
+is no transport in `rust/messaging`. Decision:
 [ADR 0009](../decisions/0009-message-delivery-and-storage.md).
 
 1. The sender writes the message to the mailbox of each of the recipient's devices (each device
@@ -320,7 +288,5 @@ No serialization of these envelopes exists; `Message` derives serde but no forma
 
 ## Testing
 
-Unit tests in `rust/messaging/src/*.rs` cover message creation and status setters, queue
-enqueue/dequeue, pending filter, `mark_delivered`, `remove_delivered`, clock
-increment/observe/current/clone, and `MessageOrdering` sort. `tests/integration_tests.rs` checks only the first `retry_failed()` call (re-enqueueing resets `retry_count`); later backoff steps and
-`merge()` have no tests. `src/mls/tests.rs` covers MLS ([what it checks](../security/encryption.md#current-state-verified-against-source)).
+Unit tests in `rust/messaging/src/*.rs` cover message creation and status setters, clock
+increment/observe/current/clone, and `MessageOrdering` sort; `merge()` has no tests. `src/mls/tests.rs` covers MLS ([what it checks](../security/encryption.md#current-state-verified-against-source)).
