@@ -136,6 +136,9 @@ capture per port across restarts. Raw failure evidence includes node-port header
   dev container may die with `rustc interrupted by SIGSEGV` in a random dependency; run it with
   `RUST_MIN_STACK=67108864`. A new untracked file needs `git add -N` to enter the copied tree
   and the `--in-diff` diff.
+- A sudden Apple IPA/ZIP size jump: grep the release-sizes `build.log` artifact for embedded
+  `libswift_*.dylib`. Swift 6 mode with a deployment target below iOS 15 / macOS 12 embeds the
+  back-deployed concurrency runtime. Download artifacts with `gh run download <id> -n <name>`.
 - libp2p-kad: a node in `Mode::Auto` answers DHT lookups only after
   `swarm.add_external_address`; test nodes must confirm their listen address. Provider addresses
   live only in the running query, so dial providers while it runs. After `close_connection`, wait
