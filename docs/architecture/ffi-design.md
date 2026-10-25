@@ -159,7 +159,8 @@ depends on the native side not using a handle after freeing it.
 checks that keystore errors reach the caller; a `ConnectionCheck` saves its draft, activates
 only after reaching an in-process node and is cancelled mid-check; two `MlsDevice`s exchange
 a message across a sealed restart, and a wrong state key or a malformed profile fails.
-Preview tests size a 4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus and 10 000 seeded
-mutations of a valid preview without a panic. The Android UI test (`AppUITests.kt`) checks
-that the stored identity keeps its peer ID when the activity is recreated; the iOS and macOS
-UI tests (`LaunchTests.swift`) check that it survives an app relaunch.
+Preview tests size a 4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus
+and 10 000 seeded mutations of a valid preview without a panic. The Android UI test
+(`AppUITests.kt`) checks that the stored identity keeps its peer ID when the activity is
+recreated; the iOS and macOS UI tests (`LaunchTests.swift`) check that it survives an app
+relaunch.
