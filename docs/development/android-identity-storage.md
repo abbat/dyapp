@@ -24,9 +24,11 @@ The UI and OS credential gate are still planned; `AppLockStore` exposes a recove
 must only be called after that gate succeeds. `onDevice` uses `PlatformKeyStore` with a dedicated
 alias and the common Rust FFI Argon2id functions; JVM tests inject fake implementations.
 `AppLockLifecycle` now models fresh-process locking, the 60-second background grace and the
-five-minute foreground inactivity deadline from a monotonic clock. It marks the background
-snapshot as obscured immediately. Compose and Activity callbacks are not wired to this model yet;
-the future UI must schedule `millisUntilLock()` and call `refresh()` before rendering private data.
+five-minute foreground inactivity deadline from a monotonic clock. `MainActivity` checks it
+before constructing `MainScreen`, refreshes on foreground/background and input events, and
+schedules its deadline. Configured locks show a private-data-free placeholder until PIN entry
+is implemented. The model signals immediate background obscuring; applying that signal to the
+app-switcher snapshot remains planned.
 
 ## Layout
 

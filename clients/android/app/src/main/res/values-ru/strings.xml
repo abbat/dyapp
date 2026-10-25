@@ -5,6 +5,7 @@
     <string name="status_pick">Выберите идентичность</string>
     <string name="status_recovery">Эту идентичность не удалось открыть</string>
     <string name="status_error">Не удалось открыть хранилище ключа</string>
+    <string name="app_locked">Приложение заблокировано</string>
     <string name="storage_peer_id">Ваш идентификатор узла</string>
     <string name="storage_os_loss">Удаление приложения или очистка его данных стирает ключ этой идентичности без предупреждения. Резервную копию пока сделать нельзя.</string>
     <string name="storage_error">Перезапустите приложение. Ваш ключ не был заменён.</string>

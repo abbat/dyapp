@@ -57,6 +57,22 @@ class AppUITests {
         .joinToString()
 
     @Test
+    fun configuredLockHidesIdentityBeforePrivateScreenLoads() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = AppLockStore.onDevice(context.noBackupFilesDir)
+        store.enroll("123456")
+        try {
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithTag("app-locked").assertIsDisplayed()
+            compose.onNodeWithTag("peer-id").assertDoesNotExist()
+            compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
+            compose.onNodeWithTag("identity").assertDoesNotExist()
+        } finally {
+            store.resetAfterDeviceCredential(null)
+        }
+    }
+
+    @Test
     fun recreationKeepsReadyScreenAndPeerId() {
         val before = shownPeerId()
         compose.activityRule.scenario.recreate()

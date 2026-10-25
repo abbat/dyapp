@@ -1,6 +1,11 @@
 package com.dyapp
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -30,11 +35,70 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dyapp.ui.theme.DYAppTheme
 
-/** The single activity; hosts the Compose UI. */
+/** The single activity; checks the app lock before constructing the private Compose screen. */
 class MainActivity : ComponentActivity() {
+    private lateinit var appLock: AppLockLifecycle
+    private val timer = Handler(Looper.getMainLooper())
+    private val deadline = Runnable { refreshLock() }
+    private var locked by mutableStateOf(true)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { DYAppTheme { MainScreen() } }
+        // An unreadable verifier must fail closed, never start a new unlocked session.
+        val pinEnabled = runCatching { AppLockStore.onDevice(noBackupFilesDir).hasPin() }
+            .getOrDefault(true)
+        appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
+        refreshLock()
+        setContent { DYAppTheme { if (locked) LockedScreen() else MainScreen() } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appLock.onForeground()
+        refreshLock()
+    }
+
+    override fun onPause() {
+        appLock.onBackground()
+        refreshLock()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        timer.removeCallbacks(deadline)
+        super.onDestroy()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val wasLocked = locked
+        appLock.onInteraction()
+        refreshLock()
+        return if (!wasLocked && locked) true else super.dispatchTouchEvent(event)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val wasLocked = locked
+        appLock.onInteraction()
+        refreshLock()
+        return if (!wasLocked && locked) true else super.dispatchKeyEvent(event)
+    }
+
+    private fun refreshLock() {
+        val remaining = appLock.millisUntilLock()
+        locked = appLock.isLocked
+        timer.removeCallbacks(deadline)
+        if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
+    }
+}
+
+@Composable
+private fun LockedScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(stringResource(R.string.app_locked), modifier = Modifier.testTag("app-locked"))
     }
 }
 
