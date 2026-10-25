@@ -93,7 +93,12 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     assert_eq!(welcome[0].mailbox, bob.mailbox());
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let hello = b"hello bob, this text must never reach the node";
-    let sent = chat::message(&mut group, &alice.device, &Body::Text(hello.to_vec())).unwrap();
+    let sent = chat::message(
+        &mut group,
+        &alice.device,
+        &Body::text_with_id([1; 16], hello.to_vec()),
+    )
+    .unwrap();
     chat::send(&mut alice.node, &sent).await.unwrap();
 
     // What the node stores and returns is MLS bytes, padded and encrypted.
@@ -138,7 +143,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
-                body: Body::Text(hello.to_vec()),
+                body: Body::text_with_id([1; 16], hello.to_vec()),
             },
         ]
     );
@@ -148,7 +153,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     let reply = chat::message(
         &mut bob_groups[0],
         &bob.device,
-        &Body::Text(b"hi alice".to_vec()),
+        &Body::text_with_id([1; 16], b"hi alice".to_vec()),
     )
     .unwrap();
     assert_eq!(reply[0].mailbox, alice.mailbox());
@@ -168,7 +173,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         vec![Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
-            body: Body::Text(b"hi alice".to_vec()),
+            body: Body::text_with_id([1; 16], b"hi alice".to_vec()),
         }]
     );
 }
@@ -400,7 +405,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
     let sent = chat::message(
         &mut bob_groups[0],
         &bob.device,
-        &Body::Text(secret.to_vec()),
+        &Body::text_with_id([1; 16], secret.to_vec()),
     )
     .unwrap();
     assert_eq!(sent.len(), 1);
@@ -421,7 +426,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         Some(&Event::Message {
             group: alice_groups[0].id().to_vec(),
             sender: bob.identity.peer_id(),
-            body: Body::Text(secret.to_vec()),
+            body: Body::text_with_id([1; 16], secret.to_vec()),
         })
     );
     // The lost device can neither fetch its mailbox nor read the new epoch's message.
@@ -499,7 +504,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     let sent = chat::message(
         &mut group,
         &alice.device,
-        &Body::Text(b"carol is gone".to_vec()),
+        &Body::text_with_id([1; 16], b"carol is gone".to_vec()),
     )
     .unwrap();
     chat::send(&mut alice.node, &sent).await.unwrap();
@@ -535,7 +540,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
             Event::Message {
                 group: group.id().to_vec(),
                 sender: alice.identity.peer_id(),
-                body: Body::Text(b"carol is gone".to_vec()),
+                body: Body::text_with_id([1; 16], b"carol is gone".to_vec()),
             },
         ]
     );
@@ -709,25 +714,20 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     heal(&bob_path);
     drop(bob_session);
 
-    let hello = Event::Message {
-        group: group_id.clone(),
-        sender: alice.identity.peer_id(),
-        body: Body::Text(b"hello bob".to_vec()),
-    };
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
-    assert_eq!(
-        bob_session
-            .receive(
-                std::slice::from_mut(&mut bob.node),
-                &bob.device_key,
-                &profiles,
-                &bob_key
-            )
-            .await
-            .unwrap(),
-        [Event::Joined(group_id.clone()), hello]
-    );
+    let events = bob_session
+        .receive(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &bob_key,
+        )
+        .await
+        .unwrap();
+    assert!(matches!(events.as_slice(),
+        [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. } }]
+        if joined == &group_id && group == &group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
     assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
 
     // Bob's receipt drops the Welcome from Alice's outbox; a repeated put of the exact Welcome
@@ -778,22 +778,18 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         )
         .await
         .unwrap();
-    assert_eq!(
-        alice_session
-            .receive(
-                std::slice::from_mut(&mut alice.node),
-                &alice.device_key,
-                &profiles,
-                &alice_key
-            )
-            .await
-            .unwrap(),
-        [Event::Message {
-            group: group_id,
-            sender: bob_owner,
-            body: Body::Text(b"hi alice".to_vec()),
-        }]
-    );
+    let events = alice_session
+        .receive(
+            std::slice::from_mut(&mut alice.node),
+            &alice.device_key,
+            &profiles,
+            &alice_key,
+        )
+        .await
+        .unwrap();
+    assert!(matches!(events.as_slice(),
+        [Event::Message { group, sender, body: Body::Text { text, .. } }]
+        if group == &group_id && sender == &bob_owner && text == b"hi alice"));
 }
 
 async fn post(person: &mut Person, group: &mut Group, bodies: &[Body]) {

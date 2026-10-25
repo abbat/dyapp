@@ -195,8 +195,16 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        self.send_body(nodes, group_id, &Body::Text(text.to_vec()), seal_key)
-            .await
+        let mut id = [0; 16];
+        getrandom::fill(&mut id)
+            .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
+        self.send_body(
+            nodes,
+            group_id,
+            &Body::text_with_id(id, text.to_vec()),
+            seal_key,
+        )
+        .await
     }
 
     /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the

@@ -1,9 +1,10 @@
 # Message edits and deletion
 
-This is the planned client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
-No app exposes chat yet. The Rust chat body currently carries raw text under tag 1 without a
-logical message ID; the client store indexes received messages by mailbox envelope ID. The
-recipient device alone can sign a mailbox `Ack`. The wire and state changes below are planned.
+This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
+No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and parses tags 8 and
+9; the client store still indexes received messages by mailbox envelope ID and does not apply
+operations. The recipient device alone can sign a mailbox `Ack`. Persistence and UI work below
+remain planned.
 
 ## Identity and wire
 
@@ -13,7 +14,8 @@ The send path must persist and expose this ID even when a network put fails. The
 not a message ID: a separate envelope is prepared for each recipient device.
 
 The existing first-byte chat body tag remains the type boundary. Before the first release, tag 1
-changes from raw text to `message ID (16 bytes) || text`. Tag 8 is an edit:
+has changed from raw text to `message ID (16 bytes) || text`. Text and replacement text are
+limited to 64 KiB by the codec. Tag 8 is an edit:
 `target ID (16) || operation ID (16) || HLC (8, big endian) || replacement text`.
 Tag 9 is a delete with the same 40-byte header and no text. An operation ID is random and stays
 unchanged across retry. The sender identity and device key come from the verified MLS group,

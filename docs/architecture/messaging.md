@@ -5,9 +5,10 @@ bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 
 ## Overview
 
-Message edits and deletion are [planned](../design/message-edits-and-deletion.md); current chat
-text has no stable logical message ID or edit/delete operation. The recipient device alone can
-sign its mailbox `Ack`, so deletion cannot be presented as guaranteed remote erasure.
+Message edits and deletion follow a [staged design](../design/message-edits-and-deletion.md).
+The chat codec now carries a logical text ID and parses edit/delete operations; persistence,
+application and UI remain planned. The recipient device alone can sign its mailbox `Ack`, so
+deletion cannot be presented as guaranteed remote erasure.
 
 Message model and hybrid logical clock in `rust/messaging`. The only delivery path is the MLS
 `Session` with its SQLite outbox in `rust/client`; the earlier in-memory plaintext queue was
@@ -49,9 +50,12 @@ The like, unlike and view payload and match state are specified in the
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
-attachment, `7` forwarded text or attachment), so a text is never read as an interaction; an
-unknown tag is refused and acked. A forward wraps the tagged text or attachment and names no
-original author: apps show it as forwarded from the MLS sender, never as another member's words. An
+attachment, `7` forwarded text or attachment, `8` edit, `9` delete), so a text is never read as
+an interaction; an unknown tag is refused and acked. Tag 1 contains a 16-byte logical ID before
+at most 64 KiB of text. Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
+big-endian 8-byte HLC; edit adds at most 64 KiB of replacement text, while delete has no tail.
+The codec refuses short IDs, oversized text, trailing delete bytes and forwarded operations.
+A forward wraps the tagged text or attachment and names no original author: apps show it as forwarded from the MLS sender, never as another member's words. An
 attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
 release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
 printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length

@@ -104,21 +104,21 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
         .await
         .unwrap();
     let mut bob_second = connect(&second).await;
-    let text = |text: &[u8]| chat::Event::Message {
-        group: group_id.clone(),
-        sender: alice.identity.peer_id(),
-        body: Body::Text(text.to_vec()),
+    let has_text = |events: &[chat::Event], expected: &[u8]| {
+        matches!(events,
+        [chat::Event::Message { group, sender, body: Body::Text { text, .. } }]
+        if group == &group_id && sender == &alice.identity.peer_id() && text == expected)
     };
-    assert_eq!(
-        receive(
+    assert!(has_text(
+        &receive(
             &mut bob_session,
             &mut bob_second,
             &bob.device_key,
             &profiles
         )
         .await,
-        [text(b"two")]
-    );
+        b"two"
+    ));
 
     // Bob's receipt for "two" blames the first node, and "one" is due at once.
     assert!(receive(
@@ -142,14 +142,14 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
         .retry_due(&mut nodes, now_ms + 120_000, &SEAL)
         .await
         .unwrap();
-    assert_eq!(
-        receive(
+    assert!(has_text(
+        &receive(
             &mut bob_session,
             &mut bob_second,
             &bob.device_key,
             &profiles
         )
         .await,
-        [text(b"one")]
-    );
+        b"one"
+    ));
 }

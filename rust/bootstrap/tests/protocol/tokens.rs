@@ -328,7 +328,7 @@ async fn two_sessions_trade_tokens_on_join_and_a_message_passes_a_full_pool() {
         events.extend(receive(&mut bob_session, &mut bob, &profiles).await);
     }
     assert!(events.iter().any(|event| matches!(event,
-        chat::Event::Message { body: chat::Body::Text(text), .. } if text == b"hi")));
+        chat::Event::Message { body: chat::Body::Text { text, .. }, .. } if text == b"hi")));
     drop((alice_session, bob_session));
 
     let today = (std::time::SystemTime::now()

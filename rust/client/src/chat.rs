@@ -23,6 +23,10 @@ pub const MIN_PADDED_BYTES: usize = 1024;
 pub const SIGNAL_PADDED_BYTES: usize = 256;
 /// Largest signed payload of a signal envelope the node accepts.
 pub const MAX_SIGNAL_BYTES: usize = 1024;
+/// Maximum text bytes in a chat text or edit, before MLS padding.
+pub const MAX_TEXT_BYTES: usize = 64 * 1024;
+const MESSAGE_ID_BYTES: usize = 16;
+const OPERATION_HEADER_BYTES: usize = 2 * MESSAGE_ID_BYTES + 8;
 // The big-endian plaintext length that starts a padded plaintext.
 const LENGTH_BYTES: usize = 4;
 
@@ -85,8 +89,13 @@ pub enum Event {
 /// is never read as an interaction.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Body {
-    /// User text, tag 1.
-    Text(Vec<u8>),
+    /// User text with its logical ID, tag 1.
+    Text {
+        /// Stable logical ID shared across recipient devices.
+        id: [u8; 16],
+        /// The current text bytes.
+        text: Vec<u8>,
+    },
     /// A like, unlike or view, tag 2.
     Interaction(Interaction),
     /// A contact device asks the owner for WriteTokens, tag 3.
@@ -100,6 +109,26 @@ pub enum Body {
     /// A text or attachment the sender forwards, tag 7. It names no original author: the MLS
     /// sender is the only sender, so forwarded words never pass for another member's.
     Forwarded(Box<Body>),
+    /// Replace the author's earlier text, tag 8.
+    Edit {
+        /// Logical ID of the original text.
+        target: [u8; 16],
+        /// Stable ID of this operation.
+        operation: [u8; 16],
+        /// Hybrid logical timestamp.
+        hlc: u64,
+        /// Replacement text bytes.
+        text: Vec<u8>,
+    },
+    /// Remove the author's earlier text, tag 9.
+    Delete {
+        /// Logical ID of the original text.
+        target: [u8; 16],
+        /// Stable ID of this operation.
+        operation: [u8; 16],
+        /// Hybrid logical timestamp.
+        hlc: u64,
+    },
 }
 
 // The wire form of an `Attachment`; previews and media types may take later tags.
@@ -192,10 +221,15 @@ pub struct TokenAnswer {
 }
 
 impl Body {
-    /// The tag byte, then the text or the encoded interaction.
+    /// Makes a text body with a caller-owned logical ID, shared by all device deliveries.
+    pub fn text_with_id(id: [u8; 16], text: Vec<u8>) -> Self {
+        Self::Text { id, text }
+    }
+
+    /// The tag byte, then the bounded body bytes.
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            Self::Text(text) => [&[1], text.as_slice()].concat(),
+            Self::Text { id, text } => [&[1], id.as_slice(), text.as_slice()].concat(),
             Self::Interaction(event) => [&[2], event.encode().as_slice()].concat(),
             Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
             Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
@@ -215,6 +249,30 @@ impl Body {
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }
             Self::Forwarded(body) => [&[7], body.encode().as_slice()].concat(),
+            Self::Edit {
+                target,
+                operation,
+                hlc,
+                text,
+            } => [
+                &[8],
+                target.as_slice(),
+                operation.as_slice(),
+                &hlc.to_be_bytes(),
+                text.as_slice(),
+            ]
+            .concat(),
+            Self::Delete {
+                target,
+                operation,
+                hlc,
+            } => [
+                &[9],
+                target.as_slice(),
+                operation.as_slice(),
+                &hlc.to_be_bytes(),
+            ]
+            .concat(),
         }
     }
 
@@ -223,7 +281,18 @@ impl Body {
     /// anything but a text or attachment.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
-            Some((1, text)) => Ok(Self::Text(text.to_vec())),
+            Some((1, body)) => {
+                let (id, text) = body
+                    .split_first_chunk::<MESSAGE_ID_BYTES>()
+                    .ok_or(Error::Reply("bad text"))?;
+                if text.len() > MAX_TEXT_BYTES {
+                    return Err(Error::Reply("bad text"));
+                }
+                Ok(Self::Text {
+                    id: *id,
+                    text: text.to_vec(),
+                })
+            }
             Some((2, event)) => Interaction::decode(event)
                 .map(Self::Interaction)
                 .map_err(|_| Error::Reply("bad interaction")),
@@ -263,9 +332,48 @@ impl Body {
                 Some(1 | 6) => Ok(Self::Forwarded(Box::new(Self::decode(body)?))),
                 _ => Err(Error::Reply("bad forward")),
             },
+            Some((8, body)) => {
+                let (target, operation, hlc, text) =
+                    operation_parts(body).ok_or(Error::Reply("bad edit"))?;
+                if text.len() > MAX_TEXT_BYTES {
+                    return Err(Error::Reply("bad edit"));
+                }
+                Ok(Self::Edit {
+                    target,
+                    operation,
+                    hlc,
+                    text: text.to_vec(),
+                })
+            }
+            Some((9, body)) => {
+                let (target, operation, hlc, rest) =
+                    operation_parts(body).ok_or(Error::Reply("bad delete"))?;
+                if !rest.is_empty() {
+                    return Err(Error::Reply("bad delete"));
+                }
+                Ok(Self::Delete {
+                    target,
+                    operation,
+                    hlc,
+                })
+            }
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
+}
+
+type OperationParts<'a> = ([u8; 16], [u8; 16], u64, &'a [u8]);
+
+fn operation_parts(body: &[u8]) -> Option<OperationParts<'_>> {
+    let (header, rest) = body.split_at_checked(OPERATION_HEADER_BYTES)?;
+    let (target, tail) = header.split_first_chunk::<MESSAGE_ID_BYTES>()?;
+    let (operation, hlc) = tail.split_first_chunk::<MESSAGE_ID_BYTES>()?;
+    Some((
+        *target,
+        *operation,
+        u64::from_be_bytes(hlc.try_into().ok()?),
+        rest,
+    ))
 }
 
 /// Leaves out a message's text and sender, so a logged event says nothing about the chat.
@@ -345,7 +453,9 @@ pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<De
         Body::Interaction(_) => SIGNAL_PADDED_BYTES,
         _ => MIN_PADDED_BYTES,
     };
-    let message = group.encrypt(device, &pad_from(&body.encode(), floor))?;
+    let encoded = body.encode();
+    Body::decode(&encoded)?;
+    let message = group.encrypt(device, &pad_from(&encoded, floor))?;
     to_members(group, &message)
 }
 
@@ -523,324 +633,4 @@ pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        apply_all, message, pad, unpad, AttachmentWire, Body, Delivery, Event, Receipt,
-        TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TOKENS, MIN_PADDED_BYTES,
-    };
-    use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
-    use crate::interactions::{Interaction, Kind};
-    use crate::Envelope;
-    use dyapp_identity::{Domain, Identity};
-    use dyapp_messaging::mls::Device;
-    use dyapp_p2p_net::proto;
-    use dyapp_profile::{Profile, VerifiedProfile};
-    use prost::Message as _;
-
-    fn person() -> (Identity, Device, VerifiedProfile) {
-        let identity = Identity::generate();
-        let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
-        let profile = Profile {
-            version: 1,
-            devices: vec![device.certificate().clone()],
-            ..Default::default()
-        }
-        .sign(&identity);
-        (identity, device, dyapp_profile::verify(&profile).unwrap())
-    }
-
-    fn envelope(id: u8, ciphertext: Vec<u8>) -> Envelope {
-        Envelope {
-            id: vec![id],
-            sender_key: Vec::new(),
-            ciphertext,
-        }
-    }
-
-    #[test]
-    fn applies_a_welcome_then_a_message_and_acks_both() {
-        let (alice_identity, alice, alice_profile) = person();
-        let (_, bob, bob_profile) = person();
-        let profiles = [alice_profile, bob_profile];
-        let package = bob.key_package(false).unwrap();
-        let (mut group, welcome) = alice.create_group(&[package], &profiles).unwrap();
-        let mut groups = Vec::new();
-        let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(1, welcome)], &profiles);
-        assert!(events == [Event::Joined(group.id().to_vec())]);
-        assert_eq!(acked, [vec![1]]);
-        let sent = message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
-        let (events, acked) = apply_all(
-            &bob,
-            &mut groups,
-            vec![envelope(2, sent[0].mls.clone())],
-            &profiles,
-        );
-        assert!(
-            events
-                == [Event::Message {
-                    group: group.id().to_vec(),
-                    sender: alice_identity.peer_id(),
-                    body: Body::Text(b"hi".to_vec()),
-                }]
-        );
-        assert_eq!(acked, [vec![2]]);
-
-        // A forward arrives marked as forwarded, from the forwarder.
-        let forward = Body::Forwarded(Box::new(Body::Text(b"carol's words".to_vec())));
-        let sent = message(&mut group, &alice, &forward).unwrap();
-        let (events, _) = apply_all(
-            &bob,
-            &mut groups,
-            vec![envelope(9, sent[0].mls.clone())],
-            &profiles,
-        );
-        assert!(
-            events
-                == [Event::Message {
-                    group: group.id().to_vec(),
-                    sender: alice_identity.peer_id(),
-                    body: forward,
-                }]
-        );
-
-        let like = Interaction {
-            kind: Kind::Like,
-            event_id: [7; 16],
-            hlc: 42,
-        };
-        let sent = message(&mut group, &alice, &Body::Interaction(like)).unwrap();
-        // Padded from 256 bytes, not 1 KiB.
-        assert!(
-            sent[0].mls.len() < MIN_PADDED_BYTES,
-            "{}",
-            sent[0].mls.len()
-        );
-        let (events, acked) = apply_all(
-            &bob,
-            &mut groups,
-            vec![envelope(3, sent[0].mls.clone())],
-            &profiles,
-        );
-        let [Event::Interaction { device, event, .. }] = events.as_slice() else {
-            panic!("expected decrypted interaction");
-        };
-        assert!(*event == like);
-        assert_eq!(*device, alice.device_key().unwrap());
-        assert_eq!(acked, [vec![3]]);
-
-        // An untagged plaintext, as before the frame, is refused and still acked.
-        let raw = group.encrypt(&alice, &pad(b"hi")).unwrap();
-        let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(4, raw)], &profiles);
-        assert!(events == [Event::Refused("bad reply: unknown message kind".into())]);
-        assert_eq!(acked, [vec![4]]);
-    }
-
-    #[test]
-    fn body_frame_is_strict() {
-        let like = Interaction {
-            kind: Kind::Like,
-            event_id: [7; 16],
-            hlc: 42,
-        };
-        for body in [
-            Body::Text(Vec::new()),
-            Body::Text(b"hi".to_vec()),
-            Body::Interaction(like),
-            Body::Forwarded(Box::new(Body::Text(b"hi".to_vec()))),
-        ] {
-            assert!(Body::decode(&body.encode()).ok() == Some(body));
-        }
-        let tagged = Body::Interaction(like).encode();
-        // Only a text or attachment is forwarded.
-        let forwarded_like = [&[7], &tagged[..]].concat();
-        for bad in [
-            &b""[..],
-            &[0],
-            &[5],
-            &[3],
-            &[4],
-            &[2, 1],
-            &tagged[..tagged.len() - 1],
-            &[7],
-            &[7, 7, 1],
-            &forwarded_like,
-        ] {
-            assert!(Body::decode(bad).is_err(), "{bad:?}");
-        }
-        // A text that starts like an interaction stays text.
-        let text = [&[1], &tagged[..]].concat();
-        assert!(Body::decode(&text).ok() == Some(Body::Text(tagged)));
-    }
-
-    #[test]
-    fn token_bodies_are_strict() {
-        let ask = TokenAsk {
-            mailbox: vec![1; 32],
-            epoch: 20_000,
-            token_key: vec![2; 32],
-        };
-        let request = |asks: Vec<TokenAsk>| Body::TokenRequest(TokenRequest { asks });
-        let answer = |signed_tokens: Vec<Vec<u8>>| Body::TokenAnswer(TokenAnswer { signed_tokens });
-        for body in [
-            request(vec![ask.clone()]),
-            request(vec![ask.clone(); MAX_TOKENS]),
-            answer(vec![vec![9; 200]]),
-            answer(vec![vec![9]; MAX_TOKENS]),
-        ] {
-            assert!(Body::decode(&body.encode()).ok() == Some(body));
-        }
-        let short = |mailbox: usize, token_key: usize| TokenAsk {
-            mailbox: vec![1; mailbox],
-            token_key: vec![2; token_key],
-            ..ask.clone()
-        };
-        for bad in [
-            request(Vec::new()),
-            request(vec![ask.clone(); MAX_TOKENS + 1]),
-            request(vec![ask.clone(), short(31, 32)]),
-            request(vec![short(32, 33)]),
-            answer(Vec::new()),
-            answer(vec![vec![9]; MAX_TOKENS + 1]),
-            answer(vec![vec![9], Vec::new()]),
-        ] {
-            assert!(Body::decode(&bad.encode()).is_err());
-        }
-        assert!(Body::decode(&[3, 0xff]).is_err());
-    }
-
-    #[test]
-    fn receipts_are_strict() {
-        let receipt = |mailbox: usize, ids: Vec<Vec<u8>>| {
-            Body::Receipt(Receipt {
-                mailbox: vec![1; mailbox],
-                ids,
-            })
-        };
-        for body in [
-            receipt(32, vec![vec![2; 16]]),
-            receipt(32, vec![vec![2; 16]; MAX_RECEIPT_IDS]),
-        ] {
-            assert!(Body::decode(&body.encode()).ok() == Some(body));
-        }
-        for bad in [
-            receipt(31, vec![vec![2; 16]]),
-            receipt(32, Vec::new()),
-            receipt(32, vec![vec![2; 16]; MAX_RECEIPT_IDS + 1]),
-            receipt(32, vec![vec![2; 16], vec![2; 15]]),
-        ] {
-            assert!(Body::decode(&bad.encode()).is_err());
-        }
-    }
-
-    #[test]
-    fn attachments_round_trip_and_refuse_wrong_lengths() {
-        let (mut attachment, _) = crate::attachment::seal(b"photo").unwrap();
-        attachment.preview = vec![0xff; MAX_PREVIEW_BYTES];
-        attachment.mime = "image/jpeg".into();
-        (attachment.width, attachment.height) = (4000, 3000);
-        let body = Body::Attachment(attachment);
-        assert!(Body::decode(&body.encode()).ok() == Some(body));
-        let wire = |change: fn(&mut AttachmentWire)| {
-            let mut wire = AttachmentWire {
-                key: vec![1; 32],
-                plaintext_sha256: vec![2; 32],
-                blob_sha256: vec![3; 32],
-                release_secret: vec![4; 32],
-                size: 5,
-                preview: Vec::new(),
-                mime: String::new(),
-                width: 0,
-                height: 0,
-            };
-            change(&mut wire);
-            Body::decode(&[&[6], wire.encode_to_vec().as_slice()].concat())
-        };
-        assert!(wire(|_| {}).is_ok());
-        assert!(wire(|wire| wire.key.pop().map(drop).unwrap()).is_err());
-        assert!(wire(|wire| wire.preview = vec![0; MAX_PREVIEW_BYTES + 1]).is_err());
-        assert!(wire(|wire| wire.mime = "a".repeat(MAX_MIME_BYTES + 1)).is_err());
-        assert!(wire(|wire| wire.mime = "image/jpeg\n".into()).is_err());
-        assert!(Body::decode(&[6, 0xff]).is_err());
-    }
-
-    #[test]
-    fn debug_shows_no_text_sender_or_mailbox() {
-        let event = Event::Message {
-            group: vec![1],
-            sender: "peer-of-bob".into(),
-            body: Body::Text(b"secret text".to_vec()),
-        };
-        assert_eq!(format!("{event:?}"), "Message { group: [1], .. }");
-        let delivery = Delivery {
-            mailbox: vec![0xab; 32],
-            mls: vec![0; 3],
-        };
-        assert_eq!(format!("{delivery:?}"), "Delivery { mls_len: 3, .. }");
-    }
-
-    #[test]
-    fn padding_hides_length_up_to_a_power_of_two() {
-        for (length, size) in [
-            (0, 1024),
-            (200, 1024),
-            (1020, 1024),
-            (1021, 2048),
-            (1500, 2048),
-            (5000, 8192),
-        ] {
-            let plaintext = vec![7u8; length];
-            let padded = pad(&plaintext);
-            assert_eq!(padded.len(), size, "{length}");
-            assert_eq!(unpad(&padded), Some(plaintext.as_slice()));
-        }
-        assert_eq!(unpad(&[0, 0, 4, 1, 0]), None);
-        assert_eq!(unpad(&[0, 0]), None);
-        assert!(pad(b"").len() == MIN_PADDED_BYTES);
-    }
-
-    #[test]
-    fn short_signal_padding_fits_the_signed_payload_limit() {
-        let (alice_id, alice, alice_profile) = person();
-        let (bob_id, bob, bob_profile) = person();
-        let profiles = [alice_profile, bob_profile];
-        let package = bob.key_package(false).unwrap();
-        let (mut group, _) = alice.create_group(&[package], &profiles).unwrap();
-        let token = bob_id.sign(
-            Domain::WriteToken,
-            proto::WriteToken {
-                mailbox: vec![0; 32],
-                token_key: alice_id.public_key().to_vec(),
-                epoch: u32::MAX,
-            }
-            .encode_to_vec(),
-        );
-        let payload_size =
-            |group: &mut dyapp_messaging::mls::Group, plaintext_len: usize, floor| {
-                let size = (4 + plaintext_len).max(floor).next_power_of_two();
-                let mut padded = vec![0; size];
-                padded[..4].copy_from_slice(&(plaintext_len as u32).to_be_bytes());
-                let ciphertext = group.encrypt(&alice, &padded).unwrap();
-                proto::Envelope {
-                    id: vec![0; 16],
-                    mailbox: vec![0; 32],
-                    ciphertext,
-                    class: proto::EnvelopeClass::Signal.into(),
-                    write_token: Some(token.clone()),
-                }
-                .encoded_len()
-            };
-        let like = payload_size(&mut group, 16, 256);
-        // 508 bytes plus the length prefix fills the 512-byte padding bucket.
-        let introduction = payload_size(&mut group, 508, 256);
-        let ordinary_padding = payload_size(&mut group, 16, MIN_PADDED_BYTES);
-        assert!(like <= 1024, "like signed payload: {like}");
-        assert!(
-            introduction <= 1024,
-            "introduction signed payload: {introduction}"
-        );
-        assert!(
-            ordinary_padding > 1024,
-            "ordinary padding: {ordinary_padding}"
-        );
-    }
-}
+mod tests;

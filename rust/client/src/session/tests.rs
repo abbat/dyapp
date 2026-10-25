@@ -41,7 +41,11 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
         .unwrap();
     let mut session = Session::open(store, &seal_key).unwrap();
     let writes = session
-        .stage_message(&group_id, &Body::Text(b"hello".to_vec()), &seal_key)
+        .stage_message(
+            &group_id,
+            &Body::text_with_id([1; 16], b"hello".to_vec()),
+            &seal_key,
+        )
         .unwrap();
     assert_eq!(writes.len(), 1);
     assert_eq!(
@@ -128,7 +132,12 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         session.store.known_groups().unwrap(),
         [(group.id().to_vec(), alice_id.peer_id())]
     );
-    let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
+    let hi = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"hi".to_vec()),
+    )
+    .unwrap();
     assert!(matches!(
         session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key),
         Ok(Some(Event::Message { .. }))
@@ -146,7 +155,7 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
             == StoredMessage {
                 group: group.id().to_vec(),
                 sender: alice_id.peer_id(),
-                body: Body::Text(b"hi".to_vec()).encode(),
+                body: Body::text_with_id([1; 16], b"hi".to_vec()).encode(),
             }
     );
     drop(session);
@@ -155,14 +164,19 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
     let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
     assert!(session.store.has_inbox(&key(2)).unwrap());
     assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1), key(2)]);
-    let again = chat::message(&mut group, &alice, &Body::Text(b"again".to_vec())).unwrap();
+    let again = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"again".to_vec()),
+    )
+    .unwrap();
     let Some(Event::Message { body, .. }) = session
         .stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key)
         .unwrap()
     else {
         panic!("expected the next message");
     };
-    assert!(body == Body::Text(b"again".to_vec()));
+    assert!(body == Body::text_with_id([1; 16], b"again".to_vec()));
 
     // A duplicate seen after its ACK is acknowledged again; another mailbox is not.
     for id in [1, 2, 3] {
@@ -210,7 +224,12 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
         .store
         .set_blocked(&alice_id.peer_id(), true)
         .unwrap();
-    let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
+    let hi = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"hi".to_vec()),
+    )
+    .unwrap();
     assert!(session
         .stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key)
         .unwrap()
@@ -221,7 +240,12 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
         .store
         .set_blocked(&alice_id.peer_id(), false)
         .unwrap();
-    let again = chat::message(&mut group, &alice, &Body::Text(b"again".to_vec())).unwrap();
+    let again = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"again".to_vec()),
+    )
+    .unwrap();
     assert!(matches!(
         session.stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key),
         Ok(Some(Event::Message { .. }))
@@ -243,7 +267,12 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
-    let hi = chat::message(&mut group, &alice, &Body::Text(b"hi".to_vec())).unwrap();
+    let hi = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"hi".to_vec()),
+    )
+    .unwrap();
     let db = rusqlite::Connection::open(&path).unwrap();
     db.execute_batch(
         "CREATE TRIGGER `fail_mls` BEFORE UPDATE ON `mls_state`
@@ -269,7 +298,7 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     else {
         panic!("expected the message after recovery");
     };
-    assert!(body == Body::Text(b"hi".to_vec()));
+    assert!(body == Body::text_with_id([1; 16], b"hi".to_vec()));
 }
 
 #[test]
@@ -324,11 +353,19 @@ fn failed_store_write_invalidates_session_until_recovery() {
         )
         .unwrap();
     assert!(matches!(
-        session.stage_message(&group_id, &Body::Text(b"hello".to_vec()), &seal_key),
+        session.stage_message(
+            &group_id,
+            &Body::text_with_id([1; 16], b"hello".to_vec()),
+            &seal_key
+        ),
         Err(Error::Store(_))
     ));
     assert!(matches!(
-        session.stage_message(&group_id, &Body::Text(b"retry".to_vec()), &seal_key),
+        session.stage_message(
+            &group_id,
+            &Body::text_with_id([1; 16], b"retry".to_vec()),
+            &seal_key
+        ),
         Err(Error::Invalidated)
     ));
     assert!(session.due_outbound(0).unwrap().is_empty());
