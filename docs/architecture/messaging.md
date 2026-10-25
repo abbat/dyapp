@@ -5,6 +5,10 @@ bytes to a `Message` does not by itself encrypt, verify receipts or send it.
 
 ## Overview
 
+Message edits and deletion are [planned](../design/message-edits-and-deletion.md); current chat
+text has no stable logical message ID or edit/delete operation. The recipient device alone can
+sign its mailbox `Ack`, so deletion cannot be presented as guaranteed remote erasure.
+
 Message model and hybrid logical clock in `rust/messaging`. The only delivery path is the MLS
 `Session` with its SQLite outbox in `rust/client`; the earlier in-memory plaintext queue was
 removed so it cannot become a second, unencrypted one.

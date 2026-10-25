@@ -11,15 +11,19 @@ person's device to delete data.
 
 ## Decision
 
-- Deletion is a **signed tombstone** from the owner. Nodes should honour it but are not obliged to.
+- Profile deletion is a **signed tombstone** from the owner. Nodes should honour it but are not obliged to.
 - Bootstrap nodes remove a deleted profile within N days; this is **not guaranteed**.
-- Deleting a message on the other person's device is **best effort**. A deleted message's edit
-  history is deleted with it.
+- Message deletion is an authenticated, encrypted operation to the peer. The peer removes its
+  current text and uses its device-signed mailbox `Ack` to ask cooperating nodes to drop known
+  envelopes. The sender cannot sign an `Ack` for the peer's mailbox; an offline peer delays this
+  best-effort request. Edits replace the current text without a visible history.
 
 ## Consequences
 
 - The app must not promise erasure. The UI and privacy policy must say that published or sent data
-  may persist on other nodes and devices; legal review of the GDPR position is needed.
+  may persist on other nodes and devices; legal review of the GDPR position is needed. The
+  [message operation contract](../design/message-edits-and-deletion.md) records the chosen
+  recipient-mediated request and alternatives; the client implementation is planned.
 - Well-behaved nodes need a tombstone store so a deleted profile is not re-imported from peers.
   Tombstones live as long as the node's retention TTL
   ([ADR 0009](0009-message-delivery-and-storage.md)), so a node offline for longer than the TTL can
