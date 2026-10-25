@@ -92,14 +92,28 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         Some(&b"private first text"[..])
     );
 
+    // Stage while offline, reopen the saved MLS state, then retry the exact signed write.
+    let (edit_operation, edit_writes) = alice_session
+        .stage_edit(&group_id, id, b"private replacement", &alice_key)
+        .unwrap();
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    drop(alice_session);
+    let mut alice_session = Session::open(
+        Store::open(&alice_path, &alice.identity).unwrap(),
+        &alice_key,
+    )
+    .unwrap();
+    assert!(alice_session
+        .due_outbound(i64::MAX)
+        .unwrap()
+        .iter()
+        .any(|write| write.as_bytes() == edit_writes[0].as_bytes()));
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
     alice_session
-        .send_edit(
-            std::slice::from_mut(&mut alice.node),
-            &group_id,
-            id,
-            b"private replacement",
-            &alice_key,
-        )
+        .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
         .await
         .unwrap();
     assert!(matches!(
@@ -108,7 +122,8 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
             .await
             .unwrap()
             .as_slice(),
-        [Event::Message { body: Body::Edit { target, .. }, .. }] if target == &id
+        [Event::Message { body: Body::Edit { target, operation, .. }, .. }]
+            if target == &id && operation == &edit_operation
     ));
     for session in [&alice_session, &bob_session] {
         let current = session.chat_message(&key).unwrap().unwrap();
@@ -116,13 +131,23 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         assert_eq!(current.text.as_deref(), Some(&b"private replacement"[..]));
     }
 
+    let (delete_operation, delete_writes) = alice_session
+        .stage_delete(&group_id, id, &alice_key)
+        .unwrap();
+    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    drop(alice_session);
+    let mut alice_session = Session::open(
+        Store::open(&alice_path, &alice.identity).unwrap(),
+        &alice_key,
+    )
+    .unwrap();
+    assert!(alice_session
+        .due_outbound(i64::MAX)
+        .unwrap()
+        .iter()
+        .any(|write| write.as_bytes() == delete_writes[0].as_bytes()));
     alice_session
-        .send_delete(
-            std::slice::from_mut(&mut alice.node),
-            &group_id,
-            id,
-            &alice_key,
-        )
+        .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
         .await
         .unwrap();
     assert!(matches!(
@@ -131,7 +156,8 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
             .await
             .unwrap()
             .as_slice(),
-        [Event::Message { body: Body::Delete { target, .. }, .. }] if target == &id
+        [Event::Message { body: Body::Delete { target, operation, .. }, .. }]
+            if target == &id && operation == &delete_operation
     ));
     for session in [&alice_session, &bob_session] {
         let current = session.chat_message(&key).unwrap().unwrap();

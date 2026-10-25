@@ -137,8 +137,9 @@ and ACKs every pending ID of that mailbox. Gap and unknown-owner envelopes stay 
 unacked; a refused envelope stores only a marker, keeps the previous MLS snapshot and reopens
 it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
 Node tests run two such sessions against a mailbox node: one covers restarts and injected storage
-faults at both boundaries, and another delivers text, edit and terminal delete, checks both local
-projections, ACKs and digest-only receiver inbox records. See the
+faults at both boundaries, and another stages edit and terminal delete while offline, reopens the
+sender's store, retries the original encrypted writes, and checks both local projections, ACKs and
+digest-only receiver inbox records. See the
 [acceptance matrix](../testing/bootstrap-acceptance.md).
 The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)
 specifies that a storage error invalidates the current in-memory MLS session, and that receive
