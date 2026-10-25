@@ -3,9 +3,9 @@
 This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
 No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and parses tags 8 and
 9; the client Store has a separate current-text projection keyed by logical message ID and can
-apply edits/deletes to known originals. It still stores received inbox payloads by mailbox
-envelope ID. Early-operation handling, Session wiring and UI remain planned. The recipient device
-alone can sign a mailbox `Ack`.
+apply edits/deletes even before originals arrive. It still stores received inbox payloads by
+mailbox envelope ID. Session wiring and UI remain planned. The recipient device alone can sign a
+mailbox `Ack`.
 
 ## Identity and wire
 
@@ -33,7 +33,9 @@ text arrives, an author mismatch discards the pending operation. Distinct operat
 future-clock guard applies before state changes. An identical operation ID, body and sender
 device is a no-op; the same ID with different bytes or device is invalid. A later edit replaces
 the current text and sets an `edited` flag. Delete is terminal: it removes current text and leaves
-a placeholder. Older text and later edits cannot restore it. Two devices converge after receiving
+a placeholder. Older text and later edits cannot restore it. The store keeps at most 64 unmatched
+operations across the profile and refuses more until originals resolve them. Pending replacement
+text is cleared when its original arrives or a delete wins. Two devices converge after receiving
 the same operations, subject to the existing device-sync work.
 
 The local store retains one current text or deletion placeholder, a digest of the original text,

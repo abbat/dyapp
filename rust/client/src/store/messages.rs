@@ -14,7 +14,7 @@ CREATE TABLE `chat_messages` (
     `author` TEXT NOT NULL CHECK (length(`author`) > 0),
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
     `text` BLOB,
-    `original_digest` BLOB NOT NULL CHECK (length(`original_digest`) = 32),
+    `original_digest` BLOB CHECK (`original_digest` IS NULL OR length(`original_digest`) = 32),
     `edited` INTEGER NOT NULL CHECK (`edited` IN (0, 1)),
     `deleted` INTEGER NOT NULL CHECK (`deleted` IN (0, 1)),
     `last_hlc` INTEGER,
@@ -22,7 +22,8 @@ CREATE TABLE `chat_messages` (
     `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
     CHECK ((`last_hlc` IS NULL AND `last_device` IS NULL AND `last_operation` IS NULL)
         OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),
-    CHECK ((`deleted` = 0 AND `text` IS NOT NULL) OR (`deleted` = 1 AND `text` IS NULL)),
+    CHECK ((`deleted` = 0 AND `text` IS NOT NULL AND `original_digest` IS NOT NULL)
+        OR (`deleted` = 1 AND `text` IS NULL)),
     PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
 CREATE TABLE `chat_operations` (
@@ -32,6 +33,10 @@ CREATE TABLE `chat_operations` (
     `target_id` BLOB NOT NULL CHECK (length(`target_id`) = 16),
     `device` BLOB NOT NULL CHECK (length(`device`) = 32),
     `digest` BLOB NOT NULL CHECK (length(`digest`) = 32),
+    `hlc` INTEGER NOT NULL,
+    `pending` INTEGER NOT NULL CHECK (`pending` IN (0, 1)),
+    `pending_text` BLOB CHECK (`pending_text` IS NULL OR length(`pending_text`) <= 65536),
+    CHECK (`pending` = 1 OR `pending_text` IS NULL),
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
 ";
@@ -94,26 +99,49 @@ impl Store {
         }
         let digest = sha256(text);
         let tx = self.db.transaction()?;
-        let inserted = tx.execute(
-            "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`)
-             VALUES (?1, ?2, ?3, ?4, ?5, 0, 0) ON CONFLICT (`group_id`, `author`, `message_id`) DO NOTHING",
-            params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice()],
-        )?;
-        if inserted == 0 {
-            let original_digest: Vec<u8> = tx.query_row(
+        let saved: Option<Option<Vec<u8>>> = tx
+            .query_row(
                 "SELECT `original_digest` FROM `chat_messages`
-                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![&key.group, &key.author, key.id.as_slice()],
                 |row| row.get(0),
-            )?;
-            if original_digest != digest {
-                return Err(Error::InboxConflict);
+            )
+            .optional()?;
+        match saved {
+            Some(Some(original_digest)) => {
+                if original_digest != digest {
+                    return Err(Error::InboxConflict);
+                }
+                // An original delivered after edit/delete must not replace the projection.
+                Ok(false)
             }
-            // The original may arrive again after an edit/delete. Keep the current projection.
-            return Ok(false);
+            Some(None) => {
+                // A delete reached us before its original; record its digest, keep the tombstone.
+                tx.execute(
+                    "UPDATE `chat_messages` SET `original_digest` = ?4
+                     WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                    params![
+                        &key.group,
+                        &key.author,
+                        key.id.as_slice(),
+                        digest.as_slice()
+                    ],
+                )?;
+                operations::resolve_pending(&tx, key, true)?;
+                tx.commit()?;
+                Ok(false)
+            }
+            None => {
+                tx.execute(
+                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`)
+                     VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
+                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice()],
+                )?;
+                operations::resolve_pending(&tx, key, false)?;
+                tx.commit()?;
+                Ok(true)
+            }
         }
-        tx.commit()?;
-        Ok(true)
     }
 }
 
