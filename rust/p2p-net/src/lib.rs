@@ -45,6 +45,7 @@ mod protocols;
 pub use protocols::Protocols;
 pub mod puzzle;
 pub mod search_results;
+pub mod seed;
 mod wire;
 pub use wire::{Dir, WireBytes, WireCounts};
 

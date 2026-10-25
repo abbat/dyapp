@@ -3,6 +3,7 @@
 //! Every field has a default, so a config written for an older node keeps working. Unknown keys
 //! are logged and ignored, so a node rolled back to an older version still starts.
 
+use dyapp_p2p_net::seed::SeedError;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
@@ -229,41 +230,19 @@ pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
 
 /// TCP and QUIC addresses of a `host:port[/peer-ID]` seed, with an IP or DNS host.
 pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
-    if let Some((host, peer)) = address.split_once('/') {
-        let peer: PeerId = peer.parse().map_err(|_| {
-            anyhow::anyhow!(
-                "{} {address}: {}",
-                message("bad seed", "неверный seed"),
-                message(
-                    "invalid peer ID; expected host:port/<peer ID>",
-                    "неверный peer ID; ожидается host:port/<peer ID>"
-                )
-            )
-        })?;
-        return Ok(seed(host)?.map(|address| address.with(Protocol::P2p(peer))));
-    }
-    if let Ok(addresses) = transports(address) {
-        return Ok(addresses);
-    }
-    let (host, port) = address
-        .rsplit_once(':')
-        .filter(|(host, _)| !host.is_empty() && !host.contains([':', '/', '[']))
-        .and_then(|(host, port)| Some((host, port.parse::<u16>().ok()?)))
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} {address}: {}",
-                message("bad seed", "неверный seed"),
-                message(
-                    "expected host:port, e.g. seed.example.org:33445 or [2001:db8::7]:33445",
-                    "ожидается host:port, например seed.example.org:33445 или [2001:db8::7]:33445"
-                )
-            )
-        })?;
-    let dns = Multiaddr::empty().with(Protocol::Dns(host.into()));
-    Ok([
-        dns.clone().with(Protocol::Tcp(port)),
-        dns.with(Protocol::Udp(port)).with(Protocol::QuicV1),
-    ])
+    dyapp_p2p_net::seed::parse(address).map_err(|error| {
+        let hint = match error {
+            SeedError::PeerId => message(
+                "invalid peer ID; expected host:port/<peer ID>",
+                "неверный peer ID; ожидается host:port/<peer ID>",
+            ),
+            SeedError::Address => message(
+                "expected host:port, e.g. seed.example.org:33445 or [2001:db8::7]:33445",
+                "ожидается host:port, например seed.example.org:33445 или [2001:db8::7]:33445",
+            ),
+        };
+        anyhow::anyhow!("{} {address}: {hint}", message("bad seed", "неверный seed"))
+    })
 }
 
 /// The whole node configuration, one field per `dyappd.toml` section.
