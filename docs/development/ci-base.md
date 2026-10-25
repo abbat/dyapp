@@ -66,7 +66,11 @@ both pairs matched byte-for-byte. Its `dyappd` size gate failed against the old 
 6.51% growth; the inventory now records the measured size. The prepared-image `dyappd` size
 was measured by local `make build` on `13a45c7`. The prepared-image Linux budget remains at
 its last measured value: the current test image's Cargo source cache is unreadable by its
-non-root runtime user, so a comparable Release build could not be made there.
+non-root runtime user, so a comparable Release build could not be made there. The native
+Linux budget was measured again in the
+[2026-10-25 scheduled run](https://github.com/abbat/dyapp/actions/runs/40176758307) after the
+Secret Service backend of [ADR 0022](../decisions/0022-desktop-system-credential-storage.md)
+grew the client by 44.8%.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as
