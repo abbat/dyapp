@@ -5,9 +5,10 @@ The Android app keeps several local identities in independent slots, mirroring t
 non-exportable AES-256-GCM key in the Android Keystore that wraps that identity's key file.
 No key requires user authentication, so opening or switching an identity never asks for a
 PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this layout and
-`SlotsTests` covers it on the JVM with a fake Keystore. The app has no picker or recovery
-screen yet: it opens the active or only slot, creates the first one, and fails visibly in
-any other state.
+`SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
+only slot and creates the first one on a fresh install; Switch shows the picker, which lists
+each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
+The app has no remove screen yet.
 
 ## Layout
 
@@ -60,8 +61,7 @@ Opening a slot unwraps its file with its alias and derives the Peer ID every tim
 | `deleting` | Recovery `deleting`: show the Peer ID when the key still opens; Remove finishes. |
 | Bad or missing `state`, or a slot path that is not a directory | Recovery `damaged`; Remove refuses it. |
 
-Names under `profiles/` that are not UUIDs are ignored. `Slots.openSlot` throws on a Keystore
-or unwrap error; the screens map that to `unavailable`.
+Names under `profiles/` that are not UUIDs are ignored.
 
 Android has no locked-provider case the desktop has: the keys are not bound to user
 authentication and `noBackupFilesDir` is credential-encrypted storage, so the app cannot run

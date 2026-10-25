@@ -79,6 +79,9 @@ class SlotsTests {
         File(slot.dir, "state").writeText("pending\n")
         keys.generate(slot.alias).let { slot.keyFile.writeBytes(it.first) }
         assertEquals("incomplete ${slot.id} ${slots.load(slot)}", state())
+        // A key that does not unwrap is unavailable, never replaced.
+        slot.keyFile.writeBytes("other|peer-0".toByteArray())
+        assertEquals("unavailable ${slot.id} null", state())
         File(slot.dir, "state").writeText("exploded\n")
         assertEquals("damaged ${slot.id} null", state())
         assertEquals(1, slots.list().size)

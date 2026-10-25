@@ -2,4 +2,17 @@
 <resources>
     <string name="app_name">DYApp</string>
     <string name="status_ready">Готово</string>
+    <string name="status_pick">Выберите идентичность</string>
+    <string name="status_recovery">Эту идентичность не удалось открыть</string>
+    <string name="status_error">Не удалось открыть хранилище ключа</string>
+    <string name="storage_peer_id">Ваш идентификатор узла</string>
+    <string name="storage_error">Перезапустите приложение. Ваш ключ не был заменён.</string>
+    <string name="identity_switch">Сменить или добавить идентичность</string>
+    <string name="identity_add">Добавить новую идентичность</string>
+    <string name="recovery_missing">Ключа нет в хранилище ключей устройства. Новый ключ не создан.</string>
+    <string name="recovery_incomplete">Создание этой идентичности было прервано.</string>
+    <string name="recovery_deleting">Удаление этой идентичности было прервано.</string>
+    <string name="recovery_damaged">Её локальные файлы не читаются или были изменены.</string>
+    <string name="recovery_unavailable">Её ключ сейчас не удаётся открыть.</string>
+    <string name="recovery_retry">Повторить</string>
 </resources>

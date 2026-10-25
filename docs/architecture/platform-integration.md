@@ -58,10 +58,12 @@ platform/ios-swift/
 ### Setup
 
 The app build compiles `rust/ffi` per ABI and generates the Kotlin bindings; the
-app shows the peer ID of its stored identity key through `RustBridge.kt`: the first
-start creates the key, `PlatformKeyStore.kt` wraps it with an AES-256-GCM key that
-never leaves the Android Keystore, and the blob lives in `noBackupFilesDir` (no
-backups; the wrapping key could not open a restored copy anyway). See
+app shows the peer ID of its active identity through `RustBridge.kt`: the first
+start creates the key, `PlatformKeyStore.kt` wraps each identity with its own AES-256-GCM
+key that never leaves the Android Keystore, and the blobs live in `noBackupFilesDir` (no
+backups; the wrapping key could not open a restored copy anyway). The start screen can
+switch and add identities; see
+[Android identity storage](../development/android-identity-storage.md) and
 [FFI bindings](../development/ffi-bindings.md#android). The sketch below is the target API.
 
 ### Integration (target sketch)

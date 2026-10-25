@@ -3,4 +3,17 @@
 <resources>
     <string name="app_name">DYApp</string>
     <string name="status_ready">Ready</string>
+    <string name="status_pick">Choose an identity</string>
+    <string name="status_recovery">This identity cannot be opened</string>
+    <string name="status_error">Identity storage could not be opened</string>
+    <string name="storage_peer_id">Your Peer ID</string>
+    <string name="storage_error">Restart the app. Your identity was not replaced.</string>
+    <string name="identity_switch">Switch or add an identity</string>
+    <string name="identity_add">Add a new identity</string>
+    <string name="recovery_missing">Its key is missing from this device\'s Keystore. No new key was created.</string>
+    <string name="recovery_incomplete">Creating this identity was interrupted before it finished.</string>
+    <string name="recovery_deleting">Removing this identity was interrupted.</string>
+    <string name="recovery_damaged">Its local files are unreadable or were changed.</string>
+    <string name="recovery_unavailable">Its key cannot be opened now.</string>
+    <string name="recovery_retry">Retry</string>
 </resources>

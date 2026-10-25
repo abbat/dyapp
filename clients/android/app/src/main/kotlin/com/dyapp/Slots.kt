@@ -174,13 +174,17 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         }
     }
 
-    /** Opens one listed slot; a Keystore error is thrown, not turned into a recovery reason. */
-    fun openSlot(slot: Slot): Opened = when (slot.state) {
-        SlotState.READY -> load(slot)?.let { Opened.Ready(slot, it) }
-            ?: Opened.Recovery(slot, "missing", null)
-        SlotState.PENDING -> Opened.Recovery(slot, "incomplete", load(slot))
-        SlotState.DELETING -> Opened.Recovery(slot, "deleting", load(slot))
-        SlotState.BROKEN -> Opened.Recovery(slot, "damaged", null)
+    /** Opens one listed slot; a Keystore or unwrap error is recovery `unavailable`. */
+    fun openSlot(slot: Slot): Opened = try {
+        when (slot.state) {
+            SlotState.READY -> load(slot)?.let { Opened.Ready(slot, it) }
+                ?: Opened.Recovery(slot, "missing", null)
+            SlotState.PENDING -> Opened.Recovery(slot, "incomplete", load(slot))
+            SlotState.DELETING -> Opened.Recovery(slot, "deleting", load(slot))
+            SlotState.BROKEN -> Opened.Recovery(slot, "damaged", null)
+        }
+    } catch (e: Exception) {
+        Opened.Recovery(slot, "unavailable", null)
     }
 
     /**

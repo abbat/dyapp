@@ -6,10 +6,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Rule
@@ -59,9 +63,26 @@ class AppUITests {
         // The new screen unwraps the stored key again, as a restarted app does.
         check(shownPeerId() == before) { "Peer ID changed on recreation" }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        check(RustBridge.peerId(context) == before) { "Stored identity differs from the shown one" }
         val opened = RustBridge.slots(context).open() as Opened.Ready
+        check(opened.peerId == before) { "Stored identity differs from the shown one" }
         check(opened.slot.keyFile.length() > 32) { "Key not wrapped" }
         check(PlatformKeyStore.exists(opened.slot.alias)) { "No wrapping key for the slot" }
+    }
+
+    @Test
+    fun addSwitchAndRelaunchKeepTheChosenIdentity() {
+        val first = shownPeerId()
+        compose.onNodeWithTag("switch").performClick()
+        compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
+        compose.onNodeWithTag("add-identity").performScrollTo().performClick()
+        val second = shownPeerId()
+        check(second != first) { "A new identity reused the Peer ID" }
+        compose.onNodeWithTag("switch").performClick()
+        compose.onNode(hasTestTag("identity") and hasText(second)).performScrollTo()
+        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        check(shownPeerId() == first) { "Switching did not open the chosen identity" }
+        // A relaunch reads the active pointer again.
+        compose.activityRule.scenario.recreate()
+        check(shownPeerId() == first) { "The chosen identity was lost on relaunch" }
     }
 }
