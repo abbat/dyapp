@@ -23,6 +23,10 @@ check. Corrupt or unreadable files fail closed and are never treated as a fresh 
 The UI and OS credential gate are still planned; `AppLockStore` exposes a recovery method that
 must only be called after that gate succeeds. `onDevice` uses `PlatformKeyStore` with a dedicated
 alias and the common Rust FFI Argon2id functions; JVM tests inject fake implementations.
+`AppLockLifecycle` now models fresh-process locking, the 60-second background grace and the
+five-minute foreground inactivity deadline from a monotonic clock. It marks the background
+snapshot as obscured immediately. Compose and Activity callbacks are not wired to this model yet;
+the future UI must schedule `millisUntilLock()` and call `refresh()` before rendering private data.
 
 ## Layout
 

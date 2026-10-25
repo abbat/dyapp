@@ -1,0 +1,78 @@
+package com.dyapp
+
+/**
+ * App-wide lock timing, driven by a monotonic millisecond clock such as elapsedRealtime.
+ * The UI calls [refresh] at each event and schedules the next [millisUntilLock] deadline.
+ */
+class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
+    companion object {
+        const val BACKGROUND_GRACE_MS = 60_000L
+        const val FOREGROUND_IDLE_MS = 5 * 60_000L
+    }
+
+    private var enabled = pinEnabled
+    private var locked = pinEnabled // Every fresh process starts locked when a PIN exists.
+    private var backgroundAt: Long? = null
+    private var lastInteractionAt = now()
+
+    val isPinEnabled: Boolean get() = enabled
+    val isLocked: Boolean get() { refresh(); return locked }
+    val snapshotObscured: Boolean get() = backgroundAt != null
+
+    /** Call as soon as the activity backgrounds; the snapshot must be covered before the grace ends. */
+    fun onBackground() {
+        refresh()
+        backgroundAt = now()
+    }
+
+    /** A quick return preserves unlock; an expired grace period requires a new unlock. */
+    fun onForeground() {
+        refresh()
+        backgroundAt = null
+        lastInteractionAt = now()
+    }
+
+    /** A late event cannot extend a deadline that has already expired. */
+    fun onInteraction() {
+        refresh()
+        if (backgroundAt == null && !locked) lastInteractionAt = now()
+    }
+
+    /** Call after a successful PIN or OS unlock. */
+    fun onUnlocked() {
+        check(enabled && backgroundAt == null) { "Unlock requires a foreground app PIN" }
+        locked = false
+        lastInteractionAt = now()
+    }
+
+    /** Call after successful enrollment; the user remains in the current unlocked session. */
+    fun onPinEnrolled() {
+        enabled = true
+        locked = false
+        lastInteractionAt = now()
+    }
+
+    /** Call only after an authorized setting change. */
+    fun onPinCleared() {
+        enabled = false
+        locked = false
+    }
+
+    /** Apply elapsed-time deadlines without relying on wall clock or saved activity state. */
+    fun refresh() {
+        if (!enabled || locked) return
+        val start = backgroundAt
+        val elapsed = now() - (start ?: lastInteractionAt)
+        val limit = if (start == null) FOREGROUND_IDLE_MS else BACKGROUND_GRACE_MS
+        if (elapsed >= limit) locked = true
+    }
+
+    /** Time until the next lock; null when disabled or already locked. */
+    fun millisUntilLock(): Long? {
+        refresh()
+        if (!enabled || locked) return null
+        val start = backgroundAt
+        val limit = if (start == null) FOREGROUND_IDLE_MS else BACKGROUND_GRACE_MS
+        return (limit - (now() - (start ?: lastInteractionAt))).coerceAtLeast(0)
+    }
+}
