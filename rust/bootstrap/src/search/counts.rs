@@ -39,6 +39,13 @@ pub(super) fn newcomers_and_places(db: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Makes the old serving generation writable while its replacement is built from records.
+pub(super) fn birth_bounds(db: &Connection) -> rusqlite::Result<()> {
+    storage::add_column(db, "profile", "birth_earliest", "INTEGER")?;
+    storage::add_column(db, "profile", "birth_latest", "INTEGER")?;
+    Ok(())
+}
+
 /// Adds `delta` to the profiles indexed under (country, place); a zero count has no row.
 pub(super) fn count_place(tx: &Connection, country: &str, place: &str, delta: i64) -> Result<()> {
     tx.execute(

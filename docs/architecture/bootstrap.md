@@ -469,7 +469,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   new node fills from its neighbours. Every profile also leaves when no heartbeat came within
   `limits.profile_ttl_days`: the hourly cleanup removes at most 4096 such keys per run. A new indexed field bumps the index version; the node builds the new
   generation next to the old one, keeps answering from the old one and switches when the new one
-  is ready ([generations](#storage-on-a-node)). Version 2 added `gender`; version 3 replaced `education` with `education_level`; version 4 added the photo count.
+  is ready ([generations](#storage-on-a-node)). Version 2 added `gender`; version 3
+  replaced `education` with `education_level`; version 4 added the photo count;
+  version 5 indexes the earliest and latest possible dates of a partial birth date.
   A derived `digest` table stores, per (topic, bucket), the XOR of
   SHA-256(key || version as eight big-endian bytes), including tombstones. Each topic has
   256 contiguous buckets and each bucket 256 sub-buckets, selected by the first 16 key bits
@@ -517,9 +519,13 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `search_fields`) is no `Profile` field: it is the UTC day of the key's `heartbeat` time, its
   last heartbeat or the time this node stored its profile, also from gossip or catch-up. The
   client cannot re-check it, so it drops the replies of a node that did not apply it.
-  [ADR 0029](../decisions/0029-partial-public-birth-date.md) plans a separate virtual
-  age condition over indexed birth-date bounds. The current index and field 3 still use
-  the published integer age; the new condition and index generation are not implemented.
+  [ADR 0029](../decisions/0029-partial-public-birth-date.md) adds virtual field 1001
+  on index version 5: a `range` of two numeric `YYYYMMDD` bounds matches when the
+  profile's earliest possible birth date is above the lower bound and its latest
+  possible date is at most the upper bound. Nodes advertise and apply it only after
+  version 5 activates. Legacy age field 3 remains available for old queries; it is
+  a stale snapshot and does not satisfy field 1001. The client age-query builder
+  and verifier for field 1001 are still planned.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
   `WHERE conditions AND r ≥ s ORDER BY r LIMIT n`, wrapping around to the start if fewer rows
   come back, and scans at most `search.max_scan_rows` (10 000) rows, otherwise it sets `partial`;

@@ -26,9 +26,11 @@ const COLUMNS: &[(u32, &str, bool)] = &[
 ];
 const INTERESTS: u32 = 19;
 const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
-/// Profile field numbers a query may filter on, and [`ACTIVE_DAY`].
+/// Virtual condition: inclusive birth-date bounds at the query's UTC date.
+pub const BIRTH_AGE: u32 = 1001;
+/// Profile field numbers a query may filter on, plus virtual fields.
 pub const SEARCH_FIELDS: &[u32] = &[
-    3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY,
+    3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY, BIRTH_AGE,
 ];
 
 /// Result of a query.
@@ -54,6 +56,19 @@ struct Filter {
 fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     use rusqlite::types::Value;
     let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
+    if c.field == BIRTH_AGE {
+        if op == Op::Unspecified {
+            return Ok(None);
+        }
+        if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
+            return Err(());
+        }
+        return Ok(Some(Filter {
+            field: c.field,
+            sql: "COALESCE(`p`.`birth_earliest` > ? AND `p`.`birth_latest` <= ?, 0)".into(),
+            values: c.ints.iter().copied().map(Value::Integer).collect(),
+        }));
+    }
     let interests = c.field == INTERESTS;
     let active = c.field == ACTIVE_DAY;
     let Some(&(_, column, int)) = COLUMNS
@@ -121,7 +136,11 @@ impl SearchIndex {
             return Ok(Err(()));
         }
         let mut filters = Vec::new();
+        let birth_age_ready = self.index_version() >= 5;
         for c in conditions {
+            if c.field == BIRTH_AGE && !birth_age_ready {
+                continue;
+            }
             match filter(c) {
                 Ok(Some(f)) => filters.push(f),
                 Ok(None) => {}

@@ -15,7 +15,7 @@ use std::sync::Mutex;
 /// Gossip topics of the search index (`/dyapp/profiles/<n>`).
 pub const SEARCH_TOPICS: u32 = 16;
 /// Index format version, reported in search replies.
-pub const INDEX_VERSION: u32 = 4;
+pub const INDEX_VERSION: u32 = 5;
 /// Least seconds between indexed versions of one key.
 pub const UPDATE_SECONDS: i64 = 600;
 /// Heartbeats of one key accepted per UTC day.
@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NO
   `income_to` INTEGER, `has_kids` INTEGER, `wants_more_kids` INTEGER, `relationship_goal` TEXT,
   `career_ambition` TEXT, `education_level` INTEGER, `orientation` TEXT, `role_preference` TEXT,
   `zodiac` TEXT, `financial_philosophy` TEXT, `employment_status` TEXT, `fitness_level` TEXT,
-  `place` TEXT, `gender` TEXT, `photo_count` INTEGER, `r` INTEGER NOT NULL) WITHOUT ROWID;
+  `place` TEXT, `gender` TEXT, `photo_count` INTEGER, `r` INTEGER NOT NULL,
+  `birth_earliest` INTEGER, `birth_latest` INTEGER) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_country` ON `profile` (`country`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_r` ON `profile` (`r`);
@@ -48,7 +49,7 @@ CREATE INDEX IF NOT EXISTS `key_topic` ON `key` (`topic`, `key`);
 CREATE TABLE IF NOT EXISTS `digest` (`topic` INTEGER, `bucket` INTEGER, `hash` BLOB,
   PRIMARY KEY (`topic`, `bucket`)) WITHOUT ROWID;
 ";
-const STEPS: &[Step] = &[counts::newcomers_and_places];
+const STEPS: &[Step] = &[counts::newcomers_and_places, counts::birth_bounds];
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
 pub fn topic(key: &[u8; 32]) -> u32 {
@@ -125,9 +126,10 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
 fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Result<()> {
     let place = crate::places::canonical(&p.country, &p.place);
     count_place(tx, &p.country, place, 1)?;
+    let birth = p.birth_bounds();
     tx.execute(
         "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
         params![
             &key[..],
             topic(key),
@@ -150,7 +152,9 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             place,
             p.gender,
             i64::try_from(p.photos.len()).ok(),
-            r
+            r,
+            birth.map(|b| b.earliest.yyyymmdd()),
+            birth.map(|b| b.latest.yyyymmdd())
         ],
     )
     .map_err(storage_error)?;
@@ -661,7 +665,7 @@ mod counts;
 use counts::{count_place, remove_keys, select_keys, uncount};
 #[path = "search/find.rs"]
 mod find;
-pub use find::{Found, SEARCH_FIELDS};
+pub use find::{Found, BIRTH_AGE, SEARCH_FIELDS};
 #[path = "search/candidate.rs"]
 mod candidate;
 pub use candidate::{Abort, Candidate};

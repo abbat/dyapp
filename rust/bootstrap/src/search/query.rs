@@ -57,6 +57,42 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
 }
 
 #[test]
+fn virtual_age_condition_contains_the_whole_birth_interval() {
+    let index = index();
+    let mut keys = Vec::new();
+    for birth_date in ["2000", "2000-02", "2000-02-29", "2001", ""] {
+        let profile = Profile {
+            version: 1,
+            birth_date: birth_date.into(),
+            age: if birth_date.is_empty() { 26 } else { 0 },
+            ..Profile::default()
+        };
+        let (key, p, record) = signed(&Identity::generate(), profile);
+        index.put(&key, &p, &record, 0, true).unwrap();
+        keys.push(key);
+    }
+    let matches = |low, high| {
+        let query = [cond(BIRTH_AGE, Op::Range, vec![low, high], vec![])];
+        let found = index.query(&query, 200, 10_000).unwrap().unwrap();
+        assert_eq!(found.applied, vec![BIRTH_AGE]);
+        found
+            .hits
+            .into_iter()
+            .map(|hit| hit.0)
+            .collect::<std::collections::HashSet<_>>()
+    };
+    assert_eq!(
+        matches(19991231, 20001231),
+        keys[..3].iter().copied().collect()
+    );
+    assert_eq!(
+        matches(20000101, 20000301),
+        keys[1..3].iter().copied().collect()
+    );
+    assert_eq!(matches(20000201, 20000229), [keys[2]].into_iter().collect());
+}
+
+#[test]
 fn query_filters_least_education() {
     let (index, _) = population();
     let found = index
