@@ -18,6 +18,30 @@ const chooseStorage = async (mode) => {
   choice.click();
   await waitFor('identity');
 };
+const pickReady = async (mode) => {
+  const pick = document.querySelector(
+    `#identities button[data-status="ready"][data-mode="${mode}"]`);
+  if (!pick) throw new Error('no ready identity in the picker');
+  pick.click();
+  await waitFor('identity');
+};
+// Removes the opened identity through both confirmations, then opens the one left.
+const removeOpened = async (state, mode) => {
+  const { strings } = window;
+  document.getElementById('remove-identity').click();
+  await waitFor('remove');
+  const action = document.getElementById('remove-action');
+  if (document.getElementById('remove-peer').textContent
+    !== (state.peerId || strings[`recovery.${state.reason}`])) throw new Error('wrong Peer ID');
+  if (state.peerId && document.getElementById('remove-copies').textContent
+    !== strings['remove.lastCopy']) throw new Error('last copy not shown');
+  if (!action.disabled) throw new Error('remove enabled before confirmation');
+  document.getElementById('remove-confirm').click();
+  if (action.disabled) throw new Error('confirmation did not enable remove');
+  action.click();
+  await waitFor('picker');
+  await pickReady(mode);
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -37,11 +61,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chooseStorage(mode);
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
-      const pick = document.querySelector(
-        `#identities button[data-status="ready"][data-mode="${mode}"]`);
-      if (!pick) throw new Error('no ready identity in the picker');
-      pick.click();
-      await waitFor('identity');
+      await pickReady(mode);
+    } else if (step === 'remove') {
+      await removeOpened(state, mode);
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

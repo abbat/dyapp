@@ -29,13 +29,21 @@ const fileChoice = document.getElementById('file-choice');
 const storageError = document.getElementById('storage-error');
 
 const switchIdentity = document.getElementById('switch-identity');
+const removeIdentity = document.getElementById('remove-identity');
+const removeConfirm = document.getElementById('remove-confirm');
+const removeAction = document.getElementById('remove-action');
 const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery')];
+  document.getElementById('recovery'), document.getElementById('remove')];
+// The opened identity or recovery state the remove screen acts on.
+let current = null;
 
 // Shows one section (or none) with its status line.
 const show = (section, status) => {
   for (const each of sections) each.hidden = each !== section;
   switchIdentity.hidden = section !== identity && section !== sections[3];
+  // The backend refuses to remove a damaged or unreadable slot.
+  removeIdentity.hidden = section !== identity && !(section === sections[3]
+    && ['missing', 'incomplete', 'deleting'].includes(current?.reason));
   storageError.hidden = true;
   ready.textContent = window.strings[status];
 };
@@ -73,6 +81,7 @@ const identityButton = (item) => {
 };
 
 async function render(state) {
+  if (state.status === 'ready' || state.status === 'recovery') current = state;
   if (state.status === 'ready') {
     document.getElementById('peer-id').textContent = state.peerId;
     document.getElementById('file-backup').hidden = state.mode !== 'file';
@@ -114,6 +123,32 @@ document.getElementById('add-identity')
   .addEventListener('click', () => act(invoke('storage_options')));
 document.getElementById('retry')
   .addEventListener('click', () => act(invoke('identity_state')));
+
+// Second confirmation: Remove stays disabled until the checkbox is ticked.
+const showRemove = async () => {
+  const items = await invoke('list_identities');
+  const copies = current.peerId && items.some((item) => item.slot !== current.slot
+    && item.status === 'ready' && item.peerId === current.peerId);
+  document.getElementById('remove-peer').textContent = current.peerId
+    || reasonText(current.reason);
+  document.getElementById('remove-mode').textContent = window.strings[
+    `identity.mode.${current.mode}`] || '';
+  const path = document.getElementById('remove-path');
+  path.hidden = !current.keyPath;
+  path.querySelector('code').textContent = current.keyPath || '';
+  document.getElementById('remove-copies').textContent = !current.peerId ? ''
+    : window.strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
+  removeConfirm.checked = false;
+  removeAction.disabled = true;
+  show(sections[4], 'remove.title');
+};
+removeIdentity.addEventListener('click', () => showRemove().catch(showError));
+removeConfirm.addEventListener('change', () => { removeAction.disabled = !removeConfirm.checked; });
+removeAction.addEventListener('click', () => {
+  removeAction.disabled = true;
+  act(invoke('remove_identity', { slot: current.slot, peerId: current.peerId || null }));
+});
+document.getElementById('remove-cancel').addEventListener('click', () => act(current));
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
   .then(render)

@@ -101,6 +101,15 @@ def smoke(executable):
                         "passed": True})
         return match.group(1) if match else None
 
+    def remove(name, profile, slot, first):
+        """Remove the opened identity; only its slot folder may go."""
+        slots = Path(profile) / "profiles"
+        kept = {s.name for s in slots.iterdir()} - {slot}
+        if case(name, ["--ui-test-step=remove"], profile) != first:
+            raise RuntimeError("the remaining identity did not open")
+        if {s.name for s in slots.iterdir()} != kept:
+            raise RuntimeError("removal touched the wrong slots")
+
     def mixed(profile, first):
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
@@ -124,9 +133,13 @@ def smoke(executable):
         if case("pick-restart", [*file, "--ui-test-existing"],
                 profile) != second:
             raise RuntimeError("picked identity was not reopened")
+        remove("remove-ready", profile, added, first)
+        case("readd", [*file, "--ui-test-step=add"], profile)
+        added = (root / "active-profile").read_text().strip()
         (root / "profiles" / added / "identity.key").unlink()
         case("missing-key", [*file, "--ui-test-step=recovery"], profile,
              peer=False)
+        remove("remove-missing", profile, added, first)
 
     def legacy(profile, peer_id):
         """Turn the file slot into a pre-slot root key and reopen it."""

@@ -11,7 +11,9 @@
     button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
     button:disabled { opacity: .5; }
     .notice { font-size: .9rem; }
-    #peer-id, #key-path, #identities, #recovery-peer { overflow-wrap: anywhere; }
+    #peer-id, #key-path, #identities, #recovery-peer, #remove-peer, #remove-path {
+      overflow-wrap: anywhere;
+    }
     #identities { list-style: none; padding: 0; }
   </style>
 </head>
@@ -43,6 +45,19 @@
       <p id="recovery-peer"></p>
       <button id="retry" type="button" data-i18n="recovery.retry"></button>
     </section>
+    <section id="remove" hidden>
+      <h2 data-i18n="remove.title"></h2>
+      <p id="remove-peer"></p>
+      <p id="remove-mode"></p>
+      <p id="remove-path" hidden><code></code></p>
+      <p id="remove-copies"></p>
+      <p class="notice" data-i18n="remove.warning"></p>
+      <label><input id="remove-confirm" type="checkbox">
+        <span data-i18n="remove.confirm"></span></label>
+      <button id="remove-action" type="button" data-i18n="remove.action" disabled></button>
+      <button id="remove-cancel" type="button" data-i18n="remove.cancel"></button>
+    </section>
+    <button id="remove-identity" type="button" data-i18n="identity.remove" hidden></button>
     <button id="switch-identity" type="button" data-i18n="identity.switch" hidden></button>
     <p id="storage-error" role="alert" hidden></p>
   </main>

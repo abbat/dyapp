@@ -262,7 +262,7 @@ fn ui_test_existing() -> bool {
     std::env::args().any(|arg| arg == "--ui-test-existing")
 }
 
-/// The extra flow a UI test drives: `add`, `pick` or `recovery`.
+/// The extra flow a UI test drives: `add`, `pick`, `recovery` or `remove`.
 #[tauri::command]
 fn ui_test_step() -> String {
     std::env::args()

@@ -66,10 +66,13 @@ The app opens and creates identities through `clients/desktop/slots.rs`: it keep
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID
 or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
-identity" from the ready or recovery screen. The `remove_identity` command removes a slot as
-described below; the remove screen that calls it is not built yet. It refuses the legacy slot,
-which needs the migration below, and a damaged slot, whose files it cannot interpret. It also
-refuses a slot folder that holds files other than its markers.
+identity" from the ready or recovery screen. "Remove this identity" on the ready screen
+or a missing, incomplete or deleting recovery screen shows the Peer ID, storage mode, key file
+path, whether it is the last local copy and a no-undo warning; Remove stays disabled until a
+confirmation box is ticked. The `remove_identity` command then removes the slot as described
+below and returns to the picker, or to the storage choice when none is left. It refuses the
+legacy slot, which needs the migration below, and a damaged slot, whose files it cannot
+interpret. It also refuses a slot folder that holds files other than its markers.
 
 | Item | Planned location / name |
 |---|---|
@@ -133,8 +136,9 @@ checkpointed; a future live export must use SQLite's backup mechanism.
 
 `tests/scripts/desktop-smoke.py` covers on Linux and Windows: a file legacy upgrade, a pending
 slot beside the active one, system and file identities with switch and restart, a corrupt
-pointer and a missing file key. A locked provider, deletion, duplicate restore and backup are
-not covered yet.
+pointer, a missing file key, and removal of a ready file slot and of a slot whose key is missing
+(only that slot folder goes). A locked provider, removal of a system-store key through the UI,
+duplicate restore and backup are not covered yet.
 
 This layout favors directory discovery over a single registry: it survives interrupted
 registry writes and exposes incomplete slots, at the cost of visible local metadata and a
