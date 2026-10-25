@@ -1,6 +1,6 @@
-//! Native exports: identity keys, MLS encryption and photo previews; the message queue, profiles
-//! and video are prototypes with explicit stubs, and chat delivery (`dyapp-client`) is not exported
-//! yet.
+//! Native exports: identity keys, MLS encryption, photo previews and the bootstrap seed check; the
+//! message queue, profiles and video are prototypes with explicit stubs, and chat delivery
+//! (`dyapp-client`) is not exported yet.
 
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;
@@ -10,6 +10,11 @@ use zeroize::Zeroizing;
 
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
+mod network;
+pub use network::{
+    load_network, save_network_draft, CheckError, ConnectionCheck, NetworkFile, NetworkSettings,
+    SeedRow,
+};
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
 mod strip;

@@ -1224,12 +1224,15 @@ dependencies = [
 name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
+ "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
+ "dyapp-p2p-net",
  "dyapp-profile",
  "dyapp-video",
  "image",
  "jpeg-decoder",
+ "libp2p",
  "prost",
  "thiserror 2.0.21",
  "tokio",

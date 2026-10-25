@@ -57,6 +57,12 @@ or returns constants.
 | `check_preview` | function | `(bytes: Vec<u8>) -> Result<Rgba, CoreError>` | Decodes an RGB or grayscale JPEG preview or thumbnail from another user after size and header checks, with a bounded JPEG decoder independent of the encoder; unsupported pixel formats and decoder panics become `CoreError`. `Rgba` is `{ width, height, pixels }`. |
 | `strip_metadata` | function | `(bytes: Vec<u8>) -> Result<Vec<u8>, CoreError>` | A JPEG or PNG without metadata before upload: keeps only image data and colour (JFIF, ICC, Adobe; PNG colour chunks), cuts anything after the end marker. A JPEG with an EXIF orientation is turned upright and re-encoded at quality 90; a PNG with one, and any other format, fails, and the app converts it to JPEG first. |
 | `set_network_metered` | function | `(metered: bool)` | The app reports whether its network is metered; metered until it does. Chat auto-download will read it. |
+| `load_network` | function | `(dir: String, file: NetworkFile) -> Result<Option<NetworkSettings>, CheckError>` | Reads the identity folder's `Draft` or `Active` bootstrap settings; `None` when never saved. `NetworkSettings` is `{ seeds, name }`. |
+| `save_network_draft` | function | `(dir: String, draft: NetworkSettings) -> Result<(), CheckError>` | `save-draft`: stores the draft without connecting. |
+| `ConnectionCheck` | Object | `new(dir: String) -> Result<Self, CheckError>` | Checks one identity folder's drafts on its own Tokio runtime; calls block, so the app runs them off the UI thread. |
+| | method | `run(draft: NetworkSettings, wait_ms: u32) -> Result<Vec<SeedRow>, CheckError>` | `check-connection` and `retry-connection`: saves the draft, then dials every row from a throwaway key. `SeedRow` is `Connected { peer_id }`, `InvalidAddress`, `InvalidPeerId`, `Duplicate`, `Unreachable { reason }`, `WrongPeer` or `WrongNetwork`, in row order. `CheckError` is `Empty`, `InvalidNetwork { reason }`, `Cancelled`, `NotChecked` or `Failed { reason }`. |
+| | method | `cancel()` | `cancel-check`: the running `run` fails with `Cancelled`; the files stay as they were. |
+| | method | `activate() -> Result<NetworkSettings, CheckError>` | `activate-connection`: saves the last draft that reached a node as `Active`; `NotChecked` before that. |
 | `ProfileService` | Object | `new()` | Stub. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `{ "placeholder", 0, false }`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
@@ -65,9 +71,9 @@ or returns constants.
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.
 
-The planned first-run client connection surface has a
-[typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract-planned).
-It is not exported yet; platform UI must not treat the current `PeerConnection`
+The first-run connection surface (`load_network` to `ConnectionCheck`) follows the
+[typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract-planned);
+it checks seeds but keeps no connection open. Platform UI must not treat the `PeerConnection`
 label object as a working network connection.
 
 ### Native symbols
@@ -150,9 +156,10 @@ depends on the native side not using a handle after freeing it.
 ## Testing
 
 `cargo test -p dyapp-ffi` wraps and unwraps an `IdentityKey` through a test `KeyStore` and
-checks that keystore errors reach the caller; two `MlsDevice`s exchange a message across a
-sealed restart, and a wrong state key or a malformed profile fails. Preview tests size a
-4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus and 10 000 seeded
+checks that keystore errors reach the caller; a `ConnectionCheck` saves its draft, activates
+only after reaching an in-process node and is cancelled mid-check; two `MlsDevice`s exchange
+a message across a sealed restart, and a wrong state key or a malformed profile fails.
+Preview tests size a 4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus and 10 000 seeded
 mutations of a valid preview without a panic. The Android UI test (`AppUITests.kt`) checks
 that the stored identity keeps its peer ID when the activity is recreated; the iOS and macOS
 UI tests (`LaunchTests.swift`) check that it survives an app relaunch.
