@@ -17,13 +17,15 @@ const GET_KEYS: usize = 50;
 /// `nodes`, with at least `min_pow_bits` of profile proof of work: one per owner at the highest
 /// version seen, in no set order. A hit whose version `cache` already holds is taken from the
 /// cache, not fetched, and its proof of work is not hashed again. A node that fails is skipped,
-/// so the result may miss profiles, as each node's sample may anyway.
+/// so the result may miss profiles, as each node's sample may anyway. Peers in `blocked`
+/// ([`Store::blocked_peers`]) are neither fetched nor returned.
 pub async fn search(
     nodes: &mut [Node],
     conditions: &[Condition],
     limit: u32,
     min_pow_bits: u32,
     cache: &Profiles,
+    blocked: &[String],
 ) -> Vec<VerifiedProfile> {
     let (mut replies, mut cached) = (Vec::new(), Vec::new());
     for node in nodes {
@@ -40,6 +42,9 @@ pub async fn search(
         let mut keys = Vec::new();
         for hit in reply.hits {
             let peer_id: String = hit.key.iter().map(|byte| format!("{byte:02x}")).collect();
+            if blocked.contains(&peer_id) {
+                continue;
+            }
             match cache.get(&peer_id) {
                 Some(held) if held.profile.version >= hit.version => cached.push(held),
                 _ => keys.push(hit.key),
@@ -60,7 +65,10 @@ pub async fn search(
             found.push(held.clone());
         }
     }
-    found.retain(|profile| search_results::passes(conditions, min_pow_bits, &profile.profile));
+    found.retain(|profile| {
+        !blocked.contains(&profile.peer_id)
+            && search_results::passes(conditions, min_pow_bits, &profile.profile)
+    });
     found
 }
 
@@ -277,7 +285,7 @@ mod tests {
             strings: Vec::new(),
         }];
         let cache = Profiles::default();
-        let search = search(&mut nodes, &conditions, 0, 0, &cache);
+        let search = search(&mut nodes, &conditions, 0, 0, &cache, &[]);
         let found = tokio::time::timeout(Duration::from_secs(10), search)
             .await
             .unwrap();
@@ -339,7 +347,9 @@ mod tests {
             strings: Vec::new(),
         }];
         let mut nodes = [one, two, down];
-        let search = search(&mut nodes, &conditions, 0, 0, &cache);
+        // Blocked: b is cached and c would be fetched.
+        let blocked = [b.peer_id(), c.peer_id()];
+        let search = search(&mut nodes, &conditions, 0, 0, &cache, &blocked);
         let found = tokio::time::timeout(Duration::from_secs(10), search)
             .await
             .unwrap();
@@ -348,18 +358,13 @@ mod tests {
             .map(|p| (p.peer_id.clone(), p.profile.version))
             .collect();
         found.sort();
-        let mut expected = vec![
-            (a.peer_id(), 2),
-            (b.peer_id(), 1),
-            (f.peer_id(), 5),
-            (h.peer_id(), 1),
-        ];
+        let mut expected = vec![(a.peer_id(), 2), (f.peer_id(), 5), (h.peer_id(), 1)];
         expected.sort();
         assert_eq!(found, expected);
         let one_gets = gets(&one_asked);
         assert_eq!(one_gets.len(), 3);
-        assert_eq!(one_gets[0], [key(&a), key(&c), key(&f), key(&g)]);
-        assert_eq!(one_gets[1].len(), 3);
+        assert_eq!(one_gets[0], [key(&a), key(&f), key(&g)]);
+        assert_eq!(one_gets[1].len(), 2);
         assert_eq!(one_gets[2], [key(&g)]);
         let two_gets = gets(&two_asked);
         assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);

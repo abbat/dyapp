@@ -36,6 +36,7 @@ be repeated. `Session::unblock` clears the flag only: revoked keys stay revoked,
 gets tokens again for the days it asks anew.
 On receive, a blocked owner's Welcome is refused, and its messages advance MLS state and are
 acknowledged but get no history, receipt or token answer; its likes and views are dropped too.
+`search::search` takes `Store::blocked_peers` and neither fetches nor returns their profiles.
 The planned like and introduction signals need shorter plaintext padding than ordinary chat;
 the measured envelope sizes and 1 KiB limit are documented under
 [bootstrap mailbox envelopes](bootstrap.md#mailbox-envelope).
