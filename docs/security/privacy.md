@@ -37,8 +37,10 @@ The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until 
 it or the TTL passes, and `dyappd` deletes expired envelopes every hour. Exception: mailbox
 repair gives a repaired copy a new TTL, so an envelope its device never acks can outlive the TTL
 ([lifecycle](../architecture/bootstrap.md#mailbox-envelope)). A chat attachment
-is kept until the recipient releases it or `limits.attachment_retention_hours` (default 168)
-passes, also deleted hourly. A profile, tombstone included, is deleted hourly once its owner
+is kept until `limits.attachment_retention_hours` (default 168) passes, also deleted hourly;
+recipients do not release it, so every device of the chat can still fetch it. Its preview travels
+inside the encrypted message, and the client downloads a stranger's original only on a tap
+(`attachment::auto_download`); blurring their preview is app work. A profile, tombstone included, is deleted hourly once its owner
 has neither published a newer version nor sent a fresh identity-signed heartbeat for
 `limits.profile_ttl_days` (default 30). A heartbeat advances liveness only to its signed time,
 within 10 minutes of the node clock and newer than the stored time; replayed heartbeats,

@@ -143,9 +143,47 @@ pub fn open(attachment: &Attachment, blob: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(plaintext)
 }
 
-/// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. It
-/// does not release the blob: another device of the recipient may still need it, so the app calls
-/// [`crate::Node::release_media`] once every device has it.
+/// Hours a node keeps an unreleased attachment by default, `limits.attachment_retention_hours`.
+pub const RETENTION_HOURS: u32 = 168;
+// The "original available for N more hours" label shows below this.
+const WARN_HOURS: u32 = 24;
+
+/// The user's setting for downloading the full file of an attachment without a tap.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AutoDownload {
+    /// At once on an unmetered network; a metered or unknown one waits for a tap or a switch.
+    #[default]
+    ByNetwork,
+    /// At once on any network.
+    Always,
+    /// Only on a tap.
+    OnTap,
+}
+
+/// Whether to download the full file without a tap. A stranger's never is, in every mode; the
+/// platform reports an unknown network as metered. Call again when the network changes.
+pub fn auto_download(mode: AutoDownload, metered: bool, from_contact: bool) -> bool {
+    from_contact
+        && match mode {
+            AutoDownload::ByNetwork => !metered,
+            AutoDownload::Always => true,
+            AutoDownload::OnTap => false,
+        }
+}
+
+/// Whole hours left of the original sent at `sent_ms`, when under a day remains; `None` before.
+/// `Some(0)` means it has expired or is about to.
+pub fn hours_left(sent_ms: i64, now_ms: i64) -> Option<u32> {
+    const HOUR_MS: i64 = 3_600_000;
+    let left = sent_ms
+        .saturating_add(i64::from(RETENTION_HOURS) * HOUR_MS)
+        .saturating_sub(now_ms);
+    (left < i64::from(WARN_HOURS) * HOUR_MS).then(|| (left.max(0) / HOUR_MS) as u32)
+}
+
+/// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. A
+/// recipient never releases it: in MLS every device is a member, so the first release would drop
+/// it for the others; it expires after the retention.
 pub async fn fetch(nodes: &mut [crate::Node], attachment: &Attachment) -> Result<Vec<u8>, Error> {
     let mut last = Error::Request("no node".into());
     for node in nodes {
@@ -184,6 +222,32 @@ mod tests {
         change(&mut blob);
         attachment.blob_sha256 = sha256(&blob);
         open(&attachment, &blob)
+    }
+
+    #[test]
+    fn strangers_and_metered_networks_never_download_without_a_tap() {
+        use AutoDownload::*;
+        for mode in [ByNetwork, Always, OnTap] {
+            for metered in [false, true] {
+                assert!(!auto_download(mode, metered, false));
+            }
+        }
+        assert!(auto_download(ByNetwork, false, true));
+        assert!(!auto_download(ByNetwork, true, true));
+        assert!(auto_download(Always, true, true));
+        assert!(!auto_download(OnTap, false, true));
+        assert_eq!(AutoDownload::default(), ByNetwork);
+    }
+
+    #[test]
+    fn hours_left_shows_only_in_the_last_day() {
+        let hour = 3_600_000;
+        assert_eq!(hours_left(0, 0), None);
+        assert_eq!(hours_left(0, 144 * hour), None);
+        assert_eq!(hours_left(0, 144 * hour + 1), Some(23));
+        assert_eq!(hours_left(0, 167 * hour), Some(1));
+        assert_eq!(hours_left(0, 200 * hour), Some(0));
+        assert_eq!(hours_left(i64::MAX, i64::MIN), None);
     }
 
     #[test]

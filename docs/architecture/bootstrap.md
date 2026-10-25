@@ -559,9 +559,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
 - Reading and deleting a mailbox needs a signature over a nonce the node issued for this libp2p
   connection, so a captured request cannot be replayed. Other requests are idempotent.
 - Chat attachments are encrypted media blobs: a fresh key per attachment
-  ([Encryption](../security/encryption.md#target-design); the client's sending them is planned). The sender attaches them under the SHA-256 of a
-  release secret of 32 random bytes and sends the secret inside the message; the recipient releases them
-  after downloading, and unreleased ones expire after an operator-set retention.
+  ([Encryption](../security/encryption.md#target-design); `Session::send_attachment` sends them). The sender attaches them under the SHA-256 of a
+  release secret of 32 random bytes and sends the secret inside the message. Recipients do not
+  release them, since every device of a chat is an MLS member and the first release would drop the
+  blob for the others; attachments expire after an operator-set retention.
 
 ### Storage on a node
 
@@ -991,7 +992,7 @@ The current protocol replies are:
   can ask for a piece ([ranged get](#ranged-media-get)).
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
-  the secret (the recipient, after downloading) sends `release` to each holder and the node drops the
+  the secret sends `release` to each holder and the node drops the
   attachment at once; a blob also kept or attached elsewhere stays. An unreleased attachment
   expires `limits.attachment_retention_hours` (default 168) after its `created` time, which may
   be at most 10 minutes ahead of the node's clock; the hourly cleanup deletes it. A sender has at
