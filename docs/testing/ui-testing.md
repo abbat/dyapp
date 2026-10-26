@@ -238,6 +238,9 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   the active file must be absent before Activate and contain that address afterward. iOS and
   macOS UI tests show Continue disabled before Check, enabled after the local node answers, and
   open the profile editor after explicit activation.
+  The failure cases use `127.0.0.1:33446` as a closed loopback endpoint, alongside malformed,
+  repeated and invalid-pin rows. They assert the row order and keep Continue disabled when no
+  compatible node answered.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.

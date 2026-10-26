@@ -141,6 +141,30 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testNetworkFailureRowsKeepTheirOrder() {
+        let app = unlockedApp()
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let save = app.buttons["network-save"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: save
+        ),
+        ], timeout: 10), .completed)
+        let rows = app.textViews["network-bootstrap"]
+        rows.tap()
+        rows.typeText("not-an-address\n127.0.0.1:33446\n127.0.0.1:33446\n127.0.0.1:33445/bad")
+        app.buttons["network-check"].tap()
+        let expected = ["Invalid address", "Unreachable", "Duplicate address", "Invalid peer ID"]
+        for (index, word) in expected.enumerated() {
+            let result = app.descendants(matching: .any)["network-row-\(index)"]
+            XCTAssertTrue(result.waitForExistence(timeout: 15))
+            XCTAssertTrue(result.label.contains(word), result.label)
+        }
+        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+        app.terminate()
+    }
+
     // Every launch starts with the app lock skipped, so the start screen renders.
     private func unlockedApp() -> XCUIApplication {
         let app = XCUIApplication()

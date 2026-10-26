@@ -94,4 +94,19 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertEqual(active.seeds, [pinned])
         XCTAssertEqual(active.name, "")
     }
+
+    func testInvalidDuplicateAndUnreachableRowsStayOrdered() throws {
+        let path = try folder(root: root(), id: UUID())
+        let session = try NetworkConnectionSession(directory: path)
+        let rows = [
+            "not-an-address", "127.0.0.1:33446",
+            "127.0.0.1:33446", "127.0.0.1:33445/bad",
+        ]
+
+        XCTAssertEqual(try session.run(rows: rows, name: "", waitMs: 1_000),
+                       [.invalidAddress, .unreachable, .duplicate, .invalidPeerID])
+        XCTAssertThrowsError(try session.activate())
+        XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
+        XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, rows)
+    }
 }
