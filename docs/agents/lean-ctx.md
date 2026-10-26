@@ -35,6 +35,12 @@ CLI flags.
 
 `/abs` stands for the absolute path of your checkout; paths must be absolute.
 
+`ctx_patch` `replace_unique` (`path`, `old_text`, `new_text`) needs no prior anchored read, and
+an `ops` array applies several such edits across files in one call, each with a diff. It fails if
+`old_text` is missing or not unique, so a multi-line refactor stays exact without `sed`/`perl`.
+lean-ctx refuses paths outside the project and home directory (for example harness task output
+under `/tmp`); read those with the harness's own tool.
+
 ## Read modes and truncated output
 
 - `ctx_read` `mode`: `auto` (default, may compress), `signatures` (API only), `lines:N-M`

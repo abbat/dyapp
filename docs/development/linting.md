@@ -106,6 +106,13 @@ is not used.
 The baseline suppresses only its recorded findings; it does not fix the code. Work to remove
 those findings and then the baseline is tracked separately. When fixing a finding, remove its
 entry from `detekt-baseline.xml` so the baseline reflects only remaining debt.
+A baseline ID includes the full function signature (XML-escaped, e.g. `-&gt;`), so changing the
+parameters of a baselined function needs its ID updated to the new signature.
+
+Defaults that new Android code often hits: `TooManyFunctions` reports at 10 functions per class
+and 11 per file (top-level extension functions in another file help), `StringLiteralDuplication`
+counts repeated `testTag` strings, `BracesOnIfStatements` wants braces on a multi-line `if`, and
+`UseIfInsteadOfWhen` rejects a two-branch `when`.
 
 ## Suppressing a finding
 
