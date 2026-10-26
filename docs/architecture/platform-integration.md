@@ -34,8 +34,9 @@ app folder is missing. `LockGate.swift` (iOS only) shows first-launch Skip/Set P
 screen and builds the start screen only once the lock allows it; the KDF runs off the main
 thread. While a lock is set it covers the scene whenever it is not active, so the app-switcher
 snapshot shows no content, and `AppLockTimer` relocks 60 s after backgrounding or five minutes
-after the last touch on the app's windows, on a monotonic clock that counts device sleep.
-Debug builds accept `--app-lock-new` and `--app-lock-off` so UI tests start from a known
+after the last touch on the app's windows, on a monotonic clock that counts device sleep. Its
+settings screen replaces the start screen; a change or turn-off verifies the current PIN as one
+counted attempt. Debug builds accept `--app-lock-new` and `--app-lock-off` so UI tests start from a known
 lock state. See
 [FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 

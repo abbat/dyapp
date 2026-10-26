@@ -59,6 +59,60 @@ final class AppLockUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Settings set a PIN, and turn it off only behind the current one.
+    func testSettingsSetAndTurnOffPin() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off"]
+        app.launch()
+        XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 10))
+        app.buttons["lock-settings"].tap()
+        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
+        enter(app, "lock-pin", pin)
+        enter(app, "lock-pin-repeat", pin)
+        app.buttons["lock-set"].tap()
+        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: PIN"))
+        enter(app, "lock-pin-current", "000000")
+        app.buttons["lock-off"].tap()
+        XCTAssertEqual(notice(app), "Wrong PIN.")
+        XCTAssertEqual(app.staticTexts["lock-mode"].label, "App lock: PIN")
+        enter(app, "lock-pin-current", pin)
+        app.buttons["lock-off"].tap()
+        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
+        app.terminate()
+    }
+
+    /// A changed PIN replaces the old one at the next start.
+    func testSettingsChangePin() {
+        let app = launch(["--app-lock-new"])
+        enter(app, "lock-pin", pin)
+        enter(app, "lock-pin-repeat", pin)
+        app.buttons["lock-set"].tap()
+        XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 30))
+        app.buttons["lock-settings"].tap()
+        enter(app, "lock-pin-current", pin)
+        enter(app, "lock-pin", "654321")
+        enter(app, "lock-pin-repeat", "654321")
+        app.buttons["lock-set"].tap()
+        // The whole form is disabled while the KDF runs.
+        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 30), .completed)
+        XCTAssertFalse(app.staticTexts["lock-notice"].exists)
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        enter(app, "lock-pin", pin)
+        app.buttons["lock-unlock"].tap()
+        XCTAssertEqual(notice(app), "Wrong PIN.")
+        enter(app, "lock-pin", "654321")
+        app.buttons["lock-unlock"].tap()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 30))
+        app.terminate()
+    }
+
     private func launch(_ arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = arguments
@@ -72,6 +126,11 @@ final class AppLockUITests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         input.tap()
         input.typeText(text)
+    }
+
+    private func label(_ element: XCUIElement, _ text: String) -> Bool {
+        let shown = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", text), object: element)
+        return XCTWaiter().wait(for: [shown], timeout: 30) == .completed
     }
 
     private func notice(_ app: XCUIApplication) -> String {

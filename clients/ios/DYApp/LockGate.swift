@@ -28,7 +28,16 @@ struct LockGate: View {
             UnlockView(lock: lock)
 
         case .open:
-            ContentView()
+            if lock.settingsOpen {
+                SettingsView(lock: lock)
+            } else {
+                VStack {
+                    ContentView()
+                    Button("lock.settings") { lock.openSettings(true) }
+                        .accessibilityIdentifier("lock-settings")
+                        .padding()
+                }
+            }
 
         case .failed:
             Text("app.locked").accessibilityIdentifier("app-locked")
@@ -82,8 +91,9 @@ final class LockModel: ObservableObject {
     static let minPin = 6
 
     @Published private(set) var screen = Screen.failed
-    /// Whether a lock is set, so the app is covered whenever it is not active.
-    @Published private(set) var guarded = false
+    @Published private(set) var mode = StoredLock.new
+    /// Whether the open app shows its lock settings in place of the start screen.
+    @Published private(set) var settingsOpen = false
     /// Catalog key of the message under the PIN field.
     @Published private(set) var notice: String?
     @Published private(set) var busy = false
@@ -91,6 +101,9 @@ final class LockModel: ObservableObject {
     /// The unlocked session; nil until a PIN entry unlocks the app.
     private var session: AppLockTimer?
     private var expiry: Task<Void, Never>?
+
+    /// Whether a lock is set, so the app is covered whenever it is not active.
+    var guarded: Bool { mode == .pin || mode == .biometric }
 
     init() {
         store = try? AppLockStore.onDevice(directory: RustBridge.directory())
@@ -105,6 +118,27 @@ final class LockModel: ObservableObject {
         refresh()
     }
 
+    /// The gate's reading of a counted PIN attempt; five failures leave only the
+    /// device-credential notice.
+    nonisolated private static func outcome(_ attempt: PinAttempt) -> (unlocked: Bool, notice: String?) {
+        switch attempt {
+        case .unlocked:
+            (true, nil)
+
+        case .wrong:
+            (false, "lock.pin.wrong")
+
+        case .deviceCredentialRequired:
+            (false, "lock.device.credential")
+        }
+    }
+
+    /// Catalog key of the reason a new PIN is refused, if any.
+    private static func rejection(_ pin: String, _ repeated: String) -> String? {
+        if pin.count < Self.minPin { return "lock.pin.short" }
+        return pin == repeated ? nil : "lock.pin.mismatch"
+    }
+
     /// First-launch Skip: the start screen opens and no PIN is set.
     func skip() {
         run { store in
@@ -113,30 +147,30 @@ final class LockModel: ObservableObject {
         }
     }
 
-    /// First-launch Set PIN after both entries match.
+    /// Set PIN, on first launch or in settings while none is set, after both entries match.
     func enroll(_ pin: String, repeated: String) {
-        guard pin.count >= Self.minPin else { notice = "lock.pin.short"; return }
-        guard pin == repeated else { notice = "lock.pin.mismatch"; return }
+        if let rejection = Self.rejection(pin, repeated) { notice = rejection; return }
         run { store in
             try store.enroll(pin)
             return (true, nil)
         }
     }
 
-    /// One counted PIN attempt; five failures leave only the device-credential notice.
+    /// One counted PIN attempt from the unlock screen.
     func unlock(_ pin: String) {
-        run { store in
-            switch try store.attempt(pin) {
-            case .unlocked:
-                (true, nil)
+        run { store in Self.outcome(try store.attempt(pin)) }
+    }
 
-            case .wrong:
-                (false, "lock.pin.wrong")
+    /// Settings: replace the PIN, or turn it off when `newPin` is nil, only if `current` verifies;
+    /// the check counts as an unlock attempt.
+    func change(current: String, newPin: String?, repeated: String) {
+        if let newPin, let rejection = Self.rejection(newPin, repeated) { notice = rejection; return }
+        run { store in Self.outcome(try store.change(current: current, newPin: newPin)) }
+    }
 
-            case .deviceCredentialRequired:
-                (false, "lock.device.credential")
-            }
-        }
+    func openSettings(_ open: Bool) {
+        notice = nil
+        settingsOpen = open
     }
 
     /// The background grace starts on `background`; every phase change applies an expired deadline,
@@ -179,12 +213,13 @@ final class LockModel: ObservableObject {
         guard let session, session.expired(at: AppLockTimer.uptime()) else { return }
         self.session = nil
         notice = nil
+        settingsOpen = false
         refresh()
     }
 
     private func refresh() {
         guard let mode = try? store?.mode() else { screen = .failed; return }
-        guarded = mode == .pin || mode == .biometric
+        self.mode = mode
         switch mode {
         case .new:
             screen = .setup
@@ -291,6 +326,52 @@ private struct SetupView: View {
         }
         .disabled(lock.busy)
         .padding()
+    }
+}
+
+/// App-lock settings in place of the start screen: Set PIN while none is set; with a PIN, Change
+/// and Turn off both need the current PIN. Every submit clears the typed PINs.
+private struct SettingsView: View {
+    @ObservedObject var lock: LockModel
+    @State private var current = ""
+    @State private var pin = ""
+    @State private var repeated = ""
+
+    var body: some View {
+        let pinSet = lock.mode == .pin
+        let verified = !pinSet || current.count >= LockModel.minPin
+        VStack(spacing: 16) {
+            Text(LocalizedStringKey(pinSet ? "lock.mode.pin" : "lock.mode.off")).accessibilityIdentifier("lock-mode")
+            if pinSet {
+                PinField(title: "lock.pin.current", tag: "lock-pin-current", pin: $current)
+            }
+            PinField(title: "lock.pin.new", tag: "lock-pin", pin: $pin)
+            PinField(title: "lock.pin.repeat", tag: "lock-pin-repeat", pin: $repeated)
+            Notice(key: lock.notice)
+            Button(LocalizedStringKey(pinSet ? "lock.change" : "lock.set")) { submit(pin) }
+                .accessibilityIdentifier("lock-set")
+                .disabled(!verified)
+            if pinSet {
+                Button("lock.turn.off") { submit(nil) }
+                    .accessibilityIdentifier("lock-off")
+                    .disabled(!verified)
+            }
+            Button("lock.back") { lock.openSettings(false) }
+                .accessibilityIdentifier("lock-back")
+        }
+        .disabled(lock.busy)
+        .padding()
+    }
+
+    private func submit(_ newPin: String?) {
+        if lock.mode == .pin {
+            lock.change(current: current, newPin: newPin, repeated: repeated)
+        } else {
+            lock.enroll(pin, repeated: repeated)
+        }
+        current = ""
+        pin = ""
+        repeated = ""
     }
 }
 
