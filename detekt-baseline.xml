@@ -23,9 +23,7 @@
     <ID>StringLiteralDuplication:MainActivity.kt$"deleting"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"incomplete"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"missing"</ID>
-    <ID>SwallowedException:Slots.kt$Slots$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RustBridge.kt$RustBridge$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:Slots.kt$Slots$e: Exception</ID>
     <ID>TooManyFunctions:Slots.kt$Slots</ID>
     <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
     <ID>UndocumentedPublicProperty:RustBridge.kt$Shown$val entries: List&lt;Opened&gt; = emptyList()</ID>
