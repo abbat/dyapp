@@ -169,6 +169,30 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Проверить подключение" } }
       }
     },
+    "network.retry": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry connection" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторить подключение" } }
+      }
+    },
+    "network.cancel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancel check" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить проверку" } }
+      }
+    },
+    "network.cancelling": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancelling check…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отмена проверки…" } }
+      }
+    },
+    "network.cancelled": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Check cancelled. Draft and active connection were kept." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверка отменена. Черновик и активное подключение сохранены." } }
+      }
+    },
     "network.checkReady": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Check the saved or edited addresses before continuing." } },

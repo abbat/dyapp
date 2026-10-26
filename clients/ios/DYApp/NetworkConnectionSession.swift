@@ -55,14 +55,29 @@ final class NetworkConnectionSession: @unchecked Sendable {
     }
 
     static func start(candidate: IdentityCandidate, rows: [String], name: String) async -> NetworkCheckAttempt {
+        guard let session = await create(candidate: candidate) else { return .failed }
+        return await session.runAsync(rows: rows, name: name)
+    }
+
+    /// Construct off the UI actor, then retain this session so Cancel can reach a running check.
+    static func create(candidate: IdentityCandidate) async -> NetworkConnectionSession? {
+        await Task.detached(priority: .userInitiated) {
+            try? NetworkConnectionSession(candidate: candidate)
+        }.value
+    }
+
+    func runAsync(rows: [String], name: String) async -> NetworkCheckAttempt {
         await Task.detached(priority: .userInitiated) { () -> NetworkCheckAttempt in
             do {
-                let session = try NetworkConnectionSession(candidate: candidate)
-                return .completed(session, try session.run(rows: rows, name: name))
+                return .completed(self, try self.run(rows: rows, name: name))
             } catch {
                 return .failed
             }
         }.value
+    }
+
+    func cancel() {
+        checker.cancel()
     }
 
     /// Blocking UniFFI call; invoke from a detached task, never the UI actor.

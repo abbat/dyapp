@@ -28,7 +28,9 @@ Their network form UI tests save bootstrap rows and a network name, relaunch the
 isolated slot root, and check that the values reappear. A DEBUG-only launch argument seeds an
 invalid draft after explicit identity creation so the tests can check the visible read error and
 disabled Save action; release builds ignore this argument.
-They also check that a malformed bootstrap address receives an ordered row outcome after Check.
+They also check that a malformed bootstrap address receives an ordered row outcome after Check
+and remains available on Retry. Rust's connection-check test covers interrupting a silent node;
+the native cancel path belongs to the later Apple failure matrix.
 The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. On first identity creation, desktop smoke

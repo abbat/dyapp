@@ -18,7 +18,10 @@ struct NetworkDraftView: View {
     @State private var savedRows = ""
     @State private var savedName = ""
     @State private var isChecking = false
+    @State private var cancelRequested = false
+    @State private var wasCancelled = false
     @State private var checkFailed = false
+    @State private var checker: NetworkConnectionSession?
     @State private var checkedRowsText = ""
     @State private var checkedName = ""
     @State private var rowOutcomes: [NetworkRowOutcome] = []
@@ -32,7 +35,9 @@ struct NetworkDraftView: View {
     }
 
     private var checkStatusKey: LocalizedStringKey {
+        if cancelRequested && isChecking { return "network.cancelling" }
         if isChecking { return "network.checking" }
+        if wasCancelled { return "network.cancelled" }
         if checkFailed { return "network.checkFailed" }
         if showingCheck {
             let connected = rowOutcomes.contains { outcome in
@@ -112,9 +117,16 @@ struct NetworkDraftView: View {
             }
 
             Section {
-                Button("network.check") { Task { await check() } }
+                Button(showingCheck || checkFailed || wasCancelled ? "network.retry" : "network.check") {
+                    Task { await check() }
+                }
                     .disabled(isLoading || readFailed || isSaving || isChecking)
                     .accessibilityIdentifier("network-check")
+                if isChecking {
+                    Button("network.cancel") { cancelCheck() }
+                        .disabled(cancelRequested)
+                        .accessibilityIdentifier("network-cancel")
+                }
                 Text(checkStatusKey).accessibilityIdentifier("network-check-status")
                 if showingCheck {
                     ForEach(rowOutcomes.indices, id: \.self) { index in
@@ -141,6 +153,9 @@ struct NetworkDraftView: View {
         readFailed = false
         saveFailed = false
         hasSaved = false
+        checker = nil
+        cancelRequested = false
+        wasCancelled = false
         checkFailed = false
         rowOutcomes = []
         bootstrapRows = ""
@@ -205,18 +220,39 @@ struct NetworkDraftView: View {
     private func check() async {
         guard !isLoading && !readFailed && !isSaving && !isChecking else { return }
         isChecking = true
+        cancelRequested = false
+        wasCancelled = false
         checkFailed = false
+        checker = nil
         rowOutcomes = []
         let rowsText = bootstrapRows
         let name = networkName
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
-        let result = await NetworkConnectionSession.start(candidate: candidate, rows: rows, name: name)
+        guard let session = await NetworkConnectionSession.create(candidate: candidate) else {
+            isChecking = false
+            checkFailed = true
+            return
+        }
+        checker = session
+        if cancelRequested {
+            isChecking = false
+            wasCancelled = true
+            checker = nil
+            return
+        }
+        let result = await session.runAsync(rows: rows, name: name)
         guard !Task.isCancelled else { return }
+        isChecking = false
+        if cancelRequested {
+            wasCancelled = true
+            checker = nil
+            return
+        }
         checkedRowsText = rowsText
         checkedName = name
-        isChecking = false
         switch result {
         case let .completed(_, outcomes):
+            checker = session
             rowOutcomes = outcomes
             savedRows = rowsText
             savedName = name
@@ -224,7 +260,15 @@ struct NetworkDraftView: View {
             saveFailed = false
 
         case .failed:
+            checker = nil
             checkFailed = true
         }
+    }
+
+    @MainActor
+    private func cancelCheck() {
+        guard isChecking && !cancelRequested else { return }
+        cancelRequested = true
+        checker?.cancel()
     }
 }

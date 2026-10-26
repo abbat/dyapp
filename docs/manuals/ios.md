@@ -7,7 +7,8 @@ After opening an identity, **Network connection** opens a draft form for bootstr
 (one address per line) and an optional network name. **Save draft** keeps edits for this
 identity across restarts without changing the active connection.
 **Check connection** saves the draft and shows an outcome beside each address; it does not
-activate the network yet. Cancellation and activation are planned.
+activate the network yet. Cancel stops a running check; Retry reuses the draft. Activation is
+planned.
 
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
 signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact

@@ -33,7 +33,8 @@ not alter the active settings or key file. Native UI tests check form persistenc
 relaunch and that a damaged draft visibly blocks Save; their corruption fixture is DEBUG-only.
 The Apple connection session now constructs UniFFI `ConnectionCheck` for the selected candidate's
 folder and runs its bounded check in a detached task. It maps row outcomes into Sendable Swift
-values. The shared form now shows Check with ordered row outcomes; Cancel and Activate follow.
+values. The shared form now shows Check with ordered row outcomes and retains the checker so
+Cancel can reach a running call; Retry starts another bounded run. Activate follows.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their
