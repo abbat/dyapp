@@ -109,4 +109,25 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, rows)
     }
+
+    func testWrongPeerAndNetworkCannotActivate() throws {
+        let path = try folder(root: root(), id: UUID())
+        let session = try NetworkConnectionSession(directory: path)
+        let address = "127.0.0.1:33445"
+        let connected = try session.run(rows: [address], name: "", waitMs: 5_000)
+        guard case let .connected(peerID) = try XCTUnwrap(connected.first) else {
+            XCTFail("The CI loopback node did not answer")
+            return
+        }
+        let wrongPeer = String(peerID.dropLast()) + (peerID.last == "1" ? "2" : "1")
+        let wrongPinCheck = try NetworkConnectionSession(directory: path)
+        XCTAssertEqual(try wrongPinCheck.run(rows: ["\(address)/\(wrongPeer)"], name: "", waitMs: 5_000),
+                       [.wrongPeer])
+        XCTAssertThrowsError(try wrongPinCheck.activate())
+        let wrongNetworkCheck = try NetworkConnectionSession(directory: path)
+        XCTAssertEqual(try wrongNetworkCheck.run(rows: [address], name: "city", waitMs: 5_000),
+                       [.wrongNetwork])
+        XCTAssertThrowsError(try wrongNetworkCheck.activate())
+        XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
+    }
 }
