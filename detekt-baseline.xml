@@ -5,17 +5,11 @@
     <ID>BracesOnWhenStatements:MainActivity.kt$when</ID>
     <ID>ClassOrdering:AppLockLifecycle.kt$AppLockLifecycle$Companion</ID>
     <ID>ClassOrdering:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
-    <ID>CommentOverPrivateFunction:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
-    <ID>CommentOverPrivateFunction:MainActivity.kt$private fun removable(opened: Opened)</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var appLock: AppLockLifecycle</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
-    <ID>StringLiteralDuplication:MainActivity.kt$"app-ready"</ID>
-    <ID>StringLiteralDuplication:MainActivity.kt$"deleting"</ID>
-    <ID>StringLiteralDuplication:MainActivity.kt$"incomplete"</ID>
-    <ID>StringLiteralDuplication:MainActivity.kt$"missing"</ID>
     <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
   </CurrentIssues>
 </SmellBaseline>

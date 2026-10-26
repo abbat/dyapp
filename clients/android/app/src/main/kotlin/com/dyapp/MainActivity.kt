@@ -38,6 +38,11 @@ import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val APP_READY_TAG = "app-ready"
+private const val MISSING_REASON = "missing"
+private const val INCOMPLETE_REASON = "incomplete"
+private const val DELETING_REASON = "deleting"
+
 /**
  * The single activity; checks the app lock before constructing the private Compose screen and
  * offers first-launch PIN setup. PIN work runs on a background dispatcher.
@@ -184,9 +189,9 @@ private fun AppLockStore.save(current: String?, newPin: String?, reset: Boolean,
 }
 
 private val reasons = mapOf(
-    "missing" to R.string.recovery_missing,
-    "incomplete" to R.string.recovery_incomplete,
-    "deleting" to R.string.recovery_deleting,
+    MISSING_REASON to R.string.recovery_missing,
+    INCOMPLETE_REASON to R.string.recovery_incomplete,
+    DELETING_REASON to R.string.recovery_deleting,
     "damaged" to R.string.recovery_damaged,
 )
 
@@ -231,7 +236,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Text(stringResource(status), modifier = Modifier.testTag("app-ready"))
+        Text(stringResource(status), modifier = Modifier.testTag(APP_READY_TAG))
         when (opened) {
             null -> Text(stringResource(R.string.storage_error))
             is Opened.Ready -> {
@@ -283,18 +288,16 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     }
 }
 
-/** [Slots.remove] refuses the legacy slot and damaged or unreadable ones. */
+// Removal refuses the legacy slot and damaged or unreadable ones.
 private fun removable(opened: Opened) = when (opened) {
     is Opened.Ready -> opened.slot.id != Slots.LEGACY
     is Opened.Recovery -> opened.slot.id != Slots.LEGACY &&
-        opened.reason in setOf("missing", "incomplete", "deleting")
+        opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
     else -> false
 }
 
-/**
- * Second confirmation: Remove stays disabled until the checkbox is ticked. Afterwards the
- * picker shows the remaining identities; a new one is never created on its own.
- */
+// Second confirmation: Remove stays disabled until checked. Afterwards the picker shows
+// remaining identities; a new one is never created on its own.
 @Composable
 private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Unit) {
     val (slot, peerId) = when (target) {
@@ -314,7 +317,7 @@ private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Un
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(stringResource(R.string.remove_title), Modifier.testTag("app-ready"))
+        Text(stringResource(R.string.remove_title), Modifier.testTag(APP_READY_TAG))
         Text(peerId ?: reasonText((target as Opened.Recovery).reason))
         if (peerId != null) {
             val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
