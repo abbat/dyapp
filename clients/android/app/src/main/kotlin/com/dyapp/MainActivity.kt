@@ -48,7 +48,8 @@ private const val DELETING_REASON = "deleting"
  * offers first-launch PIN setup. PIN work runs on a background dispatcher.
  */
 class MainActivity : ComponentActivity() {
-    private lateinit var appLock: AppLockLifecycle
+    // Fail closed until onCreate reads the saved lock choice.
+    private var appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
     private val timer = Handler(Looper.getMainLooper())
     private val deadline = Runnable { refreshLock() }
     private val store by lazy { AppLockStore.onDevice(noBackupFilesDir) }
@@ -238,7 +239,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
         Text(stringResource(status), modifier = Modifier.testTag(APP_READY_TAG))
         when (opened) {
-            null -> Text(stringResource(R.string.storage_error))
+            null -> { Text(stringResource(R.string.storage_error)) }
             is Opened.Ready -> {
                 Text(stringResource(R.string.storage_peer_id))
                 Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
