@@ -31,6 +31,11 @@ Source: `rust/bootstrap/src/service.rs`, `rust/bootstrap/src/storage.rs`.
 | Video frame sizes, timing and SFrame header | Peer and network path | None | Not stored | Unencrypted by design | Resolution, frame rate, call duration |
 | SDP / ICE candidates | Whoever relays signaling; no signaling channel exists yet (bootstrap has no endpoint for it) | — | — | Encrypted signaling (not designed); relay-only ICE until the contact is verified, a setting for every call (planned) | IP addresses of verified contacts inside ICE candidates |
 
+Interest tags are public profile fields. Profile verification requires a canonical tag (trim,
+Unicode lowercase, NFC) so an externally authored variant cannot create a second search spelling.
+Client controls for entering or searching interests are planned; the Rust core provides the
+canonicalization helper for them.
+
 ## Retention
 
 The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until the device acks

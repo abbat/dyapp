@@ -165,6 +165,9 @@ impl Profile {
                 "too many interests, or one is too long or not printable",
             ));
         }
+        if self.interests.iter().any(|i| *i != normalize_interest(i)) {
+            return Err(Error::Invalid("interest is not normalized"));
+        }
         let hash = |h: &Vec<u8>| h.len() == 32;
         if self.photos.len() > MAX_PHOTOS
             || !self.photos.iter().all(|p| {
@@ -208,6 +211,14 @@ impl Profile {
         }
         Ok(())
     }
+}
+
+/// Canonical interest tag used by both profile publication and search: trim, lowercase, NFC.
+pub fn normalize_interest(text: &str) -> String {
+    let lower = text.trim().to_lowercase();
+    ComposingNormalizerBorrowed::new_nfc()
+        .normalize(&lower)
+        .into_owned()
 }
 
 /// Whether `text` may appear in a profile string: NFC, with no control, format (bidi, zero-width)
@@ -724,6 +735,22 @@ mod tests {
             verify(&profile.sign(&owner)),
             Err(Error::Invalid("tombstone carries data"))
         );
+    }
+
+    #[test]
+    fn interests_require_canonical_tag() {
+        let owner = Identity::generate();
+        let mut profile = sample(1);
+        assert_eq!(normalize_interest("  Музыка  "), "музыка");
+        assert_eq!(normalize_interest("  E\u{301}COLE  "), "école");
+        for input in ["Музыка", " музыка ", "e\u{301}cole"] {
+            profile.interests = vec![input.into()];
+            assert!(verify(&profile.sign(&owner)).is_err(), "{input:?}");
+        }
+        profile.interests = vec![normalize_interest("  Музыка  ")];
+        assert!(verify(&profile.sign(&owner)).is_ok());
+        profile.interests.clear();
+        assert!(verify(&profile.sign(&owner)).is_ok());
     }
 
     #[test]
