@@ -69,6 +69,11 @@ opened anyway: Keystore keys never leave the device.
 | Active selection | `active-profile` contains the slot UUID or `legacy-primary`. |
 | Legacy key | Root `identity.key` wrapped by alias `dyapp-identity-wrap`; virtual slot `legacy-primary`. |
 
+`RustBridge.loadNetwork` and `saveNetworkDraft` pass the ready slot's directory to the shared
+FFI, so network drafts and active settings belong to that identity. These blocking calls must
+run off the UI thread. The connection form and dial flow are planned; saving these files never
+opens or replaces the identity key.
+
 There is one storage mode, so a slot has no `storage-mode` marker. The identity list comes
 from scanning `profiles/` plus the root legacy file; there is no second index. The app runs
 in one process, so a single lock object serializes every slot change; a second process would

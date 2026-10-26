@@ -2,6 +2,10 @@ package com.dyapp
 
 import android.content.Context
 import android.util.Log
+import uniffi.dyapp.NetworkFile
+import uniffi.dyapp.NetworkSettings
+import uniffi.dyapp.loadNetwork as ffiLoadNetwork
+import uniffi.dyapp.saveNetworkDraft as ffiSaveNetworkDraft
 
 /** What the start screen shows; [opened] is null when the storage itself fails. */
 class Shown(
@@ -18,6 +22,14 @@ object RustBridge {
      * leave this device, so a restored blob could not be opened anyway.
      */
     fun slots(context: Context) = Slots(context.noBackupFilesDir, PlatformKeyStore)
+
+    /** Read this ready identity's draft or active network settings off the UI thread. */
+    fun loadNetwork(opened: Opened.Ready, file: NetworkFile): NetworkSettings? =
+        ffiLoadNetwork(opened.slot.dir.absolutePath, file)
+
+    /** Persist draft edits beside this ready identity's key off the UI thread. */
+    fun saveNetworkDraft(opened: Opened.Ready, draft: NetworkSettings) =
+        ffiSaveNetworkDraft(opened.slot.dir.absolutePath, draft)
 
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
