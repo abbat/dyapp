@@ -28,10 +28,10 @@ const EXPIRE_BATCHES: u32 = 64;
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NULL,
   `version` INTEGER NOT NULL, `country` TEXT, `income_from` INTEGER,
-  `income_to` INTEGER, `has_kids` INTEGER, `wants_more_kids` INTEGER, `relationship_goal` TEXT,
-  `career_ambition` TEXT, `education_level` INTEGER, `orientation` TEXT, `role_preference` TEXT,
-  `zodiac` TEXT, `financial_philosophy` TEXT, `employment_status` TEXT, `fitness_level` TEXT,
-  `place` TEXT, `gender` TEXT, `photo_count` INTEGER, `r` INTEGER NOT NULL,
+  `income_to` INTEGER, `has_kids` INTEGER, `wants_more_kids` INTEGER, `relationship_goal` INTEGER,
+  `career_ambition` INTEGER, `education_level` INTEGER, `orientation` INTEGER, `role_preference` INTEGER,
+  `zodiac` INTEGER, `financial_philosophy` INTEGER, `employment_status` INTEGER, `fitness_level` INTEGER,
+  `place` TEXT, `gender` INTEGER, `photo_count` INTEGER, `r` INTEGER NOT NULL,
   `birth_earliest` INTEGER, `birth_latest` INTEGER) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_country` ON `profile` (`country`, `r`);
@@ -122,6 +122,10 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
     Ok(())
 }
 
+fn nonzero(value: u32) -> Option<u32> {
+    (value != 0).then_some(value)
+}
+
 /// Inserts the typed rows of a live profile with random rank `r` and counts its place.
 fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Result<()> {
     let place = crate::places::canonical(&p.country, &p.place);
@@ -139,17 +143,17 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             p.income_to.and_then(sql),
             p.has_kids,
             p.wants_more_kids,
-            p.relationship_goal,
-            p.career_ambition,
-            p.education_level,
-            p.orientation,
-            p.role_preference,
-            p.zodiac,
-            p.financial_philosophy,
-            p.employment_status,
-            p.fitness_level,
+            nonzero(p.relationship_goal),
+            nonzero(p.career_ambition),
+            nonzero(p.education_level),
+            nonzero(p.orientation),
+            nonzero(p.role_preference),
+            nonzero(p.zodiac),
+            nonzero(p.financial_philosophy),
+            nonzero(p.employment_status),
+            nonzero(p.fitness_level),
             place,
-            p.gender,
+            nonzero(p.gender),
             i64::try_from(p.photos.len()).ok(),
             r,
             birth.map(|b| b.earliest.yyyymmdd()),

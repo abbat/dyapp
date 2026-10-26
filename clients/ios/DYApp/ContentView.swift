@@ -12,13 +12,19 @@ struct ContentView: View {
     }()
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("app.name").font(.largeTitle)
-            if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
-                Text("status.ready").accessibilityIdentifier("app-ready")
+        NavigationView {
+            VStack(spacing: 16) {
+                Text("app.name").font(.largeTitle)
+                if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
+                    Text("status.ready").accessibilityIdentifier("app-ready")
+                }
+                Text(peerId).accessibilityIdentifier("peer-id")
+                NavigationLink(destination: ProfileDraftView(peerId: peerId)) {
+                    Text("profile.title")
+                }
+                .accessibilityIdentifier("profile-edit")
             }
-            Text(peerId).accessibilityIdentifier("peer-id")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

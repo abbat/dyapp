@@ -16,9 +16,6 @@ pub enum Block {
     /// The owner has not confirmed being 18 or older for this publish.
     #[error("confirm you are 18 or older")]
     NotAttested,
-    /// Gender is required.
-    #[error("gender is required")]
-    NoGender,
     /// The year, month and day parts describe no calendar date.
     #[error("invalid birth date")]
     InvalidBirthDate,
@@ -32,9 +29,6 @@ pub enum Block {
 pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Block> {
     if !attested {
         return Err(Block::NotAttested);
-    }
-    if draft.gender.trim().is_empty() {
-        return Err(Block::NoGender);
     }
     if !draft.valid_birth_parts() {
         return Err(Block::InvalidBirthDate);
@@ -132,7 +126,7 @@ mod tests {
 
     fn draft(year: Option<u32>, month: Option<u32>, day: Option<u32>) -> Profile {
         Profile {
-            gender: "woman".into(),
+            gender: dyapp_profile::Gender::Woman.code(),
             birth_year: year,
             birth_month: month,
             birth_day: day,
@@ -141,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn gates_each_publish_on_attestation_gender_and_age() {
+    fn gates_each_publish_on_attestation_and_age() {
         let today = CivilDate::new(2026, 10, 26).unwrap();
         assert_eq!(check(&draft(None, None, None), true, today), Ok(()));
         assert_eq!(check(&draft(None, Some(2), Some(29)), true, today), Ok(()));
@@ -150,8 +144,8 @@ mod tests {
             Err(Block::NotAttested)
         );
         let mut genderless = draft(None, None, None);
-        genderless.gender = " ".into();
-        assert_eq!(check(&genderless, true, today), Err(Block::NoGender));
+        genderless.gender = 0;
+        assert_eq!(check(&genderless, true, today), Ok(()));
         assert_eq!(
             check(&draft(None, Some(4), Some(31)), true, today),
             Err(Block::InvalidBirthDate)
@@ -311,13 +305,16 @@ mod tests {
         let (mut node, held) = profile_node(Vec::new()).await;
         let other = Profile {
             version: 5,
-            gender: "man".into(),
+            gender: dyapp_profile::Gender::Man.code(),
             ..Profile::default()
         };
         *held.lock().unwrap() = Some(other.sign(&alice));
         let published = publish(&store, &mut node, &alice, &draft(None, None, None))
             .await
             .unwrap();
-        assert_eq!((published.version, published.gender.as_str()), (6, "woman"));
+        assert_eq!(
+            (published.version, published.gender),
+            (6, dyapp_profile::Gender::Woman.code())
+        );
     }
 }

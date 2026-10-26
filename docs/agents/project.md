@@ -10,9 +10,9 @@ automatically. This page holds the details. **The user's own instructions (globa
 |------|------------|
 | `rust/` | Cargo workspace (`Cargo.toml` at the root): `bootstrap`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`. Toolchain pinned to 1.99.0 in `rust-toolchain.toml`. |
 | `rust/bootstrap/src/bin/` | `dyappd`: the libp2p node; `dyappd/client.rs` holds its client commands (`dyappd info`, ...) used by network tests. |
-| `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Its bindings are **not** consumed by any app yet. |
-| `clients/android/` | Gradle app (Kotlin). Does not link the Rust core. |
-| `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps. Do not link the Rust core. |
+| `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Android and Apple apps use identity, lock and profile-scale bindings. |
+| `clients/android/` | Gradle app (Kotlin) with generated Rust bindings. |
+| `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps with generated Rust bindings. |
 | `clients/linux/`, `clients/windows/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`. |
 | `build/` | Ignored local output for Cargo, Gradle (`build/android/`), packages, reports and generated bindings. `.cargo/config.toml` sets Cargo's default target directory; `CARGO_TARGET_DIR` can override it. |
 | `proto/` | Protobuf schemas. |
@@ -103,7 +103,7 @@ capture per port across restarts. Raw failure evidence includes node-port header
 
 ## Limits to keep in mind
 
-- The FFI layer is unfinished: no platform app calls Rust. Do not document or test as if it did.
+- The FFI profile service is unfinished: native editors use shared choices and local drafts; publication is not wired to it yet.
 - Docs must describe what the code does now; mark plans as plans.
 - Code changes need an agreed scope; a docs task does not authorise code fixes.
 - Production Rust has a fixed `unwrap`/`expect`/`panic!` budget per crate. Return `Result` for

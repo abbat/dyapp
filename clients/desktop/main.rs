@@ -103,10 +103,7 @@ fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<(Identity,
 }
 
 /// Makes `opened` the current identity; a picker or recovery state leaves none open.
-fn respond(
-    opened: Opened,
-    state: &IdentityState,
-) -> Result<HashMap<&'static str, String>, String> {
+fn respond(opened: Opened, state: &IdentityState) -> Result<HashMap<&'static str, String>, String> {
     let (result, identity) = describe(opened);
     *state.0.lock().map_err(|e| e.to_string())? =
         identity.map(|(identity, dir)| (Arc::new(identity), dir));
@@ -303,6 +300,12 @@ async fn activate_connection(
     network::activate(&checks, &dir)
 }
 
+/// Picker values from the shared profile vocabulary.
+#[tauri::command]
+fn profile_scales() -> Vec<profile::PickerScale> {
+    profile::scales()
+}
+
 /// The open identity's profile draft; see `profile::load`.
 #[tauri::command]
 async fn load_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
@@ -416,7 +419,10 @@ fn ui_test_result(
         println!("UI_SMOKE_PASS:{peer_id}");
     } else {
         let reason = reason.lines().next().unwrap_or("unknown");
-        println!("UI_SMOKE_FAIL: {}", reason.chars().take(160).collect::<String>());
+        println!(
+            "UI_SMOKE_FAIL: {}",
+            reason.chars().take(160).collect::<String>()
+        );
     }
     app.exit(if success { 0 } else { 1 });
 }
@@ -440,6 +446,7 @@ fn main() {
             check_connection,
             cancel_connection_check,
             activate_connection,
+            profile_scales,
             load_profile,
             save_profile,
             solve_profile,
@@ -477,7 +484,10 @@ mod tests {
     fn backup_path_is_only_returned_for_file_storage() {
         let dir = Path::new("profile");
         let file = ready_result("file", "peer".into(), dir);
-        assert_eq!(file["keyPath"], dir.join("identity.key").display().to_string());
+        assert_eq!(
+            file["keyPath"],
+            dir.join("identity.key").display().to_string()
+        );
         let system = ready_result("system", "peer".into(), dir);
         assert!(!system.contains_key("keyPath"));
     }

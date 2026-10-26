@@ -3,7 +3,10 @@
 
 use crate::proto::{Condition, Op};
 use dyapp_identity::SignedRecord;
-use dyapp_profile::{CivilDate, Profile, VerifiedProfile};
+use dyapp_profile::{
+    scale, CareerAmbition, CivilDate, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
+    Orientation, Profile, RelationshipGoal, RolePreference, VerifiedProfile, Zodiac,
+};
 use std::collections::HashMap;
 
 /// The condition field of the UTC day of a key's last heartbeat or publish on the node. A record
@@ -68,6 +71,10 @@ enum Value<'a> {
     Strings(Vec<&'a str>),
 }
 
+fn nonzero(value: u32) -> Option<i64> {
+    (value != 0).then_some(i64::from(value))
+}
+
 /// Field numbers as in `search::COLUMNS` on the node; `None` for a field queries cannot use.
 fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
     fn text(v: &str) -> Option<Value<'_>> {
@@ -81,20 +88,20 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         7 => wide(profile.income_to),
         8 => int(profile.has_kids.map(i64::from)),
         9 => int(profile.wants_more_kids.map(i64::from)),
-        10 => text(&profile.relationship_goal),
-        11 => text(&profile.career_ambition),
-        13 => text(&profile.orientation),
-        14 => text(&profile.role_preference),
-        15 => text(&profile.zodiac),
-        16 => text(&profile.financial_philosophy),
-        17 => text(&profile.employment_status),
-        18 => text(&profile.fitness_level),
+        RelationshipGoal::FIELD => int(nonzero(profile.relationship_goal)),
+        CareerAmbition::FIELD => int(nonzero(profile.career_ambition)),
+        Orientation::FIELD => int(nonzero(profile.orientation)),
+        RolePreference::FIELD => int(nonzero(profile.role_preference)),
+        Zodiac::FIELD => int(nonzero(profile.zodiac)),
+        FinancialPhilosophy::FIELD => int(nonzero(profile.financial_philosophy)),
+        EmploymentStatus::FIELD => int(nonzero(profile.employment_status)),
+        FitnessLevel::FIELD => int(nonzero(profile.fitness_level)),
         19 => Some(Value::Strings(
             profile.interests.iter().map(String::as_str).collect(),
         )),
         20 => text(&profile.place),
         21 => int(i64::try_from(profile.photos.len()).ok()),
-        25 => text(&profile.gender),
+        Gender::FIELD => int(nonzero(profile.gender)),
         27 => int(Some(profile.education_level.into())),
         _ => None,
     }
@@ -128,6 +135,14 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
                 return false;
             }
             let wants = &c.ints;
+            if let Some(scale) = scale(c.field) {
+                if (op == Op::Range && !scale.ordered)
+                    || (op != Op::Unspecified
+                        && wants.iter().any(|&v| v < 1 || v > i64::from(scale.max)))
+                {
+                    return false;
+                }
+            }
             match op {
                 Op::Unspecified => true,
                 Op::Eq if wants.len() == 1 => have.contains(&wants[0]),
@@ -157,6 +172,15 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
     }
 }
 
+/// Selection for an ordered categorical scale.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ScaleSelection {
+    /// Match any selected value.
+    Any(Vec<u32>),
+    /// Inclusive lower and upper values.
+    Range(u32, u32),
+}
+
 /// What a person searches for, turned into node conditions by [`Filter::conditions`]. An empty
 /// list or `None` leaves that field open.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -164,11 +188,23 @@ pub struct Filter {
     /// Inclusive; the lower bound is raised to 18.
     pub age: Option<(u32, u32)>,
     /// Any of these `gender` values.
-    pub genders: Vec<String>,
+    pub genders: Vec<u32>,
     /// Any of these `orientation` values.
-    pub orientations: Vec<String>,
+    pub orientations: Vec<u32>,
     /// Any of these `relationship_goal` values.
-    pub relationship_goals: Vec<String>,
+    pub relationship_goals: Vec<u32>,
+    /// Any of these family roles.
+    pub role_preferences: Vec<u32>,
+    /// Any of these employment statuses.
+    pub employment_statuses: Vec<u32>,
+    /// Any of these self-declared zodiac signs.
+    pub zodiacs: Vec<u32>,
+    /// Selected career ambitions or an inclusive range.
+    pub career_ambitions: Option<ScaleSelection>,
+    /// Selected financial philosophies or an inclusive range.
+    pub financial_philosophies: Option<ScaleSelection>,
+    /// Selected fitness levels or an inclusive range.
+    pub fitness_levels: Option<ScaleSelection>,
     /// `has_kids` as stated; a profile that leaves it unset does not match.
     pub has_kids: Option<bool>,
     /// `wants_more_kids` as stated; a profile that leaves it unset does not match.
@@ -196,11 +232,15 @@ pub enum FilterError {
     NeedsCountry,
     /// A range whose lower bound is above its upper one.
     EmptyRange,
+    /// Zero or a value above the categorical scale's maximum.
+    InvalidScale,
+    /// More than 16 conditions in one node query.
+    TooManyConditions,
 }
 
 impl Filter {
     /// The conditions for a query and for [`check`] at an explicit UTC date:
-    /// at most 13, one per field.
+    /// at most 16, one per field.
     pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
@@ -261,24 +301,68 @@ impl Filter {
                 out.push(ints(field, Op::Eq, vec![v.into()]));
             }
         }
-        let lists = [
-            (10, &self.relationship_goals),
-            (13, &self.orientations),
-            (20, &self.places),
-            (25, &self.genders),
-        ];
-        for (field, values) in lists {
+        if self.places.len() > MAX_IN_VALUES {
+            return Err(FilterError::TooManyValues);
+        }
+        if !self.places.is_empty() {
+            out.push(Condition {
+                field: 20,
+                op: Op::In.into(),
+                ints: Vec::new(),
+                strings: self.places.clone(),
+            });
+        }
+        for (field, values) in [
+            (Gender::FIELD, &self.genders),
+            (Orientation::FIELD, &self.orientations),
+            (RelationshipGoal::FIELD, &self.relationship_goals),
+            (RolePreference::FIELD, &self.role_preferences),
+            (EmploymentStatus::FIELD, &self.employment_statuses),
+            (Zodiac::FIELD, &self.zodiacs),
+        ] {
             if values.len() > MAX_IN_VALUES {
                 return Err(FilterError::TooManyValues);
             }
-            if !values.is_empty() {
-                out.push(Condition {
-                    field,
-                    op: Op::In.into(),
-                    ints: Vec::new(),
-                    strings: values.clone(),
-                });
+            let maximum = scale(field).ok_or(FilterError::InvalidScale)?.max;
+            if values.iter().any(|&v| v == 0 || v > maximum) {
+                return Err(FilterError::InvalidScale);
             }
+            if !values.is_empty() {
+                out.push(ints(
+                    field,
+                    Op::In,
+                    values.iter().copied().map(i64::from).collect(),
+                ));
+            }
+        }
+        for (field, selection) in [
+            (CareerAmbition::FIELD, &self.career_ambitions),
+            (FinancialPhilosophy::FIELD, &self.financial_philosophies),
+            (FitnessLevel::FIELD, &self.fitness_levels),
+        ] {
+            let Some(selection) = selection else { continue };
+            let maximum = scale(field).ok_or(FilterError::InvalidScale)?.max;
+            let (op, values) = match selection {
+                ScaleSelection::Any(values) => {
+                    if values.is_empty() || values.len() > MAX_IN_VALUES {
+                        return Err(FilterError::TooManyValues);
+                    }
+                    (Op::In, values.as_slice().to_vec())
+                }
+                ScaleSelection::Range(min, max) => {
+                    if min > max {
+                        return Err(FilterError::EmptyRange);
+                    }
+                    (Op::Range, vec![*min, *max])
+                }
+            };
+            if values.iter().any(|&v| v == 0 || v > maximum) {
+                return Err(FilterError::InvalidScale);
+            }
+            out.push(ints(field, op, values.into_iter().map(i64::from).collect()));
+        }
+        if out.len() > 16 {
+            return Err(FilterError::TooManyConditions);
         }
         Ok(out)
     }
@@ -379,17 +463,17 @@ mod tests {
             income_to: Some(u64::MAX),
             has_kids: Some(true),
             wants_more_kids: Some(false),
-            relationship_goal: "f10".into(),
-            career_ambition: "f11".into(),
-            orientation: "f13".into(),
-            role_preference: "f14".into(),
-            zodiac: "f15".into(),
-            financial_philosophy: "f16".into(),
-            employment_status: "f17".into(),
-            fitness_level: "f18".into(),
+            relationship_goal: RelationshipGoal::Marriage.code(),
+            career_ambition: CareerAmbition::High.code(),
+            orientation: Orientation::Bisexual.code(),
+            role_preference: RolePreference::Equal.code(),
+            zodiac: Zodiac::Aries.code(),
+            financial_philosophy: FinancialPhilosophy::Saver.code(),
+            employment_status: EmploymentStatus::Student.code(),
+            fitness_level: FitnessLevel::Athlete.code(),
             interests: vec!["chess".into(), "go".into()],
             place: "f20".into(),
-            gender: "f25".into(),
+            gender: Gender::Woman.code(),
             education_level: 4,
             photos: vec![dyapp_profile::Photo::default()],
             ..Profile::default()
@@ -401,14 +485,24 @@ mod tests {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
-        let texts = [10, 11]
-            .into_iter()
-            .chain(13..=18)
-            .chain([20, 25])
-            .map(|f| (f, format!("f{f}")));
-        let fixed = [(4, "DE".to_string()), (19, "go".into())];
-        for (field, v) in fixed.into_iter().chain(texts) {
-            assert!(hits(field, Op::Eq, &[], &[&v]), "{field}");
+        for (field, v) in [
+            (RelationshipGoal::FIELD, 2),
+            (CareerAmbition::FIELD, 3),
+            (Orientation::FIELD, 3),
+            (RolePreference::FIELD, 2),
+            (Zodiac::FIELD, 1),
+            (FinancialPhilosophy::FIELD, 1),
+            (EmploymentStatus::FIELD, 4),
+            (FitnessLevel::FIELD, 4),
+            (Gender::FIELD, 1),
+        ] {
+            assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
+            assert!(!hits(field, Op::Eq, &[0], &[]), "{field}");
+            assert!(!hits(field, Op::Eq, &[v], &["wrong type"]), "{field}");
+        }
+        let fixed = [(4, "DE"), (19, "go"), (20, "f20")];
+        for (field, v) in fixed {
+            assert!(hits(field, Op::Eq, &[], &[v]), "{field}");
             assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
         }
         let sixteen: Vec<i64> = (0..16).collect();
@@ -443,9 +537,9 @@ mod tests {
             birth_year: Some(1996),
             birth_month: Some(5),
             birth_day: Some(1),
-            gender: "f".into(),
-            orientation: "straight".into(),
-            relationship_goal: "family".into(),
+            gender: Gender::Woman.code(),
+            orientation: Orientation::Heterosexual.code(),
+            relationship_goal: RelationshipGoal::Marriage.code(),
             has_kids: Some(false),
             wants_more_kids: Some(true),
             country: "DE".into(),
@@ -462,9 +556,12 @@ mod tests {
         let strings = |v: &[&str]| v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
         let filter = Filter {
             age: Some((0, 35)),
-            genders: strings(&["f", "nb"]),
-            orientations: strings(&["straight"]),
-            relationship_goals: strings(&["family", "long"]),
+            genders: vec![Gender::Woman.code(), Gender::NonBinary.code()],
+            orientations: vec![Orientation::Heterosexual.code()],
+            relationship_goals: vec![
+                RelationshipGoal::Marriage.code(),
+                RelationshipGoal::SeriousRelationship.code(),
+            ],
             has_kids: Some(false),
             wants_more_kids: Some(true),
             country: "DE".into(),
@@ -473,6 +570,7 @@ mod tests {
             min_education: Some(3),
             with_photo: true,
             active_since: Some(86_400 * 3 - 1),
+            ..Filter::default()
         };
         let conditions = filter.conditions(today).unwrap();
         assert_eq!(conditions.len(), 13);
@@ -483,9 +581,9 @@ mod tests {
         assert!(kept(&fit));
         let misses: [fn(&mut Profile); 12] = [
             |p| p.birth_year = Some(1990),
-            |p| p.gender = "m".into(),
-            |p| p.orientation = "gay".into(),
-            |p| p.relationship_goal = "casual".into(),
+            |p| p.gender = Gender::Man.code(),
+            |p| p.orientation = Orientation::GayLesbian.code(),
+            |p| p.relationship_goal = RelationshipGoal::Casual.code(),
             |p| p.has_kids = Some(true),
             |p| p.wants_more_kids = None,
             |p| p.country = "FR".into(),
@@ -601,17 +699,34 @@ mod tests {
             assert_eq!(open(level), FilterError::EmptyRange);
         }
         let many = Filter {
-            genders: (0..17).map(|i| i.to_string()).collect(),
+            country: "DE".into(),
+            places: (0..17).map(|i| i.to_string()).collect(),
             ..Filter::default()
         };
         assert_eq!(open(many), FilterError::TooManyValues);
         let sixteen = Filter {
-            genders: (0..16).map(|i| i.to_string()).collect(),
+            places: (0..16).map(|i| i.to_string()).collect(),
             age: Some((18, 18)),
             country: "DE".into(),
             income: Some((1, 1)),
             ..Filter::default()
         };
         assert_eq!(sixteen.conditions(today).unwrap().len(), 5);
+        for value in [0, Gender::MAX + 1] {
+            assert_eq!(
+                open(Filter {
+                    genders: vec![value],
+                    ..Filter::default()
+                }),
+                FilterError::InvalidScale
+            );
+        }
+        assert_eq!(
+            open(Filter {
+                career_ambitions: Some(ScaleSelection::Range(3, 1)),
+                ..Filter::default()
+            }),
+            FilterError::EmptyRange
+        );
     }
 }

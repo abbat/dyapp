@@ -298,6 +298,49 @@ impl IdentityKey {
     }
 }
 
+/// One localized picker choice for a closed public profile scale.
+#[derive(Clone, uniffi::Record)]
+pub struct ProfileChoice {
+    /// Wire value; zero is intentionally absent.
+    pub code: u32,
+    /// Stable key that clients translate for display.
+    pub key: String,
+}
+
+/// A public profile scale supplied by the shared profile core.
+#[derive(Clone, uniffi::Record)]
+pub struct ProfileScale {
+    /// Protobuf field number.
+    pub field: u32,
+    /// Stable field name.
+    pub key: String,
+    /// Whether the scale permits range search.
+    pub ordered: bool,
+    /// Choices in display order.
+    pub choices: Vec<ProfileChoice>,
+}
+
+/// Shared profile picker vocabulary for native clients.
+#[uniffi::export]
+pub fn profile_scales() -> Vec<ProfileScale> {
+    dyapp_profile::SCALES
+        .iter()
+        .map(|scale| ProfileScale {
+            field: scale.field,
+            key: scale.key.to_string(),
+            ordered: scale.ordered,
+            choices: scale
+                .options
+                .iter()
+                .map(|choice| ProfileChoice {
+                    code: choice.code,
+                    key: choice.key.to_string(),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}

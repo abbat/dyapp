@@ -41,8 +41,8 @@ as received, so a node keeps fields it does not understand.
 ## Profile
 
 Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
-anything private is end-to-end encrypted and never sent as a profile field. Empty strings and unset
-optionals mean "not published". Tag 3 is reserved after removing the unreleased
+anything private is end-to-end encrypted and never sent as a profile field. Empty strings, zero
+categorical scales and unset optionals mean "not published". Tag 3 is reserved after removing the unreleased
 integer `age` field. Three independent optional fields publish `birth_year`
 (tag 33), `birth_month` (34) and `birth_day` (35). All may be absent; a year is
 needed to derive age, while month and day may be published without one. Explicit
@@ -51,8 +51,12 @@ possible birth-date and age bounds at an explicit UTC date ([ADR 0029](../decisi
 search nodes index the bounds and apply virtual age field 1001. The client
 filter helper constructs that condition for an explicit UTC date and rechecks
 verified profiles. Multi-node search reports partial coverage when a node skips
-it, fails or cuts a reply. UI use remains planned. `gender` is free
-text like `orientation`; `name` is an optional public name under the same rule,
+it, fails or cuts a reply. `gender` and eight other searchable categories use closed `uint32`
+scales on tags 36–44; the former string tags 10, 11, 13–18 and 25 are reserved.
+Zero means unpublished for every scale, and values above each
+scale's maximum are invalid. The numeric vocabulary lives in `rust/profile/src/scales.rs`;
+[ADR 0028](../decisions/0028-ordered-education-level.md) lists its values. Zodiac is
+self-declared, independent of the birth date. `name` is optional public text,
 which proves nothing ([ADR 0027](../decisions/0027-optional-public-profile-name.md)). `version` orders updates (the highest validly
 signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and
 `pow_bits` empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's

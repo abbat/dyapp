@@ -201,6 +201,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
     // The identity the remove screen asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
+    var editingProfile by remember { mutableStateOf(false) }
     val act = { action: () -> Opened ->
         removing = null
         shown = RustBridge.show(slots, action)
@@ -210,6 +211,10 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         return
     }
     val opened = shown.opened
+    if (editingProfile && opened is Opened.Ready) {
+        ProfileDraftScreen(opened.slot) { editingProfile = false }
+        return
+    }
     val status = when (opened) {
         null -> R.string.status_error
         is Opened.Ready -> R.string.status_ready
@@ -230,6 +235,9 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
                 Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
                 // The OS gives the app no chance to warn before these erase the key.
                 Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"))
+                OutlinedButton(onClick = { editingProfile = true }, Modifier.testTag("profile-edit")) {
+                    Text(stringResource(R.string.profile_title))
+                }
             }
             is Opened.Recovery -> {
                 Text(reasonText(opened.reason), modifier = Modifier.testTag("recovery-reason"))

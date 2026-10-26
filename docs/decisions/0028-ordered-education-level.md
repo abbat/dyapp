@@ -1,30 +1,53 @@
-# 0028. Ordered education level instead of free-text education
+# 0028. Closed numeric scales for searchable profile categories
 
 - **Status:** Accepted
 - **Date:** 2026-10-25
 
 ## Context
 
-`Profile.education` (field 12) was free text, so a search could only ask for exact values and
-never for "at least a degree". Search filters are ranges or value lists on node columns
-([bootstrap](../architecture/bootstrap.md)). No client has published profiles yet (v0.0.1 is
-not released), so the field can change without a migration. The maintainer chose a short scale of
-the app's own over free text or an international classification such as ISCED, and asked for the
-specialist degree (специалитет) common in Russia and other post-Soviet countries.
+Free-text categorical fields split exact search by spelling, case and language. The
+education field also could not support “at least a degree”. No client has published
+profiles yet (v0.0.1 is unreleased), so these fields and the disposable search index
+can change without a compatibility migration.
 
 ## Decision
 
-Field 12 is reserved. `Profile` gains `uint32 education_level = 27`: 0 not published,
-1 secondary school, 2 vocational or college, 3 bachelor, 4 specialist, 5 master, 6 doctorate.
-A specialist degree is a single 5–6 year programme, so it sits between bachelor and master. A
-level above 6 is rejected by `verify`. Search nodes index it as an integer column (index
-version 3) and `search_results::Filter::min_education` asks for `Range [min, 6]`.
+Retire the old strings at tags 10, 11, 13–18 and 25; tag 12 was already retired.
+Reserve all those tags. Keep `education_level` at tag 27 with values 0 unpublished,
+1 secondary school, 2 vocational or college, 3 bachelor, 4 specialist,
+5 master and 6 doctorate. A specialist degree is a single 5–6 year programme
+between bachelor and master.
+
+Add the following `uint32` scales. Zero means unpublished for every field.
+Values above each maximum are rejected by profile validation.
+
+| Field (tag) | Values in wire order |
+|-------------|----------------------|
+| `gender` (36) | 1 woman, 2 man, 3 non-binary, 4 other |
+| `orientation` (37) | 1 heterosexual, 2 gay/lesbian, 3 bisexual, 4 asexual, 5 other |
+| `relationship_goal` (38) | 1 serious relationship, 2 marriage, 3 casual, 4 friendship, 5 not sure yet |
+| `role_preference` (39) | 1 breadwinner, 2 equal, 3 homemaker |
+| `career_ambition` (40) | 1 low, 2 moderate, 3 high |
+| `financial_philosophy` (41) | 1 saver, 2 balanced, 3 spender |
+| `employment_status` (42) | 1 full-time, 2 part-time, 3 self-employed/freelance, 4 student, 5 not working, 6 retired |
+| `fitness_level` (43) | 1 sedentary, 2 moderate, 3 active, 4 athlete |
+| `zodiac` (44) | 1 Aries, 2 Taurus, 3 Gemini, 4 Cancer, 5 Leo, 6 Virgo, 7 Libra, 8 Scorpio, 9 Sagittarius, 10 Capricorn, 11 Aquarius, 12 Pisces |
+
+The single source of values and limits is `rust/profile/src/scales.rs`. Search
+nodes index these as integers (zero as NULL). A profile with zero never matches
+a value filter. Unordered scales use `in`; career ambition, financial philosophy
+and fitness also permit inclusive `range`. The client rechecks node results.
+Clients use the core's numeric choices and localize their display names.
+Zodiac is self-declared and independent of the birth date
+([ADR 0029](0029-partial-public-birth-date.md)).
 
 ## Consequences
 
-- "At least" queries are one range condition; an unset level never matches a minimum.
-- The scale is coarse: no field of study, and countries map their degrees to it themselves.
-- A new level needs a new number above 6 and a wire change; reordering is impossible once
-  profiles are published.
-- Nodes built before this change ignore field 27 and do not index it; they keep indexing field 12,
-  which current clients no longer send.
+- Search across clients no longer depends on translated text.
+- A new value needs a new number above the current maximum and a wire change;
+  existing values cannot be reordered after release.
+- Education and the three ordered categorical scales support range queries.
+- The pre-release index remains at format version 1; development indexes from
+  older prototypes may need a manual reset.
+- Free text outside search (profession, company, industry, career stage,
+  work-life balance and name) keeps its existing validation and representation.

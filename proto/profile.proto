@@ -5,7 +5,7 @@ package dyapp.profile;
 import "identity.proto";
 
 // Public profile, the payload of a `SignedRecord` signed by the owner's identity key.
-// Every field is public. Empty strings and unset optionals mean "not published".
+// Every field is public. Empty strings, zero scales and unset optionals mean "not published".
 message Profile {
   // Starts at 1; the highest validly signed version wins.
   uint64 version = 1;
@@ -22,16 +22,8 @@ message Profile {
   optional uint64 income_to = 7;
   optional bool has_kids = 8;
   optional bool wants_more_kids = 9;
-  string relationship_goal = 10;
-  string career_ambition = 11;
-  // Free-text education, replaced by `education_level`.
-  reserved 12;
-  string orientation = 13;
-  string role_preference = 14;
-  string zodiac = 15;
-  string financial_philosophy = 16;
-  string employment_status = 17;
-  string fitness_level = 18;
+  // Retired free-text categorical fields; replaced by numeric scales below.
+  reserved 10, 11, 12, 13, 14, 15, 16, 17, 18;
   repeated string interests = 19;
   // GeoNames ID (decimal) of a cities1000 place in `country`, no coordinates; matched exactly.
   // A search node indexes any other value under the country only.
@@ -43,9 +35,9 @@ message Profile {
   uint32 pow_bits = 23;
   // Current identity-certified devices, sorted by SHA-256 of the device key; at most 64.
   repeated dyapp.identity.SignedRecord devices = 24;
-  // Free text, like `orientation`.
-  string gender = 25;
-  // Optional public name, at most 64 characters like `orientation`; never proof of identity:
+  // Retired free-text gender.
+  reserved 25;
+  // Optional public name, at most 64 characters; never proof of identity:
   // clients show it with the verified or unverified mark, and a contact's local name replaces it.
   string name = 26;
   // Highest education, ordered so "at least" is a range: 0 not published, 1 secondary school,
@@ -63,6 +55,18 @@ message Profile {
   optional uint32 birth_year = 33;
   optional uint32 birth_month = 34;
   optional uint32 birth_day = 35;
+  // Closed scales defined by rust/profile. Zero means not published for every field.
+  // Values above each scale's maximum are rejected by validation.
+  uint32 gender = 36;
+  uint32 orientation = 37;
+  uint32 relationship_goal = 38;
+  uint32 role_preference = 39;
+  uint32 career_ambition = 40;
+  uint32 financial_philosophy = 41;
+  uint32 employment_status = 42;
+  uint32 fitness_level = 43;
+  // Self-declared sign, independent of the published birth date.
+  uint32 zodiac = 44;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

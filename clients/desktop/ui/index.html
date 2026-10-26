@@ -19,6 +19,9 @@
     #network label { display: block; margin-top: 1rem; }
     #seeds, #network-name { box-sizing: border-box; width: 100%; font: inherit; }
     #seed-rows { overflow-wrap: anywhere; }
+    #profile { text-align: start; }
+    #profile label { display: block; margin-top: 1rem; }
+    #profile select, #profile input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
   </style>
 </head>
 <body>
@@ -51,6 +54,18 @@
           disabled></button>
         <p id="network-status" role="status"></p>
         <ol id="seed-rows"></ol>
+      </form>
+      <form id="profile" novalidate>
+        <h2 data-i18n="profile.title"></h2>
+        <div id="profile-scales"></div>
+        <label for="birth-year" data-i18n="profile.birthYear"></label>
+        <input id="birth-year" type="number" min="1" max="9999">
+        <label for="birth-month" data-i18n="profile.birthMonth"></label>
+        <input id="birth-month" type="number" min="1" max="12">
+        <label for="birth-day" data-i18n="profile.birthDay"></label>
+        <input id="birth-day" type="number" min="1" max="31">
+        <button type="submit" data-i18n="profile.save"></button>
+        <p id="profile-status" role="status"></p>
       </form>
     </section>
     <section id="picker" hidden>

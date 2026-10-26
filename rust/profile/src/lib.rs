@@ -34,7 +34,7 @@ pub enum Error {
 
 /// Longest accepted `place`, in Unicode code points.
 pub const MAX_PLACE_CHARS: usize = 1024;
-/// Longest accepted enum-like string, such as `gender`, in Unicode code points.
+/// Longest accepted short text field, in Unicode code points.
 pub const MAX_FIELD_CHARS: usize = 64;
 /// Highest `education_level`, a doctorate.
 pub const MAX_EDUCATION_LEVEL: u32 = 6;
@@ -57,6 +57,11 @@ pub use generated::{DeviceCertificate, Photo, Profile};
 
 mod birth_date;
 pub use birth_date::{BirthBounds, CivilDate};
+mod scales;
+pub use scales::{
+    scale, CareerAmbition, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
+    Orientation, RelationshipGoal, RolePreference, Scale, ScaleOption, Zodiac, SCALES,
+};
 
 impl Profile {
     /// A deletion marker: version and proof of work set, every other field empty.
@@ -126,19 +131,25 @@ impl Profile {
         if self.education_level > MAX_EDUCATION_LEVEL {
             return Err(Error::Invalid("education level is not on the scale"));
         }
+        for (value, maximum) in [
+            (self.gender, Gender::MAX),
+            (self.orientation, Orientation::MAX),
+            (self.relationship_goal, RelationshipGoal::MAX),
+            (self.role_preference, RolePreference::MAX),
+            (self.career_ambition, CareerAmbition::MAX),
+            (self.financial_philosophy, FinancialPhilosophy::MAX),
+            (self.employment_status, EmploymentStatus::MAX),
+            (self.fitness_level, FitnessLevel::MAX),
+            (self.zodiac, Zodiac::MAX),
+        ] {
+            if value > maximum {
+                return Err(Error::Invalid("categorical field is not on the scale"));
+            }
+        }
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
         }
         let fields = [
-            &self.relationship_goal,
-            &self.career_ambition,
-            &self.orientation,
-            &self.role_preference,
-            &self.zodiac,
-            &self.financial_philosophy,
-            &self.employment_status,
-            &self.fitness_level,
-            &self.gender,
             &self.name,
             &self.profession,
             &self.company,
@@ -743,11 +754,11 @@ mod tests {
         profile.place = "Mit\u{202E}te".into();
         assert!(verify(&profile.sign(&owner)).is_err());
         let mut profile = sample(1);
-        profile.career_ambition = "x".repeat(MAX_FIELD_CHARS);
+        profile.profession = "x".repeat(MAX_FIELD_CHARS);
         assert!(verify(&profile.sign(&owner)).is_ok());
-        profile.career_ambition.push('x');
+        profile.profession.push('x');
         assert!(verify(&profile.sign(&owner)).is_err());
-        profile.career_ambition = "high\u{200B}".into();
+        profile.profession = "high\u{200B}".into();
         assert!(verify(&profile.sign(&owner)).is_err());
         let mut profile = sample(1);
         profile.education_level = MAX_EDUCATION_LEVEL;
@@ -771,6 +782,40 @@ mod tests {
         assert!(verify(&profile.sign(&owner)).is_err());
         profile.name = "Ann\u{202E}a".into();
         assert!(verify(&profile.sign(&owner)).is_err());
+    }
+
+    #[test]
+    fn closed_scales_accept_zero_and_reject_unknown_values() {
+        fn field(profile: &mut Profile, tag: u32) -> &mut u32 {
+            match tag {
+                36 => &mut profile.gender,
+                37 => &mut profile.orientation,
+                38 => &mut profile.relationship_goal,
+                39 => &mut profile.role_preference,
+                40 => &mut profile.career_ambition,
+                41 => &mut profile.financial_philosophy,
+                42 => &mut profile.employment_status,
+                43 => &mut profile.fitness_level,
+                44 => &mut profile.zodiac,
+                _ => unreachable!(),
+            }
+        }
+        let owner = Identity::generate();
+        let mut profile = sample(1);
+        for scale in SCALES {
+            *field(&mut profile, scale.field) = scale.max;
+            assert!(verify(&profile.sign(&owner)).is_ok(), "{}", scale.key);
+            *field(&mut profile, scale.field) = scale.max + 1;
+            assert_eq!(
+                verify(&profile.sign(&owner)),
+                Err(Error::Invalid("categorical field is not on the scale")),
+                "{}",
+                scale.key
+            );
+            *field(&mut profile, scale.field) = 0;
+            assert!(verify(&profile.sign(&owner)).is_ok(), "{}", scale.key);
+        }
+        assert!(verify(&Profile::tombstone(2, 0, 0).sign(&owner)).is_ok());
     }
 
     #[test]
@@ -799,9 +844,9 @@ mod tests {
         assert!(verify(&sample(0).sign(&owner)).is_err());
 
         let mut gender = sample(1);
-        gender.gender = "woman".into();
+        gender.gender = Gender::Woman.code();
         let verified = verify(&gender.sign(&owner)).unwrap();
-        assert_eq!(verified.profile.gender, "woman");
+        assert_eq!(verified.profile.gender, Gender::Woman.code());
 
         let photo = Photo {
             full: vec![vec![1; 32], vec![2; 32]],

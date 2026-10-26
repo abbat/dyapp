@@ -59,7 +59,7 @@ precisely than an age or year.
 |----------|------|------|----------|
 | Three optional public components | Age stays current when year is known; each disclosure is explicit; month/day works without year. | More combinations to validate; a full date increases identification risk; the unreleased search index must be updated. | Chosen. |
 | One partial-date string (including `--MM-DD`) | Smaller wire and parser change. | Encodes independently optional components with special syntax; harder to edit or validate separately. | Replaced by three fields. |
-| Separate zodiac only | Reveals less than birthday and already exists as tag 15. | Cannot display or match a chosen birthday; zodiac is self-declared. | Remains an optional independent field. |
+| Separate zodiac only | Reveals less than birthday and has a closed scale at tag 44. | Cannot display or match a chosen birthday; zodiac is self-declared. | Remains an optional independent field. |
 | Keep birth date locally and republish integer age on each birthday | Public profile reveals less; existing age search stays simple. | Offline clients leave stale ages, each identity/device needs scheduling and local date sync, and republishing reveals a birthday transition. | Rejected for the protocol; a local-only date can still be offered separately. |
 | Publish birth year only | Simple and less precise than a full date. | Cannot represent a user's explicit month/day choice; age stays uncertain near the birthday. | Rejected as the only form. |
 

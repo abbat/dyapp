@@ -171,6 +171,62 @@ continueButton.addEventListener('click', () => {
     .catch((error) => networkStatus('network.failed', String(error)));
 });
 
+// The Rust core supplies field numbers and choices; catalogues supply only visible names.
+const profileForm = document.getElementById('profile');
+const profileScales = document.getElementById('profile-scales');
+const profileStatus = document.getElementById('profile-status');
+let scaleFields = [];
+const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+const birthValue = (part) => {
+  const value = document.getElementById(`birth-${part}`).value;
+  return value === '' ? null : Number(value);
+};
+const showProfile = async () => {
+  const [scales, view] = await Promise.all([invoke('profile_scales'), invoke('load_profile')]);
+  scaleFields = scales;
+  profileScales.replaceChildren(...scales.map((scale) => {
+    const label = document.createElement('label');
+    const select = document.createElement('select');
+    select.id = `profile-${scale.key}`;
+    label.htmlFor = select.id;
+    label.textContent = window.strings[`profile.field.${scale.key}`];
+    const unset = document.createElement('option');
+    unset.value = '0';
+    unset.textContent = window.strings['profile.unset'];
+    select.append(unset, ...scale.choices.map((choice) => {
+      const option = document.createElement('option');
+      option.value = String(choice.code);
+      option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+      return option;
+    }));
+    select.value = String(view.draft[camel(scale.key)] || 0);
+    const row = document.createElement('div');
+    row.append(label, select);
+    return row;
+  }));
+  for (const part of ['year', 'month', 'day']) {
+    document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
+  }
+  profileStatus.textContent = '';
+};
+profileForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!profileForm.reportValidity()) return;
+  const profileDraft = Object.fromEntries(scaleFields.map((scale) => [
+    camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
+  ]));
+  Object.assign(profileDraft, {
+    birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
+  });
+  try {
+    const view = await invoke('save_profile', { draft: profileDraft });
+    profileStatus.textContent = window.strings[view.problem
+      ? `profile.problem.${view.problem}` : 'profile.saved'];
+  } catch (error) {
+    profileStatus.textContent = `${window.strings['profile.failed']} ${error}`;
+  }
+});
+
 async function render(state) {
   if (state.status === 'ready' || state.status === 'recovery') current = state;
   if (state.status === 'ready') {
@@ -178,6 +234,7 @@ async function render(state) {
     document.getElementById('file-backup').hidden = state.mode !== 'file';
     document.getElementById('key-path').textContent = state.keyPath || '';
     await showNetwork();
+    await showProfile();
     show(identity, 'status.ready');
     return state;
   }

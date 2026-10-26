@@ -471,7 +471,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   first release, a new indexed field bumps the index version; the node builds the new generation
   next to the old one, keeps answering from the old one and switches when the new one is ready
   ([generations](#storage-on-a-node)). Before v0.0.1 the format stays at version 1 and already
-  includes `gender`, `education_level`, photo count, and earliest/latest possible birth dates.
+  includes all nine categorical scales as INTEGER columns (zero stored as NULL),
+  `education_level`, photo count, and earliest/latest possible birth dates.
   Development indexes from earlier prototypes may need a manual reset.
   A derived `digest` table stores, per (topic, bucket), the XOR of
   SHA-256(key || version as eight big-endian bytes), including tombstones. Each topic has
@@ -513,8 +514,11 @@ fetch reveal device count and contact interest to store nodes; no private direct
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is
   `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
-  genders, orientations, goals, children, least education level, with a photo, active since a
-  day, country, places and income, the last two only with a country); income matches when the
+  numeric genders, orientations, goals, family roles, employment statuses and zodiac signs as
+  value lists, career ambition, financial philosophy and fitness as lists or inclusive ranges,
+  children, least education level, with a photo, active since a day, country, places and income,
+  the last two only with a country); zero or an out-of-scale value is invalid, and ranges on
+  unordered categories are invalid; income matches when the
   profile's range overlaps the wanted one
   (`income_from ≤ max`, `income_to ≥ min`). Field 1000 (`search_results::ACTIVE_DAY`, listed in
   `search_fields`) is no `Profile` field: it is the UTC day of the key's `heartbeat` time, its
@@ -872,8 +876,7 @@ The peer ID is the hex SHA-256 of `public_key`; the server derives it, the clien
 never sends it. `Profile` holds `version`, `deleted` and the public fields (country,
 place (city or district, no coordinates), income range, kids, goals, interests,
 profession, company, industry, career stage, work-life balance, and independently
-optional birth year, month and day); every field is optional
-and public by design
+optional birth year, month and day); every public field is optional by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
 `/dyapp/profile` `publish` stores a record only if:
@@ -882,8 +885,9 @@ and public by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  `education_level` at most 6, each supplied birth component in range and together
-  describing a possible Gregorian date; place at most 1024 characters,
+  `education_level` at most 6, each categorical scale from 0 (unpublished) through
+  its shared maximum, each supplied birth component in range
+  and together describing a possible Gregorian date; place at most 1024 characters,
   other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)

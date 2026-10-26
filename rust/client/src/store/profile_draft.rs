@@ -52,9 +52,12 @@ mod tests {
         let (path, alice) = (temp_db_path(), Identity::generate());
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.profile_draft().unwrap(), None);
-        for gender in ["woman", "man"] {
+        for gender in [
+            dyapp_profile::Gender::Woman.code(),
+            dyapp_profile::Gender::Man.code(),
+        ] {
             let draft = Profile {
-                gender: gender.into(),
+                gender,
                 birth_month: Some(2),
                 ..Profile::default()
             };
@@ -67,8 +70,8 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(
-            (draft.gender.as_str(), draft.birth_month, draft.birth_year),
-            ("man", Some(2), None)
+            (draft.gender, draft.birth_month, draft.birth_year),
+            (dyapp_profile::Gender::Man.code(), Some(2), None)
         );
     }
 

@@ -29,10 +29,56 @@ pub struct ProfileState(pub Arc<AtomicBool>);
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Draft {
-    pub gender: String,
+    pub gender: u32,
+    pub orientation: u32,
+    pub relationship_goal: u32,
+    pub role_preference: u32,
+    pub career_ambition: u32,
+    pub financial_philosophy: u32,
+    pub employment_status: u32,
+    pub fitness_level: u32,
+    pub zodiac: u32,
     pub birth_year: Option<u32>,
     pub birth_month: Option<u32>,
     pub birth_day: Option<u32>,
+}
+
+/// A profile picker option supplied by the shared Rust vocabulary.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PickerOption {
+    pub code: u32,
+    pub key: &'static str,
+}
+
+/// A profile picker with stable keys for the page's localization catalogue.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PickerScale {
+    pub field: u32,
+    pub key: &'static str,
+    pub ordered: bool,
+    pub choices: Vec<PickerOption>,
+}
+
+/// Profile scales in the order shown by the editor.
+pub fn scales() -> Vec<PickerScale> {
+    dyapp_profile::SCALES
+        .iter()
+        .map(|scale| PickerScale {
+            field: scale.field,
+            key: scale.key,
+            ordered: scale.ordered,
+            choices: scale
+                .options
+                .iter()
+                .map(|option| PickerOption {
+                    code: option.code,
+                    key: option.key,
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 /// The saved draft with what the page shows beside it.
@@ -52,7 +98,6 @@ pub struct View {
 pub fn code(block: Block) -> &'static str {
     match block {
         Block::NotAttested => "notAttested",
-        Block::NoGender => "noGender",
         Block::InvalidBirthDate => "invalidBirthDate",
         Block::Underage => "underage",
     }
@@ -77,7 +122,15 @@ fn stored(store: &Store) -> Result<Profile, String> {
 fn view(profile: &Profile, today: CivilDate) -> View {
     View {
         draft: Draft {
-            gender: profile.gender.clone(),
+            gender: profile.gender,
+            orientation: profile.orientation,
+            relationship_goal: profile.relationship_goal,
+            role_preference: profile.role_preference,
+            career_ambition: profile.career_ambition,
+            financial_philosophy: profile.financial_philosophy,
+            employment_status: profile.employment_status,
+            fitness_level: profile.fitness_level,
+            zodiac: profile.zodiac,
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
@@ -99,9 +152,41 @@ pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
 
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.
 pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, String> {
+    for (field, value) in [
+        (dyapp_profile::Gender::FIELD, draft.gender),
+        (dyapp_profile::Orientation::FIELD, draft.orientation),
+        (
+            dyapp_profile::RelationshipGoal::FIELD,
+            draft.relationship_goal,
+        ),
+        (dyapp_profile::RolePreference::FIELD, draft.role_preference),
+        (dyapp_profile::CareerAmbition::FIELD, draft.career_ambition),
+        (
+            dyapp_profile::FinancialPhilosophy::FIELD,
+            draft.financial_philosophy,
+        ),
+        (
+            dyapp_profile::EmploymentStatus::FIELD,
+            draft.employment_status,
+        ),
+        (dyapp_profile::FitnessLevel::FIELD, draft.fitness_level),
+        (dyapp_profile::Zodiac::FIELD, draft.zodiac),
+    ] {
+        if value > dyapp_profile::scale(field).expect("closed scale").max {
+            return Err("invalid profile scale".into());
+        }
+    }
     let store = open(dir, identity)?;
     let profile = Profile {
         gender: draft.gender,
+        orientation: draft.orientation,
+        relationship_goal: draft.relationship_goal,
+        role_preference: draft.role_preference,
+        career_ambition: draft.career_ambition,
+        financial_philosophy: draft.financial_philosophy,
+        employment_status: draft.employment_status,
+        fitness_level: draft.fitness_level,
+        zodiac: draft.zodiac,
         birth_year: draft.birth_year,
         birth_month: draft.birth_month,
         birth_day: draft.birth_day,
@@ -198,7 +283,7 @@ mod tests {
 
     fn woman(year: Option<u32>) -> Draft {
         Draft {
-            gender: "woman".into(),
+            gender: dyapp_profile::Gender::Woman.code(),
             birth_year: year,
             birth_month: Some(2),
             ..Draft::default()
@@ -210,7 +295,7 @@ mod tests {
         let (dir, alice) = (temp_dir(), Identity::generate());
         let empty = load(&dir, &alice).unwrap();
         assert_eq!(empty.draft, Draft::default());
-        assert_eq!(empty.problem, Some("noGender"));
+        assert_eq!(empty.problem, None);
         let saved = save(&dir, &alice, woman(Some(1990))).unwrap();
         assert!(saved.ages.is_some_and(|(youngest, _)| youngest >= 30));
         assert_eq!((saved.published, saved.problem), (0, None));
@@ -226,7 +311,6 @@ mod tests {
         let (dir, alice) = (temp_dir(), Identity::generate());
         let cancel = AtomicBool::new(false);
         let run = |attested, bits| solve(&cancel, &dir, &alice, attested, bits);
-        assert_eq!(run(true, 4), Err("blocked: noGender".into()));
         save(&dir, &alice, woman(None)).unwrap();
         assert_eq!(run(false, 4), Err("blocked: notAttested".into()));
         // 30 bits cannot be found in one step of eight nonces.
@@ -245,10 +329,7 @@ mod tests {
     async fn publishing_needs_a_solved_puzzle_and_an_active_network() {
         let (dir, alice) = (temp_dir(), Identity::generate());
         save(&dir, &alice, woman(None)).unwrap();
-        assert_eq!(
-            publish(&dir, &alice, true, 4).await,
-            Err("unsolved".into())
-        );
+        assert_eq!(publish(&dir, &alice, true, 4).await, Err("unsolved".into()));
         solve(&AtomicBool::new(false), &dir, &alice, true, 4).unwrap();
         assert_eq!(
             publish(&dir, &alice, false, 4).await,

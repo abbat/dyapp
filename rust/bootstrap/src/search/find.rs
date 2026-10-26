@@ -3,6 +3,10 @@
 use super::*;
 use dyapp_p2p_net::proto::{Condition, Op};
 use dyapp_p2p_net::search_results::MAX_IN_VALUES;
+use dyapp_profile::{
+    scale, CareerAmbition, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
+    Orientation, RelationshipGoal, RolePreference, Zodiac,
+};
 
 /// Profile field number → column and whether it holds integers. Constant identifiers only.
 const COLUMNS: &[(u32, &str, bool)] = &[
@@ -11,17 +15,17 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (7, "income_to", true),
     (8, "has_kids", true),
     (9, "wants_more_kids", true),
-    (10, "relationship_goal", false),
-    (11, "career_ambition", false),
-    (13, "orientation", false),
-    (14, "role_preference", false),
-    (15, "zodiac", false),
-    (16, "financial_philosophy", false),
-    (17, "employment_status", false),
-    (18, "fitness_level", false),
+    (RelationshipGoal::FIELD, "relationship_goal", true),
+    (CareerAmbition::FIELD, "career_ambition", true),
+    (Orientation::FIELD, "orientation", true),
+    (RolePreference::FIELD, "role_preference", true),
+    (Zodiac::FIELD, "zodiac", true),
+    (FinancialPhilosophy::FIELD, "financial_philosophy", true),
+    (EmploymentStatus::FIELD, "employment_status", true),
+    (FitnessLevel::FIELD, "fitness_level", true),
     (20, "place", false),
     (21, "photo_count", true),
-    (25, "gender", false),
+    (Gender::FIELD, "gender", true),
     (27, "education_level", true),
 ];
 const INTERESTS: u32 = 19;
@@ -30,7 +34,26 @@ const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
 pub const BIRTH_AGE: u32 = dyapp_p2p_net::search_results::BIRTH_AGE;
 /// Profile field numbers a query may filter on, plus virtual fields.
 pub const SEARCH_FIELDS: &[u32] = &[
-    4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, ACTIVE_DAY, BIRTH_AGE,
+    4,
+    6,
+    7,
+    8,
+    9,
+    RelationshipGoal::FIELD,
+    CareerAmbition::FIELD,
+    Orientation::FIELD,
+    RolePreference::FIELD,
+    Zodiac::FIELD,
+    FinancialPhilosophy::FIELD,
+    EmploymentStatus::FIELD,
+    FitnessLevel::FIELD,
+    19,
+    20,
+    21,
+    Gender::FIELD,
+    27,
+    ACTIVE_DAY,
+    BIRTH_AGE,
 ];
 
 /// Result of a query.
@@ -91,6 +114,16 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
         c.strings.iter().map(|v| Value::Text(v.clone())).collect()
     };
     let n = values.len();
+    if let Some(scale) = scale(c.field) {
+        if (op == Op::Range && !scale.ordered)
+            || (op != Op::Unspecified
+                && c.ints
+                    .iter()
+                    .any(|&value| value < 1 || value > i64::from(scale.max)))
+        {
+            return Err(());
+        }
+    }
     let target = if interests {
         "EXISTS (SELECT 1 FROM `interest` AS `i` WHERE `i`.`key` = `p`.`key` AND `i`.`interest`"
             .to_string()
@@ -205,7 +238,7 @@ impl SearchIndex {
             for (scope, _) in &scopes {
                 statements.push(
                     db.prepare(&format!(
-                        "SELECT `p`.`key`, `p`.`version`, `p`.`r`, ({rest}) FROM `profile` AS `p`
+                        "SELECT `p`.`key`, `p`.`version`, `p`.`r`, COALESCE(({rest}), 0) FROM `profile` AS `p`
                      WHERE {scope} AND `p`.`r` BETWEEN ? AND ? ORDER BY `p`.`r` LIMIT ?"
                     ))
                     .map_err(storage_error)?,

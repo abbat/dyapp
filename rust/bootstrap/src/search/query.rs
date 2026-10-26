@@ -35,7 +35,11 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             birth_day: Some(1),
             country: "DE".into(),
             place: SIX[(i % 6) as usize].into(),
-            gender: if i % 2 == 0 { "f" } else { "m" }.into(),
+            gender: if i % 2 == 0 {
+                dyapp_profile::Gender::Woman.code()
+            } else {
+                dyapp_profile::Gender::Man.code()
+            },
             education_level: u32::try_from(i % 7).unwrap(),
             photos: if i % 4 == 0 {
                 vec![dyapp_profile::Photo::default()]
@@ -115,6 +119,55 @@ fn query_filters_least_education() {
 }
 
 #[test]
+fn query_matches_closed_scales_and_skips_unpublished_values() {
+    let index = index();
+    let filled = Profile {
+        version: 1,
+        gender: 4,
+        orientation: 5,
+        relationship_goal: 5,
+        role_preference: 3,
+        career_ambition: 3,
+        financial_philosophy: 3,
+        employment_status: 6,
+        fitness_level: 4,
+        zodiac: 12,
+        ..Profile::default()
+    };
+    let (key, profile, record) = signed(&Identity::generate(), filled);
+    index.put(&key, &profile, &record, 0, true).unwrap();
+    let (empty_key, profile, record) = signed(
+        &Identity::generate(),
+        Profile {
+            version: 1,
+            ..Profile::default()
+        },
+    );
+    index.put(&empty_key, &profile, &record, 0, true).unwrap();
+
+    for scale in dyapp_profile::SCALES {
+        let condition = cond(scale.field, Op::Eq, vec![i64::from(scale.max)], vec![]);
+        let found = index.query(&[condition], 10, 100).unwrap().unwrap();
+        assert_eq!(found.applied, vec![scale.field]);
+        assert_eq!(found.hits, vec![(key, 1)], "{}", scale.key);
+        assert!(index
+            .query(&[cond(scale.field, Op::Eq, vec![0], vec![])], 10, 100)
+            .unwrap()
+            .is_err());
+        let range = cond(
+            scale.field,
+            Op::Range,
+            vec![1, i64::from(scale.max)],
+            vec![],
+        );
+        assert_eq!(
+            index.query(&[range], 10, 100).unwrap().is_ok(),
+            scale.ordered
+        );
+    }
+}
+
+#[test]
 fn query_filters_photos() {
     let (index, _) = population();
     let found = index
@@ -155,12 +208,12 @@ fn query_filters_activity_by_day() {
 fn query_filters_gender() {
     let (index, p03) = population();
     let q = [
-        cond(25, Op::Eq, vec![], vec!["f"]),
+        cond(dyapp_profile::Gender::FIELD, Op::Eq, vec![1], vec![]),
         cond(19, Op::Eq, vec![], vec!["chess"]),
     ];
     let found = index.query(&q, 200, 10_000).unwrap().unwrap();
-    assert_eq!(found.applied, vec![25, 19]);
-    // Chess and "f" is i % 6 == 0: the 100 chess players in SIX[0].
+    assert_eq!(found.applied, vec![dyapp_profile::Gender::FIELD, 19]);
+    // Chess and woman is i % 6 == 0: the 100 chess players in SIX[0].
     assert_eq!(found.hits.len(), 100);
     assert!(found.hits.iter().all(|h| p03.contains(&h.0)));
 }
