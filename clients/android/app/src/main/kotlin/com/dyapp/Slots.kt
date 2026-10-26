@@ -25,9 +25,16 @@ interface SlotKeys {
     fun delete(alias: String)
 }
 
-enum class SlotState(val marker: String?) {
+/** Lifecycle marker for a local identity slot. */
+enum class SlotState(
+    /** Exact on-disk state marker, or null for damaged metadata. */
+    val marker: String?
+) {
+    /** Creation was interrupted or is still in progress. */
     PENDING("pending\n"),
+    /** The wrapped identity was written and reopened successfully. */
     READY("ready\n"),
+    /** Confirmed removal began but may need recovery. */
     DELETING("deleting\n"),
 
     /** Unreadable or tampered metadata: shown for recovery, never opened or overwritten. */
@@ -40,17 +47,31 @@ class Slot(val id: String, val dir: File, var state: SlotState) {
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
 }
 
+/** Result of opening the active identity or choosing the next app screen. */
 sealed class Opened {
     /** No slot yet: create the first identity. */
     object Setup : Opened()
 
-    class Ready(val slot: Slot, val peerId: String) : Opened()
+    /** A ready slot whose identity key reopened successfully. */
+    class Ready(
+        /** Local slot that supplied the key. */
+        val slot: Slot,
+        /** Verified Peer ID derived from the unwrapped key. */
+        val peerId: String
+    ) : Opened()
 
     /** Several slots and no valid pointer. */
     object Picker : Opened()
 
     /** The slot cannot be used as it is; [peerId] is known when its key opens. */
-    class Recovery(val slot: Slot, val reason: String, val peerId: String?) : Opened()
+    class Recovery(
+        /** Local slot that needs user action. */
+        val slot: Slot,
+        /** Stable recovery reason shown by the app. */
+        val reason: String,
+        /** Peer ID when the wrapped key could still be opened. */
+        val peerId: String?
+    ) : Opened()
 }
 
 /**
@@ -59,6 +80,7 @@ sealed class Opened {
  * app has one process, so the instance lock serializes every change.
  */
 class Slots(private val root: File, private val keys: SlotKeys) {
+    /** Constants and canonical UUID validation shared by slot operations. */
     companion object {
         /** The virtual slot of the root `identity.key` installation. */
         const val LEGACY = "legacy-primary"

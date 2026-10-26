@@ -39,10 +39,6 @@
     <ID>UndocumentedPublicClass:AppLockStore.kt$AppLockStore$Companion</ID>
     <ID>UndocumentedPublicClass:AppLockStore.kt$PinAttempt</ID>
     <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
-    <ID>UndocumentedPublicClass:Slots.kt$Opened</ID>
-    <ID>UndocumentedPublicClass:Slots.kt$Opened$Ready : Opened</ID>
-    <ID>UndocumentedPublicClass:Slots.kt$SlotState</ID>
-    <ID>UndocumentedPublicClass:Slots.kt$Slots$Companion</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun hash(pin: String): ByteArray</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun verify(pin: String, record: ByteArray): Boolean</ID>
     <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isLocked: Boolean get() { refresh(); return locked }</ID>
@@ -55,18 +51,10 @@
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$UNLOCKED</ID>
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$WRONG</ID>
     <ID>UndocumentedPublicProperty:RustBridge.kt$Shown$val entries: List&lt;Opened&gt; = emptyList()</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Ready$val peerId: String</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Ready$val slot: Slot</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Recovery$val reason: String</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Recovery$val slot: Slot</ID>
     <ID>UndocumentedPublicProperty:Slots.kt$Slot$val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"</ID>
     <ID>UndocumentedPublicProperty:Slots.kt$Slot$val dir: File</ID>
     <ID>UndocumentedPublicProperty:Slots.kt$Slot$val id: String</ID>
     <ID>UndocumentedPublicProperty:Slots.kt$Slot$val keyFile get() = File(dir, "identity.key")</ID>
     <ID>UndocumentedPublicProperty:Slots.kt$Slot$var state: SlotState</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$DELETING : SlotState</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$PENDING : SlotState</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$READY : SlotState</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$val marker: String?</ID>
   </CurrentIssues>
 </SmellBaseline>
