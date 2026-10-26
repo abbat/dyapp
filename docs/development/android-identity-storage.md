@@ -23,8 +23,10 @@ check. Corrupt or unreadable files fail closed and are never treated as a fresh 
 `setupDone` is true once a record or the empty `app-lock-skipped` marker exists; `skip` writes
 the marker, and clearing the PIN also writes it so setup is not offered again. The OS
 credential gate is still planned; `AppLockStore` exposes a recovery method that must only be
-called after that gate succeeds. `onDevice` uses `PlatformKeyStore` with a dedicated
-alias and the common Rust FFI Argon2id functions; JVM tests inject fake implementations.
+called after that gate succeeds. `change` replaces or clears the PIN only when the current PIN,
+counted as one attempt, verifies; it is for the planned Settings controls. `onDevice` uses
+`PlatformKeyStore` with a dedicated alias and the common Rust FFI Argon2id functions; JVM tests
+inject fake implementations.
 `AppLockLifecycle` now models fresh-process locking, the 60-second background grace and the
 five-minute foreground inactivity deadline from a monotonic clock. `MainActivity` checks it
 before constructing `MainScreen`, refreshes on foreground/background and input events, and

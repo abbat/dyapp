@@ -83,6 +83,11 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
         if (failures == MAX_FAILURES) PinAttempt.DEVICE_CREDENTIAL_REQUIRED else PinAttempt.WRONG
     }
 
+    /** Settings: replace the PIN, or clear it when [newPin] is null, only if [current] verifies. */
+    fun change(current: String, newPin: String?): PinAttempt = synchronized(ioLock) {
+        attempt(current).also { if (it == PinAttempt.UNLOCKED) resetAfterDeviceCredential(newPin) }
+    }
+
     /** Call only after a fresh OS device-credential check; null PIN clears the app PIN. */
     fun resetAfterDeviceCredential(newPin: String?) = synchronized(ioLock) {
         check(read() != null) { "App PIN is not enrolled" }

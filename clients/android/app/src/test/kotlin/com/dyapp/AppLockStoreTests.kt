@@ -68,6 +68,22 @@ class AppLockStoreTests {
     }
 
     @Test
+    fun changeNeedsTheCurrentPinAndCountsAWrongOne() {
+        store().enroll("123456")
+        assertEquals(PinAttempt.WRONG, store().change("654321", "111111"))
+        assertEquals(PinAttempt.UNLOCKED, store().change("123456", "111111"))
+        assertEquals(PinAttempt.WRONG, store().attempt("123456"))
+        assertEquals(PinAttempt.UNLOCKED, store().change("111111", null))
+        assertFalse(store().hasPin())
+        assertTrue(store().setupDone())
+        store().enroll("222222")
+        repeat(4) { store().attempt("654321") }
+        assertEquals(PinAttempt.DEVICE_CREDENTIAL_REQUIRED, store().change("654321", null))
+        assertEquals(PinAttempt.DEVICE_CREDENTIAL_REQUIRED, store().change("222222", null))
+        assertTrue(store().hasPin())
+    }
+
+    @Test
     fun setupIsDoneAfterSkipOrEnrollmentOnly() {
         assertFalse(store().setupDone())
         store().skip()
