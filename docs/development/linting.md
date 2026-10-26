@@ -152,8 +152,15 @@ import optional_module  # noqa: F401  (re-exported for callers)
 ```
 
 A suppression comment only silences the named lint at that spot. It does not satisfy other lints,
-and it does not apply to other linters (an `#[allow]` does not affect the `codeql.yml` pedantic run
-unless it names that lint too).
+and it does not apply to other linters (an `#[expect]` for a default Clippy lint does not hide
+unrelated findings in the `codeql.yml` pedantic run).
+
+There are currently no Kotlin `@Suppress` annotations or JavaScript `eslint-disable` comments
+in the clients. [Detekt 1.23.8](https://detekt.dev/docs/1.23.8/intro/) supports suppressing
+findings but has no native unused-suppression check in its configured rules; its `Unused*`
+rules check code, not annotations. The desktop JavaScript has no ESLint setup, so ESLint's
+[`reportUnusedDisableDirectives`](https://eslint.org/docs/latest/use/configure/configuration-files#report-unused-disable-directives)
+cannot be enabled without adding a linter. If ESLint is introduced, set this option to `error`.
 
 ## Common fixes
 
