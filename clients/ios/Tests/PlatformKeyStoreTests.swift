@@ -35,4 +35,23 @@ final class PlatformKeyStoreTests: XCTestCase {
         ]
         XCTAssertEqual(SecItemCopyMatching(query as CFDictionary, nil), errSecItemNotFound)
     }
+
+    func testVerifiedEraseTouchesOnlyRequestedSlot() throws {
+        let targetID = UUID()
+        let otherID = UUID()
+        let target = PlatformKeyStore.forSlot(targetID)
+        let other = PlatformKeyStore.forSlot(otherID)
+        defer { try? PlatformKeyStore.eraseWrappingKey(forSlot: otherID) }
+        let secret = Data("slot isolation".utf8)
+        let targetBlob = try target.wrap(secret: secret)
+        let otherBlob = try other.wrap(secret: secret)
+        let legacyBlob = try PlatformKeyStore.shared.wrap(secret: secret)
+
+        try PlatformKeyStore.eraseWrappingKey(forSlot: targetID)
+        XCTAssertFalse(try target.containsWrappingKey())
+        XCTAssertThrowsError(try target.unwrap(wrapped: targetBlob))
+        XCTAssertEqual(try other.unwrap(wrapped: otherBlob), secret)
+        XCTAssertEqual(try PlatformKeyStore.shared.unwrap(wrapped: legacyBlob), secret)
+        try PlatformKeyStore.eraseWrappingKey(forSlot: targetID)
+    }
 }

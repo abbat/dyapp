@@ -23,6 +23,18 @@ final class PlatformKeyStore: KeyStore {
         PlatformKeyStore(account: "profile:\(slot.uuidString.lowercased())")
     }
 
+    /// Erase and verify only one UUID slot's wrapping item; the legacy account is not addressable here.
+    static func eraseWrappingKey(forSlot slot: UUID) throws {
+        let store = forSlot(slot)
+        let status = SecItemDelete(store.query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw WrapError.Failed(reason: "Keychain delete: OSStatus \(status)")
+        }
+        guard try !store.containsWrappingKey() else {
+            throw WrapError.Failed(reason: "wrapping key remains after delete")
+        }
+    }
+
     /// Check an account before reserving a new slot; never reuse a stranded wrapping key.
     func containsWrappingKey() throws -> Bool { try storedKey() != nil }
 

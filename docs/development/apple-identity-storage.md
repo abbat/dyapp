@@ -107,6 +107,10 @@ recovery. Refuse removal of a damaged slot and of the legacy slot until a
 separate migration flow exists. Removing the active slot returns to the picker;
 it never selects another identity silently. Published network data may remain.
 
+`PlatformKeyStore.eraseWrappingKey(forSlot:)` now deletes and verifies only one UUID account;
+the slot lifecycle and confirmation UI are still planned. A native unit test verifies that an
+erase leaves another slot and the legacy account readable.
+
 ## Choice and trade-offs
 
 Per-slot Keychain items make removal independent and allow a missing wrapping
