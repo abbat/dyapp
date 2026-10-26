@@ -29,7 +29,7 @@ step() {
     case "$1" in
         quality)
             check batches python3 -B tests/scripts/check-batches.py --raw --report build/batches.json
-            check repository python3 -B tests/scripts/check-repository.py --raw
+            step android-lint
             check adr python3 -B tests/scripts/check-adr.py --raw
             check dependency-age python3 -B tests/scripts/check-dependency-age.py --raw
             check triggers python3 -B tests/scripts/triggers.py --raw
@@ -45,15 +45,21 @@ step() {
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             check flake8 python3 -m flake8 tests tools
             check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
-            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml \
-                --baseline detekt-baseline.xml --input clients/android \
-                --excludes '**/build/**' --build-upon-default-config
             check rustfmt cargo fmt --all -- --check
             check cargo-shear cargo shear
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
             check panics python3 -B tests/scripts/check-panics.py --raw
             check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
+            ;;
+        android-lint)
+            # Both checks run even if the first fails: one pass reports every Android finding.
+            local status=0
+            check repository python3 -B tests/scripts/check-repository.py --raw || status=1
+            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml \
+                --baseline detekt-baseline.xml --input clients/android \
+                --excludes '**/build/**' --build-upon-default-config || status=1
+            return "$status"
             ;;
         test) tests ;;
         cov-build)
@@ -159,9 +165,9 @@ step() {
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
+    stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
-        quality|security) exec bash "$0" --raw "$@" ;;
+        quality|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

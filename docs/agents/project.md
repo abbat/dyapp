@@ -40,6 +40,7 @@ pulls anything).
 | Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
 | fmt check | `make fmt` | `cargo fmt --all -- --check`; the Docker checkout is read-only, so apply its diffs with host `rustfmt --edition 2021 <files>` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
+| Android lint only (seconds) | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, both run |
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
 | Security | `make security` (= `audit`, `deny`) | `tests/scripts/docker-test.sh security` |
 | MSRV / type check | `make msrv` | `cargo check --workspace --all-features --all-targets` |

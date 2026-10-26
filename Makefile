@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
 
 .SILENT:
 
@@ -77,6 +77,9 @@ msrv:
 
 doc:
 	$(CHECK) rustdoc -- cargo doc --workspace --locked --offline --no-deps
+
+lint-android:
+	bash tests/scripts/docker-test.sh lint-android
 
 pre-commit: quality
 

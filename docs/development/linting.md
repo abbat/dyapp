@@ -114,10 +114,13 @@ and 11 per file (top-level extension functions in another file help), `StringLit
 counts repeated `testTag` strings, `BracesOnIfStatements` wants braces on a multi-line `if`, and
 `UseIfInsteadOfWhen` rejects a two-branch `when`.
 
-Before running `make quality` on Android changes, check the diff by hand: every new
+Before checking Android changes, read the diff against these limits: every new
 `values/strings.xml` entry has a `values-ru` counterpart (D1); no touched function exceeds 30
 lines or 4 parameters; no line exceeds 120 characters; every new public declaration, including
-each enum constant, has KDoc; a class stays under 10 functions. Each miss costs a full run.
+each enum constant, has KDoc; a class stays under 10 functions. Then run `make lint-android`
+(a few seconds): it runs `check-repository.py` (D1) and detekt, both to the end, and lists every
+finding after `DETAILS:`; read that whole list, not only the `FAIL` line. Run `make quality`
+once it passes.
 
 ## Suppressing a finding
 

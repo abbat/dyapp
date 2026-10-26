@@ -84,16 +84,16 @@ def diagnostics(text, policy):
             return [line for line in lines[lines.index("DETAILS:") + 1:]
                     if line]
         if policy.get("nested"):
-            selected, active = [], False
-            for line in lines:
-                if line.startswith("FAIL "):
-                    active = True
-                if active:
-                    selected.append(line)
-                if line.endswith(": raw captured output"):
-                    active = False
-            if selected:
-                return selected
+            # First frame to last log line: an inner wrapper drops the FAIL
+            # headers of later frames, so all frames before it are kept.
+            starts = [i for i, line in enumerate(lines)
+                      if line.startswith("FAIL ")]
+            ends = [i for i, line in enumerate(lines)
+                    if line.endswith(": raw captured output")]
+            if starts:
+                end = (ends[-1] + 1 if ends and ends[-1] > starts[0]
+                       else len(lines))
+                return lines[starts[0]:end]
         if policy.get("gradle"):
             selected = gradle_errors(lines)
             if selected:

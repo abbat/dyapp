@@ -10,6 +10,7 @@ All checks run in Docker; build the image once with `make prepare`.
 | Command | Runs |
 |---------|------|
 | `make quality` (= `lint`, `check`, `tests/scripts/check-quality.sh`) | `tests/scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, the Android part of `make quality`; both run even if the first fails |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `tests/scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |

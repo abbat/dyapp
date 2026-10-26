@@ -12,11 +12,12 @@ elif [[ ${DYAPP_VERBOSE:-0} != 1 ]]; then
     esac
 fi
 run() {
-    python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile "$1" run --no-deps --pull never "$2"
+    python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile "$1" run --no-deps --pull never "${@:2}"
 }
 case "${1:-test}" in
     test) run test dev ;;
     quality|coverage|security) run "$1" "$1" ;;
+    lint-android) run quality quality bash tests/scripts/rust-check.sh android-lint ;;
     prepare) python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile test build dev ;;
     network-prepare) python3 tools/scripts/docker-local.py -f tests/docker/compose.network.yml build network-test ;;
     network) python3 tools/scripts/docker-local.py -f tests/docker/compose.network.yml run --pull never network-test ;;
@@ -30,6 +31,6 @@ case "${1:-test}" in
         bash tests/scripts/ui-test.sh --raw all
         ;;
     shell) DYAPP_VERBOSE=1 python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile test run --no-deps dev bash ;;
-    help|--help|-h) echo 'Usage: docker-test.sh test|quality|coverage|security|prepare|network|network-prepare|all|shell' ;;
+    help|--help|-h) echo 'Usage: docker-test.sh test|quality|lint-android|coverage|security|prepare|network|network-prepare|all|shell' ;;
     *) echo "Unknown command: $1" >&2; exit 2 ;;
 esac

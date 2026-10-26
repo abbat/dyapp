@@ -148,6 +148,24 @@ class FinalChecks(unittest.TestCase):
                 self.assertEqual(len(logs), 1)
                 self.assertIn(fix, logs[0].read_text())
 
+    def test_nested_keeps_every_inner_frame_but_not_later_output(self):
+        # The inner wrapper strips the FAIL header of the second frame.
+        output = ("FAIL docker: first\n"
+                  "FIX: docs/testing/docker.md#troubleshooting\n"
+                  "DETAILS:\nfirst-item\na.log: raw captured output\n"
+                  "second-item\nb.log: raw captured output\n"
+                  "cleanup progress\n")
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
+                 "--log-dir", directory, "docker", "--", sys.executable,
+                 "-c", f"print({output!r}); raise SystemExit(2)"],
+                capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("first-item", result.stdout)
+            self.assertIn("second-item", result.stdout)
+            self.assertNotIn("cleanup progress", result.stdout)
+
     def test_archived_gradle_failure_excludes_passing_tasks_and_try_help(self):
         failure = (
             "> Task :app:compileReleaseKotlin UP-TO-DATE\n"
