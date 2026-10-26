@@ -92,6 +92,37 @@ const checkNetwork = async () => {
     throw new Error('continue enabled without a connected node');
   }
 };
+const checkNetworkInSettings = async () => {
+  const editor = document.getElementById('network');
+  const seeds = document.getElementById('seeds');
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  if (!document.getElementById('settings').contains(editor)) {
+    throw new Error('Settings did not show the network editor');
+  }
+  seeds.value = testSeeds;
+  seeds.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+  if (!document.getElementById('identity').contains(editor) || seeds.value !== testSeeds) {
+    throw new Error('Back lost the network draft');
+  }
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  await checkNetwork();
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  if (document.getElementById('network-status').textContent
+    !== window.strings['network.invalidAddress']
+    || [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status)
+      .join() !== 'unreachable,invalidAddress') {
+    throw new Error('Settings lost the failed row status');
+  }
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+};
 const checkEmptyProfilePreview = async () => {
   document.getElementById('profile-preview-action').click();
   await waitFor('profile-preview');
@@ -232,6 +263,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
       if (document.getElementById('network-status').textContent
         !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
+    } else if (step === 'network-settings-failure') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkNetworkInSettings();
     } else if (step === 'profile-save') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await saveProfileForRestart();

@@ -16,6 +16,7 @@ same identity.
 The same bootstrap-address editor, network name and connection status appear in Settings.
 Returning to Ready keeps the current edits and Check results; the first connection flow still
 uses that editor before an active network is configured.
+An unsuccessful Check in Settings leaves the prior active network unchanged.
 
 ## Connect to a network
 

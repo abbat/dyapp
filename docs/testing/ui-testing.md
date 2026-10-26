@@ -29,9 +29,8 @@ isolated slot root, and check that the values reappear in the automatic form whi
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
 Peer ID on Ready; the form is then available through Network connection. Shared unit tests reopen
 two UUID slot folders and check that each retains its own draft and active settings. A DEBUG-only
-launch argument seeds an
-invalid draft after explicit identity creation so the tests can check the visible read error and
-disabled Save action; release builds ignore this argument.
+launch argument seeds an invalid draft after explicit identity creation so the tests can check
+the visible read error and disabled Save action; release builds ignore this argument.
 They also check that a malformed bootstrap address receives an ordered row outcome after Check
 and remains available on Retry. Rust's connection-check test covers interrupting a silent node;
 the native cancel path belongs to the later Apple failure matrix.
@@ -47,13 +46,16 @@ checks a nonempty draft and its public preview. On Linux, another case uses a lo
 node to publish the reviewed fields with both confirmations, waits for the verified version,
 then compares the node's signed profile payload with the locally saved draft. The same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
-then connects and retries it. A deterministic Rust unit test cancels and resumes a 30-bit
-puzzle; the UI smoke does not race the ordinary 11-bit puzzle.
+then connects and retries it. After activation, the desktop test moves the network editor into
+Settings and back, checks that draft rows and failed row statuses survive navigation, and compares
+the active network file byte for byte before and after a failed Settings check. A deterministic
+Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race the ordinary
+11-bit puzzle.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 26 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 27 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the four that need dyappd (22) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |

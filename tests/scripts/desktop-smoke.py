@@ -281,6 +281,16 @@ def smoke(executable, flows=True):
                              profile)
             if connected != peer_id:
                 raise RuntimeError("connecting replaced the identity")
+            slot = (storage / "active-profile").read_text().strip()
+            active = storage / "profiles" / slot / "network"
+            active_before = active.read_bytes()
+            settings_step = "--ui-test-step=network-settings-failure"
+            settings_checked = case("network-settings-failure",
+                                    [*file, settings_step], profile)
+            if settings_checked != peer_id:
+                raise RuntimeError("failed Settings check changed identity")
+            if active.read_bytes() != active_before:
+                raise RuntimeError("Settings check changed active network")
             published = case("profile-publish-retry",
                              [*file, "--ui-test-step=profile-publish-retry"],
                              profile, timeout=180)
