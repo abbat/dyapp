@@ -238,41 +238,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     ) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
         Text(stringResource(status), modifier = Modifier.testTag(APP_READY_TAG))
-        when (opened) {
-            null -> { Text(stringResource(R.string.storage_error)) }
-            is Opened.Ready -> {
-                Text(stringResource(R.string.storage_peer_id))
-                Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
-                // The OS gives the app no chance to warn before these erase the key.
-                Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"))
-                OutlinedButton(onClick = { editingProfile = true }, Modifier.testTag("profile-edit")) {
-                    Text(stringResource(R.string.profile_title))
-                }
-            }
-            is Opened.Recovery -> {
-                Text(reasonText(opened.reason), modifier = Modifier.testTag("recovery-reason"))
-                opened.peerId?.let { Text(it, modifier = Modifier.testTag("recovery-peer")) }
-                Button(onClick = { act(slots::open) }, Modifier.testTag("retry")) {
-                    Text(stringResource(R.string.recovery_retry))
-                }
-            }
-            else -> {
-                for (entry in shown.entries) {
-                    val (slot, label) = when (entry) {
-                        is Opened.Ready -> entry.slot to entry.peerId
-                        is Opened.Recovery -> entry.slot to reasonText(entry.reason)
-                        else -> continue
-                    }
-                    val select = { slots.setActive(slot.id); slots.open() }
-                    OutlinedButton(onClick = { act(select) }, Modifier.testTag("identity")) {
-                        Text(label)
-                    }
-                }
-                Button(onClick = { act(slots::create) }, Modifier.testTag("add-identity")) {
-                    Text(stringResource(R.string.identity_add))
-                }
-            }
-        }
+        IdentityDetails(shown, slots, act) { editingProfile = true }
         if (opened != null && removable(opened)) {
             OutlinedButton(onClick = { removing = opened }, Modifier.testTag("remove-identity")) {
                 Text(stringResource(R.string.identity_remove))
@@ -286,6 +252,59 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         OutlinedButton(onClick = onLockSettings, Modifier.testTag("lock-settings")) {
             Text(stringResource(R.string.lock_settings))
         }
+    }
+}
+
+@Composable
+private fun IdentityDetails(
+    shown: Shown,
+    slots: Slots,
+    act: (() -> Opened) -> Unit,
+    onProfileEdit: () -> Unit
+) {
+    when (val opened = shown.opened) {
+        null -> { Text(stringResource(R.string.storage_error)) }
+        is Opened.Ready -> { ReadyIdentityDetails(opened, onProfileEdit) }
+        is Opened.Recovery -> { RecoveryIdentityDetails(opened, slots, act) }
+        else -> { PickerIdentityDetails(shown.entries, slots, act) }
+    }
+}
+
+@Composable
+private fun ReadyIdentityDetails(opened: Opened.Ready, onProfileEdit: () -> Unit) {
+    Text(stringResource(R.string.storage_peer_id))
+    Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
+    // The OS gives the app no chance to warn before these erase the key.
+    Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"))
+    OutlinedButton(onClick = onProfileEdit, Modifier.testTag("profile-edit")) {
+        Text(stringResource(R.string.profile_title))
+    }
+}
+
+@Composable
+private fun RecoveryIdentityDetails(opened: Opened.Recovery, slots: Slots, act: (() -> Opened) -> Unit) {
+    Text(reasonText(opened.reason), modifier = Modifier.testTag("recovery-reason"))
+    opened.peerId?.let { Text(it, modifier = Modifier.testTag("recovery-peer")) }
+    Button(onClick = { act(slots::open) }, Modifier.testTag("retry")) {
+        Text(stringResource(R.string.recovery_retry))
+    }
+}
+
+@Composable
+private fun PickerIdentityDetails(entries: List<Opened>, slots: Slots, act: (() -> Opened) -> Unit) {
+    for (entry in entries) {
+        val (slot, label) = when (entry) {
+            is Opened.Ready -> entry.slot to entry.peerId
+            is Opened.Recovery -> entry.slot to reasonText(entry.reason)
+            else -> continue
+        }
+        val select = { slots.setActive(slot.id); slots.open() }
+        OutlinedButton(onClick = { act(select) }, Modifier.testTag("identity")) {
+            Text(label)
+        }
+    }
+    Button(onClick = { act(slots::create) }, Modifier.testTag("add-identity")) {
+        Text(stringResource(R.string.identity_add))
     }
 }
 
