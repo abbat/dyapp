@@ -103,7 +103,17 @@ not "safe" data. The target design therefore needs:
   (done in the core: `Store::search_heartbeat_due`); the
   "active since" search filter still lets any searcher learn, to about a day, when a profile last
   sent a heartbeat or update;
-- push notifications (not designed) that only wake the app, with no sender or content.
+- a planned push wake with no app-defined data in the provider-visible payload.
+
+### Planned push payload contract
+
+A push only asks the device to wake the app. The provider-visible payload may contain the
+platform-required wake envelope, but no app-defined data, alert title or body, sender, peer or
+profile ID, conversation or message ID, message content, or event type. After waking, the app
+fetches encrypted data over its normal connection and decides locally whether to notify the
+user. The provider still sees the destination device token and push timing, and may correlate
+these with its own records; an empty payload does not hide that metadata. Push transport,
+provider choice, token registration and local notification behavior are not implemented yet.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

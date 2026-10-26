@@ -179,7 +179,7 @@ who writes to whom and when.
 | Mass harvesting of public profiles | Profile `get`, search | High × high | Accept: profiles are public by design ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); rate limits and hostile nodes are classes 9 and 8. Fix: a warning before publishing that published fields cannot be withdrawn |
 | EXIF and GPS metadata in a photo reveal coordinates or the device | Profile and chat photos | High × high | Fix: the client strips metadata from every image before upload |
 | ICE candidates reveal a caller's IP to the other side | Calls | High × medium | Fix: until a contact is verified, calls use only TURN relays (relay-only ICE); a setting forces relays for every call |
-| Push notifications through APNs or FCM reveal sender and content to Apple or Google | Push (not designed) | High × medium | Fix (requirement for the design): a push only wakes the app, without sender or content |
+| Push notifications expose sender or content to the push provider | Push (not implemented) | High × medium | Planned payload contract: platform wake envelope only; no app-defined data, alert text, sender, peer, profile, conversation or message IDs, content, or event type ([privacy](privacy.md#planned-push-payload-contract)). Destination token and timing remain visible to the provider |
 | Colluding or Sybil nodes take every replica of a user | DHT | High × medium | Out of scope here: class 8 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)) |
 | A network observer fingerprints dyapp traffic | ISP, Wi-Fi | Medium × high | Accept: transport encryption hides content only; DPI resistance is research |
 
