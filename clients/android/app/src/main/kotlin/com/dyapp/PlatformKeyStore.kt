@@ -18,26 +18,6 @@ import uniffi.dyapp.WrapException
  * one per identity. A wrapped blob is the 12-byte IV followed by the ciphertext and its tag.
  */
 class PlatformKeyStore(private val alias: String) : KeyStore {
-    companion object : SlotKeys {
-        private const val PROVIDER = "AndroidKeyStore"
-        private const val TRANSFORMATION = "AES/GCM/NoPadding"
-        private const val IV_SIZE = 12
-        private const val TAG_BITS = 128
-        private const val KEY_BITS = 256
-
-        private fun keystore() = java.security.KeyStore.getInstance(PROVIDER).apply { load(null) }
-
-        override fun exists(alias: String): Boolean = keystore().containsAlias(alias)
-
-        override fun generate(alias: String): Pair<ByteArray, String> =
-            IdentityKey.generate().use { Pair(it.wrap(PlatformKeyStore(alias)), it.peerId()) }
-
-        override fun peerId(alias: String, wrapped: ByteArray): String =
-            IdentityKey.unwrap(PlatformKeyStore(alias), wrapped).use { it.peerId() }
-
-        override fun delete(alias: String) = keystore().deleteEntry(alias)
-    }
-
     override fun wrap(secret: ByteArray): ByteArray = keystoreCall {
         try {
             val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -85,4 +65,25 @@ class PlatformKeyStore(private val alias: String) : KeyStore {
     // The core expects `WrapException`; the reason names the failure, never key bytes.
     private fun failed(error: Exception) =
         WrapException.Failed(error.javaClass.simpleName + ": " + error.message)
+
+    /** Slot-key operations backed by Android Keystore. */
+    companion object : SlotKeys {
+        private const val PROVIDER = "AndroidKeyStore"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val IV_SIZE = 12
+        private const val TAG_BITS = 128
+        private const val KEY_BITS = 256
+
+        private fun keystore() = java.security.KeyStore.getInstance(PROVIDER).apply { load(null) }
+
+        override fun exists(alias: String): Boolean = keystore().containsAlias(alias)
+
+        override fun generate(alias: String): Pair<ByteArray, String> =
+            IdentityKey.generate().use { Pair(it.wrap(PlatformKeyStore(alias)), it.peerId()) }
+
+        override fun peerId(alias: String, wrapped: ByteArray): String =
+            IdentityKey.unwrap(PlatformKeyStore(alias), wrapped).use { it.peerId() }
+
+        override fun delete(alias: String) = keystore().deleteEntry(alias)
+    }
 }
