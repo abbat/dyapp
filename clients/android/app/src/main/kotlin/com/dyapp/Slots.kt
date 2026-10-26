@@ -42,8 +42,17 @@ enum class SlotState(
 }
 
 /** One local identity directory and its lifecycle state. */
-class Slot(val id: String, val dir: File, var state: SlotState) {
+class Slot(
+    /** UUID directory name, or [Slots.LEGACY] for the root identity. */
+    val id: String,
+    /** Directory containing this slot's wrapped identity. */
+    val dir: File,
+    /** Current on-disk lifecycle state. */
+    var state: SlotState
+) {
+    /** Wrapped identity key file in [dir]. */
     val keyFile get() = File(dir, "identity.key")
+    /** Keystore alias that wraps this slot's key. */
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
 }
 
