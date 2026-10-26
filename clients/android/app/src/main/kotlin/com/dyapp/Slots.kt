@@ -12,13 +12,16 @@ import java.util.UUID
 
 /** Wrapping keys by Keystore alias; the app uses [PlatformKeyStore], JVM tests a fake. */
 interface SlotKeys {
+    /** Whether a wrapping key already exists at [alias]. */
     fun exists(alias: String): Boolean
 
     /** A new identity wrapped by a new key at [alias], and its Peer ID. */
     fun generate(alias: String): Pair<ByteArray, String>
 
+    /** Peer ID obtained by opening [wrapped] with the key at [alias]. */
     fun peerId(alias: String, wrapped: ByteArray): String
 
+    /** Remove the wrapping key at [alias] after slot removal was confirmed. */
     fun delete(alias: String)
 }
 
@@ -31,6 +34,7 @@ enum class SlotState(val marker: String?) {
     BROKEN(null),
 }
 
+/** One local identity directory and its lifecycle state. */
 class Slot(val id: String, val dir: File, var state: SlotState) {
     val keyFile get() = File(dir, "identity.key")
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
@@ -66,6 +70,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
 
         private val UUID_PATTERN = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 
+        /** Whether [name] is a canonical lowercase UUID slot directory name. */
         fun isUuid(name: String) = UUID_PATTERN.matches(name)
     }
 
@@ -154,6 +159,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         return id?.takeIf { it == LEGACY || isUuid(it) }
     }
 
+    /** Atomically select the local slot [id] for the next app open. */
     fun setActive(id: String) =
         synchronized(this) { writeAtomic(activeFile, "$id\n".toByteArray()) }
 

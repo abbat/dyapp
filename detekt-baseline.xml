@@ -41,16 +41,10 @@
     <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
     <ID>UndocumentedPublicClass:Slots.kt$Opened</ID>
     <ID>UndocumentedPublicClass:Slots.kt$Opened$Ready : Opened</ID>
-    <ID>UndocumentedPublicClass:Slots.kt$Slot</ID>
     <ID>UndocumentedPublicClass:Slots.kt$SlotState</ID>
     <ID>UndocumentedPublicClass:Slots.kt$Slots$Companion</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun hash(pin: String): ByteArray</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun verify(pin: String, record: ByteArray): Boolean</ID>
-    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun delete(alias: String)</ID>
-    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun exists(alias: String): Boolean</ID>
-    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun peerId(alias: String, wrapped: ByteArray): String</ID>
-    <ID>UndocumentedPublicFunction:Slots.kt$Slots$fun setActive(id: String)</ID>
-    <ID>UndocumentedPublicFunction:Slots.kt$Slots.Companion$fun isUuid(name: String)</ID>
     <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isLocked: Boolean get() { refresh(); return locked }</ID>
     <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isPinEnabled: Boolean get() = enabled</ID>
     <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val snapshotObscured: Boolean get() = backgroundAt != null</ID>
