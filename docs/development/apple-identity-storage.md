@@ -28,6 +28,9 @@ settings only when no draft exists. The blocking load runs off the UI thread and
 file displays an error without rewriting the file or key. Save draft writes through UniFFI off
 the UI thread and does not activate the connection; a failed write keeps edits on screen. The profile draft
 is already named by Peer ID, so drafts for two identities would not collide.
+Shared native unit tests exercise distinct slot folders and verify that a damaged draft does
+not alter the active settings or key file. UI relaunch and error presentation are a separate
+checkpoint.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their
