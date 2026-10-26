@@ -129,8 +129,38 @@
     },
     "network.draftPending": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Draft saving and connection checks are coming soon. Changes here are not saved yet." } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика и проверка подключения появятся позже. Пока изменения здесь не сохраняются." } }
+        "en": { "stringUnit": { "state": "translated", "value": "Save this draft to keep it for later. Connection checks are coming soon." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик, чтобы вернуться к нему позже. Проверка подключения появится позже." } }
+      }
+    },
+    "network.save": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save draft" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранить черновик" } }
+      }
+    },
+    "network.unsaved": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unsaved changes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Есть несохранённые изменения" } }
+      }
+    },
+    "network.saving": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saving draft…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика…" } }
+      }
+    },
+    "network.saved": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Draft saved. The active connection has not changed." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Черновик сохранён. Активное подключение не изменилось." } }
+      }
+    },
+    "network.saveFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not save the draft. Your edits are still here; try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось сохранить черновик. Изменения остались на экране; попробуйте снова." } }
       }
     },
     "network.loading": {

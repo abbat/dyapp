@@ -25,7 +25,8 @@ The Application Support directory is excluded from backup, and Keychain items us
 folder or the legacy root before calling UniFFI load/save; it does not create or select a key.
 The shared network form now loads the selected identity's draft, falling back to its active
 settings only when no draft exists. The blocking load runs off the UI thread and an unreadable
-file displays an error without rewriting the file or key; saving remains planned. The profile draft
+file displays an error without rewriting the file or key. Save draft writes through UniFFI off
+the UI thread and does not activate the connection; a failed write keeps edits on screen. The profile draft
 is already named by Peer ID, so drafts for two identities would not collide.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
@@ -44,7 +45,7 @@ the same visible states and slot IDs without copying a key between profiles.
 | Wrapping key | Separate Keychain account `profile:<slot>` under service `com.dyapp.identity-wrap`, with the current `AfterFirstUnlockThisDeviceOnly` accessibility. |
 | Active selection | Root `active-profile` containing the UUID or `legacy-primary`, replaced atomically. |
 | Legacy identity | Existing root `identity.key` and Keychain account `identity-wrap`, exposed as virtual slot `legacy-primary` without moving either. |
-| Other local data | The network form reads draft or active settings from the selected slot directory (legacy root for the existing key); draft saving remains planned. The future client database belongs there too. The current Peer-ID-named profile draft stays separate until the profile runtime is wired. |
+| Other local data | The network form reads and saves the selected slot's draft (legacy root for the existing key), falling back to active settings only when the draft is absent. The future client database belongs there too. The current Peer-ID-named profile draft stays separate until the profile runtime is wired. |
 
 The app enumerates the legacy file and UUID directories, not a second registry.
 On startup it opens a valid active slot, otherwise the only slot, or shows a
