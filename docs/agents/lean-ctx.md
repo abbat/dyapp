@@ -47,8 +47,10 @@ CLI flags.
 
 ## Project config
 
-`.lean-ctx.toml` in the repository root lists build output and other temporary files
-(`extra_ignore_patterns`) that lean-ctx skips; add new output directories there.
+`.lean-ctx.toml` in the repository root lists files lean-ctx skips besides those in
+`.gitignore` files (`extra_ignore_patterns`): `.git/`, which it would index otherwise, the
+tracked fuzz corpus and untracked platform output. Gitignored output needs no entry.
+`lean-ctx index why <file>` shows whether a file is indexed and which rule excludes it.
 
 ## Limits
 

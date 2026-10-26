@@ -1,15 +1,8 @@
 extra_ignore_patterns = [
-    "**/target/**",
-    "**/build/**",
-    "dist/**",
+    ".git/**",
+    "tests/fuzz/corpus/**",
     "**/.gradle/**",
     "**/.build/**",
     "**/DerivedData/**",
-    "**/__pycache__/**",
-    "**/*.pyc",
-    "**/*.egg-info/**",
-    "**/*.rs.bk",
-    ".beads/embeddeddolt/**",
-    ".beads/backup/**",
-    ".lean-ctx/**",
+    "**/dist/**",
 ]
