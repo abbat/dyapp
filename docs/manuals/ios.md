@@ -5,7 +5,9 @@ starts, renders and closes. Profiles, search and chats are planned.
 
 After opening an identity, **Network connection** opens a draft form for bootstrap nodes
 (one address per line) and an optional network name. **Save draft** keeps edits for this
-identity across restarts without changing the active connection. Connection checks are planned.
+identity across restarts without changing the active connection.
+**Check connection** saves the draft and shows an outcome beside each address; it does not
+activate the network yet. Cancellation and activation are planned.
 
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
 signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact

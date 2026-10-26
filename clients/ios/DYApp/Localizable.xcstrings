@@ -129,8 +129,8 @@
     },
     "network.draftPending": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Save this draft to keep it for later. Connection checks are coming soon." } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик, чтобы вернуться к нему позже. Проверка подключения появится позже." } }
+        "en": { "stringUnit": { "state": "translated", "value": "Save this draft to keep it for later, or check the connection now." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик, чтобы вернуться к нему позже, или проверьте подключение сейчас." } }
       }
     },
     "network.save": {
@@ -161,6 +161,84 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Could not save the draft. Your edits are still here; try again." } },
         "ru": { "stringUnit": { "state": "translated", "value": "Не удалось сохранить черновик. Изменения остались на экране; попробуйте снова." } }
+      }
+    },
+    "network.check": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Check connection" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверить подключение" } }
+      }
+    },
+    "network.checkReady": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Check the saved or edited addresses before continuing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверьте сохранённые или изменённые адреса перед продолжением." } }
+      }
+    },
+    "network.checking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Checking connection…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверка подключения…" } }
+      }
+    },
+    "network.checkFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Connection check failed. Edit the draft and try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверка подключения не удалась. Измените черновик и повторите попытку." } }
+      }
+    },
+    "network.connected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A compatible node answered. Activation is coming soon." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Совместимый узел ответил. Активация появится позже." } }
+      }
+    },
+    "network.unreachable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No compatible node answered. The active connection is unchanged." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ни один совместимый узел не ответил. Активное подключение не изменилось." } }
+      }
+    },
+    "network.row.connected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Connected" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подключено" } }
+      }
+    },
+    "network.row.invalidAddress": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Invalid address" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Неверный адрес" } }
+      }
+    },
+    "network.row.invalidPeerID": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Invalid peer ID" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Неверный ID узла" } }
+      }
+    },
+    "network.row.duplicate": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Duplicate address" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторяющийся адрес" } }
+      }
+    },
+    "network.row.unreachable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unreachable" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Недоступен" } }
+      }
+    },
+    "network.row.wrongPeer": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Wrong pinned peer" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не совпадает закреплённый узел" } }
+      }
+    },
+    "network.row.wrongNetwork": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Wrong network" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Другая сеть" } }
       }
     },
     "network.loading": {

@@ -88,6 +88,27 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testNetworkCheckShowsInvalidRow() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let save = app.buttons["network-save"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: save
+        ),
+        ], timeout: 10), .completed)
+        let rows = app.textViews["network-bootstrap"]
+        rows.tap()
+        rows.typeText("not-an-address")
+        app.buttons["network-check"].tap()
+        let result = app.descendants(matching: .any)["network-row-0"]
+        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        let displayed = [result.label, result.value as? String ?? ""].joined(separator: " ")
+        XCTAssertTrue(displayed.contains("Invalid address"), displayed)
+        app.terminate()
+    }
+
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]

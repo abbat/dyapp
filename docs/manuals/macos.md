@@ -6,7 +6,9 @@ planned.
 
 After opening an identity, **Network connection** opens a draft form for bootstrap nodes
 (one address per line) and an optional network name. **Save draft** keeps edits for this
-identity across restarts without changing the active connection. Connection checks are planned.
+identity across restarts without changing the active connection.
+**Check connection** saves the draft and shows an outcome beside each address; it does not
+activate the network yet. Cancellation and activation are planned.
 
 This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
 notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI

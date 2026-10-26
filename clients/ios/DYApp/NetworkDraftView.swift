@@ -17,9 +17,58 @@ struct NetworkDraftView: View {
     @State private var hasSaved = false
     @State private var savedRows = ""
     @State private var savedName = ""
+    @State private var isChecking = false
+    @State private var checkFailed = false
+    @State private var checkedRowsText = ""
+    @State private var checkedName = ""
+    @State private var rowOutcomes: [NetworkRowOutcome] = []
 
     private var hasUnsavedEdits: Bool {
         bootstrapRows != savedRows || networkName != savedName
+    }
+
+    private var showingCheck: Bool {
+        bootstrapRows == checkedRowsText && networkName == checkedName && !rowOutcomes.isEmpty
+    }
+
+    private var checkStatusKey: LocalizedStringKey {
+        if isChecking { return "network.checking" }
+        if checkFailed { return "network.checkFailed" }
+        if showingCheck {
+            let connected = rowOutcomes.contains { outcome in
+                if case .connected = outcome { return true }
+                return false
+            }
+            return connected ? "network.connected" : "network.unreachable"
+        }
+        return "network.checkReady"
+    }
+
+    private var rowStatusKey: (NetworkRowOutcome) -> LocalizedStringKey {
+        { outcome in
+            switch outcome {
+            case .connected:
+                return "network.row.connected"
+
+            case .invalidAddress:
+                return "network.row.invalidAddress"
+
+            case .invalidPeerID:
+                return "network.row.invalidPeerID"
+
+            case .duplicate:
+                return "network.row.duplicate"
+
+            case .unreachable:
+                return "network.row.unreachable"
+
+            case .wrongPeer:
+                return "network.row.wrongPeer"
+
+            case .wrongNetwork:
+                return "network.row.wrongNetwork"
+            }
+        }
     }
 
     private var statusKey: LocalizedStringKey {
@@ -37,7 +86,7 @@ struct NetworkDraftView: View {
             Section {
                 TextEditor(text: $bootstrapRows)
                     .frame(minHeight: 120)
-                    .disabled(isLoading || readFailed || isSaving)
+                    .disabled(isLoading || readFailed || isSaving || isChecking)
                     .accessibilityLabel(Text("network.bootstrap"))
                     .accessibilityIdentifier("network-bootstrap")
             } header: {
@@ -48,7 +97,7 @@ struct NetworkDraftView: View {
 
             Section {
                 TextField("network.name", text: $networkName)
-                    .disabled(isLoading || readFailed || isSaving)
+                    .disabled(isLoading || readFailed || isSaving || isChecking)
                     .accessibilityIdentifier("network-name")
             } footer: {
                 Text("network.nameHelp")
@@ -56,10 +105,30 @@ struct NetworkDraftView: View {
 
             Section {
                 Button("network.save") { Task { await save() } }
-                    .disabled(isLoading || readFailed || isSaving)
+                    .disabled(isLoading || readFailed || isSaving || isChecking)
                     .accessibilityIdentifier("network-save")
                 Text(statusKey)
                     .accessibilityIdentifier("network-draft-status")
+            }
+
+            Section {
+                Button("network.check") { Task { await check() } }
+                    .disabled(isLoading || readFailed || isSaving || isChecking)
+                    .accessibilityIdentifier("network-check")
+                Text(checkStatusKey).accessibilityIdentifier("network-check-status")
+                if showingCheck {
+                    ForEach(rowOutcomes.indices, id: \.self) { index in
+                        VStack(alignment: .leading) {
+                            Text(checkedRowsText.components(separatedBy: "\n")[index])
+                            Text(rowStatusKey(rowOutcomes[index]))
+                            if case let .connected(peerID) = rowOutcomes[index] {
+                                Text(peerID)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("network-row-\(index)")
+                    }
+                }
             }
         }
         .navigationTitle("network.title")
@@ -72,6 +141,8 @@ struct NetworkDraftView: View {
         readFailed = false
         saveFailed = false
         hasSaved = false
+        checkFailed = false
+        rowOutcomes = []
         bootstrapRows = ""
         networkName = ""
         savedRows = ""
@@ -103,7 +174,7 @@ struct NetworkDraftView: View {
 
     @MainActor
     private func save() async {
-        guard !isLoading && !readFailed && !isSaving else { return }
+        guard !isLoading && !readFailed && !isSaving && !isChecking else { return }
         isSaving = true
         saveFailed = false
         let selected = candidate
@@ -127,6 +198,33 @@ struct NetworkDraftView: View {
             savedRows = rowsText
             savedName = name
             hasSaved = true
+        }
+    }
+
+    @MainActor
+    private func check() async {
+        guard !isLoading && !readFailed && !isSaving && !isChecking else { return }
+        isChecking = true
+        checkFailed = false
+        rowOutcomes = []
+        let rowsText = bootstrapRows
+        let name = networkName
+        let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
+        let result = await NetworkConnectionSession.start(candidate: candidate, rows: rows, name: name)
+        guard !Task.isCancelled else { return }
+        checkedRowsText = rowsText
+        checkedName = name
+        isChecking = false
+        switch result {
+        case let .completed(_, outcomes):
+            rowOutcomes = outcomes
+            savedRows = rowsText
+            savedName = name
+            hasSaved = true
+            saveFailed = false
+
+        case .failed:
+            checkFailed = true
         }
     }
 }
