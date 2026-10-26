@@ -18,6 +18,43 @@ enum IdentitySlotError: Error {
     case nonRegularKey
     case reopenMismatch
     case lockFailed(Int32)
+    case filesystem(Int32)
+}
+
+/// A UUID slot or the existing root identity, which keeps its original file and Keychain item.
+enum IdentityLocation: Equatable {
+    case legacy
+    case slot(UUID)
+
+    var marker: String {
+        switch self {
+        case .legacy:
+            "legacy-primary"
+
+        case .slot(let id):
+            id.uuidString.lowercased()
+        }
+    }
+}
+
+struct IdentityCandidate: Equatable {
+    let location: IdentityLocation
+    let state: IdentitySlot.State
+}
+
+enum IdentityRecoveryReason: Equatable {
+    case missing, damaged, unavailable, invalidPointer, incomplete, deleting
+}
+
+enum IdentityResolution: Equatable {
+    case setup
+    case picker([IdentityCandidate])
+    case ready(IdentityCandidate, String)
+    case recovery(IdentityLocation?, IdentityRecoveryReason)
+}
+
+private enum ActivePointer {
+    case absent, invalid, selected(IdentityLocation)
 }
 
 /// Slot creation is serialized across scenes, windows and app processes by a root advisory lock.
@@ -25,11 +62,14 @@ enum IdentitySlotError: Error {
 final class IdentitySlotStore {
     private let root: URL
     private let files = FileManager.default
+    private let legacyStore: PlatformKeyStore
     private let newID: () -> UUID
     private var profiles: URL { root.appendingPathComponent("profiles", isDirectory: true) }
 
-    init(root: URL, newID: @escaping () -> UUID = { UUID() }) {
+    init(root: URL, legacyStore: PlatformKeyStore = .shared,
+         newID: @escaping () -> UUID = { UUID() }) {
         self.root = root
+        self.legacyStore = legacyStore
         self.newID = newID
     }
 
@@ -83,6 +123,141 @@ final class IdentitySlotStore {
     }
 
     func slots() throws -> [IdentitySlot] { try withLock { try slotsWithoutLock() } }
+
+    private func existsWithoutFollowing(_ url: URL) throws -> Bool {
+        var metadata = stat()
+        if url.path.withCString({ Darwin.lstat($0, &metadata) }) == 0 { return true }
+        if errno == ENOENT { return false }
+        throw IdentitySlotError.filesystem(errno)
+    }
+
+    private func candidatesWithoutLock() throws -> [IdentityCandidate] {
+        var candidates = try slotsWithoutLock().map {
+            IdentityCandidate(location: .slot($0.id), state: $0.state)
+        }
+        let legacy = root.appendingPathComponent("identity.key")
+        if try existsWithoutFollowing(legacy) {
+            let state: IdentitySlot.State = (try? isRegularFile(legacy)) == true ? .ready : .damaged
+            candidates.insert(IdentityCandidate(location: .legacy, state: state), at: 0)
+        }
+        return candidates
+    }
+
+    func candidates() throws -> [IdentityCandidate] {
+        try withLock { try candidatesWithoutLock() }
+    }
+
+    private func activePointerWithoutLock() throws -> ActivePointer {
+        let file = root.appendingPathComponent("active-profile")
+        guard try existsWithoutFollowing(file) else { return .absent }
+        guard (try? isRegularFile(file)) == true,
+              let data = try? Data(contentsOf: file), data.count <= 64,
+              let text = String(data: data, encoding: .utf8), text.hasSuffix("\n") else {
+            return .invalid
+        }
+        let value = String(text.dropLast())
+        if value == "legacy-primary" { return .selected(.legacy) }
+        guard let id = UUID(uuidString: value), value == id.uuidString.lowercased() else {
+            return .invalid
+        }
+        return .selected(.slot(id))
+    }
+
+    private func openKeyWithoutLock(_ candidate: IdentityCandidate) throws -> IdentityKey {
+        guard candidate.state == .ready else { throw IdentitySlotError.notReady }
+        switch candidate.location {
+        case .legacy:
+            let file = root.appendingPathComponent("identity.key")
+            guard try existsWithoutFollowing(file) else { throw IdentitySlotError.missingKey }
+            guard try isRegularFile(file) else { throw IdentitySlotError.nonRegularKey }
+            return try IdentityKey.unwrap(
+                store: legacyStore, wrapped: Data(contentsOf: file)
+            )
+
+        case .slot(let id):
+            return try openWithoutLock(IdentitySlot(id: id, state: candidate.state))
+        }
+    }
+
+    func open(_ location: IdentityLocation) throws -> IdentityKey {
+        try withLock {
+            guard let candidate = try candidatesWithoutLock().first(where: { $0.location == location }) else {
+                throw IdentitySlotError.missingKey
+            }
+            return try openKeyWithoutLock(candidate)
+        }
+    }
+
+    private func opened(_ candidate: IdentityCandidate) -> IdentityResolution {
+        switch candidate.state {
+        case .pending:
+            return .recovery(candidate.location, .incomplete)
+
+        case .deleting:
+            return .recovery(candidate.location, .deleting)
+
+        case .damaged:
+            return .recovery(candidate.location, .damaged)
+
+        case .ready:
+            do {
+                return .ready(candidate, try openKeyWithoutLock(candidate).peerId())
+            } catch IdentitySlotError.missingKey {
+                return .recovery(candidate.location, .missing)
+            } catch {
+                return .recovery(candidate.location, .unavailable)
+            }
+        }
+    }
+
+    private func fallback(_ candidates: [IdentityCandidate],
+                          missing: IdentityLocation? = nil) -> IdentityResolution {
+        if candidates.count == 1 { return opened(candidates[0]) }
+        if candidates.isEmpty { return .recovery(missing, .missing) }
+        return .picker(candidates)
+    }
+
+    /// Resolve an existing identity without writing a pointer or generating a replacement key.
+    func resolve() throws -> IdentityResolution {
+        try withLock {
+            let candidates = try candidatesWithoutLock()
+            switch try activePointerWithoutLock() {
+            case .selected(let location):
+                if let candidate = candidates.first(where: { $0.location == location }) {
+                    return opened(candidate)
+                }
+                if location == .legacy { return .recovery(.legacy, .missing) }
+                return fallback(candidates, missing: location)
+
+            case .invalid:
+                if candidates.isEmpty { return .recovery(nil, .invalidPointer) }
+                return fallback(candidates)
+
+            case .absent:
+                if candidates.isEmpty {
+                    if try legacyStore.containsWrappingKey() {
+                        return .recovery(.legacy, .missing)
+                    }
+                    return .setup
+                }
+                return fallback(candidates)
+            }
+        }
+    }
+
+    /// Select only a ready identity whose key opens; never create one during selection.
+    @discardableResult
+    func select(_ location: IdentityLocation) throws -> String {
+        try withLock {
+            guard let candidate = try candidatesWithoutLock().first(where: { $0.location == location }),
+                  case .ready(_, let peerId) = opened(candidate) else {
+                throw IdentitySlotError.notReady
+            }
+            let file = root.appendingPathComponent("active-profile")
+            try Data("\(location.marker)\n".utf8).write(to: file, options: .atomic)
+            return peerId
+        }
+    }
 
     private func openWithoutLock(_ slot: IdentitySlot) throws -> IdentityKey {
         guard slot.state == .ready else { throw IdentitySlotError.notReady }

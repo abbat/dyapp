@@ -10,7 +10,13 @@ The shared `IdentitySlotStore` now enumerates UUID slot directories, creates a
 atomically writes its wrapped key, verifies the reopened Peer ID, and marks it
 `ready`. Its advisory lock serializes cooperating app processes. A malformed
 marker is `damaged`; opening an incomplete or damaged slot never creates a key.
-The app runtime does not select these slots yet, and there is no identity picker.
+The store also exposes the root identity as `legacy-primary`, reads and atomically
+writes `active-profile`, and resolves ready, picker, recovery or first-creation
+states without generating a replacement key. An absent root file with its
+legacy Keychain item still present is recovery, as is a pointer to that missing
+root key. A malformed pointer falls back to the sole slot or the picker without
+rewriting the pointer. The app runtime does not use this resolution yet, and
+there is no identity picker screen.
 The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The profile draft is already named by Peer ID,
 so drafts for two identities would not collide.

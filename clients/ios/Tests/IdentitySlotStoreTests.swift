@@ -62,6 +62,87 @@ final class IdentitySlotStoreTests: XCTestCase {
         XCTAssertEqual(try keyStore.unwrap(wrapped: original), secret)
     }
 
+    func testLegacyRootIdentityReopensWithItsOriginalPeerID() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let original = IdentityKey.generate()
+        try original.wrap(store: legacyStore).write(
+            to: path.appendingPathComponent("identity.key"), options: .atomic
+        )
+        let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        let ready = IdentityCandidate(location: .legacy, state: .ready)
+        XCTAssertEqual(try slots.resolve(), .ready(ready, original.peerId()))
+        XCTAssertEqual(try slots.select(.legacy), original.peerId())
+        let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        XCTAssertEqual(try reopened.resolve(), .ready(ready, original.peerId()))
+        XCTAssertEqual(try reopened.open(.legacy).peerId(), original.peerId())
+    }
+
+    func testTwoSlotsCanBeSelectedAndReopened() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        let first = try slots.create()
+        let second = try slots.create()
+        guard case .picker(let choices) = try slots.resolve() else {
+            return XCTFail("two unselected slots should show a picker")
+        }
+        XCTAssertEqual(choices.count, 2)
+        XCTAssertEqual(try slots.select(.slot(first.slot.id)), first.peerId)
+        XCTAssertEqual(
+            try slots.resolve(),
+            .ready(IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId)
+        )
+        XCTAssertEqual(try slots.select(.slot(second.slot.id)), second.peerId)
+        let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        XCTAssertEqual(
+            try reopened.resolve(),
+            .ready(IdentityCandidate(location: .slot(second.slot.id), state: .ready), second.peerId)
+        )
+    }
+
+    func testInvalidPointerFallsBackWithoutChangingAKey() throws {
+        let path = try root()
+        let slots = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let first = try slots.create()
+        let pointer = path.appendingPathComponent("active-profile")
+        try Data("../escape\n".utf8).write(to: pointer)
+        XCTAssertEqual(
+            try slots.resolve(),
+            .ready(IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId)
+        )
+        XCTAssertEqual(try Data(contentsOf: pointer), Data("../escape\n".utf8))
+        let second = try slots.create()
+        guard case .picker(let choices) = try slots.resolve() else {
+            return XCTFail("invalid pointer with two slots should show a picker")
+        }
+        XCTAssertEqual(choices.count, 2)
+        XCTAssertEqual(try slots.open(.slot(second.slot.id)).peerId(), second.peerId)
+    }
+
+    func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        XCTAssertEqual(try slots.resolve(), .setup)
+
+        let key = IdentityKey.generate()
+        _ = try key.wrap(store: legacyStore)
+        XCTAssertEqual(try slots.resolve(), .recovery(.legacy, .missing))
+        let pointer = path.appendingPathComponent("active-profile")
+        try Data("legacy-primary\n".utf8).write(to: pointer)
+        XCTAssertEqual(try slots.resolve(), .recovery(.legacy, .missing))
+
+        let id = UUID()
+        let folder = path.appendingPathComponent("profiles")
+            .appendingPathComponent(id.uuidString.lowercased())
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("pending\n".utf8).write(to: folder.appendingPathComponent("state"))
+        try Data("\(id.uuidString.lowercased())\n".utf8).write(to: pointer)
+        XCTAssertEqual(try slots.resolve(), .recovery(.slot(id), .incomplete))
+        XCTAssertFalse(try PlatformKeyStore.forSlot(id).containsWrappingKey())
+    }
+
     func testDirectoryCollisionIsNeverOverwritten() throws {
         let path = try root()
         let collision = UUID()
