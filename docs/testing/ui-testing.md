@@ -138,8 +138,17 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it
     also captures `failure.png` and `window.txt`; `logcat.txt` is always captured.
-  - The emulator container is started as a dependency; stop it afterwards with
-    `docker compose -f tests/docker/compose.ui.yml --profile all down` (after exporting reports).
+  - The emulator container is started as a dependency; `docker-local.py` runs
+    `docker compose stop` when the test run ends, so it is stopped but not removed.
+  - Manual launcher check (e.g. the app icon): start the emulator alone with
+    `DYAPP_KVM_GID=$(stat -c %g /dev/kvm) docker compose -p dyapp -f tests/docker/compose.ui.yml -f tests/docker/compose.kvm.yml --profile all up -d --wait android-emulator`.
+    Copy `/app/build/android/app/outputs/apk/debug/app-debug.apk` out of `dyapp:android-test`
+    (`docker create` + `docker cp`); the emulator container's root is read-only, so stream the
+    APK in with `adb -s emulator-5554 exec-in 'cat > /data/local/tmp/app.apk' < app-debug.apk`
+    (via `docker exec -i`) and `adb shell pm install`. On the 320x640 screen,
+    `input keyevent KEYCODE_HOME` then `input swipe 160 480 160 60 500` opens the app drawer;
+    `adb exec-out screencap -p > drawer.png` saves it. The system image has no icon-shape
+    overlays, so only the default rounded-square mask can be seen.
 
 ### Linux
 
