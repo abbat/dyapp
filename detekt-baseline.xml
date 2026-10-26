@@ -35,17 +35,11 @@
     <ID>TooGenericExceptionCaught:RustBridge.kt$RustBridge$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Slots.kt$Slots$e: Exception</ID>
     <ID>TooManyFunctions:Slots.kt$Slots</ID>
-    <ID>UndocumentedPublicClass:AppLockLifecycle.kt$AppLockLifecycle$Companion</ID>
     <ID>UndocumentedPublicClass:AppLockStore.kt$AppLockStore$Companion</ID>
     <ID>UndocumentedPublicClass:AppLockStore.kt$PinAttempt</ID>
     <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun hash(pin: String): ByteArray</ID>
     <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun verify(pin: String, record: ByteArray): Boolean</ID>
-    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isLocked: Boolean get() { refresh(); return locked }</ID>
-    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isPinEnabled: Boolean get() = enabled</ID>
-    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val snapshotObscured: Boolean get() = backgroundAt != null</ID>
-    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle.Companion$const val BACKGROUND_GRACE_MS = 60_000L</ID>
-    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle.Companion$const val FOREGROUND_IDLE_MS = 5 * 60_000L</ID>
     <ID>UndocumentedPublicProperty:AppLockStore.kt$AppLockStore.Companion$const val ALIAS = "dyapp-app-lock"</ID>
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$DEVICE_CREDENTIAL_REQUIRED</ID>
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$UNLOCKED</ID>
