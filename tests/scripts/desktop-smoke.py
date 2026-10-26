@@ -173,6 +173,19 @@ def smoke(executable, flows=True):
                 profile) != peer_id:
             raise RuntimeError("the network step replaced the identity")
 
+    def profile_draft(profile):
+        """A nonempty public draft and its preview survive an app restart."""
+        file = ["--ui-test-file"]
+        peer_id = case("profile-create", file, profile)
+        saved = case("profile-save", [*file, "--ui-test-step=profile-save"],
+                     profile)
+        if saved != peer_id:
+            raise RuntimeError("saving a profile replaced the identity")
+        reopened = case("profile-restart",
+                        [*file, "--ui-test-step=profile-restart"], profile)
+        if reopened != peer_id:
+            raise RuntimeError("reopening a profile replaced the identity")
+
     def connect(profile):
         """A loopback dyappd connects the form; Continue activates it."""
         node, storage = Path(executable).with_name("dyappd"), Path(profile)
@@ -224,6 +237,8 @@ def smoke(executable, flows=True):
     if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             network(profile)
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            profile_draft(profile)
     # dyappd runs on Linux only; linux-test.sh builds it beside the app.
     if flows and sys.platform.startswith("linux"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:

@@ -93,6 +93,48 @@ const checkEmptyProfilePreview = async () => {
     throw new Error('publish attestation was preselected');
   }
 };
+const waitForProfileSaved = () => new Promise((resolve, reject) => {
+  const status = document.getElementById('profile-status');
+  const observer = new MutationObserver(() => {
+    if (status.textContent === window.strings['profile.saved']) {
+      observer.disconnect(); clearTimeout(timeout); resolve();
+    }
+  });
+  observer.observe(status, { childList: true });
+  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`draft save: ${status.textContent}`)); }, 10000);
+});
+const saveProfileForRestart = async () => {
+  document.getElementById('profile-gender').value = '1';
+  document.getElementById('birth-year').value = '1990';
+  document.getElementById('birth-month').value = '2';
+  const saved = waitForProfileSaved();
+  document.getElementById('profile-save').click();
+  await saved;
+};
+const checkSavedProfile = async () => {
+  if (document.getElementById('profile-gender').value !== '1'
+    || document.getElementById('birth-year').value !== '1990'
+    || document.getElementById('birth-month').value !== '2'
+    || document.getElementById('birth-day').value !== '') {
+    throw new Error('profile draft changed after restart');
+  }
+  document.getElementById('profile-preview-action').click();
+  await waitFor('profile-preview');
+  const fields = [...document.querySelectorAll('#profile-public-fields li')]
+    .map((item) => item.textContent);
+  if (fields.join('|') !== [
+    `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
+    `${window.strings['profile.birthYear']}: 1990`,
+    `${window.strings['profile.birthMonth']}: 2`,
+  ].join('|')) throw new Error(`profile preview changed: ${fields}`);
+  if (!document.getElementById('profile-age').textContent
+    .startsWith(`${window.strings['profile.age']}: `)) {
+    throw new Error('known age hidden after restart');
+  }
+  if (document.getElementById('profile-attested').checked) {
+    throw new Error('publish attestation survived restart');
+  }
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -126,6 +168,12 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
       if (document.getElementById('network-status').textContent
         !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
+    } else if (step === 'profile-save') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await saveProfileForRestart();
+    } else if (step === 'profile-restart') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkSavedProfile();
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

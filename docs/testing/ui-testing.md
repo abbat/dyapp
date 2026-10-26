@@ -26,14 +26,15 @@ The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. On first identity creation, desktop smoke
 also checks that a profile with no selected fields previews an unknown age, no full-date warning,
-and an unchecked 18+ confirmation. The profile page now has puzzle cancellation and publication
-states; their native UI smoke coverage is the next checkpoint.
+and an unchecked 18+ confirmation. A separate save/restart pair checks a nonempty draft and its
+public preview. The profile page now has puzzle cancellation and publication states; their
+loopback node smoke coverage is the next checkpoint.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 21 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (19) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 24 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (22) | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 1 XCTest | 5 XCUITest | `check-apple-results.py` (≥3) |
 
@@ -46,13 +47,14 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs 16 app
+(`android instrumentation` when a failed run lists none). The desktop smoke runs 19 app
 instances: system create/restart, then in that profile add a file identity, restart past a
 pending slot left by a simulated crash, pick from the picker after `active-profile` is
 corrupted, reopen it and remove it through the remove screen; add another file identity, show
 recovery after its key is deleted and remove it from recovery (each removal must delete only
 its slot folder and reopen the system identity); file create/restart, then
-reopen the same key moved to the pre-slot root layout; then Russian, pseudo-locale and an
+reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair;
+then Russian, pseudo-locale and an
 injected hidden-ready rejection. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print
 `UI_SMOKE_PASS:<peer-id>` (empty for the recovery case) and exit 0; failures print
