@@ -53,8 +53,11 @@ internal fun Activity.obscureSnapshot(hidden: Boolean) {
  * The UI calls [refresh] at each event and schedules the next [millisUntilLock] deadline.
  */
 class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
+    /** Lock deadlines shared by the activity and its UI timer. */
     companion object {
+        /** Time a backgrounded app may remain unlocked. */
         const val BACKGROUND_GRACE_MS = 60_000L
+        /** Maximum unlocked foreground idle time. */
         const val FOREGROUND_IDLE_MS = 5 * 60_000L
     }
 
@@ -63,8 +66,11 @@ class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
     private var backgroundAt: Long? = null
     private var lastInteractionAt = now()
 
+    /** Whether a PIN protects the current app session. */
     val isPinEnabled: Boolean get() = enabled
+    /** Current lock state after applying any elapsed deadline. */
     val isLocked: Boolean get() { refresh(); return locked }
+    /** Whether the app-switcher snapshot must hide private content. */
     val snapshotObscured: Boolean get() = backgroundAt != null
 
     /** Call as soon as the activity backgrounds; the snapshot must be covered before the grace ends. */
