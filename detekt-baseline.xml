@@ -51,10 +51,5 @@
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$UNLOCKED</ID>
     <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$WRONG</ID>
     <ID>UndocumentedPublicProperty:RustBridge.kt$Shown$val entries: List&lt;Opened&gt; = emptyList()</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val dir: File</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val id: String</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val keyFile get() = File(dir, "identity.key")</ID>
-    <ID>UndocumentedPublicProperty:Slots.kt$Slot$var state: SlotState</ID>
   </CurrentIssues>
 </SmellBaseline>

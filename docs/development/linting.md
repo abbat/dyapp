@@ -107,7 +107,7 @@ config sets:
 The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
 `java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --baseline detekt-baseline.xml
 --input clients/android --excludes '**/build/**' --build-upon-default-config`.
-`detekt-baseline.xml` records 54 remaining findings; new findings fail the check.
+`detekt-baseline.xml` records 49 remaining findings; new findings fail the check.
 `--build-upon-default-config` keeps every default setting `detekt.yml` does not override.
 The Gradle build applies no detekt plugin, so `./gradlew detekt` does not exist.
 The config sets `CyclomaticComplexMethod` threshold 10,
