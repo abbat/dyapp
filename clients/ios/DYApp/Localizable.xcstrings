@@ -448,6 +448,70 @@
           }
         }
       }
+    },
+    "lock.use.biometric": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use device biometrics"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать биометрию устройства"
+          }
+        }
+      }
+    },
+    "lock.biometric.none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a fingerprint or face in the device settings to unlock the app with biometrics."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте отпечаток или лицо в настройках устройства, чтобы разблокировать приложение биометрией."
+          }
+        }
+      }
+    },
+    "lock.mode.biometric": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App lock: device biometrics"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокировка приложения: биометрия"
+          }
+        }
+      }
+    },
+    "lock.turn.off.biometric": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn off biometrics"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить биометрию"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

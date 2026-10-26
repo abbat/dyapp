@@ -88,6 +88,9 @@ final class LockModel: ObservableObject {
     /// What the gate shows.
     enum Screen { case setup, unlock, open, failed }
 
+    /// Whether device biometrics can be offered in place of the PIN.
+    enum Biometrics { case ready, notEnrolled, absent }
+
     /// Shortest accepted PIN; the Rust verifier enforces 6 to 64 digits.
     static let minPin = 6
 
@@ -95,8 +98,11 @@ final class LockModel: ObservableObject {
     /// Simulators have no passcode: UI tests pass `--device-passcode` to stand in for one that
     /// always checks out.
     private static let fakePasscode = ProcessInfo.processInfo.arguments.contains("--device-passcode")
+    /// `--device-biometrics` adds enrolled biometrics to the fake passcode.
+    private static let fakeBiometrics = ProcessInfo.processInfo.arguments.contains("--device-biometrics")
     #else
     private static let fakePasscode = false
+    private static let fakeBiometrics = false
     #endif
 
     @Published private(set) var screen = Screen.failed
@@ -110,6 +116,7 @@ final class LockModel: ObservableObject {
     @Published private(set) var deviceSecure = false
     /// A passed device-passcode check opened the settings: the PIN is replaced or cleared without it.
     @Published private(set) var recovered = false
+    @Published private(set) var biometrics = Biometrics.absent
     private let store: AppLockStore?
     /// The unlocked session; nil until a PIN entry unlocks the app.
     private var session: AppLockTimer?
@@ -117,6 +124,9 @@ final class LockModel: ObservableObject {
 
     /// Whether a lock is set, so the app is covered whenever it is not active.
     var guarded: Bool { mode == .pin || mode == .biometric }
+
+    /// Whether a settings change skips the current PIN: a fresh OS check opened the settings.
+    var authorized: Bool { recovered || mode == .biometric }
 
     init() {
         store = try? AppLockStore.onDevice(directory: RustBridge.directory())
@@ -152,10 +162,17 @@ final class LockModel: ObservableObject {
         return pin == repeated ? nil : "lock.pin.mismatch"
     }
 
-    private static func passcodeCheck() async -> Bool {
+    private static func deviceOwnerCheck() async -> Bool {
         if Self.fakePasscode { return true }
         let reason = String(localized: "lock.passcode.reason")
         return (try? await LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+    }
+
+    private static func biometricState() -> Biometrics {
+        if Self.fakeBiometrics { return .ready }
+        var error: NSError?
+        if LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) { return .ready }
+        return error?.code == LAError.biometryNotEnrolled.rawValue ? .notEnrolled : .absent
     }
 
     /// First-launch Skip: the start screen opens and no PIN is set.
@@ -197,28 +214,37 @@ final class LockModel: ObservableObject {
         }
     }
 
-    /// The OS passcode check from the unlock screen: it unlocks the app and opens the settings, so a
-    /// forgotten PIN can be replaced. The identity Keychain items are never touched.
-    func recover() {
-        guard deviceSecure, !busy else { return }
-        busy = true
-        notice = nil
-        Task {
-            let passed = await Self.passcodeCheck()
-            busy = false
-            guard passed else { return }
-            session = AppLockTimer(now: AppLockTimer.uptime())
-            watchExpiry()
-            recovered = true
-            settingsOpen = true
-            refresh()
+    /// Device biometrics in place of the PIN, on first launch, while the lock is off, or after a
+    /// device-passcode check.
+    func useBiometric() {
+        recovered = false
+        run { store in
+            try store.useBiometric()
+            return (true, nil)
         }
     }
 
+    /// The OS check from the unlock screen: biometrics or the device passcode. It unlocks the app;
+    /// with a PIN it also opens the settings, so a forgotten PIN can be replaced. The identity
+    /// Keychain items are never touched; a cancelled check leaves the app locked.
+    func deviceUnlock() {
+        deviceCheck {
+            if self.mode == .pin {
+                self.recovered = true
+                self.settingsOpen = true
+            }
+        }
+    }
+
+    /// Biometric settings changes need a fresh OS check, as a PIN change asks for the current PIN.
     func openSettings(_ open: Bool) {
         notice = nil
         recovered = false
-        settingsOpen = open
+        if open && mode == .biometric {
+            deviceCheck { self.settingsOpen = true }
+        } else {
+            settingsOpen = open
+        }
     }
 
     /// The background grace starts on `background`; every phase change applies an expired deadline,
@@ -227,6 +253,7 @@ final class LockModel: ObservableObject {
         if phase == .active {
             // The user may have just set a passcode in Settings.
             deviceSecure = Self.fakePasscode || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+            biometrics = Self.biometricState()
             watchTouches()
             session?.foreground(at: AppLockTimer.uptime())
         } else if phase == .background {
@@ -278,12 +305,25 @@ final class LockModel: ObservableObject {
         case .off:
             screen = .open
 
-        case .pin:
+        case .pin, .biometric:
             screen = session == nil ? .unlock : .open
+        }
+    }
 
-        case .biometric:
-            // Biometric unlock is planned; until then the app stays locked.
-            screen = .failed
+    private func deviceCheck(_ then: @escaping @MainActor () -> Void) {
+        guard deviceSecure, !busy else { return }
+        busy = true
+        notice = nil
+        Task {
+            let passed = await Self.deviceOwnerCheck()
+            busy = false
+            guard passed else { return }
+            if session == nil {
+                session = AppLockTimer(now: AppLockTimer.uptime())
+                watchExpiry()
+            }
+            then()
+            refresh()
         }
     }
 
@@ -325,152 +365,5 @@ private final class TouchWatcher: UIGestureRecognizer {
         super.touchesBegan(touches, with: event)
         onTouch()
         state = .failed
-    }
-}
-
-/// A digits-only PIN entry of at most 64 digits.
-private struct PinField: View {
-    let title: LocalizedStringKey
-    let tag: String
-    @Binding var pin: String
-
-    var body: some View {
-        SecureField(title, text: $pin)
-            .keyboardType(.numberPad)
-            .textFieldStyle(.roundedBorder)
-            .accessibilityIdentifier(tag)
-            .onChange(of: pin) { value in
-                let digits = String(value.filter { $0.isASCII && $0.isNumber }.prefix(64))
-                if digits != value { pin = digits }
-            }
-    }
-}
-
-/// The message under the PIN fields, if any.
-private struct Notice: View {
-    let key: String?
-
-    var body: some View {
-        if let key {
-            Text(LocalizedStringKey(key)).foregroundColor(.red).accessibilityIdentifier("lock-notice")
-        }
-    }
-}
-
-/// First launch: Skip or Set PIN.
-private struct SetupView: View {
-    @ObservedObject var lock: LockModel
-    @State private var pin = ""
-    @State private var repeated = ""
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("lock.setup.title").font(.title)
-            Text("lock.setup.body")
-            PinField(title: "lock.pin", tag: "lock-pin", pin: $pin)
-            PinField(title: "lock.pin.repeat", tag: "lock-pin-repeat", pin: $repeated)
-            Notice(key: lock.notice)
-            NoPasscode(deviceSecure: lock.deviceSecure)
-            Button("lock.set") { lock.enroll(pin, repeated: repeated) }
-                .accessibilityIdentifier("lock-set")
-                .disabled(!lock.deviceSecure)
-            Button("lock.skip") { lock.skip() }
-                .accessibilityIdentifier("lock-skip")
-        }
-        .disabled(lock.busy)
-        .padding()
-    }
-}
-
-/// Why Set PIN is disabled, if it is.
-private struct NoPasscode: View {
-    let deviceSecure: Bool
-
-    var body: some View {
-        if !deviceSecure {
-            Text("lock.no.passcode").accessibilityIdentifier("lock-no-passcode")
-        }
-    }
-}
-
-/// App-lock settings in place of the start screen: Set PIN while none is set; with a PIN, Change
-/// and Turn off both need the current PIN, unless a device-passcode check opened the screen.
-/// Every submit clears the typed PINs.
-private struct SettingsView: View {
-    @ObservedObject var lock: LockModel
-    @State private var current = ""
-    @State private var pin = ""
-    @State private var repeated = ""
-
-    var body: some View {
-        let pinSet = lock.mode == .pin
-        let askCurrent = pinSet && !lock.recovered
-        let verified = !askCurrent || current.count >= LockModel.minPin
-        VStack(spacing: 16) {
-            Text(LocalizedStringKey(pinSet ? "lock.mode.pin" : "lock.mode.off")).accessibilityIdentifier("lock-mode")
-            if lock.recovered {
-                Text("lock.reset").accessibilityIdentifier("lock-reset")
-            }
-            if askCurrent {
-                PinField(title: "lock.pin.current", tag: "lock-pin-current", pin: $current)
-            }
-            PinField(title: "lock.pin.new", tag: "lock-pin", pin: $pin)
-            PinField(title: "lock.pin.repeat", tag: "lock-pin-repeat", pin: $repeated)
-            Notice(key: lock.notice)
-            NoPasscode(deviceSecure: lock.deviceSecure)
-            Button(LocalizedStringKey(pinSet ? "lock.change" : "lock.set")) { submit(pin) }
-                .accessibilityIdentifier("lock-set")
-                .disabled(!verified || !lock.deviceSecure)
-            if pinSet {
-                Button("lock.turn.off") { submit(nil) }
-                    .accessibilityIdentifier("lock-off")
-                    .disabled(!verified)
-            }
-            Button("lock.back") { lock.openSettings(false) }
-                .accessibilityIdentifier("lock-back")
-        }
-        .disabled(lock.busy)
-        .padding()
-    }
-
-    private func submit(_ newPin: String?) {
-        if lock.recovered {
-            lock.reset(newPin, repeated: repeated)
-        } else if lock.mode == .pin {
-            lock.change(current: current, newPin: newPin, repeated: repeated)
-        } else {
-            lock.enroll(pin, repeated: repeated)
-        }
-        current = ""
-        pin = ""
-        repeated = ""
-    }
-}
-
-/// The only screen of a PIN-locked app. The device-passcode check also recovers a forgotten PIN.
-private struct UnlockView: View {
-    @ObservedObject var lock: LockModel
-    @State private var pin = ""
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("app.locked").font(.title).accessibilityIdentifier("app-locked")
-            PinField(title: "lock.pin", tag: "lock-pin", pin: $pin)
-            Notice(key: lock.notice)
-            Button("lock.unlock") {
-                lock.unlock(pin)
-                pin = ""
-            }
-            .accessibilityIdentifier("lock-unlock")
-            .disabled(pin.count < LockModel.minPin)
-            Button("lock.use.passcode") { lock.recover() }
-                .accessibilityIdentifier("lock-passcode")
-                .disabled(!lock.deviceSecure)
-            if !lock.deviceSecure {
-                Text("lock.recovery.unavailable").accessibilityIdentifier("lock-recovery-unavailable")
-            }
-        }
-        .disabled(lock.busy)
-        .padding()
     }
 }

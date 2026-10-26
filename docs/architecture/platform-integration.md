@@ -39,8 +39,11 @@ settings screen replaces the start screen; a change or turn-off verifies the cur
 counted attempt. Set PIN needs a device passcode (`LAContext` `deviceOwnerAuthentication`); the
 unlock screen's passcode check unlocks the app and opens the settings, where
 `resetAfterDeviceCredential` replaces or clears a forgotten PIN without the identity items.
-Debug builds accept `--app-lock-new` and `--app-lock-off` so UI tests start from a known lock
-state, and `--device-passcode` in place of the passcode simulators lack. See
+When biometrics are enrolled, setup and the unlocked settings offer them in place of the PIN;
+then the same OS check is the only unlock and guards the settings. Debug builds accept
+`--app-lock-new` and `--app-lock-off` so UI tests start from a known lock state, and
+`--device-passcode` and `--device-biometrics` in place of the passcode and biometrics simulators
+lack. See
 [FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 
 ### Integration (target sketch)

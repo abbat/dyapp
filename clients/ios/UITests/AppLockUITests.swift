@@ -134,8 +134,8 @@ final class AppLockUITests: XCTestCase {
         app.terminate()
         app.launchArguments = ["--device-passcode"]
         app.launch()
-        XCTAssertTrue(app.buttons["lock-passcode"].waitForExistence(timeout: 10))
-        app.buttons["lock-passcode"].tap()
+        XCTAssertTrue(app.buttons["lock-device-unlock"].waitForExistence(timeout: 10))
+        app.buttons["lock-device-unlock"].tap()
         XCTAssertTrue(app.staticTexts["lock-reset"].waitForExistence(timeout: 10))
         enter(app, "lock-pin", "654321")
         enter(app, "lock-pin-repeat", "654321")
@@ -152,6 +152,31 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", "654321")
         app.buttons["lock-unlock"].tap()
         XCTAssertTrue(label(app.staticTexts["peer-id"], peer))
+        app.terminate()
+    }
+
+    /// Biometrics replace the PIN: the OS check is the only way in, and turning them off needs a
+    /// fresh one.
+    func testBiometricsLockEveryStart() {
+        let app = launch(["--app-lock-new", "--device-biometrics"])
+        app.buttons["lock-biometric"].tap()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
+        app.terminate()
+        app.launchArguments = ["--device-passcode", "--device-biometrics"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["app-locked"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.secureTextFields["lock-pin"].exists)
+        app.buttons["lock-device-unlock"].tap()
+        XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 10))
+        app.buttons["lock-settings"].tap()
+        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: device biometrics"))
+        XCTAssertFalse(app.secureTextFields["lock-pin-current"].exists)
+        app.buttons["lock-off"].tap()
+        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
     }
 
