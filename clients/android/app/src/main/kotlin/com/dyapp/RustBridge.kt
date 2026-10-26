@@ -2,6 +2,7 @@ package com.dyapp
 
 import android.content.Context
 import android.util.Log
+import uniffi.dyapp.ConnectionCheck
 import uniffi.dyapp.NetworkFile
 import uniffi.dyapp.NetworkSettings
 import uniffi.dyapp.loadNetwork as ffiLoadNetwork
@@ -30,6 +31,9 @@ object RustBridge {
     /** Persist draft edits beside this ready identity's key off the UI thread. */
     fun saveNetworkDraft(opened: Opened.Ready, draft: NetworkSettings) =
         ffiSaveNetworkDraft(opened.slot.dir.absolutePath, draft)
+
+    /** Create a checker for this ready slot; run and activate off the UI thread. */
+    fun connectionCheck(opened: Opened.Ready) = ConnectionCheck(opened.slot.dir.absolutePath)
 
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
