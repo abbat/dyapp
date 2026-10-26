@@ -18,7 +18,8 @@ replacing the identity. A ready identity without active network settings opens t
 automatically on launch; Back returns to the ready screen for this session. An identity with active
 settings returns to the ready screen. `RustBridge.connectionCheck` constructs a UniFFI checker
 for the selected slot; its run and activate calls must run off the UI thread, and cancel can stop
-a running check. The UI for row results and activation is planned.
+a running check. The network form now runs a bounded check off the UI thread and shows an ordered
+result for each seed row plus a summary. Cancel/retry controls and activation are planned.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
 and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
 remain available on the ready screen and picker while their Settings controls are being built.
