@@ -25,7 +25,11 @@ system-mode cases check that no file path is shown. The Android UI test also rec
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
-isolated slot root, and check that the values reappear. A DEBUG-only launch argument seeds an
+isolated slot root, and check that the values reappear in the automatic form while Ready remains
+hidden. After a successful local-node Check and Continue, both clients relaunch with the same
+Peer ID on Ready; the form is then available through Network connection. Shared unit tests reopen
+two UUID slot folders and check that each retains its own draft and active settings. A DEBUG-only
+launch argument seeds an
 invalid draft after explicit identity creation so the tests can check the visible read error and
 disabled Save action; release builds ignore this argument.
 They also check that a malformed bootstrap address receives an ordered row outcome after Check

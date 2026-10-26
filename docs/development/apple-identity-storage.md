@@ -32,8 +32,10 @@ file displays an error without rewriting the file or key. Save draft writes thro
 the UI thread and does not activate the connection; a failed write keeps edits on screen. The profile draft
 is already named by Peer ID, so drafts for two identities would not collide.
 Shared native unit tests exercise distinct slot folders and verify that a damaged draft does
-not alter the active settings or key file. Native UI tests check form persistence across process
-relaunch and that a damaged draft visibly blocks Save; their corruption fixture is DEBUG-only.
+not alter the active settings or key file. They also reopen two slots with distinct draft and
+active files. Native UI tests check form persistence across process relaunch, return to Ready
+only after activation with the same Peer ID, and show that a damaged draft blocks Save; their
+corruption fixture is DEBUG-only.
 The Apple connection session now constructs UniFFI `ConnectionCheck` for the selected candidate's
 folder and runs its bounded check in a detached task. It maps row outcomes into Sendable Swift
 values. The shared form now shows Check with ordered row outcomes and retains the checker so

@@ -60,6 +60,7 @@ final class LaunchTests: XCTestCase {
         app.terminate()
         app.launch()
         openNetwork(app)
+        XCTAssertFalse(app.staticTexts["app-ready"].exists)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
         ),
@@ -116,6 +117,7 @@ final class LaunchTests: XCTestCase {
         let app = isolatedApp()
         app.launch()
         createIdentity(app)
+        let peerID = shownPeerId(app)
         openNetwork(app)
         let save = app.buttons["network-save"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
@@ -137,6 +139,12 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(next.isEnabled)
         next.tap()
         XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
+        app.terminate()
+        app.launch()
+        XCTAssertEqual(shownPeerId(app), peerID)
+        XCTAssertTrue(app.staticTexts["app-ready"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["network-edit"].exists)
+        XCTAssertFalse(app.buttons["network-save"].exists)
         app.terminate()
     }
 

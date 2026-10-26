@@ -39,6 +39,34 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertNil(try loadNetwork(dir: first.path, file: .active))
     }
 
+    func testActiveAndDraftStayInTheirIdentityAfterReopen() throws {
+        let root = try root()
+        let firstID = UUID()
+        let secondID = UUID()
+        let first = try folder(root: root, id: firstID)
+        let second = try folder(root: root, id: secondID)
+        let firstSettings = NetworkSettings(seeds: ["first.example:33445"], name: "first")
+        let secondSettings = NetworkSettings(seeds: ["second.example:33445"], name: "second")
+        try saveNetworkDraft(dir: first.path, draft: firstSettings)
+        try saveNetworkDraft(dir: second.path, draft: secondSettings)
+        try Data(contentsOf: first.appendingPathComponent("network-draft"))
+            .write(to: first.appendingPathComponent("network"))
+
+        XCTAssertNil(try loadNetwork(dir: second.path, file: .active))
+        try Data(contentsOf: second.appendingPathComponent("network-draft"))
+            .write(to: second.appendingPathComponent("network"))
+        let reopenedFirst = try folder(root: root, id: firstID)
+        let reopenedSecond = try folder(root: root, id: secondID)
+        for file in [NetworkFile.draft, .active] {
+            let firstRead = try XCTUnwrap(loadNetwork(dir: reopenedFirst.path, file: file))
+            let secondRead = try XCTUnwrap(loadNetwork(dir: reopenedSecond.path, file: file))
+            XCTAssertEqual(firstRead.seeds, firstSettings.seeds)
+            XCTAssertEqual(firstRead.name, firstSettings.name)
+            XCTAssertEqual(secondRead.seeds, secondSettings.seeds)
+            XCTAssertEqual(secondRead.name, secondSettings.name)
+        }
+    }
+
     func testDamagedDraftDoesNotChangeActiveSettingsOrIdentityFile() throws {
         let path = try folder(root: root(), id: UUID())
         let key = path.appendingPathComponent("identity.key")
