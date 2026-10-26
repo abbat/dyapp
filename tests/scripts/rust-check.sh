@@ -92,7 +92,7 @@ step() {
             # Tracked files but .beads: ignored and beads files may be private to the host user.
             git -c safe.directory="$PWD" ls-files -z -- ':!.beads' |
                 tar --null --ignore-failed-read -T - -cf - | tar -xf - -C "$src"
-            TMPDIR=$PWD/build/mutants-tmp cargo mutants --dir "$src" --output target \
+            TMPDIR=$PWD/build/mutants-tmp cargo mutants --dir "$src" --output build \
                 --in-diff build/mutants.diff
             ;;
         fuzz)

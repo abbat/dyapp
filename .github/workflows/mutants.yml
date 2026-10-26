@@ -41,7 +41,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           status=0
-          cargo mutants --workspace --shard "$SHARD/16" -j 2 --output target || status=$?
+          cargo mutants --workspace --shard "$SHARD/16" -j 2 --output build || status=$?
           [[ $status == 0 || $status == 2 || $status == 3 ]]
       - name: outcomes
         if: always()
