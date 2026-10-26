@@ -60,29 +60,6 @@ enum class StoredLock {
  * persisted before KDF work, so a process crash cannot erase a failed attempt.
  */
 class AppLockStore(private val root: File, private val keys: KeyStore, private val pin: AppPinVerifier) {
-    /** App-wide storage constants and the device-backed store factory. */
-    companion object {
-        /** Keystore alias shared by all identity slots for the app lock. */
-        const val ALIAS = "dyapp-app-lock"
-
-        /** Marker of the first-launch Skip choice; it holds no data. */
-        const val SKIPPED = "app-lock-skipped"
-
-        /** Marker of the biometric mode, which replaces the PIN; it holds no data. */
-        const val BIOMETRIC = "app-lock-biometric"
-
-        /** Use one app-wide Keystore key, never an identity slot alias. */
-        fun onDevice(root: File) = AppLockStore(root, PlatformKeyStore(ALIAS), RustAppPinVerifier)
-
-        private const val VERSION: Byte = 1
-        private const val TAG_RECORD_SIZE = 49
-        private const val PLAIN_SIZE = 2 + TAG_RECORD_SIZE
-        private const val MAX_FILE_SIZE_BYTES = 256L
-        private const val MAX_FAILURES = 5
-        private const val CLEAR_FAILED = "Cannot clear app PIN"
-        private val ioLock = Any()
-    }
-
     private val file = File(root, "app-lock")
     private val skipped = File(root, SKIPPED)
     private val biometric = File(root, BIOMETRIC)
@@ -161,10 +138,10 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
         }
         val plain = keys.unwrap(file.readBytes())
         try {
-            if (plain.size != PLAIN_SIZE || plain[0] != VERSION ||
-                plain[1].toInt() !in 0..MAX_FAILURES || plain[2] != 1.toByte()) {
-                throw IOException("Invalid app-lock record")
-            }
+            val validHeader = plain.size == PLAIN_SIZE && plain[0] == VERSION &&
+                plain[1].toInt() in 0..MAX_FAILURES
+            val validRecord = validHeader && plain[2] == 1.toByte()
+            if (!validRecord) throw IOException("Invalid app-lock record")
             return State(plain[1].toInt(), plain.copyOfRange(2, PLAIN_SIZE))
         } finally {
             plain.fill(0)
@@ -187,5 +164,28 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
         Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE,
             StandardCopyOption.REPLACE_EXISTING)
         FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
+    }
+
+    /** App-wide storage constants and the device-backed store factory. */
+    companion object {
+        /** Keystore alias shared by all identity slots for the app lock. */
+        const val ALIAS = "dyapp-app-lock"
+
+        /** Marker of the first-launch Skip choice; it holds no data. */
+        const val SKIPPED = "app-lock-skipped"
+
+        /** Marker of the biometric mode, which replaces the PIN; it holds no data. */
+        const val BIOMETRIC = "app-lock-biometric"
+
+        private const val VERSION: Byte = 1
+        private const val TAG_RECORD_SIZE = 49
+        private const val PLAIN_SIZE = 2 + TAG_RECORD_SIZE
+        private const val MAX_FILE_SIZE_BYTES = 256L
+        private const val MAX_FAILURES = 5
+        private const val CLEAR_FAILED = "Cannot clear app PIN"
+        private val ioLock = Any()
+
+        /** Use one app-wide Keystore key, never an identity slot alias. */
+        fun onDevice(root: File) = AppLockStore(root, PlatformKeyStore(ALIAS), RustAppPinVerifier)
     }
 }
