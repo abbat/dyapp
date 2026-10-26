@@ -16,7 +16,7 @@ targets:
     type: application
     platform: iOS
     sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/RustBridge.swift,
-              DYApp/PlatformKeyStore.swift, DYApp/Localizable.xcstrings,
+              DYApp/PlatformKeyStore.swift, DYApp/AppLockStore.swift, DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]
     dependencies:
@@ -33,7 +33,7 @@ targets:
   DYAppTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [Tests/AppTests.swift]
+    sources: [Tests]
     dependencies:
       - target: DYApp
     settings:

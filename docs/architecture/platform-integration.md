@@ -25,7 +25,12 @@ Swift bindings; the app shows the peer ID of its stored identity key through
 `RustBridge.swift`: the first start creates the key, `PlatformKeyStore.swift` wraps it with
 CryptoKit AES-256-GCM under a random key kept in the Keychain
 (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), and the blob lives in the app's
-Application Support folder, excluded from backups. The macOS app shares both files. See
+Application Support folder, excluded from backups. The macOS app shares both files.
+`AppLockStore.swift` keeps the app-lock choice, the five-attempt failure counter and the Rust
+Argon2id PIN verifier in one `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` Keychain item,
+apart from the identity items, and counts an attempt before verifying it. Keychain items survive
+an uninstall, so a fresh install drops the old item when its `app-lock-installed` marker in the
+app folder is missing. The lock screens are planned. See
 [FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 
 ### Integration (target sketch)
