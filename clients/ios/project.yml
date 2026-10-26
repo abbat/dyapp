@@ -31,6 +31,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # The device-owner check that recovers a forgotten app PIN may use Face ID.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID unlocks the app."
   DYAppTests:
     type: bundle.unit-test
     platform: iOS

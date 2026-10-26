@@ -368,6 +368,86 @@
           }
         }
       }
+    },
+    "lock.use.passcode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use device passcode"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код-пароль устройства"
+          }
+        }
+      }
+    },
+    "lock.passcode.reason": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock the app"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировка приложения"
+          }
+        }
+      }
+    },
+    "lock.no.passcode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a device passcode in Settings to use a PIN."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы использовать PIN, задайте код-пароль в настройках устройства."
+          }
+        }
+      }
+    },
+    "lock.recovery.unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device passcode is off. Turn it on in Settings to recover a forgotten PIN."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код-пароль устройства выключен. Включите его в настройках, чтобы восстановить забытый PIN."
+          }
+        }
+      }
+    },
+    "lock.reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device passcode confirmed. Set a new PIN or turn the PIN off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код-пароль устройства подтверждён. Задайте новый PIN или отключите его."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

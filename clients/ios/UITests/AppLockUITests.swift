@@ -62,7 +62,7 @@ final class AppLockUITests: XCTestCase {
     /// Settings set a PIN, and turn it off only behind the current one.
     func testSettingsSetAndTurnOffPin() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off"]
+        app.launchArguments = ["--app-lock-off", "--device-passcode"]
         app.launch()
         XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 10))
         app.buttons["lock-settings"].tap()
@@ -113,9 +113,51 @@ final class AppLockUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Without a device passcode, which simulators lack, no PIN can be set.
+    func testSetPinNeedsDevicePasscode() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-new"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["lock-no-passcode"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["lock-set"].isEnabled)
+        app.terminate()
+    }
+
+    /// The device passcode replaces a forgotten PIN and keeps the identity.
+    func testPasscodeRecoversForgottenPin() {
+        let app = launch(["--app-lock-new"])
+        enter(app, "lock-pin", pin)
+        enter(app, "lock-pin-repeat", pin)
+        app.buttons["lock-set"].tap()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 30))
+        let peer = app.staticTexts["peer-id"].label
+        app.terminate()
+        app.launchArguments = ["--device-passcode"]
+        app.launch()
+        XCTAssertTrue(app.buttons["lock-passcode"].waitForExistence(timeout: 10))
+        app.buttons["lock-passcode"].tap()
+        XCTAssertTrue(app.staticTexts["lock-reset"].waitForExistence(timeout: 10))
+        enter(app, "lock-pin", "654321")
+        enter(app, "lock-pin-repeat", "654321")
+        app.buttons["lock-set"].tap()
+        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
+        XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 30), .completed)
+        // Once replaced, the next change asks for the new PIN again.
+        XCTAssertTrue(app.secureTextFields["lock-pin-current"].exists)
+        app.buttons["lock-back"].tap()
+        XCTAssertTrue(label(app.staticTexts["peer-id"], peer))
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        enter(app, "lock-pin", "654321")
+        app.buttons["lock-unlock"].tap()
+        XCTAssertTrue(label(app.staticTexts["peer-id"], peer))
+        app.terminate()
+    }
+
     private func launch(_ arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = arguments
+        app.launchArguments = arguments + ["--device-passcode"]
         app.launch()
         XCTAssertTrue(app.buttons["lock-skip"].waitForExistence(timeout: 10))
         return app
