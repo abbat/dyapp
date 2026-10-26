@@ -64,5 +64,17 @@ class AppLockStoreTests {
         store().enroll("123456")
         store().resetAfterDeviceCredential(null)
         assertFalse(store().hasPin())
+        assertTrue(store().setupDone())
+    }
+
+    @Test
+    fun setupIsDoneAfterSkipOrEnrollmentOnly() {
+        assertFalse(store().setupDone())
+        store().skip()
+        assertTrue(store().setupDone())
+        assertFalse(store().hasPin())
+        File(root, AppLockStore.SKIPPED).delete()
+        store().enroll("123456")
+        assertTrue(store().setupDone())
     }
 }

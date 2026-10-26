@@ -10,19 +10,25 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 
 class AppUITests {
-    @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    // Start past first-launch setup; LockSetupTests cover it.
+    @get:Rule
+    val rules: RuleChain = RuleChain.outerRule(lockChoice(skipped = true)).around(compose)
 
     private fun string(id: Int) = compose.activity.getString(id)
 
@@ -51,13 +57,23 @@ class AppUITests {
         }
     }
 
+    private fun enterPin(pin: String) {
+        compose.onNodeWithTag("pin").performTextInput(pin)
+        compose.onNodeWithTag("pin-unlock").performClick()
+    }
+
+    // The Argon2id check takes seconds on the software-rendered emulator.
+    private fun waitForTag(tag: String) = compose.waitUntil(timeoutMillis = 60_000) {
+        compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+
     private fun shownPeerId() = compose.onNodeWithTag("peer-id").assertIsDisplayed()
         .fetchSemanticsNode()
         .config[SemanticsProperties.Text]
         .joinToString()
 
     @Test
-    fun configuredLockHidesIdentityBeforePrivateScreenLoads() {
+    fun configuredLockHidesIdentityUntilTheRightPin() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = AppLockStore.onDevice(context.noBackupFilesDir)
         store.enroll("123456")
@@ -67,6 +83,12 @@ class AppUITests {
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
             compose.onNodeWithTag("identity").assertDoesNotExist()
+            enterPin("654321")
+            waitForTag("pin-error")
+            compose.onNodeWithTag("peer-id").assertDoesNotExist()
+            enterPin("123456")
+            waitForTag("peer-id")
+            compose.onNodeWithTag("app-locked").assertDoesNotExist()
         } finally {
             store.resetAfterDeviceCredential(null)
         }

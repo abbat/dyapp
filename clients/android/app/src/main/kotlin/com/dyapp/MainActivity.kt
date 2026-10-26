@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.app.KeyguardManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -34,26 +35,49 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dyapp.ui.theme.DYAppTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/** The single activity; checks the app lock before constructing the private Compose screen. */
+/**
+ * The single activity; checks the app lock before constructing the private Compose screen and
+ * offers first-launch PIN setup. PIN work runs on a background dispatcher.
+ */
 class MainActivity : ComponentActivity() {
     private lateinit var appLock: AppLockLifecycle
     private val timer = Handler(Looper.getMainLooper())
     private val deadline = Runnable { refreshLock() }
+    private val store by lazy { AppLockStore.onDevice(noBackupFilesDir) }
     private var locked by mutableStateOf(true)
+    private var setup by mutableStateOf(false)
+    private var deviceSecure by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // An unreadable verifier must fail closed, never start a new unlocked session.
-        val pinEnabled = runCatching { AppLockStore.onDevice(noBackupFilesDir).hasPin() }
-            .getOrDefault(true)
+        val (pinEnabled, setupDone) = runCatching { store.hasPin() to store.setupDone() }
+            .getOrDefault(true to true)
         appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
+        setup = !setupDone
         refreshLock()
-        setContent { DYAppTheme { if (locked) LockedScreen() else MainScreen() } }
+        setContent {
+            DYAppTheme {
+                when {
+                    locked -> UnlockScreen(::attempt)
+                    setup -> SetupScreen(deviceSecure, {
+                        // A failed write only means the choice is offered again next launch.
+                        runCatching { store.skip() }
+                        setup = false
+                    }, ::enroll)
+                    else -> MainScreen()
+                }
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        // The user may have just set a screen lock in system settings.
+        deviceSecure = getSystemService(KeyguardManager::class.java).isDeviceSecure
         appLock.onForeground()
         refreshLock()
     }
@@ -83,22 +107,29 @@ class MainActivity : ComponentActivity() {
         return if (!wasLocked && locked) true else super.dispatchKeyEvent(event)
     }
 
+    private suspend fun attempt(pin: String): PinAttempt? {
+        val result = withContext(Dispatchers.Default) { runCatching { store.attempt(pin) }.getOrNull() }
+        // A PIN checked while the app went to the background does not unlock it.
+        if (result == PinAttempt.UNLOCKED && !appLock.snapshotObscured) appLock.onUnlocked()
+        refreshLock()
+        return result
+    }
+
+    private suspend fun enroll(pin: String): Boolean {
+        val done = withContext(Dispatchers.Default) { runCatching { store.enroll(pin) }.isSuccess }
+        if (done) {
+            appLock.onPinEnrolled()
+            setup = false
+            refreshLock()
+        }
+        return done
+    }
+
     private fun refreshLock() {
         val remaining = appLock.millisUntilLock()
         locked = appLock.isLocked
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
-    }
-}
-
-@Composable
-private fun LockedScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(stringResource(R.string.app_locked), modifier = Modifier.testTag("app-locked"))
     }
 }
 

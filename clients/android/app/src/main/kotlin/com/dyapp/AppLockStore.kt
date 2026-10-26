@@ -37,6 +37,9 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
     companion object {
         const val ALIAS = "dyapp-app-lock"
 
+        /** Marker of the first-launch Skip choice; it holds no data. */
+        const val SKIPPED = "app-lock-skipped"
+
         /** Use one app-wide Keystore key, never an identity slot alias. */
         fun onDevice(root: File) = AppLockStore(root, PlatformKeyStore(ALIAS), RustAppPinVerifier)
 
@@ -48,11 +51,18 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
     }
 
     private val file = File(root, "app-lock")
+    private val skipped = File(root, SKIPPED)
 
     private data class State(val failures: Int, val record: ByteArray)
 
     /** Whether an app PIN has been enrolled; a corrupt record throws and must keep the app locked. */
     fun hasPin(): Boolean = synchronized(ioLock) { read() != null }
+
+    /** Whether first launch already enrolled a PIN or chose Skip; a corrupt record throws. */
+    fun setupDone(): Boolean = synchronized(ioLock) { read() != null || skipped.exists() }
+
+    /** Record the first-launch Skip choice; it creates no PIN and leaves an existing one. */
+    fun skip() = synchronized(ioLock) { skipped.createNewFile() }
 
     /** Enrol on a fresh install only. A replacement requires [resetAfterDeviceCredential]. */
     fun enroll(pinValue: String) = synchronized(ioLock) {
@@ -78,6 +88,7 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
         check(read() != null) { "App PIN is not enrolled" }
         if (newPin == null) {
             check(file.delete()) { "Cannot clear app PIN" }
+            skipped.createNewFile() // Clearing is a choice too; first-launch setup stays done.
         } else {
             write(State(0, pin.hash(newPin)))
         }
