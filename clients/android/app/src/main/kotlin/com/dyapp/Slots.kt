@@ -10,6 +10,9 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.UUID
 
+private const val IDENTITY_KEY_FILE = "identity.key"
+private const val SLOT_STATE_FILE = "state"
+
 /** Wrapping keys by Keystore alias; the app uses [PlatformKeyStore], JVM tests a fake. */
 interface SlotKeys {
     /** Whether a wrapping key already exists at [alias]. */
@@ -51,7 +54,7 @@ class Slot(
     var state: SlotState
 ) {
     /** Wrapped identity key file in [dir]. */
-    val keyFile get() = File(dir, "identity.key")
+    val keyFile get() = File(dir, IDENTITY_KEY_FILE)
     /** Keystore alias that wraps this slot's key. */
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
 }
@@ -95,10 +98,12 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         const val LEGACY = "legacy-primary"
 
         private val removableSlotFiles = setOf(
-            "state", "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
+            SLOT_STATE_FILE, "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
             "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new"
         )
 
+        private const val MAX_MARKER_BYTES = 64
+        private const val SLOT_RESERVATION_ATTEMPTS = 8
         private val UUID_PATTERN = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 
         /** Whether [name] is a canonical lowercase UUID slot directory name. */
@@ -113,16 +118,16 @@ class Slots(private val root: File, private val keys: SlotKeys) {
 
     private fun exists(file: File) = Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)
 
-    /** Reads a short marker file; null if absent, an error if it is not a regular file. */
+    // Reads a short marker file; null if absent, an error if it is not a regular file.
     private fun readMarker(file: File): String? {
         if (!exists(file)) return null
         if (!isRegularFile(file)) throw IOException("Marker is not a regular file")
-        val bytes = ByteArray(64)
+        val bytes = ByteArray(MAX_MARKER_BYTES)
         val size = file.inputStream().use { it.read(bytes) }
         return String(bytes, 0, maxOf(size, 0))
     }
 
-    /** Replaces [file] by a flushed temporary file and a same-directory rename. */
+    // Replaces the file by a flushed temporary file and a same-directory rename.
     private fun writeAtomic(file: File, value: ByteArray) {
         val temp = File(file.path + ".tmp")
         temp.delete()
@@ -136,7 +141,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
 
     private fun readSlot(id: String, dir: File): Slot {
         val marker = if (Files.isDirectory(dir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            runCatching { readMarker(File(dir, "state")) }.getOrNull()
+            runCatching { readMarker(File(dir, SLOT_STATE_FILE)) }.getOrNull()
         } else {
             null
         }
@@ -147,7 +152,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
     /** All local slots: the legacy one if its key exists, then each UUID directory, by name. */
     fun list(): List<Slot> {
         val slots = mutableListOf<Slot>()
-        val legacy = File(root, "identity.key")
+        val legacy = File(root, IDENTITY_KEY_FILE)
         if (exists(legacy)) {
             val state = if (isRegularFile(legacy)) SlotState.READY else SlotState.BROKEN
             slots += Slot(LEGACY, root, state)
@@ -157,16 +162,16 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         return slots
     }
 
-    /** Reserves a fresh slot, written as `pending` before any key exists. */
+    // Reserves a fresh slot, written as `pending` before any key exists.
     private fun reserve(): Slot {
         profiles.mkdirs()
-        repeat(8) {
+        repeat(SLOT_RESERVATION_ATTEMPTS) {
             val id = UUID.randomUUID().toString()
             val slot = Slot(id, File(profiles, id), SlotState.PENDING)
             // Never reuse or delete a key some earlier slot left behind.
             if (keys.exists(slot.alias) || !slot.dir.mkdir()) return@repeat
             Files.write(
-                File(slot.dir, "state").toPath(),
+                File(slot.dir, SLOT_STATE_FILE).toPath(),
                 SlotState.PENDING.marker!!.toByteArray(),
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE,
@@ -180,7 +185,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
     /** Moves a profile slot to [state]; the legacy slot has no state file. */
     fun setState(slot: Slot, state: SlotState) {
         check(slot.id != LEGACY && slot.state != SlotState.BROKEN) { "Slot state cannot change" }
-        writeAtomic(File(slot.dir, "state"), state.marker!!.toByteArray())
+        writeAtomic(File(slot.dir, SLOT_STATE_FILE), state.marker!!.toByteArray())
         slot.state = state
     }
 
