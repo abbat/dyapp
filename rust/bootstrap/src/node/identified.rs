@@ -289,7 +289,7 @@ mod tests {
     /// Zeroes the proof-of-work bits until dropped.
     struct ZeroPow(
         u32,
-        #[allow(dead_code, reason = "the field holds the lock until Drop")]
+        #[expect(dead_code, reason = "the field holds the lock until Drop")]
         std::sync::MutexGuard<'static, ()>,
     );
     impl Drop for ZeroPow {

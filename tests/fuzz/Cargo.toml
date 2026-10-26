@@ -24,6 +24,10 @@ rtc = { version = "0.21", default-features = false }
 [lints.rust]
 unsafe_code = "forbid"
 
+[lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
 # Its own workspace: libFuzzer builds only under cargo-fuzz.
 [workspace]
 

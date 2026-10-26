@@ -304,7 +304,7 @@ impl Service {
 
     /// [`Service::put`] expiring at `expires_at` (`None`: one TTL from now), and whether a DENIED
     /// answer strikes the sender.
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "put's arguments and the expiry only a replica put carries"
     )]
@@ -341,7 +341,7 @@ impl Service {
     }
 
     /// The rest of [`Service::put`] once the token is admitted.
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "the second half of put, called once with put's own arguments"
     )]
@@ -422,7 +422,7 @@ impl Service {
 
     /// The envelope's write token key, `None` without a token, or the answer that refuses it and
     /// whether a DENIED one strikes.
-    #[allow(
+    #[expect(
         clippy::type_complexity,
         reason = "store error, then refusal: a named type would serve its one caller"
     )]

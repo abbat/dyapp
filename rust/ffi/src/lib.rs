@@ -461,9 +461,12 @@ mod tests {
     }
 }
 
-// Generated UniFFI scaffolding: a doc-comment gap and large metadata const arrays.
+// Generated UniFFI scaffolding has large metadata const arrays.
 mod scaffolding {
-    #![allow(clippy::empty_line_after_doc_comments, clippy::large_const_arrays)]
+    #![expect(
+        clippy::large_const_arrays,
+        reason = "generated UniFFI metadata is emitted as large const arrays"
+    )]
     include!(concat!(env!("OUT_DIR"), "/dyapp.uniffi.rs"));
 }
 pub use scaffolding::*;

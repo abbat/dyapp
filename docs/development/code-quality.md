@@ -268,9 +268,10 @@ Practice B9: `missing_docs = "deny"` is set in `[workspace.lints.rust]` of the r
 `Cargo.toml` and in the own `[lints.rust]` of `bootstrap` and `ffi`, so an undocumented
 public item (crate, module, type, field, variant, function or constant) fails Clippy,
 build and test. Generated code is exempt only where its generator emits no docs, each with
-a module-level `#![allow(missing_docs)]` and a comment: the prost modules of `identity`,
-`profile` and `p2p-net`, and the private `behaviour` module of `p2p-net`, whose
-`NetworkBehaviour` derive emits `BehaviourEvent`.
+a module-level `#![expect(missing_docs, reason = "...")]` and a comment: the prost modules of
+`identity`, `profile` and `p2p-net`, and the private `behaviour` module of `p2p-net`, whose
+`NetworkBehaviour` derive emits `BehaviourEvent`. The expectation fails quality once the
+generated item gains documentation and the exemption becomes unnecessary.
 
 ### Unsafe policy
 

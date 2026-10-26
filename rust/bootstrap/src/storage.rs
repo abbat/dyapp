@@ -204,7 +204,10 @@ pub(crate) fn free(path: &str) -> Result<u64> {
     // SAFETY: statvfs returned 0, so it initialised `fs`.
     let fs = unsafe { fs.assume_init() };
     // The statvfs field types differ between targets.
-    #[allow(clippy::useless_conversion)]
+    #[expect(
+        clippy::useless_conversion,
+        reason = "statvfs field types differ between targets"
+    )]
     Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
 }
 

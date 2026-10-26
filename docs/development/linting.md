@@ -9,7 +9,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
 |----------|------|--------|-----------------------------------|----------|--------|
-| Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`; `[lints]` only for the [unsafe policy](code-quality.md#unsafe-policy)) | yes | `codeql.yml` (clippy, see below) | enforced |
+| Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`); Cargo `[lints]` for [unsafe](code-quality.md#unsafe-policy), docs and suppression policy | yes | `codeql.yml` (clippy, see below) | enforced |
 | Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
 | GitHub Actions security | zizmor (offline audits) | `.github/zizmor.yml` | yes | — | enforced |
@@ -38,6 +38,12 @@ Quality container (the gate):
 cargo fmt --all -- --check
 cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings
 ```
+
+Cargo denies Clippy `allow_attributes` and `allow_attributes_without_reason` in workspace and
+standalone crates. Handwritten Rust suppressions use `#[expect(..., reason = "...")]` so
+`unfulfilled_lint_expectations` reports them once the underlying lint stops firing;
+`-D warnings` makes that a quality failure. Generated code remains covered by narrowly
+reasoned expectations at its include or derive boundary.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. `pedantic`, `nursery` and `restriction` lints (for example
@@ -137,7 +143,7 @@ once it passes.
 Fix the code first. If a suppression is justified, scope it as narrowly as possible and state why:
 
 ```rust
-#[allow(clippy::too_many_arguments)] // mirrors the C ABI signature; see #<issue>
+#[expect(clippy::too_many_arguments, reason = "mirrors the C ABI signature")]
 fn ffi_entry(/* … */) {}
 ```
 

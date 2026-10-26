@@ -74,9 +74,8 @@ signature_domains! {
 }
 
 mod generated {
-    #![allow(clippy::pedantic)]
     // prost emits no docs for messages without proto comments.
-    #![allow(missing_docs)]
+    #![expect(missing_docs, reason = "prost-generated messages omit documentation")]
     include!(concat!(env!("OUT_DIR"), "/dyapp.identity.rs"));
 }
 pub use generated::SignedRecord;

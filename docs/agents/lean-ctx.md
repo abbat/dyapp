@@ -65,4 +65,7 @@ tracked fuzz corpus and untracked platform output. Gitignored output needs no en
   user approval.
 - `ctx_shell` is not a sandbox: the project rules on installs and deletion in
   [project.md](project.md#rules-for-agents) apply to commands run through it.
+- An exhaustive `ctx_search` can still report withheld sources. When completeness matters, use
+  a narrow `rg` fallback on the affected paths to inspect those sources; do not treat a partial
+  result as proof that no other match exists.
 - If lean-ctx is not installed or cannot reach a resource, fall back to the narrowest native tool.

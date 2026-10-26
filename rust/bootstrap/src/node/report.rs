@@ -6,7 +6,7 @@ use dyapp_p2p_net::Behaviour;
 use libp2p::Swarm;
 
 /// The hourly status line: no peer or key identifiers, counts and sizes only.
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "one argument per counter the swarm loop owns"
 )]

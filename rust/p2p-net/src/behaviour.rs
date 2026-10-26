@@ -1,7 +1,10 @@
 //! The swarm behaviour set.
 
 // The NetworkBehaviour derive emits `BehaviourEvent` without docs.
-#![allow(missing_docs)]
+#![expect(
+    missing_docs,
+    reason = "NetworkBehaviour derive emits an undocumented event type"
+)]
 use super::{
     Announce, DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour,
     KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour, NodeBehaviour, PowGate,

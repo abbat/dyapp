@@ -51,9 +51,8 @@ pub use wire::{Dir, WireBytes, WireCounts};
 
 /// Node protocol messages, generated from proto/node.proto.
 pub mod proto {
-    #![allow(clippy::pedantic)]
     // prost emits no docs for messages without proto comments.
-    #![allow(missing_docs)]
+    #![expect(missing_docs, reason = "prost-generated messages omit documentation")]
     include!(concat!(env!("OUT_DIR"), "/dyapp.node.rs"));
 }
 

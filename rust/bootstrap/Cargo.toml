@@ -63,3 +63,5 @@ missing_docs = "deny"
 [lints.clippy]
 # Practice C5: the only crate with unsafe; each block carries a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"

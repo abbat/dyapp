@@ -40,3 +40,5 @@ missing_docs = "deny"
 # Practice C5: uniffi generates `#[no_mangle]`, so unsafe_code cannot be forbidden;
 # hand-written unsafe blocks carry a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"

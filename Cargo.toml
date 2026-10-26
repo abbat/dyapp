@@ -17,6 +17,10 @@ resolver = "2"
 unsafe_code = "forbid"
 missing_docs = "deny"
 
+[workspace.lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
 [workspace.package]
 version = "0.0.1"
 edition = "2021"

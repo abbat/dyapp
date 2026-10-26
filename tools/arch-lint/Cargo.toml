@@ -13,3 +13,7 @@ path = "src/main.rs"
 
 [lints.rust]
 unsafe_code = "forbid"
+
+[lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"

@@ -39,7 +39,7 @@ fn put(
     )
 }
 
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "mirrors BootstrapStore::put_envelope for the tests"
 )]
