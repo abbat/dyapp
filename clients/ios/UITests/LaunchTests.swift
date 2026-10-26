@@ -113,6 +113,34 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testLocalNodeConnectsOnlyAfterContinue() {
+        let app = unlockedApp()
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let save = app.buttons["network-save"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: save
+        ),
+        ], timeout: 10), .completed)
+        let rows = app.textViews["network-bootstrap"]
+        rows.tap()
+        rows.typeText("127.0.0.1:33445")
+        let next = app.buttons["network-continue"]
+        XCTAssertFalse(next.isEnabled)
+        app.buttons["network-check"].tap()
+        let status = app.staticTexts["network-check-status"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
+            object: status
+        ),
+        ], timeout: 15), .completed)
+        XCTAssertTrue(next.isEnabled)
+        next.tap()
+        XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
+        app.terminate()
+    }
+
     // Every launch starts with the app lock skipped, so the start screen renders.
     private func unlockedApp() -> XCUIApplication {
         let app = XCUIApplication()

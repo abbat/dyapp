@@ -234,6 +234,10 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   it on `127.0.0.1:33445` for the native network UI cases. Its node ID, log and build output
   stay in `$RUNNER_TEMP/apple-results/`; the runner waits at most 30 seconds for its loopback
   listener and terminates the process after tests. It never contacts a public bootstrap node.
+  Shared native unit tests first discover the local node's Peer ID, then check a pinned address:
+  the active file must be absent before Activate and contain that address afterward. iOS and
+  macOS UI tests show Continue disabled before Check, enabled after the local node answers, and
+  open the profile editor after explicit activation.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.

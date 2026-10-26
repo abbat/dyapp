@@ -74,4 +74,24 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertNil(try loadNetwork(dir: first.path, file: .active))
         XCTAssertNil(try loadNetwork(dir: second.path, file: .draft))
     }
+
+    func testLocalNodeNeedsExplicitActivationAfterPinnedCheck() throws {
+        let path = try folder(root: root(), id: UUID())
+        let session = try NetworkConnectionSession(directory: path)
+        let address = "127.0.0.1:33445"
+        let unpinned = try session.run(rows: [address], name: "", waitMs: 5_000)
+        guard case let .connected(peerID) = try XCTUnwrap(unpinned.first) else {
+            XCTFail("The CI loopback node did not answer")
+            return
+        }
+        let pinned = "\(address)/\(peerID)"
+        XCTAssertEqual(try session.run(rows: [pinned], name: "", waitMs: 5_000),
+                       [.connected(peerID)])
+        XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
+
+        try session.activate()
+        let active = try XCTUnwrap(loadNetwork(dir: path.path, file: .active))
+        XCTAssertEqual(active.seeds, [pinned])
+        XCTAssertEqual(active.name, "")
+    }
 }
