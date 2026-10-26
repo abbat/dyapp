@@ -73,7 +73,8 @@ absent, previews exactly what will be published, and warns about a full date.
 Every publish requires explicit 18+ self-attestation. With a year, the youngest
 possible age must also be at least 18 on the current UTC date; without a year,
 age remains unknown and the attestation alone is used. Missing parts are never
-inferred. No app has a profile editor or publish action yet.
+inferred. The Linux and Windows desktop page edits and publishes a profile;
+Android, iOS and macOS keep local drafts but do not publish them yet.
 
 Search canonicalizes a supplied place against its embedded GeoNames country/place set.
 A profile with no place, or an unknown country/place pair, is indexed in the country
@@ -91,7 +92,9 @@ not "safe" data. The target design therefore needs:
 - no field published unless the user fills it in;
 - location published only as a place name (city or district), never as coordinates, and optional;
 - a warning before publishing that replicated data cannot be reliably withdrawn
-  ([ADR 0011](../decisions/0011-best-effort-deletion.md));
+  ([ADR 0011](../decisions/0011-best-effort-deletion.md)); the desktop page shows it
+  with the current public preview and requires a separate acknowledgement for every
+  publish attempt, cleared by edits and identity switching; mobile publication remains planned;
 - documentation that peer ID + IP + age + location can deanonymize a user;
 - photo metadata (EXIF, GPS, device) stripped on the client before any upload: `strip_metadata` in the core
   (see [FFI design](../architecture/ffi-design.md)); the app setting, on by default, and the call before

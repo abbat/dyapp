@@ -27,9 +27,10 @@ The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. On first identity creation, desktop smoke
 also checks that a profile with no selected fields previews an unknown age, no full-date warning,
-and an unchecked 18+ confirmation. A separate save/restart pair checks a nonempty draft and its
-public preview. The profile page now has puzzle cancellation and publication states; their
-loopback node smoke coverage is the next checkpoint.
+and unchecked 18+ and public-data confirmations. It rejects publish without the public-data
+acknowledgement and checks that editing clears both confirmations. A separate save/restart pair
+checks a nonempty draft and its public preview. The profile page now has puzzle
+cancellation and publication states; their loopback node smoke coverage is the next checkpoint.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|

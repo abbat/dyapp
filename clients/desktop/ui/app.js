@@ -177,6 +177,7 @@ const profileScales = document.getElementById('profile-scales');
 const profileStatus = document.getElementById('profile-status');
 const profilePreview = document.getElementById('profile-preview');
 const profileAttested = document.getElementById('profile-attested');
+const profileDisclosure = document.getElementById('profile-disclosure');
 const profileCancel = document.getElementById('profile-cancel');
 let scaleFields = [];
 let profileBusy = false;
@@ -221,6 +222,7 @@ const showProfile = async () => {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
   profileAttested.checked = false;
+  profileDisclosure.checked = false;
   profilePreview.hidden = true;
   profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
     view.published ? String(view.published) : '');
@@ -272,8 +274,9 @@ const profileFailure = (error) => {
   profileMessage('profile.publishFailed', code);
 };
 profileForm.addEventListener('input', (event) => {
-  if (event.target !== profileAttested && !profileBusy) {
+  if (event.target !== profileAttested && event.target !== profileDisclosure && !profileBusy) {
     profileAttested.checked = false;
+    profileDisclosure.checked = false;
     profilePreview.hidden = true;
     profileMessage('profile.draft');
   }
@@ -290,7 +293,10 @@ document.getElementById('profile-preview-action').addEventListener('click', asyn
   setProfileBusy(true);
   try {
     const view = await saveProfile();
-    if (view) previewProfile(view);
+    if (view) {
+      profileDisclosure.checked = false;
+      previewProfile(view);
+    }
   } catch (error) { profileMessage('profile.failed', String(error)); }
   finally { setProfileBusy(false); }
 });
@@ -301,6 +307,7 @@ profileCancel.addEventListener('click', () => {
 document.getElementById('profile-publish').addEventListener('click', async () => {
   if (profileBusy || !profileForm.reportValidity()) return;
   const attested = profileAttested.checked;
+  const acknowledged = profileDisclosure.checked;
   const needsReview = profilePreview.hidden;
   setProfileBusy(true);
   try {
@@ -308,6 +315,7 @@ document.getElementById('profile-publish').addEventListener('click', async () =>
     previewProfile(view);
     if (view.problem) return;
     if (needsReview) return profileMessage('profile.reviewBeforePublish');
+    if (!acknowledged) return profileMessage('profile.problem.notAcknowledged');
     if (!attested) return profileMessage('profile.problem.notAttested');
     profileCancel.hidden = false;
     profileMessage('profile.solving');
@@ -321,6 +329,7 @@ document.getElementById('profile-publish').addEventListener('click', async () =>
     profileFailure(error);
   } finally {
     profileAttested.checked = false;
+    profileDisclosure.checked = false;
     setProfileBusy(false);
     profileCancel.disabled = false;
   }

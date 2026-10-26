@@ -21,7 +21,9 @@ restarts. **Preview public profile** lists the selected fields and exact birth-d
 shows the possible age range (or **Age unknown**), and warns that others may copy published
 data. A full date has an additional disclosure warning.
 
-To publish, confirm you are 18 or older for this attempt, then choose **Publish profile**.
+To publish, review the current preview and acknowledge that public data may remain available
+after deletion. Separately confirm you are 18 or older for this attempt, then choose
+**Publish profile**. Editing the form or completing an attempt clears both confirmations.
 The app saves the current form, solves the profile puzzle and publishes to an active node;
 it checks the signed readback before reporting the version. You can stop puzzle work without
 losing the draft or its progress. A network failure keeps the draft for retry. A supplied

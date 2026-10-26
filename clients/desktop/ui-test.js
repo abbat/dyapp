@@ -89,25 +89,43 @@ const checkEmptyProfilePreview = async () => {
   if (!document.getElementById('profile-date-warning').hidden) {
     throw new Error('full-date warning shown without a birth date');
   }
-  if (document.getElementById('profile-attested').checked) {
-    throw new Error('publish attestation was preselected');
+  if (document.getElementById('profile-attested').checked
+    || document.getElementById('profile-disclosure').checked) {
+    throw new Error('publish confirmations were preselected');
+  }
+  const blocked = waitForProfileStatus('profile.problem.notAcknowledged');
+  document.getElementById('profile-attested').checked = true;
+  document.getElementById('profile-publish').click();
+  await blocked;
+  if (!document.getElementById('profile-cancel').hidden) {
+    throw new Error('puzzle started before the public-data warning was acknowledged');
+  }
+  document.getElementById('profile-attested').checked = true;
+  document.getElementById('profile-disclosure').checked = true;
+  const month = document.getElementById('birth-month');
+  month.value = '2';
+  month.dispatchEvent(new Event('input', { bubbles: true }));
+  if (!document.getElementById('profile-preview').hidden
+    || document.getElementById('profile-attested').checked
+    || document.getElementById('profile-disclosure').checked) {
+    throw new Error('editing kept a stale public-data confirmation');
   }
 };
-const waitForProfileSaved = () => new Promise((resolve, reject) => {
+const waitForProfileStatus = (key) => new Promise((resolve, reject) => {
   const status = document.getElementById('profile-status');
   const observer = new MutationObserver(() => {
-    if (status.textContent === window.strings['profile.saved']) {
+    if (status.textContent === window.strings[key]) {
       observer.disconnect(); clearTimeout(timeout); resolve();
     }
   });
   observer.observe(status, { childList: true });
-  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`draft save: ${status.textContent}`)); }, 10000);
+  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`profile status: ${status.textContent}`)); }, 10000);
 });
 const saveProfileForRestart = async () => {
   document.getElementById('profile-gender').value = '1';
   document.getElementById('birth-year').value = '1990';
   document.getElementById('birth-month').value = '2';
-  const saved = waitForProfileSaved();
+  const saved = waitForProfileStatus('profile.saved');
   document.getElementById('profile-save').click();
   await saved;
 };
