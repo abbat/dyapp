@@ -4,6 +4,10 @@ The `dyapp` client for Windows is a portable ZIP with one EXE and no installer. 
 is a minimal shell: it starts, renders and closes. Profiles, search and chats in the window are
 planned.
 
+In an open identity, **Settings** lists local identities. **Add a new identity** opens the
+key-storage choice, and **Switch or add an identity** opens the identity picker. Creating an
+identity still requires an explicit storage choice and shows the file-key backup warning.
+
 ## Build
 
 The scheduled `release-sizes` workflow builds the release EXE on `windows-2022`, packs it with

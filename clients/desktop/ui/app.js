@@ -109,6 +109,10 @@ const showSettings = async () => {
 };
 document.getElementById('settings-open').addEventListener('click', showSettings);
 document.getElementById('settings-back').addEventListener('click', () => show(identity, 'status.ready'));
+document.getElementById('settings-create')
+  .addEventListener('click', () => act(invoke('storage_options')));
+document.getElementById('settings-switch')
+  .addEventListener('click', () => act({ status: 'picker' }));
 
 // Bootstrap settings of the open identity: draft rows, a bounded check, then Continue.
 const network = document.getElementById('network');
