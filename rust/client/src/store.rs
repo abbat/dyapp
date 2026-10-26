@@ -13,6 +13,7 @@ mod likes;
 pub mod messages;
 mod outbox;
 mod peers;
+mod profile_draft;
 mod search_publish;
 mod tokens;
 pub use likes::Likes;

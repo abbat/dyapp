@@ -60,7 +60,7 @@ pub struct BirthBounds {
 
 impl Profile {
     /// Whether the independently optional parts can describe a Gregorian date.
-    pub(crate) fn valid_birth_parts(&self) -> bool {
+    pub fn valid_birth_parts(&self) -> bool {
         let year = self.birth_year.unwrap_or(2000); // Leap year admits yearless February 29.
         if !(1..=9999).contains(&year)
             || self.birth_month.is_some_and(|m| !(1..=12).contains(&m))

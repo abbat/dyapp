@@ -9,6 +9,7 @@ pub mod chat;
 pub mod compatibility;
 pub mod interactions;
 pub mod profiles;
+pub mod publish;
 pub mod scores;
 pub mod search;
 pub mod seeds;
