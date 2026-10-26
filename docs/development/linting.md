@@ -85,6 +85,11 @@ config sets:
   `nesting` type and function level 2, `vertical_whitespace` max 2 empty lines.
 - `trailing_comma: mandatory_comma: true`: a multi-line collection ends with a comma.
 - `reporter: xcode`.
+- Write it right the first time: inside a type, order type properties, instance properties,
+  initializers, type methods, then other methods (`type_contents_order`); write `Self` for the
+  enclosing type in static members (`prefer_self_in_static_references`); sort imports by module
+  name, `@testable` ones included (`sorted_imports`); pass the last closure argument as a
+  trailing closure (`trailing_closure`).
 
 `swiftlint --fix` rewrites only rules that support correction; review the diff.
 
