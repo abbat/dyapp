@@ -8,6 +8,8 @@ In an open identity, **Settings** lists local identities. **Add a new identity**
 key-storage choice, and **Switch or add an identity** opens the identity picker. Creating an
 identity still requires an explicit storage choice and shows the file-key backup warning.
 **Remove this identity** opens the same second-confirmation screen; Cancel returns to Settings.
+Settings also displays the current identity's bootstrap-address editor and connection status;
+Back returns the same editor to Ready with its edits intact.
 
 ## Build
 

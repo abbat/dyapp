@@ -13,6 +13,10 @@ the selected Peer ID, storage mode and backup warning, then requires a separate 
 Remove is enabled. Cancel returns to Settings without deleting anything. **Back** returns to the
 same identity.
 
+The same bootstrap-address editor, network name and connection status appear in Settings.
+Returning to Ready keeps the current edits and Check results; the first connection flow still
+uses that editor before an active network is configured.
+
 ## Connect to a network
 
 After the identity opens, enter the bootstrap nodes you were given, one `host:port` per line

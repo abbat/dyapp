@@ -40,6 +40,9 @@ let current = null;
 
 // Shows one section (or none) with its status line.
 const show = (section, status) => {
+  if (section === identity && network.parentElement !== identity) {
+    identity.insertBefore(network, document.getElementById('profile'));
+  }
   for (const each of sections) each.hidden = each !== section;
   switchIdentity.hidden = section !== identity && section !== sections[3];
   // The backend refuses to remove a damaged or unreadable slot.
@@ -96,6 +99,7 @@ const showSettings = async () => {
   const error = document.getElementById('settings-error');
   list.replaceChildren();
   error.hidden = true;
+  settings.insertBefore(network, document.getElementById('settings-back'));
   show(settings, 'settings.title');
   try {
     const items = await invoke('list_identities');
