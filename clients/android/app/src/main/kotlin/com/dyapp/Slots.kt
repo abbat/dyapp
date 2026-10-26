@@ -12,6 +12,43 @@ import java.util.UUID
 
 private const val IDENTITY_KEY_FILE = "identity.key"
 private const val SLOT_STATE_FILE = "state"
+private const val MAX_MARKER_BYTES = 64
+
+private fun isRegularFile(file: File) =
+    Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS)
+
+private fun exists(file: File) = Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)
+
+// Reads a short marker file; null if absent, an error if it is not a regular file.
+private fun readMarker(file: File): String? {
+    if (!exists(file)) return null
+    if (!isRegularFile(file)) throw IOException("Marker is not a regular file")
+    val bytes = ByteArray(MAX_MARKER_BYTES)
+    val size = file.inputStream().use { it.read(bytes) }
+    return String(bytes, 0, maxOf(size, 0))
+}
+
+// Replaces the file by a flushed temporary file and a same-directory rename.
+private fun writeAtomic(file: File, value: ByteArray) {
+    val temp = File(file.path + ".tmp")
+    temp.delete()
+    FileOutputStream(temp).use {
+        it.write(value)
+        it.fd.sync()
+    }
+    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
+    FileChannel.open(file.parentFile!!.toPath(), StandardOpenOption.READ).use { it.force(true) }
+}
+
+private fun readSlot(id: String, dir: File): Slot {
+    val marker = if (Files.isDirectory(dir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+        runCatching { readMarker(File(dir, SLOT_STATE_FILE)) }.getOrNull()
+    } else {
+        null
+    }
+    val state = SlotState.entries.firstOrNull { it.marker == marker } ?: SlotState.BROKEN
+    return Slot(id, dir, state)
+}
 
 /** Wrapping keys by Keystore alias; the app uses [PlatformKeyStore], JVM tests a fake. */
 interface SlotKeys {
@@ -92,62 +129,8 @@ sealed class Opened {
  * app has one process, so the instance lock serializes every change.
  */
 class Slots(private val root: File, private val keys: SlotKeys) {
-    /** Constants and canonical UUID validation shared by slot operations. */
-    companion object {
-        /** The virtual slot of the root `identity.key` installation. */
-        const val LEGACY = "legacy-primary"
-
-        private val removableSlotFiles = setOf(
-            SLOT_STATE_FILE, "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
-            "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new"
-        )
-
-        private const val MAX_MARKER_BYTES = 64
-        private const val SLOT_RESERVATION_ATTEMPTS = 8
-        private val UUID_PATTERN = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
-
-        /** Whether [name] is a canonical lowercase UUID slot directory name. */
-        fun isUuid(name: String) = UUID_PATTERN.matches(name)
-    }
-
     private val profiles = File(root, "profiles")
     private val activeFile = File(root, "active-profile")
-
-    private fun isRegularFile(file: File) =
-        Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS)
-
-    private fun exists(file: File) = Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)
-
-    // Reads a short marker file; null if absent, an error if it is not a regular file.
-    private fun readMarker(file: File): String? {
-        if (!exists(file)) return null
-        if (!isRegularFile(file)) throw IOException("Marker is not a regular file")
-        val bytes = ByteArray(MAX_MARKER_BYTES)
-        val size = file.inputStream().use { it.read(bytes) }
-        return String(bytes, 0, maxOf(size, 0))
-    }
-
-    // Replaces the file by a flushed temporary file and a same-directory rename.
-    private fun writeAtomic(file: File, value: ByteArray) {
-        val temp = File(file.path + ".tmp")
-        temp.delete()
-        FileOutputStream(temp).use {
-            it.write(value)
-            it.fd.sync()
-        }
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
-        FileChannel.open(file.parentFile!!.toPath(), StandardOpenOption.READ).use { it.force(true) }
-    }
-
-    private fun readSlot(id: String, dir: File): Slot {
-        val marker = if (Files.isDirectory(dir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            runCatching { readMarker(File(dir, SLOT_STATE_FILE)) }.getOrNull()
-        } else {
-            null
-        }
-        val state = SlotState.entries.firstOrNull { it.marker == marker } ?: SlotState.BROKEN
-        return Slot(id, dir, state)
-    }
 
     /** All local slots: the legacy one if its key exists, then each UUID directory, by name. */
     fun list(): List<Slot> {
@@ -275,5 +258,22 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         Files.move(slot.dir.toPath(), removed.toPath(), StandardCopyOption.ATOMIC_MOVE)
         check(removed.deleteRecursively()) { "Cannot delete the identity folder" }
         if (active() == id) check(activeFile.delete()) { "Cannot clear the active identity" }
+    }
+
+    /** Constants and canonical UUID validation shared by slot operations. */
+    companion object {
+        /** The virtual slot of the root `identity.key` installation. */
+        const val LEGACY = "legacy-primary"
+
+        private val removableSlotFiles = setOf(
+            SLOT_STATE_FILE, "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
+            "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new"
+        )
+
+        private const val SLOT_RESERVATION_ATTEMPTS = 8
+        private val UUID_PATTERN = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
+
+        /** Whether [name] is a canonical lowercase UUID slot directory name. */
+        fun isUuid(name: String) = UUID_PATTERN.matches(name)
     }
 }
