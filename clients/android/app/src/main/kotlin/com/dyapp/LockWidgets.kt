@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +58,17 @@ internal fun NoScreenLockText() =
 @Composable
 internal fun DeviceCredentialText() =
     Text(stringResource(R.string.lock_device_credential), Modifier.testTag("pin-device-credential"))
+
+/** The OS screen lock is the recovery method; without one, say how to restore it. */
+@Composable
+internal fun DeviceCredentialButton(deviceSecure: Boolean, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, Modifier.testTag("pin-device-unlock"), enabled = deviceSecure) {
+        Text(stringResource(R.string.lock_use_device_credential))
+    }
+    if (!deviceSecure) {
+        Text(stringResource(R.string.lock_recovery_unavailable), Modifier.testTag("lock-recovery-unavailable"))
+    }
+}
 
 @Composable
 internal fun NewPinFields(pin: MutableState<String>, repeat: MutableState<String>, label: Int, enabled: Boolean) {

@@ -15,7 +15,11 @@
     <string name="lock_pin_mismatch">PIN не совпадают.</string>
     <string name="lock_pin_wrong">Неверный PIN.</string>
     <string name="lock_failed">Не удалось проверить PIN. Попробуйте ещё раз.</string>
-    <string name="lock_device_credential">Слишком много неверных PIN. Нужна разблокировка блокировкой экрана устройства.</string>
+    <string name="lock_device_credential">Слишком много неверных PIN. Разблокируйте блокировкой экрана устройства.</string>
+    <string name="lock_use_device_credential">Блокировка экрана устройства</string>
+    <string name="lock_device_credential_title">Разблокировка приложения</string>
+    <string name="lock_recovery_unavailable">Блокировка экрана устройства выключена. Включите её в настройках устройства, чтобы восстановить забытый PIN.</string>
+    <string name="lock_reset">Блокировка экрана подтверждена. Задайте новый PIN или отключите его.</string>
     <string name="lock_set">Установить PIN</string>
     <string name="lock_skip">Пропустить</string>
     <string name="lock_unlock">Разблокировать</string>

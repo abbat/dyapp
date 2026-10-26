@@ -114,6 +114,11 @@ and 11 per file (top-level extension functions in another file help), `StringLit
 counts repeated `testTag` strings, `BracesOnIfStatements` wants braces on a multi-line `if`, and
 `UseIfInsteadOfWhen` rejects a two-branch `when`.
 
+Before running `make quality` on Android changes, check the diff by hand: every new
+`values/strings.xml` entry has a `values-ru` counterpart (D1); no touched function exceeds 30
+lines or 4 parameters; no line exceeds 120 characters; every new public declaration, including
+each enum constant, has KDoc; a class stays under 10 functions. Each miss costs a full run.
+
 ## Suppressing a finding
 
 Fix the code first. If a suppression is justified, scope it as narrowly as possible and state why:

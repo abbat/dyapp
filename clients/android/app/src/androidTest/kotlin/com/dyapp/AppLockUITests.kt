@@ -1,9 +1,11 @@
 package com.dyapp
 
+import android.app.KeyguardManager
 import android.view.WindowManager
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -59,6 +61,11 @@ class AppLockUITests {
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
             compose.onNodeWithTag("identity").assertDoesNotExist()
+            // The emulator has no screen lock, so recovery is explained instead of offered.
+            if (!compose.activity.getSystemService(KeyguardManager::class.java).isDeviceSecure) {
+                compose.onNodeWithTag("pin-device-unlock").assertIsNotEnabled()
+                compose.onNodeWithTag("lock-recovery-unavailable").assertIsDisplayed()
+            }
             enterPin("654321")
             waitForTag("pin-error")
             compose.onNodeWithTag("peer-id").assertDoesNotExist()

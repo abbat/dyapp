@@ -81,7 +81,7 @@ class LockSettingsScreenTests {
     fun changeNeedsTheCurrentPinAndTheNewOneTwice() {
         val calls = mutableListOf<Pair<String?, String?>>()
         compose.setContent {
-            LockSettingsScreen(true, true, { current, new ->
+            LockSettingsScreen(LockMode.PIN, true, { current, new ->
                 calls += current to new
                 if (current == "123456") PinAttempt.UNLOCKED else PinAttempt.WRONG
             }) {}
@@ -104,8 +104,25 @@ class LockSettingsScreenTests {
     }
 
     @Test
+    fun aDeviceCredentialResetNeedsNoCurrentPin() {
+        val calls = mutableListOf<Pair<String?, String?>>()
+        compose.setContent {
+            LockSettingsScreen(LockMode.RESET, true, { current, new ->
+                calls += current to new
+                PinAttempt.UNLOCKED
+            }) {}
+        }
+        compose.onNodeWithTag("lock-reset").assertIsDisplayed()
+        compose.onNodeWithTag("pin-current").assertDoesNotExist()
+        compose.onNodeWithTag("lock-off").performClick()
+        compose.waitUntil { calls.isNotEmpty() }
+        check(calls == listOf<Pair<String?, String?>>(null to null)) { "Unexpected calls: $calls" }
+    }
+
+    @Test
     fun withoutScreenLockOnlyTurnOffStaysAndTooManyFailuresGate() {
-        compose.setContent { LockSettingsScreen(true, false, { _, _ -> PinAttempt.DEVICE_CREDENTIAL_REQUIRED }) {} }
+        val gate: suspend (String?, String?) -> PinAttempt? = { _, _ -> PinAttempt.DEVICE_CREDENTIAL_REQUIRED }
+        compose.setContent { LockSettingsScreen(LockMode.PIN, false, gate) {} }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("pin-new").assertIsNotEnabled()
         compose.onNodeWithTag("pin-current").performTextInput("654321")

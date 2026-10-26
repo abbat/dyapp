@@ -53,6 +53,15 @@ class MainActivity : ComponentActivity() {
     private var pinSet by mutableStateOf(false)
     private var deviceSecure by mutableStateOf(false)
 
+    // A passed OS device-credential check, not yet applied, and the PIN reset it authorizes.
+    private var credentialChecked = false
+    private var recovered by mutableStateOf(false)
+    private val lockMode get() = when {
+        recovered -> LockMode.RESET
+        pinSet -> LockMode.PIN
+        else -> LockMode.OFF
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // An unreadable verifier must fail closed, never start a new unlocked session.
@@ -66,13 +75,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             DYAppTheme {
                 when {
-                    locked -> UnlockScreen(::attempt)
+                    locked -> UnlockScreen(deviceSecure, ::attempt) {
+                        confirmDeviceCredential { credentialChecked = true; refreshLock() }
+                    }
                     setup -> SetupScreen(deviceSecure, {
                         // A failed write only means the choice is offered again next launch.
                         runCatching { store.skip() }
                         setup = false
                     }) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(pinSet, deviceSecure, ::setPin) { settings = false }
+                    settings -> LockSettingsScreen(lockMode, deviceSecure, ::setPin) {
+                        settings = false
+                        recovered = false
+                    }
                     else -> MainScreen { settings = true }
                 }
             }
@@ -121,14 +135,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun setPin(current: String?, newPin: String?): PinAttempt? {
-        // Enrol when no PIN is set, else change or (null new PIN) clear it behind the current one.
+        // Change or (null new PIN) clear it behind the current one or a fresh OS check, else enrol.
+        val reset = recovered
         val result = withContext(Dispatchers.Default) {
             runCatching {
-                if (current == null) {
-                    store.enroll(checkNotNull(newPin))
-                    PinAttempt.UNLOCKED
-                } else {
-                    store.change(current, newPin)
+                when {
+                    current != null -> store.change(current, newPin)
+                    reset -> PinAttempt.UNLOCKED.also { store.resetAfterDeviceCredential(newPin) }
+                    else -> PinAttempt.UNLOCKED.also { store.enroll(checkNotNull(newPin)) }
                 }
             }.getOrNull()
         }
@@ -137,14 +151,23 @@ class MainActivity : ComponentActivity() {
             pinSet = newPin != null
             obscureSnapshot(pinSet)
             setup = false
+            recovered = false
         }
         refreshLock()
         return result
     }
 
     private fun refreshLock() {
+        // The OS check may pause the activity; apply it once the app is in the foreground again.
+        if (credentialChecked && !appLock.snapshotObscured) {
+            credentialChecked = false
+            appLock.onUnlocked()
+            recovered = true
+            settings = true
+        }
         val remaining = appLock.millisUntilLock()
         locked = appLock.isLocked
+        if (locked) recovered = false
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
     }

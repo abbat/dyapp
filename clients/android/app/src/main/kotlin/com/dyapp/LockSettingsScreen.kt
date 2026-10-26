@@ -42,21 +42,37 @@ private class PinForm {
 
 private typealias PinSetter = suspend (String?, String?) -> PinAttempt?
 
+/** What the settings screen may change and what it must check first. */
+enum class LockMode {
+    /** No PIN is set. */
+    OFF,
+
+    /** A PIN is set; changes need the current PIN. */
+    PIN,
+
+    /** A PIN is set and a fresh OS device-credential check stands in for it. */
+    RESET,
+}
+
 /**
  * App-wide lock settings. With a PIN set, Change and Turn off both need the current PIN, checked
  * as one counted unlock attempt. [onSetPin] takes the current PIN (null when none is set) and the
  * new one (null turns the PIN off), runs off the UI thread and returns null on a storage error.
+ * After a fresh OS device-credential check, [LockMode.RESET] replaces or clears it without one.
  */
 @Composable
-fun LockSettingsScreen(pinSet: Boolean, deviceSecure: Boolean, onSetPin: PinSetter, onBack: () -> Unit) {
+fun LockSettingsScreen(mode: LockMode, deviceSecure: Boolean, onSetPin: PinSetter, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val form = remember { PinForm() }
     val open = form.open
-    val authorized = form.authorized(pinSet)
-    val submit = { newPin: String? -> form.submit(scope, form.current.value.takeIf { pinSet }, newPin, onSetPin) }
+    val pinSet = mode != LockMode.OFF
+    val askCurrent = mode == LockMode.PIN
+    val authorized = form.authorized(askCurrent)
+    val submit = { newPin: String? -> form.submit(scope, form.current.value.takeIf { askCurrent }, newPin, onSetPin) }
     LockColumn {
         LockSettingsStatus(pinSet, deviceSecure, form.gated)
-        if (pinSet) PinField(form.current, R.string.lock_pin_current, "pin-current", open)
+        if (mode == LockMode.RESET) Text(stringResource(R.string.lock_reset), Modifier.testTag("lock-reset"))
+        if (askCurrent) PinField(form.current, R.string.lock_pin_current, "pin-current", open)
         NewPinFields(form.pin, form.repeat, R.string.lock_pin_new, open && deviceSecure)
         form.error?.let { ErrorText(it) }
         LockSettingsActions(
@@ -73,7 +89,7 @@ private fun LockSettingsStatus(pinSet: Boolean, deviceSecure: Boolean, gated: Bo
     val mode = if (pinSet) R.string.lock_mode_pin else R.string.lock_mode_off
     Text(stringResource(mode), Modifier.testTag("lock-mode"))
     if (!deviceSecure) NoScreenLockText()
-    // The OS credential check that resets the count is planned.
+    // Only the unlock screen offers the OS check; the app relocks within the idle limit.
     if (gated) DeviceCredentialText()
 }
 

@@ -1,8 +1,25 @@
 package com.dyapp
 
 import android.app.Activity
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
+import android.os.CancellationSignal
 import android.view.WindowManager
+
+/**
+ * Ask the OS for the device screen lock alone (framework API 30+, no dependency). Cancel and
+ * errors keep the app locked; [onSuccess] runs on the main thread.
+ */
+internal fun Activity.confirmDeviceCredential(onSuccess: () -> Unit) {
+    BiometricPrompt.Builder(this)
+        .setTitle(getString(R.string.lock_device_credential_title))
+        .setAllowedAuthenticators(BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+        .build()
+        .authenticate(CancellationSignal(), mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+        })
+}
 
 /**
  * Keeps private content out of the app-switcher snapshot while a PIN is set. Before API 33 only

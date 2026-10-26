@@ -21,9 +21,14 @@ record and a failure count share one AES-GCM wrapped blob, replaced atomically a
 The count is persisted before checking a PIN; five failures require an OS device-credential
 check. Corrupt or unreadable files fail closed and are never treated as a fresh install.
 `setupDone` is true once a record or the empty `app-lock-skipped` marker exists; `skip` writes
-the marker, and clearing the PIN also writes it so setup is not offered again. The OS
-credential gate is still planned; `AppLockStore` exposes a recovery method that must only be
-called after that gate succeeds. `change` replaces or clears the PIN only when the current PIN,
+the marker, and clearing the PIN also writes it so setup is not offered again.
+`resetAfterDeviceCredential` must only be called after a fresh OS check: `UnlockScreen` offers
+**Use device screen lock**, a framework `BiometricPrompt` limited to `DEVICE_CREDENTIAL` (no
+extra dependency). Its success unlocks the app once it is back in the foreground and opens
+`LockSettingsScreen` in reset mode, where a new PIN or Turn off needs no current PIN; identity
+slots are untouched. Leaving reset mode keeps the failure count, so a gated PIN still needs the
+OS check. Without a device screen lock the button is disabled and the screen explains that it
+must be restored. `change` replaces or clears the PIN only when the current PIN,
 counted as one attempt, verifies; `MainActivity.setPin` calls it from `LockSettingsScreen`
 (and `enroll` when no PIN is set). `onDevice` uses
 `PlatformKeyStore` with a dedicated alias and the common Rust FFI Argon2id functions; JVM tests

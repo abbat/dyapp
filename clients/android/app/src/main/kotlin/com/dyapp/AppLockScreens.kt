@@ -72,9 +72,10 @@ private fun SetupActions(onSet: (() -> Unit)?, onSkip: (() -> Unit)?) {
 /**
  * The only surface while locked: no profile, message or Peer ID is composed. [onAttempt] runs
  * the KDF off the UI thread and returns null when the record cannot be checked.
+ * [onDeviceCredential] opens the OS screen-lock check, which also recovers a forgotten PIN.
  */
 @Composable
-fun UnlockScreen(onAttempt: suspend (String) -> PinAttempt?) {
+fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttempt?, onDeviceCredential: () -> Unit) {
     val scope = rememberCoroutineScope()
     val pinState = remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -82,7 +83,7 @@ fun UnlockScreen(onAttempt: suspend (String) -> PinAttempt?) {
     var gated by remember { mutableStateOf(false) }
     LockColumn {
         Text(stringResource(R.string.app_locked), Modifier.testTag("app-locked"))
-        // The OS credential check that resets the count is planned; until then stay here.
+        DeviceCredentialButton(deviceSecure, onDeviceCredential)
         if (gated) {
             DeviceCredentialText()
             return@LockColumn
@@ -99,9 +100,15 @@ fun UnlockScreen(onAttempt: suspend (String) -> PinAttempt?) {
                 busy = false
             }
         }
-        Button(onClick = submit, Modifier.testTag("pin-unlock"), enabled = !busy && pinState.value.length >= PIN_MIN) {
-            Text(stringResource(R.string.lock_unlock))
-        }
+        UnlockButton(submit.takeIf { !busy && pinState.value.length >= PIN_MIN })
+    }
+}
+
+@Composable
+private fun UnlockButton(onUnlock: (() -> Unit)?) {
+    // A null action shows the button disabled.
+    Button(onClick = { onUnlock?.invoke() }, Modifier.testTag("pin-unlock"), enabled = onUnlock != null) {
+        Text(stringResource(R.string.lock_unlock))
     }
 }
 
