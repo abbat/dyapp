@@ -24,6 +24,30 @@ enum RustBridge {
         return try store.resolve()
     }
 
+    /// Existing folder for this identity; the legacy key stays at the app root.
+    static func networkDirectory(root: URL, candidate: IdentityCandidate) -> URL {
+        switch candidate.location {
+        case .legacy:
+            return root
+
+        case .slot(let id):
+            return root.appendingPathComponent("profiles", isDirectory: true)
+                .appendingPathComponent(id.uuidString.lowercased(), isDirectory: true)
+        }
+    }
+
+    /// Read this identity's draft or active network settings off the UI thread.
+    static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws -> NetworkSettings? {
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        return try loadNetwork(dir: dir.path, file: file)
+    }
+
+    /// Persist draft edits beside this identity's key off the UI thread.
+    static func storeNetworkDraft(for candidate: IdentityCandidate, draft: NetworkSettings) throws {
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        try saveNetworkDraft(dir: dir.path, draft: draft)
+    }
+
     private static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
         if let id = uiTestSlotID {

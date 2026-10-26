@@ -10,6 +10,18 @@ final class IdentitySlotStoreTests: XCTestCase {
         return path
     }
 
+    func testNetworkDirectoryFollowsSelectedIdentityWithoutCreatingIt() throws {
+        let root = try root()
+        let id = UUID()
+        let legacy = IdentityCandidate(location: .legacy, state: .ready)
+        let slot = IdentityCandidate(location: .slot(id), state: .ready)
+        XCTAssertEqual(RustBridge.networkDirectory(root: root, candidate: legacy), root)
+        let expected = root.appendingPathComponent("profiles", isDirectory: true)
+            .appendingPathComponent(id.uuidString.lowercased(), isDirectory: true)
+        XCTAssertEqual(RustBridge.networkDirectory(root: root, candidate: slot), expected)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: expected.path))
+    }
+
     func testTwoSlotsReopenWithDistinctStablePeerIDs() throws {
         let store = IdentitySlotStore(root: try root())
         let first = try store.create()
