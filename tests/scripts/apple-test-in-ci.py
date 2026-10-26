@@ -1,18 +1,68 @@
 """Build Apple apps and run hosted XCTest/XCUITest in approved native CI."""
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
+import time
 
 
-def run(arguments, log):
+def run(arguments, log, env=None, timeout=None):
     with log.open("w") as output:
         result = subprocess.run(
-            arguments, stdout=output, stderr=subprocess.STDOUT, check=False)
+            arguments, stdout=output, stderr=subprocess.STDOUT,
+            check=False, env=env, timeout=timeout)
     print(log.read_text())
     if result.returncode:
         raise RuntimeError(
             f"Command failed ({result.returncode}): {arguments}")
+
+
+@contextmanager
+def local_node(reports):
+    """Run loopback dyappd for native UI tests without public peers."""
+    run(["cargo", "build", "--locked", "-p", "dyapp-bootstrap",
+         "--bin", "dyappd"],
+        reports / "node-build.log")
+    address = "127.0.0.1:33445"
+    storage = reports / "node-storage"
+    env = dict(os.environ, DYAPPD_LISTEN=json.dumps([address]),
+               DYAPPD_EXTERNAL=json.dumps([address]),
+               DYAPPD_STORAGE_DIR=str(storage), DYAPPD_NETWORK_ID_POW_BITS="8")
+    run(["build/debug/dyappd", "keygen"], reports / "node-keygen.log", env=env,
+        timeout=60)
+    peer_id = (storage / "node.id").read_text().strip()
+    metadata = {"address": address, "peer_id": peer_id}
+    (reports / "node.json").write_text(json.dumps(metadata))
+    with (reports / "node.log").open("w") as log:
+        server = subprocess.Popen(["build/debug/dyappd"], env=env,
+                                  stdout=log, stderr=subprocess.STDOUT)
+    try:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            if server.poll() is not None:
+                break
+            try:
+                with socket.create_connection(("127.0.0.1", 33445), timeout=1):
+                    break
+            except OSError:
+                time.sleep(0.25)
+        else:
+            log_tail = (reports / "node.log").read_text()[-4096:]
+            raise RuntimeError(f"Local dyappd did not listen: {log_tail}")
+        if server.poll() is not None:
+            log_tail = (reports / "node.log").read_text()[-4096:]
+            raise RuntimeError(f"Local dyappd exited: {log_tail}")
+        yield address, peer_id
+    finally:
+        if server.poll() is None:
+            server.terminate()
+            try:
+                server.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server.wait(timeout=10)
 
 
 def main():
@@ -58,11 +108,12 @@ def main():
             reports / "universal-build.log")
         destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
-    run(test + ["-destination", destination,
-                "-parallel-testing-enabled", "NO",
-                "-retry-tests-on-failure", "-test-iterations", "3",
-                "-resultBundlePath", str(result_bundle), "test"],
-        reports / "tests.log")
+    with local_node(reports):
+        run(test + ["-destination", destination,
+                    "-parallel-testing-enabled", "NO",
+                    "-retry-tests-on-failure", "-test-iterations", "3",
+                    "-resultBundlePath", str(result_bundle), "test"],
+            reports / "tests.log")
     summary = subprocess.check_output(
         ["xcrun", "xcresulttool", "get", "test-results", "summary",
          "--path", str(result_bundle)], text=True)

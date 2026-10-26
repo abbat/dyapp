@@ -230,6 +230,10 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   lock test deterministic across simulators with different credential settings.
   The DEBUG-only `--ui-test-corrupt-network-draft` argument seeds a malformed draft in the
   selected UI-test slot after creation; it never runs in release builds.
+  Before XCTest, the runner builds a host `dyappd`, generates a low-cost test key and starts
+  it on `127.0.0.1:33445` for the native network UI cases. Its node ID, log and build output
+  stay in `$RUNNER_TEMP/apple-results/`; the runner waits at most 30 seconds for its loopback
+  listener and terminates the process after tests. It never contacts a public bootstrap node.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.
