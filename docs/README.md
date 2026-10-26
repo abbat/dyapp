@@ -41,6 +41,7 @@ it are entry points that tools discover by path (see
 - [Pull request review](development/pr-review.md): checks and human review of untrusted PRs
 - [Desktop identity storage](development/desktop-identity-storage.md): user choice, runtime capability checks and persistence
 - [Android identity storage](development/android-identity-storage.md): per-identity Keystore aliases, slots and recovery
+- [Apple identity storage](development/apple-identity-storage.md): planned per-profile Keychain slots, legacy migration and recovery
 - [Build automation](development/build.md)
 - [FFI bindings (UniFFI)](development/ffi-bindings.md)
 - [Protobuf code generation](development/protobuf-codegen.md)
