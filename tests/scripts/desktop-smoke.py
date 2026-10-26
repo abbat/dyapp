@@ -328,10 +328,15 @@ def smoke(executable, flows=True):
     if flows and sys.platform.startswith("linux"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             connect(profile)
+    language_step = "--ui-test-step=settings-language"
     with tempfile.TemporaryDirectory(dir=reports) as profile:
-        case("russian-locale", ["--ui-test-file", "--ui-test-ru"], profile)
+        case("settings-english", ["--ui-test-file", language_step], profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
-        case("pseudo-locale", ["--ui-test-file", "--pseudo-locale"], profile)
+        russian = ["--ui-test-file", "--ui-test-ru", language_step]
+        case("russian-locale", russian, profile)
+    with tempfile.TemporaryDirectory(dir=reports) as profile:
+        pseudo = ["--ui-test-file", "--pseudo-locale", language_step]
+        case("pseudo-locale", pseudo, profile)
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("hidden-ready-rejected", ["--ui-test-file", "--break-ui"],
              profile, broken=True)

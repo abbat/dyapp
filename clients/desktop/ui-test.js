@@ -156,6 +156,31 @@ const checkNetworkInSettings = async () => {
   document.getElementById('settings-back').click();
   await waitFor('identity');
 };
+const checkSettingsLanguage = async () => {
+  const strings = window.strings;
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  const expectedTitle = window.pseudoLocale ? '[Séttíngs····]'
+    : window.locale === 'ru' ? 'Настройки' : 'Settings';
+  if (document.querySelector('#settings h2').textContent !== expectedTitle) {
+    throw new Error('Settings title uses the wrong language');
+  }
+  for (const [id, key] of [
+    ['settings-create', 'identity.add'], ['settings-switch', 'identity.switch'],
+    ['settings-remove', 'identity.remove'], ['settings-back', 'settings.back'],
+  ]) {
+    if (document.getElementById(id).textContent !== strings[key]) {
+      throw new Error(`Settings control ${id} is not localized`);
+    }
+  }
+  await checkNetwork();
+  if (document.getElementById('network-status').textContent
+      !== strings['network.invalidAddress']) {
+    throw new Error('Settings network status is not localized');
+  }
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+};
 const checkEmptyProfilePreview = async () => {
   document.getElementById('profile-preview-action').click();
   await waitFor('profile-preview');
@@ -310,6 +335,11 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'settings-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
+    } else if (step === 'settings-language') {
+      if (state.status !== 'setup') throw new Error('storage picker not shown');
+      await chooseStorage(mode);
+      await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
+      await checkSettingsLanguage();
     } else if (step === 'profile-save') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await saveProfileForRestart();
