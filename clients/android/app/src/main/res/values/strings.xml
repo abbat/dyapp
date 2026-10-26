@@ -20,6 +20,14 @@
     <string name="lock_set">Set PIN</string>
     <string name="lock_skip">Skip</string>
     <string name="lock_unlock">Unlock</string>
+    <string name="lock_settings">App lock</string>
+    <string name="lock_mode_off">App lock: off</string>
+    <string name="lock_mode_pin">App lock: PIN</string>
+    <string name="lock_pin_current">Current PIN</string>
+    <string name="lock_pin_new">New PIN</string>
+    <string name="lock_change">Change PIN</string>
+    <string name="lock_turn_off">Turn off PIN</string>
+    <string name="lock_back">Back</string>
     <string name="storage_peer_id">Your Peer ID</string>
     <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
     <string name="storage_error">Restart the app. Your identity was not replaced.</string>

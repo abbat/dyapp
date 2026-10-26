@@ -2,7 +2,6 @@ package com.dyapp
 
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -10,13 +9,11 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Rule
@@ -38,7 +35,7 @@ class AppUITests {
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
         // The peer ID comes from the Rust core through the UniFFI bindings.
-        val peerId = shownPeerId()
+        val peerId = compose.shownPeerId()
         check(Regex("[0-9a-f]{64}").matches(peerId)) { "Unexpected peer ID: $peerId" }
         compose.onNodeWithTag("os-loss").assertTextEquals(string(R.string.storage_os_loss))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -57,51 +54,14 @@ class AppUITests {
         }
     }
 
-    private fun enterPin(pin: String) {
-        compose.onNodeWithTag("pin").performTextInput(pin)
-        compose.onNodeWithTag("pin-unlock").performClick()
-    }
-
-    // The Argon2id check takes seconds on the software-rendered emulator.
-    private fun waitForTag(tag: String) = compose.waitUntil(timeoutMillis = 60_000) {
-        compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-    }
-
-    private fun shownPeerId() = compose.onNodeWithTag("peer-id").assertIsDisplayed()
-        .fetchSemanticsNode()
-        .config[SemanticsProperties.Text]
-        .joinToString()
-
-    @Test
-    fun configuredLockHidesIdentityUntilTheRightPin() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val store = AppLockStore.onDevice(context.noBackupFilesDir)
-        store.enroll("123456")
-        try {
-            compose.activityRule.scenario.recreate()
-            compose.onNodeWithTag("app-locked").assertIsDisplayed()
-            compose.onNodeWithTag("peer-id").assertDoesNotExist()
-            compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
-            compose.onNodeWithTag("identity").assertDoesNotExist()
-            enterPin("654321")
-            waitForTag("pin-error")
-            compose.onNodeWithTag("peer-id").assertDoesNotExist()
-            enterPin("123456")
-            waitForTag("peer-id")
-            compose.onNodeWithTag("app-locked").assertDoesNotExist()
-        } finally {
-            store.resetAfterDeviceCredential(null)
-        }
-    }
-
     @Test
     fun recreationKeepsReadyScreenAndPeerId() {
-        val before = shownPeerId()
+        val before = compose.shownPeerId()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
         // The new screen unwraps the stored key again, as a restarted app does.
-        check(shownPeerId() == before) { "Peer ID changed on recreation" }
+        check(compose.shownPeerId() == before) { "Peer ID changed on recreation" }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val opened = RustBridge.slots(context).open() as Opened.Ready
         check(opened.peerId == before) { "Stored identity differs from the shown one" }
@@ -111,27 +71,27 @@ class AppUITests {
 
     @Test
     fun addSwitchAndRelaunchKeepTheChosenIdentity() {
-        val first = shownPeerId()
+        val first = compose.shownPeerId()
         compose.onNodeWithTag("switch").performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
         compose.onNodeWithTag("add-identity").performScrollTo().performClick()
-        val second = shownPeerId()
+        val second = compose.shownPeerId()
         check(second != first) { "A new identity reused the Peer ID" }
         compose.onNodeWithTag("switch").performClick()
         compose.onNode(hasTestTag("identity") and hasText(second)).performScrollTo()
         compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
-        check(shownPeerId() == first) { "Switching did not open the chosen identity" }
+        check(compose.shownPeerId() == first) { "Switching did not open the chosen identity" }
         // A relaunch reads the active pointer again.
         compose.activityRule.scenario.recreate()
-        check(shownPeerId() == first) { "The chosen identity was lost on relaunch" }
+        check(compose.shownPeerId() == first) { "The chosen identity was lost on relaunch" }
     }
 
     @Test
     fun removingTheActiveIdentityErasesItsKeyAndReturnsToThePicker() {
-        val first = shownPeerId()
+        val first = compose.shownPeerId()
         compose.onNodeWithTag("switch").performClick()
         compose.onNodeWithTag("add-identity").performScrollTo().performClick()
-        val second = shownPeerId()
+        val second = compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val alias = (RustBridge.slots(context).open() as Opened.Ready).slot.alias
         compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
@@ -145,12 +105,12 @@ class AppUITests {
         compose.onNode(hasTestTag("identity") and hasText(second)).assertDoesNotExist()
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
         compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
-        check(shownPeerId() == first) { "The remaining identity did not open" }
+        check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
     @Test
     fun interruptedSaveIsRecoveryNotANewIdentity() {
-        shownPeerId()
+        compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val slots = RustBridge.slots(context)
         val active = checkNotNull(slots.active())

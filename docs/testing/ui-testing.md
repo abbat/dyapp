@@ -28,7 +28,7 @@ when space grows, without changing the identifier.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 12 instrumented (`AppUITests.kt` ×6, `LockSetupTests.kt` ×3, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 15 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×5, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 21 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (19) | same |
 | iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |

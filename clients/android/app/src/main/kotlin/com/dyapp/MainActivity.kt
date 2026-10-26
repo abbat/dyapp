@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
     private val store by lazy { AppLockStore.onDevice(noBackupFilesDir) }
     private var locked by mutableStateOf(true)
     private var setup by mutableStateOf(false)
+    private var settings by mutableStateOf(false)
+    private var pinSet by mutableStateOf(false)
     private var deviceSecure by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,6 +60,7 @@ class MainActivity : ComponentActivity() {
             .getOrDefault(true to true)
         appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
         setup = !setupDone
+        pinSet = pinEnabled
         refreshLock()
         setContent {
             DYAppTheme {
@@ -67,8 +70,9 @@ class MainActivity : ComponentActivity() {
                         // A failed write only means the choice is offered again next launch.
                         runCatching { store.skip() }
                         setup = false
-                    }, ::enroll)
-                    else -> MainScreen()
+                    }) { setPin(null, it) == PinAttempt.UNLOCKED }
+                    settings -> LockSettingsScreen(pinSet, deviceSecure, ::setPin) { settings = false }
+                    else -> MainScreen { settings = true }
                 }
             }
         }
@@ -115,14 +119,25 @@ class MainActivity : ComponentActivity() {
         return result
     }
 
-    private suspend fun enroll(pin: String): Boolean {
-        val done = withContext(Dispatchers.Default) { runCatching { store.enroll(pin) }.isSuccess }
-        if (done) {
-            appLock.onPinEnrolled()
-            setup = false
-            refreshLock()
+    private suspend fun setPin(current: String?, newPin: String?): PinAttempt? {
+        // Enrol when no PIN is set, else change or (null new PIN) clear it behind the current one.
+        val result = withContext(Dispatchers.Default) {
+            runCatching {
+                if (current == null) {
+                    store.enroll(checkNotNull(newPin))
+                    PinAttempt.UNLOCKED
+                } else {
+                    store.change(current, newPin)
+                }
+            }.getOrNull()
         }
-        return done
+        if (result == PinAttempt.UNLOCKED) {
+            if (newPin == null) appLock.onPinCleared() else appLock.onPinEnrolled()
+            pinSet = newPin != null
+            setup = false
+        }
+        refreshLock()
+        return result
     }
 
     private fun refreshLock() {
@@ -149,7 +164,7 @@ private fun reasonText(reason: String) =
  * tags the status line UI tests wait for, `peer-id` the core's answer.
  */
 @Composable
-fun MainScreen() {
+fun MainScreen(onLockSettings: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val slots = remember { RustBridge.slots(context) }
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
@@ -218,6 +233,9 @@ fun MainScreen() {
             OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
                 Text(stringResource(R.string.identity_switch))
             }
+        }
+        OutlinedButton(onClick = onLockSettings, Modifier.testTag("lock-settings")) {
+            Text(stringResource(R.string.lock_settings))
         }
     }
 }

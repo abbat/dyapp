@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -69,5 +70,48 @@ class SetupScreenTests {
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("pin-set").assertIsNotEnabled()
         compose.onNodeWithTag("lock-skip").assertIsEnabled()
+    }
+}
+
+class LockSettingsScreenTests {
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun changeNeedsTheCurrentPinAndTheNewOneTwice() {
+        val calls = mutableListOf<Pair<String?, String?>>()
+        compose.setContent {
+            LockSettingsScreen(true, true, { current, new ->
+                calls += current to new
+                if (current == "123456") PinAttempt.UNLOCKED else PinAttempt.WRONG
+            }) {}
+        }
+        compose.onNodeWithTag("pin-new").performTextInput("111111")
+        compose.onNodeWithTag("pin-repeat").performTextInput("111111")
+        compose.onNodeWithTag("pin-set").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-off").assertIsNotEnabled()
+        compose.onNodeWithTag("pin-current").performTextInput("654321")
+        compose.onNodeWithTag("pin-set").performClick()
+        compose.waitUntil { calls.isNotEmpty() }
+        compose.onNodeWithTag("pin-error").assertIsDisplayed()
+        compose.onNodeWithTag("pin-current").performTextInput("123456")
+        compose.onNodeWithTag("pin-new").performTextInput("111111")
+        compose.onNodeWithTag("pin-repeat").performTextInput("111111")
+        compose.onNodeWithTag("pin-set").performClick()
+        compose.waitUntil { calls.size == 2 }
+        compose.onNodeWithTag("pin-error").assertDoesNotExist()
+        check(calls == listOf("654321" to "111111", "123456" to "111111")) { "Unexpected calls: $calls" }
+    }
+
+    @Test
+    fun withoutScreenLockOnlyTurnOffStaysAndTooManyFailuresGate() {
+        compose.setContent { LockSettingsScreen(true, false, { _, _ -> PinAttempt.DEVICE_CREDENTIAL_REQUIRED }) {} }
+        compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
+        compose.onNodeWithTag("pin-new").assertIsNotEnabled()
+        compose.onNodeWithTag("pin-current").performTextInput("654321")
+        compose.onNodeWithTag("lock-off").performClick()
+        compose.waitUntil { compose.onAllNodesWithTag("pin-device-credential").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("lock-off").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-back").assertIsEnabled()
     }
 }

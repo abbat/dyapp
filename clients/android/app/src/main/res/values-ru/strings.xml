@@ -19,6 +19,14 @@
     <string name="lock_set">Установить PIN</string>
     <string name="lock_skip">Пропустить</string>
     <string name="lock_unlock">Разблокировать</string>
+    <string name="lock_settings">Блокировка приложения</string>
+    <string name="lock_mode_off">Блокировка приложения: выключена</string>
+    <string name="lock_mode_pin">Блокировка приложения: PIN</string>
+    <string name="lock_pin_current">Текущий PIN</string>
+    <string name="lock_pin_new">Новый PIN</string>
+    <string name="lock_change">Сменить PIN</string>
+    <string name="lock_turn_off">Отключить PIN</string>
+    <string name="lock_back">Назад</string>
     <string name="storage_peer_id">Ваш идентификатор узла</string>
     <string name="storage_os_loss">Удаление приложения или очистка его данных стирает ключ этой идентичности без предупреждения. Резервную копию пока сделать нельзя.</string>
     <string name="storage_error">Перезапустите приложение. Ваш ключ не был заменён.</string>
