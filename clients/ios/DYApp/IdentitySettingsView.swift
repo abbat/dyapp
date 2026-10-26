@@ -4,13 +4,21 @@ private enum InventoryLoad: Sendable {
     case loaded([IdentityInventoryRow]), failed
 }
 
-/// Read-only inventory of local identities for the selected Apple key slot.
+private enum IdentityAction: Sendable {
+    case ready(IdentityCandidate, String), failed
+}
+
+/// Inventory and explicit identity actions for the selected Apple key slot.
 struct IdentitySettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     let candidate: IdentityCandidate
     let peerId: String
+    let onIdentityChanged: (IdentityResolution) -> Void
     @State private var rows: [IdentityInventoryRow] = []
     @State private var isLoading = true
     @State private var readFailed = false
+    @State private var isWorking = false
+    @State private var actionFailed = false
 
     var body: some View {
         Form {
@@ -23,19 +31,26 @@ struct IdentitySettingsView: View {
                 } else {
                     ForEach(rows) { row in
                         VStack(alignment: .leading) {
-                            if let peerID = row.peerID {
-                                Text(peerID)
-                            } else {
-                                Text(statusKey(for: row.candidate.state))
+                            VStack(alignment: .leading) {
+                                if let peerID = row.peerID {
+                                    Text(peerID)
+                                } else {
+                                    Text(statusKey(for: row.candidate.state))
+                                }
+                                Text("settings.keychain")
+                                if row.candidate.location == candidate.location {
+                                    Text("settings.active")
+                                }
                             }
-                            Text("settings.keychain")
-                            if row.candidate.location == candidate.location {
-                                Text("settings.active")
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier(row.candidate.location == candidate.location
+                                                     ? "settings-active" : "settings-identity-\(row.id)")
+                            if row.peerID != nil && row.candidate.location != candidate.location {
+                                Button("settings.select") { Task { await select(row.candidate.location) } }
+                                    .disabled(isWorking)
+                                    .accessibilityIdentifier("settings-select-\(row.id)")
                             }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier(row.candidate.location == candidate.location
-                                                 ? "settings-active" : "settings-identity-\(row.id)")
                     }
                 }
             } header: {
@@ -47,6 +62,17 @@ struct IdentitySettingsView: View {
                     Text("network.title")
                 }
                 .accessibilityIdentifier("settings-network")
+            }
+
+            Section {
+                Text("settings.createWarning")
+                Button("settings.create") { Task { await create() } }
+                    .disabled(isLoading || readFailed || isWorking)
+                    .accessibilityIdentifier("settings-create")
+                if isWorking { ProgressView("settings.working") }
+                if actionFailed {
+                    Text("settings.actionFailed").accessibilityIdentifier("settings-action-error")
+                }
             }
         }
         .navigationTitle("settings.title")
@@ -86,5 +112,50 @@ struct IdentitySettingsView: View {
             readFailed = true
         }
         isLoading = false
+    }
+
+    @MainActor
+    private func create() async {
+        guard !isWorking else { return }
+        isWorking = true
+        actionFailed = false
+        let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
+            do {
+                if case let .ready(created, peerID) = try RustBridge.createIdentity() {
+                    return .ready(created, peerID)
+                }
+            } catch { return .failed }
+            return .failed
+        }.value
+        finish(result)
+    }
+
+    @MainActor
+    private func select(_ location: IdentityLocation) async {
+        guard !isWorking else { return }
+        isWorking = true
+        actionFailed = false
+        let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
+            do {
+                if case let .ready(selected, peerID) = try RustBridge.selectIdentity(location) {
+                    return .ready(selected, peerID)
+                }
+            } catch { return .failed }
+            return .failed
+        }.value
+        finish(result)
+    }
+
+    @MainActor
+    private func finish(_ result: IdentityAction) {
+        isWorking = false
+        switch result {
+        case let .ready(selected, peerID):
+            onIdentityChanged(.ready(selected, peerID))
+            dismiss()
+
+        case .failed:
+            actionFailed = true
+        }
     }
 }

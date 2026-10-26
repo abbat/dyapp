@@ -49,8 +49,11 @@ the active file appears only after explicit activation; the UI suites verify pro
 The read-only shared Settings inventory calls `candidates()` and reopens ready keys in a detached
 task. It labels missing or unreadable keys as unavailable, keeps pending/deleting/damaged slots
 visible, marks the selected slot, names both Keychain and local key file, and never changes
-`active-profile` or creates a key. Its network link edits only the selected slot. Create, switch
-and removal controls are planned separately.
+`active-profile` or creates a key. Its network link edits only the selected slot. Settings now
+offers explicit Create and Switch actions in detached tasks; Switch calls the existing guarded
+`select`, and the root screen reloads the newly selected slot's Active network before showing
+Ready or its draft form. A failed action keeps the prior UI selection and shows an error. Removal
+controls are planned separately.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their

@@ -14,7 +14,9 @@ activate the network until you tap **Continue** after a compatible result. Cance
 check; Retry reuses the draft. Continue opens the profile editor after activation succeeds.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
-An unreadable identity is shown as unavailable; Create, Switch and Remove controls are planned.
+**Create another identity** makes a separate Peer ID only after you tap it. **Switch to this
+identity** reopens an existing key before selecting it; an unreadable identity stays unavailable.
+A failed action shows an error and keeps your current selection. Remove is planned.
 
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
 signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact

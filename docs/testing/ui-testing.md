@@ -31,7 +31,8 @@ Peer ID on Ready; the form is then available through Network connection. Shared 
 two UUID slot folders and check that each retains its own draft and active settings.
 Apple UI tests also open read-only Settings after creation, find the selected inventory row by
 accessibility identifier and Peer ID, and verify the network editor link remains available.
-The later Settings matrix covers multiple identities and actions. A DEBUG-only
+They create a second identity, switch back to the first, and relaunch to confirm its Peer ID
+persists. The later Settings matrix covers removal and error states. A DEBUG-only
 launch argument seeds an invalid draft after explicit identity creation so the tests can check
 the visible read error and disabled Save action; release builds ignore this argument.
 They also check that a malformed bootstrap address receives an ordered row outcome after Check

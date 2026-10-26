@@ -41,8 +41,16 @@ enum RustBridge {
     static func createIdentity() throws -> IdentityResolution {
         let store = try identityStore()
         let created = try store.create()
-        try store.select(.slot(created.slot.id))
-        return try store.resolve()
+        let location = IdentityLocation.slot(created.slot.id)
+        let peerID = try store.select(location)
+        return .ready(IdentityCandidate(location: location, state: .ready), peerID)
+    }
+
+    /// Select an existing ready slot after its key has been reopened successfully.
+    static func selectIdentity(_ location: IdentityLocation) throws -> IdentityResolution {
+        let store = try identityStore()
+        let peerID = try store.select(location)
+        return .ready(IdentityCandidate(location: location, state: .ready), peerID)
     }
 
     /// Existing folder for this identity; the legacy key stays at the app root.

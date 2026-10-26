@@ -28,7 +28,7 @@ struct ContentView: View {
 
                 case let .ready(candidate, peerId):
                     Text(peerId).accessibilityIdentifier("peer-id")
-                    NavigationLink(destination: IdentitySettingsView(candidate: candidate, peerId: peerId)) {
+                    NavigationLink(destination: settingsView(candidate, peerId)) {
                         Text("settings.title")
                     }
                     .accessibilityIdentifier("settings-open")
@@ -92,6 +92,13 @@ struct ContentView: View {
 
     private func refreshIdentity() {
         identity = (try? RustBridge.identityState()) ?? .recovery(nil, .unavailable)
+    }
+
+    private func settingsView(_ candidate: IdentityCandidate, _ peerId: String) -> IdentitySettingsView {
+        IdentitySettingsView(candidate: candidate, peerId: peerId) { selected in
+            activeNetwork = .loading
+            identity = selected
+        }
     }
 
     private func createIdentity() {

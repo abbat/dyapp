@@ -48,6 +48,39 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.buttons["settings-network"].exists)
         app.terminate()
     }
+}
+
+extension LaunchTests {
+    func testSettingsCreatesAndSwitchesWithoutReplacingKeys() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        let first = shownPeerId(app)
+        app.buttons["settings-open"].tap()
+        app.buttons["settings-create"].tap()
+        let peer = app.staticTexts["peer-id"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", first), object: peer
+        ),
+        ], timeout: 10), .completed)
+        let second = shownPeerId(app)
+        XCTAssertNotEqual(second, first)
+        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
+        app.buttons["settings-open"].tap()
+        let select = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@", "settings-select-"
+        )).firstMatch
+        XCTAssertTrue(select.waitForExistence(timeout: 10))
+        select.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", first), object: peer
+        ),
+        ], timeout: 10), .completed)
+        app.terminate()
+        app.launch()
+        XCTAssertEqual(shownPeerId(app), first)
+        app.terminate()
+    }
 
     func testNetworkDraftSurvivesRelaunch() {
         let app = isolatedApp()

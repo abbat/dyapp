@@ -163,6 +163,36 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Хранилище повреждено" } }
       }
     },
+    "settings.select": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Switch to this identity" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Переключиться на эту идентичность" } }
+      }
+    },
+    "settings.create": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Create another identity" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Создать другую идентичность" } }
+      }
+    },
+    "settings.createWarning": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A new identity has a separate Peer ID and local key. A missing key cannot be replaced by creating another identity." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Новая идентичность получит отдельный Peer ID и локальный ключ. Создание другой идентичности не восстановит потерянный ключ." } }
+      }
+    },
+    "settings.working": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Updating identity…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Обновление идентичности…" } }
+      }
+    },
+    "settings.actionFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The identity action failed. Check device storage and retry; your current key was not replaced." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось выполнить действие. Проверьте хранилище и повторите попытку; текущий ключ не заменён." } }
+      }
+    },
     "network.activeReadFailed": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "The active network could not be read. Retry after fixing its file." } },
