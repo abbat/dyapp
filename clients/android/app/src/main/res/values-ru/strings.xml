@@ -43,6 +43,16 @@
     <string name="settings_identities">Идентичности на устройстве</string>
     <string name="settings_active">Активная</string>
     <string name="settings_key_store">Хранилище ключей Android</string>
+    <string name="network_title">Подключение к сети</string>
+    <string name="network_seeds">Узлы начальной загрузки, по одному host:port в строке</string>
+    <string name="network_name">Имя сети (пусто — публичная)</string>
+    <string name="network_save">Сохранить черновик</string>
+    <string name="network_loading">Загружаем настройки сети…</string>
+    <string name="network_draft_only">Измените и сохраните черновик на устройстве. Проверка подключения будет следующим шагом.</string>
+    <string name="network_saving">Сохраняем черновик…</string>
+    <string name="network_saved">Черновик сети сохранён.</string>
+    <string name="network_read_failed">Не удалось прочитать настройки сети. Ключ идентичности не изменён.</string>
+    <string name="network_save_failed">Не удалось сохранить черновик сети.</string>
     <string name="identity_add">Добавить новую идентичность</string>
     <string name="recovery_missing">Ключа нет в хранилище ключей устройства. Новый ключ не создан.</string>
     <string name="recovery_incomplete">Создание этой идентичности было прервано.</string>

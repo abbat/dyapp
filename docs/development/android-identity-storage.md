@@ -11,6 +11,10 @@ each slot by Peer ID or recovery reason and adds identities. A recovery state of
 The profile editor saves its nine optional scales and three independently optional birth-date
 parts to an atomic local draft in the active identity directory. Invalid dates leave the prior
 draft intact; preview and publication are planned.
+The ready screen also opens an editable network draft. It loads this slot's saved draft or active
+settings on a background dispatcher, displays the Peer ID and key-loss warning, and saves seed rows
+and network name beside that identity's key. A damaged settings file shows an error without
+replacing the identity. Automatic first-entry routing and connection check/activation are planned.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
 and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
 remain available on the ready screen and picker while their Settings controls are being built.

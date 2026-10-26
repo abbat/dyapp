@@ -209,6 +209,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     var removing by remember { mutableStateOf<Opened?>(null) }
     var editingProfile by remember { mutableStateOf(false) }
     var viewingSettings by remember { mutableStateOf(false) }
+    var viewingNetwork by remember { mutableStateOf(false) }
     val act = { action: () -> Opened ->
         removing = null
         shown = RustBridge.show(slots, action)
@@ -218,11 +219,12 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         return
     }
     val opened = shown.opened
-    if (opened is Opened.Ready && (viewingSettings || editingProfile)) {
-        if (viewingSettings) {
-            IdentitySettingsScreen(slots, opened) { viewingSettings = false }
-        } else {
-            ProfileDraftScreen(opened.slot) { editingProfile = false }
+    val editingReady = viewingSettings || editingProfile || viewingNetwork
+    if (opened is Opened.Ready && editingReady) {
+        when {
+            viewingSettings -> IdentitySettingsScreen(slots, opened) { viewingSettings = false }
+            editingProfile -> ProfileDraftScreen(opened.slot) { editingProfile = false }
+            else -> NetworkDraftScreen(opened) { viewingNetwork = false }
         }
         return
     }
@@ -251,6 +253,9 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
             }
         }
         if (opened is Opened.Ready) {
+            OutlinedButton(onClick = { viewingNetwork = true }, Modifier.testTag("network-draft-open")) {
+                Text(stringResource(R.string.network_title))
+            }
             OutlinedButton(onClick = { viewingSettings = true }, Modifier.testTag("settings-open")) {
                 Text(stringResource(R.string.settings_title))
             }

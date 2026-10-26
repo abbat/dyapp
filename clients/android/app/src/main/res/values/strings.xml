@@ -44,6 +44,16 @@
     <string name="settings_identities">Identities on this device</string>
     <string name="settings_active">Active</string>
     <string name="settings_key_store">Android Keystore</string>
+    <string name="network_title">Network connection</string>
+    <string name="network_seeds">Bootstrap nodes, one host:port per line</string>
+    <string name="network_name">Network name (blank = public)</string>
+    <string name="network_save">Save draft</string>
+    <string name="network_loading">Loading network settings…</string>
+    <string name="network_draft_only">Edit and save a local draft. Connection check is coming next.</string>
+    <string name="network_saving">Saving draft…</string>
+    <string name="network_saved">Network draft saved.</string>
+    <string name="network_read_failed">Could not read network settings. Your identity key was not changed.</string>
+    <string name="network_save_failed">Could not save the network draft.</string>
     <string name="identity_add">Add a new identity</string>
     <string name="recovery_missing">Its key is missing from this device\'s Keystore. No new key was created.</string>
     <string name="recovery_incomplete">Creating this identity was interrupted before it finished.</string>
