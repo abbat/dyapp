@@ -51,6 +51,11 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", pin)
         app.buttons["lock-unlock"].tap()
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 30))
+        // A return within the 60 s background grace keeps the session.
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["app-locked"].exists)
         app.terminate()
     }
 
