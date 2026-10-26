@@ -79,6 +79,20 @@ const checkNetwork = async () => {
     throw new Error('continue enabled without a connected node');
   }
 };
+const checkEmptyProfilePreview = async () => {
+  document.getElementById('profile-preview-action').click();
+  await waitFor('profile-preview');
+  if (document.getElementById('profile-public-fields').textContent
+    !== window.strings['profile.empty']) throw new Error('unset fields appeared in preview');
+  if (document.getElementById('profile-age').textContent
+    !== window.strings['profile.ageUnknown']) throw new Error('unknown age not shown');
+  if (!document.getElementById('profile-date-warning').hidden) {
+    throw new Error('full-date warning shown without a birth date');
+  }
+  if (document.getElementById('profile-attested').checked) {
+    throw new Error('publish attestation was preselected');
+  }
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -117,6 +131,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (!existing) {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode);
+      await checkEmptyProfilePreview();
     }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const ready = document.getElementById('app-ready');

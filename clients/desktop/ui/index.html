@@ -22,6 +22,8 @@
     #profile { text-align: start; }
     #profile label { display: block; margin-top: 1rem; }
     #profile select, #profile input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
+    #profile-preview { text-align: start; overflow-wrap: anywhere; }
+    #profile-preview ul { padding-inline-start: 1.5rem; }
   </style>
 </head>
 <body>
@@ -64,7 +66,19 @@
         <input id="birth-month" type="number" min="1" max="12">
         <label for="birth-day" data-i18n="profile.birthDay"></label>
         <input id="birth-day" type="number" min="1" max="31">
-        <button type="submit" data-i18n="profile.save"></button>
+        <button id="profile-save" type="submit" data-i18n="profile.save"></button>
+        <button id="profile-preview-action" type="button" data-i18n="profile.previewAction"></button>
+        <section id="profile-preview" hidden>
+          <h3 data-i18n="profile.previewTitle"></h3>
+          <ul id="profile-public-fields"></ul>
+          <p id="profile-age"></p>
+          <p class="notice" data-i18n="profile.copyWarning"></p>
+          <p id="profile-date-warning" class="notice" data-i18n="profile.fullDateWarning" hidden></p>
+        </section>
+        <label><input id="profile-attested" type="checkbox">
+          <span data-i18n="profile.attested"></span></label>
+        <button id="profile-publish" type="button" data-i18n="profile.publish"></button>
+        <button id="profile-cancel" type="button" data-i18n="profile.cancel" hidden></button>
         <p id="profile-status" role="status"></p>
       </form>
     </section>

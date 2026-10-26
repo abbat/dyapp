@@ -24,7 +24,10 @@ checks that the peer ID, unwrapped again from the stored identity key, stays the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
-when space grows, without changing the identifier.
+when space grows, without changing the identifier. On first identity creation, desktop smoke
+also checks that a profile with no selected fields previews an unknown age, no full-date warning,
+and an unchecked 18+ confirmation. The profile page now has puzzle cancellation and publication
+states; their native UI smoke coverage is the next checkpoint.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|

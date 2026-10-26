@@ -1,7 +1,8 @@
 # Linux desktop client
 
-The `dyapp` desktop client for Linux is a WebKitGTK window. This first version is a minimal shell:
-it starts, renders and closes. Profiles, search and chats in the window are planned.
+The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local identities,
+connects to bootstrap nodes and edits and publishes a public profile. Search and chats in
+the window are planned.
 
 ## Connect to a network
 
@@ -11,6 +12,20 @@ public network. **Check connection** saves the rows and dials each one; every ro
 result, and **Continue** turns on only when at least one node of that network answered. Continue
 makes these the active settings. The rows and settings belong to the open identity and stay in its
 folder; checking never changes the identity key.
+
+## Public profile
+
+Choose any of the nine profile values, or leave every value at **Not published**. Birth year,
+month and day are each optional. **Save draft** keeps the values for this identity across
+restarts. **Preview public profile** lists the selected fields and exact birth-date parts,
+shows the possible age range (or **Age unknown**), and warns that others may copy published
+data. A full date has an additional disclosure warning.
+
+To publish, confirm you are 18 or older for this attempt, then choose **Publish profile**.
+The app saves the current form, solves the profile puzzle and publishes to an active node;
+it checks the signed readback before reporting the version. You can stop puzzle work without
+losing the draft or its progress. A network failure keeps the draft for retry. A supplied
+birth date must be valid and, when it includes a year, must not allow an age under 18.
 
 ## Build
 

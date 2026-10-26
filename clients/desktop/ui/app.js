@@ -175,11 +175,24 @@ continueButton.addEventListener('click', () => {
 const profileForm = document.getElementById('profile');
 const profileScales = document.getElementById('profile-scales');
 const profileStatus = document.getElementById('profile-status');
+const profilePreview = document.getElementById('profile-preview');
+const profileAttested = document.getElementById('profile-attested');
+const profileCancel = document.getElementById('profile-cancel');
 let scaleFields = [];
+let profileBusy = false;
 const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
   return value === '' ? null : Number(value);
+};
+const profileDraft = () => ({
+  ...Object.fromEntries(scaleFields.map((scale) => [
+    camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
+  ])),
+  birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
+});
+const profileMessage = (key, detail = '') => {
+  profileStatus.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
 };
 const showProfile = async () => {
   const [scales, view] = await Promise.all([invoke('profile_scales'), invoke('load_profile')]);
@@ -207,23 +220,109 @@ const showProfile = async () => {
   for (const part of ['year', 'month', 'day']) {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
-  profileStatus.textContent = '';
+  profileAttested.checked = false;
+  profilePreview.hidden = true;
+  profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
+    view.published ? String(view.published) : '');
 };
+const previewProfile = (view) => {
+  const fields = scaleFields.flatMap((scale) => {
+    const option = scale.choices.find((choice) => choice.code === view.draft[camel(scale.key)]);
+    return option ? [`${window.strings[`profile.field.${scale.key}`]}: ${window.strings[
+      `profile.value.${scale.key}.${option.key}`]}`] : [];
+  });
+  for (const part of ['year', 'month', 'day']) {
+    const value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`];
+    if (value !== null) fields.push(`${window.strings[`profile.birth${part[0].toUpperCase()}${part.slice(1)}`]}: ${value}`);
+  }
+  const list = document.getElementById('profile-public-fields');
+  list.replaceChildren(...(fields.length ? fields : [window.strings['profile.empty']]).map((value) => {
+    const item = document.createElement('li');
+    item.textContent = value;
+    return item;
+  }));
+  const [youngest, oldest] = view.ages || [];
+  document.getElementById('profile-age').textContent = view.ages
+    ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
+    : window.strings['profile.ageUnknown'];
+  document.getElementById('profile-date-warning').hidden = !(view.draft.birthYear
+    && view.draft.birthMonth && view.draft.birthDay);
+  profilePreview.hidden = false;
+};
+const saveProfile = async () => {
+  if (!profileForm.reportValidity()) return null;
+  const view = await invoke('save_profile', { draft: profileDraft() });
+  profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');
+  return view;
+};
+const setProfileBusy = (busy, solving = false) => {
+  profileBusy = busy;
+  for (const element of profileForm.querySelectorAll('input, select, button')) {
+    if (element !== profileCancel) element.disabled = busy;
+  }
+  switchIdentity.disabled = busy;
+  removeIdentity.disabled = busy;
+  profileCancel.hidden = !solving;
+};
+const profileFailure = (error) => {
+  const code = String(error);
+  if (code === 'cancelled') return profileMessage('profile.cancelled');
+  if (code.startsWith('blocked: ')) return profileMessage(`profile.problem.${code.slice(9)}`);
+  if (code === 'notConnected') return profileMessage('profile.notConnected');
+  profileMessage('profile.publishFailed', code);
+};
+profileForm.addEventListener('input', (event) => {
+  if (event.target !== profileAttested && !profileBusy) {
+    profileAttested.checked = false;
+    profilePreview.hidden = true;
+    profileMessage('profile.draft');
+  }
+});
 profileForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (!profileForm.reportValidity()) return;
-  const profileDraft = Object.fromEntries(scaleFields.map((scale) => [
-    camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
-  ]));
-  Object.assign(profileDraft, {
-    birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
-  });
+  if (profileBusy || !profileForm.reportValidity()) return;
+  setProfileBusy(true);
+  try { await saveProfile(); } catch (error) { profileMessage('profile.failed', String(error)); }
+  finally { setProfileBusy(false); }
+});
+document.getElementById('profile-preview-action').addEventListener('click', async () => {
+  if (profileBusy || !profileForm.reportValidity()) return;
+  setProfileBusy(true);
   try {
-    const view = await invoke('save_profile', { draft: profileDraft });
-    profileStatus.textContent = window.strings[view.problem
-      ? `profile.problem.${view.problem}` : 'profile.saved'];
+    const view = await saveProfile();
+    if (view) previewProfile(view);
+  } catch (error) { profileMessage('profile.failed', String(error)); }
+  finally { setProfileBusy(false); }
+});
+profileCancel.addEventListener('click', () => {
+  profileCancel.disabled = true;
+  invoke('cancel_profile_solve').catch(profileFailure);
+});
+document.getElementById('profile-publish').addEventListener('click', async () => {
+  if (profileBusy || !profileForm.reportValidity()) return;
+  const attested = profileAttested.checked;
+  const needsReview = profilePreview.hidden;
+  setProfileBusy(true);
+  try {
+    const view = await saveProfile();
+    previewProfile(view);
+    if (view.problem) return;
+    if (needsReview) return profileMessage('profile.reviewBeforePublish');
+    if (!attested) return profileMessage('profile.problem.notAttested');
+    profileCancel.hidden = false;
+    profileMessage('profile.solving');
+    await invoke('solve_profile', { attested: true });
+    profileCancel.hidden = true;
+    profileMessage('profile.publishing');
+    const published = await invoke('publish_profile', { attested: true });
+    previewProfile(published);
+    profileMessage('profile.published', String(published.published));
   } catch (error) {
-    profileStatus.textContent = `${window.strings['profile.failed']} ${error}`;
+    profileFailure(error);
+  } finally {
+    profileAttested.checked = false;
+    setProfileBusy(false);
+    profileCancel.disabled = false;
   }
 });
 
