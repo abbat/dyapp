@@ -14,7 +14,10 @@ import uniffi.dyapp.verifyAppPin
 
 /** PIN work is supplied by the shared Rust FFI; JVM tests use a deterministic fake. */
 interface AppPinVerifier {
+    /** Create the stored verifier record for [pin]. */
     fun hash(pin: String): ByteArray
+
+    /** Return whether [pin] matches the stored [record]. */
     fun verify(pin: String, record: ByteArray): Boolean
 }
 
@@ -24,8 +27,16 @@ object RustAppPinVerifier : AppPinVerifier {
     override fun verify(pin: String, record: ByteArray): Boolean = verifyAppPin(pin, record)
 }
 
+/** The result of one PIN attempt against the app-wide lock. */
 enum class PinAttempt {
-    UNLOCKED, WRONG, DEVICE_CREDENTIAL_REQUIRED
+    /** The PIN matched and the failure counter was cleared. */
+    UNLOCKED,
+
+    /** The PIN was wrong, but another attempt is allowed. */
+    WRONG,
+
+    /** The failure limit was reached; OS authentication is required. */
+    DEVICE_CREDENTIAL_REQUIRED,
 }
 
 /** The saved app-lock choice: either a PIN or device biometrics, never both. */
@@ -49,7 +60,9 @@ enum class StoredLock {
  * persisted before KDF work, so a process crash cannot erase a failed attempt.
  */
 class AppLockStore(private val root: File, private val keys: KeyStore, private val pin: AppPinVerifier) {
+    /** App-wide storage constants and the device-backed store factory. */
     companion object {
+        /** Keystore alias shared by all identity slots for the app lock. */
         const val ALIAS = "dyapp-app-lock"
 
         /** Marker of the first-launch Skip choice; it holds no data. */
