@@ -23,7 +23,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
-| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml` | yes | — | enforced; not wired into Gradle |
+| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | new findings enforced; existing findings baselined; not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
 The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
@@ -91,19 +91,21 @@ config sets:
 ## Kotlin (`detekt.yml`)
 
 The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
-`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --input clients/android
---build-upon-default-config`. Any finding fails. `--build-upon-default-config` keeps every
-default setting `detekt.yml` does not override. The Gradle build applies no detekt plugin, so
-`./gradlew detekt` does not exist. What the config sets: `CyclomaticComplexMethod` threshold 10,
+`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --baseline detekt-baseline.xml
+--input clients/android --excludes '**/build/**' --build-upon-default-config`.
+`detekt-baseline.xml` records 72 existing findings; new findings fail the check.
+`--build-upon-default-config` keeps every default setting `detekt.yml` does not override.
+The Gradle build applies no detekt plugin, so `./gradlew detekt` does not exist.
+The config sets `CyclomaticComplexMethod` threshold 10,
 `LongMethod` 30, `LargeClass` 150, `LongParameterList` 5 (functions) / 7 (constructors),
 `MaxLineLength` 120; most rule sets active, including the `Undocumented*` comment rules for public
 declarations. `FunctionNaming` ignores `@Composable` functions, `MagicNumber` ignores property
 declarations, and `FunctionMaxLength` skips the test sources. The `formatting` (ktlint) rule set
 is not used.
 
-A detekt **baseline** (`detektBaseline`) records the current findings so they stop failing the
-build. It hides them; it does not fix anything. Only add one with an issue to remove the recorded
-findings.
+The baseline suppresses only its recorded findings; it does not fix the code. Work to remove
+those findings and then the baseline is tracked separately. When fixing a finding, remove its
+entry from `detekt-baseline.xml` so the baseline reflects only remaining debt.
 
 ## Suppressing a finding
 

@@ -1,0 +1,78 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>BracesOnWhenStatements:MainActivity.kt$when</ID>
+    <ID>ClassOrdering:AppLockLifecycle.kt$AppLockLifecycle$Companion</ID>
+    <ID>ClassOrdering:AppLockStore.kt$AppLockStore$Companion</ID>
+    <ID>ClassOrdering:AppLockStore.kt$AppLockStore.Companion$fun onDevice(root: File)</ID>
+    <ID>ClassOrdering:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
+    <ID>ClassOrdering:Slots.kt$Slots$Companion</ID>
+    <ID>CommentOverPrivateFunction:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
+    <ID>CommentOverPrivateFunction:MainActivity.kt$private fun removable(opened: Opened)</ID>
+    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun readMarker(file: File): String?</ID>
+    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun reserve(): Slot</ID>
+    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun writeAtomic(file: File, value: ByteArray)</ID>
+    <ID>CommentOverPrivateProperty:Slots.kt$Slots.Companion$/** What may remain in a slot folder once its key is gone: markers and network settings. */ private val removable = setOf( "state", "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp" )</ID>
+    <ID>ComplexCondition:AppLockStore.kt$AppLockStore$plain.size != PLAIN_SIZE || plain[0] != VERSION || plain[1].toInt() !in 0..MAX_FAILURES || plain[2] != 1.toByte()</ID>
+    <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun MainScreen()</ID>
+    <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
+    <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var appLock: AppLockLifecycle</ID>
+    <ID>LongMethod:MainActivity.kt$@Composable fun MainScreen()</ID>
+    <ID>LongMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
+    <ID>MagicNumber:AppLockStore.kt$AppLockStore$256</ID>
+    <ID>MagicNumber:Slots.kt$Slots$64</ID>
+    <ID>MagicNumber:Slots.kt$Slots$8</ID>
+    <ID>MaxLineLength:AppLockStore.kt$AppLockStore$if</ID>
+    <ID>StringLiteralDuplication:AppLockStore.kt$AppLockStore$"App PIN is not enrolled"</ID>
+    <ID>StringLiteralDuplication:MainActivity.kt$"app-ready"</ID>
+    <ID>StringLiteralDuplication:MainActivity.kt$"deleting"</ID>
+    <ID>StringLiteralDuplication:MainActivity.kt$"incomplete"</ID>
+    <ID>StringLiteralDuplication:MainActivity.kt$"missing"</ID>
+    <ID>StringLiteralDuplication:Slots.kt$Slot$"identity.key"</ID>
+    <ID>StringLiteralDuplication:Slots.kt$Slots.Companion$"state"</ID>
+    <ID>SwallowedException:Slots.kt$Slots$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RustBridge.kt$RustBridge$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Slots.kt$Slots$e: Exception</ID>
+    <ID>TooManyFunctions:Slots.kt$Slots</ID>
+    <ID>UndocumentedPublicClass:AppLockLifecycle.kt$AppLockLifecycle$Companion</ID>
+    <ID>UndocumentedPublicClass:AppLockStore.kt$AppLockStore$Companion</ID>
+    <ID>UndocumentedPublicClass:AppLockStore.kt$PinAttempt</ID>
+    <ID>UndocumentedPublicClass:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
+    <ID>UndocumentedPublicClass:Slots.kt$Opened</ID>
+    <ID>UndocumentedPublicClass:Slots.kt$Opened$Ready : Opened</ID>
+    <ID>UndocumentedPublicClass:Slots.kt$Slot</ID>
+    <ID>UndocumentedPublicClass:Slots.kt$SlotState</ID>
+    <ID>UndocumentedPublicClass:Slots.kt$Slots$Companion</ID>
+    <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun hash(pin: String): ByteArray</ID>
+    <ID>UndocumentedPublicFunction:AppLockStore.kt$AppPinVerifier$fun verify(pin: String, record: ByteArray): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun delete(alias: String)</ID>
+    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun exists(alias: String): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Slots.kt$SlotKeys$fun peerId(alias: String, wrapped: ByteArray): String</ID>
+    <ID>UndocumentedPublicFunction:Slots.kt$Slots$fun setActive(id: String)</ID>
+    <ID>UndocumentedPublicFunction:Slots.kt$Slots.Companion$fun isUuid(name: String)</ID>
+    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isLocked: Boolean get() { refresh(); return locked }</ID>
+    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val isPinEnabled: Boolean get() = enabled</ID>
+    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle$val snapshotObscured: Boolean get() = backgroundAt != null</ID>
+    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle.Companion$const val BACKGROUND_GRACE_MS = 60_000L</ID>
+    <ID>UndocumentedPublicProperty:AppLockLifecycle.kt$AppLockLifecycle.Companion$const val FOREGROUND_IDLE_MS = 5 * 60_000L</ID>
+    <ID>UndocumentedPublicProperty:AppLockStore.kt$AppLockStore.Companion$const val ALIAS = "dyapp-app-lock"</ID>
+    <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$DEVICE_CREDENTIAL_REQUIRED</ID>
+    <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$UNLOCKED</ID>
+    <ID>UndocumentedPublicProperty:AppLockStore.kt$PinAttempt$WRONG</ID>
+    <ID>UndocumentedPublicProperty:RustBridge.kt$Shown$val entries: List&lt;Opened&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Ready$val peerId: String</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Ready$val slot: Slot</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Recovery$val reason: String</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Opened.Recovery$val slot: Slot</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val dir: File</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Slot$val keyFile get() = File(dir, "identity.key")</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$Slot$var state: SlotState</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$DELETING : SlotState</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$PENDING : SlotState</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$READY : SlotState</ID>
+    <ID>UndocumentedPublicProperty:Slots.kt$SlotState$val marker: String?</ID>
+  </CurrentIssues>
+</SmellBaseline>
