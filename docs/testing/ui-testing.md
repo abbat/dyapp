@@ -241,6 +241,10 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   The failure cases use `127.0.0.1:33446` as a closed loopback endpoint, alongside malformed,
   repeated and invalid-pin rows. They assert the row order and keep Continue disabled when no
   compatible node answered.
+  A second local listener on `127.0.0.1:33447` accepts TCP without answering the peer handshake.
+  Shared native tests cancel that pending check and retry it while asserting the previously
+  activated network remains unchanged. iOS/macOS UI cases cancel, retry, and reopen the same
+  saved draft after a process restart.
   Another shared unit case derives a valid wrong pin from the local node's Peer ID and checks
   both wrong-peer and wrong-network results with fresh sessions; both must reject Activate.
   iOS and macOS UI cases show the wrong-network row and disabled Continue for a named network

@@ -172,7 +172,9 @@ struct NetworkDraftView: View {
         .onChange(of: bootstrapRows) { _ in invalidateCheck() }
         .onChange(of: networkName) { _ in invalidateCheck() }
     }
+}
 
+extension NetworkDraftView {
     @MainActor
     private func load() async {
         isLoading = true
@@ -219,20 +221,10 @@ struct NetworkDraftView: View {
         guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
         isSaving = true
         saveFailed = false
-        let selected = candidate
         let rowsText = bootstrapRows
         let name = networkName
-        let success = await Task.detached(priority: .userInitiated) {
-            do {
-                let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
-                try RustBridge.storeNetworkDraft(
-                    for: selected, draft: NetworkSettings(seeds: rows, name: name)
-                )
-                return true
-            } catch {
-                return false
-            }
-        }.value
+        let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
+        let success = await NetworkConnectionSession.persist(candidate: candidate, rows: rows, name: name)
         guard !Task.isCancelled else { return }
         isSaving = false
         saveFailed = !success
@@ -256,6 +248,21 @@ struct NetworkDraftView: View {
         let rowsText = bootstrapRows
         let name = networkName
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
+        let persisted = await NetworkConnectionSession.persist(candidate: candidate, rows: rows, name: name)
+        guard persisted else {
+            isChecking = false
+            checkFailed = true
+            return
+        }
+        savedRows = rowsText
+        savedName = name
+        hasSaved = true
+        saveFailed = false
+        if cancelRequested {
+            isChecking = false
+            wasCancelled = true
+            return
+        }
         guard let session = await NetworkConnectionSession.create(candidate: candidate) else {
             isChecking = false
             checkFailed = true
@@ -276,6 +283,12 @@ struct NetworkDraftView: View {
             checker = nil
             return
         }
+        finishCheck(result, session: session, rowsText: rowsText, name: name)
+    }
+
+    @MainActor
+    private func finishCheck(_ result: NetworkCheckAttempt, session: NetworkConnectionSession,
+                             rowsText: String, name: String) {
         checkedRowsText = rowsText
         checkedName = name
         switch result {

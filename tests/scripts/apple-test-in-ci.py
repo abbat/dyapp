@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import threading
 import time
 
 
@@ -65,6 +66,38 @@ def local_node(reports):
                 server.wait(timeout=10)
 
 
+@contextmanager
+def silent_endpoint():
+    """Accept local TCP without answering the peer handshake."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 33447))
+    listener.listen()
+    listener.settimeout(0.5)
+    stopping = threading.Event()
+    clients = []
+
+    def accept_connections():
+        while not stopping.is_set():
+            try:
+                client, _ = listener.accept()
+                clients.append(client)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+
+    worker = threading.Thread(target=accept_connections, daemon=True)
+    worker.start()
+    try:
+        yield "127.0.0.1:33447"
+    finally:
+        stopping.set()
+        listener.close()
+        worker.join(timeout=2)
+        for client in clients:
+            client.close()
+
+
 def main():
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -108,7 +141,7 @@ def main():
             reports / "universal-build.log")
         destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
-    with local_node(reports):
+    with local_node(reports), silent_endpoint():
         run(test + ["-destination", destination,
                     "-parallel-testing-enabled", "NO",
                     "-retry-tests-on-failure", "-test-iterations", "3",

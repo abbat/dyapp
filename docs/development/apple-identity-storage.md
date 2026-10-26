@@ -37,6 +37,8 @@ values. The shared form now shows Check with ordered row outcomes and retains th
 Cancel can reach a running call; Retry starts another bounded run. Continue calls Rust
 `activate` off the UI actor only after a compatible result for the current unchanged draft,
 then opens the profile editor. A failed activation keeps the prior active file.
+The form saves the draft before creating the checker, so an immediate Cancel cannot lose edits
+before Rust `run` begins its own draft write.
 The native Apple test matrix now uses a loopback `dyappd` to verify a pinned check and that
 the active file appears only after explicit activation; the UI suites verify profile navigation.
 

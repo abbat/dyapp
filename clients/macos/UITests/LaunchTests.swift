@@ -192,6 +192,48 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testCancelRetryAndRestartKeepDraft() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let save = app.buttons["network-save"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: save
+        ),
+        ], timeout: 10), .completed)
+        let rows = app.textViews["network-bootstrap"]
+        rows.tap()
+        rows.typeText("127.0.0.1:33447")
+        app.buttons["network-check"].tap()
+        let cancel = app.buttons["network-cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        cancel.tap()
+        let status = app.staticTexts["network-check-status"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "Check cancelled"), object: status
+        ),
+        ], timeout: 15), .completed)
+        let retry = app.buttons["network-check"]
+        XCTAssertEqual(retry.label, "Retry connection")
+        retry.tap()
+        let result = app.descendants(matching: .any)["network-row-0"]
+        XCTAssertTrue(result.waitForExistence(timeout: 15))
+        let displayed = [result.label, result.value as? String ?? ""].joined(separator: " ")
+        XCTAssertTrue(displayed.contains("Unreachable"), displayed)
+        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+
+        app.terminate()
+        app.launch()
+        openNetwork(app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
+        ),
+        ], timeout: 10), .completed)
+        XCTAssertEqual(app.textViews["network-bootstrap"].value as? String, "127.0.0.1:33447")
+        app.terminate()
+    }
+
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]

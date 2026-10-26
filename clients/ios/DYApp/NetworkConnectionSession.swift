@@ -66,6 +66,19 @@ final class NetworkConnectionSession: @unchecked Sendable {
         }.value
     }
 
+    static func persist(candidate: IdentityCandidate, rows: [String], name: String) async -> Bool {
+        await Task.detached(priority: .userInitiated) { () -> Bool in
+            do {
+                try RustBridge.storeNetworkDraft(
+                    for: candidate, draft: NetworkSettings(seeds: rows, name: name)
+                )
+                return true
+            } catch {
+                return false
+            }
+        }.value
+    }
+
     func runAsync(rows: [String], name: String) async -> NetworkCheckAttempt {
         await Task.detached(priority: .userInitiated) { () -> NetworkCheckAttempt in
             do {

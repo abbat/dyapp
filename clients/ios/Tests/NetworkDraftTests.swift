@@ -130,4 +130,43 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertThrowsError(try wrongNetworkCheck.activate())
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
     }
+
+    func testCancelRetryKeepsPriorActiveNetwork() async throws {
+        let path = try folder(root: root(), id: UUID())
+        let working = try NetworkConnectionSession(directory: path)
+        let good = "127.0.0.1:33445"
+        let silent = "127.0.0.1:33447"
+        guard case .connected = try XCTUnwrap(working.run(rows: [good], name: "", waitMs: 5_000).first) else {
+            XCTFail("The CI loopback node did not answer")
+            return
+        }
+        try working.activate()
+
+        let checking = try NetworkConnectionSession(directory: path)
+        let started = Date()
+        let running = Task.detached { () -> Bool in
+            do {
+                _ = try checking.run(rows: [silent], name: "", waitMs: 30_000)
+                return false
+            } catch {
+                return true
+            }
+        }
+        let stopping = Task.detached {
+            for _ in 0..<20 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                checking.cancel()
+            }
+        }
+        let cancelled = await running.value
+        await stopping.value
+        XCTAssertTrue(cancelled)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
+        XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, [silent])
+        XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .active)).seeds, [good])
+
+        let retry = try NetworkConnectionSession(directory: path)
+        XCTAssertEqual(try retry.run(rows: [silent], name: "", waitMs: 500), [.unreachable])
+        XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .active)).seeds, [good])
+    }
 }
