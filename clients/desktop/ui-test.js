@@ -130,10 +130,18 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-save').click();
   await saved;
 };
-const publishProfileOnLoopback = async () => {
-  document.getElementById('profile-gender').value = '1';
-  document.getElementById('birth-year').value = '1990';
-  document.getElementById('birth-month').value = '2';
+const publishProfileOnLoopback = async (saved = false, fails = false) => {
+  if (saved) {
+    if (document.getElementById('profile-gender').value !== '1'
+      || document.getElementById('birth-year').value !== '1990'
+      || document.getElementById('birth-month').value !== '2') {
+      throw new Error('failed publish lost the saved draft');
+    }
+  } else {
+    document.getElementById('profile-gender').value = '1';
+    document.getElementById('birth-year').value = '1990';
+    document.getElementById('birth-month').value = '2';
+  }
   document.getElementById('profile-preview-action').click();
   await waitFor('profile-preview');
   const fields = [...document.querySelectorAll('#profile-public-fields li')]
@@ -145,9 +153,10 @@ const publishProfileOnLoopback = async () => {
   ].join('|')) throw new Error(`profile preview changed: ${fields}`);
   document.getElementById('profile-disclosure').checked = true;
   document.getElementById('profile-attested').checked = true;
-  const published = waitForProfileStatus('profile.published', '1', 150000);
+  const result = waitForProfileStatus(
+    fails ? 'profile.notConnected' : 'profile.published', fails ? '' : '1', 150000);
   document.getElementById('profile-publish').click();
-  await published;
+  await result;
   if (document.getElementById('profile-attested').checked
     || document.getElementById('profile-disclosure').checked) {
     throw new Error('publish confirmations remained selected');
@@ -216,6 +225,12 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'profile-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSavedProfile();
+    } else if (step === 'profile-publish-fail') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await publishProfileOnLoopback(false, true);
+    } else if (step === 'profile-publish-retry') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await publishProfileOnLoopback(true);
     } else if (step === 'profile-publish') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await publishProfileOnLoopback();

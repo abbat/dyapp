@@ -271,13 +271,18 @@ def smoke(executable, flows=True):
                                    f"{log.read_text()[-4096:]}")
             file = ["--ui-test-file"]
             peer_id = case("connect-create", file, profile)
+            failed = case("profile-publish-no-network",
+                          [*file, "--ui-test-step=profile-publish-fail"],
+                          profile, timeout=180)
+            if failed != peer_id:
+                raise RuntimeError("failed publish replaced the identity")
             connected = case("network-connect",
                              [*file, f"--ui-test-step=connect:{seed}"],
                              profile)
             if connected != peer_id:
                 raise RuntimeError("connecting replaced the identity")
-            published = case("profile-publish",
-                             [*file, "--ui-test-step=profile-publish"],
+            published = case("profile-publish-retry",
+                             [*file, "--ui-test-step=profile-publish-retry"],
                              profile, timeout=180)
             if published != peer_id:
                 raise RuntimeError("publishing replaced the identity")

@@ -31,14 +31,16 @@ and unchecked 18+ and public-data confirmations. It rejects publish without the 
 acknowledgement and checks that editing clears both confirmations. A separate save/restart pair
 checks a nonempty draft and its public preview. On Linux, another case uses a loopback `dyappd`
 node to publish the reviewed fields with both confirmations, waits for the verified version,
-then compares the node's signed profile payload with the locally saved draft. Failure and
-cancellation recovery smoke is the next checkpoint; Rust unit tests cover both paths.
+then compares the node's signed profile payload with the locally saved draft. The same Linux
+fixture first attempts publication without an active network, checks that the draft survives,
+then connects and retries it. A deterministic Rust unit test cancels and resumes a 30-bit
+puzzle; the UI smoke does not race the ordinary 11-bit puzzle.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 25 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (22) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 26 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the four that need dyappd (22) | same |
 | iOS | CI only (macos-15) | 4 unit-test files, including `PlatformKeyStoreTests.swift` | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 2 unit-test files, including the shared Keychain tests | 5 XCUITest | `check-apple-results.py` (≥3) |
 
@@ -172,7 +174,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 25 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 26 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
   missing), connect the form, activate the network and publish the profile. This isolated fixture
