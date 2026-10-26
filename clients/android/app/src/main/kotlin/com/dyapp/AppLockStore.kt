@@ -77,6 +77,7 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
         private const val VERSION: Byte = 1
         private const val TAG_RECORD_SIZE = 49
         private const val PLAIN_SIZE = 2 + TAG_RECORD_SIZE
+        private const val MAX_FILE_SIZE_BYTES = 256L
         private const val MAX_FAILURES = 5
         private const val CLEAR_FAILED = "Cannot clear app PIN"
         private val ioLock = Any()
@@ -155,12 +156,13 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
 
     private fun read(): State? {
         if (!Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)) return null
-        if (!Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) || file.length() > 256) {
+        if (!Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) || file.length() > MAX_FILE_SIZE_BYTES) {
             throw IOException("Invalid app-lock file")
         }
         val plain = keys.unwrap(file.readBytes())
         try {
-            if (plain.size != PLAIN_SIZE || plain[0] != VERSION || plain[1].toInt() !in 0..MAX_FAILURES || plain[2] != 1.toByte()) {
+            if (plain.size != PLAIN_SIZE || plain[0] != VERSION ||
+                plain[1].toInt() !in 0..MAX_FAILURES || plain[2] != 1.toByte()) {
                 throw IOException("Invalid app-lock record")
             }
             return State(plain[1].toInt(), plain.copyOfRange(2, PLAIN_SIZE))
