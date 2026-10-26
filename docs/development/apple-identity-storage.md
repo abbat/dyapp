@@ -111,6 +111,6 @@ must not overwrite an existing slot during any future import.
 Shared iOS/macOS unit tests exercise independent per-slot Keychain accounts, cross-account
 unwrap failure, the legacy account and an absent account that stays absent after unwrap.
 The shared start screen creates and selects a UUID slot only after Create is pressed.
-The native iOS/macOS launch tests use isolated slot roots and check first creation
-and stable Peer IDs after relaunch. Native CI validation and picker, selection,
-removal and recovery fixture tests remain pending.
+The native iOS/macOS launch tests use isolated slot roots and legacy Keychain
+accounts, and check first creation and stable Peer IDs after relaunch. Native CI
+validation and picker, selection, removal and recovery fixture tests remain pending.

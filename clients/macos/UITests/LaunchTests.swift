@@ -43,8 +43,8 @@ final class LaunchTests: XCTestCase {
 
     private func createIdentity(_ app: XCUIApplication) {
         let create = app.buttons["identity-create"]
-        XCTAssertTrue(create.waitForExistence(timeout: 10))
-        create.tap()
+        XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
+        if create.exists { create.tap() }
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
