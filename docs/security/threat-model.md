@@ -71,7 +71,7 @@ defences already in place. Nodes are untrusted by design
 | 8 | Hostile node: withholding, censorship, search poisoning, harvesting | High | High | ⚠️ Partial: replication, repair, Sybil defences and local reputation on nodes; client checks are planned ([below](#hostile-node)) |
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps, per-group connection limits, a search fair queue and puzzle; write tokens, a TURN quota per IP group and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints and a repository Unicode check; official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
-| 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists; a security policy, account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
+| 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists, a [security policy](../../.github/SECURITY.md) and private reporting are in place; account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
 | 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, local purge of listed blobs and an operator guide, technical abuse response only (accepted residual risk) ([below](#illegal-content-and-legal-pressure)) |
@@ -331,8 +331,8 @@ class 5 ([above](#spoofing)).
 Class 11 in detail. In place: a seed may be pinned to its peer ID and the client's built-in list
 always is, and that list stays empty until independent operators run public seeds
 ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)); an operator's deny list refuses
-users on that node only, and lists received from other nodes are stored, never applied. There is
-no security policy and no private channel for vulnerability reports.
+users on that node only, and lists received from other nodes are stored, never applied. The
+[security policy](../../.github/SECURITY.md) and GitHub private vulnerability reporting are enabled.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
@@ -343,8 +343,8 @@ no security policy and no private channel for vulnerability reports.
 | Forged abuse reports push an operator to deny-list a user | Email to operators | Medium × medium | Accept: one node's refusal; the user goes to other nodes. In place: the [operator page](../operations/abuse-and-legal-requests.md#checking-a-report-before-acting) tells operators to check a report before acting and never to apply received lists unread |
 | One operator's deny list censors users on other nodes | Deny-list exchange | Medium × medium | Accept: each operator denies on their own node only ([access control](../manuals/bootstrap.md#deny-list)); exchange is off in the first release and received lists are never applied automatically ([exchange](../architecture/bootstrap.md#deny-list-exchange)) |
 | A user wrongly denied has no one to appeal to | Operators | Medium × medium | Accept: abuse response is technical only, see [below](#illegal-content-and-legal-pressure) |
-| Someone posing as a maintainer asks an operator for node keys or logs | Email, chats | High × low | Fix: the security policy says that maintainers never ask for keys or logs; the deployment guide links it |
-| A vulnerability is published before a fix | Public issues | High × medium | Fix: a security policy with GitHub private vulnerability reporting |
+| Someone posing as a maintainer asks an operator for node keys or logs | Email, chats | High × low | In place: the [security policy](../../.github/SECURITY.md) says maintainers never ask for keys or logs; the [deployment guide](../operations/deployment.md) links it |
+| A vulnerability is published before a fix | Public issues | High × medium | In place: [security policy](../../.github/SECURITY.md) with GitHub private vulnerability reporting |
 | A scammer in a chat asks for a code or sends a lookalike link | Messages | Medium × medium | Fix: messages from people who are not contacts are marked and land in a separate requests list; links show their full host, IDN hosts in punycode. Verification of contacts is class 5 ([above](#spoofing)) |
 | Signing keys, the domain and the accounts are held by one person | Maintainer loss | Medium × low | Accept: the code is open and can be forked; a fork gets new names and keys |
 

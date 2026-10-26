@@ -4,6 +4,12 @@
 
 Nothing is released yet. Reports are taken for the `main` branch.
 
+## Scope
+
+Report vulnerabilities in the dyapp source code, build and release process, and official artifacts
+when they exist. Independently operated nodes and third-party services are outside this project's
+control; report a flaw in dyapp that affects them here.
+
 ## Reporting a vulnerability
 
 Report privately through GitHub's private vulnerability reporting:
@@ -11,6 +17,9 @@ Report privately through GitHub's private vulnerability reporting:
 
 Include what is affected (component, commit), how to reproduce it and the impact you see. As the
 [README](../README.md) says, the code and the replies are written by AI.
+
+Maintainers never ask for identity or node keys, recovery codes, backups, or node logs. Do not send
+these with a report, even if someone claiming to represent the project requests them.
 
 ## What happens next
 

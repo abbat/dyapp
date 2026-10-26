@@ -7,6 +7,7 @@ it are entry points that tools discover by path (see
 ## Index
 
 ### Security
+- [Security policy](../.github/SECURITY.md): supported versions, scope and private vulnerability reporting
 - [Encryption & Security Status](security/encryption.md): what is and is not protected today, by layer, target design
 - [Privacy & Metadata Visibility](security/privacy.md): which observer sees which field, retention, residual risk
 - [Threat Model](security/threat-model.md): attackers, assets, and which defence covers each threat today
@@ -95,4 +96,5 @@ short and point here.
 | `README.md` | Git hosting, humans |
 | `AGENTS.md` | AI agents |
 | `LICENSE` | Git hosting, package metadata |
+| `.github/SECURITY.md` | GitHub security policy and private report guidance |
 | `.agents/skills/beads/SKILL.md` | Agent skill discovery (Codex; Claude Code via the `.claude/skills/beads` symlink) |

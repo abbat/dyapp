@@ -142,7 +142,10 @@ its schema, content and cache behaviour. Until this live setup and smoke test
 succeed, clients must treat the proposed URL as unavailable. See
 [client updates](../design/client-updates.md) for the trust and rollback rules.
 
-Operators answering an abuse report or a lawful-access request: [Abuse reports and legal
+Before acting on an abuse report, check its evidence and never apply a received deny list unread.
+Project maintainers never ask operators for node keys, recovery codes, backups, or node logs.
+Report vulnerabilities through the [security policy](../../.github/SECURITY.md).
+For abuse reports and lawful-access requests, see [Abuse reports and legal
 requests](abuse-and-legal-requests.md).
 
 ## Development
