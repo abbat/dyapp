@@ -8,6 +8,7 @@ private enum NetworkDraftLoad: Sendable {
 /// Shared first connection form; saving a draft never activates a connection.
 struct NetworkDraftView: View {
     let candidate: IdentityCandidate
+    let peerId: String
     @State private var bootstrapRows = ""
     @State private var networkName = ""
     @State private var isLoading = true
@@ -22,6 +23,9 @@ struct NetworkDraftView: View {
     @State private var wasCancelled = false
     @State private var checkFailed = false
     @State private var checker: NetworkConnectionSession?
+    @State private var isActivating = false
+    @State private var activationFailed = false
+    @State private var activated = false
     @State private var checkedRowsText = ""
     @State private var checkedName = ""
     @State private var rowOutcomes: [NetworkRowOutcome] = []
@@ -32,6 +36,14 @@ struct NetworkDraftView: View {
 
     private var showingCheck: Bool {
         bootstrapRows == checkedRowsText && networkName == checkedName && !rowOutcomes.isEmpty
+    }
+
+    private var canActivate: Bool {
+        guard showingCheck && checker != nil && !isChecking && !isSaving && !isActivating else { return false }
+        return rowOutcomes.contains { outcome in
+            if case .connected = outcome { return true }
+            return false
+        }
     }
 
     private var checkStatusKey: LocalizedStringKey {
@@ -91,7 +103,7 @@ struct NetworkDraftView: View {
             Section {
                 TextEditor(text: $bootstrapRows)
                     .frame(minHeight: 120)
-                    .disabled(isLoading || readFailed || isSaving || isChecking)
+                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityLabel(Text("network.bootstrap"))
                     .accessibilityIdentifier("network-bootstrap")
             } header: {
@@ -102,7 +114,7 @@ struct NetworkDraftView: View {
 
             Section {
                 TextField("network.name", text: $networkName)
-                    .disabled(isLoading || readFailed || isSaving || isChecking)
+                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityIdentifier("network-name")
             } footer: {
                 Text("network.nameHelp")
@@ -110,17 +122,18 @@ struct NetworkDraftView: View {
 
             Section {
                 Button("network.save") { Task { await save() } }
-                    .disabled(isLoading || readFailed || isSaving || isChecking)
+                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityIdentifier("network-save")
                 Text(statusKey)
                     .accessibilityIdentifier("network-draft-status")
             }
 
             Section {
-                Button(showingCheck || checkFailed || wasCancelled ? "network.retry" : "network.check") {
+                Button(LocalizedStringKey(showingCheck || checkFailed || wasCancelled ?
+                    "network.retry" : "network.check")) {
                     Task { await check() }
                 }
-                    .disabled(isLoading || readFailed || isSaving || isChecking)
+                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityIdentifier("network-check")
                 if isChecking {
                     Button("network.cancel") { cancelCheck() }
@@ -141,10 +154,23 @@ struct NetworkDraftView: View {
                         .accessibilityIdentifier("network-row-\(index)")
                     }
                 }
+                Button("network.continue") { Task { await activate() } }
+                    .disabled(!canActivate)
+                    .accessibilityIdentifier("network-continue")
+                if isActivating {
+                    Text("network.activating").accessibilityIdentifier("network-activation-status")
+                } else if activationFailed {
+                    Text("network.activateFailed").accessibilityIdentifier("network-activation-status")
+                }
+                NavigationLink(destination: ProfileDraftView(peerId: peerId), isActive: $activated) {
+                    EmptyView()
+                }
             }
         }
         .navigationTitle("network.title")
         .task(id: candidate.location.marker) { await load() }
+        .onChange(of: bootstrapRows) { _ in invalidateCheck() }
+        .onChange(of: networkName) { _ in invalidateCheck() }
     }
 
     @MainActor
@@ -153,6 +179,7 @@ struct NetworkDraftView: View {
         readFailed = false
         saveFailed = false
         hasSaved = false
+        activationFailed = false
         checker = nil
         cancelRequested = false
         wasCancelled = false
@@ -189,7 +216,7 @@ struct NetworkDraftView: View {
 
     @MainActor
     private func save() async {
-        guard !isLoading && !readFailed && !isSaving && !isChecking else { return }
+        guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
         isSaving = true
         saveFailed = false
         let selected = candidate
@@ -218,8 +245,9 @@ struct NetworkDraftView: View {
 
     @MainActor
     private func check() async {
-        guard !isLoading && !readFailed && !isSaving && !isChecking else { return }
+        guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
         isChecking = true
+        activationFailed = false
         cancelRequested = false
         wasCancelled = false
         checkFailed = false
@@ -270,5 +298,27 @@ struct NetworkDraftView: View {
         guard isChecking && !cancelRequested else { return }
         cancelRequested = true
         checker?.cancel()
+    }
+
+    @MainActor
+    private func invalidateCheck() {
+        guard !isLoading && !isChecking && !isSaving && !isActivating else { return }
+        checker = nil
+        rowOutcomes = []
+        checkFailed = false
+        wasCancelled = false
+        activationFailed = false
+    }
+
+    @MainActor
+    private func activate() async {
+        guard canActivate, let checker else { return }
+        isActivating = true
+        activationFailed = false
+        let success = await checker.activateAsync()
+        guard !Task.isCancelled else { return }
+        isActivating = false
+        activationFailed = !success
+        activated = success
     }
 }

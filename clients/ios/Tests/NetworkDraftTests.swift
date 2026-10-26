@@ -70,6 +70,7 @@ final class NetworkDraftTests: XCTestCase {
                        [.invalidAddress])
         let draft = try XCTUnwrap(loadNetwork(dir: first.path, file: .draft))
         XCTAssertEqual(draft.seeds, ["not-an-address"])
+        XCTAssertThrowsError(try session.activate())
         XCTAssertNil(try loadNetwork(dir: first.path, file: .active))
         XCTAssertNil(try loadNetwork(dir: second.path, file: .draft))
     }

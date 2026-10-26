@@ -213,8 +213,8 @@
     },
     "network.connected": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "A compatible node answered. Activation is coming soon." } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Совместимый узел ответил. Активация появится позже." } }
+        "en": { "stringUnit": { "state": "translated", "value": "A compatible node answered. Continue to activate this connection." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Совместимый узел ответил. Продолжите, чтобы активировать подключение." } }
       }
     },
     "network.unreachable": {
@@ -263,6 +263,24 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Wrong network" } },
         "ru": { "stringUnit": { "state": "translated", "value": "Другая сеть" } }
+      }
+    },
+    "network.continue": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Continue" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Продолжить" } }
+      }
+    },
+    "network.activating": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Activating connection…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Активация подключения…" } }
+      }
+    },
+    "network.activateFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not activate this connection. The previous active settings were kept." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось активировать подключение. Прежние активные настройки сохранены." } }
       }
     },
     "network.loading": {

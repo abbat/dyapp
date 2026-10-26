@@ -8,8 +8,8 @@ After opening an identity, **Network connection** opens a draft form for bootstr
 (one address per line) and an optional network name. **Save draft** keeps edits for this
 identity across restarts without changing the active connection.
 **Check connection** saves the draft and shows an outcome beside each address; it does not
-activate the network yet. Cancel stops a running check; Retry reuses the draft. Activation is
-planned.
+activate the network until you click **Continue** after a compatible result. Cancel stops a running
+check; Retry reuses the draft. Continue opens the profile editor after activation succeeds.
 
 This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
 notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI

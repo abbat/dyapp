@@ -21,7 +21,7 @@ struct ContentView: View {
                         Text("status.ready").accessibilityIdentifier("app-ready")
                     }
                     Text(peerId).accessibilityIdentifier("peer-id")
-                    NavigationLink(destination: NetworkDraftView(candidate: candidate)) {
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
                         Text("network.title")
                     }
                     .accessibilityIdentifier("network-edit")

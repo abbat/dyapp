@@ -105,6 +105,7 @@ final class LaunchTests: XCTestCase {
         let result = app.descendants(matching: .any)["network-row-0"]
         XCTAssertTrue(result.waitForExistence(timeout: 10))
         XCTAssertTrue(result.label.contains("Invalid address"), result.label)
+        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
         let retry = app.buttons["network-check"]
         XCTAssertEqual(retry.label, "Retry connection")
         retry.tap()

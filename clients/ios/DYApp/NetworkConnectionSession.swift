@@ -80,6 +80,22 @@ final class NetworkConnectionSession: @unchecked Sendable {
         checker.cancel()
     }
 
+    /// Only the Rust checker that reached a compatible node can write active settings.
+    func activate() throws {
+        _ = try checker.activate()
+    }
+
+    func activateAsync() async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            do {
+                try self.activate()
+                return true
+            } catch {
+                return false
+            }
+        }.value
+    }
+
     /// Blocking UniFFI call; invoke from a detached task, never the UI actor.
     func run(rows: [String], name: String, waitMs: UInt32 = 5_000) throws -> [NetworkRowOutcome] {
         let results = try checker.run(draft: NetworkSettings(seeds: rows, name: name), waitMs: waitMs)
