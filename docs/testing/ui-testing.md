@@ -172,10 +172,11 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 21 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 25 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
-  Two more start a loopback `build/debug/dyappd` (built by the image, or by the script when
-  missing) and check that the form reaches it and Continue writes the active `network` file.
+  The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
+  missing), connect the form, activate the network and publish the profile. This isolated fixture
+  uses an 8-bit node-ID puzzle in both the node and test-mode client; production keeps 22 bits.
 
 ### Reports on the host
 

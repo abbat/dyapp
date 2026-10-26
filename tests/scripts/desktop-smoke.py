@@ -250,7 +250,8 @@ def smoke(executable, flows=True):
             seed = "127.0.0.1:%d" % probe.getsockname()[1]
         env = dict(os.environ, DYAPPD_LISTEN=f'["{seed}"]',
                    DYAPPD_EXTERNAL=f'["{seed}"]',
-                   DYAPPD_STORAGE_DIR=str(storage / "node"))
+                   DYAPPD_STORAGE_DIR=str(storage / "node"),
+                   DYAPPD_NETWORK_ID_POW_BITS="8")
         subprocess.run([node, "keygen"], env=env, check=True,
                        stdout=subprocess.DEVNULL, timeout=600)
         log = storage / "node.log"

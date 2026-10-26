@@ -429,6 +429,10 @@ fn ui_test_result(
 
 fn main() {
     let test_mode = std::env::args().any(|arg| arg == "--ui-test");
+    // The isolated loopback smoke uses a cheap node-ID puzzle on both ends.
+    if test_mode && std::env::var_os("DYAPP_TEST_CONFIG_DIR").is_some() {
+        dyapp_p2p_net::set_id_pow_bits(8);
+    }
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     tauri::Builder::default()
         .manage(IdentityState(Mutex::new(None)))
