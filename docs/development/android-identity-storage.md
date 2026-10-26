@@ -8,6 +8,9 @@ PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this
 `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
+The ready screen opens Settings with a read-only list of local identities, their key storage kind,
+and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
+remain available on the ready screen and picker while their Settings controls are being built.
 Remove opens a confirmation screen for the shown identity (see [Remove](#remove)). The ready
 screen also says that uninstalling the app or clearing its data erases the key without warning:
 the OS gives the app no chance to warn, and the non-exportable key cannot be backed up yet.

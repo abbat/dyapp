@@ -39,6 +39,10 @@
     <string name="storage_os_loss">Удаление приложения или очистка его данных стирает ключ этой идентичности без предупреждения. Резервную копию пока сделать нельзя.</string>
     <string name="storage_error">Перезапустите приложение. Ваш ключ не был заменён.</string>
     <string name="identity_switch">Сменить или добавить идентичность</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_identities">Идентичности на устройстве</string>
+    <string name="settings_active">Активная</string>
+    <string name="settings_key_store">Хранилище ключей Android</string>
     <string name="identity_add">Добавить новую идентичность</string>
     <string name="recovery_missing">Ключа нет в хранилище ключей устройства. Новый ключ не создан.</string>
     <string name="recovery_incomplete">Создание этой идентичности было прервано.</string>

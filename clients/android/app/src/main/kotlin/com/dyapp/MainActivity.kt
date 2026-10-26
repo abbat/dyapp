@@ -208,6 +208,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     // The identity the remove screen asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
     var editingProfile by remember { mutableStateOf(false) }
+    var viewingSettings by remember { mutableStateOf(false) }
     val act = { action: () -> Opened ->
         removing = null
         shown = RustBridge.show(slots, action)
@@ -217,8 +218,12 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         return
     }
     val opened = shown.opened
-    if (editingProfile && opened is Opened.Ready) {
-        ProfileDraftScreen(opened.slot) { editingProfile = false }
+    if (opened is Opened.Ready && (viewingSettings || editingProfile)) {
+        if (viewingSettings) {
+            IdentitySettingsScreen(slots, opened) { viewingSettings = false }
+        } else {
+            ProfileDraftScreen(opened.slot) { editingProfile = false }
+        }
         return
     }
     val status = when (opened) {
@@ -243,6 +248,11 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         if (opened is Opened.Ready || opened is Opened.Recovery) {
             OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
                 Text(stringResource(R.string.identity_switch))
+            }
+        }
+        if (opened is Opened.Ready) {
+            OutlinedButton(onClick = { viewingSettings = true }, Modifier.testTag("settings-open")) {
+                Text(stringResource(R.string.settings_title))
             }
         }
         OutlinedButton(onClick = onLockSettings, Modifier.testTag("lock-settings")) {

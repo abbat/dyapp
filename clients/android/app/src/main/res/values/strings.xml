@@ -40,6 +40,10 @@
     <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
     <string name="storage_error">Restart the app. Your identity was not replaced.</string>
     <string name="identity_switch">Switch or add an identity</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_identities">Identities on this device</string>
+    <string name="settings_active">Active</string>
+    <string name="settings_key_store">Android Keystore</string>
     <string name="identity_add">Add a new identity</string>
     <string name="recovery_missing">Its key is missing from this device\'s Keystore. No new key was created.</string>
     <string name="recovery_incomplete">Creating this identity was interrupted before it finished.</string>
