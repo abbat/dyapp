@@ -3,7 +3,7 @@ import Foundation
 
 /// On-disk UUID slots shared by the iOS and macOS shells. Startup selection is handled separately.
 struct IdentitySlot {
-    enum State: String {
+    enum State: String, Sendable {
         case pending, ready, deleting, damaged
     }
 
@@ -22,7 +22,7 @@ enum IdentitySlotError: Error {
 }
 
 /// A UUID slot or the existing root identity, which keeps its original file and Keychain item.
-enum IdentityLocation: Equatable {
+enum IdentityLocation: Equatable, Sendable {
     case legacy
     case slot(UUID)
 
@@ -37,7 +37,7 @@ enum IdentityLocation: Equatable {
     }
 }
 
-struct IdentityCandidate: Equatable {
+struct IdentityCandidate: Equatable, Sendable {
     let location: IdentityLocation
     let state: IdentitySlot.State
 }

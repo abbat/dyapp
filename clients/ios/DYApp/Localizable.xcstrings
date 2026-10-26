@@ -133,6 +133,18 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика и проверка подключения появятся позже. Пока изменения здесь не сохраняются." } }
       }
     },
+    "network.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading network draft…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Загрузка черновика сети…" } }
+      }
+    },
+    "network.readFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The saved network draft could not be read. Its file and identity were kept; fix the file before editing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать сохранённый черновик сети. Файл и личность сохранены; исправьте файл перед редактированием." } }
+      }
+    },
     "status.ready": {
       "localizations": {
         "en": {
