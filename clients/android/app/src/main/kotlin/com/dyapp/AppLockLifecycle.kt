@@ -53,14 +53,6 @@ internal fun Activity.obscureSnapshot(hidden: Boolean) {
  * The UI calls [refresh] at each event and schedules the next [millisUntilLock] deadline.
  */
 class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
-    /** Lock deadlines shared by the activity and its UI timer. */
-    companion object {
-        /** Time a backgrounded app may remain unlocked. */
-        const val BACKGROUND_GRACE_MS = 60_000L
-        /** Maximum unlocked foreground idle time. */
-        const val FOREGROUND_IDLE_MS = 5 * 60_000L
-    }
-
     private var enabled = pinEnabled
     private var locked = pinEnabled // Every fresh process starts locked when a PIN exists.
     private var backgroundAt: Long? = null
@@ -128,5 +120,13 @@ class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
         val start = backgroundAt
         val limit = if (start == null) FOREGROUND_IDLE_MS else BACKGROUND_GRACE_MS
         return (limit - (now() - (start ?: lastInteractionAt))).coerceAtLeast(0)
+    }
+
+    /** Lock deadlines shared by the activity and its UI timer. */
+    companion object {
+        /** Time a backgrounded app may remain unlocked. */
+        const val BACKGROUND_GRACE_MS = 60_000L
+        /** Maximum unlocked foreground idle time. */
+        const val FOREGROUND_IDLE_MS = 5 * 60_000L
     }
 }

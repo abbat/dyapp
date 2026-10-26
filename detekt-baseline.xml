@@ -2,7 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ClassOrdering:AppLockLifecycle.kt$AppLockLifecycle$Companion</ID>
     <ID>ClassOrdering:PlatformKeyStore.kt$PlatformKeyStore$Companion : SlotKeys</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
