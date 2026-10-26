@@ -10,10 +10,6 @@
     <ID>ClassOrdering:Slots.kt$Slots$Companion</ID>
     <ID>CommentOverPrivateFunction:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>CommentOverPrivateFunction:MainActivity.kt$private fun removable(opened: Opened)</ID>
-    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun readMarker(file: File): String?</ID>
-    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun reserve(): Slot</ID>
-    <ID>CommentOverPrivateFunction:Slots.kt$Slots$private fun writeAtomic(file: File, value: ByteArray)</ID>
-    <ID>CommentOverPrivateProperty:Slots.kt$Slots.Companion$/** What may remain in a slot folder once its key is gone: markers and network settings. */ private val removable = setOf( "state", "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp" )</ID>
     <ID>ComplexCondition:AppLockStore.kt$AppLockStore$plain.size != PLAIN_SIZE || plain[0] != VERSION || plain[1].toInt() !in 0..MAX_FAILURES || plain[2] != 1.toByte()</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var appLock: AppLockLifecycle</ID>
@@ -21,16 +17,12 @@
     <ID>LongMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>MagicNumber:AppLockStore.kt$AppLockStore$256</ID>
-    <ID>MagicNumber:Slots.kt$Slots$64</ID>
-    <ID>MagicNumber:Slots.kt$Slots$8</ID>
     <ID>MaxLineLength:AppLockStore.kt$AppLockStore$if</ID>
     <ID>StringLiteralDuplication:AppLockStore.kt$AppLockStore$"App PIN is not enrolled"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"app-ready"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"deleting"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"incomplete"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"missing"</ID>
-    <ID>StringLiteralDuplication:Slots.kt$Slot$"identity.key"</ID>
-    <ID>StringLiteralDuplication:Slots.kt$Slots.Companion$"state"</ID>
     <ID>SwallowedException:Slots.kt$Slots$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RustBridge.kt$RustBridge$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Slots.kt$Slots$e: Exception</ID>
