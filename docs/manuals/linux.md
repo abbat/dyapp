@@ -8,8 +8,10 @@ the window are planned.
 
 From an open identity, **Settings** lists local identities with their key storage kind and marks
 the active one. **Add a new identity** opens the explicit key-storage choice with its backup
-warning; **Switch or add an identity** opens the existing picker. **Back** returns to the same
-identity. Confirmed removal remains on the ready screen while its Settings control is being built.
+warning; **Switch or add an identity** opens the existing picker. **Remove this identity** shows
+the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
+Remove is enabled. Cancel returns to Settings without deleting anything. **Back** returns to the
+same identity.
 
 ## Connect to a network
 

@@ -28,7 +28,20 @@ const pickReady = async (mode) => {
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
-  document.getElementById('remove-identity').click();
+  if (state.status === 'ready') {
+    document.getElementById('settings-open').click();
+    await waitFor('settings');
+    document.getElementById('settings-remove').click();
+    await waitFor('remove');
+    if (!document.getElementById('remove-action').disabled) {
+      throw new Error('remove enabled before confirmation');
+    }
+    document.getElementById('remove-cancel').click();
+    await waitFor('settings');
+    document.getElementById('settings-remove').click();
+  } else {
+    document.getElementById('remove-identity').click();
+  }
   await waitFor('remove');
   const action = document.getElementById('remove-action');
   if (document.getElementById('remove-peer').textContent

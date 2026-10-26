@@ -298,6 +298,9 @@ const setProfileBusy = (busy, solving = false) => {
   }
   switchIdentity.disabled = busy;
   removeIdentity.disabled = busy;
+  for (const id of ['settings-create', 'settings-switch', 'settings-remove']) {
+    document.getElementById(id).disabled = busy;
+  }
   profileCancel.hidden = !solving;
 };
 const profileFailure = (error) => {
@@ -416,6 +419,7 @@ document.getElementById('retry')
   .addEventListener('click', () => act(invoke('identity_state')));
 
 // Second confirmation: Remove stays disabled until the checkbox is ticked.
+let removeReturnToSettings = false;
 const showRemove = async () => {
   const items = await invoke('list_identities');
   const copies = current.peerId && items.some((item) => item.slot !== current.slot
@@ -435,13 +439,27 @@ const showRemove = async () => {
   removeAction.disabled = true;
   show(sections[4], 'remove.title');
 };
-removeIdentity.addEventListener('click', () => showRemove().catch(showError));
+removeIdentity.addEventListener('click', () => {
+  removeReturnToSettings = false;
+  showRemove().catch(showError);
+});
+document.getElementById('settings-remove').addEventListener('click', () => {
+  removeReturnToSettings = true;
+  showRemove().catch(showError);
+});
 removeConfirm.addEventListener('change', () => { removeAction.disabled = !removeConfirm.checked; });
 removeAction.addEventListener('click', () => {
   removeAction.disabled = true;
   act(invoke('remove_identity', { slot: current.slot, peerId: current.peerId || null }));
 });
-document.getElementById('remove-cancel').addEventListener('click', () => act(current));
+document.getElementById('remove-cancel').addEventListener('click', () => {
+  if (removeReturnToSettings) {
+    removeReturnToSettings = false;
+    showSettings();
+  } else {
+    act(current);
+  }
+});
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
   .then(render)

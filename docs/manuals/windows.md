@@ -7,6 +7,7 @@ planned.
 In an open identity, **Settings** lists local identities. **Add a new identity** opens the
 key-storage choice, and **Switch or add an identity** opens the identity picker. Creating an
 identity still requires an explicit storage choice and shows the file-key backup warning.
+**Remove this identity** opens the same second-confirmation screen; Cancel returns to Settings.
 
 ## Build
 
