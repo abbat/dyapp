@@ -23,6 +23,9 @@ final class PlatformKeyStore: KeyStore {
         PlatformKeyStore(account: "profile:\(slot.uuidString.lowercased())")
     }
 
+    /// Check an account before reserving a new slot; never reuse a stranded wrapping key.
+    func containsWrappingKey() throws -> Bool { try storedKey() != nil }
+
     private func storedKey() throws -> SymmetricKey? {
         var query = self.query
         query[kSecReturnData as String] = true

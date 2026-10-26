@@ -16,7 +16,7 @@ targets:
     type: application
     platform: iOS
     sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/ProfileDraftView.swift, DYApp/RustBridge.swift,
-              DYApp/PlatformKeyStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
+              DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift,
               DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,

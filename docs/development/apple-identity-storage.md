@@ -1,16 +1,19 @@
-# Apple profile identity slots (planned)
+# Apple profile identity slots
 
 ## Current boundary
 
-The iOS and macOS apps currently open one root `identity.key` in Application
+The iOS and macOS apps still open one root `identity.key` in Application
 Support. `RustBridge.identity()` creates it when absent; `PlatformKeyStore.shared`
 wraps it with the legacy Keychain item (`com.dyapp.identity-wrap` / `identity-wrap`).
-`PlatformKeyStore.forSlot(UUID)` now addresses independent `profile:<lowercase UUID>`
-accounts under that service; the identity runtime does not use them yet.
-The directory is excluded from backup, and each Keychain item uses
+The shared `IdentitySlotStore` now enumerates UUID slot directories, creates a
+`pending` slot with an independent `profile:<lowercase UUID>` Keychain item,
+atomically writes its wrapped key, verifies the reopened Peer ID, and marks it
+`ready`. Its advisory lock serializes cooperating app processes. A malformed
+marker is `damaged`; opening an incomplete or damaged slot never creates a key.
+The app runtime does not select these slots yet, and there is no identity picker.
+The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The profile draft is already named by Peer ID,
-so drafts for two identities would not collide. There is no identity picker or
-per-profile key file layout yet.
+so drafts for two identities would not collide.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their
