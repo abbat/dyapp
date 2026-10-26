@@ -4,6 +4,10 @@ The `DYApp` client for macOS is a universal app (Apple silicon and Intel) for ma
 This first version is a minimal shell: it starts, renders and quits. Profiles, search and chats are
 planned.
 
+After opening an identity, **Network connection** opens a draft form for bootstrap nodes
+(one address per line) and an optional network name. This form currently keeps edits only
+while it is open; saving and connection checks are planned.
+
 This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
 notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI
 tests. A Mac does not open it as downloaded. An Apple Developer Program member can build and sign

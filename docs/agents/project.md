@@ -55,6 +55,10 @@ sources mounted and Gradle/Cargo offline; the same snapshot rule applies to othe
 There are no other targets (no `ui-test-all`, no npm). Details: [testing](../testing/README.md),
 [Docker](../testing/docker.md), [CI](../development/ci-matrix.md).
 
+For Docker quality checks of an isolated branch, use a normal local clone (`git clone --no-local`)
+under `/tmp/ai`. A Git worktree's `.git` pointer and a `--shared` clone's object alternates are
+not available inside the Docker checkout; the small-batches check then fails before linting.
+
 ## Local check output
 
 The shared wrapper, `tools/scripts/run-check.py <check-id> -- <command> ...`,

@@ -97,6 +97,42 @@
         }
       }
     },
+    "network.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Network connection" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подключение к сети" } }
+      }
+    },
+    "network.bootstrap": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Bootstrap nodes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Начальные узлы" } }
+      }
+    },
+    "network.bootstrapHelp": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "One host:port per line, in connection order. IPv6 addresses use brackets; an optional /peer ID pins a node." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Один адрес хост:порт на строку, в порядке подключения. IPv6 указывайте в скобках; необязательный /ID узла закрепляет узел." } }
+      }
+    },
+    "network.name": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Network name" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Название сети" } }
+      }
+    },
+    "network.nameHelp": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Leave blank for the public network." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Оставьте пустым для публичной сети." } }
+      }
+    },
+    "network.draftPending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Draft saving and connection checks are coming soon. Changes here are not saved yet." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика и проверка подключения появятся позже. Пока изменения здесь не сохраняются." } }
+      }
+    },
     "status.ready": {
       "localizations": {
         "en": {

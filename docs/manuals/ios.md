@@ -3,6 +3,10 @@
 The `DYApp` client for iOS runs on iOS 15 or later. This first version is a minimal shell: it
 starts, renders and closes. Profiles, search and chats are planned.
 
+After opening an identity, **Network connection** opens a draft form for bootstrap nodes
+(one address per line) and an optional network name. This form currently keeps edits only
+while it is open; saving and connection checks are planned.
+
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
 signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact
 output of the native CI build (`release-sizes` on `macos-15`, artifact `apple-ios-unsigned`); the

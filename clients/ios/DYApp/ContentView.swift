@@ -15,11 +15,15 @@ struct ContentView: View {
                     Button("identity.create") { createIdentity() }
                         .accessibilityIdentifier("identity-create")
 
-                case .ready(_, let peerId):
+                case let .ready(candidate, peerId):
                     if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
                         Text("status.ready").accessibilityIdentifier("app-ready")
                     }
                     Text(peerId).accessibilityIdentifier("peer-id")
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate)) {
+                        Text("network.title")
+                    }
+                    .accessibilityIdentifier("network-edit")
                     NavigationLink(destination: ProfileDraftView(peerId: peerId)) {
                         Text("profile.title")
                     }
