@@ -50,6 +50,20 @@ private fun readSlot(id: String, dir: File): Slot {
     return Slot(id, dir, state)
 }
 
+// Keystore or unwrap failures become a recoverable unavailable state.
+private fun openSlot(slot: Slot, load: (Slot) -> String?): Opened = runCatching {
+    when (slot.state) {
+        SlotState.READY -> load(slot)?.let { Opened.Ready(slot, it) }
+            ?: Opened.Recovery(slot, "missing", null)
+        SlotState.PENDING -> Opened.Recovery(slot, "incomplete", load(slot))
+        SlotState.DELETING -> Opened.Recovery(slot, "deleting", load(slot))
+        SlotState.BROKEN -> Opened.Recovery(slot, "damaged", null)
+    }
+}.getOrElse { failure ->
+    if (failure !is Exception) throw failure
+    Opened.Recovery(slot, "unavailable", null)
+}
+
 /** Wrapping keys by Keystore alias; the app uses [PlatformKeyStore], JVM tests a fake. */
 interface SlotKeys {
     /** Whether a wrapping key already exists at [alias]. */
@@ -198,24 +212,10 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         val id = active()
         val slot = slots.firstOrNull { it.id == id } ?: slots.singleOrNull()
         return when {
-            slot != null -> openSlot(slot)
+            slot != null -> openSlot(slot, ::load)
             slots.isEmpty() -> Opened.Setup
             else -> Opened.Picker
         }
-    }
-
-    /** Opens one listed slot; a Keystore or unwrap error is recovery `unavailable`. */
-    fun openSlot(slot: Slot): Opened = runCatching {
-        when (slot.state) {
-            SlotState.READY -> load(slot)?.let { Opened.Ready(slot, it) }
-                ?: Opened.Recovery(slot, "missing", null)
-            SlotState.PENDING -> Opened.Recovery(slot, "incomplete", load(slot))
-            SlotState.DELETING -> Opened.Recovery(slot, "deleting", load(slot))
-            SlotState.BROKEN -> Opened.Recovery(slot, "damaged", null)
-        }
-    }.getOrElse { failure ->
-        if (failure !is Exception) throw failure
-        Opened.Recovery(slot, "unavailable", null)
     }
 
     /**
