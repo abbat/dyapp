@@ -4,13 +4,15 @@ import XCTest
 @MainActor
 final class AppLockUITests: XCTestCase {
     private let pin = "123456"
+    private let slotRoot = "--ui-test-slot-root=\(UUID().uuidString)"
 
     func testSkipOpensStartScreen() {
         let app = launch(["--app-lock-new"])
         app.buttons["lock-skip"].tap()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
@@ -38,9 +40,10 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", pin)
         enter(app, "lock-pin-repeat", pin)
         app.buttons["lock-set"].tap()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 30))
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["app-locked"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["peer-id"].exists)
@@ -62,8 +65,9 @@ final class AppLockUITests: XCTestCase {
     /// Settings set a PIN, and turn it off only behind the current one.
     func testSettingsSetAndTurnOffPin() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--device-passcode"]
+        app.launchArguments = ["--app-lock-off", "--device-passcode", slotRoot]
         app.launch()
+        createIdentity(app)
         XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 10))
         app.buttons["lock-settings"].tap()
         XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
@@ -79,7 +83,7 @@ final class AppLockUITests: XCTestCase {
         app.buttons["lock-off"].tap()
         XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
@@ -91,6 +95,7 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", pin)
         enter(app, "lock-pin-repeat", pin)
         app.buttons["lock-set"].tap()
+        createIdentity(app)
         XCTAssertTrue(app.buttons["lock-settings"].waitForExistence(timeout: 30))
         app.buttons["lock-settings"].tap()
         enter(app, "lock-pin-current", pin)
@@ -102,7 +107,7 @@ final class AppLockUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 30), .completed)
         XCTAssertFalse(app.staticTexts["lock-notice"].exists)
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         enter(app, "lock-pin", pin)
         app.buttons["lock-unlock"].tap()
@@ -116,7 +121,7 @@ final class AppLockUITests: XCTestCase {
     /// Without a device passcode, which simulators lack, no PIN can be set.
     func testSetPinNeedsDevicePasscode() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-new", "--no-device-passcode"]
+        app.launchArguments = ["--app-lock-new", "--no-device-passcode", slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["lock-no-passcode"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["lock-set"].isEnabled)
@@ -129,10 +134,11 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", pin)
         enter(app, "lock-pin-repeat", pin)
         app.buttons["lock-set"].tap()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 30))
         let peer = app.staticTexts["peer-id"].label
         app.terminate()
-        app.launchArguments = ["--device-passcode"]
+        app.launchArguments = ["--device-passcode", slotRoot]
         app.launch()
         XCTAssertTrue(app.buttons["lock-device-unlock"].waitForExistence(timeout: 10))
         app.buttons["lock-device-unlock"].tap()
@@ -147,7 +153,7 @@ final class AppLockUITests: XCTestCase {
         app.buttons["lock-back"].tap()
         XCTAssertTrue(label(app.staticTexts["peer-id"], peer))
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         enter(app, "lock-pin", "654321")
         app.buttons["lock-unlock"].tap()
@@ -160,9 +166,10 @@ final class AppLockUITests: XCTestCase {
     func testBiometricsLockEveryStart() {
         let app = launch(["--app-lock-new", "--device-biometrics"])
         app.buttons["lock-biometric"].tap()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
-        app.launchArguments = ["--device-passcode", "--device-biometrics"]
+        app.launchArguments = ["--device-passcode", "--device-biometrics", slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["app-locked"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.secureTextFields["lock-pin"].exists)
@@ -174,7 +181,7 @@ final class AppLockUITests: XCTestCase {
         app.buttons["lock-off"].tap()
         XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
         app.terminate()
-        app.launchArguments = []
+        app.launchArguments = [slotRoot]
         app.launch()
         XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         app.terminate()
@@ -182,10 +189,16 @@ final class AppLockUITests: XCTestCase {
 
     private func launch(_ arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = arguments + ["--device-passcode"]
+        app.launchArguments = arguments + ["--device-passcode", slotRoot]
         app.launch()
         XCTAssertTrue(app.buttons["lock-skip"].waitForExistence(timeout: 10))
         return app
+    }
+
+    private func createIdentity(_ app: XCUIApplication) {
+        let create = app.buttons["identity-create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 30), app.debugDescription)
+        if create.exists { create.tap() }
     }
 
     private func enter(_ app: XCUIApplication, _ field: String, _ text: String) {
