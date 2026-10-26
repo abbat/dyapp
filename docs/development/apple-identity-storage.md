@@ -2,9 +2,11 @@
 
 ## Current boundary
 
-The iOS and macOS apps still open one root `identity.key` in Application
-Support. `RustBridge.identity()` creates it when absent; `PlatformKeyStore.shared`
-wraps it with the legacy Keychain item (`com.dyapp.identity-wrap` / `identity-wrap`).
+The iOS and macOS start screen now resolves a saved identity without creating
+one. A fresh install shows an explicit Create action and a key-loss warning; a
+missing or unavailable key shows recovery and Retry. An existing root
+`identity.key` remains wrapped by the legacy Keychain item
+(`com.dyapp.identity-wrap` / `identity-wrap`) and opens with the same Peer ID.
 The shared `IdentitySlotStore` now enumerates UUID slot directories, creates a
 `pending` slot with an independent `profile:<lowercase UUID>` Keychain item,
 atomically writes its wrapped key, verifies the reopened Peer ID, and marks it
@@ -15,8 +17,9 @@ writes `active-profile`, and resolves ready, picker, recovery or first-creation
 states without generating a replacement key. An absent root file with its
 legacy Keychain item still present is recovery, as is a pointer to that missing
 root key. A malformed pointer falls back to the sole slot or the picker without
-rewriting the pointer. The app runtime does not use this resolution yet, and
-there is no identity picker screen.
+rewriting the pointer. The runtime uses this resolution for setup, ready and
+recovery. Multiple candidates show a picker placeholder until selection controls
+are wired; add and switch actions are the next checkpoint.
 The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The profile draft is already named by Peer ID,
 so drafts for two identities would not collide.
@@ -107,5 +110,7 @@ must not overwrite an existing slot during any future import.
 
 Shared iOS/macOS unit tests exercise independent per-slot Keychain accounts, cross-account
 unwrap failure, the legacy account and an absent account that stays absent after unwrap.
-The Apple build and UI tests are still required for slot creation, selection and removal;
-this document does not claim those flows are implemented.
+The shared start screen creates and selects a UUID slot only after Create is pressed.
+The native iOS/macOS launch tests use isolated slot roots and check first creation
+and stable Peer IDs after relaunch. Native CI validation and picker, selection,
+removal and recovery fixture tests remain pending.

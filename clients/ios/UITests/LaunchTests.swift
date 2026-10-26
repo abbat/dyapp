@@ -6,6 +6,9 @@ final class LaunchTests: XCTestCase {
     func testLaunchRenderAndTerminate() {
         let app = unlockedApp()
         app.launch()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["peer-id"].exists)
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
@@ -23,6 +26,7 @@ final class LaunchTests: XCTestCase {
     func testRelaunchKeepsPeerId() {
         let app = unlockedApp()
         app.launch()
+        createIdentity(app)
         let first = shownPeerId(app)
         XCTAssertNotNil(first.range(of: "^[0-9a-f]{64}$", options: .regularExpression), first)
         app.terminate()
@@ -34,8 +38,14 @@ final class LaunchTests: XCTestCase {
     // Every launch starts with the app lock skipped, so the start screen renders.
     private func unlockedApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off"]
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)"]
         return app
+    }
+
+    private func createIdentity(_ app: XCUIApplication) {
+        let create = app.buttons["identity-create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 10))
+        create.tap()
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
@@ -49,6 +59,7 @@ final class LaunchTests: XCTestCase {
         let app = unlockedApp()
         app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
         app.launch()
+        createIdentity(app)
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
         let text = ready.label
@@ -61,6 +72,7 @@ final class LaunchTests: XCTestCase {
         let app = unlockedApp()
         app.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
         app.launch()
+        createIdentity(app)
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
         XCTAssertEqual(ready.label, "\u{0413}\u{043e}\u{0442}\u{043e}\u{0432}\u{043e}")
@@ -71,6 +83,7 @@ final class LaunchTests: XCTestCase {
         let app = unlockedApp()
         app.launchArguments += ["--break-ui"]
         app.launch()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["app-ready"].exists)
         app.terminate()

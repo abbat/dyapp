@@ -4,10 +4,18 @@ import Foundation
 enum RustBridge {
     // ponytail: Keychain and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
-    /// Peer ID of this install's identity key. The first call creates the key and stores it
-    /// wrapped by `PlatformKeyStore` in Application Support, excluded from backups: the
-    /// wrapping key never leaves this device, so a restored blob could not be opened anyway.
-    static func peerId() throws -> String { try identity().peerId() }
+    /// Resolve the saved selection without creating a replacement identity.
+    static func identityState() throws -> IdentityResolution {
+        try IdentitySlotStore(root: directory()).resolve()
+    }
+
+    /// Create and select a fresh UUID slot only after an explicit user action.
+    static func createIdentity() throws -> IdentityResolution {
+        let store = try IdentitySlotStore(root: directory())
+        let created = try store.create()
+        try store.select(.slot(created.slot.id))
+        return try store.resolve()
+    }
 
     /// The app's own Application Support folder, excluded from backups.
     static func directory() throws -> URL {
@@ -17,18 +25,15 @@ enum RustBridge {
         ).appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.dyapp")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try excludeFromBackup(directory)
-        return directory
-    }
-
-    private static func identity() throws -> IdentityKey {
-        let file = try directory().appendingPathComponent("identity.key")
-        if FileManager.default.fileExists(atPath: file.path) {
-            let wrapped = try Data(contentsOf: file)
-            return try IdentityKey.unwrap(store: PlatformKeyStore.shared, wrapped: wrapped)
+        // Native UI tests isolate their slots while retaining them across a relaunch.
+        if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-slot-root=") }),
+           let id = UUID(uuidString: String(argument.dropFirst("--ui-test-slot-root=".count))) {
+            let root = directory.appendingPathComponent("ui-tests", isDirectory: true)
+                .appendingPathComponent(id.uuidString.lowercased(), isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            return root
         }
-        let key = IdentityKey.generate()
-        try key.wrap(store: PlatformKeyStore.shared).write(to: file, options: .atomic)
-        return key
+        return directory
     }
 
     /// Everything the app keeps (keys, database, MLS state) lives under `directory`; excluding

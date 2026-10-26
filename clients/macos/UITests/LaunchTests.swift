@@ -4,8 +4,11 @@ import XCTest
 @MainActor
 final class LaunchTests: XCTestCase {
     func testLaunchRenderAndTerminate() {
-        let app = XCUIApplication()
+        let app = isolatedApp()
         app.launch()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["peer-id"].exists)
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
@@ -21,14 +24,27 @@ final class LaunchTests: XCTestCase {
 
     /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
     func testRelaunchKeepsPeerId() {
-        let app = XCUIApplication()
+        let app = isolatedApp()
         app.launch()
+        createIdentity(app)
         let first = shownPeerId(app)
         XCTAssertNotNil(first.range(of: "^[0-9a-f]{64}$", options: .regularExpression), first)
         app.terminate()
         app.launch()
         XCTAssertEqual(shownPeerId(app), first)
         app.terminate()
+    }
+
+    private func isolatedApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]
+        return app
+    }
+
+    private func createIdentity(_ app: XCUIApplication) {
+        let create = app.buttons["identity-create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 10))
+        create.tap()
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
@@ -39,9 +55,10 @@ final class LaunchTests: XCTestCase {
 
     /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
     func testDoubleLengthPseudoLanguage() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-NSDoubleLocalizedStrings", "YES"]
+        let app = isolatedApp()
+        app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
         app.launch()
+        createIdentity(app)
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
         let text = ready.value as? String ?? ""
@@ -51,9 +68,10 @@ final class LaunchTests: XCTestCase {
     }
 
     func testRussianLanguage() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        let app = isolatedApp()
+        app.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
         app.launch()
+        createIdentity(app)
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
         XCTAssertEqual(ready.value as? String, "\u{0413}\u{043e}\u{0442}\u{043e}\u{0432}\u{043e}")
@@ -61,9 +79,10 @@ final class LaunchTests: XCTestCase {
     }
 
     func testHiddenReadyDoesNotSatisfyLaunchContract() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--break-ui"]
+        let app = isolatedApp()
+        app.launchArguments += ["--break-ui"]
         app.launch()
+        createIdentity(app)
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["app-ready"].exists)
         app.terminate()

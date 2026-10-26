@@ -17,6 +17,86 @@
         }
       }
     },
+    "identity.lossWarning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Losing every copy of this key loses this identity. Create a new one only if this is a new install or you accept that loss."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потеря всех копий ключа означает потерю личности. Создавайте новую только при первой установке или если принимаете эту потерю."
+          }
+        }
+      }
+    },
+    "identity.create": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create identity"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать личность"
+          }
+        }
+      }
+    },
+    "identity.recovery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved identity cannot be opened. Restore its key or retry; a new key will not be created."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть сохранённую личность. Восстановите ключ или повторите попытку; новый ключ не будет создан."
+          }
+        }
+      }
+    },
+    "identity.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить"
+          }
+        }
+      }
+    },
+    "identity.picker": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an identity to continue."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите личность, чтобы продолжить."
+          }
+        }
+      }
+    },
     "status.ready": {
       "localizations": {
         "en": {
