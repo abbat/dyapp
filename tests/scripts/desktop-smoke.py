@@ -169,6 +169,10 @@ def smoke(executable, flows=True):
             raise RuntimeError("the remaining identity did not open")
         if {s.name for s in slots.iterdir()} != kept:
             raise RuntimeError("removal touched the wrong slots")
+        reopened = case(f"{name}-restart",
+                        ["--ui-test-step=settings-restart"], profile)
+        if reopened != first:
+            raise RuntimeError("removed identity reopened after restart")
 
     def mixed(profile, first):
         """Add a file identity to a system one, then crash, bad pointer."""

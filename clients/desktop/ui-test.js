@@ -25,6 +25,38 @@ const pickReady = async (mode) => {
   pick.click();
   await waitFor('identity');
 };
+const checkSettingsInventory = async (peerId, mode) => {
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  const expected = await invokeTest('list_identities');
+  const list = document.getElementById('settings-identities');
+  await new Promise((resolve, reject) => {
+    if (list.children.length === expected.length) { resolve(); return; }
+    const observer = new MutationObserver(() => {
+      if (list.children.length === expected.length) {
+        observer.disconnect(); clearTimeout(timeout); resolve();
+      }
+    });
+    observer.observe(list, { childList: true });
+    const timeout = setTimeout(() => {
+      observer.disconnect(); reject(new Error('Settings inventory did not load'));
+    }, 10000);
+  });
+  const active = [...list.children].filter((item) => item.dataset.active === 'true');
+  if (active.length !== 1 || !active[0].textContent.includes(peerId)
+      || !active[0].textContent.includes(window.strings[`identity.mode.${mode}`])) {
+    throw new Error('Settings marked the wrong active identity or storage mode');
+  }
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+};
+const switchFromSettings = async (mode) => {
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  document.getElementById('settings-switch').click();
+  await waitFor('picker');
+  await pickReady(mode);
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -58,6 +90,7 @@ const removeOpened = async (state, mode) => {
   action.click();
   await waitFor('picker');
   await pickReady(mode);
+  await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
 };
 // Nothing listens on port 1, so that row is refused at once; `seed` has no port.
 const testSeeds = '127.0.0.1:1\nseed';
@@ -242,14 +275,22 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     }
     if (step === 'add') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
-      document.getElementById('switch-identity').click();
-      await waitFor('picker');
-      document.getElementById('add-identity').click();
+      await checkSettingsInventory(state.peerId, state.mode);
+      document.getElementById('settings-open').click();
+      await waitFor('settings');
+      document.getElementById('settings-create').click();
       await waitFor('setup');
       await chooseStorage(mode);
+      const addedPeer = document.getElementById('peer-id').textContent;
+      await checkSettingsInventory(addedPeer, mode);
+      await switchFromSettings(state.mode);
+      await checkSettingsInventory(state.peerId, state.mode);
+      await switchFromSettings(mode);
+      await checkSettingsInventory(addedPeer, mode);
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
+      await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
     } else if (step === 'remove') {
       await removeOpened(state, mode);
     } else if (step === 'network') {
@@ -266,6 +307,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'network-settings-failure') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkNetworkInSettings();
+    } else if (step === 'settings-restart') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkSettingsInventory(state.peerId, state.mode);
     } else if (step === 'profile-save') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await saveProfileForRestart();
