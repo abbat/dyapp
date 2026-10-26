@@ -20,6 +20,20 @@ impl CivilDate {
         })
     }
 
+    /// The UTC civil date `days` after 1970-01-01; `None` after 9999.
+    pub fn from_unix_days(days: u64) -> Option<Self> {
+        // Howard Hinnant's civil_from_days over 400-year eras of 146 097 days.
+        let z = days.checked_add(719_468)?;
+        let (era, doe) = (z / 146_097, z % 146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 };
+        let year = era * 400 + yoe + u64::from(month <= 2);
+        Self::new(u32::try_from(year).ok()?, month as u8, day as u8)
+    }
+
     /// Numeric `YYYYMMDD` form for a search index or bound.
     pub fn yyyymmdd(self) -> u32 {
         self.year * 10_000 + u32::from(self.month) * 100 + u32::from(self.day)
@@ -139,6 +153,25 @@ mod tests {
             birth_day: day,
             ..Profile::default()
         }
+    }
+
+    #[test]
+    fn unix_days_map_to_utc_civil_dates() {
+        for (days, date) in [
+            (0, (1970, 1, 1)),
+            (11_016, (2000, 2, 29)),
+            (11_017, (2000, 3, 1)),
+            (20_752, (2026, 10, 26)),
+            (2_932_896, (9999, 12, 31)),
+        ] {
+            let (year, month, day) = date;
+            assert_eq!(
+                CivilDate::from_unix_days(days),
+                CivilDate::new(year, month, day)
+            );
+        }
+        assert_eq!(CivilDate::from_unix_days(2_932_897), None);
+        assert_eq!(CivilDate::from_unix_days(u64::MAX), None);
     }
 
     #[test]

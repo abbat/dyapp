@@ -1367,6 +1367,7 @@ dependencies = [
  "dyapp-client",
  "dyapp-identity",
  "dyapp-p2p-net",
+ "dyapp-profile",
  "keyring-core",
  "serde",
  "tauri",

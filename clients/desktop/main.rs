@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use dyapp_identity::Identity;
 use network::{Draft, NetworkState};
+use profile::ProfileState;
 use slots::{Opened, Slot};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
@@ -14,13 +15,15 @@ use tauri::Manager;
 mod file_store;
 #[path = "network.rs"]
 mod network;
+#[path = "profile.rs"]
+mod profile;
 #[path = "slots.rs"]
 mod slots;
 #[path = "system_store.rs"]
 mod system_store;
 
 /// The open identity and its slot folder.
-struct IdentityState(Mutex<Option<(Identity, PathBuf)>>);
+struct IdentityState(Mutex<Option<(Arc<Identity>, PathBuf)>>);
 
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if std::env::args().any(|arg| arg == "--ui-test") {
@@ -105,7 +108,8 @@ fn respond(
     state: &IdentityState,
 ) -> Result<HashMap<&'static str, String>, String> {
     let (result, identity) = describe(opened);
-    *state.0.lock().map_err(|e| e.to_string())? = identity;
+    *state.0.lock().map_err(|e| e.to_string())? =
+        identity.map(|(identity, dir)| (Arc::new(identity), dir));
     Ok(result)
 }
 
@@ -214,7 +218,7 @@ async fn create_identity(
     .map_err(|e| e.to_string())??;
     let mut response = ready_result(mode, identity.peer_id(), &slot.dir);
     response.insert("slot", slot.id);
-    *state.0.lock().map_err(|e| e.to_string())? = Some((identity, slot.dir));
+    *state.0.lock().map_err(|e| e.to_string())? = Some((Arc::new(identity), slot.dir));
     Ok(response)
 }
 
@@ -241,11 +245,13 @@ async fn remove_identity(
     Ok(describe(Opened::Picker).0)
 }
 
-fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
+fn open_identity(state: &IdentityState) -> Result<(Arc<Identity>, PathBuf), String> {
     let open = state.0.lock().map_err(|e| e.to_string())?;
-    open.as_ref()
-        .map(|(_, dir)| dir.clone())
-        .ok_or_else(|| "No identity is open".into())
+    open.clone().ok_or_else(|| "No identity is open".into())
+}
+
+fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
+    open_identity(state).map(|(_, dir)| dir)
 }
 
 /// The open identity's `draft` or `active` bootstrap settings, `null` when never saved.
@@ -295,6 +301,68 @@ async fn activate_connection(
 ) -> Result<Draft, String> {
     let dir = identity_dir(&state)?;
     network::activate(&checks, &dir)
+}
+
+/// The open identity's profile draft; see `profile::load`.
+#[tauri::command]
+async fn load_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
+    let (identity, dir) = open_identity(&state)?;
+    tauri::async_runtime::spawn_blocking(move || profile::load(&dir, &identity))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn save_profile(
+    state: tauri::State<'_, IdentityState>,
+    draft: profile::Draft,
+) -> Result<profile::View, String> {
+    let (identity, dir) = open_identity(&state)?;
+    tauri::async_runtime::spawn_blocking(move || profile::save(&dir, &identity, draft))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Runs the profile proof of work until solved or cancelled; see `profile::solve`.
+#[tauri::command]
+async fn solve_profile(
+    state: tauri::State<'_, IdentityState>,
+    solving: tauri::State<'_, ProfileState>,
+    attested: bool,
+) -> Result<(), String> {
+    let (identity, dir) = open_identity(&state)?;
+    let cancel = Arc::clone(&solving.0);
+    cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+    tauri::async_runtime::spawn_blocking(move || {
+        profile::solve(&cancel, &dir, &identity, attested, profile::POW_BITS)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn cancel_profile_solve(solving: tauri::State<'_, ProfileState>) {
+    solving.0.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Publishes the solved draft and checks the readback; see `profile::publish`.
+#[tauri::command]
+async fn publish_profile(
+    state: tauri::State<'_, IdentityState>,
+    attested: bool,
+) -> Result<profile::View, String> {
+    let (identity, dir) = open_identity(&state)?;
+    // The client store is not `Sync`, so the publish runs on a thread of its own.
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(profile::publish(
+            &dir,
+            &identity,
+            attested,
+            profile::POW_BITS,
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
@@ -359,6 +427,7 @@ fn main() {
     tauri::Builder::default()
         .manage(IdentityState(Mutex::new(None)))
         .manage(NetworkState::default())
+        .manage(ProfileState::default())
         .invoke_handler(tauri::generate_handler![
             identity_state,
             storage_options,
@@ -371,6 +440,11 @@ fn main() {
             check_connection,
             cancel_connection_check,
             activate_connection,
+            load_profile,
+            save_profile,
+            solve_profile,
+            cancel_profile_solve,
+            publish_profile,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,
