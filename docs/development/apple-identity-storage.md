@@ -4,11 +4,13 @@
 
 The iOS and macOS apps currently open one root `identity.key` in Application
 Support. `RustBridge.identity()` creates it when absent; `PlatformKeyStore.shared`
-wraps it with one Keychain item (`com.dyapp.identity-wrap` / `identity-wrap`).
-The directory is excluded from backup, and the Keychain item uses
+wraps it with the legacy Keychain item (`com.dyapp.identity-wrap` / `identity-wrap`).
+`PlatformKeyStore.forSlot(UUID)` now addresses independent `profile:<lowercase UUID>`
+accounts under that service; the identity runtime does not use them yet.
+The directory is excluded from backup, and each Keychain item uses
 `AfterFirstUnlockThisDeviceOnly`. The profile draft is already named by Peer ID,
 so drafts for two identities would not collide. There is no identity picker or
-per-profile key storage yet.
+per-profile key file layout yet.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their
@@ -94,5 +96,7 @@ must not overwrite an existing slot during any future import.
 4. Check directory and Keychain account collisions, missing files, malformed
    markers and unwrap errors. No failure path changes another slot.
 
-The Apple build and UI tests are required for these behaviors; this document
-records the design and does not claim the flows are implemented.
+Shared iOS/macOS unit tests exercise independent per-slot Keychain accounts, cross-account
+unwrap failure, the legacy account and an absent account that stays absent after unwrap.
+The Apple build and UI tests are still required for slot creation, selection and removal;
+this document does not claim those flows are implemented.

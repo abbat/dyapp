@@ -6,17 +6,25 @@ import Security
 /// this device after its first unlock. A wrapped blob is CryptoKit's combined nonce, ciphertext
 /// and tag.
 final class PlatformKeyStore: KeyStore {
-    static let shared = PlatformKeyStore()
+    /// The original root identity keeps its existing Keychain account on upgrade.
+    static let shared = PlatformKeyStore(account: "identity-wrap")
 
-    // Computed: a stored [String: Any] is not Sendable, so Swift 6 refuses it as a static.
-    private static var query: [String: Any] { [
+    private let account: String
+
+    private var query: [String: Any] { [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "com.dyapp.identity-wrap",
-        kSecAttrAccount as String: "identity-wrap",
+        kSecAttrAccount as String: account,
     ] }
 
-    private static func storedKey() throws -> SymmetricKey? {
-        var query = Self.query
+    private init(account: String) { self.account = account }
+
+    static func forSlot(_ slot: UUID) -> PlatformKeyStore {
+        PlatformKeyStore(account: "profile:\(slot.uuidString.lowercased())")
+    }
+
+    private func storedKey() throws -> SymmetricKey? {
+        var query = self.query
         query[kSecReturnData as String] = true
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -27,9 +35,9 @@ final class PlatformKeyStore: KeyStore {
         return SymmetricKey(data: data)
     }
 
-    private static func createKey() throws -> SymmetricKey {
+    private func createKey() throws -> SymmetricKey {
         let key = SymmetricKey(size: .bits256)
-        var item = Self.query
+        var item = query
         item[kSecValueData as String] = key.withUnsafeBytes { Data($0) }
         item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(item as CFDictionary, nil)
@@ -41,7 +49,7 @@ final class PlatformKeyStore: KeyStore {
 
     func wrap(secret: Data) throws -> Data {
         try keystoreCall {
-            let key = try Self.storedKey() ?? Self.createKey()
+            let key = try storedKey() ?? createKey()
             guard let blob = try AES.GCM.seal(secret, using: key).combined else {
                 throw WrapError.Failed(reason: "no combined GCM output")
             }
@@ -52,7 +60,7 @@ final class PlatformKeyStore: KeyStore {
     func unwrap(wrapped: Data) throws -> Data {
         try keystoreCall {
             // A missing key is an error, not a reason to make a new one: the blob stays unreadable.
-            guard let key = try Self.storedKey() else {
+            guard let key = try storedKey() else {
                 throw WrapError.Failed(reason: "the wrapping key is gone")
             }
             return try AES.GCM.open(AES.GCM.SealedBox(combined: wrapped), using: key)

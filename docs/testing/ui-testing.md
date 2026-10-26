@@ -14,7 +14,8 @@ captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live
 
 The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
 The shells call the Rust core for a peer ID (see
-[ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)), so no suite
+[ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)); shared
+iOS/macOS unit tests also check per-slot Keychain wrapping account isolation. No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID
@@ -35,8 +36,8 @@ loopback node smoke coverage is the next checkpoint.
 | Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 24 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (22) | same |
-| iOS | CI only (macos-15) | 1 XCTest (`Tests/AppTests.swift`) | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
-| macOS | CI only (macos-15) | 1 XCTest | 5 XCUITest | `check-apple-results.py` (≥3) |
+| iOS | CI only (macos-15) | 4 unit-test files, including `PlatformKeyStoreTests.swift` | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
+| macOS | CI only (macos-15) | 2 unit-test files, including the shared Keychain tests | 5 XCUITest | `check-apple-results.py` (≥3) |
 
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty

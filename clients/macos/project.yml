@@ -33,7 +33,7 @@ targets:
   DYAppTests:
     type: bundle.unit-test
     platform: macOS
-    sources: [Tests/AppTests.swift]
+    sources: [Tests/AppTests.swift, ../ios/Tests/PlatformKeyStoreTests.swift]
     dependencies:
       - target: DYApp
     settings:
