@@ -48,45 +48,50 @@ class MainActivity : ComponentActivity() {
     private val deadline = Runnable { refreshLock() }
     private val store by lazy { AppLockStore.onDevice(noBackupFilesDir) }
     private var locked by mutableStateOf(true)
-    private var setup by mutableStateOf(false)
     private var settings by mutableStateOf(false)
-    private var pinSet by mutableStateOf(false)
-    private var deviceSecure by mutableStateOf(false)
+    private var lock by mutableStateOf(StoredLock.NEW)
+    private var device by mutableStateOf(DeviceLock(false))
 
-    // A passed OS device-credential check, not yet applied, and the PIN reset it authorizes.
-    private var credentialChecked = false
+    // A passed OS check, not yet applied, and what it authorizes, such as a PIN reset.
+    private var checked: (() -> Unit)? = null
     private var recovered by mutableStateOf(false)
     private val lockMode get() = when {
+        lock == StoredLock.BIOMETRIC -> LockMode.BIOMETRIC
         recovered -> LockMode.RESET
-        pinSet -> LockMode.PIN
+        lock == StoredLock.PIN -> LockMode.PIN
         else -> LockMode.OFF
+    }
+    private val verify = { biometric: Boolean, then: () -> Unit ->
+        confirmDeviceCredential(biometric) { checked = then; refreshLock() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // An unreadable verifier must fail closed, never start a new unlocked session.
-        val stored = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
-        val (pinEnabled, setupDone) = (stored == StoredLock.PIN) to (stored != StoredLock.NEW)
-        appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
-        setup = !setupDone
-        pinSet = pinEnabled
-        obscureSnapshot(pinSet)
+        lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
+        val lockOn = lock == StoredLock.PIN || lock == StoredLock.BIOMETRIC
+        appLock = AppLockLifecycle(lockOn, SystemClock::elapsedRealtime)
+        obscureSnapshot(lockOn)
         refreshLock()
         setContent {
             DYAppTheme {
+                val biometric = lock == StoredLock.BIOMETRIC
                 when {
-                    locked -> UnlockScreen(deviceSecure, ::attempt) {
-                        confirmDeviceCredential { credentialChecked = true; refreshLock() }
+                    locked && biometric -> BiometricUnlockScreen(device.secure) { verify(true) {} }
+                    locked -> UnlockScreen(device.secure, ::attempt) {
+                        verify(false) { recovered = true; settings = true }
                     }
-                    setup -> SetupScreen(deviceSecure, {
+                    lock == StoredLock.NEW -> SetupScreen(device, {
                         // A failed write only means the choice is offered again next launch.
                         runCatching { store.skip() }
-                        setup = false
+                        lock = StoredLock.OFF
                     }) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(lockMode, deviceSecure, ::setPin) {
+                    settings -> LockSettingsScreen(lockMode, device, ::setPin) {
                         settings = false
                         recovered = false
                     }
+                    // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
+                    biometric -> MainScreen { verify(true) { settings = true } }
                     else -> MainScreen { settings = true }
                 }
             }
@@ -96,7 +101,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // The user may have just set a screen lock in system settings.
-        deviceSecure = getSystemService(KeyguardManager::class.java).isDeviceSecure
+        val secure = getSystemService(KeyguardManager::class.java).isDeviceSecure
+        device = DeviceLock(secure, biometrics()) { setPin(null, null, true) }
         appLock.onForeground()
         refreshLock()
     }
@@ -134,23 +140,15 @@ class MainActivity : ComponentActivity() {
         return result
     }
 
-    private suspend fun setPin(current: String?, newPin: String?): PinAttempt? {
-        // Change or (null new PIN) clear it behind the current one or a fresh OS check, else enrol.
-        val reset = recovered
+    private suspend fun setPin(current: String?, newPin: String?, biometric: Boolean = false): PinAttempt? {
+        val reset = recovered || lock == StoredLock.BIOMETRIC
         val result = withContext(Dispatchers.Default) {
-            runCatching {
-                when {
-                    current != null -> store.change(current, newPin)
-                    reset -> PinAttempt.UNLOCKED.also { store.resetAfterDeviceCredential(newPin) }
-                    else -> PinAttempt.UNLOCKED.also { store.enroll(checkNotNull(newPin)) }
-                }
-            }.getOrNull()
+            runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
         }
         if (result == PinAttempt.UNLOCKED) {
-            if (newPin == null) appLock.onPinCleared() else appLock.onPinEnrolled()
-            pinSet = newPin != null
-            obscureSnapshot(pinSet)
-            setup = false
+            lock = if (biometric) StoredLock.BIOMETRIC else if (newPin != null) StoredLock.PIN else StoredLock.OFF
+            if (lock == StoredLock.OFF) appLock.onPinCleared() else appLock.onPinEnrolled()
+            obscureSnapshot(lock != StoredLock.OFF)
             recovered = false
         }
         refreshLock()
@@ -159,11 +157,10 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshLock() {
         // The OS check may pause the activity; apply it once the app is in the foreground again.
-        if (credentialChecked && !appLock.snapshotObscured) {
-            credentialChecked = false
+        checked?.takeIf { !appLock.snapshotObscured }?.let {
+            checked = null
             appLock.onUnlocked()
-            recovered = true
-            settings = true
+            it()
         }
         val remaining = appLock.millisUntilLock()
         locked = appLock.isLocked
@@ -171,6 +168,15 @@ class MainActivity : ComponentActivity() {
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
     }
+}
+
+// Switch to biometrics, or change or (null new PIN) clear the PIN behind the current one or a
+// fresh OS check (reset), else enrol one.
+private fun AppLockStore.save(current: String?, newPin: String?, reset: Boolean, biometric: Boolean) = when {
+    biometric -> PinAttempt.UNLOCKED.also { useBiometric() }
+    current != null -> change(current, newPin)
+    reset -> PinAttempt.UNLOCKED.also { resetAfterDeviceCredential(newPin) }
+    else -> PinAttempt.UNLOCKED.also { enroll(checkNotNull(newPin)) }
 }
 
 private val reasons = mapOf(

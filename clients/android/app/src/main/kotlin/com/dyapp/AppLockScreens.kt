@@ -21,20 +21,21 @@ internal fun pinRejection(pin: String, repeat: String) = when {
 }
 
 /**
- * First launch: Skip, or enrol a PIN. A PIN needs a device screen lock, its recovery method,
- * so without one the option is explained in place. [onEnroll] runs the KDF off the UI thread.
+ * First launch: Skip, enrol a PIN, or use device biometrics. Both need a device screen lock, the
+ * recovery method, so without one the options are explained in place. [onEnroll] runs the KDF
+ * off the UI thread.
  */
 @Composable
-fun SetupScreen(deviceSecure: Boolean, onSkip: () -> Unit, onEnroll: suspend (String) -> Boolean) {
+fun SetupScreen(device: DeviceLock, onSkip: () -> Unit, onEnroll: suspend (String) -> Boolean) {
     val scope = rememberCoroutineScope()
     val pinState = remember { mutableStateOf("") }
     val repeatState = remember { mutableStateOf("") }
     var pin by pinState
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
-    val editable = deviceSecure && !busy
+    val editable = device.secure && !busy
     LockColumn {
-        SetupIntro(deviceSecure)
+        SetupIntro(device.secure)
         NewPinFields(pinState, repeatState, R.string.lock_pin, editable)
         error?.let { ErrorText(it) }
         val submit: () -> Unit = {
@@ -51,6 +52,7 @@ fun SetupScreen(deviceSecure: Boolean, onSkip: () -> Unit, onEnroll: suspend (St
             }
         }
         SetupActions(submit.takeIf { editable && pin.isNotEmpty() }, onSkip.takeIf { !busy })
+        BiometricOption(device, !busy)
     }
 }
 
@@ -82,8 +84,8 @@ fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttemp
     var error by remember { mutableStateOf<Int?>(null) }
     var gated by remember { mutableStateOf(false) }
     LockColumn {
-        Text(stringResource(R.string.app_locked), Modifier.testTag("app-locked"))
-        DeviceCredentialButton(deviceSecure, onDeviceCredential)
+        Text(stringResource(R.string.app_locked), Modifier.testTag(LOCKED_TAG))
+        DeviceCredentialButton(deviceSecure, R.string.lock_use_device_credential, onDeviceCredential)
         if (gated) {
             DeviceCredentialText()
             return@LockColumn
@@ -102,6 +104,15 @@ fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttemp
         }
         UnlockButton(submit.takeIf { !busy && pinState.value.length >= PIN_MIN })
     }
+}
+
+private const val LOCKED_TAG = "app-locked"
+
+/** The locked surface in biometric mode: [onUnlock] opens BiometricPrompt with the OS credential fallback. */
+@Composable
+fun BiometricUnlockScreen(deviceSecure: Boolean, onUnlock: () -> Unit) = LockColumn {
+    Text(stringResource(R.string.app_locked), Modifier.testTag(LOCKED_TAG))
+    DeviceCredentialButton(deviceSecure, R.string.lock_use_biometric, onUnlock)
 }
 
 @Composable

@@ -30,6 +30,10 @@
     <string name="lock_pin_new">Новый PIN</string>
     <string name="lock_change">Сменить PIN</string>
     <string name="lock_turn_off">Отключить PIN</string>
+    <string name="lock_use_biometric">Использовать биометрию устройства</string>
+    <string name="lock_biometric_none">Добавьте отпечаток или лицо в настройках устройства, чтобы разблокировать приложение биометрией.</string>
+    <string name="lock_mode_biometric">Блокировка приложения: биометрия</string>
+    <string name="lock_turn_off_biometric">Отключить биометрию</string>
     <string name="lock_back">Назад</string>
     <string name="storage_peer_id">Ваш идентификатор узла</string>
     <string name="storage_os_loss">Удаление приложения или очистка его данных стирает ключ этой идентичности без предупреждения. Резервную копию пока сделать нельзя.</string>

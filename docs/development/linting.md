@@ -112,7 +112,9 @@ parameters of a baselined function needs its ID updated to the new signature.
 Defaults that new Android code often hits: `TooManyFunctions` reports at 10 functions per class
 and 11 per file (top-level extension functions in another file help), `StringLiteralDuplication`
 counts repeated `testTag` strings, `BracesOnIfStatements` wants braces on a multi-line `if`, and
-`UseIfInsteadOfWhen` rejects a two-branch `when`.
+`UseIfInsteadOfWhen` rejects a two-branch `when`. `CommentOverPrivateFunction` rejects KDoc on a
+private function (use `//` comments), and each `&&`, `||` and `when` branch adds to
+`CyclomaticComplexMethod`, so move a branchy `when` into its own function.
 
 Before checking Android changes, read the diff against these limits: every new
 `values/strings.xml` entry has a `values-ru` counterpart (D1); no touched function exceeds 30

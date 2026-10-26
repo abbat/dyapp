@@ -25,8 +25,12 @@ check. Corrupt or unreadable files fail closed and are never treated as a fresh 
 `NEW` for first-launch setup. `skip` writes the skip marker, and clearing the lock also writes it
 so setup is not offered again. The app uses either a PIN or biometrics, never both:
 `useBiometric` writes its marker before it deletes any PIN record, and a reset writes a new PIN
-before it deletes the marker, so a crash mid-switch leaves the app locked with the PIN. The
-biometric screens are planned.
+before it deletes the marker, so a crash mid-switch leaves the app locked with the PIN.
+Setup and the settings screen without a PIN offer **Use device biometrics** only when
+`canAuthenticate(BIOMETRIC_STRONG)` succeeds, and explain enrolment when none is enrolled. In
+biometric mode the app unlocks, and opens its lock settings, only after a `BiometricPrompt`
+allowing `BIOMETRIC_STRONG` or `DEVICE_CREDENTIAL`; settings then set a PIN or turn the lock off
+without another check.
 `resetAfterDeviceCredential` must only be called after a fresh OS check: `UnlockScreen` offers
 **Use device screen lock**, a framework `BiometricPrompt` limited to `DEVICE_CREDENTIAL` (no
 extra dependency). Its success unlocks the app once it is back in the foreground and opens

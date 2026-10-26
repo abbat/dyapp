@@ -1,5 +1,8 @@
 package com.dyapp
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -50,7 +53,7 @@ class SetupScreenTests {
     @Test
     fun mismatchClearsInputAndMatchingPinEnrollsOnce() {
         val enrolled = mutableListOf<String>()
-        compose.setContent { SetupScreen(true, {}) { enrolled += it; true } }
+        compose.setContent { SetupScreen(DeviceLock(true), {}) { enrolled += it; true } }
         compose.onNodeWithTag("pin-new").performTextInput("123456")
         compose.onNodeWithTag("pin-repeat").performTextInput("123457")
         compose.onNodeWithTag("pin-set").performClick()
@@ -66,10 +69,22 @@ class SetupScreenTests {
 
     @Test
     fun withoutScreenLockThePinIsExplainedAndSkipStays() {
-        compose.setContent { SetupScreen(false, {}) { true } }
+        compose.setContent { SetupScreen(DeviceLock(false), {}) { true } }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("pin-set").assertIsNotEnabled()
         compose.onNodeWithTag("lock-skip").assertIsEnabled()
+    }
+
+    @Test
+    fun biometricsAreOfferedOnlyWhenEnrolled() {
+        var chosen = false
+        var device by mutableStateOf(DeviceLock(true, Biometrics.NOT_ENROLLED))
+        compose.setContent { SetupScreen(device, {}) { true } }
+        compose.onNodeWithTag("lock-biometric-unavailable").assertIsDisplayed()
+        compose.onNodeWithTag("lock-biometric").assertDoesNotExist()
+        device = DeviceLock(true, Biometrics.READY) { chosen = true }
+        compose.onNodeWithTag("lock-biometric").performClick()
+        compose.waitUntil { chosen }
     }
 }
 
@@ -81,7 +96,7 @@ class LockSettingsScreenTests {
     fun changeNeedsTheCurrentPinAndTheNewOneTwice() {
         val calls = mutableListOf<Pair<String?, String?>>()
         compose.setContent {
-            LockSettingsScreen(LockMode.PIN, true, { current, new ->
+            LockSettingsScreen(LockMode.PIN, DeviceLock(true), { current, new ->
                 calls += current to new
                 if (current == "123456") PinAttempt.UNLOCKED else PinAttempt.WRONG
             }) {}
@@ -107,7 +122,7 @@ class LockSettingsScreenTests {
     fun aDeviceCredentialResetNeedsNoCurrentPin() {
         val calls = mutableListOf<Pair<String?, String?>>()
         compose.setContent {
-            LockSettingsScreen(LockMode.RESET, true, { current, new ->
+            LockSettingsScreen(LockMode.RESET, DeviceLock(true), { current, new ->
                 calls += current to new
                 PinAttempt.UNLOCKED
             }) {}
@@ -122,7 +137,7 @@ class LockSettingsScreenTests {
     @Test
     fun withoutScreenLockOnlyTurnOffStaysAndTooManyFailuresGate() {
         val gate: suspend (String?, String?) -> PinAttempt? = { _, _ -> PinAttempt.DEVICE_CREDENTIAL_REQUIRED }
-        compose.setContent { LockSettingsScreen(LockMode.PIN, false, gate) {} }
+        compose.setContent { LockSettingsScreen(LockMode.PIN, DeviceLock(false), gate) {} }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("pin-new").assertIsNotEnabled()
         compose.onNodeWithTag("pin-current").performTextInput("654321")

@@ -52,54 +52,66 @@ enum class LockMode {
 
     /** A PIN is set and a fresh OS device-credential check stands in for it. */
     RESET,
+
+    /** Device biometrics replace the PIN; the unlock that opened the app was a fresh check. */
+    BIOMETRIC,
 }
 
 /**
  * App-wide lock settings. With a PIN set, Change and Turn off both need the current PIN, checked
  * as one counted unlock attempt. [onSetPin] takes the current PIN (null when none is set) and the
- * new one (null turns the PIN off), runs off the UI thread and returns null on a storage error.
+ * new one (null turns the lock off), runs off the UI thread and returns null on a storage error.
  * After a fresh OS device-credential check, [LockMode.RESET] replaces or clears it without one.
+ * Device biometrics are offered while no PIN guards the choice.
  */
 @Composable
-fun LockSettingsScreen(mode: LockMode, deviceSecure: Boolean, onSetPin: PinSetter, onBack: () -> Unit) {
+fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val form = remember { PinForm() }
     val open = form.open
+    val deviceSecure = device.secure
     val pinSet = mode != LockMode.OFF
     val askCurrent = mode == LockMode.PIN
     val authorized = form.authorized(askCurrent)
     val submit = { newPin: String? -> form.submit(scope, form.current.value.takeIf { askCurrent }, newPin, onSetPin) }
     LockColumn {
-        LockSettingsStatus(pinSet, deviceSecure, form.gated)
-        if (mode == LockMode.RESET) Text(stringResource(R.string.lock_reset), Modifier.testTag("lock-reset"))
+        LockSettingsStatus(mode, deviceSecure, form.gated)
         if (askCurrent) PinField(form.current, R.string.lock_pin_current, "pin-current", open)
         NewPinFields(form.pin, form.repeat, R.string.lock_pin_new, open && deviceSecure)
         form.error?.let { ErrorText(it) }
         LockSettingsActions(
-            pinSet,
+            mode,
             { submit(form.pin.value) }.takeIf { authorized && deviceSecure && form.pin.value.isNotEmpty() },
             { submit(null) }.takeIf { authorized && pinSet },
             onBack.takeIf { !form.busy }
         )
+        if (mode == LockMode.OFF || mode == LockMode.RESET) BiometricOption(device, open)
     }
 }
 
 @Composable
-private fun LockSettingsStatus(pinSet: Boolean, deviceSecure: Boolean, gated: Boolean) {
-    val mode = if (pinSet) R.string.lock_mode_pin else R.string.lock_mode_off
-    Text(stringResource(mode), Modifier.testTag("lock-mode"))
+private fun LockSettingsStatus(mode: LockMode, deviceSecure: Boolean, gated: Boolean) {
+    val status = when (mode) {
+        LockMode.OFF -> R.string.lock_mode_off
+        LockMode.BIOMETRIC -> R.string.lock_mode_biometric
+        else -> R.string.lock_mode_pin
+    }
+    Text(stringResource(status), Modifier.testTag("lock-mode"))
+    if (mode == LockMode.RESET) Text(stringResource(R.string.lock_reset), Modifier.testTag("lock-reset"))
     if (!deviceSecure) NoScreenLockText()
     // Only the unlock screen offers the OS check; the app relocks within the idle limit.
     if (gated) DeviceCredentialText()
 }
 
 @Composable
-private fun LockSettingsActions(pinSet: Boolean, onSet: (() -> Unit)?, onOff: (() -> Unit)?, onBack: (() -> Unit)?) {
+private fun LockSettingsActions(mode: LockMode, onSet: (() -> Unit)?, onOff: (() -> Unit)?, onBack: (() -> Unit)?) {
     // A null action shows its button disabled.
+    val pinSet = mode == LockMode.PIN || mode == LockMode.RESET
     SetPinButton(if (pinSet) R.string.lock_change else R.string.lock_set, onSet)
-    if (pinSet) {
+    if (mode != LockMode.OFF) {
+        val off = if (pinSet) R.string.lock_turn_off else R.string.lock_turn_off_biometric
         OutlinedButton(onClick = { onOff?.invoke() }, Modifier.testTag("lock-off"), enabled = onOff != null) {
-            Text(stringResource(R.string.lock_turn_off))
+            Text(stringResource(off))
         }
     }
     OutlinedButton(onClick = { onBack?.invoke() }, Modifier.testTag("lock-back"), enabled = onBack != null) {

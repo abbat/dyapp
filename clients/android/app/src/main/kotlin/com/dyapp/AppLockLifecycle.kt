@@ -1,25 +1,38 @@
 package com.dyapp
 
 import android.app.Activity
+import android.content.Context
 import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
 import android.view.WindowManager
 
 /**
- * Ask the OS for the device screen lock alone (framework API 30+, no dependency). Cancel and
- * errors keep the app locked; [onSuccess] runs on the main thread.
+ * Ask the OS for the device screen lock, or with [biometric] for strong biometrics first
+ * (framework API 30+, no dependency). Cancel and errors keep the app locked; [onSuccess] runs on
+ * the main thread.
  */
-internal fun Activity.confirmDeviceCredential(onSuccess: () -> Unit) {
+internal fun Activity.confirmDeviceCredential(biometric: Boolean, onSuccess: () -> Unit) {
+    val credential = Authenticators.DEVICE_CREDENTIAL
+    val allowed = if (biometric) Authenticators.BIOMETRIC_STRONG or credential else credential
     BiometricPrompt.Builder(this)
         .setTitle(getString(R.string.lock_device_credential_title))
-        .setAllowedAuthenticators(BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+        .setAllowedAuthenticators(allowed)
         .build()
         .authenticate(CancellationSignal(), mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
         })
 }
+
+/** Whether strong biometrics can be offered; only enrolled ones unlock the app. */
+internal fun Context.biometrics() =
+    when (getSystemService(BiometricManager::class.java).canAuthenticate(Authenticators.BIOMETRIC_STRONG)) {
+        BiometricManager.BIOMETRIC_SUCCESS -> Biometrics.READY
+        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> Biometrics.NOT_ENROLLED
+        else -> Biometrics.ABSENT
+    }
 
 /**
  * Keeps private content out of the app-switcher snapshot while a PIN is set. Before API 33 only

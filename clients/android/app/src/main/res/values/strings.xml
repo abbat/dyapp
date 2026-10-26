@@ -31,6 +31,10 @@
     <string name="lock_pin_new">New PIN</string>
     <string name="lock_change">Change PIN</string>
     <string name="lock_turn_off">Turn off PIN</string>
+    <string name="lock_use_biometric">Use device biometrics</string>
+    <string name="lock_biometric_none">Add a fingerprint or face in the device settings to unlock the app with biometrics.</string>
+    <string name="lock_mode_biometric">App lock: device biometrics</string>
+    <string name="lock_turn_off_biometric">Turn off biometrics</string>
     <string name="lock_back">Back</string>
     <string name="storage_peer_id">Your Peer ID</string>
     <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
