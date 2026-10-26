@@ -23,6 +23,9 @@ are wired; add and switch actions are the next checkpoint.
 The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The network draft bridge resolves the selected UUID slot's
 folder or the legacy root before calling UniFFI load/save; it does not create or select a key.
+Startup checks the selected slot's active network in a detached task. A missing active file routes
+straight to the draft form; an unreadable file shows a retryable error and leaves the key and
+file intact. Only an existing active file reaches Ready.
 The shared network form now loads the selected identity's draft, falling back to its active
 settings only when no draft exists. The blocking load runs off the UI thread and an unreadable
 file displays an error without rewriting the file or key. Save draft writes through UniFFI off

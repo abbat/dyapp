@@ -10,10 +10,8 @@ final class LaunchTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["peer-id"].exists)
         createIdentity(app)
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
-        let ready = app.staticTexts["app-ready"]
-        XCTAssertTrue(ready.waitForExistence(timeout: 10))
-        XCTAssertEqual(ready.value as? String, "Ready") // macOS exposes Text in value; label is empty
-        XCTAssertTrue(ready.isHittable)
+        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["app-ready"].exists)
         // The peer ID comes from the Rust core through the UniFFI bindings.
         let peerId = app.staticTexts["peer-id"]
         XCTAssertTrue(peerId.waitForExistence(timeout: 10))
@@ -253,6 +251,7 @@ final class LaunchTests: XCTestCase {
     }
 
     private func openNetwork(_ app: XCUIApplication) {
+        if app.buttons["network-save"].waitForExistence(timeout: 10) { return }
         let link = app.buttons["network-edit"]
         XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
         link.tap()
@@ -265,11 +264,11 @@ final class LaunchTests: XCTestCase {
         app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
         app.launch()
         createIdentity(app)
-        let ready = app.staticTexts["app-ready"]
-        XCTAssertTrue(ready.waitForExistence(timeout: 10))
-        let text = ready.value as? String ?? ""
-        XCTAssertTrue(text.hasPrefix("Ready") && text.count >= 2 * "Ready".count, text)
-        XCTAssertTrue(ready.isHittable)
+        let save = app.buttons["network-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        let text = save.value as? String ?? save.label
+        XCTAssertTrue(text.hasPrefix("Save draft") && text.count >= 2 * "Save draft".count, text)
+        XCTAssertTrue(save.isHittable)
         app.terminate()
     }
 
@@ -278,9 +277,11 @@ final class LaunchTests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
         app.launch()
         createIdentity(app)
-        let ready = app.staticTexts["app-ready"]
-        XCTAssertTrue(ready.waitForExistence(timeout: 10))
-        XCTAssertEqual(ready.value as? String, "\u{0413}\u{043e}\u{0442}\u{043e}\u{0432}\u{043e}")
+        let save = app.buttons["network-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        XCTAssertEqual(save.value as? String ?? save.label,
+                       "\u{0421}\u{043e}\u{0445}\u{0440}\u{0430}\u{043d}\u{0438}\u{0442}\u{044c} "
+                       + "\u{0447}\u{0435}\u{0440}\u{043d}\u{043e}\u{0432}\u{0438}\u{043a}")
         app.terminate()
     }
 

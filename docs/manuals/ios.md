@@ -3,7 +3,10 @@
 The `DYApp` client for iOS runs on iOS 15 or later. This first version is a minimal shell: it
 starts, renders and closes. Profiles, search and chats are planned.
 
-After opening an identity, **Network connection** opens a draft form for bootstrap nodes
+After creating or reopening an identity without an active network, the connection form opens
+automatically. An identity with an active network reaches Ready; **Network connection** opens
+the form again. If the active file cannot be read, the app shows an error with Retry and keeps
+the identity intact. The form accepts bootstrap nodes
 (one address per line) and an optional network name. **Save draft** keeps edits for this
 identity across restarts without changing the active connection.
 **Check connection** saves the draft and shows an outcome beside each address; it does not
