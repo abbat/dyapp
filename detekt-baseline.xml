@@ -15,9 +15,6 @@
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
-    <ID>MagicNumber:AppLockStore.kt$AppLockStore$256</ID>
-    <ID>MaxLineLength:AppLockStore.kt$AppLockStore$if</ID>
-    <ID>StringLiteralDuplication:AppLockStore.kt$AppLockStore$"App PIN is not enrolled"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"app-ready"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"deleting"</ID>
     <ID>StringLiteralDuplication:MainActivity.kt$"incomplete"</ID>
