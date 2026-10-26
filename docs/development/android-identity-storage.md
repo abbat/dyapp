@@ -14,7 +14,9 @@ draft intact; preview and publication are planned.
 The ready screen also opens an editable network draft. It loads this slot's saved draft or active
 settings on a background dispatcher, displays the Peer ID and key-loss warning, and saves seed rows
 and network name beside that identity's key. A damaged settings file shows an error without
-replacing the identity. Automatic first-entry routing and connection check/activation are planned.
+replacing the identity. A ready identity without active network settings opens this draft form
+automatically on launch; Back returns to the ready screen for this session. An identity with active
+settings returns to the ready screen. Connection check and activation are planned.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
 and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
 remain available on the ready screen and picker while their Settings controls are being built.

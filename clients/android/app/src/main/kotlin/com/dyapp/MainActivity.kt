@@ -219,12 +219,19 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         return
     }
     val opened = shown.opened
-    val editingReady = viewingSettings || editingProfile || viewingNetwork
-    if (opened is Opened.Ready && editingReady) {
+    val networkNeeded = rememberNetworkEntryNeeded(opened as? Opened.Ready)
+    var networkDismissed by remember((opened as? Opened.Ready)?.slot?.id) { mutableStateOf(false) }
+    val explicitEditor = viewingSettings || editingProfile || viewingNetwork
+    val automaticNetwork = networkNeeded != false && !networkDismissed
+    if (opened is Opened.Ready && (explicitEditor || automaticNetwork)) {
         when {
             viewingSettings -> IdentitySettingsScreen(slots, opened) { viewingSettings = false }
             editingProfile -> ProfileDraftScreen(opened.slot) { editingProfile = false }
-            else -> NetworkDraftScreen(opened) { viewingNetwork = false }
+            networkNeeded == null -> Text(stringResource(R.string.network_loading))
+            else -> NetworkDraftScreen(opened) {
+                viewingNetwork = false
+                networkDismissed = true
+            }
         }
         return
     }

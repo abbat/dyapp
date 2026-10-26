@@ -35,6 +35,20 @@ private class NetworkDraftState {
     var status by mutableStateOf(DraftStatus.LOADING)
 }
 
+/** Whether this ready identity still needs its first network connection. */
+@Composable
+internal fun rememberNetworkEntryNeeded(opened: Opened.Ready?): Boolean? {
+    var needed by remember(opened?.slot?.id) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(opened?.slot?.id) {
+        if (opened == null) return@LaunchedEffect
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching { RustBridge.loadNetwork(opened, NetworkFile.ACTIVE) }
+        }
+        needed = loaded.fold(onSuccess = { it == null }, onFailure = { true })
+    }
+    return needed
+}
+
 /** Edit one ready identity's network draft; checking and activation are separate steps. */
 @Composable
 internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
