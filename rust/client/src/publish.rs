@@ -1,5 +1,13 @@
-//! Checks a profile draft must pass before each publish.
+//! Publishing the owner's profile draft: the checks before each publish, the cancellable proof
+//! of work, and the publish with its signed readback.
+//!
+//! A caller runs [`check`], calls [`work`] in short steps (saving the draft after each, so a
+//! cancelled publish resumes where it stopped), then [`publish`].
 
+use crate::store::{self, Store};
+use crate::{Error, Node};
+use dyapp_identity::Identity;
+use dyapp_p2p_net::proto::Status;
 use dyapp_profile::{CivilDate, Profile};
 
 /// Why a draft cannot be published yet.
@@ -41,10 +49,86 @@ pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Bl
     Ok(())
 }
 
+/// Try up to `tries` more nonces for a profile proof of work of `bits` for `key`, the owner's
+/// public key. Progress stays in `draft.pow_nonce`; `draft.pow_bits` is set only once solved,
+/// and the proof does not depend on other fields, so later versions reuse it. Returns whether
+/// it is solved.
+pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool {
+    if draft.pow_bits >= bits {
+        return true;
+    }
+    match dyapp_profile::solve(key, bits, draft.pow_nonce, tries) {
+        Ok(nonce) => {
+            (draft.pow_nonce, draft.pow_bits) = (nonce, bits);
+            true
+        }
+        Err(next) => {
+            draft.pow_nonce = next;
+            false
+        }
+    }
+}
+
+/// Publish `draft` (version: the last one published) to `node` at the next version and read it
+/// back. Succeeds only when the signed readback equals the published profile, which is then
+/// saved as the draft and held for search ([`Store::hold_search_profile`]); on failure the draft
+/// is unchanged and the publish may be retried.
+pub async fn publish(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+) -> Result<Profile, Failure> {
+    let peer_id = identity.peer_id();
+    let mut profile = Profile {
+        version: draft.version + 1,
+        ..draft.clone()
+    };
+    match node.publish_profile(profile.sign(identity)).await {
+        Ok(()) => {}
+        // A lost reply to this same publish, or a newer version from another device.
+        Err(Error::Status(Status::Stale)) => {
+            let held = node.get_profile(&peer_id).await?.profile;
+            if held != profile {
+                profile.version = held.version + 1;
+                node.publish_profile(profile.sign(identity)).await?;
+            }
+        }
+        Err(error) => return Err(error.into()),
+    }
+    if node.get_profile(&peer_id).await?.profile != profile {
+        return Err(Error::Reply("readback differs from the published profile").into());
+    }
+    store.save_profile_draft(&profile)?;
+    store.hold_search_profile(&profile.sign(identity))?;
+    Ok(profile)
+}
+
+/// Why [`publish`] failed; both are retryable.
+#[derive(Debug, thiserror::Error)]
+pub enum Failure {
+    /// The node refused, did not answer, or read back something else.
+    #[error(transparent)]
+    Node(#[from] Error),
+    /// The published profile could not be saved locally.
+    #[error(transparent)]
+    Store(#[from] store::Error),
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{check, Block};
+    use super::{check, publish, work, Block, Failure};
+    use crate::store::{tests::temp_db_path, Store};
+    use crate::{Error, Node};
+    use dyapp_identity::{Identity, SignedRecord};
+    use dyapp_p2p_net::proto::{self, profile_request::Request, Status};
+    use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
     use dyapp_profile::{CivilDate, Profile};
+    use libp2p::futures::StreamExt;
+    use libp2p::identity::Keypair;
+    use libp2p::request_response::{Event as RequestEvent, Message as RequestMessage};
+    use libp2p::swarm::SwarmEvent;
+    use std::sync::{Arc, Mutex};
 
     fn draft(year: Option<u32>, month: Option<u32>, day: Option<u32>) -> Profile {
         Profile {
@@ -91,5 +175,149 @@ mod tests {
             check(&draft(Some(2030), None, None), true, today),
             Err(Block::Underage)
         );
+    }
+
+    #[test]
+    fn puzzle_work_resumes_after_a_cancelled_step() {
+        let key = Identity::generate().public_key();
+        let mut draft = draft(None, None, None);
+        let mut steps = 1;
+        while !work(&mut draft, &key, 4, 1) {
+            assert_eq!((draft.pow_nonce, draft.pow_bits), (steps, 0));
+            steps += 1;
+        }
+        assert_eq!(draft.pow_bits, 4);
+        assert!(dyapp_profile::pow_leading_bits(&key, draft.pow_nonce) >= 4);
+        let solved = draft.clone();
+        assert!(work(&mut draft, &key, 4, 0));
+        assert_eq!(draft, solved);
+    }
+
+    // A profile node's answer: it keeps the newest record in `held`, but answers a publish with
+    // the next of `refuse` while any is left.
+    fn answer(
+        held: &mut Option<SignedRecord>,
+        refuse: &mut impl Iterator<Item = Status>,
+        request: Request,
+    ) -> proto::ProfileResponse {
+        let (status, record) = match request {
+            Request::Publish(record) => {
+                let version = dyapp_profile::stored_version(&record).unwrap();
+                let stored = held
+                    .as_ref()
+                    .map(|r| dyapp_profile::stored_version(r).unwrap());
+                match refuse.next() {
+                    Some(status) => (status, None),
+                    None if stored >= Some(version) => (Status::Stale, None),
+                    None => {
+                        *held = Some(record);
+                        (Status::Ok, None)
+                    }
+                }
+            }
+            Request::Get(_) => match held.clone() {
+                Some(record) => (Status::Ok, Some(record)),
+                None => (Status::NotFound, None),
+            },
+            other => panic!("unexpected request {other:?}"),
+        };
+        proto::ProfileResponse {
+            status: status.into(),
+            record,
+            ..Default::default()
+        }
+    }
+
+    async fn profile_node(refuse: Vec<Status>) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
+        let mut server =
+            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+        server
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let address = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+                break address;
+            }
+        };
+        let held = Arc::new(Mutex::new(None));
+        let copy = Arc::clone(&held);
+        let mut refuse = refuse.into_iter();
+        tokio::spawn(async move {
+            loop {
+                let SwarmEvent::Behaviour(BehaviourEvent::Profile(RequestEvent::Message {
+                    message:
+                        RequestMessage::Request {
+                            request, channel, ..
+                        },
+                    ..
+                })) = server.select_next_some().await
+                else {
+                    continue;
+                };
+                let response = answer(
+                    &mut copy.lock().unwrap(),
+                    &mut refuse,
+                    request.request.unwrap(),
+                );
+                server
+                    .behaviour_mut()
+                    .profile
+                    .send_response(channel, response)
+                    .unwrap();
+            }
+        });
+        let node = Node::connect(address, Arc::new(Protocols::public()))
+            .await
+            .unwrap();
+        (node, held)
+    }
+
+    #[tokio::test]
+    async fn a_refused_publish_keeps_the_draft_and_a_retry_reads_back_the_preview() {
+        let alice = Identity::generate();
+        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let preview = draft(None, Some(5), None);
+        store.save_profile_draft(&preview).unwrap();
+        let (mut node, held) = profile_node(vec![Status::Denied]).await;
+        assert!(matches!(
+            publish(&store, &mut node, &alice, &preview).await,
+            Err(Failure::Node(Error::Status(Status::Denied)))
+        ));
+        assert_eq!(store.profile_draft().unwrap(), Some(preview.clone()));
+        let published = publish(&store, &mut node, &alice, &preview).await.unwrap();
+        assert_eq!(
+            published,
+            Profile {
+                version: 1,
+                ..preview.clone()
+            }
+        );
+        assert_eq!(store.profile_draft().unwrap(), Some(published.clone()));
+        let record = held.lock().unwrap().clone().unwrap();
+        assert_eq!(dyapp_profile::verify(&record).unwrap().profile, published);
+        assert_eq!(store.due_search_profile(u64::MAX).unwrap(), Some(record));
+        // A lost reply: the retry finds this version already held and succeeds.
+        let again = Store::open(&temp_db_path(), &alice).unwrap();
+        assert_eq!(
+            publish(&again, &mut node, &alice, &preview).await.unwrap(),
+            published
+        );
+    }
+
+    #[tokio::test]
+    async fn a_newer_version_from_another_device_is_superseded() {
+        let alice = Identity::generate();
+        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let (mut node, held) = profile_node(Vec::new()).await;
+        let other = Profile {
+            version: 5,
+            gender: "man".into(),
+            ..Profile::default()
+        };
+        *held.lock().unwrap() = Some(other.sign(&alice));
+        let published = publish(&store, &mut node, &alice, &draft(None, None, None))
+            .await
+            .unwrap();
+        assert_eq!((published.version, published.gender.as_str()), (6, "woman"));
     }
 }
