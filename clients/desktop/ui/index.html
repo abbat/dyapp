@@ -11,10 +11,11 @@
     button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
     button:disabled { opacity: .5; }
     .notice { font-size: .9rem; }
-    #peer-id, #key-path, #identities, #recovery-peer, #remove-peer, #remove-path {
+    #peer-id, #key-path, #identities, #settings-identities,
+    #recovery-peer, #remove-peer, #remove-path {
       overflow-wrap: anywhere;
     }
-    #identities { list-style: none; padding: 0; }
+    #identities, #settings-identities { list-style: none; padding: 0; }
     #network { text-align: start; }
     #network label { display: block; margin-top: 1rem; }
     #seeds, #network-name { box-sizing: border-box; width: 100%; font: inherit; }
@@ -40,6 +41,7 @@
     <section id="identity" hidden>
       <p data-i18n="storage.peerId"></p>
       <p id="peer-id"></p>
+      <button id="settings-open" type="button" data-i18n="settings.title"></button>
       <div id="file-backup" hidden>
         <p data-i18n="storage.file.backup"></p>
         <p><code id="key-path"></code></p>
@@ -83,6 +85,13 @@
         <button id="profile-cancel" type="button" data-i18n="profile.cancel" hidden></button>
         <p id="profile-status" role="status"></p>
       </form>
+    </section>
+    <section id="settings" hidden>
+      <h2 data-i18n="settings.title"></h2>
+      <p data-i18n="settings.identities"></p>
+      <ul id="settings-identities"></ul>
+      <p id="settings-error" role="alert" hidden></p>
+      <button id="settings-back" type="button" data-i18n="settings.back"></button>
     </section>
     <section id="picker" hidden>
       <ul id="identities"></ul>

@@ -32,8 +32,9 @@ const switchIdentity = document.getElementById('switch-identity');
 const removeIdentity = document.getElementById('remove-identity');
 const removeConfirm = document.getElementById('remove-confirm');
 const removeAction = document.getElementById('remove-action');
+const settings = document.getElementById('settings');
 const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery'), document.getElementById('remove')];
+  document.getElementById('recovery'), document.getElementById('remove'), settings];
 // The opened identity or recovery state the remove screen acts on.
 let current = null;
 
@@ -79,6 +80,35 @@ const identityButton = (item) => {
   entry.append(button);
   return entry;
 };
+
+const settingsIdentity = (item) => {
+  const entry = document.createElement('li');
+  const name = item.status === 'ready' ? item.peerId : reasonText(item.reason);
+  const mode = window.strings[`identity.mode.${item.mode}`] || '';
+  const active = item.slot === current.slot ? window.strings['settings.active'] : '';
+  entry.textContent = [name, mode, active].filter(Boolean).join(' — ');
+  entry.dataset.active = String(item.slot === current.slot);
+  return entry;
+};
+
+const showSettings = async () => {
+  const list = document.getElementById('settings-identities');
+  const error = document.getElementById('settings-error');
+  list.replaceChildren();
+  error.hidden = true;
+  show(settings, 'settings.title');
+  try {
+    const items = await invoke('list_identities');
+    list.replaceChildren(...items.map(settingsIdentity));
+    error.hidden = true;
+  } catch (_) {
+    list.replaceChildren();
+    error.textContent = window.strings['storage.error'];
+    error.hidden = false;
+  }
+};
+document.getElementById('settings-open').addEventListener('click', showSettings);
+document.getElementById('settings-back').addEventListener('click', () => show(identity, 'status.ready'));
 
 // Bootstrap settings of the open identity: draft rows, a bounded check, then Continue.
 const network = document.getElementById('network');

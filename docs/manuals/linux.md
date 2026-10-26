@@ -4,6 +4,12 @@ The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local ident
 connects to bootstrap nodes and edits and publishes a public profile. Search and chats in
 the window are planned.
 
+## Settings
+
+From an open identity, **Settings** lists local identities with their key storage kind and marks
+the active one. **Back** returns to the same identity. Create, switch and confirmed removal
+remain on the ready screen and picker while their Settings controls are being built.
+
 ## Connect to a network
 
 After the identity opens, enter the bootstrap nodes you were given, one `host:port` per line
