@@ -59,9 +59,9 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         /** The virtual slot of the root `identity.key` installation. */
         const val LEGACY = "legacy-primary"
 
-        /** What may remain in a slot folder once its key is gone: markers and network settings. */
-        private val removable = setOf(
-            "state", "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp"
+        private val removableSlotFiles = setOf(
+            "state", "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
+            "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new"
         )
 
         private val UUID_PATTERN = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
@@ -224,7 +224,7 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         check(!keys.exists(slot.alias)) { "The key is still present after removal" }
         check(slot.keyFile.delete() || !exists(slot.keyFile)) { "Cannot delete the key file" }
         val names = slot.dir.list() ?: throw IOException("Cannot read the identity folder")
-        check(names.all { it in removable }) {
+        check(names.all { it in removableSlotFiles }) {
             "The identity folder holds other files"
         }
         // The rename drops the slot from list() at once; a crash after it leaves a hidden folder.

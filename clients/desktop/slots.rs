@@ -10,8 +10,8 @@ use dyapp_identity::Identity;
 /// The virtual slot of the root `identity.key` / `identity-storage` installation.
 pub const LEGACY: &str = "legacy-primary";
 
-/// What may remain in a slot folder once its key is gone: markers and network settings.
-const REMOVABLE: [&str; 7] = [
+/// Files belonging to the slot that a confirmed removal may erase.
+const REMOVABLE: [&str; 11] = [
     "storage-mode",
     "state",
     "state.tmp",
@@ -19,6 +19,10 @@ const REMOVABLE: [&str; 7] = [
     "network.tmp",
     "network-draft",
     "network-draft.tmp",
+    "client.db",
+    "client.db-wal",
+    "client.db-shm",
+    "client.db-journal",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -493,10 +497,11 @@ mod tests {
             Ok::<_, String>(())
         };
         let load = |slot: &Slot| {
-            Ok::<_, String>(keys
-                .borrow()
-                .get(&slot.system_name())
-                .map(Identity::from_secret))
+            Ok::<_, String>(
+                keys.borrow()
+                    .get(&slot.system_name())
+                    .map(Identity::from_secret),
+            )
         };
         let state = |root: &Path| match open(root, &load).unwrap() {
             Opened::Setup => "setup".to_owned(),
@@ -506,9 +511,15 @@ mod tests {
         };
         assert_eq!(state(&root), "setup");
         let (first, alice) = create(&root, "system", &save, &load).unwrap();
-        assert_eq!(state(&root), format!("ready {} {}", first.id, alice.peer_id()));
+        assert_eq!(
+            state(&root),
+            format!("ready {} {}", first.id, alice.peer_id())
+        );
         let (second, bob) = create(&root, "file", &save, &load).unwrap();
-        assert_eq!(state(&root), format!("ready {} {}", second.id, bob.peer_id()));
+        assert_eq!(
+            state(&root),
+            format!("ready {} {}", second.id, bob.peer_id())
+        );
         fs::remove_file(root.join("active-profile")).unwrap();
         assert_eq!(state(&root), "picker");
         set_active(&root, &first.id).unwrap();
@@ -544,10 +555,11 @@ mod tests {
             Ok::<_, String>(())
         };
         let load = |slot: &Slot| {
-            Ok::<_, String>(keys
-                .borrow()
-                .get(&slot.system_name())
-                .map(Identity::from_secret))
+            Ok::<_, String>(
+                keys.borrow()
+                    .get(&slot.system_name())
+                    .map(Identity::from_secret),
+            )
         };
         let working = Cell::new(false);
         let erase = |slot: &Slot| {
@@ -557,7 +569,11 @@ mod tests {
             Ok::<_, String>(())
         };
         let state = |id: &str| {
-            list(&root).unwrap().into_iter().find(|s| s.id == id).map(|s| s.state)
+            list(&root)
+                .unwrap()
+                .into_iter()
+                .find(|s| s.id == id)
+                .map(|s| s.state)
         };
         let (first, alice) = create(&root, "system", &save, &load).unwrap();
         let (second, bob) = create(&root, "file", &save, &load).unwrap();
@@ -572,6 +588,8 @@ mod tests {
         working.set(true);
         // Network settings go with the slot.
         fs::write(second.dir.join("network-draft"), "dyapp-network 1\nname \n").unwrap();
+        fs::write(second.dir.join("client.db"), "draft").unwrap();
+        fs::write(second.dir.join("client.db-wal"), "draft").unwrap();
         remove(&root, &second.id, Some(&bob), &load, &erase).unwrap();
         assert_eq!(state(&second.id), None);
         assert_eq!(active(&root), None);

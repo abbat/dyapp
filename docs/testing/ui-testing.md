@@ -204,6 +204,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   available iPhone simulator, signed ad hoc because the simulator refuses an unsigned app the
   Keychain; macOS unsigned on `platform=macOS`), summarizes it with `xcresulttool` and
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
+  The DEBUG-only `--no-device-passcode` launch argument makes the iOS missing-passcode
+  lock test deterministic across simulators with different credential settings.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.

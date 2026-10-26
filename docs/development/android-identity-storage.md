@@ -121,7 +121,8 @@ the confirmation;
 `Slots.remove` then refuses a key whose Peer ID differs from the confirmed one. It writes
 `state` = `deleting`, deletes the alias, checks it is gone, deletes `identity.key`, renames the
 directory to `profiles/.<slot>.removed` (which drops it from the list) and deletes it. Removal
-refuses a folder holding anything but `state` and network settings. A failure keeps the slot
+also removes the slot's local `profile-draft.json` after confirmation. It refuses a folder
+holding anything but its markers, network settings and profile draft. A failure keeps the slot
 and shows the error; a crash after the rename leaves only the hidden folder. After a crash the
 slot shows as `deleting`; cleanup resumes only after the user confirms again or the alias is
 confirmed absent. Removing the active slot returns to the picker, which may then hold only Add: no

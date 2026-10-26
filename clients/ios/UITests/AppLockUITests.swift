@@ -116,7 +116,7 @@ final class AppLockUITests: XCTestCase {
     /// Without a device passcode, which simulators lack, no PIN can be set.
     func testSetPinNeedsDevicePasscode() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-new"]
+        app.launchArguments = ["--app-lock-new", "--no-device-passcode"]
         app.launch()
         XCTAssertTrue(app.staticTexts["lock-no-passcode"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["lock-set"].isEnabled)

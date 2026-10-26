@@ -134,9 +134,11 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun attempt(pin: String): PinAttempt? {
         val result = withContext(Dispatchers.Default) { runCatching { store.attempt(pin) }.getOrNull() }
-        // A PIN checked while the app went to the background does not unlock it.
-        if (result == PinAttempt.UNLOCKED && !appLock.snapshotObscured) appLock.onUnlocked()
-        refreshLock()
+        withContext(Dispatchers.Main.immediate) {
+            // A PIN checked while the app went to the background does not unlock it.
+            if (result == PinAttempt.UNLOCKED && !appLock.snapshotObscured) appLock.onUnlocked()
+            refreshLock()
+        }
         return result
     }
 
@@ -145,13 +147,15 @@ class MainActivity : ComponentActivity() {
         val result = withContext(Dispatchers.Default) {
             runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
         }
-        if (result == PinAttempt.UNLOCKED) {
-            lock = if (biometric) StoredLock.BIOMETRIC else if (newPin != null) StoredLock.PIN else StoredLock.OFF
-            if (lock == StoredLock.OFF) appLock.onPinCleared() else appLock.onPinEnrolled()
-            obscureSnapshot(lock != StoredLock.OFF)
-            recovered = false
+        withContext(Dispatchers.Main.immediate) {
+            if (result == PinAttempt.UNLOCKED) {
+                lock = if (biometric) StoredLock.BIOMETRIC else if (newPin != null) StoredLock.PIN else StoredLock.OFF
+                if (lock == StoredLock.OFF) appLock.onPinCleared() else appLock.onPinEnrolled()
+                obscureSnapshot(lock != StoredLock.OFF)
+                recovered = false
+            }
+            refreshLock()
         }
-        refreshLock()
         return result
     }
 

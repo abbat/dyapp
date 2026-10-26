@@ -147,6 +147,13 @@ fn blocked(block: Block) -> String {
 
 /// The saved draft of the identity folder `dir`; empty before the first save.
 pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
+    match std::fs::symlink_metadata(dir.join("client.db")) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(view(&Profile::default(), today()?));
+        }
+        Err(error) => return Err(error.to_string()),
+        Ok(_) => {}
+    }
     Ok(view(&stored(&open(dir, identity)?)?, today()?))
 }
 
@@ -296,6 +303,7 @@ mod tests {
         let empty = load(&dir, &alice).unwrap();
         assert_eq!(empty.draft, Draft::default());
         assert_eq!(empty.problem, None);
+        assert!(!dir.join("client.db").exists());
         let saved = save(&dir, &alice, woman(Some(1990))).unwrap();
         assert!(saved.ages.is_some_and(|(youngest, _)| youngest >= 30));
         assert_eq!((saved.published, saved.problem), (0, None));

@@ -114,6 +114,7 @@ class SlotsTests {
         keys.deleteWorks = true
         // Network settings go with the slot.
         File(second.slot.dir, "network").writeText("dyapp-network 1\nname \n")
+        File(second.slot.dir, "profile-draft.json").writeText("{}")
         slots.remove(id, second.peerId)
         assertTrue(slots.list().none { it.id == id })
         assertNull(slots.active())

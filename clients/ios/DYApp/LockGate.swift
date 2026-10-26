@@ -98,10 +98,13 @@ final class LockModel: ObservableObject {
     /// Simulators have no passcode: UI tests pass `--device-passcode` to stand in for one that
     /// always checks out.
     private static let fakePasscode = ProcessInfo.processInfo.arguments.contains("--device-passcode")
+    /// Force the missing-passcode path even when a CI simulator has a passcode.
+    private static let fakeNoPasscode = ProcessInfo.processInfo.arguments.contains("--no-device-passcode")
     /// `--device-biometrics` adds enrolled biometrics to the fake passcode.
     private static let fakeBiometrics = ProcessInfo.processInfo.arguments.contains("--device-biometrics")
     #else
     private static let fakePasscode = false
+    private static let fakeNoPasscode = false
     private static let fakeBiometrics = false
     #endif
 
@@ -252,7 +255,8 @@ final class LockModel: ObservableObject {
     func phase(_ phase: ScenePhase) {
         if phase == .active {
             // The user may have just set a passcode in Settings.
-            deviceSecure = Self.fakePasscode || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+            deviceSecure = !Self.fakeNoPasscode &&
+                (Self.fakePasscode || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil))
             biometrics = Self.biometricState()
             watchTouches()
             session?.foreground(at: AppLockTimer.uptime())
