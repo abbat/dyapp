@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class LaunchTests: XCTestCase {
     func testLaunchRenderAndTerminate() {
-        let app = XCUIApplication()
+        let app = unlockedApp()
         app.launch()
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         let ready = app.staticTexts["app-ready"]
@@ -21,7 +21,7 @@ final class LaunchTests: XCTestCase {
 
     /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
     func testRelaunchKeepsPeerId() {
-        let app = XCUIApplication()
+        let app = unlockedApp()
         app.launch()
         let first = shownPeerId(app)
         XCTAssertNotNil(first.range(of: "^[0-9a-f]{64}$", options: .regularExpression), first)
@@ -29,6 +29,13 @@ final class LaunchTests: XCTestCase {
         app.launch()
         XCTAssertEqual(shownPeerId(app), first)
         app.terminate()
+    }
+
+    // Every launch starts with the app lock skipped, so the start screen renders.
+    private func unlockedApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off"]
+        return app
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
@@ -39,8 +46,8 @@ final class LaunchTests: XCTestCase {
 
     /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
     func testDoubleLengthPseudoLanguage() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-NSDoubleLocalizedStrings", "YES"]
+        let app = unlockedApp()
+        app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
         app.launch()
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
@@ -51,8 +58,8 @@ final class LaunchTests: XCTestCase {
     }
 
     func testRussianLanguage() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        let app = unlockedApp()
+        app.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
         app.launch()
         let ready = app.staticTexts["app-ready"]
         XCTAssertTrue(ready.waitForExistence(timeout: 10))
@@ -61,8 +68,8 @@ final class LaunchTests: XCTestCase {
     }
 
     func testHiddenReadyDoesNotSatisfyLaunchContract() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--break-ui"]
+        let app = unlockedApp()
+        app.launchArguments += ["--break-ui"]
         app.launch()
         XCTAssertTrue(app.staticTexts["DYApp"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["app-ready"].exists)

@@ -5,7 +5,7 @@ import SwiftUI
 struct DYAppApp: App {
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      LockGate()
     }
   }
 }

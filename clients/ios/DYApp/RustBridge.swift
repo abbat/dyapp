@@ -9,14 +9,19 @@ enum RustBridge {
     /// wrapping key never leaves this device, so a restored blob could not be opened anyway.
     static func peerId() throws -> String { try identity().peerId() }
 
-    private static func identity() throws -> IdentityKey {
+    /// The app's own Application Support folder, excluded from backups.
+    static func directory() throws -> URL {
         // The macOS app is not sandboxed: its own folder, not the user's Application Support.
         let directory = try FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         ).appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.dyapp")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try excludeFromBackup(directory)
-        let file = directory.appendingPathComponent("identity.key")
+        return directory
+    }
+
+    private static func identity() throws -> IdentityKey {
+        let file = try directory().appendingPathComponent("identity.key")
         if FileManager.default.fileExists(atPath: file.path) {
             let wrapped = try Data(contentsOf: file)
             return try IdentityKey.unwrap(store: PlatformKeyStore.shared, wrapped: wrapped)

@@ -30,7 +30,10 @@ Application Support folder, excluded from backups. The macOS app shares both fil
 Argon2id PIN verifier in one `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` Keychain item,
 apart from the identity items, and counts an attempt before verifying it. Keychain items survive
 an uninstall, so a fresh install drops the old item when its `app-lock-installed` marker in the
-app folder is missing. The lock screens are planned. See
+app folder is missing. `LockGate.swift` (iOS only) shows first-launch Skip/Set PIN or the unlock
+screen and builds the start screen only once the lock allows it; the KDF runs off the main
+thread. Debug builds accept `--app-lock-new` and `--app-lock-off` so UI tests start from a known
+lock state. See
 [FFI bindings](../development/ffi-bindings.md#apple). The sketch below is the target API.
 
 ### Integration (target sketch)

@@ -35,12 +35,15 @@ enum StoredLock: UInt8 {
 
 enum AppLockError: Error { case invalidRecord, notEnrolled, alreadyEnrolled, notEnabled }
 
+// ponytail: unchecked Sendable, callers serialise (the lock UI runs one call at a time off the
+// main thread for the KDF); add a lock if anything else calls it concurrently.
+
 /// App-wide PIN verifier, failure counter and lock choice in one `ThisDeviceOnly` Keychain item,
 /// apart from the identity Keychain items. The UI must authenticate with the OS before calling
 /// `resetAfterDeviceCredential`. Every attempted PIN is persisted before KDF work, so a process
 /// crash cannot erase a failed attempt. Layout: version, mode, failures, then the 49-byte Rust
 /// verifier for a PIN only.
-final class AppLockStore {
+final class AppLockStore: @unchecked Sendable {
     private static let version: UInt8 = 1
     private static let recordSize = 49
     private static let maxFailures: UInt8 = 5

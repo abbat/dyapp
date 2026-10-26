@@ -89,7 +89,10 @@ config sets:
   initializers, type methods, then other methods (`type_contents_order`); write `Self` for the
   enclosing type in static members (`prefer_self_in_static_references`); sort imports by module
   name, `@testable` ones included (`sorted_imports`); pass the last closure argument as a
-  trailing closure (`trailing_closure`).
+  trailing closure (`trailing_closure`); put each `case` body of a `switch` on its own line and
+  leave one empty line between cases (`switch_case_on_newline`,
+  `vertical_whitespace_between_cases`); keep a `///` doc comment directly above its declaration,
+  with any `//` comment above it and a blank line between (`orphaned_doc_comment`).
 
 `swiftlint --fix` rewrites only rules that support correction; review the diff.
 
