@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.view.WindowManager
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.assertIsDisplayed
@@ -44,12 +45,17 @@ class AppLockUITests {
         compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 
+    // The API 31 emulator path: FLAG_SECURE keeps the app-switcher snapshot blank.
+    private fun secure() =
+        compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0
+
     @Test
     fun configuredLockHidesIdentityUntilTheRightPin() {
         store.enroll("123456")
         try {
             compose.activityRule.scenario.recreate()
             compose.onNodeWithTag("app-locked").assertIsDisplayed()
+            check(secure()) { "A configured lock left the snapshot visible" }
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
             compose.onNodeWithTag("identity").assertDoesNotExist()
@@ -82,6 +88,7 @@ class AppLockUITests {
             compose.onNodeWithTag("lock-off").performClick()
             compose.waitUntil(timeoutMillis = 60_000) { !store.hasPin() }
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_off))
+            check(!secure()) { "Turning the lock off kept FLAG_SECURE" }
             compose.onNodeWithTag("lock-back").performClick()
             check(compose.shownPeerId() == before) { "Turning the lock off changed the identity" }
         } finally {

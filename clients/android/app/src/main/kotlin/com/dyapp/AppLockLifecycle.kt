@@ -1,5 +1,23 @@
 package com.dyapp
 
+import android.app.Activity
+import android.os.Build
+import android.view.WindowManager
+
+/**
+ * Keeps private content out of the app-switcher snapshot while a PIN is set. Before API 33 only
+ * FLAG_SECURE does that, and it also blocks screenshots.
+ */
+internal fun Activity.obscureSnapshot(hidden: Boolean) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        setRecentsScreenshotEnabled(!hidden)
+    } else if (hidden) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+}
+
 /**
  * App-wide lock timing, driven by a monotonic millisecond clock such as elapsedRealtime.
  * The UI calls [refresh] at each event and schedules the next [millisUntilLock] deadline.

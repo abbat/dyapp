@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
         appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
         setup = !setupDone
         pinSet = pinEnabled
+        obscureSnapshot(pinSet)
         refreshLock()
         setContent {
             DYAppTheme {
@@ -134,6 +135,7 @@ class MainActivity : ComponentActivity() {
         if (result == PinAttempt.UNLOCKED) {
             if (newPin == null) appLock.onPinCleared() else appLock.onPinEnrolled()
             pinSet = newPin != null
+            obscureSnapshot(pinSet)
             setup = false
         }
         refreshLock()

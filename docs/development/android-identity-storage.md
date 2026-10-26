@@ -33,8 +33,11 @@ five-minute foreground inactivity deadline from a monotonic clock. `MainActivity
 before constructing `MainScreen`, refreshes on foreground/background and input events, and
 schedules its deadline. Before setup is done it shows `SetupScreen` (Skip/Set PIN); a
 configured lock shows `UnlockScreen`, which runs the PIN check off the main thread and shows no
-private data. The model signals immediate background obscuring; applying that signal to the
-app-switcher snapshot remains planned.
+private data. While a PIN is set, `MainActivity` keeps the window out of the app-switcher
+snapshot from the start, not only after backgrounding: `setRecentsScreenshotEnabled(false)` on
+API 33+, and `FLAG_SECURE` on API 31-32, which also blocks screenshots there. Turning the PIN off
+lifts it. The app posts no notifications yet; hiding their content while locked is planned with
+the first notification.
 
 ## Layout
 
