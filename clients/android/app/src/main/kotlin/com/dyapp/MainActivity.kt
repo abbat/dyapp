@@ -11,14 +11,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -32,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
@@ -331,39 +327,26 @@ private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Un
                 .any { it is Opened.Ready && it.peerId == peerId }
         }.getOrDefault(false)
     }
-    var confirmed by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(stringResource(R.string.remove_title), Modifier.testTag(APP_READY_TAG))
-        Text(peerId ?: reasonText((target as Opened.Recovery).reason))
-        if (peerId != null) {
-            val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
-            Text(stringResource(copy))
-        }
-        // A missing key or another copy means nothing irreplaceable is lost.
-        if (peerId != null && !copies) {
-            Text(stringResource(R.string.remove_warning), Modifier.testTag("remove-warning"))
-        }
-        Row(
-            Modifier.toggleable(confirmed, role = Role.Checkbox) { confirmed = it }
-                .testTag("remove-confirm"),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(confirmed, onCheckedChange = null)
-            Text(stringResource(R.string.remove_confirm))
-        }
-        Button(
-            onClick = { act { slots.remove(slot.id, peerId); Opened.Picker } },
-            Modifier.testTag("remove-action"),
-            enabled = confirmed
-        ) {
-            Text(stringResource(R.string.remove_action))
-        }
-        OutlinedButton(onClick = { act(slots::open) }, Modifier.testTag("remove-cancel")) {
-            Text(stringResource(R.string.remove_cancel))
-        }
+        RemoveScreenSummary(target, peerId, copies)
+        RemoveScreenActions(slots, slot, peerId, act)
+    }
+}
+
+@Composable
+private fun RemoveScreenSummary(target: Opened, peerId: String?, copies: Boolean) {
+    Text(stringResource(R.string.remove_title), Modifier.testTag(APP_READY_TAG))
+    Text(peerId ?: reasonText((target as Opened.Recovery).reason))
+    if (peerId != null) {
+        val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
+        Text(stringResource(copy))
+    }
+    // A missing key or another copy means nothing irreplaceable is lost.
+    if (peerId != null && !copies) {
+        Text(stringResource(R.string.remove_warning), Modifier.testTag("remove-warning"))
     }
 }

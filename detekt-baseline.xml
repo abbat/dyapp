@@ -2,9 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
     <ID>LongMethod:MainActivity.kt$@Composable fun MainScreen(onLockSettings: () -&gt; Unit = {})</ID>
-    <ID>LongMethod:MainActivity.kt$@Composable private fun RemoveScreen(slots: Slots, target: Opened, act: (() -&gt; Opened) -&gt; Unit)</ID>
   </CurrentIssues>
 </SmellBaseline>
