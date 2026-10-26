@@ -90,10 +90,10 @@ class AppLockUITests {
             compose.onNodeWithTag("pin-current").performTextInput("654321")
             compose.onNodeWithTag("lock-off").performClick()
             waitForTag("pin-error")
-            check(store.hasPin()) { "A wrong current PIN turned the lock off" }
+            check(store.mode() == StoredLock.PIN) { "A wrong current PIN turned the lock off" }
             compose.onNodeWithTag("pin-current").performTextInput("123456")
             compose.onNodeWithTag("lock-off").performClick()
-            compose.waitUntil(timeoutMillis = 60_000) { !store.hasPin() }
+            compose.waitUntil(timeoutMillis = 60_000) { store.mode() == StoredLock.OFF }
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_off))
             check(!secure()) { "Turning the lock off kept FLAG_SECURE" }
             compose.onNodeWithTag("lock-back").performClick()

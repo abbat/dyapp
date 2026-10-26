@@ -65,8 +65,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // An unreadable verifier must fail closed, never start a new unlocked session.
-        val (pinEnabled, setupDone) = runCatching { store.hasPin() to store.setupDone() }
-            .getOrDefault(true to true)
+        val stored = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
+        val (pinEnabled, setupDone) = (stored == StoredLock.PIN) to (stored != StoredLock.NEW)
         appLock = AppLockLifecycle(pinEnabled, SystemClock::elapsedRealtime)
         setup = !setupDone
         pinSet = pinEnabled

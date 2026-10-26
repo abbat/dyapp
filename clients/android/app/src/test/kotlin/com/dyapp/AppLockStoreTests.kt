@@ -38,9 +38,9 @@ class AppLockStoreTests {
     @Test
     fun persistsFailuresAcrossRestartsAndRequiresCredentialAfterFive() {
         val lock = store()
-        assertFalse(lock.hasPin())
+        assertFalse(lock.mode() == StoredLock.PIN)
         lock.enroll("123456")
-        assertTrue(store().hasPin())
+        assertTrue(store().mode() == StoredLock.PIN)
         assertFalse(String(File(root, "app-lock").readBytes()).contains("123456"))
         repeat(4) { assertEquals(PinAttempt.WRONG, store().attempt("654321")) }
         assertEquals(PinAttempt.DEVICE_CREDENTIAL_REQUIRED, store().attempt("654321"))
@@ -54,7 +54,7 @@ class AppLockStoreTests {
     fun corruptRecordNeverBecomesFreshEnrollment() {
         store().enroll("123456")
         File(root, "app-lock").writeBytes(byteArrayOf(1, 2, 3))
-        assertTrue(runCatching { store().hasPin() }.isFailure)
+        assertTrue(runCatching { store().mode() == StoredLock.PIN }.isFailure)
         assertTrue(runCatching { store().enroll("654321") }.isFailure)
         assertTrue(runCatching { store().attempt("123456") }.isFailure)
     }
@@ -63,8 +63,8 @@ class AppLockStoreTests {
     fun clearRequiresExplicitRecoveryCall() {
         store().enroll("123456")
         store().resetAfterDeviceCredential(null)
-        assertFalse(store().hasPin())
-        assertTrue(store().setupDone())
+        assertFalse(store().mode() == StoredLock.PIN)
+        assertTrue(store().mode() != StoredLock.NEW)
     }
 
     @Test
@@ -74,23 +74,39 @@ class AppLockStoreTests {
         assertEquals(PinAttempt.UNLOCKED, store().change("123456", "111111"))
         assertEquals(PinAttempt.WRONG, store().attempt("123456"))
         assertEquals(PinAttempt.UNLOCKED, store().change("111111", null))
-        assertFalse(store().hasPin())
-        assertTrue(store().setupDone())
+        assertFalse(store().mode() == StoredLock.PIN)
+        assertTrue(store().mode() != StoredLock.NEW)
         store().enroll("222222")
         repeat(4) { store().attempt("654321") }
         assertEquals(PinAttempt.DEVICE_CREDENTIAL_REQUIRED, store().change("654321", null))
         assertEquals(PinAttempt.DEVICE_CREDENTIAL_REQUIRED, store().change("222222", null))
-        assertTrue(store().hasPin())
+        assertTrue(store().mode() == StoredLock.PIN)
+    }
+
+    @Test
+    fun biometricModeReplacesThePinAndBack() {
+        store().enroll("123456")
+        store().useBiometric()
+        assertTrue(store().mode() == StoredLock.BIOMETRIC)
+        assertFalse(store().mode() == StoredLock.PIN)
+        store().resetAfterDeviceCredential("111111")
+        assertFalse(store().mode() == StoredLock.BIOMETRIC)
+        assertEquals(PinAttempt.UNLOCKED, store().attempt("111111"))
+        store().resetAfterDeviceCredential(null)
+        store().useBiometric()
+        store().resetAfterDeviceCredential(null)
+        assertEquals(StoredLock.OFF, store().mode())
+        assertTrue(runCatching { store().resetAfterDeviceCredential(null) }.isFailure)
     }
 
     @Test
     fun setupIsDoneAfterSkipOrEnrollmentOnly() {
-        assertFalse(store().setupDone())
+        assertFalse(store().mode() != StoredLock.NEW)
         store().skip()
-        assertTrue(store().setupDone())
-        assertFalse(store().hasPin())
+        assertTrue(store().mode() != StoredLock.NEW)
+        assertFalse(store().mode() == StoredLock.PIN)
         File(root, AppLockStore.SKIPPED).delete()
         store().enroll("123456")
-        assertTrue(store().setupDone())
+        assertTrue(store().mode() != StoredLock.NEW)
     }
 }

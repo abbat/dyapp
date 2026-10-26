@@ -20,8 +20,13 @@ change or authenticate the per-slot identity wrapping keys. The 49-byte Rust Arg
 record and a failure count share one AES-GCM wrapped blob, replaced atomically after each attempt.
 The count is persisted before checking a PIN; five failures require an OS device-credential
 check. Corrupt or unreadable files fail closed and are never treated as a fresh install.
-`setupDone` is true once a record or the empty `app-lock-skipped` marker exists; `skip` writes
-the marker, and clearing the PIN also writes it so setup is not offered again.
+`mode` reports the saved choice: `PIN` when a record exists, else `BIOMETRIC` when the empty
+`app-lock-biometric` marker exists, else `OFF` after the empty `app-lock-skipped` marker, else
+`NEW` for first-launch setup. `skip` writes the skip marker, and clearing the lock also writes it
+so setup is not offered again. The app uses either a PIN or biometrics, never both:
+`useBiometric` writes its marker before it deletes any PIN record, and a reset writes a new PIN
+before it deletes the marker, so a crash mid-switch leaves the app locked with the PIN. The
+biometric screens are planned.
 `resetAfterDeviceCredential` must only be called after a fresh OS check: `UnlockScreen` offers
 **Use device screen lock**, a framework `BiometricPrompt` limited to `DEVICE_CREDENTIAL` (no
 extra dependency). Its success unlocks the app once it is back in the foreground and opens
