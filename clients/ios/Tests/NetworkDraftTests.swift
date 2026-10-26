@@ -59,4 +59,18 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertEqual(retained.seeds, settings.seeds)
         XCTAssertEqual(retained.name, settings.name)
     }
+
+    func testConnectionSessionChecksOnlyItsDraftWithoutActivation() throws {
+        let root = try root()
+        let first = try folder(root: root, id: UUID())
+        let second = try folder(root: root, id: UUID())
+        let session = try NetworkConnectionSession(directory: first)
+
+        XCTAssertEqual(try session.run(rows: ["not-an-address"], name: "", waitMs: 200),
+                       [.invalidAddress])
+        let draft = try XCTUnwrap(loadNetwork(dir: first.path, file: .draft))
+        XCTAssertEqual(draft.seeds, ["not-an-address"])
+        XCTAssertNil(try loadNetwork(dir: first.path, file: .active))
+        XCTAssertNil(try loadNetwork(dir: second.path, file: .draft))
+    }
 }

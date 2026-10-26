@@ -15,7 +15,8 @@ targets:
   DYApp:
     type: application
     platform: iOS
-    sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/NetworkDraftView.swift, DYApp/ProfileDraftView.swift, DYApp/RustBridge.swift,
+    sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/NetworkDraftView.swift, DYApp/NetworkConnectionSession.swift,
+              DYApp/ProfileDraftView.swift, DYApp/RustBridge.swift,
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift,
               DYApp/Localizable.xcstrings,

@@ -31,6 +31,9 @@ is already named by Peer ID, so drafts for two identities would not collide.
 Shared native unit tests exercise distinct slot folders and verify that a damaged draft does
 not alter the active settings or key file. Native UI tests check form persistence across process
 relaunch and that a damaged draft visibly blocks Save; their corruption fixture is DEBUG-only.
+The Apple connection session now constructs UniFFI `ConnectionCheck` for the selected candidate's
+folder and runs its bounded check in a detached task. It maps row outcomes into Sendable Swift
+values; the form's Check/Cancel/Activate controls are the next checkpoints.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their

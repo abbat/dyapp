@@ -1,0 +1,73 @@
+import Foundation
+
+/// Stable, Sendable outcomes used by both Apple screens instead of raw UniFFI enum values.
+enum NetworkRowOutcome: Equatable, Sendable {
+    case connected(String)
+    case invalidAddress
+    case invalidPeerID
+    case duplicate
+    case unreachable
+    case wrongPeer
+    case wrongNetwork
+
+    init(_ row: SeedRow) {
+        switch row {
+        case let .connected(peerID):
+            self = .connected(peerID)
+
+        case .invalidAddress:
+            self = .invalidAddress
+
+        case .invalidPeerId:
+            self = .invalidPeerID
+
+        case .duplicate:
+            self = .duplicate
+
+        case .unreachable:
+            self = .unreachable
+
+        case .wrongPeer:
+            self = .wrongPeer
+
+        case .wrongNetwork:
+            self = .wrongNetwork
+        }
+    }
+}
+
+enum NetworkCheckAttempt: Sendable {
+    case completed(NetworkConnectionSession, [NetworkRowOutcome])
+    case failed
+}
+
+/// The Rust object is synchronized internally so its check and cancellation can use separate threads.
+final class NetworkConnectionSession: @unchecked Sendable {
+    private let checker: ConnectionCheck
+
+    init(directory: URL) throws {
+        checker = try ConnectionCheck(dir: directory.path)
+    }
+
+    convenience init(candidate: IdentityCandidate) throws {
+        let directory = RustBridge.networkDirectory(root: try RustBridge.directory(), candidate: candidate)
+        try self.init(directory: directory)
+    }
+
+    static func start(candidate: IdentityCandidate, rows: [String], name: String) async -> NetworkCheckAttempt {
+        await Task.detached(priority: .userInitiated) { () -> NetworkCheckAttempt in
+            do {
+                let session = try NetworkConnectionSession(candidate: candidate)
+                return .completed(session, try session.run(rows: rows, name: name))
+            } catch {
+                return .failed
+            }
+        }.value
+    }
+
+    /// Blocking UniFFI call; invoke from a detached task, never the UI actor.
+    func run(rows: [String], name: String, waitMs: UInt32 = 5_000) throws -> [NetworkRowOutcome] {
+        let results = try checker.run(draft: NetworkSettings(seeds: rows, name: name), waitMs: waitMs)
+        return results.map(NetworkRowOutcome.init)
+    }
+}

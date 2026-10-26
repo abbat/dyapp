@@ -15,7 +15,8 @@ targets:
   DYApp:
     type: application
     platform: macOS
-    sources: [src/App.swift, ../ios/DYApp/ContentView.swift, ../ios/DYApp/NetworkDraftView.swift, ../ios/DYApp/ProfileDraftView.swift, ../ios/DYApp/RustBridge.swift,
+    sources: [src/App.swift, ../ios/DYApp/ContentView.swift, ../ios/DYApp/NetworkDraftView.swift,
+              ../ios/DYApp/NetworkConnectionSession.swift, ../ios/DYApp/ProfileDraftView.swift, ../ios/DYApp/RustBridge.swift,
               ../ios/DYApp/PlatformKeyStore.swift, ../ios/DYApp/IdentitySlotStore.swift,
               ../ios/DYApp/Localizable.xcstrings, Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]
