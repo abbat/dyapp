@@ -6,6 +6,7 @@ import re
 import shutil
 import signal
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -76,6 +77,61 @@ def run(arguments, timeout=60, env=None):
         arguments, process.returncode, stdout, stderr)
 
 
+def read_varint(data, offset):
+    """Read a protobuf varint from a signed profile record."""
+    value = 0
+    for shift in range(0, 70, 7):
+        if offset >= len(data):
+            raise RuntimeError("truncated signed profile")
+        byte = data[offset]
+        offset += 1
+        value |= (byte & 0x7f) << shift
+        if byte < 0x80:
+            return value, offset
+    raise RuntimeError("invalid signed profile varint")
+
+
+def signed_profile_payload(record_hex):
+    """Extract the signed payload from identity.proto's bytes fields."""
+    data = bytes.fromhex(record_hex)
+    fields = {}
+    offset = 0
+    while offset < len(data):
+        tag, offset = read_varint(data, offset)
+        size, offset = read_varint(data, offset)
+        if tag not in (10, 18, 26) or offset + size > len(data):
+            raise RuntimeError("invalid signed profile fields")
+        fields[tag >> 3] = data[offset:offset + size]
+        offset += size
+    if set(fields) != {1, 2, 3}:
+        raise RuntimeError("incomplete signed profile")
+    if len(fields[1]) != 32 or len(fields[3]) != 64:
+        raise RuntimeError("incomplete signed profile")
+    return fields[2]
+
+
+def check_profile_readback(node, seed, peer_id, env, storage):
+    """Node's signed profile payload must equal the published local draft."""
+    slot = (storage / "active-profile").read_text().strip()
+    database = storage / "profiles" / slot / "client.db"
+    if not database.is_file():
+        raise RuntimeError("published profile database missing locally")
+    with sqlite3.connect(database) as db:
+        draft = db.execute(
+            "SELECT `value` FROM `settings` WHERE `key` = ?",
+            ("profile_draft",)).fetchone()
+    if draft is None:
+        raise RuntimeError("published profile draft missing locally")
+    readback = subprocess.run([node, "get", seed, peer_id], env=env,
+                              capture_output=True, text=True,
+                              check=True, timeout=60)
+    result = json.loads(readback.stdout)
+    if result.get("status") != "STATUS_OK" or not result.get("record"):
+        raise RuntimeError(f"published profile readback failed: {result}")
+    if signed_profile_payload(result["record"]) != draft[0]:
+        raise RuntimeError("node signed readback differs from UI draft")
+
+
 def smoke(executable, flows=True):
     """flows=False skips the stateful identity and network flows, which a
     stateless fixture app cannot pass; only tests of this script use it."""
@@ -86,10 +142,10 @@ def smoke(executable, flows=True):
     reports.mkdir(parents=True, exist_ok=True)
     results = []
 
-    def case(name, extra, profile, broken=False, peer=True):
+    def case(name, extra, profile, broken=False, peer=True, timeout=60):
         arguments = [executable, "--ui-test", *extra]
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
-        process = run(arguments, env=env)
+        process = run(arguments, timeout=timeout, env=env)
         match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)
         found = match is not None and (match[1] is not None or not peer)
         marker_found = ("UI_SMOKE_FAIL" in process.stdout
@@ -213,9 +269,18 @@ def smoke(executable, flows=True):
                 raise RuntimeError(f"dyappd did not start:\n"
                                    f"{log.read_text()[-4096:]}")
             file = ["--ui-test-file"]
-            case("connect-create", file, profile)
-            case("network-connect", [*file, f"--ui-test-step=connect:{seed}"],
-                 profile)
+            peer_id = case("connect-create", file, profile)
+            connected = case("network-connect",
+                             [*file, f"--ui-test-step=connect:{seed}"],
+                             profile)
+            if connected != peer_id:
+                raise RuntimeError("connecting replaced the identity")
+            published = case("profile-publish",
+                             [*file, "--ui-test-step=profile-publish"],
+                             profile, timeout=180)
+            if published != peer_id:
+                raise RuntimeError("publishing replaced the identity")
+            check_profile_readback(node, seed, peer_id, env, storage)
         finally:
             server.terminate()
             server.wait(timeout=30)

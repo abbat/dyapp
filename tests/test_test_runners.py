@@ -374,6 +374,18 @@ class Runners(unittest.TestCase):
         self.assertIn("--cache-from", pull)
         self.assertNotIn("--cache-to", pull)
 
+    def test_desktop_signed_profile_payload(self):
+        spec = importlib.util.spec_from_file_location(
+            "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py")
+        desktop = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(desktop)
+        payload = bytes(range(128))
+        record = b"".join((b"\x0a\x20", b"k" * 32, b"\x12\x80\x01",
+                           payload, b"\x1a\x40", b"s" * 64))
+        self.assertEqual(desktop.signed_profile_payload(record.hex()), payload)
+        with self.assertRaisesRegex(RuntimeError, "invalid signed profile"):
+            desktop.signed_profile_payload(record[:-1].hex())
+
     def test_windows_ui_report_does_not_require_container_hostname(self):
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py")

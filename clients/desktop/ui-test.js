@@ -111,15 +111,16 @@ const checkEmptyProfilePreview = async () => {
     throw new Error('editing kept a stale public-data confirmation');
   }
 };
-const waitForProfileStatus = (key) => new Promise((resolve, reject) => {
+const waitForProfileStatus = (key, detail = '', ms = 10000) => new Promise((resolve, reject) => {
   const status = document.getElementById('profile-status');
+  const expected = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
   const observer = new MutationObserver(() => {
-    if (status.textContent === window.strings[key]) {
+    if (status.textContent === expected) {
       observer.disconnect(); clearTimeout(timeout); resolve();
     }
   });
   observer.observe(status, { childList: true });
-  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`profile status: ${status.textContent}`)); }, 10000);
+  const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`profile status: ${status.textContent}`)); }, ms);
 });
 const saveProfileForRestart = async () => {
   document.getElementById('profile-gender').value = '1';
@@ -128,6 +129,29 @@ const saveProfileForRestart = async () => {
   const saved = waitForProfileStatus('profile.saved');
   document.getElementById('profile-save').click();
   await saved;
+};
+const publishProfileOnLoopback = async () => {
+  document.getElementById('profile-gender').value = '1';
+  document.getElementById('birth-year').value = '1990';
+  document.getElementById('birth-month').value = '2';
+  document.getElementById('profile-preview-action').click();
+  await waitFor('profile-preview');
+  const fields = [...document.querySelectorAll('#profile-public-fields li')]
+    .map((item) => item.textContent);
+  if (fields.join('|') !== [
+    `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
+    `${window.strings['profile.birthYear']}: 1990`,
+    `${window.strings['profile.birthMonth']}: 2`,
+  ].join('|')) throw new Error(`profile preview changed: ${fields}`);
+  document.getElementById('profile-disclosure').checked = true;
+  document.getElementById('profile-attested').checked = true;
+  const published = waitForProfileStatus('profile.published', '1', 150000);
+  document.getElementById('profile-publish').click();
+  await published;
+  if (document.getElementById('profile-attested').checked
+    || document.getElementById('profile-disclosure').checked) {
+    throw new Error('publish confirmations remained selected');
+  }
 };
 const checkSavedProfile = async () => {
   if (document.getElementById('profile-gender').value !== '1'
@@ -192,6 +216,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'profile-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSavedProfile();
+    } else if (step === 'profile-publish') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await publishProfileOnLoopback();
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

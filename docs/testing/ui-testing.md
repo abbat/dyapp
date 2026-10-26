@@ -29,13 +29,15 @@ when space grows, without changing the identifier. On first identity creation, d
 also checks that a profile with no selected fields previews an unknown age, no full-date warning,
 and unchecked 18+ and public-data confirmations. It rejects publish without the public-data
 acknowledgement and checks that editing clears both confirmations. A separate save/restart pair
-checks a nonempty draft and its public preview. The profile page now has puzzle
-cancellation and publication states; their loopback node smoke coverage is the next checkpoint.
+checks a nonempty draft and its public preview. On Linux, another case uses a loopback `dyappd`
+node to publish the reviewed fields with both confirmations, waits for the verified version,
+then compares the node's signed profile payload with the locally saved draft. Failure and
+cancellation recovery smoke is the next checkpoint; Rust unit tests cover both paths.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 4 JUnit files (`app/src/test/.../AppTests.kt`, `SlotsTests.kt`, `AppLockStoreTests.kt`, `AppLockLifecycleTests.kt`) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 24 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 25 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the two that need dyappd (22) | same |
 | iOS | CI only (macos-15) | 4 unit-test files, including `PlatformKeyStoreTests.swift` | 5 XCUITest (`UITests/LaunchTests.swift`) | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | 2 unit-test files, including the shared Keychain tests | 5 XCUITest | `check-apple-results.py` (≥3) |
