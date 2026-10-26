@@ -304,7 +304,7 @@ private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Un
     }
     val copies = remember {
         peerId != null && runCatching {
-            slots.list().filter { it.id != slot.id }.map(slots::openSlot)
+            slots.list().filter { it.id != slot.id }.map { openSlot(it, slots::load) }
                 .any { it is Opened.Ready && it.peerId == peerId }
         }.getOrDefault(false)
     }

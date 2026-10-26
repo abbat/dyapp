@@ -50,8 +50,8 @@ private fun readSlot(id: String, dir: File): Slot {
     return Slot(id, dir, state)
 }
 
-// Keystore or unwrap failures become a recoverable unavailable state.
-private fun openSlot(slot: Slot, load: (Slot) -> String?): Opened = runCatching {
+/** Open one listed slot; Keystore or unwrap failures become recoverable unavailable state. */
+internal fun openSlot(slot: Slot, load: (Slot) -> String?): Opened = runCatching {
     when (slot.state) {
         SlotState.READY -> load(slot)?.let { Opened.Ready(slot, it) }
             ?: Opened.Recovery(slot, "missing", null)

@@ -4,7 +4,12 @@ import android.content.Context
 import android.util.Log
 
 /** What the start screen shows; [opened] is null when the storage itself fails. */
-class Shown(val opened: Opened?, val entries: List<Opened> = emptyList())
+class Shown(
+    /** Active identity state, or null when storage failed. */
+    val opened: Opened?,
+    /** Candidate identities for the picker, including recovery states. */
+    val entries: List<Opened> = emptyList()
+)
 
 /** Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings. */
 object RustBridge {
@@ -21,14 +26,15 @@ object RustBridge {
      * identity; the picker lists every slot, opened or with its recovery reason.
      */
     @Synchronized
-    fun show(slots: Slots, action: () -> Opened): Shown = try {
+    fun show(slots: Slots, action: () -> Opened): Shown = runCatching {
         when (val opened = action()) {
             Opened.Setup -> Shown(slots.create())
-            Opened.Picker -> Shown(opened, slots.list().map(slots::openSlot))
+            Opened.Picker -> Shown(opened, slots.list().map { openSlot(it, slots::load) })
             else -> Shown(opened)
         }
-    } catch (e: Exception) {
-        Log.e("dyapp", "Identity storage failed", e)
+    }.getOrElse { failure ->
+        if (failure !is Exception) throw failure
+        Log.e("dyapp", "Identity storage failed", failure)
         Shown(null)
     }
 }
