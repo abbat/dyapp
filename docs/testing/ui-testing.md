@@ -24,6 +24,10 @@ after a second launch. File-mode cases check the visible key-file path and backu
 system-mode cases check that no file path is shown. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
+Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
+isolated slot root, and check that the values reappear. A DEBUG-only launch argument seeds an
+invalid draft after explicit identity creation so the tests can check the visible read error and
+disabled Save action; release builds ignore this argument.
 The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. On first identity creation, desktop smoke
@@ -219,6 +223,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   The DEBUG-only `--no-device-passcode` launch argument makes the iOS missing-passcode
   lock test deterministic across simulators with different credential settings.
+  The DEBUG-only `--ui-test-corrupt-network-draft` argument seeds a malformed draft in the
+  selected UI-test slot after creation; it never runs in release builds.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
   XcodeGen and run the scheme in Xcode yourself; that path is not scripted.

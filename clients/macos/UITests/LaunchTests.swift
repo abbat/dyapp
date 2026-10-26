@@ -35,6 +35,59 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testNetworkDraftSurvivesRelaunch() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let rows = app.textViews["network-bootstrap"]
+        let name = app.textFields["network-name"]
+        let save = app.buttons["network-save"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: save
+        ),
+        ], timeout: 10), .completed)
+        rows.tap()
+        rows.typeText("one.example:33445\ntwo.example:7070")
+        name.tap()
+        name.typeText("friends")
+        save.tap()
+        let status = app.staticTexts["network-draft-status"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "Draft saved"), object: status
+        ),
+        ], timeout: 10), .completed)
+        XCTAssertTrue((status.value as? String ?? "").contains("Draft saved"))
+
+        app.terminate()
+        app.launch()
+        openNetwork(app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
+        ),
+        ], timeout: 10), .completed)
+        XCTAssertEqual(app.textViews["network-bootstrap"].value as? String,
+                       "one.example:33445\ntwo.example:7070")
+        XCTAssertEqual(app.textFields["network-name"].value as? String, "friends")
+        app.terminate()
+    }
+
+    func testDamagedNetworkDraftShowsReadError() {
+        let app = isolatedApp()
+        app.launchArguments += ["--ui-test-corrupt-network-draft"]
+        app.launch()
+        createIdentity(app)
+        openNetwork(app)
+        let status = app.staticTexts["network-draft-status"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "could not be read"), object: status
+        ),
+        ], timeout: 10), .completed)
+        XCTAssertTrue((status.value as? String ?? "").contains("could not be read"))
+        XCTAssertFalse(app.buttons["network-save"].isEnabled)
+        app.terminate()
+    }
+
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]
@@ -51,6 +104,13 @@ final class LaunchTests: XCTestCase {
         let peerId = app.staticTexts["peer-id"]
         XCTAssertTrue(peerId.waitForExistence(timeout: 10))
         return peerId.value as? String ?? ""
+    }
+
+    private func openNetwork(_ app: XCUIApplication) {
+        let link = app.buttons["network-edit"]
+        XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
+        link.tap()
+        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
     }
 
     /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.

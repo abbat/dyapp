@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// The shared start screen opens a selected identity or asks for an explicit first creation.
@@ -50,5 +51,15 @@ struct ContentView: View {
 
     private func createIdentity() {
         identity = (try? RustBridge.createIdentity()) ?? .recovery(nil, .unavailable)
+        #if DEBUG
+        // Native UI tests exercise the read-error screen in their isolated slot root.
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft"),
+           case let .ready(candidate, _) = identity,
+           let root = try? RustBridge.directory() {
+            let draft = RustBridge.networkDirectory(root: root, candidate: candidate)
+                .appendingPathComponent("network-draft")
+            try? Data("invalid network file\n".utf8).write(to: draft, options: .atomic)
+        }
+        #endif
     }
 }
