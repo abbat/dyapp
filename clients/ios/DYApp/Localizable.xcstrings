@@ -103,6 +103,66 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Подключение к сети" } }
       }
     },
+    "settings.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Settings" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Настройки" } }
+      }
+    },
+    "settings.identities": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Identities on this device" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Идентичности на устройстве" } }
+      }
+    },
+    "settings.keychain": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Device Keychain + local key file" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Связка ключей устройства + локальный файл ключа" } }
+      }
+    },
+    "settings.active": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Active" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Активная" } }
+      }
+    },
+    "settings.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading identities…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Загрузка идентичностей…" } }
+      }
+    },
+    "settings.readFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The identity list could not be read. Retry after checking device storage." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать список идентичностей. Проверьте хранилище и повторите попытку." } }
+      }
+    },
+    "settings.pending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Creation incomplete" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Создание не завершено" } }
+      }
+    },
+    "settings.unavailable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Key unavailable" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ключ недоступен" } }
+      }
+    },
+    "settings.deleting": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Removal incomplete" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удаление не завершено" } }
+      }
+    },
+    "settings.damaged": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Slot damaged" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Хранилище повреждено" } }
+      }
+    },
     "network.activeReadFailed": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "The active network could not be read. Retry after fixing its file." } },

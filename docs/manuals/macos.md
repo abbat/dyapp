@@ -14,6 +14,9 @@ identity across restarts without changing the active connection.
 activate the network until you click **Continue** after a compatible result. Cancel stops a running
 check; Retry reuses the draft. Continue opens the profile editor after activation succeeds.
 
+**Settings** lists the device's identities, marks the current one, and opens its network form.
+An unreadable identity is shown as unavailable; Create, Switch and Remove controls are planned.
+
 This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
 notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI
 tests. A Mac does not open it as downloaded. An Apple Developer Program member can build and sign

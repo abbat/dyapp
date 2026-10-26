@@ -46,6 +46,11 @@ The form saves the draft before creating the checker, so an immediate Cancel can
 before Rust `run` begins its own draft write.
 The native Apple test matrix now uses a loopback `dyappd` to verify a pinned check and that
 the active file appears only after explicit activation; the UI suites verify profile navigation.
+The read-only shared Settings inventory calls `candidates()` and reopens ready keys in a detached
+task. It labels missing or unreadable keys as unavailable, keeps pending/deleting/damaged slots
+visible, marks the selected slot, names both Keychain and local key file, and never changes
+`active-profile` or creates a key. Its network link edits only the selected slot. Create, switch
+and removal controls are planned separately.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their

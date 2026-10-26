@@ -28,6 +28,10 @@ struct ContentView: View {
 
                 case let .ready(candidate, peerId):
                     Text(peerId).accessibilityIdentifier("peer-id")
+                    NavigationLink(destination: IdentitySettingsView(candidate: candidate, peerId: peerId)) {
+                        Text("settings.title")
+                    }
+                    .accessibilityIdentifier("settings-open")
                     switch activeNetwork {
                     case .loading:
                         ProgressView("network.loading")

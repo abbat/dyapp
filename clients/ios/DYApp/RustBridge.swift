@@ -1,5 +1,12 @@
 import Foundation
 
+/// A local candidate and its optional reopened Peer ID, safe to pass from background I/O.
+struct IdentityInventoryRow: Identifiable, Sendable {
+    let candidate: IdentityCandidate
+    let peerID: String?
+    var id: String { candidate.location.marker }
+}
+
 /// Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings.
 enum RustBridge {
     private static var uiTestSlotID: UUID? {
@@ -14,6 +21,20 @@ enum RustBridge {
     /// Resolve the saved selection without creating a replacement identity.
     static func identityState() throws -> IdentityResolution {
         try identityStore().resolve()
+    }
+
+    /// List slots without changing selection or creating a key.
+    static func identityInventory() throws -> [IdentityInventoryRow] {
+        let store = try identityStore()
+        return try store.candidates().map { candidate in
+            let peerID: String?
+            if candidate.state == .ready {
+                peerID = try? store.open(candidate.location).peerId()
+            } else {
+                peerID = nil
+            }
+            return IdentityInventoryRow(candidate: candidate, peerID: peerID)
+        }
     }
 
     /// Create and select a fresh UUID slot only after an explicit user action.

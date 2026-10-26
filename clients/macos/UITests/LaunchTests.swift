@@ -33,6 +33,22 @@ final class LaunchTests: XCTestCase {
         app.terminate()
     }
 
+    func testSettingsListsTheSelectedIdentity() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        let peerID = shownPeerId(app)
+        let settings = app.buttons["settings-open"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.click()
+        let selected = app.descendants(matching: .any)["settings-active"]
+        XCTAssertTrue(selected.waitForExistence(timeout: 10))
+        let text = selected.value as? String ?? selected.label
+        XCTAssertTrue(text.contains(peerID), text)
+        XCTAssertTrue(app.buttons["settings-network"].exists)
+        app.terminate()
+    }
+
     func testNetworkDraftSurvivesRelaunch() {
         let app = isolatedApp()
         app.launch()
