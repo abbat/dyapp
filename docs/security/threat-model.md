@@ -224,7 +224,7 @@ The maintainer can bypass the `main` PR ruleset for direct pushes until the firs
 | A hostile or compromised MCP server, plugin or hook | Developer host | Critical × low | Accept: the maintainer picks and updates these tools |
 | Instructions planted in beads | `.beads`, the Dolt remote | High × low | Accept: only the maintainer writes beads; their content is data for the agent |
 | An AI agent in CI runs on a hostile pull request | Workflows | Critical × low | Fix: no AI agent runs in CI; if one is added, it gets no secrets, a read-only token and never runs on `pull_request_target` |
-| A secret is committed | git | High × medium | Fix: GitHub secret scanning and push protection |
+| A secret is committed | git | High × medium | In place: GitHub secret scanning and push protection for supported patterns; bypasses and undetected patterns remain possible ([CI and repository settings](../development/ci-base.md)) |
 | A hostile pull request by a person | Pull requests | Critical × medium | Out of scope here: class 7 |
 | A taken-over maintainer account | GitHub account | Critical × low | Out of scope here: class 11 |
 

@@ -157,7 +157,9 @@ temporary ignores when the upstream dependencies move. Dependabot also applies t
 ignores to security-update PRs for the excluded versions. A Gradle PR needs its
 [verification metadata](build.md#gradle-dependency-verification) regenerated. Vulnerability alerts and Dependabot
 security updates are enabled in the repository settings; eligible security PRs skip the schedule
-and the wait.
+and the wait. GitHub secret scanning and repository push protection are also enabled. Push
+protection checks supported secret patterns before accepting a push; a contributor may bypass a
+block, which creates an alert. The local and CI `gitleaks` history scan below is a separate check.
 
 ### `quality` → **quality**
 
