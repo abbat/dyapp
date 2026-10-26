@@ -8,6 +8,9 @@ PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this
 `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
+The profile editor saves its nine optional scales and three independently optional birth-date
+parts to an atomic local draft in the active identity directory. Invalid dates leave the prior
+draft intact; preview and publication are planned.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
 and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
 remain available on the ready screen and picker while their Settings controls are being built.

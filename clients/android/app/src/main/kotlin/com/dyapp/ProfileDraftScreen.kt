@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import uniffi.dyapp.ProfileScale
@@ -38,12 +41,16 @@ private fun readDraft(file: File, scales: List<ProfileScale>): Map<String, Int> 
         return emptyMap()
     }
     val json = JSONObject(bytes.toString(Charsets.UTF_8))
-    return json.keys().asSequence().associateWith { key ->
+    val values = json.keys().asSequence().associateWith { key ->
         val value = json.getInt(key)
-        val scale = scales.firstOrNull { it.key == key }
-        require(scale != null && (value == 0 || scale.choices.any { it.code.toInt() == value }))
+        if (key !in BIRTH_KEYS) {
+            val scale = scales.firstOrNull { it.key == key }
+            require(scale != null && (value == 0 || scale.choices.any { it.code.toInt() == value }))
+        }
         value
     }
+    require(validBirthParts(values.filterKeys { it in BIRTH_KEYS }))
+    return values
 }
 
 private fun writeDraft(file: File, values: Map<String, Int>) {
@@ -84,11 +91,26 @@ fun ProfileDraftScreen(slot: Slot, onBack: () -> Unit) {
     ProfileDraftForm(file, scales, loaded.getOrThrow(), onBack)
 }
 
+private class BirthInputs(saved: Map<String, Int>) {
+    var year by mutableStateOf(saved[BIRTH_YEAR]?.toString().orEmpty())
+    var month by mutableStateOf(saved[BIRTH_MONTH]?.toString().orEmpty())
+    var day by mutableStateOf(saved[BIRTH_DAY]?.toString().orEmpty())
+}
+
+private fun saveDraft(file: File, values: Map<String, Int>, birth: BirthInputs, context: Context): String {
+    val parts = parseBirthParts(birth.year, birth.month, birth.day)
+        ?: return context.getString(R.string.profile_birth_invalid)
+    return runCatching { writeDraft(file, values.filterKeys { it !in BIRTH_KEYS } + parts) }
+        .fold({ context.getString(R.string.profile_saved) },
+            { context.getString(R.string.profile_save_failed) })
+}
+
 @Composable
 private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<String, Int>, onBack: () -> Unit) {
     val context = LocalContext.current
     val values = remember(file) { mutableStateMapOf<String, Int>().apply { putAll(saved) } }
     var status by remember { mutableStateOf("") }
+    val birth = remember(file) { BirthInputs(saved) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -97,16 +119,28 @@ private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<
         for (scale in scales) {
             ScalePicker(scale, values[scale.key] ?: 0, { values[scale.key] = it }, context)
         }
-        Button(onClick = {
-            status = runCatching { writeDraft(file, values) }
-                .fold({ context.getString(R.string.profile_saved) },
-                    { context.getString(R.string.profile_save_failed) })
-        }, modifier = Modifier.testTag("profile-save")) {
+        BirthDateFields(birth)
+        Button(onClick = { status = saveDraft(file, values, birth, context) },
+            modifier = Modifier.testTag("profile-save")) {
             Text(stringResource(R.string.profile_save))
         }
         Text(status)
         OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }
+}
+
+@Composable
+private fun BirthDateFields(birth: BirthInputs) {
+    Text(stringResource(R.string.profile_birth_optional))
+    OutlinedTextField(birth.year, { birth.year = it }, label = { Text(stringResource(R.string.profile_birth_year)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.testTag("profile-birth-year"))
+    OutlinedTextField(birth.month, { birth.month = it }, label = { Text(stringResource(R.string.profile_birth_month)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.testTag("profile-birth-month"))
+    OutlinedTextField(birth.day, { birth.day = it }, label = { Text(stringResource(R.string.profile_birth_day)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.testTag("profile-birth-day"))
 }
 
 @Composable

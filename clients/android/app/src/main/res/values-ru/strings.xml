@@ -65,6 +65,11 @@
     <string name="profile_save_failed">Не удалось сохранить черновик.</string>
     <string name="profile_read_failed">Не удалось прочитать черновик.</string>
     <string name="profile_back">Назад</string>
+    <string name="profile_birth_optional">Дата рождения (каждая часть необязательна; пока сохраняется только на устройстве)</string>
+    <string name="profile_birth_year">Год рождения</string>
+    <string name="profile_birth_month">Месяц рождения</string>
+    <string name="profile_birth_day">День рождения</string>
+    <string name="profile_birth_invalid">Укажите существующую дату или оставьте любую часть пустой.</string>
     <string name="profile_field_gender">Гендер</string>
     <string name="profile_field_orientation">Ориентация</string>
     <string name="profile_field_relationship_goal">Цель знакомства</string>

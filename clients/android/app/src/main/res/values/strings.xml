@@ -66,6 +66,11 @@
     <string name="profile_save_failed">Could not save the draft.</string>
     <string name="profile_read_failed">Could not read the draft.</string>
     <string name="profile_back">Back</string>
+    <string name="profile_birth_optional">Birth date (each part optional; only saved locally for now)</string>
+    <string name="profile_birth_year">Birth year</string>
+    <string name="profile_birth_month">Birth month</string>
+    <string name="profile_birth_day">Birth day</string>
+    <string name="profile_birth_invalid">Enter a possible date, or leave any part empty.</string>
     <string name="profile_field_gender">Gender</string>
     <string name="profile_field_orientation">Orientation</string>
     <string name="profile_field_relationship_goal">Relationship goal</string>

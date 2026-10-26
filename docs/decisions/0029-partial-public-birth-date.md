@@ -70,5 +70,5 @@ The search index version is reset to 1 with no birth-date migration. The
 index and client no longer query the integer age. The client predicate verifies
 signed birth bounds, and multi-node search marks skipped or cut coverage
 partial. The integer age field and its validation have been removed; tag 3 is
-reserved. UI controls remain planned. This unreleased prototype needs no
-compatibility migration.
+reserved. Android has optional birth-date draft controls; preview, publication, and other-client
+controls remain planned. This unreleased prototype needs no compatibility migration.
