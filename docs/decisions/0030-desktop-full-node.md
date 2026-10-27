@@ -19,9 +19,9 @@ The desktop app links `dyapp-bootstrap` as a library and, while it is open, runs
 data directory next to the profile data. The node is off by default. A settings toggle turns it on
 and sets its limits: disk (default 1 GiB, split between profiles, mailboxes and the search index)
 and connections; everything else uses the `dyappd` defaults. Turning it off or closing the app
-stops the node; its data stays until the user deletes it. The node is the same code as `dyappd`, so the
-start sequence moves from the `dyappd` binary into the library and both call it. Media and TURN
-roles stay on dedicated nodes. Mobile apps stay light clients.
+stops the node; its data stays until the user deletes it. The node is the same code as `dyappd`,
+so the start sequence moves from the `dyappd` binary into the library and both call it. Media and
+TURN roles stay on dedicated nodes. Mobile apps stay light clients.
 
 ## Consequences
 
