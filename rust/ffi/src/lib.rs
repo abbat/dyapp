@@ -17,6 +17,8 @@ pub use network::{
 };
 mod pin;
 pub use pin::{hash_app_pin, verify_app_pin};
+mod profile_draft;
+pub use profile_draft::{load_profile_draft, save_profile_draft, PublicProfileDraft};
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
 mod strip;

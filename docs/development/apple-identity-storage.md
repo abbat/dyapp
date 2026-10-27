@@ -29,8 +29,9 @@ file intact. Only an existing active file reaches Ready.
 The shared network form now loads the selected identity's draft, falling back to its active
 settings only when no draft exists. The blocking load runs off the UI thread and an unreadable
 file displays an error without rewriting the file or key. Save draft writes through UniFFI off
-the UI thread and does not activate the connection; a failed write keeps edits on screen. The profile draft
-is already named by Peer ID, so drafts for two identities would not collide.
+the UI thread and does not activate the connection; a failed write keeps edits on screen. The
+profile editor draft lives in the selected identity folder, so drafts for two identities do not
+collide.
 Shared native unit tests exercise distinct slot folders and verify that a damaged draft does
 not alter the active settings or key file. They also reopen two slots with distinct draft and
 active files. Native UI tests check form persistence across process relaunch, return to Ready
@@ -72,7 +73,7 @@ the same visible states and slot IDs without copying a key between profiles.
 | Wrapping key | Separate Keychain account `profile:<slot>` under service `com.dyapp.identity-wrap`, with the current `AfterFirstUnlockThisDeviceOnly` accessibility. |
 | Active selection | Root `active-profile` containing the UUID or `legacy-primary`, replaced atomically. |
 | Legacy identity | Existing root `identity.key` and Keychain account `identity-wrap`, exposed as virtual slot `legacy-primary` without moving either. |
-| Other local data | The network form reads and saves the selected slot's draft (legacy root for the existing key), falling back to active settings only when the draft is absent. The future client database belongs there too. The current Peer-ID-named profile draft stays separate until the profile runtime is wired. |
+| Other local data | The network form reads and saves the selected slot's draft (legacy root for the existing key), falling back to active settings only when the draft is absent. UniFFI now supports an identity-bound `client.db` profile draft in that folder; the Apple editor still uses its per-slot JSON draft until migration is wired. |
 
 The app enumerates the legacy file and UUID directories, not a second registry.
 On startup it opens a valid active slot, otherwise the only slot, or shows a
@@ -129,6 +130,10 @@ The Apple profile draft now uses `profile-draft.json` inside the selected UUID s
 root). On first read, an existing root `profile-draft-<Peer ID>.json` is decoded and copied into
 the selected slot if no slot draft exists; the old file remains untouched. Later edits write only
 the slot file, so switching identities cannot overwrite another draft.
+The Rust FFI draft load/save API can now open a `client.db` in the same slot with the reopened
+`IdentityKey`. It checks the database's identity binding, validates optional birth parts and
+nonzero scale codes, and preserves stored publication version and proof-work progress when
+editing. The Apple UI migration from JSON to this API is planned.
 Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
 key and network files; the old root copy remains untouched.
 
