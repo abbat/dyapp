@@ -54,7 +54,7 @@ enum IdentityResolution: Equatable {
 }
 
 private enum ActivePointer {
-    case absent, invalid, selected(IdentityLocation)
+    case absent, unselected, invalid, selected(IdentityLocation)
 }
 
 /// Slot creation is serialized across scenes, windows and app processes by a root advisory lock.
@@ -156,6 +156,7 @@ final class IdentitySlotStore {
             return .invalid
         }
         let value = String(text.dropLast())
+        if value == "none" { return .unselected }
         if value == "legacy-primary" { return .selected(.legacy) }
         guard let id = UUID(uuidString: value), value == id.uuidString.lowercased() else {
             return .invalid
@@ -217,6 +218,11 @@ final class IdentitySlotStore {
         return .picker(candidates)
     }
 
+    private func emptyResolutionWithoutLock() throws -> IdentityResolution {
+        if try legacyStore.containsWrappingKey() { return .recovery(.legacy, .missing) }
+        return .setup
+    }
+
     /// Resolve an existing identity without writing a pointer or generating a replacement key.
     func resolve() throws -> IdentityResolution {
         try withLock {
@@ -233,13 +239,12 @@ final class IdentitySlotStore {
                 if candidates.isEmpty { return .recovery(nil, .invalidPointer) }
                 return fallback(candidates)
 
+            case .unselected:
+                if candidates.isEmpty { return try emptyResolutionWithoutLock() }
+                return .picker(candidates)
+
             case .absent:
-                if candidates.isEmpty {
-                    if try legacyStore.containsWrappingKey() {
-                        return .recovery(.legacy, .missing)
-                    }
-                    return .setup
-                }
+                if candidates.isEmpty { return try emptyResolutionWithoutLock() }
                 return fallback(candidates)
             }
         }

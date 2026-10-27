@@ -98,6 +98,10 @@ and a clear recovery reason. A corrupt active pointer falls back to the sole
 usable slot or the picker, without changing any key. Switching stops the old
 identity's future network and message runtime before opening the selected one;
 the current shell has no such runtime yet.
+The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
+Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
+store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for
+active-slot removal and is never interpreted as a UUID.
 
 Removal is an explicit, confirmed action for a nonlegacy slot. The UI shows the
 Peer ID and whether this is its last local copy. Mark `deleting` before removing

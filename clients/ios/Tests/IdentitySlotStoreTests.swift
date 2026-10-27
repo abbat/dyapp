@@ -132,6 +132,35 @@ final class IdentitySlotStoreTests: XCTestCase {
         XCTAssertEqual(try slots.open(.slot(second.slot.id)).peerId(), second.peerId)
     }
 
+    func testExplicitNoSelectionDoesNotAutoOpenSoleSurvivor() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        let only = try store.create()
+        try store.select(.slot(only.slot.id))
+        let pointer = path.appendingPathComponent("active-profile")
+        try Data("none\n".utf8).write(to: pointer, options: .atomic)
+        let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        XCTAssertEqual(try reopened.resolve(), .picker([
+            IdentityCandidate(location: .slot(only.slot.id), state: .ready),
+        ]))
+        XCTAssertEqual(try reopened.open(.slot(only.slot.id)).peerId(), only.peerId)
+        XCTAssertEqual(try Data(contentsOf: pointer), Data("none\n".utf8))
+        XCTAssertEqual(try reopened.select(.slot(only.slot.id)), only.peerId)
+        XCTAssertEqual(try reopened.resolve(),
+                       .ready(IdentityCandidate(location: .slot(only.slot.id), state: .ready), only.peerId))
+    }
+
+    func testExplicitNoSelectionKeepsMissingLegacyKeyVisible() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        try Data("none\n".utf8).write(to: path.appendingPathComponent("active-profile"))
+        XCTAssertEqual(try store.resolve(), .setup)
+        _ = try IdentityKey.generate().wrap(store: legacyStore)
+        XCTAssertEqual(try store.resolve(), .recovery(.legacy, .missing))
+    }
+
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
