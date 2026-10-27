@@ -171,17 +171,19 @@ struct ProfileDraftView: View {
     var body: some View {
         Form {
             ForEach(profileScales(), id: \.field) { scale in
-                Picker(LocalizedStringKey("profile.field.\(scale.key)"), selection: Binding(
+                // An interpolated key would look up "profile.field.%@"; concatenate instead.
+                Picker(LocalizedStringKey("profile.field." + scale.key), selection: Binding(
                     get: { values[scale.key] ?? 0 },
                     set: { values[scale.key] = $0 }
                 )) {
                     Text("profile.unset").tag(UInt32(0))
                     ForEach(scale.choices, id: \.code) { choice in
-                        Text(LocalizedStringKey("profile.value.\(scale.key).\(choice.key)"))
+                        Text(LocalizedStringKey("profile.value." + scale.key + "." + choice.key))
                             .tag(choice.code)
                     }
                 }
                 .disabled(isLoading || readFailed || isSaving || isSolving)
+                .accessibilityIdentifier("profile-field-" + scale.key)
             }
             TextField("profile.birthYear", text: $birthYear)
                 .disabled(isLoading || readFailed || isSaving || isSolving)

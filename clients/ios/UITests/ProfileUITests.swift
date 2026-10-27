@@ -90,11 +90,12 @@ final class ProfileUITests: XCTestCase {
     }
 
     private func openProfile(_ app: XCUIApplication) {
-        if app.buttons["profile-save"].waitForExistence(timeout: 5) { return }
+        // The form creates rows lazily: the save button is off screen, the first field is not.
+        if app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 5) { return }
         let link = app.buttons["profile-edit"]
         XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
         link.tap()
-        XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
     }
 
     /// Give both fresh confirmations, then start the proof and publish.

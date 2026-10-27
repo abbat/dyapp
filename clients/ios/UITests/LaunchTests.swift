@@ -298,7 +298,7 @@ extension LaunchTests {
         ], timeout: 15), .completed)
         XCTAssertTrue(reveal(next, in: app).isEnabled)
         next.tap()
-        XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
         app.terminate()
         app.launch()
         XCTAssertEqual(shownPeerId(app), peerID)
