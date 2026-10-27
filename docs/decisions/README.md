@@ -66,5 +66,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0027](0027-optional-public-profile-name.md) | Optional public profile name, replaced by local names |
 | [0028](0028-ordered-education-level.md) | Closed numeric scales for searchable profile categories |
 | [0029](0029-partial-public-birth-date.md) | Optional partial public birth date and derived age |
+| [0030](0030-desktop-full-node.md) | Desktop app runs node roles in process |
 
 All listed ADRs are accepted.
