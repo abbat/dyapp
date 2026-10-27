@@ -11,8 +11,8 @@ use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
-    autonat, connection_limits, gossipsub, identify, kad, memory_connection_limits, noise, quic,
-    tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, Transport,
+    autonat, connection_limits, dcutr, gossipsub, identify, kad, memory_connection_limits, noise,
+    quic, relay, tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder, Transport,
 };
 use std::error::Error;
 use std::io;
@@ -348,6 +348,8 @@ pub struct SwarmOptions {
     pub dial_guard: Option<DialGuard>,
     /// Outgoing deny ranges, checked below DNS before the dial guard; empty allows all.
     pub dial_filter: DialFilter,
+    /// Serve the circuit relay v2 hop protocol with these limits; `None` serves no circuits.
+    pub relay: Option<relay::Config>,
 }
 
 impl Default for SwarmOptions {
@@ -363,6 +365,7 @@ impl Default for SwarmOptions {
             protocols: Arc::new(Protocols::public()),
             dial_guard: None,
             dial_filter: DialFilter::default(),
+            relay: None,
         }
     }
 }
@@ -418,6 +421,7 @@ pub fn build_configured_swarm(
         protocols,
         dial_guard,
         dial_filter,
+        relay,
     } = options;
     let pow_gate = dial_guard.clone().map(PowGate::new);
     Ok(SwarmBuilder::with_existing_identity(keypair)
@@ -442,7 +446,10 @@ pub fn build_configured_swarm(
         })
         .map_err(|error| anyhow::anyhow!("transport: {error}"))?
         .with_dns()?
-        .with_behaviour(|key| {
+        // Circuits ride connections of the transport above: the filter, the guard and
+        // `Endpoints` see the relay's IP, never the far peer's.
+        .with_relay_client(noise::Config::new, yamux::Config::default)?
+        .with_behaviour(|key, relay_client| {
             let peer_id = key.public().to_peer_id();
             let mut kad_config = kad::Config::new(protocols.kad.clone());
             // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
@@ -518,6 +525,11 @@ pub fn build_configured_swarm(
                         .with_agent_version(AGENT_VERSION.into()),
                 )),
                 autonat: autonat::Behaviour::new(peer_id, autonat::Config::default()),
+                relay_client,
+                relay: relay
+                    .map(|config| relay::Behaviour::new(peer_id, config))
+                    .into(),
+                dcutr: dcutr::Behaviour::new(peer_id),
                 node: request_response::Behaviour::with_codec(
                     ProtoCodec::default()
                         .with_wire(wire.clone())

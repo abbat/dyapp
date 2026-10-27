@@ -18,6 +18,7 @@ tracing = "0.1"
 tokio = { version = "1", features = ["sync"] }
 libp2p = { version = "0.57", features = [
     "autonat",
+    "dcutr",
     "dns",
     "gossipsub",
     "identify",
@@ -26,6 +27,7 @@ libp2p = { version = "0.57", features = [
     "memory-connection-limits",
     "noise",
     "quic",
+    "relay",
     "request-response",
     "tcp",
     "tokio",

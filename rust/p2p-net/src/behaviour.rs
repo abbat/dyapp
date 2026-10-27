@@ -12,7 +12,7 @@ use super::{
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{autonat, connection_limits, gossipsub, kad, memory_connection_limits};
+use libp2p::{autonat, connection_limits, dcutr, gossipsub, kad, memory_connection_limits, relay};
 
 /// Every behaviour of a client or node swarm.
 #[derive(NetworkBehaviour)]
@@ -34,6 +34,12 @@ pub struct Behaviour {
     pub identify: Announce,
     /// External address confirmation.
     pub autonat: autonat::Behaviour,
+    /// Circuit relay v2 client: reservations on relays and dials through circuits.
+    pub relay_client: relay::client::Behaviour,
+    /// Circuit relay v2 hop protocol, on relay nodes only.
+    pub relay: Toggle<relay::Behaviour>,
+    /// Hole punching that upgrades a relayed connection to a direct one.
+    pub dcutr: dcutr::Behaviour,
     /// Node control requests.
     pub node: NodeBehaviour,
     /// Profile publication and lookup.

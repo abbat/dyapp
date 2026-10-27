@@ -112,7 +112,11 @@ Not implemented yet:
   ([bootstrap](bootstrap.md#served-protocol)); `dyappd`'s client commands are the only client, and the FFI does
   not expose `p2p-net`.
 - Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
-- No relay or DCUtR hole punching.
+- Every swarm carries the circuit relay v2 client and DCUtR, and `SwarmOptions::relay` turns
+  on the relay hop protocol with its limits; a p2p-net test connects two peers without
+  listeners through a relay and exchanges a request. Nothing reserves relay slots or dials
+  circuits yet, and `dyappd` has no relay role yet
+  ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 
 ## Dial filtering
@@ -213,7 +217,9 @@ the peer's version is logged escaped and cut to 80 bytes.
 ## Planned
 
 - **NAT traversal:** direct connection first, then DCUtR hole punching through a relay, then the
-  relay itself. Video uses its own WebRTC stack ([Video](video.md)).
+  relay itself: peers behind NAT reserve slots and announce circuits
+  ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)). Video uses its own WebRTC
+  stack ([Video](video.md)).
 - **Addresses:** link-local addresses are not announced. A host whose IPv6 does not work is
   remembered for a while, so its dials go straight to IPv4.
 - **Search and storage:** served by bootstrap nodes over libp2p request-response protocols
