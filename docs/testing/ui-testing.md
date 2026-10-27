@@ -40,6 +40,8 @@ The Apple preview model test checks that every unset field stays unpublished, pa
 are preserved, and an available year produces ordered inclusive age bounds.
 The preview screen is reached from the editor without an attestation; native Apple UI checks
 remain in CI.
+The Apple draft adapter unit test imports old JSON without deleting it, confirms `client.db` takes
+precedence on later loads, and checks that another identity keeps an independent empty draft.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64

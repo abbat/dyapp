@@ -1007,6 +1007,18 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик для предпросмотра." } }
       }
     },
+    "profile.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading profile draft…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Загрузка черновика профиля…" } }
+      }
+    },
+    "profile.saving": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saving profile draft…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика профиля…" } }
+      }
+    },
     "profile.noPublicFields": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "No profile fields are selected for publication." } },

@@ -79,8 +79,9 @@ or returns constants.
 | `UserProfile` | Record | `user_id: String`, optional `birth_year`, `birth_month`, `birth_day` (`u32`), `verified: bool` | Copied by value. |
 
 The Apple `ProfileRustDraftStore` adapter maps the generated record to local editor values and
-imports an existing JSON draft only when no Rust draft exists. JSON remains available for retry;
-the editor and preview will switch to this adapter in the next checkpoint.
+imports an existing JSON draft only when no Rust draft exists. JSON remains available for retry.
+The editor and preview now use this adapter on a background task, reopening the selected key and
+checking its Peer ID before touching `client.db`.
 
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.

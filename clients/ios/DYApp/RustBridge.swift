@@ -84,6 +84,21 @@ enum RustBridge {
         try saveNetworkDraft(dir: dir.path, draft: draft)
     }
 
+    /// Reopen the selected key and load its Rust profile draft, importing old JSON once if needed.
+    static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws -> [String: UInt32]? {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        return try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).load()
+    }
+
+    /// Persist exact optional profile fields to this identity's Rust client database.
+    static func storeProfileDraft(for candidate: IdentityCandidate, peerId: String,
+                                  values: [String: UInt32]) throws {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).save(values)
+    }
+
     private static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
         if let id = uiTestSlotID {

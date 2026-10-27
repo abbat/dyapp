@@ -1,5 +1,10 @@
 import SwiftUI
 
+private enum ProfileDraftLoad: Sendable {
+    case loaded([String: UInt32]?)
+    case failed
+}
+
 enum ProfileBirthError: Error { case invalid }
 
 /// Absent text remains absent in the saved draft; the shared Rust profile core checks the parts.
@@ -129,10 +134,8 @@ struct ProfileDraftView: View {
     @State private var birthDay = ""
     @State private var status = ""
     @State private var readFailed = false
-
-    private var draftStore: ProfileDraftStore {
-        get throws { ProfileDraftStore(root: try RustBridge.directory(), candidate: candidate, peerId: peerId) }
-    }
+    @State private var isLoading = true
+    @State private var isSaving = false
 
     var body: some View {
         Form {
@@ -147,54 +150,88 @@ struct ProfileDraftView: View {
                             .tag(choice.code)
                     }
                 }
+                .disabled(isLoading || readFailed || isSaving)
             }
             TextField("profile.birthYear", text: $birthYear)
+                .disabled(isLoading || readFailed || isSaving)
                 .accessibilityIdentifier("profile-birth-year")
             TextField("profile.birthMonth", text: $birthMonth)
+                .disabled(isLoading || readFailed || isSaving)
                 .accessibilityIdentifier("profile-birth-month")
             TextField("profile.birthDay", text: $birthDay)
+                .disabled(isLoading || readFailed || isSaving)
                 .accessibilityIdentifier("profile-birth-day")
-            Button("profile.save") { save() }
-                .disabled(readFailed)
+            Button("profile.save") { Task { await save() } }
+                .disabled(isLoading || readFailed || isSaving)
                 .accessibilityIdentifier("profile-save")
             NavigationLink("profile.preview") {
                 ProfilePreviewView(candidate: candidate, peerId: peerId)
             }
+            .disabled(isLoading || isSaving)
             .accessibilityIdentifier("profile-preview")
             if !status.isEmpty {
                 Text(LocalizedStringKey(status))
             }
+            if isLoading { Text("profile.loading") }
+            if isSaving { Text("profile.saving") }
         }
         .navigationTitle("profile.title")
-        .onAppear(perform: load)
+        .task(id: candidate.location.marker) { await load() }
     }
 
-    private func load() {
-        do {
-            guard let decoded = try draftStore.load() else { return }
-            for (key, value) in decoded where !ProfileBirthParts.keys.contains(key) {
-                guard let scale = profileScales().first(where: { $0.key == key }),
-                      value == 0 || scale.choices.contains(where: { $0.code == value }) else {
-                    throw CocoaError(.fileReadCorruptFile)
-                }
+    @MainActor
+    private func load() async {
+        isLoading = true
+        readFailed = false
+        status = ""
+        values = [:]
+        birthYear = ""
+        birthMonth = ""
+        birthDay = ""
+        let selected = candidate
+        let selectedPeer = peerId
+        let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
+            do {
+                return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
+            } catch {
+                return .failed
             }
-            let birth = ProfileBirthParts(draft: decoded)
-            try birth.validate()
-            values = decoded.filter { !ProfileBirthParts.keys.contains($0.key) }
-            birthYear = birth.year.map(String.init) ?? ""
-            birthMonth = birth.month.map(String.init) ?? ""
-            birthDay = birth.day.map(String.init) ?? ""
-        } catch {
+        }.value
+        guard !Task.isCancelled else { return }
+        switch result {
+        case .loaded(let decoded):
+            if let decoded {
+                values = decoded.filter { !ProfileBirthParts.keys.contains($0.key) }
+                let birth = ProfileBirthParts(draft: decoded)
+                birthYear = birth.year.map(String.init) ?? ""
+                birthMonth = birth.month.map(String.init) ?? ""
+                birthDay = birth.day.map(String.init) ?? ""
+            }
+
+        case .failed:
             readFailed = true
             status = "profile.readFailed"
         }
+        isLoading = false
     }
 
-    private func save() {
+    @MainActor
+    private func save() async {
+        guard !isLoading && !isSaving && !readFailed else { return }
         do {
             let birth = try ProfileBirthParts(yearText: birthYear, monthText: birthMonth, dayText: birthDay)
-            try draftStore.save(values, birth: birth)
-            status = "profile.saved"
+            try birth.validate()
+            let draft = birth.inserted(into: values)
+            let selected = candidate
+            let selectedPeer = peerId
+            status = ""
+            isSaving = true
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, values: draft)) != nil
+            }.value
+            isSaving = false
+            guard !Task.isCancelled else { return }
+            status = saved ? "profile.saved" : "profile.saveFailed"
         } catch ProfileBirthError.invalid {
             status = "profile.invalidBirthDate"
         } catch {
@@ -210,6 +247,7 @@ struct ProfilePreviewView: View {
     let peerId: String
     @State private var preview: ProfilePublicPreview?
     @State private var readFailed = false
+    @State private var isLoading = true
 
     var body: some View {
         Form {
@@ -246,12 +284,14 @@ struct ProfilePreviewView: View {
                 }
             } else if readFailed {
                 Text("profile.readFailed")
+            } else if isLoading {
+                Text("profile.loading")
             } else {
                 Text("profile.noSavedDraft")
             }
         }
         .navigationTitle("profile.preview")
-        .onAppear(perform: load)
+        .task(id: candidate.location.marker) { await load() }
     }
 
     private func birthRow(_ key: String, value: UInt32) -> some View {
@@ -262,13 +302,34 @@ struct ProfilePreviewView: View {
         }
     }
 
-    private func load() {
-        do {
-            let store = ProfileDraftStore(root: try RustBridge.directory(), candidate: candidate, peerId: peerId)
-            guard let draft = try store.load() else { return }
-            preview = try ProfilePublicPreview(draft: draft)
-        } catch {
+    @MainActor
+    private func load() async {
+        isLoading = true
+        preview = nil
+        readFailed = false
+        let selected = candidate
+        let selectedPeer = peerId
+        let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
+            do {
+                return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
+            } catch {
+                return .failed
+            }
+        }.value
+        guard !Task.isCancelled else { return }
+        switch result {
+        case .loaded(let draft):
+            if let draft {
+                do {
+                    preview = try ProfilePublicPreview(draft: draft)
+                } catch {
+                    readFailed = true
+                }
+            }
+
+        case .failed:
             readFailed = true
         }
+        isLoading = false
     }
 }

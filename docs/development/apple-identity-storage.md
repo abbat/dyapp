@@ -126,19 +126,21 @@ backup warning and a second destructive confirmation before calling this operati
 native test reopens a surviving Peer ID and its active/draft network files after another slot is
 removed.
 
-The Apple profile draft now uses `profile-draft.json` inside the selected UUID slot (or the legacy
-root). On first read, an existing root `profile-draft-<Peer ID>.json` is decoded and copied into
-the selected slot if no slot draft exists; the old file remains untouched. Later edits write only
-the slot file, so switching identities cannot overwrite another draft.
+The Apple profile editor and preview now use the identity-bound Rust `client.db` draft in the
+selected UUID slot (or the legacy root). An existing `profile-draft.json` is imported only if the
+Rust draft is absent. On first read, an older root `profile-draft-<Peer ID>.json` is decoded and
+copied into the selected slot if no slot JSON exists, then imported to Rust. Both JSON files remain
+untouched after migration; later edits write only to `client.db`, so switching identities cannot
+overwrite another draft.
 The Rust FFI draft load/save API can now open a `client.db` in the same slot with the reopened
 `IdentityKey`. It checks the database's identity binding, validates optional birth parts and
 nonzero scale codes, and preserves stored publication version and proof-work progress when
 editing. The Apple UI migration from JSON to this API is planned.
-The shared Swift Rust draft adapter now prefers an existing `client.db` draft. If none exists, it
+The shared Swift Rust draft adapter prefers an existing `client.db` draft. If none exists, it
 loads the current slot JSON (including the older Peer-ID-named root copy), validates the exact
 editable values and copies them into `client.db`. It leaves both JSON files intact, including after
-failed validation or storage, so migration can be retried. The editor and preview still use JSON
-until their next checkpoint switches them to this adapter.
+failed validation or storage, so migration can be retried. The editor and preview use this adapter
+off the UI thread; corrupted data blocks the editor rather than replacing it.
 Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
 key and network files; the old root copy remains untouched.
 

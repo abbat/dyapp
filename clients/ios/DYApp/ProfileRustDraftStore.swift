@@ -51,7 +51,9 @@ struct ProfileRustDraftStore {
 
     func load() throws -> [String: UInt32]? {
         if let saved = try loadProfileDraft(dir: directory.path, key: key) {
-            return Self.values(from: saved)
+            let values = Self.values(from: saved)
+            _ = try ProfilePublicPreview(draft: values)
+            return values
         }
         guard let old = try legacy.load() else { return nil }
         try save(old)
