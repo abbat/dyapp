@@ -155,6 +155,10 @@ fn search_publish_query_get() {
     let info = s.info();
     assert!(info.roles.contains(&proto::Role::Search.into()));
     assert_eq!(info.search_fields, SEARCH_FIELDS);
+    // A field clients cannot check is never offered to users, so listing one is a bug.
+    assert!(SEARCH_FIELDS
+        .iter()
+        .all(|&f| dyapp_p2p_net::search_results::checkable(f)));
     assert_eq!(info.max_search_profile_bytes, 64 << 10);
     assert_eq!(info.min_profile_pow, 2);
     assert!(info

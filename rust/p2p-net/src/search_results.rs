@@ -65,6 +65,12 @@ pub fn passes(conditions: &[Condition], min_pow_bits: u32, profile: &Profile) ->
         && profile.pow_bits >= min_pow_bits
 }
 
+/// Whether [`check`] re-applies a condition on `field`, or, for [`ACTIVE_DAY`], drops the nodes
+/// that skip it; any other field a node lists cannot be checked and is not to be offered.
+pub fn checkable(field: u32) -> bool {
+    field == ACTIVE_DAY || field == BIRTH_AGE || value(&Profile::default(), field).is_some()
+}
+
 /// A profile field as the search index stores it: integers, strings, or absent (SQL NULL).
 enum Value<'a> {
     Ints(Vec<i64>),

@@ -52,12 +52,31 @@ impl From<&Error> for SearchFailure {
             | Error::Request(_)
             | Error::Status(
                 Status::Denied | Status::Full | Status::Refused | Status::Unsupported,
-            ) => {
-                Self::Unavailable
-            }
+            ) => Self::Unavailable,
             _ => Self::Invalid,
         }
     }
+}
+
+/// The condition fields a search over these nodes may offer, ascending: those every node lists in
+/// `NodeInfo.search_fields` and the client can check ([`search_results::checkable`]). No nodes,
+/// none.
+pub fn offered_fields(infos: &[proto::NodeInfo]) -> Vec<u32> {
+    let Some((first, rest)) = infos.split_first() else {
+        return Vec::new();
+    };
+    let mut fields: Vec<u32> = first
+        .search_fields
+        .iter()
+        .copied()
+        .filter(|&field| {
+            search_results::checkable(field)
+                && rest.iter().all(|info| info.search_fields.contains(&field))
+        })
+        .collect();
+    fields.sort_unstable();
+    fields.dedup();
+    fields
 }
 
 /// Profiles matching every condition, from up to `limit` hits (0 means 50) of each node in
@@ -403,6 +422,25 @@ mod tests {
         let mut expected = vec![a.peer_id(), c.peer_id()];
         expected.sort();
         assert_eq!(peers, expected);
+    }
+
+    #[test]
+    fn offers_only_fields_every_node_lists_and_the_client_checks() {
+        let info = |fields: &[u32]| proto::NodeInfo {
+            search_fields: fields.to_vec(),
+            ..proto::NodeInfo::default()
+        };
+        let (age, active) = (search_results::BIRTH_AGE, search_results::ACTIVE_DAY);
+        // 5 is no searchable profile field and 999 is unknown: neither can be checked.
+        let full = info(&[27, 4, 19, active, age, 5, 999, 4]);
+        let narrow = info(&[4, 19, age, 5, 999]);
+        assert_eq!(
+            super::offered_fields(std::slice::from_ref(&full)),
+            [4, 19, 27, active, age]
+        );
+        assert_eq!(super::offered_fields(&[full, narrow]), [4, 19, age]);
+        assert_eq!(super::offered_fields(&[info(&[4]), info(&[])]), [0u32; 0]);
+        assert!(super::offered_fields(&[]).is_empty());
     }
 
     #[tokio::test]
