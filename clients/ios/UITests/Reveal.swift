@@ -6,11 +6,14 @@ import XCTest
 @discardableResult
 func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 10) -> XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
-    while !(element.exists && element.isHittable) && Date() < deadline {
-        // Drag in the upper half: the keyboard covers the lower one while a field is edited.
+    // Drag in the upper half: the keyboard covers the lower one while a field is edited.
+    let drag = {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
     }
+    while !(element.exists && element.isHittable) && Date() < deadline { drag() }
+    // A row half under the bottom bar still reports hittable, but a tap on its centre misses.
+    if element.exists && element.frame.maxY > app.frame.maxY * 0.8 { drag() }
     return element
 }
 

@@ -197,12 +197,12 @@ struct IdentitySettingsView: View {
         switch result {
         case .resolved(let resolution):
             onIdentityChanged(resolution)
-            dismiss()
+            close()
 
         case .failed(let resolution):
             if resolution != .ready(candidate, peerId) {
                 onIdentityChanged(resolution)
-                dismiss()
+                close()
             } else {
                 actionFailed = true
                 await load()
@@ -216,10 +216,18 @@ struct IdentitySettingsView: View {
         switch result {
         case let .ready(selected, peerID):
             onIdentityChanged(.ready(selected, peerID))
-            dismiss()
+            close()
 
         case .failed:
             actionFailed = true
         }
+    }
+
+    /// On macOS these settings fill the detail column, where dismiss closes the whole window;
+    /// the identity change rebuilds the sidebar and drops this detail instead.
+    private func close() {
+        #if os(iOS)
+        dismiss()
+        #endif
     }
 }

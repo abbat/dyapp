@@ -85,7 +85,8 @@ final class ProfileUITests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: next
         ),
         ], timeout: 15), .completed)
-        next.tap()
+        // The check rows push Continue down after the first reveal.
+        reveal(next, in: app).tap()
     }
 
     private func openProfile(_ app: XCUIApplication) {

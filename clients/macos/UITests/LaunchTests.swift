@@ -69,10 +69,9 @@ extension LaunchTests {
         let remove = app.buttons["settings-remove"]
         XCTAssertTrue(remove.waitForExistence(timeout: 10))
         remove.tap()
-        let alert = app.alerts["Remove identity?"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        let alert = confirmation(app, title: "Remove identity?")
         XCTAssertTrue(alert.staticTexts.matching(NSPredicate(
-            format: "label CONTAINS %@", second
+            format: "label CONTAINS %@ OR value CONTAINS %@", second, second
         )).firstMatch.exists)
         alert.buttons["Keep identity"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings-active"].exists)
@@ -104,8 +103,7 @@ extension LaunchTests {
         XCTAssertTrue(remove.waitForExistence(timeout: 10))
         XCTAssertEqual(remove.label, "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{44d}\u{442}\u{443} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}")
         remove.tap()
-        let alert = russian.alerts["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}?"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        let alert = confirmation(russian, title: "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}?")
         XCTAssertTrue(alert.buttons["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{43d}\u{430}\u{432}\u{441}\u{435}\u{433}\u{434}\u{430}"].exists)
         alert.buttons["\u{41e}\u{441}\u{442}\u{430}\u{432}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}"].tap()
         XCTAssertTrue(russian.descendants(matching: .any)["settings-active"].exists)
@@ -123,7 +121,7 @@ extension LaunchTests {
         XCTAssertTrue(title.count >= 2 * "Remove this identity".count)
         XCTAssertTrue(pseudoRemove.isHittable)
         pseudoRemove.tap()
-        let cancel = pseudo.alerts.buttons.matching(NSPredicate(
+        let cancel = pseudo.sheets.buttons.matching(NSPredicate(
             format: "label BEGINSWITH %@", "Keep identity"
         )).firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 10))
@@ -420,6 +418,16 @@ extension LaunchTests {
         if create.exists { create.tap() }
         // Settings appear only once the start screen has settled on its layout.
         XCTAssertTrue(app.buttons["settings-open"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// SwiftUI shows `.alert` on macOS as a window sheet whose title is a static text value.
+    private func confirmation(_ app: XCUIApplication, title: String) -> XCUIElement {
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(sheet.staticTexts.matching(NSPredicate(
+            format: "label == %@ OR value == %@", title, title
+        )).firstMatch.exists, sheet.debugDescription)
+        return sheet
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
