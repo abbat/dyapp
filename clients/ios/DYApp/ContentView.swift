@@ -203,6 +203,13 @@ struct ContentView: View {
                 .appendingPathComponent("network-draft")
             try? Data("invalid network file\n".utf8).write(to: draft, options: .atomic)
         }
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-identity-key"),
+           case let .ready(candidate, _) = identity,
+           let root = try? RustBridge.directory() {
+            let file = RustBridge.networkDirectory(root: root, candidate: candidate)
+                .appendingPathComponent("identity.key")
+            try? Data("invalid wrapped key".utf8).write(to: file, options: .atomic)
+        }
         #endif
     }
 }

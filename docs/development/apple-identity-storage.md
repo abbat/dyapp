@@ -167,6 +167,8 @@ The shared start screen creates and selects a UUID slot only after Create is pre
 The native iOS/macOS launch tests use isolated slot roots and legacy Keychain
 accounts, and check first creation, picker selection, confirmed removal and stable Peer IDs after
 relaunch. Shared unit tests cover deleting tombstones, retry and survivor network isolation.
-Additional unavailable-Keychain and corrupt-pointer UI fixtures remain planned.
+An isolated debug UI fixture checks that an unreadable wrapped key is unavailable in Settings
+and shows recovery after restart without offering implicit replacement. A temporarily locked
+Keychain and corrupt-pointer UI fixtures remain planned.
 Unit tests verify that a corrupt wrapped key cannot change the selected pointer, and that losing
 the selected Keychain item yields unavailable recovery without creating another key.

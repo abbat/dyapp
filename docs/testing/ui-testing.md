@@ -28,7 +28,9 @@ removed and checks its active and draft network files plus stable Peer ID. Both 
 also verify Russian removal labels and that the double-length pseudo-language confirmation
 remains hittable. Shared native unit tests additionally check that an unreadable slot cannot
 replace the active selection and that a lost selected Keychain item produces recovery without
-creating another key. No suite
+creating another key. An isolated debug UI fixture corrupts only the wrapped key file after
+creation: both Apple UI suites check the Russian unavailable label, hidden Remove action, and
+recovery after restart with Retry but no implicit Create. No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID

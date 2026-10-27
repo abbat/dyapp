@@ -134,6 +134,39 @@ extension LaunchTests {
 }
 
 extension LaunchTests {
+    @objc
+    func testUnreadableSelectedKeyShowsRussianRecoveryWithoutReplacement() {
+        let app = isolatedApp()
+        app.launchArguments += [
+            "--ui-test-corrupt-identity-key", "-AppleLanguages", "(ru)",
+            "-AppleLocale", "ru_RU",
+        ]
+        app.launch()
+        createIdentity(app)
+        app.buttons["settings-open"].tap()
+        let selected = app.descendants(matching: .any)["settings-active"]
+        XCTAssertTrue(selected.waitForExistence(timeout: 10))
+        let selectedText = selected.value as? String ?? selected.label
+        XCTAssertTrue(selectedText.contains("\u{41a}\u{43b}\u{44e}\u{447} "
+            + "\u{43d}\u{435}\u{434}\u{43e}\u{441}\u{442}\u{443}\u{43f}\u{435}\u{43d}"))
+        XCTAssertFalse(app.buttons["settings-remove"].exists)
+        app.terminate()
+
+        app.launch()
+        let recovery = app.staticTexts["identity-recovery"]
+        XCTAssertTrue(recovery.waitForExistence(timeout: 10))
+        let recoveryText = recovery.value as? String ?? recovery.label
+        XCTAssertTrue(recoveryText.hasPrefix("\u{41d}\u{435} "
+            + "\u{443}\u{434}\u{430}\u{43b}\u{43e}\u{441}\u{44c} "
+            + "\u{43e}\u{442}\u{43a}\u{440}\u{44b}\u{442}\u{44c}"))
+        XCTAssertFalse(app.buttons["identity-create"].exists)
+        app.buttons["identity-retry"].tap()
+        XCTAssertTrue(recovery.waitForExistence(timeout: 10))
+        app.terminate()
+    }
+}
+
+extension LaunchTests {
     func testSettingsCreatesAndSwitchesWithoutReplacingKeys() {
         let app = isolatedApp()
         app.launch()
