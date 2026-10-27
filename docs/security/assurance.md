@@ -43,7 +43,10 @@ OSV-Scanner reads `osv-scanner.toml` from the scanned manifest's directory; a ro
 therefore does not cover a child directory. Each reviewed exception needs a reason tied to its
 scan source (no fixed version reachable, a code path the project never takes). cargo-deny keeps
 its own list in `deny.toml`. The Linux and Windows client locks link `dyapp-client`, so their
-OSV files repeat the workspace's paste, proc-macro-error2, libcrux-kem and crypto-bigint entries.
+OSV files repeat the workspace's paste, proc-macro-error2, libcrux-kem and crypto-bigint entries;
+the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstrap`) and accepts
+the unmaintained zvariant, zbus_names and zvariant_derive: secret-service 5.2, the key store
+backend, still needs zbus 5, while zbus 6 absorbs those crates.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.

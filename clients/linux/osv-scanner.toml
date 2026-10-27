@@ -36,3 +36,21 @@ reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bi
 [[IgnoredVulns]]
 id = "GHSA-qwgh-2vcv-g2f7"
 reason = "block-buffer 0.10.4 via RustCrypto digest 0.10 users (no 0.10 fix): it keeps the cursor in a separate pos field written after compress returns, so a caught panic cannot corrupt it; only the inline cursor of 0.11 and 0.12.0 is affected"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release) in the desktop node: the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+
+# zbus 6 merges these crates; secret-service 5.2, the Linux key store backend, still needs zbus 5.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+reason = "zvariant is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+reason = "zbus_names is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+reason = "zvariant_derive is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
