@@ -279,45 +279,54 @@ const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
   return value === '' ? null : Number(value);
 };
-// The place input holds a suggestion's text; placeIds maps each shown suggestion to its GeoNames
-// ID, so typed text that is no suggestion fails validation instead of being saved.
+const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
+const placeText = (country, id) => (id ? invoke('place_name', {
+  country, id: Number(id), lang: window.locale,
+}).then((place) => (place ? placeLabel(place) : id)) : Promise.resolve(''));
+const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
+// The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
+// so typed text that is no suggestion fails validation instead of being saved or searched.
+// Editing the country clears the place.
+const placePicker = (countryInput, input, list, country) => {
+  let ids = new Map();
+  const show = (places) => {
+    ids = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
+    list.replaceChildren(...[...ids.keys()].map((label) => {
+      const option = document.createElement('option');
+      option.value = label;
+      return option;
+    }));
+  };
+  const check = () => input.setCustomValidity(
+    input.value && !ids.has(input.value) ? window.strings['profile.placeUnknown'] : '');
+  const set = (place) => {
+    show(place ? [place] : []);
+    input.value = place ? placeLabel(place) : '';
+    check();
+  };
+  countryInput.addEventListener('input', () => set(null));
+  input.addEventListener('input', () => {
+    const text = input.value;
+    if (ids.has(text)) return check();
+    window.placesShown = invoke('search_places', {
+      country: country(), prefix: text, lang: window.locale, limit: 20,
+    }).then((places) => {
+      if (input.value === text) show(places);
+      check();
+    });
+  });
+  return { set, id: () => ids.get(input.value) || '' };
+};
 const placeCountry = document.getElementById('profile-country');
 const placeInput = document.getElementById('profile-place');
-const placeList = document.getElementById('profile-places');
-let placeIds = new Map();
-const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
-const showPlaces = (places) => {
-  placeIds = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
-  placeList.replaceChildren(...[...placeIds.keys()].map((label) => {
-    const option = document.createElement('option');
-    option.value = label;
-    return option;
-  }));
-};
-const checkPlace = () => placeInput.setCustomValidity(
-  placeInput.value && !placeIds.has(placeInput.value) ? window.strings['profile.placeUnknown'] : '');
-const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
-placeCountry.addEventListener('input', () => {
-  placeInput.value = '';
-  showPlaces([]);
-  checkPlace();
-});
-placeInput.addEventListener('input', () => {
-  const text = placeInput.value;
-  if (placeIds.has(text)) return checkPlace();
-  window.placesShown = invoke('search_places', {
-    country: placeCountry.value, prefix: text, lang: window.locale, limit: 20,
-  }).then((places) => {
-    if (placeInput.value === text) showPlaces(places);
-    checkPlace();
-  });
-});
+const profilePlace = placePicker(placeCountry, placeInput,
+  document.getElementById('profile-places'), () => placeCountry.value);
 const profileDraft = () => ({
   ...Object.fromEntries(scaleFields.map((scale) => [
     camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
   ])),
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
-  country: placeCountry.value, place: placeIds.get(placeInput.value) || '',
+  country: placeCountry.value, place: profilePlace.id(),
 });
 const profileMessage = (key, detail = '') => {
   profileStatus.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
@@ -382,24 +391,22 @@ const showProfile = async () => {
   const place = view.draft.place && await invoke('place_name', {
     country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
   });
-  showPlaces(place ? [place] : []);
-  placeInput.value = place ? placeLabel(place) : '';
-  checkPlace();
+  profilePlace.set(place);
   profileAttested.checked = false;
   profileDisclosure.checked = false;
   profilePreview.hidden = true;
   profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
     view.published ? String(view.published) : '');
 };
-// Labelled public fields of a draft, or the empty notice.
-const publicFields = (draft) => {
+// Labelled public fields of a draft with its place named as `place`, or the empty notice.
+const publicFields = (draft, place) => {
   const fields = scaleFields.flatMap((scale) => {
     const option = scale.choices.find((choice) => choice.code === draft[camel(scale.key)]);
     return option ? [`${window.strings[`profile.field.${scale.key}`]}: ${window.strings[
       `profile.value.${scale.key}.${option.key}`]}`] : [];
   });
   if (draft.country) fields.push(`${window.strings['profile.country']}: ${countryName(draft.country)}`);
-  if (draft.place) fields.push(`${window.strings['profile.place']}: ${placeInput.value}`);
+  if (draft.place) fields.push(`${window.strings['profile.place']}: ${place}`);
   for (const part of ['year', 'month', 'day']) {
     const value = draft[`birth${part[0].toUpperCase()}${part.slice(1)}`];
     if (value !== null) fields.push(`${window.strings[`profile.birth${part[0].toUpperCase()}${part.slice(1)}`]}: ${value}`);
@@ -413,7 +420,7 @@ const listItems = (values) => values.map((value) => {
 });
 const previewProfile = (view) => {
   document.getElementById('profile-public-fields')
-    .replaceChildren(...listItems(publicFields(view.draft)));
+    .replaceChildren(...listItems(publicFields(view.draft, placeInput.value)));
   const [youngest, oldest] = view.ages || [];
   document.getElementById('profile-age').textContent = view.ages
     ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
@@ -518,6 +525,11 @@ const searchAgain = document.getElementById('search-again');
 const searchResults = document.getElementById('search-results');
 const searchFailures = document.getElementById('search-failures');
 const COUNTRY_FIELD = 4;
+const PLACE_FIELD = 20;
+const searchCountry = document.getElementById('search-country');
+const searchCountryCode = () => searchCountry.value.trim().toUpperCase();
+const searchPlace = placePicker(searchCountry, document.getElementById('search-place'),
+  document.getElementById('search-places'), searchCountryCode);
 const BIRTH_AGE_FIELD = 1001;
 let searchBusy = false;
 const searchMessage = (key, detail = '') => {
@@ -554,6 +566,8 @@ const showSearchFilters = (offered) => {
   }));
   showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
   showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
+  showFilter(document.getElementById('search-place-row'),
+    offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD));
   showFilter(scales, true);
   document.getElementById('search-filters').hidden = !offered.length;
 };
@@ -562,8 +576,9 @@ const searchQuery = () => {
   const conditions = [...document.querySelectorAll('#search-scales select:enabled')]
     .filter((select) => select.value !== '0')
     .map((select) => ({ field: Number(select.dataset.field), op: 'eq', ints: [Number(select.value)] }));
-  const country = filled('search-country');
-  if (country) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [country.toUpperCase()] });
+  if (filled('search-country')) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [searchCountryCode()] });
+  const place = filled('search-place') && searchPlace.id();
+  if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
   const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
   const company = document.getElementById('search-company').value.trim();
@@ -578,12 +593,13 @@ const failureText = (failure) => {
   return failure.kind === 'rateLimited' ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}` : text;
 };
 // Results show only public fields; nothing marks a self-declared claim as verified.
-const foundItem = (found) => {
+const foundItem = async (found) => {
+  const place = await placeText(found.draft.country, found.draft.place);
   const details = document.createElement('details');
   const summary = document.createElement('summary');
   summary.textContent = found.peerId;
   const fields = document.createElement('ul');
-  fields.replaceChildren(...listItems(publicFields(found.draft)));
+  fields.replaceChildren(...listItems(publicFields(found.draft, place)));
   details.append(summary, fields);
   const item = document.createElement('li');
   item.dataset.peerId = found.peerId;
@@ -609,7 +625,7 @@ const runSearch = async () => {
     const result = await invoke('search_profiles', { query });
     showSearchFilters(result.offered);
     searchFailures.replaceChildren(...listItems(result.failures.map(failureText)));
-    searchResults.replaceChildren(...result.profiles.map(foundItem));
+    searchResults.replaceChildren(...await Promise.all(result.profiles.map(foundItem)));
     const count = String(result.profiles.length);
     if (result.partial) searchMessage('search.partial', count);
     else if (!result.profiles.length) searchMessage('search.empty');
@@ -629,6 +645,7 @@ const runSearch = async () => {
 };
 const resetSearch = () => {
   searchForm.reset();
+  searchPlace.set(null);
   showSearchFilters([]);
   searchFailures.replaceChildren();
   searchResults.replaceChildren();

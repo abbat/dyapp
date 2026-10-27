@@ -261,15 +261,15 @@ const waitForProfileStatus = (key, detail = '', ms = 10000) => new Promise((reso
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`profile status: ${status.textContent}`)); }, ms);
 });
 // Picks Germany and the first suggestion for "Berl", the largest match: Berlin.
-const pickPlace = async () => {
-  const country = document.getElementById('profile-country');
-  const place = document.getElementById('profile-place');
+const pickPlace = async (form = 'profile') => {
+  const country = document.getElementById(`${form}-country`);
+  const place = document.getElementById(`${form}-place`);
   country.value = 'DE';
   country.dispatchEvent(new Event('input', { bubbles: true }));
   place.value = 'Berl';
   place.dispatchEvent(new Event('input', { bubbles: true }));
   await window.placesShown;
-  const label = document.querySelector('#profile-places option')?.value;
+  const label = document.querySelector(`#${form}-places option`)?.value;
   if (!label?.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
     throw new Error(`place suggestion missing: ${label}`);
   }
@@ -382,6 +382,7 @@ const checkSavedProfile = async () => {
 };
 // Without a network the search asks to connect and offers a retry; on the loopback node it
 // returns the sample, the published profile alone, with the node's filters and no failures.
+// The profile has no place, so filtering by Berlin finds nobody.
 const searchOnLoopback = async (connected) => {
   document.getElementById('run-search').click();
   await window.searchDone;
@@ -402,6 +403,14 @@ const searchOnLoopback = async (connected) => {
     || peers.join() !== document.getElementById('peer-id').textContent) {
     throw new Error(`loopback search: ${status}, peers ${peers}, failures ${failures}`);
   }
+  if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
+  await pickPlace('search');
+  document.getElementById('run-search').click();
+  await window.searchDone;
+  const placed = document.getElementById('search-status').textContent;
+  if (placed !== window.strings['search.empty']) throw new Error(`place search: ${placed}`);
+  document.getElementById('search-country').value = '';
+  document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
 };
 // The fixture forged the signature of the published profile in the node's index: the search drops
 // it and lists the forged reply instead of showing a person.

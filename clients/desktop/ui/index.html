@@ -120,6 +120,11 @@
             <label for="search-country" data-i18n="search.country"></label>
             <input id="search-country" maxlength="2" pattern="[A-Za-z]{2}" spellcheck="false">
           </div>
+          <div id="search-place-row" hidden>
+            <label for="search-place" data-i18n="profile.place"></label>
+            <input id="search-place" list="search-places" autocomplete="off" spellcheck="false">
+            <datalist id="search-places"></datalist>
+          </div>
           <div id="search-scales"></div>
         </div>
         <button id="run-search" type="submit" data-i18n="search.run"></button>

@@ -90,7 +90,8 @@ same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
 and that search asks to connect with a retry, then connects and retries the publication. After it,
 a search on the node shows the sample (the own profile or none) with the node's filters and no
-failures. After activation, a node case turns on the app's own node in Settings: the form shows
+failures; it must offer the place filter, and Germany with Berlin picked from the suggestions
+finds nobody, since the published profile has no place. After activation, a node case turns on the app's own node in Settings: the form shows
 its defaults, refuses a 3 MB disk limit, shows the running node ID, then stops it, and the script
 checks the saved `node.json` is off. The desktop test then moves the network editor into
 Settings and back, checks that draft rows and failed row statuses survive navigation, and compares
