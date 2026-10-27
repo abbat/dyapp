@@ -110,6 +110,12 @@ enum RustBridge {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
+        #if DEBUG
+        // Native UI tests see a failed publish while their local node keeps running.
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-publish") {
+            throw CoreError.Failed(message: "notConnected")
+        }
+        #endif
         let result = try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested)
         return PublishedProfileSnapshot(version: result.version,
                                         values: ProfileRustDraftStore.values(from: result.draft))

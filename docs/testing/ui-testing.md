@@ -43,8 +43,10 @@ remain in CI.
 The Apple draft adapter unit test imports old JSON without deleting it, confirms `client.db` takes
 precedence on later loads, and checks that another identity keeps an independent empty draft.
 The Apple publication view maps the Rust signed readback to a separate, immutable snapshot before
-rendering the version and public fields. Native UI confirmation/cancel/retry coverage is the final
-Apple profile checkpoint.
+rendering the version and public fields. The iOS and macOS UI tests save a birth month, restart,
+see a localized publish failure in Russian and the double-length pseudo-language with fresh
+confirmations required, then publish to the local node and find the signed readback with only the
+saved fields and version 1.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
@@ -278,6 +280,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   lock test deterministic across simulators with different credential settings.
   The DEBUG-only `--ui-test-corrupt-network-draft` argument seeds a malformed draft in the
   selected UI-test slot after creation; it never runs in release builds.
+  The DEBUG-only `--ui-test-fail-publish` argument makes profile publication fail as if the
+  active network were unavailable, while the local node keeps running for later cases.
   Before XCTest, the runner builds a host `dyappd`, generates a low-cost test key and starts
   it on `127.0.0.1:33445` for the native network UI cases. Its node ID, log and build output
   stay in `$RUNNER_TEMP/apple-results/`; the runner waits at most 30 seconds for its loopback
