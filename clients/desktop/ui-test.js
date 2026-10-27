@@ -350,11 +350,12 @@ const searchOnLoopback = async (connected) => {
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
     .map((item) => item.dataset.peerId);
-  if (status !== `${window.strings['search.results']} 1` || retry
-    || document.getElementById('search-failures').children.length
+  const failures = [...document.getElementById('search-failures').children]
+    .map((item) => item.textContent);
+  if (status !== `${window.strings['search.results']} 1` || retry || failures.length
     || document.getElementById('search-filters').hidden
     || peers.join() !== document.getElementById('peer-id').textContent) {
-    throw new Error(`loopback search: ${status}, peers ${peers}`);
+    throw new Error(`loopback search: ${status}, peers ${peers}, failures ${failures}`);
   }
 };
 // The fixture forged the signature of the published profile in the node's index: the search drops

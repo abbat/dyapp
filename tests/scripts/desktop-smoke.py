@@ -331,6 +331,9 @@ def smoke(executable, flows=True):
             forge_search_signature(storage / "node")
             case("search-forged", [*file, "--ui-test-step=search-forged"],
                  profile, timeout=180)
+        except RuntimeError as error:
+            raise RuntimeError(f"{error}\ndyappd log:\n"
+                               f"{log.read_text()[-8192:]}") from error
         finally:
             server.terminate()
             server.wait(timeout=30)
