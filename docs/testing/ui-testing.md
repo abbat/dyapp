@@ -21,7 +21,9 @@ and the legacy account readable, and that a valid deleting tombstone remains vis
 slot directory is missing while malformed or symlink markers are refused. Native tests also
 check confirmed removal, unknown-file and damaged-slot refusal, survivor key/draft isolation,
 legacy-account preservation, failed or incomplete Keychain erase with a visible deleting
-candidate, confirmation recheck on retry, and retry after partial file cleanup. No suite
+candidate, confirmation recheck on retry, and retry after partial file cleanup. iOS and macOS UI
+tests cancel removal, then confirm it, select the surviving Peer ID in the picker and reopen it
+after restart. No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID

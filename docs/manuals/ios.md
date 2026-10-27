@@ -19,7 +19,8 @@ identity** reopens an existing key before selecting it; an unreadable identity s
 A failed Create or Switch shows an error and keeps your current selection. For a selected UUID
 identity, **Remove this identity** shows its Peer ID and a backup warning; **Keep identity**
 cancels. **Remove permanently** erases that local key and returns to setup or the identity picker.
-Legacy identities cannot be removed here. The picker selection controls are planned.
+Legacy identities cannot be removed here. In the picker, select a surviving Peer ID or create
+another identity explicitly; an unreadable or deleting entry cannot be selected.
 
 This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
 signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact

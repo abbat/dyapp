@@ -51,6 +51,48 @@ final class LaunchTests: XCTestCase {
 }
 
 extension LaunchTests {
+    @objc
+    func testSettingsRemoveCancelThenSelectSurvivorAfterConfirm() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        let first = shownPeerId(app)
+        app.buttons["settings-open"].tap()
+        app.buttons["settings-create"].tap()
+        let peer = app.staticTexts["peer-id"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", first), object: peer
+        ),
+        ], timeout: 10), .completed)
+        let second = shownPeerId(app)
+        app.buttons["settings-open"].tap()
+        let remove = app.buttons["settings-remove"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 10))
+        remove.tap()
+        let alert = app.alerts["Remove identity?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@", second
+        )).firstMatch.exists)
+        alert.buttons["Keep identity"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-active"].exists)
+        remove.tap()
+        alert.buttons["Remove permanently"].tap()
+        XCTAssertTrue(app.staticTexts["identity-picker"].waitForExistence(timeout: 10))
+        let select = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@", "identity-picker-select-"
+        )).firstMatch
+        XCTAssertTrue(select.waitForExistence(timeout: 10))
+        select.tap()
+        XCTAssertEqual(shownPeerId(app), first)
+        app.terminate()
+        app.launch()
+        XCTAssertEqual(shownPeerId(app), first)
+        app.terminate()
+    }
+}
+
+extension LaunchTests {
     func testSettingsCreatesAndSwitchesWithoutReplacingKeys() {
         let app = isolatedApp()
         app.launch()

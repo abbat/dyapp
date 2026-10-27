@@ -5,11 +5,24 @@ private enum ActiveNetworkState: Sendable {
     case loading, needsSetup, ready, readFailed
 }
 
+private enum PickerLoad: Sendable {
+    case loaded([IdentityInventoryRow]), failed
+}
+
+private enum PickerSelection: Sendable {
+    case ready(IdentityResolution), failed
+}
+
 /// The shared start screen opens a selected identity or asks for an explicit first creation.
 struct ContentView: View {
     @State private var identity: IdentityResolution =
         (try? RustBridge.identityState()) ?? .recovery(nil, .unavailable)
     @State private var activeNetwork: ActiveNetworkState = .loading
+    @State private var pickerRows: [IdentityInventoryRow] = []
+    @State private var pickerLoading = false
+    @State private var pickerReadFailed = false
+    @State private var pickerWorking = false
+    @State private var pickerActionFailed = false
 
     private var selectedMarker: String? {
         if case let .ready(candidate, _) = identity { return candidate.location.marker }
@@ -65,13 +78,91 @@ struct ContentView: View {
 
                 case .picker:
                     Text("identity.picker").accessibilityIdentifier("identity-picker")
-                    Button("identity.retry") { refreshIdentity() }
+                    if pickerLoading { ProgressView("settings.loading") }
+                    if pickerReadFailed {
+                        Text("settings.readFailed").accessibilityIdentifier("identity-picker-error")
+                    }
+                    ForEach(pickerRows) { row in
+                        if let peerID = row.peerID {
+                            Text(peerID)
+                            Button("settings.select") { Task { await selectPicker(row.candidate.location) } }
+                                .disabled(pickerWorking)
+                                .accessibilityIdentifier("identity-picker-select-\(row.id)")
+                        } else {
+                            Text(pickerStatus(for: row.candidate.state))
+                        }
+                    }
+                    Button("identity.create") { createIdentity() }
+                        .disabled(pickerWorking || pickerLoading || pickerReadFailed)
+                        .accessibilityIdentifier("identity-picker-create")
+                    if pickerActionFailed {
+                        Text("settings.actionFailed").accessibilityIdentifier("identity-picker-action-error")
+                    }
+                    Button("identity.retry") { Task { await loadPicker() } }
                         .accessibilityIdentifier("identity-retry")
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
+        .task(id: identity) { await loadPicker() }
+    }
+
+    private func pickerStatus(for state: IdentitySlot.State) -> LocalizedStringKey {
+        switch state {
+        case .pending:
+            "settings.pending"
+
+        case .ready:
+            "settings.unavailable"
+
+        case .deleting:
+            "settings.deleting"
+
+        case .damaged:
+            "settings.damaged"
+        }
+    }
+
+    @MainActor
+    private func loadPicker() async {
+        guard case .picker = identity else { return }
+        pickerRows = []
+        pickerLoading = true
+        pickerReadFailed = false
+        let result = await Task.detached(priority: .userInitiated) { () -> PickerLoad in
+            do { return .loaded(try RustBridge.identityInventory()) }
+            catch { return .failed }
+        }.value
+        guard !Task.isCancelled else { return }
+        switch result {
+        case .loaded(let rows):
+            pickerRows = rows
+
+        case .failed:
+            pickerReadFailed = true
+        }
+        pickerLoading = false
+    }
+
+    @MainActor
+    private func selectPicker(_ location: IdentityLocation) async {
+        guard !pickerWorking else { return }
+        pickerWorking = true
+        pickerActionFailed = false
+        let result = await Task.detached(priority: .userInitiated) { () -> PickerSelection in
+            do { return .ready(try RustBridge.selectIdentity(location)) }
+            catch { return .failed }
+        }.value
+        pickerWorking = false
+        switch result {
+        case .ready(let selected):
+            identity = selected
+
+        case .failed:
+            pickerActionFailed = true
+            await loadPicker()
+        }
     }
 
     @MainActor
