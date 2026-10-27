@@ -19,6 +19,9 @@ supplied combination with the shared profile rules and stores it in this identit
 date leaves the prior draft unchanged. **Preview public profile** reads the saved draft, shows
 only selected public values, the exact birth parts and possible age, and warns that others may
 keep copies after deletion. A full date has an additional warning. Publication is planned.
+The editor also shows separate 18+ and public-data confirmations and the eligibility result for
+the saved draft. Changing or saving any field clears both confirmations. They are never needed to
+save or preview. Unsaved edits disable confirmation until saved; the publish action is planned.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you tap it. **Switch to this

@@ -108,6 +108,15 @@ enum RustBridge {
         return try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested)
     }
 
+    /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
+    static func publicationBlock(for candidate: IdentityCandidate, peerId: String,
+                                 attested: Bool) throws -> String? {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        return try profilePublishBlock(dir: dir.path, key: key, attested: attested)
+    }
+
     private static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
         if let id = uiTestSlotID {

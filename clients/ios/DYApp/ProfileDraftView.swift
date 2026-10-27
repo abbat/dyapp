@@ -5,6 +5,12 @@ private enum ProfileDraftLoad: Sendable {
     case failed
 }
 
+private enum ProfileEligibility: Sendable {
+    case ready
+    case blocked(String)
+    case failed
+}
+
 enum ProfileBirthError: Error { case invalid }
 
 /// Absent text remains absent in the saved draft; the shared Rust profile core checks the parts.
@@ -129,13 +135,29 @@ struct ProfileDraftView: View {
     let candidate: IdentityCandidate
     let peerId: String
     @State private var values: [String: UInt32] = [:]
+    @State private var savedValues: [String: UInt32] = [:]
     @State private var birthYear = ""
     @State private var birthMonth = ""
     @State private var birthDay = ""
+    @State private var savedBirthYear = ""
+    @State private var savedBirthMonth = ""
+    @State private var savedBirthDay = ""
     @State private var status = ""
     @State private var readFailed = false
     @State private var isLoading = true
     @State private var isSaving = false
+    @State private var hasSavedDraft = false
+    @State private var confirmedAdult = false
+    @State private var confirmedPublic = false
+    @State private var publishBlock: String?
+    @State private var eligibilityFailed = false
+    @State private var isCheckingEligibility = false
+    @State private var eligibilityRevision = 0
+
+    private var hasUnsavedEdits: Bool {
+        values != savedValues || birthYear != savedBirthYear ||
+            birthMonth != savedBirthMonth || birthDay != savedBirthDay
+    }
 
     var body: some View {
         Form {
@@ -174,9 +196,36 @@ struct ProfileDraftView: View {
             }
             if isLoading { Text("profile.loading") }
             if isSaving { Text("profile.saving") }
+            Section {
+                Toggle("profile.confirmAdult", isOn: $confirmedAdult)
+                    .disabled(isLoading || isSaving || readFailed || hasUnsavedEdits)
+                    .accessibilityIdentifier("profile-confirm-adult")
+                Toggle("profile.confirmPublic", isOn: $confirmedPublic)
+                    .disabled(isLoading || isSaving || readFailed || hasUnsavedEdits)
+                    .accessibilityIdentifier("profile-confirm-public")
+                Text(eligibilityStatus)
+                    .accessibilityIdentifier("profile-publish-eligibility")
+            }
         }
         .navigationTitle("profile.title")
         .task(id: candidate.location.marker) { await load() }
+        .onChange(of: values) { _ in invalidateConsent() }
+        .onChange(of: birthYear) { _ in invalidateConsent() }
+        .onChange(of: birthMonth) { _ in invalidateConsent() }
+        .onChange(of: birthDay) { _ in invalidateConsent() }
+        .onChange(of: confirmedAdult) { _ in Task { await checkEligibility() } }
+        .onChange(of: confirmedPublic) { _ in Task { await checkEligibility() } }
+    }
+
+    private var eligibilityStatus: LocalizedStringKey {
+        if !hasSavedDraft { return "profile.saveBeforePublish" }
+        if hasUnsavedEdits { return "profile.saveChangesBeforePublish" }
+        if isCheckingEligibility { return "profile.checkingEligibility" }
+        if eligibilityFailed { return "profile.eligibilityFailed" }
+        if let publishBlock { return LocalizedStringKey("profile.publishBlocked.\(publishBlock)") }
+        if !confirmedAdult { return "profile.publishBlocked.notAttested" }
+        if !confirmedPublic { return "profile.confirmPublicRequired" }
+        return "profile.eligible"
     }
 
     @MainActor
@@ -184,10 +233,15 @@ struct ProfileDraftView: View {
         isLoading = true
         readFailed = false
         status = ""
+        hasSavedDraft = false
         values = [:]
+        savedValues = [:]
         birthYear = ""
         birthMonth = ""
         birthDay = ""
+        savedBirthYear = ""
+        savedBirthMonth = ""
+        savedBirthDay = ""
         let selected = candidate
         let selectedPeer = peerId
         let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
@@ -201,11 +255,16 @@ struct ProfileDraftView: View {
         switch result {
         case .loaded(let decoded):
             if let decoded {
+                hasSavedDraft = true
                 values = decoded.filter { !ProfileBirthParts.keys.contains($0.key) }
                 let birth = ProfileBirthParts(draft: decoded)
                 birthYear = birth.year.map(String.init) ?? ""
                 birthMonth = birth.month.map(String.init) ?? ""
                 birthDay = birth.day.map(String.init) ?? ""
+                savedValues = values
+                savedBirthYear = birthYear
+                savedBirthMonth = birthMonth
+                savedBirthDay = birthDay
             }
 
         case .failed:
@@ -232,10 +291,67 @@ struct ProfileDraftView: View {
             isSaving = false
             guard !Task.isCancelled else { return }
             status = saved ? "profile.saved" : "profile.saveFailed"
+            if saved {
+                hasSavedDraft = true
+                savedValues = values
+                savedBirthYear = birthYear
+                savedBirthMonth = birthMonth
+                savedBirthDay = birthDay
+                invalidateConsent()
+            }
         } catch ProfileBirthError.invalid {
             status = "profile.invalidBirthDate"
         } catch {
             status = "profile.saveFailed"
+        }
+    }
+
+    @MainActor
+    private func invalidateConsent() {
+        eligibilityRevision += 1
+        confirmedAdult = false
+        confirmedPublic = false
+        publishBlock = nil
+        eligibilityFailed = false
+        isCheckingEligibility = false
+    }
+
+    @MainActor
+    private func checkEligibility() async {
+        eligibilityRevision += 1
+        let revision = eligibilityRevision
+        guard hasSavedDraft && !hasUnsavedEdits && !isLoading && !readFailed else {
+            isCheckingEligibility = false
+            return
+        }
+        isCheckingEligibility = true
+        let selected = candidate
+        let selectedPeer = peerId
+        let attested = confirmedAdult
+        let result = await Task.detached(priority: .userInitiated) { () -> ProfileEligibility in
+            do {
+                if let block = try RustBridge.publicationBlock(for: selected, peerId: selectedPeer,
+                                                               attested: attested) {
+                    return .blocked(block)
+                }
+                return .ready
+            } catch {
+                return .failed
+            }
+        }.value
+        guard !Task.isCancelled && revision == eligibilityRevision else { return }
+        isCheckingEligibility = false
+        switch result {
+        case .ready:
+            publishBlock = nil
+            eligibilityFailed = false
+
+        case .blocked(let block):
+            publishBlock = block
+            eligibilityFailed = false
+
+        case .failed:
+            eligibilityFailed = true
         }
     }
 

@@ -1019,6 +1019,72 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сохранение черновика профиля…" } }
       }
     },
+    "profile.confirmAdult": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "I confirm I am 18 or older" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подтверждаю, что мне не меньше 18 лет" } }
+      }
+    },
+    "profile.confirmPublic": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "I understand others may keep copies of published data" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Понимаю, что другие могут сохранить копии опубликованных данных" } }
+      }
+    },
+    "profile.saveBeforePublish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save a draft before publishing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик перед публикацией." } }
+      }
+    },
+    "profile.saveChangesBeforePublish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save your changes before publishing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните изменения перед публикацией." } }
+      }
+    },
+    "profile.checkingEligibility": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Checking publication eligibility…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверка возможности публикации…" } }
+      }
+    },
+    "profile.eligibilityFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not check publication eligibility." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось проверить возможность публикации." } }
+      }
+    },
+    "profile.publishBlocked.notAttested": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm you are 18 or older before publishing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подтвердите, что вам не меньше 18 лет, перед публикацией." } }
+      }
+    },
+    "profile.publishBlocked.invalidBirthDate": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Correct the saved birth date before publishing." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Исправьте сохранённую дату рождения перед публикацией." } }
+      }
+    },
+    "profile.publishBlocked.underage": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The possible age is below 18." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возможный возраст меньше 18 лет." } }
+      }
+    },
+    "profile.confirmPublicRequired": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Acknowledge that published data may remain copied." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подтвердите, что опубликованные данные могут сохраниться в копиях." } }
+      }
+    },
+    "profile.eligible": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This saved draft meets publication checks." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранённый черновик проходит проверку для публикации." } }
+      }
+    },
     "profile.noPublicFields": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "No profile fields are selected for publication." } },
