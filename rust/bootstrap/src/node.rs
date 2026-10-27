@@ -3,6 +3,7 @@
 mod delivery;
 mod identified;
 mod jobs;
+mod open;
 mod refill;
 mod replicas;
 mod replies;
@@ -10,6 +11,7 @@ mod report;
 mod republish;
 mod run;
 use delivery::{after_lookup, after_mailbox, push, send_envelopes};
+pub use open::{open, Opened};
 use report::{state, status};
 pub use run::run;
 

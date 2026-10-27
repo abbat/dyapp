@@ -116,6 +116,39 @@ async fn start_config_in_protocols(
     )
 }
 
+#[tokio::test]
+async fn an_opened_node_answers_and_frees_its_storage_when_dropped() {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let mut config = NodeConfig::default();
+    config.storage.dir = format!("/tmp/ai/test-open-{}", uuid::Uuid::new_v4()).into();
+    std::fs::create_dir_all(&config.storage.dir).unwrap();
+    config.network.id_pow_bits = 0;
+    config.roles = vec![Role::Store, Role::Search];
+    config.listen = vec![format!("127.0.0.1:{port}")];
+    config.resolve_secrets().unwrap();
+    config.validate().unwrap();
+    let peer = config.keygen(None).unwrap();
+    let opened = node::open(config.clone()).await.unwrap();
+    assert_eq!(opened.peer_id, peer);
+    assert!(opened.service.search.is_some());
+    let running = tokio::spawn(opened.run());
+    // The running node holds the storage lock.
+    assert!(node::open(config.clone()).await.is_err());
+    let addr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer}")
+        .parse()
+        .unwrap();
+    let reply = Client::connect(&addr).await.info().await;
+    assert_eq!(status(reply.status), Status::Ok);
+    assert!(reply.info.is_some());
+    running.abort();
+    assert!(running.await.unwrap_err().is_cancelled());
+    config.storage.lock().unwrap();
+}
+
 /// A typed client on one connection, so mailbox challenges stay valid between calls.
 struct Client {
     swarm: Swarm<Behaviour>,

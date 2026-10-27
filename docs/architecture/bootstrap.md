@@ -1657,6 +1657,8 @@ Unit test coverage:
 
 Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP with libp2p
 clients:
+- `node::open` from a config (the start `dyappd` and the desktop app share, ADR 0030) answers
+  `info`, holds the storage lock while it runs and frees it when its task is dropped
 - Every request type: `info`, publish and get, mailbox put, challenge, fetch and ack
 - A challenge from one connection is `DENIED` on another and still valid on its own
 - Bad input fails only its request: undecodable protobuf and a request over its protocol's
