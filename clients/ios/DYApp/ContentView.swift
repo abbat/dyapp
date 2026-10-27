@@ -31,19 +31,25 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
-            if case let .ready(candidate, peerId) = identity, activeNetwork == .needsSetup {
-                NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
-                    Text("app.name").font(.largeTitle)
-                    Text(peerId).accessibilityIdentifier("peer-id")
-                    NavigationLink(destination: settingsView(candidate, peerId)) {
-                        Text("settings.title")
-                    }
-                    .accessibilityIdentifier("settings-open")
-                }))
-            } else {
-                start
+            Group {
+                // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
+                if case let .ready(candidate, peerId) = identity, activeNetwork == .needsSetup {
+                    NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
+                        Text("app.name").font(.largeTitle)
+                        Text(peerId).accessibilityIdentifier("peer-id")
+                        NavigationLink(destination: settingsView(candidate, peerId)) {
+                            Text("settings.title")
+                        }
+                        .accessibilityIdentifier("settings-open")
+                    }))
+                } else {
+                    start
+                }
             }
+            #if os(macOS)
+            // The default 140pt sidebar wrapped the setup form word by word and put settings under the splitter.
+            .frame(minWidth: 360)
+            #endif
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
         .task(id: identity) { await loadPicker() }

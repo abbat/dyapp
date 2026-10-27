@@ -238,7 +238,7 @@ extension LaunchTests {
         app.launch()
         createIdentity(app)
         openNetwork(app)
-        let status = app.staticTexts["network-draft-status"]
+        let status = reveal(app.staticTexts["network-draft-status"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "could not be read"), object: status
         ),

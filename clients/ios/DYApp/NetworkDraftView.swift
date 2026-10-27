@@ -180,10 +180,13 @@ struct NetworkDraftView: View {
                 } else if activationFailed {
                     Text("network.activateFailed").accessibilityIdentifier("network-activation-status")
                 }
+            }
+        }
+        // A hidden link inside the lazy form never pushed after activation on iOS.
+        .background {
             NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
                            isActive: $activated) {
-                    EmptyView()
-                }
+                EmptyView()
             }
         }
         .navigationTitle("network.title")
