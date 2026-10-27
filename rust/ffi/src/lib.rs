@@ -341,6 +341,42 @@ pub fn profile_scales() -> Vec<ProfileScale> {
         .collect()
 }
 
+/// Shared validation and inclusive age bounds for independently optional public birth parts.
+#[derive(Clone, uniffi::Record)]
+pub struct BirthAssessment {
+    /// False when no Gregorian date can match the supplied parts.
+    pub valid: bool,
+    /// Youngest possible age on the caller's UTC date; absent without a year or valid range.
+    pub youngest: Option<u32>,
+    /// Oldest possible age on the caller's UTC date; absent without a year or valid range.
+    pub oldest: Option<u32>,
+}
+
+/// Assess exactly the supplied parts; no missing year, month or day is invented.
+#[uniffi::export]
+pub fn assess_birth_parts(
+    year: Option<u32>,
+    month: Option<u32>,
+    day: Option<u32>,
+    today_unix_days: u64,
+) -> Result<BirthAssessment, CoreError> {
+    let today = dyapp_profile::CivilDate::from_unix_days(today_unix_days)
+        .ok_or_else(|| CoreError::Failed("invalid UTC date".into()))?;
+    let profile = dyapp_profile::Profile {
+        birth_year: year,
+        birth_month: month,
+        birth_day: day,
+        ..Default::default()
+    };
+    let valid = profile.valid_birth_parts();
+    let ages = valid.then(|| profile.possible_age_range(today)).flatten();
+    Ok(BirthAssessment {
+        valid,
+        youngest: ages.map(|(youngest, _)| youngest),
+        oldest: ages.map(|(_, oldest)| oldest),
+    })
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}
@@ -389,6 +425,28 @@ pub struct UserProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn birth_assessment_keeps_optional_parts_and_rejects_impossible_dates() {
+        let empty = assess_birth_parts(None, None, None, 0).unwrap();
+        assert!(empty.valid);
+        assert_eq!((empty.youngest, empty.oldest), (None, None));
+
+        let yearless_leap_day = assess_birth_parts(None, Some(2), Some(29), 0).unwrap();
+        assert!(yearless_leap_day.valid);
+        assert_eq!(
+            (yearless_leap_day.youngest, yearless_leap_day.oldest),
+            (None, None)
+        );
+
+        let year_only = assess_birth_parts(Some(1950), None, None, 0).unwrap();
+        assert!(year_only.valid);
+        assert_eq!((year_only.youngest, year_only.oldest), (Some(19), Some(20)));
+
+        let impossible = assess_birth_parts(Some(1900), Some(2), Some(29), 0).unwrap();
+        assert!(!impossible.valid);
+        assert_eq!((impossible.youngest, impossible.oldest), (None, None));
+    }
 
     /// XOR with a fixed byte: stands in for the platform keystore.
     struct TestStore;
