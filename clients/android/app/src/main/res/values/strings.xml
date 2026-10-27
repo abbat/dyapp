@@ -104,6 +104,14 @@
     <string name="profile_birth_month">Birth month</string>
     <string name="profile_birth_day">Birth day</string>
     <string name="profile_birth_invalid">Enter a possible date, or leave any part empty.</string>
+    <string name="profile_preview">Preview public profile</string>
+    <string name="profile_preview_title">Public fields of the saved draft</string>
+    <string name="profile_preview_empty">No profile field is selected for publication.</string>
+    <string name="profile_preview_row">%1$s: %2$s</string>
+    <string name="profile_age">Possible age: %1$s</string>
+    <string name="profile_age_unknown">unknown</string>
+    <string name="profile_public_disclosure">Published data can be copied by others and may remain available after deletion.</string>
+    <string name="profile_full_date_disclosure">A full birth date reveals more than a partial date.</string>
     <string name="profile_field_gender">Gender</string>
     <string name="profile_field_orientation">Orientation</string>
     <string name="profile_field_relationship_goal">Relationship goal</string>

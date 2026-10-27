@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +35,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 
-private fun readDraft(file: File, scales: List<ProfileScale>): Map<String, Int> {
+internal fun readDraft(file: File, scales: List<ProfileScale>): Map<String, Int> {
     val bytes = try {
         AtomicFile(file).openRead().use { it.readBytes() }
     } catch (_: FileNotFoundException) {
@@ -68,13 +69,13 @@ private fun writeDraft(file: File, values: Map<String, Int>) {
 }
 
 @Composable
-private fun label(context: Context, key: String): String {
+internal fun label(context: Context, key: String): String {
     val name = "profile_" + key.replace('.', '_')
     val id = context.resources.getIdentifier(name, "string", context.packageName)
     return if (id == 0) key else stringResource(id)
 }
 
-/** Local profile draft editor; Rust supplies the closed wire choices. Publishing is not wired here. */
+/** Local profile draft editor and preview; Rust supplies the closed wire choices. Publishing is not wired here. */
 @Composable
 fun ProfileDraftScreen(slot: Slot, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -110,6 +111,7 @@ private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<
     val context = LocalContext.current
     val values = remember(file) { mutableStateMapOf<String, Int>().apply { putAll(saved) } }
     var status by remember { mutableStateOf("") }
+    var saves by remember { mutableIntStateOf(0) }
     val birth = remember(file) { BirthInputs(saved) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -120,11 +122,12 @@ private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<
             ScalePicker(scale, values[scale.key] ?: 0, { values[scale.key] = it }, context)
         }
         BirthDateFields(birth)
-        Button(onClick = { status = saveDraft(file, values, birth, context) },
+        Button(onClick = { status = saveDraft(file, values, birth, context); saves++ },
             modifier = Modifier.testTag("profile-save")) {
             Text(stringResource(R.string.profile_save))
         }
         Text(status)
+        PreviewSection(file, scales, saves)
         OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }
 }
