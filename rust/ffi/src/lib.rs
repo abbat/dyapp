@@ -388,6 +388,43 @@ pub fn assess_birth_parts(
     })
 }
 
+/// A profile place named in the UI language.
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct Place {
+    /// GeoNames ID, the profile `place` value in decimal.
+    pub id: u32,
+    /// Place name.
+    pub name: String,
+    /// First-level region, empty when unknown.
+    pub region: String,
+}
+
+impl From<dyapp_client::places::Place> for Place {
+    fn from(p: dyapp_client::places::Place) -> Self {
+        Self {
+            id: p.id,
+            name: p.name,
+            region: p.region,
+        }
+    }
+}
+
+/// The place `id` of `country` named in `lang` (`ru`, else English); none outside the picker set.
+#[uniffi::export]
+pub fn place_name(country: String, id: u32, lang: String) -> Option<Place> {
+    dyapp_client::places::place(&country, id, &lang).map(Place::from)
+}
+
+/// At most `limit` places of `country` whose English or Russian name starts with `prefix`,
+/// largest first.
+#[uniffi::export]
+pub fn search_places(country: String, prefix: String, lang: String, limit: u32) -> Vec<Place> {
+    dyapp_client::places::search(&country, &prefix, &lang, limit as usize)
+        .into_iter()
+        .map(Place::from)
+        .collect()
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}
@@ -457,6 +494,15 @@ mod tests {
         let impossible = assess_birth_parts(Some(1900), Some(2), Some(29), 0).unwrap();
         assert!(!impossible.valid);
         assert_eq!((impossible.youngest, impossible.oldest), (None, None));
+    }
+
+    #[test]
+    fn places_are_named_and_found_through_the_core() {
+        let berlin = place_name("DE".into(), 2950159, "ru".into()).expect("Berlin");
+        assert_eq!(berlin.name, "Берлин");
+        let found = search_places("DE".into(), "ber".into(), "en".into(), 3);
+        assert_eq!(found.len(), 3);
+        assert_eq!((found[0].id, found[0].name.as_str()), (berlin.id, "Berlin"));
     }
 
     /// XOR with a fixed byte: stands in for the platform keystore.
