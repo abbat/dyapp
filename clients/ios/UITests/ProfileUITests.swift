@@ -103,8 +103,18 @@ final class ProfileUITests: XCTestCase {
         for id in ["profile-confirm-adult", "profile-confirm-public"] {
             let toggle = app.switches[id]
             reveal(toggle, in: app)
-            // The row's centre is its label; the switch sits at the trailing edge.
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "enabled == true"), object: toggle
+            ),
+            ], timeout: 10), .completed)
+            // The row's centre is its label; newer iOS nests the tappable switch inside the row,
+            // older iOS has none and the switch sits at the trailing edge.
+            let knob = toggle.switches.firstMatch
+            if knob.exists {
+                knob.tap()
+            } else {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == '1'"), object: toggle
             ),
