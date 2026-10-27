@@ -75,11 +75,16 @@ class ProfileDraftTests {
             placeText("DE", berlinId, lang))
         compose.onNodeWithTag("preview-place").performScrollTo().assertTextEquals(berlin)
         compose.onNodeWithTag("preview-country").assertExists()
+        clearCountryClearsPlace()
+    }
 
-        // Clearing the country clears the place.
+    private fun clearCountryClearsPlace() {
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-none").performClick()
+        compose.onNodeWithTag("profile-country").assertTextEquals(string(R.string.profile_unset))
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        // A save hides the stale preview; the status alone still reads "saved" from the last save.
+        compose.onNodeWithTag("preview-place").assertDoesNotExist()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("preview-place").assertDoesNotExist()
