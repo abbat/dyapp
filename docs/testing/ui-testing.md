@@ -104,6 +104,8 @@ injected hidden-ready rejection. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print
 `UI_SMOKE_PASS:<peer-id>` (empty for the recovery case) and exit 0; failures print
 `UI_SMOKE_FAIL:` with the failed UI check or error before exiting 1.
+The desktop profile unit test also saves an entirely unspecified draft, reloads it, and advances
+the publish puzzle after an explicit 18+ attestation; gender and every other field remain optional.
 The Debian client package smoke installs and unlocks GNOME Keyring inside a
 fresh D-Bus/Xvfb session and distinct test user for each binary (installed DEB
 and tarball). Both binaries run the full system and file storage checks. A

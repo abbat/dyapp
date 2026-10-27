@@ -298,6 +298,22 @@ mod tests {
     }
 
     #[test]
+    fn every_public_field_can_remain_unspecified() {
+        let (dir, owner) = (temp_dir(), Identity::generate());
+        let empty = save(&dir, &owner, Draft::default()).unwrap();
+        assert_eq!(empty.draft, Draft::default());
+        assert_eq!((empty.ages, empty.problem), (None, None));
+        assert_eq!(load(&dir, &owner).unwrap(), empty);
+        let cancel = AtomicBool::new(false);
+        assert_eq!(
+            solve(&cancel, &dir, &owner, false, 4),
+            Err("blocked: notAttested".into())
+        );
+        assert_eq!(solve(&cancel, &dir, &owner, true, 4), Ok(()));
+        assert_eq!(load(&dir, &owner).unwrap().draft, Draft::default());
+    }
+
+    #[test]
     fn a_draft_survives_reopening_with_its_ages_and_problem() {
         let (dir, alice) = (temp_dir(), Identity::generate());
         let empty = load(&dir, &alice).unwrap();
