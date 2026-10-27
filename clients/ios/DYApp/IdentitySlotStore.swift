@@ -356,7 +356,9 @@ extension IdentitySlotStore {
         guard values.isDirectory == true, values.isSymbolicLink != true else {
             throw IdentitySlotError.unsafeRemoval
         }
-        let allowed: Set<String> = ["identity.key", "state", "network", "network-draft"]
+        let allowed: Set<String> = [
+            "identity.key", "state", "network", "network-draft", "profile-draft.json",
+        ]
         let entries = try files.contentsOfDirectory(at: folder,
                                                     includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         for entry in entries {

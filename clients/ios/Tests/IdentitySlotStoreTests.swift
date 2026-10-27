@@ -432,6 +432,26 @@ extension IdentitySlotStoreTests {
 
 extension IdentitySlotStoreTests {
     @objc
+    func testProfileDraftsStayInTheirSlots() throws {
+        let path = try root()
+        let slots = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let first = try slots.create()
+        let second = try slots.create()
+        let firstCandidate = IdentityCandidate(location: .slot(first.slot.id), state: .ready)
+        let secondCandidate = IdentityCandidate(location: .slot(second.slot.id), state: .ready)
+        let firstDraft = ProfileDraftStore(root: path, candidate: firstCandidate, peerId: first.peerId)
+        let secondDraft = ProfileDraftStore(root: path, candidate: secondCandidate, peerId: second.peerId)
+        try firstDraft.save(["gender": 1])
+        try secondDraft.save(["orientation": 2])
+        XCTAssertNotEqual(firstDraft.file, secondDraft.file)
+        XCTAssertEqual(try firstDraft.load(), ["gender": 1])
+        XCTAssertEqual(try secondDraft.load(), ["orientation": 2])
+
+    }
+}
+
+extension IdentitySlotStoreTests {
+    @objc
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())

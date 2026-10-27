@@ -60,7 +60,7 @@ struct ContentView: View {
                             Text("network.title")
                         }
                         .accessibilityIdentifier("network-edit")
-                        NavigationLink(destination: ProfileDraftView(peerId: peerId)) {
+                        NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId)) {
                             Text("profile.title")
                         }
                         .accessibilityIdentifier("profile-edit")

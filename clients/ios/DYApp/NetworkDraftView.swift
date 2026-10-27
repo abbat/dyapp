@@ -162,7 +162,8 @@ struct NetworkDraftView: View {
                 } else if activationFailed {
                     Text("network.activateFailed").accessibilityIdentifier("network-activation-status")
                 }
-                NavigationLink(destination: ProfileDraftView(peerId: peerId), isActive: $activated) {
+            NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
+                           isActive: $activated) {
                     EmptyView()
                 }
             }

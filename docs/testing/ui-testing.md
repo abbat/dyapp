@@ -30,7 +30,11 @@ remains hittable. Shared native unit tests additionally check that an unreadable
 replace the active selection and that a lost selected Keychain item produces recovery without
 creating another key. An isolated debug UI fixture corrupts only the wrapped key file after
 creation: both Apple UI suites check the Russian unavailable label, hidden Remove action, and
-recovery after restart with Retry but no implicit Create. No suite
+recovery after restart with Retry but no implicit Create. A shared native unit test also checks
+that UUID profile drafts stay separate and a peer-named root draft is copied once into its slot.
+The migration test also removes the slot and checks that its slot draft is cleaned while the old
+root copy remains unchanged.
+No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID

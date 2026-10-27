@@ -125,6 +125,13 @@ backup warning and a second destructive confirmation before calling this operati
 native test reopens a surviving Peer ID and its active/draft network files after another slot is
 removed.
 
+The Apple profile draft now uses `profile-draft.json` inside the selected UUID slot (or the legacy
+root). On first read, an existing root `profile-draft-<Peer ID>.json` is decoded and copied into
+the selected slot if no slot draft exists; the old file remains untouched. Later edits write only
+the slot file, so switching identities cannot overwrite another draft.
+Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
+key and network files; the old root copy remains untouched.
+
 A valid regular `profiles/<uuid>.deleting` file containing exactly `deleting\n` now keeps that
 candidate visible as deleting even after its slot directory is partly or fully gone. Malformed
 files and symlinks are ignored. A UUID with any tombstone file is never reused during creation.
