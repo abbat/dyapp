@@ -32,3 +32,14 @@ unsafe_code = "forbid"
 [lints.clippy]
 allow_attributes = "deny"
 allow_attributes_without_reason = "deny"
+
+# Argon2 runs at release speed in debug and test builds, as in the root workspace: the UI smoke
+# solves a profile puzzle of thousands of hashes.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.test.package.argon2]
+opt-level = 3
+[profile.test.package.blake2]
+opt-level = 3
