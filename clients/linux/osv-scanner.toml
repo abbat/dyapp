@@ -32,3 +32,7 @@ reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the pan
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+reason = "block-buffer 0.10.4 via RustCrypto digest 0.10 users (no 0.10 fix): it keeps the cursor in a separate pos field written after compress returns, so a caught panic cannot corrupt it; only the inline cursor of 0.11 and 0.12.0 is affected"

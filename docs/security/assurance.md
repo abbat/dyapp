@@ -70,6 +70,10 @@ scopes exceptions to a scan source's directory; [supported manifests](https://gi
 include Cargo locks and Gradle verification metadata.
 The new `RUSTSEC-2026-0385` for `ctutils 0.4.3` was addressed by updating both affected Cargo
 locks to the fixed `0.4.4`; the main Scorecard run above confirmed zero findings.
+`GHSA-qwgh-2vcv-g2f7` lists every `block-buffer` before 0.12.1, but its corrupted cursor is the
+inline one of 0.11 and 0.12.0. All four Cargo locks keep 0.10.4 for RustCrypto `digest` 0.10,
+whose separate `pos` field is written only after `compress` returns, so each `osv-scanner.toml`
+ignores it.
 
 For another low Scorecard Vulnerabilities score, download the run's `scorecard` artifact,
 map every advisory ID to **all** scanned manifests, and check the `osv-scanner.toml` beside
