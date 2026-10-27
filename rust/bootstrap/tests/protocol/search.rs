@@ -215,6 +215,15 @@ fn search_worker_saturation_retries_without_stalling_info() {
 }
 
 #[tokio::test]
+async fn a_client_finds_a_lone_search_node() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let a = start_search(None).await;
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let mut node = dyapp_client::Node::connect(a, protocols).await.unwrap();
+    assert_eq!(node.providers(dyapp_p2p_net::SEARCH_KEY, 3).await.len(), 1);
+}
+
+#[tokio::test]
 async fn a_client_finds_and_queries_search_nodes() {
     dyapp_p2p_net::set_id_pow_bits(0);
     let a = start_search(None).await;

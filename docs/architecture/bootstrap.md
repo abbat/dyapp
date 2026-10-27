@@ -397,8 +397,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
 
 - **Discovery.** Once its routing table has a peer, a search node announces itself as a
   Kademlia provider of `dyapp/search` in the main `/dyapp/kad`, like the TURN role; kad
-  republishes the record every 12 hours. Clients and new search nodes find search nodes with
-  `get_providers` on that key; the client's `dyapp_client::Node::providers` dials each provider
+  republishes the record every 12 hours. Before that a lone node lists itself only in its own
+  store, so a client connected to it still finds it. Clients and new search nodes find search
+  nodes with `get_providers` on that key; the client's `dyapp_client::Node::providers` dials each provider
   once while the lookup runs, because kad keeps a provider's addresses only for the query, and
   returns the addresses for `Node::connect`. A peer that lists `/dyapp/search-kad` in identify joins the
   node's search Kademlia, which links the search nodes to each other, under the same node-ID

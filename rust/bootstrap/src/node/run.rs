@@ -46,6 +46,19 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     // A search node announces itself the same way, under SEARCH_KEY.
     let mut search_unannounced = service.search.is_some();
     let mut search_query = None;
+    // Until then the node lists itself only in its own store, enough for a client that asks it.
+    let local = *swarm.local_peer_id();
+    let keys = [
+        (turn_unannounced, dyapp_p2p_net::TURN_KEY),
+        (search_unannounced, SEARCH_KEY),
+    ];
+    for (_, key) in keys.into_iter().filter(|(provides, _)| *provides) {
+        use libp2p::kad::store::RecordStore as _;
+        let record = kad::ProviderRecord::new(kad::RecordKey::new(&key), local, Vec::new());
+        if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
+            tracing::error!(%error, "provider record not stored");
+        }
+    }
     if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
         for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
             if let Err(error) = gossip.subscribe(&service.protocols.search_topic(topic)) {
