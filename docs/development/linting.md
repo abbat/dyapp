@@ -23,7 +23,7 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
-| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | new findings enforced; existing findings baselined; not wired into Gradle |
+| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
 | Web / JS | — | none | — | — | not configured |
 
 The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
@@ -107,7 +107,7 @@ config sets:
 The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
 `java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --baseline detekt-baseline.xml
 --input clients/android --excludes '**/build/**' --build-upon-default-config`.
-`detekt-baseline.xml` records 2 remaining findings; new findings fail the check.
+`detekt-baseline.xml` is empty: every finding fails the check.
 `--build-upon-default-config` keeps every default setting `detekt.yml` does not override.
 The Gradle build applies no detekt plugin, so `./gradlew detekt` does not exist.
 Detekt parses Kotlin but does not compile it: after API refactors, native Android CI or a

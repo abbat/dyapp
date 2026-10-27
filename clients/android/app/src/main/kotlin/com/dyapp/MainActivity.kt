@@ -16,14 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +33,7 @@ import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val APP_READY_TAG = "app-ready"
+internal const val APP_READY_TAG = "app-ready"
 private const val MISSING_REASON = "missing"
 private const val INCOMPLETE_REASON = "incomplete"
 private const val DELETING_REASON = "deleting"
@@ -208,9 +206,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
     // The identity the remove screen asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
-    var editingProfile by remember { mutableStateOf(false) }
-    var viewingSettings by remember { mutableStateOf(false) }
-    var viewingNetwork by remember { mutableStateOf(false) }
+    var editor by remember { mutableStateOf<StartTarget?>(null) }
     val act = { action: () -> Opened ->
         removing = null
         shown = RustBridge.show(slots, action)
@@ -220,63 +216,18 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         return
     }
     val opened = shown.opened
-    val networkNeeded = rememberNetworkEntryNeeded(opened as? Opened.Ready)
-    // Survives rotation, so Back keeps the draft closed for this session.
-    var networkDismissed by rememberSaveable((opened as? Opened.Ready)?.slot?.id) { mutableStateOf(false) }
-    val explicitEditor = viewingSettings || editingProfile || viewingNetwork
-    val automaticNetwork = networkNeeded != false && !networkDismissed
-    if (opened is Opened.Ready && (explicitEditor || automaticNetwork)) {
-        when {
-            viewingSettings -> IdentitySettingsScreen(slots, opened) { viewingSettings = false }
-            editingProfile -> ProfileDraftScreen(opened.slot) { editingProfile = false }
-            networkNeeded == null -> Text(stringResource(R.string.network_loading))
-            else -> NetworkDraftScreen(opened) {
-                viewingNetwork = false
-                networkDismissed = true
-            }
-        }
-        return
-    }
-    val status = when (opened) {
-        null -> R.string.status_error
-        is Opened.Ready -> R.string.status_ready
-        is Opened.Recovery -> R.string.status_recovery
-        else -> R.string.status_pick
-    }
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Text(stringResource(status), modifier = Modifier.testTag(APP_READY_TAG))
-        IdentityDetails(shown, slots, act) { editingProfile = true }
-        if (opened != null && removable(opened)) {
-            OutlinedButton(onClick = { removing = opened }, Modifier.testTag("remove-identity")) {
-                Text(stringResource(R.string.identity_remove))
-            }
-        }
-        if (opened is Opened.Ready || opened is Opened.Recovery) {
-            OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
-                Text(stringResource(R.string.identity_switch))
-            }
-        }
-        if (opened is Opened.Ready) {
-            OutlinedButton(onClick = { viewingNetwork = true }, Modifier.testTag("network-draft-open")) {
-                Text(stringResource(R.string.network_title))
-            }
-            OutlinedButton(onClick = { viewingSettings = true }, Modifier.testTag("settings-open")) {
-                Text(stringResource(R.string.settings_title))
-            }
-        }
-        OutlinedButton(onClick = onLockSettings, Modifier.testTag("lock-settings")) {
-            Text(stringResource(R.string.lock_settings))
+    if (showReadyEditor(slots, opened as? Opened.Ready, editor) { editor = null }) return
+    StartColumn(shown, slots, act) { target ->
+        when (target) {
+            StartTarget.REMOVE -> removing = opened
+            StartTarget.LOCK -> onLockSettings()
+            else -> editor = target
         }
     }
 }
 
 @Composable
-private fun IdentityDetails(
+internal fun IdentityDetails(
     shown: Shown,
     slots: Slots,
     act: (() -> Opened) -> Unit,
@@ -329,7 +280,7 @@ private fun PickerIdentityDetails(entries: List<Opened>, slots: Slots, act: (() 
 }
 
 // Removal refuses the legacy slot and damaged or unreadable ones.
-private fun removable(opened: Opened) = when (opened) {
+internal fun removable(opened: Opened) = when (opened) {
     is Opened.Ready -> opened.slot.id != Slots.LEGACY
     is Opened.Recovery -> opened.slot.id != Slots.LEGACY &&
         opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
