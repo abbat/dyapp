@@ -1,8 +1,8 @@
 //! Chats as MLS groups delivered through device mailboxes. Every Welcome, commit and message is
 //! MLS bytes in an envelope, one envelope per recipient device, so a node stores only
 //! ciphertext. A message's plaintext is padded to the next power of two from 1 KiB before
-//! encryption, so its size tells little about its content; a like, unlike, view or presence pads
-//! from 256 bytes so its envelope fits the node's 1 KiB signal limit.
+//! encryption, so its size tells little about its content; a like, unlike, view, presence or read
+//! receipt pads from 256 bytes so its envelope fits the node's 1 KiB signal limit.
 //!
 //! Calls that change MLS state return the [`Delivery`] list instead of sending it: seal and
 //! store the device state ([`Device::seal`]) first, then [`send`] it. Likewise [`receive`]
@@ -135,6 +135,12 @@ pub enum Body {
     Presence {
         /// Hybrid logical timestamp.
         hlc: u64,
+    },
+    /// The reader saw the author's texts up to this logical ID, tag 11
+    /// ([read receipts](../../docs/design/read-receipts.md)).
+    Read {
+        /// Logical ID of the latest text seen.
+        up_to: [u8; 16],
     },
 }
 
@@ -281,6 +287,7 @@ impl Body {
             ]
             .concat(),
             Self::Presence { hlc } => [&[10], &hlc.to_be_bytes()[..]].concat(),
+            Self::Read { up_to } => [&[11], up_to.as_slice()].concat(),
         }
     }
 
@@ -367,6 +374,9 @@ impl Body {
             }
             Some((10, body)) => Ok(Self::Presence {
                 hlc: u64::from_be_bytes(body.try_into().map_err(|_| Error::Reply("bad presence"))?),
+            }),
+            Some((11, body)) => Ok(Self::Read {
+                up_to: body.try_into().map_err(|_| Error::Reply("bad read"))?,
             }),
             _ => Err(Error::Reply("unknown message kind")),
         }
@@ -461,7 +471,7 @@ pub async fn invite(
 /// Pads and encrypts `body` for every other device in `group`.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
     let floor = match body {
-        Body::Interaction(_) | Body::Presence { .. } => SIGNAL_PADDED_BYTES,
+        Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => SIGNAL_PADDED_BYTES,
         _ => MIN_PADDED_BYTES,
     };
     let encoded = body.encode();

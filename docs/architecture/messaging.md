@@ -56,7 +56,8 @@ The like, unlike and view payload and match state are specified in the
 `rust/client::interactions` now encodes and strictly decodes the 26-byte v1 plaintext for those
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
-attachment, `7` forwarded text or attachment, `8` edit, `9` delete), so a text is never read as
+attachment, `7` forwarded text or attachment, `8` edit, `9` delete, `10` presence, `11` read
+receipt), so a text is never read as
 an interaction; an unknown tag is refused and acked. Tag 1 contains a 16-byte logical ID before
 at most 64 KiB of text. Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
 big-endian 8-byte HLC; edit adds at most 64 KiB of replacement text, while delete has no tail.

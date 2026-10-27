@@ -166,7 +166,9 @@ impl Session {
             let deliveries = chat::message(group, device, body)?;
             let today = (crate::now() / 86_400) as u32;
             let class = match body {
-                Body::Interaction(_) | Body::Presence { .. } => EnvelopeClass::Signal,
+                Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => {
+                    EnvelopeClass::Signal
+                }
                 _ => EnvelopeClass::Message,
             };
             let writes = deliveries
@@ -835,13 +837,14 @@ impl Session {
                 }
                 let (kind, payload) = match &event {
                     _ if blocked => (InboxKind::StateChange, Vec::new()),
-                    // Token and presence bodies are acted on, not shown in history.
+                    // Token, presence and read bodies are acted on, not shown in history.
                     Event::Message {
                         body:
                             Body::TokenRequest(_)
                             | Body::TokenAnswer(_)
                             | Body::Receipt(_)
-                            | Body::Presence { .. },
+                            | Body::Presence { .. }
+                            | Body::Read { .. },
                         ..
                     } => (InboxKind::StateChange, Vec::new()),
                     Event::Message {
@@ -891,12 +894,12 @@ impl Session {
     }
 }
 
-/// The group whose sender waits for a receipt of this committed event: any but a receipt or a
-/// presence, which nobody retries.
+/// The group whose sender waits for a receipt of this committed event: any but a receipt, a
+/// presence or a read receipt, which leave the outbox once a node accepts them.
 fn receipted_group(event: &Event) -> Option<&Vec<u8>> {
     match event {
         Event::Message {
-            body: Body::Receipt(_) | Body::Presence { .. },
+            body: Body::Receipt(_) | Body::Presence { .. } | Body::Read { .. },
             ..
         } => None,
         Event::Message { group, .. }
