@@ -1,5 +1,12 @@
 import Foundation
 
+/// Scale, birth and place codes by key, and the ISO country code or empty.
+struct ProfileDraft: Equatable, Sendable {
+    static let placeKey = "place"
+    var values: [String: UInt32] = [:]
+    var country = ""
+}
+
 /// Moves the current identity's JSON draft into the shared Rust store without erasing the source.
 struct ProfileRustDraftStore {
     let root: URL
@@ -12,8 +19,9 @@ struct ProfileRustDraftStore {
         ProfileDraftStore(root: root, candidate: candidate, peerId: peerId)
     }
 
-    private static func record(from values: [String: UInt32]) throws -> PublicProfileDraft {
-        _ = try ProfilePublicPreview(draft: values)
+    private static func record(from draft: ProfileDraft) throws -> PublicProfileDraft {
+        _ = try ProfilePublicPreview(draft: draft.values, country: draft.country)
+        let values = draft.values
         return PublicProfileDraft(
             gender: values["gender"] ?? 0,
             orientation: values["orientation"] ?? 0,
@@ -27,12 +35,12 @@ struct ProfileRustDraftStore {
             birthYear: values["birthYear"],
             birthMonth: values["birthMonth"],
             birthDay: values["birthDay"],
-            country: "",
-            place: ""
+            country: draft.country,
+            place: values[ProfileDraft.placeKey].map(String.init) ?? ""
         )
     }
 
-    static func values(from draft: PublicProfileDraft) -> [String: UInt32] {
+    static func values(from draft: PublicProfileDraft) -> ProfileDraft {
         var values: [String: UInt32] = [:]
         for (key, code) in [
             ("gender", draft.gender),
@@ -47,22 +55,23 @@ struct ProfileRustDraftStore {
         ] where code != 0 {
             values[key] = code
         }
-        return ProfileBirthParts(year: draft.birthYear, month: draft.birthMonth, day: draft.birthDay)
-            .inserted(into: values)
+        if let place = UInt32(draft.place) { values[ProfileDraft.placeKey] = place }
+        let birth = ProfileBirthParts(year: draft.birthYear, month: draft.birthMonth, day: draft.birthDay)
+        return ProfileDraft(values: birth.inserted(into: values), country: draft.country)
     }
 
-    func load() throws -> [String: UInt32]? {
+    func load() throws -> ProfileDraft? {
         if let saved = try loadProfileDraft(dir: directory.path, key: key) {
-            let values = Self.values(from: saved)
-            _ = try ProfilePublicPreview(draft: values)
-            return values
+            let draft = Self.values(from: saved)
+            _ = try ProfilePublicPreview(draft: draft.values, country: draft.country)
+            return draft
         }
         guard let old = try legacy.load() else { return nil }
-        try save(old)
-        return Self.values(from: try Self.record(from: old))
+        try save(ProfileDraft(values: old))
+        return Self.values(from: try Self.record(from: ProfileDraft(values: old)))
     }
 
-    func save(_ values: [String: UInt32]) throws {
-        try saveProfileDraft(dir: directory.path, key: key, draft: Self.record(from: values))
+    func save(_ draft: ProfileDraft) throws {
+        try saveProfileDraft(dir: directory.path, key: key, draft: Self.record(from: draft))
     }
 }

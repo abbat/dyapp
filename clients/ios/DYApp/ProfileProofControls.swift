@@ -179,7 +179,8 @@ struct ProfileProofControls: View {
         switch outcome {
         case .published(let snapshot):
             do {
-                publishedPreview = try ProfilePublicPreview(draft: snapshot.values)
+                let draft = snapshot.draft
+                publishedPreview = try ProfilePublicPreview(draft: draft.values, country: draft.country)
                 published = snapshot
             } catch {
                 publishErrorKey = "profile.publishError.readback"

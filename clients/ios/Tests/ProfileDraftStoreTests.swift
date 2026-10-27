@@ -14,16 +14,17 @@ final class ProfileDraftStoreTests: XCTestCase {
         try JSONEncoder().encode(["gender": UInt32(1), "birthMonth": 2, "birthDay": 29]).write(to: old)
         let store = ProfileRustDraftStore(root: root, candidate: candidate, peerId: first.peerId,
                                           key: try slots.open(candidate.location))
-        XCTAssertEqual(try store.load(), ["gender": 1, "birthMonth": 2, "birthDay": 29])
+        let imported = ProfileDraft(values: ["gender": 1, "birthMonth": 2, "birthDay": 29])
+        XCTAssertEqual(try store.load(), imported)
         XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath:
             RustBridge.networkDirectory(root: root, candidate: candidate)
                 .appendingPathComponent("client.db").path))
 
         try ProfileDraftStore(root: root, candidate: candidate, peerId: first.peerId).save(["gender": 2])
-        XCTAssertEqual(try store.load(), ["gender": 1, "birthMonth": 2, "birthDay": 29])
-        try store.save(["gender": 3])
-        XCTAssertEqual(try store.load(), ["gender": 3])
+        XCTAssertEqual(try store.load(), imported)
+        try store.save(ProfileDraft(values: ["gender": 3]))
+        XCTAssertEqual(try store.load(), ProfileDraft(values: ["gender": 3]))
         XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
 
         let second = try slots.create()
@@ -31,9 +32,18 @@ final class ProfileDraftStoreTests: XCTestCase {
         let other = ProfileRustDraftStore(root: root, candidate: otherCandidate, peerId: second.peerId,
                                           key: try slots.open(otherCandidate.location))
         XCTAssertNil(try other.load())
-        try other.save([:])
-        XCTAssertEqual(try other.load(), [:])
-        XCTAssertEqual(try store.load(), ["gender": 3])
+        try other.save(ProfileDraft())
+        XCTAssertEqual(try other.load(), ProfileDraft())
+        XCTAssertEqual(try store.load(), ProfileDraft(values: ["gender": 3]))
+
+        // Berlin is GeoNames 2950159; it round-trips only with its own country.
+        let berlin = ProfileDraft(values: [ProfileDraft.placeKey: 2_950_159], country: "DE")
+        try store.save(berlin)
+        XCTAssertEqual(try store.load(), berlin)
+        XCTAssertThrowsError(try store.save(ProfileDraft(values: berlin.values, country: "FR")))
+        XCTAssertThrowsError(try store.save(ProfileDraft(values: berlin.values)))
+        XCTAssertThrowsError(try store.save(ProfileDraft(country: "XX")))
+        XCTAssertEqual(try store.load(), berlin)
     }
 
     func testFailedRustImportLeavesJSONAvailableForRetry() throws {

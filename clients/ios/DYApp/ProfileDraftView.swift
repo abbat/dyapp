@@ -100,18 +100,25 @@ struct ProfilePublicField: Equatable {
     let choiceKey: String
 }
 
-/// An exact public projection of the saved draft. Zero means unpublished for every scale.
+/// An exact public projection of the saved draft. Zero means unpublished for every scale; a place
+/// counts only when the picker offers it in `country`.
 struct ProfilePublicPreview {
     let fields: [ProfilePublicField]
     let birth: ProfileBirthParts
+    let country: String
+    let place: UInt32?
     let youngest: UInt32?
     let oldest: UInt32?
 
-    init(draft: [String: UInt32]) throws {
+    init(draft: [String: UInt32], country: String = "") throws {
         var selected: [ProfilePublicField] = []
         let scales = profileScales()
-        let known = Set(scales.map(\.key)).union(ProfileBirthParts.keys)
+        let known = Set(scales.map(\.key)).union(ProfileBirthParts.keys).union([ProfileDraft.placeKey])
         guard draft.keys.allSatisfy(known.contains) else { throw CocoaError(.fileReadCorruptFile) }
+        let place = draft[ProfileDraft.placeKey]
+        guard country.isEmpty || placeCountries().contains(country),
+              place.map({ placeName(country: country, id: $0, lang: "en") != nil }) ?? true
+        else { throw CocoaError(.fileReadCorruptFile) }
         for scale in scales {
             let code = draft[scale.key] ?? 0
             guard code != 0 else { continue }
@@ -125,6 +132,8 @@ struct ProfilePublicPreview {
         guard assessment.valid else { throw ProfileBirthError.invalid }
         fields = selected
         self.birth = birth
+        self.country = country
+        self.place = place
         youngest = assessment.youngest
         oldest = assessment.oldest
     }
@@ -136,6 +145,8 @@ struct ProfileDraftView: View {
     let peerId: String
     @State private var values: [String: UInt32] = [:]
     @State private var savedValues: [String: UInt32] = [:]
+    @State private var country = ""
+    @State private var savedCountry = ""
     @State private var birthYear = ""
     @State private var birthMonth = ""
     @State private var birthDay = ""
@@ -158,7 +169,7 @@ struct ProfileDraftView: View {
     @State private var isSolving = false
 
     private var hasUnsavedEdits: Bool {
-        values != savedValues || birthYear != savedBirthYear ||
+        values != savedValues || country != savedCountry || birthYear != savedBirthYear ||
             birthMonth != savedBirthMonth || birthDay != savedBirthDay
     }
 
@@ -251,6 +262,8 @@ struct ProfileDraftView: View {
         hasSavedDraft = false
         values = [:]
         savedValues = [:]
+        country = ""
+        savedCountry = ""
         birthYear = ""
         birthMonth = ""
         birthDay = ""
@@ -271,8 +284,10 @@ struct ProfileDraftView: View {
         case .loaded(let decoded):
             if let decoded {
                 hasSavedDraft = true
-                values = decoded.filter { !ProfileBirthParts.keys.contains($0.key) }
-                let birth = ProfileBirthParts(draft: decoded)
+                values = decoded.values.filter { !ProfileBirthParts.keys.contains($0.key) }
+                country = decoded.country
+                savedCountry = country
+                let birth = ProfileBirthParts(draft: decoded.values)
                 birthYear = birth.year.map(String.init) ?? ""
                 birthMonth = birth.month.map(String.init) ?? ""
                 birthDay = birth.day.map(String.init) ?? ""
@@ -295,13 +310,13 @@ struct ProfileDraftView: View {
         do {
             let birth = try ProfileBirthParts(yearText: birthYear, monthText: birthMonth, dayText: birthDay)
             try birth.validate()
-            let draft = birth.inserted(into: values)
+            let draft = ProfileDraft(values: birth.inserted(into: values), country: country)
             let selected = candidate
             let selectedPeer = peerId
             status = ""
             isSaving = true
             let saved = await Task.detached(priority: .userInitiated) {
-                (try? RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, values: draft)) != nil
+                (try? RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, draft: draft)) != nil
             }.value
             isSaving = false
             guard !Task.isCancelled else { return }
@@ -309,6 +324,7 @@ struct ProfileDraftView: View {
             if saved {
                 hasSavedDraft = true
                 savedValues = values
+                savedCountry = country
                 savedBirthYear = birthYear
                 savedBirthMonth = birthMonth
                 savedBirthDay = birthDay
@@ -462,7 +478,7 @@ struct ProfilePreviewView: View {
         case .loaded(let draft):
             if let draft {
                 do {
-                    preview = try ProfilePublicPreview(draft: draft)
+                    preview = try ProfilePublicPreview(draft: draft.values, country: draft.country)
                 } catch {
                     readFailed = true
                 }

@@ -9,7 +9,7 @@ struct IdentityInventoryRow: Identifiable, Sendable {
 
 struct PublishedProfileSnapshot: Sendable {
     let version: UInt64
-    let values: [String: UInt32]
+    let draft: ProfileDraft
 }
 
 /// Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings.
@@ -90,7 +90,7 @@ enum RustBridge {
     }
 
     /// Reopen the selected key and load its Rust profile draft, importing old JSON once if needed.
-    static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws -> [String: UInt32]? {
+    static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws -> ProfileDraft? {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         return try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).load()
@@ -98,10 +98,10 @@ enum RustBridge {
 
     /// Persist exact optional profile fields to this identity's Rust client database.
     static func storeProfileDraft(for candidate: IdentityCandidate, peerId: String,
-                                  values: [String: UInt32]) throws {
+                                  draft: ProfileDraft) throws {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).save(values)
+        try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).save(draft)
     }
 
     /// Publish only the selected identity's solved draft through its active network, off the UI thread.
@@ -118,7 +118,7 @@ enum RustBridge {
         #endif
         let result = try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested)
         return PublishedProfileSnapshot(version: result.version,
-                                        values: ProfileRustDraftStore.values(from: result.draft))
+                                        draft: ProfileRustDraftStore.values(from: result.draft))
     }
 
     /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
