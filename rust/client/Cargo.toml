@@ -14,6 +14,7 @@ dyapp-p2p-net = { path = "../p2p-net" }
 dyapp-profile = { path = "../profile" }
 getrandom = "0.4"
 libp2p = "0.57"
+miniz_oxide = "0.8"
 prost.workspace = true
 rusqlite = { version = "0.40", features = ["bundled"] }
 thiserror = "2"

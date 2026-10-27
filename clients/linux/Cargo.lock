@@ -1428,6 +1428,7 @@ dependencies = [
  "dyapp-profile",
  "getrandom 0.4.3",
  "libp2p",
+ "miniz_oxide 0.8.9",
  "prost",
  "rusqlite",
  "thiserror 2.0.21",

@@ -5,3 +5,9 @@ rust/bootstrap/data/places.bin is derived from GeoNames cities1000
 (https://www.geonames.org/), licensed under CC BY 4.0
 (https://creativecommons.org/licenses/by/4.0/). Changes: only the country code and
 GeoNames ID of each entry are kept.
+
+rust/client/data/places.z is derived from GeoNames cities15000, admin1CodesASCII and
+alternateNames (https://www.geonames.org/), licensed under CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Changes: only the country code, GeoNames ID,
+first-level region, English and Russian names and the bit length of the population of each
+entry are kept.

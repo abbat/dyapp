@@ -7,4 +7,4 @@ hax = "hax"
 
 [files]
 # Raw fuzz inputs and the embedded GeoNames places.
-extend-exclude = ["tests/fuzz/corpus/", "rust/bootstrap/data/"]
+extend-exclude = ["tests/fuzz/corpus/", "rust/bootstrap/data/", "rust/client/data/"]

@@ -314,6 +314,12 @@ resent from the sender's retry queue.
   at most a few tens of thousands of IDs. A release refreshes the file with
   `tools/scripts/geonames-places.py`. The search index stores a place outside the set, or an empty
   one, as `""`: such a profile is found by its country only.
+- **Client place names.** The client core embeds GeoNames cities15000 (about 34k places of the
+  canonical set) with English and Russian names and first-level regions in
+  `rust/client/data/places.z`, about 490 KB of zlib text written by
+  `tools/scripts/geonames-names.py`. `dyapp_client::places` names a stored `place` and searches
+  a country's places by name prefix, largest first; it is inflated once on first use. The place
+  pickers in the apps are planned.
 - Every profile string follows one rule, `dyapp_profile::is_clean_text`: NFC, no control,
   format (bidi, zero-width) or private-use characters except ZWNJ and ZWJ; enum-like strings hold
   at most 64 characters and `interests` at most 32 items of 64; `publish` refuses a profile that

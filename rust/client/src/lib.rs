@@ -2,12 +2,13 @@
 //! mailbox requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
 //! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
 //! [`scores`] ranks nodes by the faults the client saw; [`compatibility`] compares verified
-//! public profiles locally.
+//! public profiles locally; [`places`] names and finds profile places.
 
 pub mod attachment;
 pub mod chat;
 pub mod compatibility;
 pub mod interactions;
+pub mod places;
 pub mod profiles;
 pub mod publish;
 pub mod scores;
