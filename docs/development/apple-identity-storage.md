@@ -141,6 +141,9 @@ loads the current slot JSON (including the older Peer-ID-named root copy), valid
 editable values and copies them into `client.db`. It leaves both JSON files intact, including after
 failed validation or storage, so migration can be retried. The editor and preview use this adapter
 off the UI thread; corrupted data blocks the editor rather than replacing it.
+The new Rust `ProfilePublisher` takes this selected identity folder and uses only its activated
+network settings to find a node. A draft network is never used for publication. Connection
+preparation does not alter the profile draft; the signed publish call is planned next.
 Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
 key and network files; the old root copy remains untouched.
 
