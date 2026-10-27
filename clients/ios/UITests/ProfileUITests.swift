@@ -79,8 +79,8 @@ final class ProfileUITests: XCTestCase {
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         rows.typeText("127.0.0.1:33445")
-        app.buttons["network-check"].tap()
-        let next = app.buttons["network-continue"]
+        reveal(app.buttons["network-check"], in: app).tap()
+        let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "enabled == true"), object: next
         ),
@@ -94,13 +94,6 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
         link.tap()
         XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
-    }
-
-    /// Form rows below the screen are created only once scrolled into view.
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<8 where !(element.exists && element.isHittable) {
-            app.swipeUp()
-        }
     }
 
     /// Give both fresh confirmations, then start the proof and publish.

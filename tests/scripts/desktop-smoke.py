@@ -357,8 +357,9 @@ def smoke(executable, flows=True):
             network(profile)
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             profile_draft(profile)
-    # dyappd runs on Linux only; linux-test.sh builds it beside the app.
-    if flows and sys.platform.startswith("linux"):
+    # linux-test.sh builds dyappd beside the app; Windows and the installed
+    # client packages have none.
+    if flows and Path(executable).with_name("dyappd").exists():
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             connect(profile)
     language_step = "--ui-test-step=settings-language"

@@ -34,6 +34,7 @@ struct ContentView: View {
             // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
             if case let .ready(candidate, peerId) = identity, activeNetwork == .needsSetup {
                 NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
+                    Text("app.name").font(.largeTitle)
                     Text(peerId).accessibilityIdentifier("peer-id")
                     NavigationLink(destination: settingsView(candidate, peerId)) {
                         Text("settings.title")

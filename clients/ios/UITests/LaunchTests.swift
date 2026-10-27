@@ -208,10 +208,10 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         rows.tap()
         rows.typeText("one.example:33445\ntwo.example:7070")
-        name.tap()
+        reveal(name, in: app).tap()
         name.typeText("friends")
-        save.tap()
-        let status = app.staticTexts["network-draft-status"]
+        reveal(save, in: app).tap()
+        let status = reveal(app.staticTexts["network-draft-status"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "Draft saved"), object: status
         ),
@@ -228,7 +228,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         XCTAssertEqual(app.textViews["network-bootstrap"].value as? String,
                        "one.example:33445\ntwo.example:7070")
-        XCTAssertEqual(app.textFields["network-name"].value as? String, "friends")
+        XCTAssertEqual(reveal(app.textFields["network-name"], in: app).value as? String, "friends")
         app.terminate()
     }
 
@@ -261,15 +261,15 @@ extension LaunchTests {
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         rows.typeText("not-an-address")
-        app.buttons["network-check"].tap()
+        reveal(app.buttons["network-check"], in: app).tap()
         let result = app.descendants(matching: .any)["network-row-0"]
-        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(result, in: app).exists)
         XCTAssertTrue(result.label.contains("Invalid address"), result.label)
-        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+        XCTAssertFalse(reveal(app.buttons["network-continue"], in: app).isEnabled)
         let retry = app.buttons["network-check"]
         XCTAssertEqual(retry.label, "Retry connection")
         retry.tap()
-        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(result, in: app).exists)
         app.terminate()
     }
 
@@ -287,10 +287,10 @@ extension LaunchTests {
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         rows.typeText("127.0.0.1:33445")
-        let next = app.buttons["network-continue"]
+        let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertFalse(next.isEnabled)
-        app.buttons["network-check"].tap()
-        let status = app.staticTexts["network-check-status"]
+        reveal(app.buttons["network-check"], in: app).tap()
+        let status = reveal(app.staticTexts["network-check-status"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
             object: status
@@ -321,14 +321,14 @@ extension LaunchTests {
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         rows.typeText("not-an-address\n127.0.0.1:33446\n127.0.0.1:33446\n127.0.0.1:33445/bad")
-        app.buttons["network-check"].tap()
+        reveal(app.buttons["network-check"], in: app).tap()
         let expected = ["Invalid address", "Unreachable", "Duplicate address", "Invalid peer ID"]
         for (index, word) in expected.enumerated() {
             let result = app.descendants(matching: .any)["network-row-\(index)"]
-            XCTAssertTrue(result.waitForExistence(timeout: 15))
+            XCTAssertTrue(reveal(result, in: app, timeout: 15).exists)
             XCTAssertTrue(result.label.contains(word), result.label)
         }
-        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+        XCTAssertFalse(reveal(app.buttons["network-continue"], in: app).isEnabled)
         app.terminate()
     }
 
@@ -346,13 +346,13 @@ extension LaunchTests {
         rows.tap()
         rows.typeText("127.0.0.1:33445")
         let name = app.textFields["network-name"]
-        name.tap()
+        reveal(name, in: app).tap()
         name.typeText("city")
-        app.buttons["network-check"].tap()
+        reveal(app.buttons["network-check"], in: app).tap()
         let result = app.descendants(matching: .any)["network-row-0"]
-        XCTAssertTrue(result.waitForExistence(timeout: 15))
+        XCTAssertTrue(reveal(result, in: app, timeout: 15).exists)
         XCTAssertTrue(result.label.contains("Wrong network"), result.label)
-        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+        XCTAssertFalse(reveal(app.buttons["network-continue"], in: app).isEnabled)
         app.terminate()
     }
 
@@ -369,11 +369,11 @@ extension LaunchTests {
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         rows.typeText("127.0.0.1:33447")
-        app.buttons["network-check"].tap()
-        let cancel = app.buttons["network-cancel"]
-        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        reveal(app.buttons["network-check"], in: app).tap()
+        let cancel = reveal(app.buttons["network-cancel"], in: app)
+        XCTAssertTrue(cancel.exists)
         cancel.tap()
-        let status = app.staticTexts["network-check-status"]
+        let status = reveal(app.staticTexts["network-check-status"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "Check cancelled"), object: status
         ),
@@ -382,9 +382,9 @@ extension LaunchTests {
         XCTAssertEqual(retry.label, "Retry connection")
         retry.tap()
         let result = app.descendants(matching: .any)["network-row-0"]
-        XCTAssertTrue(result.waitForExistence(timeout: 15))
+        XCTAssertTrue(reveal(result, in: app, timeout: 15).exists)
         XCTAssertTrue(result.label.contains("Unreachable"), result.label)
-        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
+        XCTAssertFalse(reveal(app.buttons["network-continue"], in: app).isEnabled)
 
         app.terminate()
         app.launch()
