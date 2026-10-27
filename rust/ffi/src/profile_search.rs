@@ -5,6 +5,7 @@ use crate::profile_network::{active_network, connect};
 use crate::profile_publish::POW_BITS;
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
+use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, SearchFailure};
 use dyapp_client::store::Store;
@@ -156,9 +157,10 @@ impl ProfileSearcher {
         let mut cache = self.cache.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
         let blocked = store.blocked_peers().map_err(failed)?;
+        let own = store.profile_draft().map_err(failed)?.unwrap_or_default();
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
-        let (mut reached, results) = self.runtime.block_on(async {
+        let (mut reached, mut results) = self.runtime.block_on(async {
             let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
             let mut entry = connect(&network).await?;
             let mut reached =
@@ -174,6 +176,7 @@ impl ProfileSearcher {
             .await;
             Ok::<_, CoreError>((reached, results))
         })?;
+        compatibility::rank(&own, &mut results.profiles);
         let profiles = results
             .profiles
             .into_iter()

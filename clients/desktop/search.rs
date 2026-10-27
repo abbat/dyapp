@@ -4,6 +4,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, SearchFailure};
 use dyapp_client::store::Store;
@@ -147,6 +148,7 @@ pub async fn search(
     let conditions = query.conditions(profile::today()?)?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let blocked = store.blocked_peers().map_err(|e| e.to_string())?;
+    let own = profile::stored(&store)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
@@ -155,7 +157,7 @@ pub async fn search(
     let mut reached = search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
     // A copy, so no lock is held across the network wait.
     let seen = cache.lock().map_err(|e| e.to_string())?.clone();
-    let results = search::search(
+    let mut results = search::search(
         &mut reached.nodes,
         &conditions,
         limit,
@@ -164,6 +166,7 @@ pub async fn search(
         &blocked,
     )
     .await;
+    compatibility::rank(&own, &mut results.profiles);
     let mut cache = cache.lock().map_err(|e| e.to_string())?;
     let profiles = results
         .profiles

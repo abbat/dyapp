@@ -120,7 +120,7 @@ fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
 
-fn stored(store: &Store) -> Result<Profile, String> {
+pub(crate) fn stored(store: &Store) -> Result<Profile, String> {
     let draft = store.profile_draft().map_err(|e| e.to_string())?;
     Ok(draft.unwrap_or_default())
 }
