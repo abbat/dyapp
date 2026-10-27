@@ -10,7 +10,7 @@ The network's capacity comes from `dyappd` nodes ([bootstrap](../architecture/bo
 bandwidth while the app is open, but the Linux app (`clients/linux`) is a light client: it depends
 on `dyapp-client` and not on `dyapp-bootstrap`. Mobile devices have neither the battery nor the
 background time for node work. A desktop behind NAT is useful to others only when AutoNAT confirms
-it is reachable; hole punching and relays are separate work.
+it is reachable; hole punching and relays are [ADR 0031](0031-circuit-relay-and-hole-punching.md).
 
 ## Decision
 

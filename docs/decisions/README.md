@@ -67,5 +67,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0028](0028-ordered-education-level.md) | Closed numeric scales for searchable profile categories |
 | [0029](0029-partial-public-birth-date.md) | Optional partial public birth date and derived age |
 | [0030](0030-desktop-full-node.md) | Desktop app runs node roles in process |
+| [0031](0031-circuit-relay-and-hole-punching.md) | Circuit relay on bootstrap nodes and hole punching |
 
 All listed ADRs are accepted.

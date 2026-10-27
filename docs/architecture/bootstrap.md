@@ -63,6 +63,7 @@ Each role is enabled separately in the node config:
 | media | media blobs and erasure-coded shards, thumbnails |
 | search | the search index over profiles collected from the whole network |
 | TURN | short-lived credentials for an operator-run coturn relay of call media |
+| relay | nothing; serves short circuit relay v2 slots to peers behind NAT (planned, [ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)) |
 
 Every role has its own DHT key space, so replicas for a role are chosen only among the nodes
 that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
