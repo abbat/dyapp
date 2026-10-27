@@ -124,7 +124,6 @@ async fn main() -> anyhow::Result<()> {
     config.resolve_secrets()?;
     config.validate()?;
     // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
-    // After validate: the /proc/self of a non-dumpable process belongs to root.
     #[cfg(target_os = "linux")]
     // SAFETY: PR_SET_DUMPABLE takes integers and touches no memory of the process.
     if unsafe { libc::prctl(libc::PR_SET_DUMPABLE, 0) } != 0 {

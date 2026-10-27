@@ -679,7 +679,9 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         ..Profile::default()
     }
     .sign(&identity);
-    let service = service_with(|l| l.requests_per_second = 5);
+    let mut service = service();
+    // A frozen bucket: a slow run must not refill the unit the next get is refused for.
+    service.rate_limiter = crate::rate_limit::PeerRateLimiter::frozen(5);
     assert_eq!(
         status(
             &service

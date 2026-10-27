@@ -3,7 +3,8 @@ use super::*;
 impl NodeConfig {
     /// Checks everything that could otherwise fail at runtime. Creates missing directories.
     pub fn validate(&self) -> anyhow::Result<()> {
-        if fs::metadata("/proc/self")?.uid() == 0 {
+        // SAFETY: geteuid has no preconditions; unlike /proc/self it also exists on macOS.
+        if unsafe { libc::geteuid() } == 0 {
             anyhow::bail!(message(
                 "refusing to run as root: start the node as an unprivileged user",
                 "запуск от root запрещён: запустите узел от непривилегированного пользователя"
