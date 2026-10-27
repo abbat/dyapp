@@ -40,7 +40,9 @@ after deletion. Separately confirm you are 18 or older for this attempt, then ch
 **Publish profile**. Editing the form or completing an attempt clears both confirmations.
 The app saves the current form, solves the profile puzzle and publishes to an active node;
 it checks the signed readback before reporting the version, then sends the profile to up to two
-search nodes so others can find it. You can stop puzzle work without
+search nodes so others can find it. The app sends a new version to search at most every ten minutes:
+until then the profile page says in how many minutes the changes appear in search, and the app
+sends them when that time ends or on the next start. You can stop puzzle work without
 losing the draft or its progress. A network failure keeps the draft for retry. A supplied
 birth date must be valid and, when it includes a year, must not allow an age under 18.
 

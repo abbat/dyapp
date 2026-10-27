@@ -370,6 +370,20 @@ async fn publish_profile(
     .map_err(|e| e.to_string())?
 }
 
+/// Sends the held profile once its search window has ended; see `profile::send_search`.
+#[tauri::command]
+async fn send_search_profile(
+    state: tauri::State<'_, IdentityState>,
+) -> Result<profile::View, String> {
+    let (identity, dir) = open_identity(&state)?;
+    // The client store is not `Sync`, as in `publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(profile::send_search(&dir, &identity))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Verified profile search on the active network; see `search::search`.
 #[tauri::command]
 async fn search_profiles(
@@ -476,6 +490,7 @@ fn main() {
             solve_profile,
             cancel_profile_solve,
             publish_profile,
+            send_search_profile,
             search_profiles,
             pseudo_locale,
             ui_test_russian,

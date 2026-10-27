@@ -95,6 +95,9 @@ pub struct View {
     pub ages: Option<(u32, u32)>,
     /// What blocks publishing besides the 18+ confirmation, as a [`code`].
     pub problem: Option<&'static str>,
+    /// Minutes, rounded up, until the published profile held by the search window reaches
+    /// search; `None` with nothing held.
+    pub search_minutes: Option<u64>,
 }
 
 /// The page's name for a [`Block`].
@@ -141,13 +144,27 @@ impl From<&Profile> for Draft {
     }
 }
 
-fn view(profile: &Profile, today: CivilDate) -> View {
-    View {
+fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<View, String> {
+    let search_minutes = match store {
+        Some(store) => store
+            .search_profile_minutes_left(unix_now()?)
+            .map_err(|e| e.to_string())?,
+        None => None,
+    };
+    Ok(View {
         draft: Draft::from(profile),
         published: profile.version,
         ages: profile.possible_age_range(today),
         problem: publish::check(profile, true, today).err().map(code),
-    }
+        search_minutes,
+    })
+}
+
+fn unix_now() -> Result<u64, String> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs())
 }
 
 fn blocked(block: Block) -> String {
@@ -158,12 +175,13 @@ fn blocked(block: Block) -> String {
 pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
     match std::fs::symlink_metadata(dir.join("client.db")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(view(&Profile::default(), today()?));
+            return view(&Profile::default(), today()?, None);
         }
         Err(error) => return Err(error.to_string()),
         Ok(_) => {}
     }
-    Ok(view(&stored(&open(dir, identity)?)?, today()?))
+    let store = open(dir, identity)?;
+    view(&stored(&store)?, today()?, Some(&store))
 }
 
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.
@@ -211,7 +229,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
     store
         .save_profile_draft(&profile)
         .map_err(|e| e.to_string())?;
-    Ok(view(&profile, today()?))
+    view(&profile, today()?, Some(&store))
 }
 
 /// Checks the draft, then advances its proof of work of `bits`, saving after each step so a
@@ -280,15 +298,43 @@ pub async fn publish(
     let published = publish::publish(&store, &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
-    // Best effort: a profile no search node took stays held for the next publish.
-    let protocols = Arc::new(Protocols::new(&active.name).map_err(|e| e.to_string())?);
-    let mut reached = search::connect_search_nodes(&mut node, protocols, SEARCH_NODES).await;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+    send_held(&store, &mut node, &active).await?;
+    view(&published, today, Some(&store))
+}
+
+/// Sends the published profile the search window holds once the window has ended, to up to
+/// [`SEARCH_NODES`] search nodes `node` finds on `network`. Best effort: a profile no node took
+/// stays held, and [`View::search_minutes`] says when to call [`send_search`].
+async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<(), String> {
+    if store
+        .due_search_profile(unix_now()?)
         .map_err(|e| e.to_string())?
-        .as_secs();
-    let _ = search::publish_due(&store, &mut reached.nodes, now).await;
-    Ok(view(&published, today))
+        .is_none()
+    {
+        return Ok(());
+    }
+    let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
+    let mut reached = search::connect_search_nodes(node, protocols, SEARCH_NODES).await;
+    let _ = search::publish_due(store, &mut reached.nodes, unix_now()?).await;
+    Ok(())
+}
+
+/// Sends a held profile whose search window has ended (see `send_held`) and returns the view.
+/// Errors are `notConnected` (no active network or no answering node) or a storage message.
+pub async fn send_search(dir: &Path, identity: &Identity) -> Result<View, String> {
+    let store = open(dir, identity)?;
+    if store
+        .due_search_profile(unix_now()?)
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {
+        let active = network::load(dir, Settings::Active)
+            .map_err(|e| e.to_string())?
+            .ok_or("notConnected")?;
+        let mut node = connect(&active).await?;
+        send_held(&store, &mut node, &active).await?;
+    }
+    view(&stored(&store)?, today()?, Some(&store))
 }
 
 #[cfg(test)]
@@ -364,6 +410,36 @@ mod tests {
         save(&dir, &alice, woman(Some(1990))).unwrap();
         let solved = stored(&store).unwrap();
         assert_eq!((solved.pow_bits, solved.birth_year), (4, Some(1990)));
+    }
+
+    #[tokio::test]
+    async fn the_view_says_when_a_held_profile_reaches_search() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
+        save(&dir, &alice, woman(None)).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
+        // Nothing is due, so nothing needs a network.
+        assert!(send_search(&dir, &alice).await.is_ok());
+        let store = open(&dir, &alice).unwrap();
+        let signed = |version| {
+            Profile {
+                version,
+                ..Profile::default()
+            }
+            .sign(&alice)
+        };
+        store.hold_search_profile(&signed(1)).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().search_minutes, Some(0));
+        assert_eq!(
+            send_search(&dir, &alice).await,
+            Err("notConnected".into())
+        );
+        store
+            .search_profile_sent(&signed(1), unix_now().unwrap())
+            .unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
+        store.hold_search_profile(&signed(2)).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().search_minutes, Some(10));
     }
 
     #[tokio::test]

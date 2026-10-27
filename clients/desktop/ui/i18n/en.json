@@ -87,6 +87,8 @@
   "profile.cancel": "Cancel puzzle work",
   "profile.solving": "Solving profile puzzle…",
   "profile.publishing": "Publishing and verifying readback…",
+  "profile.searchIn": "Changes appear in search in {minutes} min.",
+  "profile.searchPending": "Changes reach search when a search node accepts them.",
   "profile.published": "Published and verified. Version:",
   "profile.cancelled": "Puzzle work stopped. Draft and progress were kept.",
   "profile.notConnected": "No active network node answered. Check the connection, then retry.",

@@ -233,8 +233,25 @@ const profileDraft = () => ({
 const profileMessage = (key, detail = '') => {
   profileStatus.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
 };
+// While the search window holds the published profile, say when it reaches search and send it
+// once the window ends. A due profile no node took waits for the next publish or app start.
+const searchWait = document.getElementById('profile-search-wait');
+let searchWaitTimer;
+const sendSearchProfile = () => invoke('send_search_profile').then(showSearchWait, () => {});
+const showSearchWait = (view) => {
+  clearTimeout(searchWaitTimer);
+  const minutes = view.searchMinutes;
+  searchWait.hidden = minutes == null;
+  if (minutes == null) return;
+  searchWait.textContent = minutes
+    ? window.strings['profile.searchIn'].replace('{minutes}', String(minutes))
+    : window.strings['profile.searchPending'];
+  if (minutes) searchWaitTimer = setTimeout(sendSearchProfile, minutes * 60_000);
+};
 const showProfile = async () => {
   const [scales, view] = await Promise.all([invoke('profile_scales'), invoke('load_profile')]);
+  showSearchWait(view);
+  if (view.searchMinutes === 0) sendSearchProfile();
   scaleFields = scales;
   profileScales.replaceChildren(...scales.map((scale) => {
     const label = document.createElement('label');
@@ -370,6 +387,7 @@ document.getElementById('profile-publish').addEventListener('click', async () =>
     profileMessage('profile.publishing');
     const published = await invoke('publish_profile', { attested: true });
     previewProfile(published);
+    showSearchWait(published);
     profileMessage('profile.published', String(published.published));
   } catch (error) {
     profileFailure(error);
