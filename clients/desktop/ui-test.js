@@ -299,6 +299,30 @@ const checkSavedProfile = async () => {
     throw new Error('publish attestation survived restart');
   }
 };
+// Without a network the search asks to connect and offers a retry; on the loopback node it
+// returns the sample with the node's filters and no failures.
+const searchOnLoopback = async (connected) => {
+  document.getElementById('run-search').click();
+  await window.searchDone;
+  const status = document.getElementById('search-status').textContent;
+  const retry = !document.getElementById('search-retry').hidden;
+  if (!connected) {
+    if (status !== window.strings['search.notConnected'] || !retry) {
+      throw new Error(`search without a network: ${status}, retry ${retry}`);
+    }
+    return;
+  }
+  const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
+    .map((item) => item.dataset.peerId);
+  const sample = peers.length
+    ? status === `${window.strings['search.results']} ${peers.length}`
+    : status === window.strings['search.empty'];
+  if (!sample || retry || document.getElementById('search-failures').children.length
+    || document.getElementById('search-filters').hidden
+    || peers.some((peer) => peer !== document.getElementById('peer-id').textContent)) {
+    throw new Error(`loopback search: ${status}, peers ${peers}`);
+  }
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -363,6 +387,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'profile-publish-retry') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await publishProfileOnLoopback(true);
+    } else if (step === 'search-no-network' || step === 'search') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await searchOnLoopback(step === 'search');
     } else if (step === 'profile-publish') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await publishProfileOnLoopback();

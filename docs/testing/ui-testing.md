@@ -88,7 +88,9 @@ then compares the node's signed profile payload with the locally saved draft and
 post-publish UI readback fields, age range and full-date warning equal the reviewed preview. The
 same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
-then connects and retries it. After activation, the desktop test moves the network editor into
+and that search asks to connect with a retry, then connects and retries the publication. After it,
+a search on the node shows the sample (the own profile or none) with the node's filters and no
+failures. After activation, the desktop test moves the network editor into
 Settings and back, checks that draft rows and failed row statuses survive navigation, and compares
 the active network file byte for byte before and after a failed Settings check. A deterministic
 Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race the ordinary
@@ -97,8 +99,8 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 30 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the five that need dyappd (25) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 32 `desktop-smoke.py` cases under Xvfb and GNOME Keyring | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the seven that need dyappd (25) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 
@@ -234,11 +236,12 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 26 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 32 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
-  missing), connect the form, activate the network and publish the profile. This isolated fixture
-  uses an 8-bit node-ID puzzle in both the node and test-mode client; production keeps 22 bits.
+  missing), connect the form, activate the network, publish the profile and search for it. This
+  isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
+  keeps 22 bits.
 
 ### Reports on the host
 

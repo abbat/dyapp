@@ -280,6 +280,8 @@ def smoke(executable, flows=True):
                           profile, timeout=180)
             if failed != peer_id:
                 raise RuntimeError("failed publish replaced the identity")
+            case("search-no-network",
+                 [*file, "--ui-test-step=search-no-network"], profile)
             connected = case("network-connect",
                              [*file, f"--ui-test-step=connect:{seed}"],
                              profile)
@@ -301,6 +303,8 @@ def smoke(executable, flows=True):
             if published != peer_id:
                 raise RuntimeError("publishing replaced the identity")
             check_profile_readback(node, seed, peer_id, env, storage)
+            case("search", [*file, "--ui-test-step=search"], profile,
+                 timeout=180)
         finally:
             server.terminate()
             server.wait(timeout=30)
