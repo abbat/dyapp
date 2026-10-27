@@ -1,7 +1,6 @@
 package com.dyapp
 
 import android.content.Context
-import android.util.AtomicFile
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,45 +27,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import org.json.JSONObject
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.profileScales
 import java.io.File
-import java.io.FileNotFoundException
-import java.io.IOException
-
-internal fun readDraft(file: File, scales: List<ProfileScale>): Map<String, Int> {
-    val bytes = try {
-        AtomicFile(file).openRead().use { it.readBytes() }
-    } catch (_: FileNotFoundException) {
-        return emptyMap()
-    }
-    val json = JSONObject(bytes.toString(Charsets.UTF_8))
-    val values = json.keys().asSequence().associateWith { key ->
-        val value = json.getInt(key)
-        if (key !in BIRTH_KEYS) {
-            val scale = scales.firstOrNull { it.key == key }
-            require(scale != null && (value == 0 || scale.choices.any { it.code.toInt() == value }))
-        }
-        value
-    }
-    require(validBirthParts(values.filterKeys { it in BIRTH_KEYS }))
-    return values
-}
-
-private fun writeDraft(file: File, values: Map<String, Int>) {
-    val atomic = AtomicFile(file)
-    val stream = atomic.startWrite()
-    try {
-        val json = JSONObject()
-        values.forEach { (key, value) -> json.put(key, value) }
-        stream.write(json.toString().toByteArray(Charsets.UTF_8))
-        atomic.finishWrite(stream)
-    } catch (error: IOException) {
-        atomic.failWrite(stream)
-        throw error
-    }
-}
 
 @Composable
 internal fun label(context: Context, key: String): String {
@@ -98,21 +61,29 @@ private class BirthInputs(saved: Map<String, Int>) {
     var day by mutableStateOf(saved[BIRTH_DAY]?.toString().orEmpty())
 }
 
-private fun saveDraft(file: File, values: Map<String, Int>, birth: BirthInputs, context: Context): String {
+private fun saveDraft(file: File, values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs): Int {
     val parts = parseBirthParts(birth.year, birth.month, birth.day)
-        ?: return context.getString(R.string.profile_birth_invalid)
-    return runCatching { writeDraft(file, values.filterKeys { it !in BIRTH_KEYS } + parts) }
-        .fold({ context.getString(R.string.profile_saved) },
-            { context.getString(R.string.profile_save_failed) })
+    val picked = place.place?.let { mapOf(PLACE to it) }.orEmpty()
+    val kept = values.filterKeys { it !in BIRTH_KEYS && it != PLACE }
+    return when {
+        parts == null -> R.string.profile_birth_invalid
+        place.unknown -> R.string.profile_place_unknown
+        else -> runCatching { writeDraft(file, ProfileDraft(kept + parts + picked, place.country)) }
+            .fold({ R.string.profile_saved }, { R.string.profile_save_failed })
+    }
 }
 
 @Composable
-private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<String, Int>, onBack: () -> Unit) {
+private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: ProfileDraft, onBack: () -> Unit) {
     val context = LocalContext.current
-    val values = remember(file) { mutableStateMapOf<String, Int>().apply { putAll(saved) } }
+    val values = remember(file) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     var status by remember { mutableStateOf("") }
     var saves by remember { mutableIntStateOf(0) }
-    val birth = remember(file) { BirthInputs(saved) }
+    val birth = remember(file) { BirthInputs(saved.values) }
+    val lang = placeLang()
+    val place = remember(file) {
+        PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
+    }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -121,12 +92,13 @@ private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Map<
         for (scale in scales) {
             ScalePicker(scale, values[scale.key] ?: 0, { values[scale.key] = it }, context)
         }
+        PlacePicker(place)
         BirthDateFields(birth)
-        Button(onClick = { status = saveDraft(file, values, birth, context); saves++ },
+        Button(onClick = { status = context.getString(saveDraft(file, values, birth, place)); saves++ },
             modifier = Modifier.testTag("profile-save")) {
             Text(stringResource(R.string.profile_save))
         }
-        Text(status)
+        Text(status, Modifier.testTag("profile-status"))
         PreviewSection(file, scales, saves)
         OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }

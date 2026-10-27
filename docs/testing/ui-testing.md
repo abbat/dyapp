@@ -55,6 +55,9 @@ after a second launch. File-mode cases check the visible key-file path and backu
 system-mode cases check that no file path is shown. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
+The Android place picker test picks Germany, refuses to save unlisted text, picks Berlin from
+the "Berl" suggestions, previews the country and place, then clears the country and checks both
+are gone from the preview.
 Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
 isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
@@ -101,7 +104,7 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 16 instrumented (`AppUITests.kt` ×5, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×6, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 19 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 32 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 25 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the seven that need dyappd (25) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |

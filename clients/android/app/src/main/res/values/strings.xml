@@ -104,6 +104,9 @@
     <string name="profile_birth_month">Birth month</string>
     <string name="profile_birth_day">Birth day</string>
     <string name="profile_birth_invalid">Enter a possible date, or leave any part empty.</string>
+    <string name="profile_country">Country</string>
+    <string name="profile_place">Town or city</string>
+    <string name="profile_place_unknown">Pick a place from the suggestions for the chosen country.</string>
     <string name="profile_preview">Preview public profile</string>
     <string name="profile_preview_title">Public fields of the saved draft</string>
     <string name="profile_preview_empty">No profile field is selected for publication.</string>
