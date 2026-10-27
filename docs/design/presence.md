@@ -2,9 +2,10 @@
 
 This is the planned client contract for presence under
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): a match can see that the other side
-used the app recently, and the user can hide it. Only the wire body is implemented
-(`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class and dropped on
-receive); the audience setting, sending, receiving state and app UI are planned.
+used the app recently, and the user can hide it. Implemented in the Rust client: the wire body
+(`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class) and the store rules
+(`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules).
+Planned: the session send on foreground and apply on receive, the outbox expiry, and app UI.
 
 ## What a peer learns
 
