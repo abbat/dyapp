@@ -1085,6 +1085,54 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сохранённый черновик проходит проверку для публикации." } }
       }
     },
+    "profile.preparePublish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Prepare publication" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовить публикацию" } }
+      }
+    },
+    "profile.retryProof": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry preparation" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторить подготовку" } }
+      }
+    },
+    "profile.cancelProof": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancel preparation" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить подготовку" } }
+      }
+    },
+    "profile.proofNonce": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparation progress" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ход подготовки" } }
+      }
+    },
+    "profile.proofWorking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparing profile proof…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовка подтверждения профиля…" } }
+      }
+    },
+    "profile.proofReady": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparation complete." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовка завершена." } }
+      }
+    },
+    "profile.proofCancelled": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparation cancelled; saved progress is kept." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовка отменена; сохранённый прогресс не потерян." } }
+      }
+    },
+    "profile.proofFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparation failed. You can retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовка не удалась. Можно повторить." } }
+      }
+    },
     "profile.noPublicFields": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "No profile fields are selected for publication." } },

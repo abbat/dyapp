@@ -22,7 +22,10 @@ only selected public values, the exact birth parts and possible age, and warns t
 keep copies after deletion. A full date has an additional warning. Publication is planned.
 The editor also shows separate 18+ and public-data confirmations and the eligibility result for
 the saved draft. Changing or saving any field clears both confirmations. They are never needed to
-save or preview. Unsaved edits disable confirmation until saved; the publish action is planned.
+save or preview. Unsaved edits disable confirmation until saved; the network publish action is planned.
+After both confirmations and the eligibility check, **Prepare publication** runs the shared proof
+in short saved steps. **Cancel preparation** keeps the draft and progress; repeat the confirmations
+to retry. Network publication and its result screen are planned.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you click it. **Switch to this

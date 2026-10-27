@@ -151,12 +151,21 @@ struct ProfileDraftView: View {
     @State private var confirmedPublic = false
     @State private var publishBlock: String?
     @State private var eligibilityFailed = false
+    @State private var eligibilityChecked = false
     @State private var isCheckingEligibility = false
     @State private var eligibilityRevision = 0
+    @State private var profileRevision = 0
+    @State private var isSolving = false
 
     private var hasUnsavedEdits: Bool {
         values != savedValues || birthYear != savedBirthYear ||
             birthMonth != savedBirthMonth || birthDay != savedBirthDay
+    }
+
+    private var canPrepareProof: Bool {
+        hasSavedDraft && !hasUnsavedEdits && confirmedAdult && confirmedPublic && eligibilityChecked &&
+            publishBlock == nil && !eligibilityFailed && !isCheckingEligibility &&
+            !isLoading && !isSaving && !isSolving && !readFailed
     }
 
     var body: some View {
@@ -172,24 +181,24 @@ struct ProfileDraftView: View {
                             .tag(choice.code)
                     }
                 }
-                .disabled(isLoading || readFailed || isSaving)
+                .disabled(isLoading || readFailed || isSaving || isSolving)
             }
             TextField("profile.birthYear", text: $birthYear)
-                .disabled(isLoading || readFailed || isSaving)
+                .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-birth-year")
             TextField("profile.birthMonth", text: $birthMonth)
-                .disabled(isLoading || readFailed || isSaving)
+                .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-birth-month")
             TextField("profile.birthDay", text: $birthDay)
-                .disabled(isLoading || readFailed || isSaving)
+                .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-birth-day")
             Button("profile.save") { Task { await save() } }
-                .disabled(isLoading || readFailed || isSaving)
+                .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-save")
             NavigationLink("profile.preview") {
                 ProfilePreviewView(candidate: candidate, peerId: peerId)
             }
-            .disabled(isLoading || isSaving)
+            .disabled(isLoading || isSaving || isSolving)
             .accessibilityIdentifier("profile-preview")
             if !status.isEmpty {
                 Text(LocalizedStringKey(status))
@@ -198,13 +207,16 @@ struct ProfileDraftView: View {
             if isSaving { Text("profile.saving") }
             Section {
                 Toggle("profile.confirmAdult", isOn: $confirmedAdult)
-                    .disabled(isLoading || isSaving || readFailed || hasUnsavedEdits)
+                    .disabled(isLoading || isSaving || isSolving || readFailed || hasUnsavedEdits)
                     .accessibilityIdentifier("profile-confirm-adult")
                 Toggle("profile.confirmPublic", isOn: $confirmedPublic)
-                    .disabled(isLoading || isSaving || readFailed || hasUnsavedEdits)
+                    .disabled(isLoading || isSaving || isSolving || readFailed || hasUnsavedEdits)
                     .accessibilityIdentifier("profile-confirm-public")
                 Text(eligibilityStatus)
                     .accessibilityIdentifier("profile-publish-eligibility")
+                ProfileProofControls(candidate: candidate, peerId: peerId, canPrepare: canPrepareProof,
+                                     attested: confirmedAdult, resetToken: profileRevision,
+                                     isSolving: $isSolving, clearConfirmations: clearConfirmations)
             }
         }
         .navigationTitle("profile.title")
@@ -220,6 +232,7 @@ struct ProfileDraftView: View {
     private var eligibilityStatus: LocalizedStringKey {
         if !hasSavedDraft { return "profile.saveBeforePublish" }
         if hasUnsavedEdits { return "profile.saveChangesBeforePublish" }
+        if isSolving { return "profile.proofWorking" }
         if isCheckingEligibility { return "profile.checkingEligibility" }
         if eligibilityFailed { return "profile.eligibilityFailed" }
         if let publishBlock { return LocalizedStringKey("profile.publishBlocked.\(publishBlock)") }
@@ -308,11 +321,18 @@ struct ProfileDraftView: View {
 
     @MainActor
     private func invalidateConsent() {
+        profileRevision += 1
+        clearConfirmations()
+    }
+
+    @MainActor
+    private func clearConfirmations() {
         eligibilityRevision += 1
         confirmedAdult = false
         confirmedPublic = false
         publishBlock = nil
         eligibilityFailed = false
+        eligibilityChecked = false
         isCheckingEligibility = false
     }
 
@@ -320,10 +340,11 @@ struct ProfileDraftView: View {
     private func checkEligibility() async {
         eligibilityRevision += 1
         let revision = eligibilityRevision
-        guard hasSavedDraft && !hasUnsavedEdits && !isLoading && !readFailed else {
+        guard hasSavedDraft && !hasUnsavedEdits && !isLoading && !isSolving && !readFailed else {
             isCheckingEligibility = false
             return
         }
+        eligibilityChecked = false
         isCheckingEligibility = true
         let selected = candidate
         let selectedPeer = peerId
@@ -341,6 +362,7 @@ struct ProfileDraftView: View {
         }.value
         guard !Task.isCancelled && revision == eligibilityRevision else { return }
         isCheckingEligibility = false
+        eligibilityChecked = true
         switch result {
         case .ready:
             publishBlock = nil
@@ -352,6 +374,7 @@ struct ProfileDraftView: View {
 
         case .failed:
             eligibilityFailed = true
+            eligibilityChecked = false
         }
     }
 

@@ -17,7 +17,8 @@ targets:
     platform: iOS
     sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/IdentitySettingsView.swift,
               DYApp/NetworkDraftView.swift, DYApp/NetworkConnectionSession.swift,
-              DYApp/ProfileDraftView.swift, DYApp/ProfileRustDraftStore.swift, DYApp/RustBridge.swift,
+              DYApp/ProfileDraftView.swift, DYApp/ProfileRustDraftStore.swift,
+              DYApp/ProfileSolveSession.swift, DYApp/ProfileProofControls.swift, DYApp/RustBridge.swift,
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift,
               DYApp/Localizable.xcstrings,
