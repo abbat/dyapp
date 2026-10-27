@@ -50,6 +50,16 @@ pub fn countries() -> Vec<&'static str> {
     found
 }
 
+/// Whether profile `country` and `place` are each empty or offered by the picker; a place needs
+/// its country and is the canonical decimal ID.
+pub fn known(country: &str, place: &str) -> bool {
+    (country.is_empty() || countries().contains(&country))
+        && (place.is_empty()
+            || place.parse::<u32>().is_ok_and(|id| {
+                id.to_string() == place && self::place(country, id, "en").is_some()
+            }))
+}
+
 struct Row {
     country: &'static str,
     id: u32,

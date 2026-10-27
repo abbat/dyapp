@@ -26,7 +26,9 @@ struct ProfileRustDraftStore {
             zodiac: values["zodiac"] ?? 0,
             birthYear: values["birthYear"],
             birthMonth: values["birthMonth"],
-            birthDay: values["birthDay"]
+            birthDay: values["birthDay"],
+            country: "",
+            place: ""
         )
     }
 

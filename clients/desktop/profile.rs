@@ -171,16 +171,6 @@ impl From<&Profile> for Draft {
     }
 }
 
-/// Whether `country` and `place` are each empty or offered by the picker; a place needs its
-/// country.
-fn known_place(country: &str, place: &str) -> bool {
-    (country.is_empty() || places::countries().contains(&country))
-        && (place.is_empty()
-            || place.parse::<u32>().is_ok_and(|id| {
-                id.to_string() == place && places::place(country, id, "en").is_some()
-            }))
-}
-
 fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<View, String> {
     let search_minutes = match store {
         Some(store) => store
@@ -247,7 +237,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
             return Err("invalid profile scale".into());
         }
     }
-    if !known_place(&draft.country, &draft.place) {
+    if !places::known(&draft.country, &draft.place) {
         return Err("invalid place".into());
     }
     let store = open(dir, identity)?;

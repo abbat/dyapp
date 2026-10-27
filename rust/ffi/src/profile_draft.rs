@@ -33,6 +33,10 @@ pub struct PublicProfileDraft {
     pub birth_month: Option<u32>,
     /// Optional public birth day.
     pub birth_day: Option<u32>,
+    /// ISO 3166-1 alpha-2 code from `place_countries`, empty when unset.
+    pub country: String,
+    /// Decimal GeoNames ID of a place in `country`, empty when unset.
+    pub place: String,
 }
 
 impl From<&Profile> for PublicProfileDraft {
@@ -50,6 +54,8 @@ impl From<&Profile> for PublicProfileDraft {
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
+            country: profile.country.clone(),
+            place: profile.place.clone(),
         }
     }
 }
@@ -91,6 +97,9 @@ impl PublicProfileDraft {
         if !birth.valid_birth_parts() {
             return Err(CoreError::Failed("invalid birth date".into()));
         }
+        if !dyapp_client::places::known(&self.country, &self.place) {
+            return Err(CoreError::Failed("invalid place".into()));
+        }
         Ok(())
     }
 
@@ -107,6 +116,8 @@ impl PublicProfileDraft {
         profile.birth_year = self.birth_year;
         profile.birth_month = self.birth_month;
         profile.birth_day = self.birth_day;
+        profile.country.clone_from(&self.country);
+        profile.place.clone_from(&self.place);
     }
 }
 
@@ -183,6 +194,8 @@ mod tests {
         let draft = PublicProfileDraft {
             birth_month: Some(2),
             birth_day: Some(29),
+            country: "DE".into(),
+            place: "2950159".into(),
             ..Default::default()
         };
         save_profile_draft(dir.clone(), owner.clone(), draft.clone()).unwrap();
@@ -224,6 +237,19 @@ mod tests {
             ..Default::default()
         };
         assert!(save_profile_draft(dir.clone(), owner.clone(), impossible).is_err());
+        for (country, place) in [
+            ("XX", ""),
+            ("", "2950159"),
+            ("FR", "2950159"),
+            ("DE", "Berlin"),
+        ] {
+            let unknown = PublicProfileDraft {
+                country: country.into(),
+                place: place.into(),
+                ..Default::default()
+            };
+            assert!(save_profile_draft(dir.clone(), owner.clone(), unknown).is_err());
+        }
         assert_eq!(
             load_profile_draft(dir, owner).unwrap(),
             Some(PublicProfileDraft::default())
