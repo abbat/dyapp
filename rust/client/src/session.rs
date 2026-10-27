@@ -157,6 +157,12 @@ impl Session {
             }
             _ => None,
         };
+        let read = match body {
+            Body::Read { up_to } => {
+                Some((self.partner(group_id).ok_or(Error::UnknownGroup)?, *up_to))
+            }
+            _ => None,
+        };
         let group = self
             .groups
             .iter_mut()
@@ -190,6 +196,9 @@ impl Session {
                     .stage_interaction(&target, &source_device, event, &sealed, &writes)?;
             } else if let Some((target, hlc)) = &presence {
                 self.store.stage_presence(target, *hlc, &sealed, &writes)?;
+            } else if let Some((peer, up_to)) = &read {
+                self.store
+                    .stage_read(group_id, peer, *up_to, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
             } else if matches!(
@@ -430,6 +439,35 @@ impl Session {
             }
         }
         Ok(writes)
+    }
+
+    /// When the app shows a chat: send a read receipt for `seen`, the latest text from the other
+    /// owner of `group_id` on screen, if one is due ([read receipts](../../docs/design/read-receipts.md)).
+    /// Returns whether one was sent.
+    pub async fn mark_read(
+        &mut self,
+        nodes: &mut [Node],
+        group_id: &[u8],
+        seen: [u8; 16],
+        seal_key: &[u8; 32],
+    ) -> Result<bool, Error> {
+        let writes = self.stage_read(group_id, seen, seal_key)?;
+        let sent = !writes.is_empty();
+        self.send_staged(nodes, writes, seal_key).await?;
+        Ok(sent)
+    }
+
+    fn stage_read(
+        &mut self,
+        group_id: &[u8],
+        seen: [u8; 16],
+        seal_key: &[u8; 32],
+    ) -> Result<Vec<PreparedEnvelope>, Error> {
+        let peer = self.partner(group_id).ok_or(Error::UnknownGroup)?;
+        if !self.store.draft_read(group_id, &peer, seen)? {
+            return Ok(Vec::new());
+        }
+        self.stage_message(group_id, &Body::Read { up_to: seen }, seal_key)
     }
 
     async fn send_body(
@@ -794,6 +832,18 @@ impl Session {
                         applied?;
                     }
                 }
+            }
+        }
+        // Only the other owner of a one-to-one chat marks own texts read; a replay changes nothing.
+        if let Event::Message {
+            group,
+            sender,
+            body: Body::Read { up_to },
+            ..
+        } = &event
+        {
+            if !blocked && self.partner(group).as_ref() == Some(sender) {
+                self.store.receive_read(group, sender, *up_to)?;
             }
         }
         let staged = if matches!(event, Event::Refused(_)) {

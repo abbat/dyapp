@@ -4,9 +4,10 @@ This is the planned client contract for read receipts and typing indicators unde
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): both are MLS messages between chat
 members, never stored on nodes beyond mailbox delivery, and each can be turned off locally.
 Implemented in the Rust client: the read receipt wire body (`Body::Read` in
-`rust/client/src/chat.rs`, sent with the signal class and never shown in history), and the
-setting and read marks in the store (`rust/client/src/store/reads.rs`). Planned: the session send
-and apply, the app UI, and typing indicators.
+`rust/client/src/chat.rs`, sent with the signal class and never shown in history), the
+setting and read marks in the store (`rust/client/src/store/reads.rs`), and sending with
+`Session::mark_read` and applying in `Session::receive`. Planned: the app UI, and typing
+indicators.
 
 Read receipts are distinct from delivery receipts (`Body::Receipt`, tag 5,
 [messaging](../architecture/messaging.md)): a delivery receipt says a device committed envelopes

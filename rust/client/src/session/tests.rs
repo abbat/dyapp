@@ -623,3 +623,62 @@ fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
         Ok(Some(Event::Refused(_)))
     ));
 }
+
+#[test]
+fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
+    let seal_key = [5; 32];
+    let Invite {
+        mut session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&temp_path(), &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let (a, b) = (alice_id.peer_id(), bob_id.peer_id());
+    let id = group.id().to_vec();
+    let text = Body::text_with_id([1; 16], b"hi".to_vec());
+    let sent = chat::message(&mut group, &alice, &text);
+    session
+        .stage_envelope(&key(2), &sent.unwrap()[0].mls, &profiles, &seal_key)
+        .unwrap();
+
+    // Off by default; once on, one receipt per newly seen text.
+    let receipts = |s: &mut Session| s.stage_read(&id, [1; 16], &seal_key).unwrap().len();
+    assert_eq!(receipts(&mut session), 0);
+    session.store.set_send_read_receipts(true).unwrap();
+    assert_eq!(receipts(&mut session), 1);
+    assert_eq!(receipts(&mut session), 0);
+
+    // Alice's receipt marks Bob's own texts read, up to the one it names.
+    for own in [2, 3] {
+        let text = MessageKey {
+            group: id.clone(),
+            author: b.clone(),
+            id: [own; 16],
+        };
+        session.store.record_chat_text(&text, b"own").unwrap();
+    }
+    let read = |group: &mut dyapp_messaging::mls::Group, up_to| {
+        chat::message(group, &alice, &Body::Read { up_to }).unwrap()[0]
+            .mls
+            .clone()
+    };
+    let first = read(&mut group, [2; 16]);
+    assert!(matches!(
+        session.stage_envelope(&key(3), &first, &profiles, &seal_key),
+        Ok(Some(Event::Message { .. }))
+    ));
+    assert_eq!(session.store.read_up_to(&id, &a).unwrap(), Some([2; 16]));
+    session.store.set_blocked(&a, true).unwrap();
+    let blocked = read(&mut group, [3; 16]);
+    session
+        .stage_envelope(&key(4), &blocked, &profiles, &seal_key)
+        .unwrap();
+    assert_eq!(session.store.read_up_to(&id, &a).unwrap(), Some([2; 16]));
+    assert_eq!(session.acks([9; 32], vec![]).unwrap().len(), 4);
+}
