@@ -1,7 +1,7 @@
 # iOS client
 
 The `DYApp` client for iOS runs on iOS 15 or later. This first version is a minimal shell: it
-starts, renders and closes. Profiles, search and chats are planned.
+starts, renders and closes. Public profile publication, search and chats are planned.
 
 After creating or reopening an identity without an active network, the connection form opens
 automatically. An identity with an active network reaches Ready; **Network connection** opens
@@ -12,6 +12,11 @@ identity across restarts without changing the active connection.
 **Check connection** saves the draft and shows an outcome beside each address; it does not
 activate the network until you tap **Continue** after a compatible result. Cancel stops a running
 check; Retry reuses the draft. Continue opens the profile editor after activation succeeds.
+
+The public profile draft editor has nine optional pickers; **Not published** leaves each one
+unset. Birth year, month and day are also independent optional fields. **Save draft** checks any
+supplied combination with the shared profile rules and stores it beside this identity; an invalid
+date leaves the prior draft unchanged. Public preview and publication are planned.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you tap it. **Switch to this

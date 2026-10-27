@@ -971,6 +971,30 @@
         }
       }
     },
+    "profile.birthYear": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Birth year (optional)" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Год рождения (необязательно)" } }
+      }
+    },
+    "profile.birthMonth": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Birth month (optional)" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Месяц рождения (необязательно)" } }
+      }
+    },
+    "profile.birthDay": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "День рождения (необязательно)" } }
+      }
+    },
+    "profile.invalidBirthDate": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Correct the birth date." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Исправьте дату рождения." } }
+      }
+    },
     "profile.saved": {
       "localizations": {
         "en": {
