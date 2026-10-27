@@ -92,6 +92,46 @@ extension LaunchTests {
 }
 
 extension LaunchTests {
+    @objc
+    func testRemovalConfirmationRussianAndPseudoLanguage() {
+        let russian = unlockedApp()
+        russian.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        russian.launch()
+        createIdentity(russian)
+        russian.buttons["settings-open"].tap()
+        let remove = russian.buttons["settings-remove"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 10))
+        XCTAssertEqual(remove.label, "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{44d}\u{442}\u{443} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}")
+        remove.tap()
+        let alert = russian.alerts["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.buttons["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{43d}\u{430}\u{432}\u{441}\u{435}\u{433}\u{434}\u{430}"].exists)
+        alert.buttons["\u{41e}\u{441}\u{442}\u{430}\u{432}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}"].tap()
+        XCTAssertTrue(russian.descendants(matching: .any)["settings-active"].exists)
+        russian.terminate()
+
+        let pseudo = unlockedApp()
+        pseudo.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
+        pseudo.launch()
+        createIdentity(pseudo)
+        pseudo.buttons["settings-open"].tap()
+        let pseudoRemove = pseudo.buttons["settings-remove"]
+        XCTAssertTrue(pseudoRemove.waitForExistence(timeout: 10))
+        XCTAssertTrue(pseudoRemove.label.hasPrefix("Remove this identity"))
+        XCTAssertTrue(pseudoRemove.label.count >= 2 * "Remove this identity".count)
+        XCTAssertTrue(pseudoRemove.isHittable)
+        pseudoRemove.tap()
+        let cancel = pseudo.alerts.buttons.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Keep identity"
+        )).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
+        pseudo.terminate()
+    }
+}
+
+extension LaunchTests {
     func testSettingsCreatesAndSwitchesWithoutReplacingKeys() {
         let app = unlockedApp()
         app.launch()
