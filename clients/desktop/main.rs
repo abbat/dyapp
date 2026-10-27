@@ -375,14 +375,13 @@ async fn publish_profile(
 async fn search_profiles(
     state: tauri::State<'_, IdentityState>,
     searching: tauri::State<'_, search::SearchState>,
-    conditions: Vec<search::Condition>,
-    limit: u32,
+    query: search::Query,
 ) -> Result<search::Results, String> {
     let (identity, dir) = open_identity(&state)?;
     let cache = Arc::clone(&searching.0);
     // The client store is not `Sync`, so the search runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
-        tauri::async_runtime::block_on(search::search(&cache, &dir, &identity, conditions, limit))
+        tauri::async_runtime::block_on(search::search(&cache, &dir, &identity, query))
     })
     .await
     .map_err(|e| e.to_string())?

@@ -1,8 +1,8 @@
 # Linux desktop client
 
 The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local identities,
-connects to bootstrap nodes and edits and publishes a public profile. Search and chats in
-the window are planned.
+connects to bootstrap nodes, edits and publishes a public profile and searches published
+profiles. Chats in the window are planned.
 
 ## Settings
 
@@ -42,6 +42,21 @@ The app saves the current form, solves the profile puzzle and publishes to an ac
 it checks the signed readback before reporting the version. You can stop puzzle work without
 losing the draft or its progress. A network failure keeps the draft for retry. A supplied
 birth date must be valid and, when it includes a year, must not allow an age under 18.
+
+## Find people
+
+**Search** asks up to three search nodes of the active network for a sample of published
+profiles. A sample is not a complete list, and profile fields are what each person states about
+themselves. The app checks every profile's signature and filters before showing it and drops the
+rest. After the first sample, filters appear for the fields every reached node offers: an age
+range (18 or older), a two-letter country code and the profile values. The filters you set stay
+in the form. Each result shows the Peer ID; open it to see the public fields.
+
+While a search runs, its buttons are disabled; the rest of the window stays usable. An empty
+sample means it contained no verified matches, not that none exist. When some nodes fail, the
+matches found are kept, each node problem is listed (no node, unreachable, timeout, busy with the
+seconds to wait, an unsolved puzzle or a forged reply) and **Retry** asks again. **Load another
+sample** runs the same search again.
 
 ## Build
 

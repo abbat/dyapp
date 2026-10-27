@@ -103,7 +103,7 @@ pub fn code(block: Block) -> &'static str {
     }
 }
 
-fn today() -> Result<CivilDate, String> {
+pub fn today() -> Result<CivilDate, String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?;

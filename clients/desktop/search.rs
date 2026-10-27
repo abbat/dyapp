@@ -9,7 +9,9 @@ use dyapp_client::search::{self, SearchFailure};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
+use dyapp_p2p_net::search_results::Filter;
 use dyapp_p2p_net::{proto, Protocols};
+use dyapp_profile::CivilDate;
 
 use crate::profile::{self, Draft};
 
@@ -47,6 +49,32 @@ impl TryFrom<Condition> for proto::Condition {
             ints: condition.ints,
             strings: condition.strings,
         })
+    }
+}
+
+/// One search as the page sends it.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct Query {
+    /// Inclusive years; the lower bound is raised to 18.
+    pub age: Option<(u32, u32)>,
+    pub conditions: Vec<Condition>,
+    /// Hits per node; 0 means 50.
+    pub limit: u32,
+}
+
+impl Query {
+    /// Node conditions with the age range resolved to birth-date bounds at `today`.
+    fn conditions(self, today: CivilDate) -> Result<Vec<proto::Condition>, String> {
+        let age = Filter {
+            age: self.age,
+            ..Filter::default()
+        };
+        let mut out = age.conditions(today).map_err(|_| "invalid search age")?;
+        for condition in self.conditions {
+            out.push(condition.try_into()?);
+        }
+        Ok(out)
     }
 }
 
@@ -104,21 +132,19 @@ pub struct Results {
 }
 
 /// Searches up to `limit` hits per node (0 means 50) of up to 3 search providers of the active
-/// network, with the publish proof-of-work minimum and without blocked peers; no conditions
-/// asks for a sample. Each call connects again, so retry is a new call. Errors are
-/// `notConnected` (no active network or no answering node), `invalid search op` or a storage
-/// message.
+/// network, with the publish proof-of-work minimum and without blocked peers; `age` is an
+/// inclusive range of years, checked against public birth dates today; no conditions asks for a
+/// sample. Each call connects again, so retry is a new call. Errors are `notConnected` (no
+/// active network or no answering node), `invalid search op`, `invalid search age` or a
+/// storage message.
 pub async fn search(
     cache: &Mutex<Profiles>,
     dir: &Path,
     identity: &Identity,
-    conditions: Vec<Condition>,
-    limit: u32,
+    query: Query,
 ) -> Result<Results, String> {
-    let conditions = conditions
-        .into_iter()
-        .map(proto::Condition::try_from)
-        .collect::<Result<Vec<_>, _>>()?;
+    let limit = query.limit;
+    let conditions = query.conditions(profile::today()?)?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let blocked = store.blocked_peers().map_err(|e| e.to_string())?;
     let active = network::load(dir, Settings::Active)
@@ -167,6 +193,7 @@ pub async fn search(
 mod tests {
     use super::*;
     use dyapp_identity::network::Network;
+    use dyapp_p2p_net::search_results::BIRTH_AGE;
     use std::net::TcpListener;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -183,7 +210,13 @@ mod tests {
     #[tokio::test]
     async fn search_needs_an_answering_active_network_and_retries_by_calling_again() {
         let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
-        let run = |conditions| search(&cache, &dir, &alice, conditions, 0);
+        let run = |conditions| {
+            let query = Query {
+                conditions,
+                ..Query::default()
+            };
+            search(&cache, &dir, &alice, query)
+        };
         assert_eq!(run(Vec::new()).await, Err("notConnected".into()));
         let bad = Condition {
             field: 1,
@@ -203,6 +236,32 @@ mod tests {
         network::save(&dir, Settings::Active, &unreachable).unwrap();
         assert!(run(Vec::new()).await.is_err());
         assert!(run(Vec::new()).await.is_err());
+    }
+
+    #[test]
+    fn an_age_range_becomes_birth_bounds_before_the_other_conditions() {
+        let today = CivilDate::from_unix_days(20_000).unwrap();
+        let gender = Condition {
+            field: 26,
+            op: "eq".into(),
+            ints: vec![1],
+            strings: Vec::new(),
+        };
+        let query = |age| Query {
+            age,
+            conditions: vec![gender.clone()],
+            limit: 0,
+        };
+        let out = query(Some((20, 30))).conditions(today).unwrap();
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].field, BIRTH_AGE);
+        assert_eq!(out[0].op, i32::from(proto::Op::Range));
+        assert_eq!((out[1].field, out[1].ints.clone()), (26, vec![1]));
+        assert_eq!(query(None).conditions(today).unwrap().len(), 1);
+        assert_eq!(
+            query(Some((30, 20))).conditions(today),
+            Err("invalid search age".into())
+        );
     }
 
     #[test]

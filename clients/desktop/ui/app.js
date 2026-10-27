@@ -265,22 +265,27 @@ const showProfile = async () => {
   profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
     view.published ? String(view.published) : '');
 };
-const previewProfile = (view) => {
+// Labelled public fields of a draft, or the empty notice.
+const publicFields = (draft) => {
   const fields = scaleFields.flatMap((scale) => {
-    const option = scale.choices.find((choice) => choice.code === view.draft[camel(scale.key)]);
+    const option = scale.choices.find((choice) => choice.code === draft[camel(scale.key)]);
     return option ? [`${window.strings[`profile.field.${scale.key}`]}: ${window.strings[
       `profile.value.${scale.key}.${option.key}`]}`] : [];
   });
   for (const part of ['year', 'month', 'day']) {
-    const value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`];
+    const value = draft[`birth${part[0].toUpperCase()}${part.slice(1)}`];
     if (value !== null) fields.push(`${window.strings[`profile.birth${part[0].toUpperCase()}${part.slice(1)}`]}: ${value}`);
   }
-  const list = document.getElementById('profile-public-fields');
-  list.replaceChildren(...(fields.length ? fields : [window.strings['profile.empty']]).map((value) => {
-    const item = document.createElement('li');
-    item.textContent = value;
-    return item;
-  }));
+  return fields.length ? fields : [window.strings['profile.empty']];
+};
+const listItems = (values) => values.map((value) => {
+  const item = document.createElement('li');
+  item.textContent = value;
+  return item;
+});
+const previewProfile = (view) => {
+  document.getElementById('profile-public-fields')
+    .replaceChildren(...listItems(publicFields(view.draft)));
   const [youngest, oldest] = view.ages || [];
   document.getElementById('profile-age').textContent = view.ages
     ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
@@ -376,6 +381,135 @@ document.getElementById('profile-publish').addEventListener('click', async () =>
   }
 });
 
+// A verified sample from the active network's search nodes. The query stays in the form, and
+// filters appear only for fields every reached node offers and the client re-checks.
+const searchForm = document.getElementById('search');
+const searchRetry = document.getElementById('search-retry');
+const searchAgain = document.getElementById('search-again');
+const searchResults = document.getElementById('search-results');
+const searchFailures = document.getElementById('search-failures');
+const COUNTRY_FIELD = 4;
+const BIRTH_AGE_FIELD = 1001;
+let searchBusy = false;
+const searchMessage = (key, detail = '') => {
+  document.getElementById('search-status').textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
+};
+// Hidden filters are disabled, so they neither block validation nor reach the query.
+const showFilter = (element, shown) => {
+  element.hidden = !shown;
+  for (const input of element.querySelectorAll('input, select')) input.disabled = !shown || searchBusy;
+};
+const showSearchFilters = (offered) => {
+  const scales = document.getElementById('search-scales');
+  const kept = new Map([...scales.querySelectorAll('select')].map((select) => [select.id, select.value]));
+  scales.replaceChildren(...scaleFields.filter((scale) => offered.includes(scale.field)).map((scale) => {
+    const label = document.createElement('label');
+    const select = document.createElement('select');
+    select.id = `search-${scale.key}`;
+    select.dataset.field = String(scale.field);
+    label.htmlFor = select.id;
+    label.textContent = window.strings[`profile.field.${scale.key}`];
+    const any = document.createElement('option');
+    any.value = '0';
+    any.textContent = window.strings['search.any'];
+    select.append(any, ...scale.choices.map((choice) => {
+      const option = document.createElement('option');
+      option.value = String(choice.code);
+      option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+      return option;
+    }));
+    select.value = kept.get(select.id) || '0';
+    const row = document.createElement('div');
+    row.append(label, select);
+    return row;
+  }));
+  showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
+  showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
+  showFilter(scales, true);
+  document.getElementById('search-filters').hidden = !offered.length;
+};
+const searchQuery = () => {
+  const filled = (id) => !document.getElementById(id).disabled && document.getElementById(id).value.trim();
+  const conditions = [...document.querySelectorAll('#search-scales select:enabled')]
+    .filter((select) => select.value !== '0')
+    .map((select) => ({ field: Number(select.dataset.field), op: 'eq', ints: [Number(select.value)] }));
+  const country = filled('search-country');
+  if (country) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [country.toUpperCase()] });
+  const [min, max] = [filled('search-age-min'), filled('search-age-max')];
+  const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
+  return { age, conditions, limit: 0 };
+};
+const failureText = (failure) => {
+  const text = window.strings[`search.failure.${failure.kind}`];
+  return failure.kind === 'rateLimited' ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}` : text;
+};
+// Results show only public fields; nothing marks a self-declared claim as verified.
+const foundItem = (found) => {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = found.peerId;
+  const fields = document.createElement('ul');
+  fields.replaceChildren(...listItems(publicFields(found.draft)));
+  details.append(summary, fields);
+  const item = document.createElement('li');
+  item.dataset.peerId = found.peerId;
+  item.append(details);
+  return item;
+};
+// Loading blocks repeated requests, not navigation.
+const setSearchBusy = (busy) => {
+  searchBusy = busy;
+  for (const button of searchForm.querySelectorAll('button')) button.disabled = busy;
+  for (const input of searchForm.querySelectorAll('input, select')) {
+    input.disabled = busy || Boolean(input.closest('[hidden]'));
+  }
+};
+const runSearch = async () => {
+  if (searchBusy || !searchForm.reportValidity()) return;
+  const query = searchQuery();
+  setSearchBusy(true);
+  searchRetry.hidden = true;
+  searchAgain.hidden = true;
+  searchMessage('search.loading');
+  try {
+    const result = await invoke('search_profiles', { query });
+    showSearchFilters(result.offered);
+    searchFailures.replaceChildren(...listItems(result.failures.map(failureText)));
+    searchResults.replaceChildren(...result.profiles.map(foundItem));
+    const count = String(result.profiles.length);
+    if (result.partial) searchMessage('search.partial', count);
+    else if (!result.profiles.length) searchMessage('search.empty');
+    else searchMessage('search.results', count);
+    searchRetry.hidden = !result.partial;
+    searchAgain.hidden = false;
+  } catch (error) {
+    searchFailures.replaceChildren();
+    searchResults.replaceChildren();
+    const code = String(error);
+    if (code === 'notConnected') searchMessage('search.notConnected');
+    else searchMessage('search.failed', code);
+    searchRetry.hidden = false;
+  } finally {
+    setSearchBusy(false);
+  }
+};
+const resetSearch = () => {
+  searchForm.reset();
+  showSearchFilters([]);
+  searchFailures.replaceChildren();
+  searchResults.replaceChildren();
+  searchRetry.hidden = true;
+  searchAgain.hidden = true;
+  searchMessage('search.idle');
+};
+searchForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  window.searchDone = runSearch();
+});
+for (const button of [searchRetry, searchAgain]) {
+  button.addEventListener('click', () => { window.searchDone = runSearch(); });
+}
+
 async function render(state) {
   if (state.status === 'ready' || state.status === 'recovery') current = state;
   if (state.status === 'ready') {
@@ -384,6 +518,7 @@ async function render(state) {
     document.getElementById('key-path').textContent = state.keyPath || '';
     await showNetwork();
     await showProfile();
+    resetSearch();
     show(identity, 'status.ready');
     return state;
   }
