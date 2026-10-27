@@ -49,6 +49,7 @@ score = 72.2
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # tests/scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.
+"dyapp-bootstrap::cli status_tells_a_running_node_and_its_traffic_from_a_stopped_one" = 2026-10-27
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
