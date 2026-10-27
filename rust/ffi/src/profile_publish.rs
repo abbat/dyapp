@@ -1,9 +1,12 @@
 //! Read-only eligibility for publishing the owner's stored profile draft.
 
+use crate::profile_draft::database;
 use crate::{load_profile_draft, CoreError, IdentityKey};
 use dyapp_client::publish::{self, Block};
+use dyapp_client::store::Store;
 use dyapp_profile::{CivilDate, Profile};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn today() -> Result<CivilDate, CoreError> {
@@ -37,6 +40,95 @@ pub fn profile_publish_block(
         draft.apply_to(&mut profile);
     }
     Ok(block_at(&profile, attested, today()?).map(str::to_owned))
+}
+
+const POW_BITS: u32 = 11;
+const STEP_TRIES: u64 = 8;
+
+/// One persisted proof-work step; both flags false means more work remains.
+#[derive(Clone, uniffi::Record)]
+pub struct ProfileWorkStep {
+    /// True after the required proof has been solved.
+    pub solved: bool,
+    /// True when the owner cancelled before a solved result.
+    pub cancelled: bool,
+    /// Saved proof nonce; the next attempt starts here when more work remains.
+    pub next_nonce: u64,
+}
+
+/// Cancellable profile proof work. Create a new handle for each retry after cancellation.
+#[derive(uniffi::Object)]
+pub struct ProfileSolve {
+    dir: String,
+    key: Arc<IdentityKey>,
+    cancelled: AtomicBool,
+    serial: Mutex<()>,
+}
+
+#[uniffi::export]
+impl ProfileSolve {
+    /// Prepare proof work for this identity without changing its saved draft.
+    #[uniffi::constructor]
+    pub fn new(dir: String, key: Arc<IdentityKey>) -> Result<Arc<Self>, CoreError> {
+        database(&dir)?;
+        Ok(Arc::new(Self {
+            dir,
+            key,
+            cancelled: AtomicBool::new(false),
+            serial: Mutex::new(()),
+        }))
+    }
+
+    /// Try eight nonces and persist progress; call off the UI thread until solved or cancelled.
+    /// The shared 18+ gate is checked again for every step using the current UTC day.
+    pub fn run_step(&self, attested: bool) -> Result<ProfileWorkStep, CoreError> {
+        self.step(attested, POW_BITS)
+    }
+
+    /// Request cancellation; the current short step finishes and saves before stopping.
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+}
+
+impl ProfileSolve {
+    fn step(&self, attested: bool, bits: u32) -> Result<ProfileWorkStep, CoreError> {
+        let _serial = self
+            .serial
+            .lock()
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        let path = database(&self.dir)?.join("client.db");
+        let store = Store::open(&path, &self.key.identity)
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        let mut draft = store
+            .profile_draft()
+            .map_err(|error| CoreError::Failed(error.to_string()))?
+            .unwrap_or_default();
+        if self.cancelled.load(Ordering::Acquire) {
+            return Ok(ProfileWorkStep {
+                solved: false,
+                cancelled: true,
+                next_nonce: draft.pow_nonce,
+            });
+        }
+        if let Some(reason) = block_at(&draft, attested, today()?) {
+            return Err(CoreError::Failed(format!("blocked: {reason}")));
+        }
+        let solved = publish::work(
+            &mut draft,
+            &self.key.identity.public_key(),
+            bits,
+            STEP_TRIES,
+        );
+        store
+            .save_profile_draft(&draft)
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        Ok(ProfileWorkStep {
+            solved,
+            cancelled: !solved && self.cancelled.load(Ordering::Acquire),
+            next_nonce: draft.pow_nonce,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -80,5 +172,52 @@ mod tests {
             ..Profile::default()
         };
         assert_eq!(block_at(&impossible, true, today), Some("invalidBirthDate"));
+    }
+
+    #[test]
+    fn cancelled_work_preserves_nonce_and_new_handle_resumes() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-solve-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let dir = dir.to_str().unwrap().to_owned();
+        let key = IdentityKey::generate();
+        crate::save_profile_draft(
+            dir.clone(),
+            key.clone(),
+            crate::PublicProfileDraft {
+                gender: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let first = ProfileSolve::new(dir.clone(), key.clone()).unwrap();
+        let step = first.step(true, 64).unwrap();
+        assert!(!step.solved);
+        assert!(step.next_nonce > 0);
+        first.cancel();
+        let stopped = first.step(true, 64).unwrap();
+        assert!(stopped.cancelled);
+        assert_eq!(stopped.next_nonce, step.next_nonce);
+        let stored = Store::open(&Path::new(&dir).join("client.db"), &key.identity)
+            .unwrap()
+            .profile_draft()
+            .unwrap()
+            .unwrap();
+        assert_eq!((stored.gender, stored.pow_nonce), (1, step.next_nonce));
+
+        let resumed = ProfileSolve::new(dir, key).unwrap();
+        let mut solved = false;
+        for _ in 0..100 {
+            let progress = resumed.step(true, 4).unwrap();
+            assert!(progress.next_nonce >= step.next_nonce);
+            if progress.solved {
+                solved = true;
+                break;
+            }
+        }
+        assert!(solved);
     }
 }

@@ -114,7 +114,7 @@ fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
 }
 
-fn database(dir: &str) -> Result<&Path, CoreError> {
+pub(crate) fn database(dir: &str) -> Result<&Path, CoreError> {
     let dir = Path::new(dir);
     if !dir.is_absolute() || !dir.is_dir() || dir.is_symlink() {
         return Err(CoreError::Failed("invalid identity directory".into()));
