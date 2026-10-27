@@ -111,6 +111,9 @@ not "safe" data. The target design therefore needs:
 - presence sent only to matches, as a coarse "active recently" signal at most once an hour on app
   open, and hidden with one setting; a match can still log roughly when the user opens the app
   ([presence](../design/presence.md), planned);
+- read receipts off by default and sent only to the chat partner as "read up to" one message;
+  typing indicators never go through mailboxes ([read receipts](../design/read-receipts.md),
+  planned);
 - a planned push wake with no app-defined data in the provider-visible payload.
 
 ### Planned push payload contract

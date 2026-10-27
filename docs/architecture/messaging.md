@@ -154,7 +154,8 @@ adapter, and the app does not call it yet.
 - Hybrid logical clock timestamps with a peer-ID tie-break for ordering
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
   planned
-- Direct push, bootstrap relay, ACKs, read receipts: *planned, not implemented*
+- Direct push, bootstrap relay, ACKs, read receipts and typing indicators: *planned, not
+  implemented* ([read receipts](../design/read-receipts.md))
 - E2E encryption (MLS via `openmls`, [ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)):
   implemented in `mls.rs`, [below](#e2e-encryption-mls); delivered by `rust/client`
 - Sender authenticity: MLS signs every message with the sender device's certified key; the Rust

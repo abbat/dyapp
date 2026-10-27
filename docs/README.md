@@ -30,6 +30,7 @@ it are entry points that tools discover by path (see
 - [Client local storage](design/client-local-storage.md): per-profile SQLite ownership, migrations and crash-safe mailbox work; [accepted ADR](decisions/0025-client-local-sqlite-storage.md)
 - [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
+- [Read receipts and typing indicators](design/read-receipts.md): planned opt-in "read up to" signal; typing waits for a direct path
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
