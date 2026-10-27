@@ -55,7 +55,14 @@
     <string name="network_save_failed">Не удалось сохранить черновик сети.</string>
     <string name="network_check">Проверить подключение</string>
     <string name="network_checking">Подключение…</string>
-    <string name="network_connected">Подключено. Продолжение будет следующим шагом.</string>
+    <string name="network_connected">Подключено. Можно продолжить.</string>
+    <string name="network_retry">Повторить подключение</string>
+    <string name="network_cancel">Отменить проверку</string>
+    <string name="network_continue">Продолжить</string>
+    <string name="network_cancelled">Проверка отменена. Черновик и действующие настройки сохранены.</string>
+    <string name="network_activating">Применяем проверенные настройки…</string>
+    <string name="network_active">Эти настройки сети действуют.</string>
+    <string name="network_activation_failed">Не удалось применить настройки. Прежние действующие настройки сохранены.</string>
     <string name="network_invalid_address">Исправьте отмеченные строки и повторите.</string>
     <string name="network_wrong">Узел не прошёл проверку Peer ID или сети.</string>
     <string name="network_unreachable">Ни один узел не ответил. Проверьте адреса и повторите.</string>

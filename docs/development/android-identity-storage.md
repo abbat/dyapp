@@ -19,7 +19,9 @@ automatically on launch; Back returns to the ready screen for this session. An i
 settings returns to the ready screen. `RustBridge.connectionCheck` constructs a UniFFI checker
 for the selected slot; its run and activate calls must run off the UI thread, and cancel can stop
 a running check. The network form now runs a bounded check off the UI thread and shows an ordered
-result for each seed row plus a summary. Cancel/retry controls and activation are planned.
+result for each seed row plus a summary. Cancel stops a running check; Retry repeats it, and
+Continue activates only a draft that reached a node. Editing clears that checked state, and
+failed activation preserves the prior active configuration.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
 and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
 remain available on the ready screen and picker while their Settings controls are being built.

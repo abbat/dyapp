@@ -30,6 +30,7 @@ internal fun checkSummary(rows: List<SeedRow>): Int = when {
 internal fun checkFailure(error: Throwable): Int = when (error) {
     is CheckException.Empty -> R.string.network_empty
     is CheckException.InvalidNetwork -> R.string.network_invalid_name
+    is CheckException.Cancelled -> R.string.network_cancelled
     else -> R.string.network_check_failed
 }
 

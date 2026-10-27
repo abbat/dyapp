@@ -56,7 +56,14 @@
     <string name="network_save_failed">Could not save the network draft.</string>
     <string name="network_check">Check connection</string>
     <string name="network_checking">Connecting…</string>
-    <string name="network_connected">Connected. Continue is the next step.</string>
+    <string name="network_connected">Connected. You can continue.</string>
+    <string name="network_retry">Retry connection</string>
+    <string name="network_cancel">Cancel check</string>
+    <string name="network_continue">Continue</string>
+    <string name="network_cancelled">Check cancelled. Draft and active settings were kept.</string>
+    <string name="network_activating">Activating checked settings…</string>
+    <string name="network_active">These network settings are active.</string>
+    <string name="network_activation_failed">Could not activate these settings. Previous active settings were kept.</string>
     <string name="network_invalid_address">Correct the marked rows and retry.</string>
     <string name="network_wrong">A node failed the Peer ID or network check.</string>
     <string name="network_unreachable">No node answered. Check the addresses and retry.</string>

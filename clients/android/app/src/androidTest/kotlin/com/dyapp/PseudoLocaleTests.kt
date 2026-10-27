@@ -33,6 +33,7 @@ class PseudoLocaleTests {
                 LocalConfiguration provides configuration
             ) { MainScreen() }
         }
+        compose.skipNetworkEntry()
         compose.onNodeWithText(russian.getString(R.string.app_name)).assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
     }
@@ -51,6 +52,7 @@ class PseudoLocaleTests {
                 LocalConfiguration provides configuration
             ) { MainScreen() }
         }
+        compose.skipNetworkEntry()
         compose.onNodeWithText(pseudo.getString(R.string.app_name)).assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
     }

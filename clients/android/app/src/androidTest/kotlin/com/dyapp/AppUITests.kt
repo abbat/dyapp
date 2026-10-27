@@ -31,6 +31,7 @@ class AppUITests {
 
     @Test
     fun launchesAndRendersReady() {
+        compose.skipNetworkEntry()
         compose.onNodeWithText(string(R.string.app_name)).assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
@@ -58,6 +59,7 @@ class AppUITests {
     fun recreationKeepsReadyScreenAndPeerId() {
         val before = compose.shownPeerId()
         compose.activityRule.scenario.recreate()
+        compose.skipNetworkEntry()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
         // The new screen unwraps the stored key again, as a restarted app does.

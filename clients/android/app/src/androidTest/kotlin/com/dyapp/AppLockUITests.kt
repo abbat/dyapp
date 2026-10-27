@@ -3,10 +3,10 @@ package com.dyapp
 import android.app.KeyguardManager
 import android.view.WindowManager
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -18,11 +18,23 @@ import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
 
-internal fun SemanticsNodeInteractionsProvider.shownPeerId() =
-    onNodeWithTag("peer-id").assertIsDisplayed()
+/**
+ * Waits for the start screen, leaving with Back the network draft that an identity without an
+ * active connection opens on; the Argon2id unlock takes seconds on the emulator.
+ */
+internal fun ComposeTestRule.skipNetworkEntry() {
+    val shown = { tag: String -> onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+    waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("network-back") }
+    if (shown("network-back")) onNodeWithTag("network-back").performScrollTo().performClick()
+}
+
+internal fun ComposeTestRule.shownPeerId(): String {
+    skipNetworkEntry()
+    return onNodeWithTag("peer-id").assertIsDisplayed()
         .fetchSemanticsNode()
         .config[SemanticsProperties.Text]
         .joinToString()
+}
 
 class AppLockUITests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -70,7 +82,7 @@ class AppLockUITests {
             waitForTag("pin-error")
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             enterPin("123456")
-            waitForTag("peer-id")
+            compose.shownPeerId()
             compose.onNodeWithTag("app-locked").assertDoesNotExist()
         } finally {
             store.resetAfterDeviceCredential(null)
@@ -84,7 +96,7 @@ class AppLockUITests {
         try {
             compose.activityRule.scenario.recreate()
             enterPin("123456")
-            waitForTag("peer-id")
+            compose.shownPeerId()
             compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_pin))
             compose.onNodeWithTag("pin-current").performTextInput("654321")

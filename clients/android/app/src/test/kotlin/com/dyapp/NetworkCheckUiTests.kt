@@ -22,5 +22,6 @@ class NetworkCheckUiTests {
         assertEquals(R.string.network_empty, checkFailure(CheckException.Empty()))
         assertEquals(R.string.network_invalid_name,
             checkFailure(CheckException.InvalidNetwork("invalid")))
+        assertEquals(R.string.network_cancelled, checkFailure(CheckException.Cancelled()))
     }
 }

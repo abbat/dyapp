@@ -46,21 +46,10 @@ private class NetworkDraftState {
     private fun clearCheck() { checkStatus = null; checkRows = emptyList() }
 }
 
-/** Whether this ready identity still needs its first network connection. */
-@Composable
-internal fun rememberNetworkEntryNeeded(opened: Opened.Ready?): Boolean? {
-    var needed by remember(opened?.slot?.id) { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(opened?.slot?.id) {
-        if (opened == null) return@LaunchedEffect
-        val loaded = withContext(Dispatchers.IO) {
-            runCatching { RustBridge.loadNetwork(opened, NetworkFile.ACTIVE) }
-        }
-        needed = loaded.fold(onSuccess = { it == null }, onFailure = { true })
-    }
-    return needed
-}
-
-private class DraftActions(val check: () -> Unit, val save: () -> Unit)
+private class DraftActions(
+    val check: () -> Unit, val cancel: () -> Unit,
+    val activate: () -> Unit, val save: () -> Unit
+)
 
 private suspend fun loadDraft(opened: Opened.Ready, state: NetworkDraftState) {
     val loaded = withContext(Dispatchers.IO) {
@@ -88,6 +77,11 @@ private suspend fun checkDraft(checker: ConnectionCheck, draft: NetworkSettings,
     }, onFailure = { state.checkStatus = checkFailure(it) })
 }
 
+private suspend fun activateDraft(checker: ConnectionCheck, state: NetworkDraftState) {
+    val activated = withContext(Dispatchers.IO) { runCatching { checker.activate() } }
+    state.checkStatus = if (activated.isSuccess) R.string.network_active else R.string.network_activation_failed
+}
+
 private suspend fun saveDraft(opened: Opened.Ready, draft: NetworkSettings, state: NetworkDraftState) {
     val saved = withContext(Dispatchers.IO) { runCatching { RustBridge.saveNetworkDraft(opened, draft) } }
     state.status = if (saved.isSuccess) DraftStatus.SAVED else DraftStatus.SAVE_FAILED
@@ -109,6 +103,13 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
             state.checkRows = emptyList()
             scope.launch { checkDraft(checker, networkSettings(state), state) }
         }
+    }, cancel = { state.checker?.cancel() }, activate = {
+        if (state.checkStatus == R.string.network_connected) {
+            state.checker?.let { checker ->
+                state.checkStatus = R.string.network_activating
+                scope.launch { activateDraft(checker, state) }
+            }
+        }
     }, save = {
         state.status = DraftStatus.SAVING
         scope.launch { saveDraft(opened, networkSettings(state), state) }
@@ -124,7 +125,7 @@ private fun networkSettings(state: NetworkDraftState) = NetworkSettings(
 @Composable
 private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: () -> Unit, actions: DraftActions) {
     val editable = state.status !in setOf(DraftStatus.LOADING, DraftStatus.SAVING, DraftStatus.READ_FAILED) &&
-        state.checkStatus != R.string.network_checking
+        state.checkStatus !in setOf(R.string.network_checking, R.string.network_activating)
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -137,15 +138,31 @@ private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (
         Button(onClick = actions.save, enabled = editable, modifier = Modifier.testTag("network-save")) {
             Text(stringResource(R.string.network_save))
         }
-        Button(onClick = actions.check, enabled = editable && state.checker != null &&
-            state.checkStatus != R.string.network_checking, modifier = Modifier.testTag("network-check")) {
-            Text(stringResource(R.string.network_check))
-        }
+        NetworkCheckControls(state, editable, actions)
         Text(stringResource(networkStatusText(state.status)), Modifier.testTag("network-status"))
         NetworkCheckResults(state.checkStatus, state.checkRows)
-        OutlinedButton(onClick = onBack, modifier = Modifier.testTag("network-back")) {
+        OutlinedButton(onClick = onBack, enabled = state.checkStatus != R.string.network_activating,
+            modifier = Modifier.testTag("network-back")) {
             Text(stringResource(R.string.profile_back))
         }
+    }
+}
+
+@Composable
+private fun NetworkCheckControls(state: NetworkDraftState, editable: Boolean, actions: DraftActions) {
+    val checked = state.checkStatus
+    Button(onClick = actions.check, enabled = editable && state.checker != null,
+        modifier = Modifier.testTag("network-check")) {
+        Text(stringResource(if (checked == null) R.string.network_check else R.string.network_retry))
+    }
+    if (checked == R.string.network_checking) {
+        OutlinedButton(onClick = actions.cancel, modifier = Modifier.testTag("network-cancel")) {
+            Text(stringResource(R.string.network_cancel))
+        }
+    }
+    Button(onClick = actions.activate, enabled = checked == R.string.network_connected,
+        modifier = Modifier.testTag("network-continue")) {
+        Text(stringResource(R.string.network_continue))
     }
 }
 

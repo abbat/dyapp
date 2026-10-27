@@ -39,9 +39,11 @@ class LockSetupTests {
         compose.onNodeWithTag("lock-setup").assertIsDisplayed()
         compose.onNodeWithTag("peer-id").assertDoesNotExist()
         compose.onNodeWithTag("lock-skip").performClick()
+        compose.skipNetworkEntry()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("lock-setup").assertDoesNotExist()
+        compose.skipNetworkEntry()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
     }
 }
