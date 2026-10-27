@@ -70,9 +70,10 @@ final class IdentitySlotStore {
     private let newID: () -> UUID
     private var profiles: URL { root.appendingPathComponent("profiles", isDirectory: true) }
 
+    // newID comes first so that a trailing closure in tests binds to it.
     init(root: URL, legacyStore: PlatformKeyStore = .shared,
-         eraseWrappingKey: @escaping (UUID) throws -> Void = { try PlatformKeyStore.eraseWrappingKey(forSlot: $0) },
-         newID: @escaping () -> UUID = { UUID() }) {
+         newID: @escaping () -> UUID = { UUID() },
+         eraseWrappingKey: @escaping (UUID) throws -> Void = { try PlatformKeyStore.eraseWrappingKey(forSlot: $0) }) {
         self.root = root
         self.legacyStore = legacyStore
         self.eraseWrappingKey = eraseWrappingKey

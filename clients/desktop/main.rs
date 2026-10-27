@@ -231,14 +231,14 @@ async fn create_identity(
 async fn remove_identity(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
-    #[cfg(unix)] nodes: tauri::State<'_, node::NodeState>,
     slot: String,
     peer_id: Option<String>,
 ) -> Result<HashMap<&'static str, String>, String> {
     let dir = config_dir(&app)?;
-    // The slot's node must not hold its folder open while it is removed.
+    // The slot's node must not hold its folder open while it is removed. A cfg on a command
+    // argument does not reach Tauri's macro, so the state comes from the app handle.
     #[cfg(unix)]
-    node::stop(&nodes).await;
+    node::stop(&app.state::<node::NodeState>()).await;
     let remaining = tauri::async_runtime::spawn_blocking(move || {
         slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
         slots::list(&dir).map(|slots| slots.len())

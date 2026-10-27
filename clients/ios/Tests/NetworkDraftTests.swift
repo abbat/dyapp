@@ -189,7 +189,7 @@ final class NetworkDraftTests: XCTestCase {
         let cancelled = await running.value
         await stopping.value
         XCTAssertTrue(cancelled)
-        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 10)
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, [silent])
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .active)).seeds, [good])
 
