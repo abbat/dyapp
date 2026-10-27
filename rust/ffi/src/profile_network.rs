@@ -46,6 +46,23 @@ pub(crate) async fn connect(network: &Network) -> Result<Node, CoreError> {
     Err(error)
 }
 
+/// Swift detached tasks run on 512 KiB stacks, too small for the network futures.
+const NETWORK_STACK: usize = 16 << 20;
+
+/// Run blocking network work on its own thread with a stack the futures fit in.
+fn on_network_stack<T: Send>(
+    work: impl FnOnce() -> Result<T, CoreError> + Send,
+) -> Result<T, CoreError> {
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(NETWORK_STACK)
+            .spawn_scoped(scope, work)
+            .map_err(failed)?
+            .join()
+            .map_err(|_| CoreError::Failed("panicked".into()))?
+    })
+}
+
 /// Per-identity publisher network session; its calls block and run off the UI thread.
 #[derive(uniffi::Object)]
 pub struct ProfilePublisher {
@@ -75,7 +92,7 @@ impl ProfilePublisher {
     pub fn check_connection(&self) -> Result<(), CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let network = active_network(&self.dir)?;
-        self.runtime.block_on(connect(&network)).map(|_| ())
+        on_network_stack(|| self.runtime.block_on(connect(&network)).map(|_| ()))
     }
 
     /// Publish a solved draft through the active network and verify its signed readback.
@@ -95,11 +112,15 @@ impl ProfilePublisher {
             return Err(CoreError::Failed("unsolved".into()));
         }
         let network = active_network(&self.dir)?;
-        let published = self.runtime.block_on(async {
-            let mut node = connect(&network).await?;
-            publish::publish(&store, &mut node, &key.identity, &draft)
-                .await
-                .map_err(failed)
+        let published = on_network_stack(|| {
+            // The connection is Send but not Sync, so it moves to the network thread.
+            let store = store;
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                publish::publish(&store, &mut node, &key.identity, &draft)
+                    .await
+                    .map_err(failed)
+            })
         })?;
         Ok(ProfilePublished {
             draft: PublicProfileDraft::from(&published),

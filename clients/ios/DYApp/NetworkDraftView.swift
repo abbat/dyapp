@@ -30,6 +30,8 @@ struct NetworkDraftView: View {
     @State private var activated = false
     @State private var checkedRowsText = ""
     @State private var checkedName = ""
+    /// A field that keeps focus while disabled scrolls the form back to itself after a check.
+    @FocusState private var editing: Bool
     @State private var rowOutcomes: [NetworkRowOutcome] = []
 
     private var hasUnsavedEdits: Bool {
@@ -117,6 +119,7 @@ struct NetworkDraftView: View {
             Section {
                 TextEditor(text: $bootstrapRows)
                     .frame(minHeight: 120)
+                    .focused($editing)
                     .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityLabel(Text("network.bootstrap"))
                     .accessibilityIdentifier("network-bootstrap")
@@ -128,6 +131,7 @@ struct NetworkDraftView: View {
 
             Section {
                 TextField("network.name", text: $networkName)
+                    .focused($editing)
                     .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityIdentifier("network-name")
             } footer: {
@@ -234,6 +238,7 @@ extension NetworkDraftView {
     @MainActor
     private func save() async {
         guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
+        editing = false
         isSaving = true
         saveFailed = false
         let rowsText = bootstrapRows
@@ -253,6 +258,7 @@ extension NetworkDraftView {
     @MainActor
     private func check() async {
         guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
+        editing = false
         isChecking = true
         activationFailed = false
         cancelRequested = false

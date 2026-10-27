@@ -207,7 +207,7 @@ extension LaunchTests {
         ),
         ], timeout: 10), .completed)
         rows.tap()
-        rows.typeText("one.example:33445\ntwo.example:7070")
+        typeSlowly("one.example:33445\ntwo.example:7070", into: rows)
         reveal(name, in: app).tap()
         name.typeText("friends")
         reveal(save, in: app).tap()
@@ -260,7 +260,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("not-an-address")
+        typeSlowly("not-an-address", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         let result = app.descendants(matching: .any)["network-row-0"]
         XCTAssertTrue(reveal(result, in: app).exists)
@@ -286,7 +286,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("127.0.0.1:33445")
+        typeSlowly("127.0.0.1:33445", into: rows)
         let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertFalse(next.isEnabled)
         reveal(app.buttons["network-check"], in: app).tap()
@@ -296,7 +296,7 @@ extension LaunchTests {
             object: status
         ),
         ], timeout: 15), .completed)
-        XCTAssertTrue(next.isEnabled)
+        XCTAssertTrue(reveal(next, in: app).isEnabled)
         next.tap()
         XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
         app.terminate()
@@ -320,7 +320,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("not-an-address\n127.0.0.1:33446\n127.0.0.1:33446\n127.0.0.1:33445/bad")
+        typeSlowly("not-an-address\n127.0.0.1:33446\n127.0.0.1:33446\n127.0.0.1:33445/bad", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         let expected = ["Invalid address", "Unreachable", "Duplicate address", "Invalid peer ID"]
         for (index, word) in expected.enumerated() {
@@ -344,7 +344,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("127.0.0.1:33445")
+        typeSlowly("127.0.0.1:33445", into: rows)
         let name = app.textFields["network-name"]
         reveal(name, in: app).tap()
         name.typeText("city")
@@ -368,7 +368,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("127.0.0.1:33447")
+        typeSlowly("127.0.0.1:33447", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         let cancel = reveal(app.buttons["network-cancel"], in: app)
         XCTAssertTrue(cancel.exists)
@@ -430,8 +430,9 @@ extension LaunchTests {
         app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
         app.launch()
         createIdentity(app)
-        let save = app.buttons["network-save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        // Doubled header rows push the lazy form's save button below the screen.
+        let save = reveal(app.buttons["network-save"], in: app)
+        XCTAssertTrue(save.exists)
         let text = save.label
         XCTAssertTrue(text.hasPrefix("Save draft") && text.count >= 2 * "Save draft".count, text)
         XCTAssertTrue(save.isHittable)

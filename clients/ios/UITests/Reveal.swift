@@ -13,3 +13,10 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     }
     return element
 }
+
+/// Fast typing into the SwiftUI text editor reorders characters on a slow simulator, so type
+/// one character per call: each call first waits for the app to go idle.
+@MainActor
+func typeSlowly(_ text: String, into element: XCUIElement) {
+    for character in text { element.typeText(String(character)) }
+}

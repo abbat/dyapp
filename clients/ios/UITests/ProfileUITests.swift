@@ -78,7 +78,7 @@ final class ProfileUITests: XCTestCase {
         ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
-        rows.typeText("127.0.0.1:33445")
+        typeSlowly("127.0.0.1:33445", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
