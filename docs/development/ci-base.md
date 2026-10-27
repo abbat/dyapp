@@ -80,7 +80,10 @@ The native Ubuntu, Android, IPA and macOS ZIP budgets were measured again on `6d
 [release-sizes run](https://github.com/abbat/dyapp/actions/runs/40484057583), after a week of
 client growth: the Linux app links the node library of
 [ADR 0030](../decisions/0030-desktop-full-node.md) (+172%), the ZIP grew by 131%, the APK by 77%, the
-IPA by 41% and `dyappd` by 7.7%. Where the mobile and macOS growth comes from is not yet known.
+IPA by 41% and `dyappd` by 7.7%. Most of the mobile and macOS growth came when the FFI core began to link the client and the
+libp2p swarm (SQLite, OpenMLS, libp2p, then relay and hole punching); the macOS ZIP carries
+two architectures, so it grows twice as fast. The APK also packaged an unstripped core and two
+unused `libif_watch-*.so` copies: the release build now strips the core and excludes them.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as
