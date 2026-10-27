@@ -168,6 +168,7 @@ const checkSettingsLanguage = async () => {
   for (const [id, key] of [
     ['settings-create', 'identity.add'], ['settings-switch', 'identity.switch'],
     ['settings-remove', 'identity.remove'], ['settings-back', 'settings.back'],
+    ['node-save', 'node.save'],
   ]) {
     if (document.getElementById(id).textContent !== strings[key]) {
       throw new Error(`Settings control ${id} is not localized`);
@@ -178,6 +179,41 @@ const checkSettingsLanguage = async () => {
       !== strings['network.invalidAddress']) {
     throw new Error('Settings network status is not localized');
   }
+  document.getElementById('settings-back').click();
+  await waitFor('identity');
+};
+// Saves the node form and returns the status it ends on.
+const saveNode = async (enabled, disk) => {
+  document.getElementById('node-enabled').checked = enabled;
+  document.getElementById('node-disk').value = disk;
+  window.nodeApplied = null;
+  document.getElementById('node-save').click();
+  await window.nodeApplied;
+  return document.getElementById('node').dataset.status;
+};
+// The node starts on the loopback network, then stops; bad limits never reach the app.
+const checkNode = async () => {
+  const { strings } = window;
+  document.getElementById('settings-open').click();
+  await waitFor('settings');
+  await window.nodeShown;
+  const form = document.getElementById('node');
+  if (form.hidden || document.getElementById('node-enabled').checked
+    || document.getElementById('node-disk').value !== '1024'
+    || document.getElementById('node-connections').value !== '64'
+    || form.dataset.status !== 'off'
+    || document.getElementById('node-status').textContent !== strings['node.off']
+    || document.querySelector('#node h2').textContent !== strings['node.title']) {
+    throw new Error('node form not shown with its defaults');
+  }
+  if (await saveNode(true, '3') !== 'invalidLimits') throw new Error('tiny disk limit accepted');
+  const running = await saveNode(true, '64');
+  const text = document.getElementById('node-status').textContent;
+  if (running !== 'running' || !text.startsWith(strings['node.running'])
+    || text.length <= strings['node.running'].length + 1) {
+    throw new Error(`node did not start: ${text}`);
+  }
+  if (await saveNode(false, '64') !== 'off') throw new Error('node did not stop');
   document.getElementById('settings-back').click();
   await waitFor('identity');
 };
@@ -375,6 +411,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
       if (document.getElementById('network-status').textContent
         !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
+    } else if (step === 'node') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkNode();
     } else if (step === 'network-settings-failure') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkNetworkInSettings();

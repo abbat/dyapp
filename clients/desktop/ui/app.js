@@ -101,6 +101,7 @@ const showSettings = async () => {
   error.hidden = true;
   settings.insertBefore(network, document.getElementById('settings-back'));
   show(settings, 'settings.title');
+  window.nodeShown = showNode();
   try {
     const items = await invoke('list_identities');
     list.replaceChildren(...items.map(settingsIdentity));
@@ -205,8 +206,62 @@ cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 continueButton.addEventListener('click', () => {
   continueButton.disabled = true;
   window.connectionActivated = invoke('activate_connection')
-    .then(() => networkStatus('network.active'))
+    .then(() => {
+      networkStatus('network.active');
+      // A node that waited for a network starts on it now.
+      invoke('apply_node').catch(() => {});
+    })
     .catch((error) => networkStatus('network.failed', String(error)));
+});
+
+// The store and search node the app runs while open (ADR 0030); Windows builds have no node
+// commands, so the form stays hidden there.
+const nodeForm = document.getElementById('node');
+const nodeEnabled = document.getElementById('node-enabled');
+const nodeDisk = document.getElementById('node-disk');
+const nodeConnections = document.getElementById('node-connections');
+const nodeSave = document.getElementById('node-save');
+const nodeStatus = (status, detail) => {
+  const text = window.strings[`node.${status}`];
+  document.getElementById('node-status').textContent = detail ? `${text} ${detail}` : text;
+  nodeForm.dataset.status = status;
+};
+const nodeResult = (result) => nodeStatus(result.status, result.peerId);
+const showNode = async () => {
+  try {
+    nodeResult(await invoke('node_status'));
+  } catch (_) {
+    nodeForm.hidden = true;
+    return;
+  }
+  nodeForm.hidden = false;
+  try {
+    const saved = await invoke('load_node_settings');
+    nodeEnabled.checked = saved.enabled;
+    nodeDisk.value = saved.diskMb;
+    nodeConnections.value = saved.maxConnections;
+  } catch (error) {
+    nodeStatus('error', String(error));
+  }
+};
+nodeForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const node = {
+    enabled: nodeEnabled.checked,
+    diskMb: Number(nodeDisk.value),
+    maxConnections: Number(nodeConnections.value),
+  };
+  if (!Number.isInteger(node.diskMb) || node.diskMb < 4
+    || !Number.isInteger(node.maxConnections) || node.maxConnections < 1) {
+    nodeStatus('invalidLimits');
+    return;
+  }
+  nodeSave.disabled = true;
+  nodeStatus(node.enabled ? 'starting' : 'off');
+  window.nodeApplied = invoke('save_node_settings', { settings: node })
+    .then(nodeResult)
+    .catch((error) => nodeStatus('error', String(error)))
+    .finally(() => { nodeSave.disabled = false; });
 });
 
 // The Rust core supplies field numbers and choices; catalogues supply only visible names.

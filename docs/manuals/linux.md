@@ -68,7 +68,11 @@ active network ([ADR 0030](../decisions/0030-desktop-full-node.md)). It is off b
 on, it uses up to 1 GiB of disk by default (a quarter for profiles, half for mailboxes, a quarter
 for the search index) and 64 connections, and keeps its own node key and stores in the
 identity's folder. Switching identities stops the previous identity's node; removing an
-identity removes its node files too. The settings screen to turn it on is planned.
+identity removes its node files too.
+
+Turn it on in **Settings → Help the network**: tick the box, set the disk limit in MB (at least 4)
+and the connection limit, then **Save node settings**. The status line shows the node ID while it
+runs, says it waits for a network when none is active yet, or shows why it did not start.
 
 ## Build
 

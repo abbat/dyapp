@@ -20,6 +20,9 @@
     #network label { display: block; margin-top: 1rem; }
     #seeds, #network-name { box-sizing: border-box; width: 100%; font: inherit; }
     #seed-rows { overflow-wrap: anywhere; }
+    #node { text-align: start; overflow-wrap: anywhere; }
+    #node label { display: block; margin-top: 1rem; }
+    #node input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
     #profile { text-align: start; }
     #profile label { display: block; margin-top: 1rem; }
     #profile select, #profile input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
@@ -121,6 +124,17 @@
       <button id="settings-create" type="button" data-i18n="identity.add"></button>
       <button id="settings-switch" type="button" data-i18n="identity.switch"></button>
       <button id="settings-remove" type="button" data-i18n="identity.remove"></button>
+      <form id="node" novalidate hidden>
+        <h2 data-i18n="node.title"></h2>
+        <label><input id="node-enabled" type="checkbox">
+          <span data-i18n="node.enabled"></span></label>
+        <label for="node-disk" data-i18n="node.disk"></label>
+        <input id="node-disk" type="number" min="4" step="1">
+        <label for="node-connections" data-i18n="node.connections"></label>
+        <input id="node-connections" type="number" min="1" step="1">
+        <button id="node-save" type="submit" data-i18n="node.save"></button>
+        <p id="node-status" role="status"></p>
+      </form>
       <button id="settings-back" type="button" data-i18n="settings.back"></button>
     </section>
     <section id="picker" hidden>

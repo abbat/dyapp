@@ -304,6 +304,13 @@ def smoke(executable, flows=True):
             if connected != peer_id:
                 raise RuntimeError("connecting replaced the identity")
             slot = (storage / "active-profile").read_text().strip()
+            if case("node", [*file, "--ui-test-step=node"], profile,
+                    timeout=180) != peer_id:
+                raise RuntimeError("the node step replaced the identity")
+            folder = storage / "profiles" / slot
+            saved = json.loads((folder / "node.json").read_text())
+            if saved["enabled"] or not (folder / "node").is_dir():
+                raise RuntimeError(f"the node did not run, then stop: {saved}")
             active = storage / "profiles" / slot / "network"
             active_before = active.read_bytes()
             settings_step = "--ui-test-step=network-settings-failure"
