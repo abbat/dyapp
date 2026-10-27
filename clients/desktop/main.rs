@@ -17,6 +17,8 @@ mod file_store;
 mod network;
 #[path = "profile.rs"]
 mod profile;
+#[path = "search.rs"]
+mod search;
 #[path = "slots.rs"]
 mod slots;
 #[path = "system_store.rs"]
@@ -368,6 +370,24 @@ async fn publish_profile(
     .map_err(|e| e.to_string())?
 }
 
+/// Verified profile search on the active network; see `search::search`.
+#[tauri::command]
+async fn search_profiles(
+    state: tauri::State<'_, IdentityState>,
+    searching: tauri::State<'_, search::SearchState>,
+    conditions: Vec<search::Condition>,
+    limit: u32,
+) -> Result<search::Results, String> {
+    let (identity, dir) = open_identity(&state)?;
+    let cache = Arc::clone(&searching.0);
+    // The client store is not `Sync`, so the search runs on a thread of its own.
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(search::search(&cache, &dir, &identity, conditions, limit))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -438,6 +458,7 @@ fn main() {
         .manage(IdentityState(Mutex::new(None)))
         .manage(NetworkState::default())
         .manage(ProfileState::default())
+        .manage(search::SearchState::default())
         .invoke_handler(tauri::generate_handler![
             identity_state,
             storage_options,
@@ -456,6 +477,7 @@ fn main() {
             solve_profile,
             cancel_profile_solve,
             publish_profile,
+            search_profiles,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

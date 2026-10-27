@@ -119,9 +119,9 @@ fn stored(store: &Store) -> Result<Profile, String> {
     Ok(draft.unwrap_or_default())
 }
 
-fn view(profile: &Profile, today: CivilDate) -> View {
-    View {
-        draft: Draft {
+impl From<&Profile> for Draft {
+    fn from(profile: &Profile) -> Self {
+        Self {
             gender: profile.gender,
             orientation: profile.orientation,
             relationship_goal: profile.relationship_goal,
@@ -134,7 +134,13 @@ fn view(profile: &Profile, today: CivilDate) -> View {
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
-        },
+        }
+    }
+}
+
+fn view(profile: &Profile, today: CivilDate) -> View {
+    View {
+        draft: Draft::from(profile),
         published: profile.version,
         ages: profile.possible_age_range(today),
         problem: publish::check(profile, true, today).err().map(code),
@@ -233,8 +239,8 @@ pub fn solve(
     }
 }
 
-// The first node of the active network that answers, over each row's TCP, then QUIC address.
-async fn connect(network: &Network) -> Result<Node, String> {
+/// The first node of the active network that answers, over each row's TCP, then QUIC address.
+pub async fn connect(network: &Network) -> Result<Node, String> {
     let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
     let mut error = "notConnected".to_string();
     for row in &network.seeds {
