@@ -575,6 +575,11 @@ fetch reveal device count and contact interest to store nodes; no private direct
   Replies carry no coverage hints. The result lists one typed failure per failed request: no
   nodes, node unavailable, timeout, rate limit with its wait, proof-of-work puzzle, or an invalid
   reply, which includes a hit whose record fails its signature.
+  `dyapp_client::search::connect_search_nodes` picks those nodes: it asks an entry node for up
+  to a given number of search providers, connects to each, asks for its `NodeInfo` and drops a
+  provider that fails or does not list the search role, with one typed failure per dropped
+  provider. It also returns the fields a search may offer: those every kept node lists and the
+  client can check.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
   by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and

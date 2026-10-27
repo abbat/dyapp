@@ -8,7 +8,9 @@ use crate::{Error, Node};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, Condition, Status};
 use dyapp_p2p_net::search_results;
+use dyapp_p2p_net::Protocols;
 use dyapp_profile::VerifiedProfile;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Keys one get request may carry.
@@ -77,6 +79,47 @@ pub fn offered_fields(infos: &[proto::NodeInfo]) -> Vec<u32> {
     fields.sort_unstable();
     fields.dedup();
     fields
+}
+
+/// Search nodes reached through one entry node, ready for [`search`].
+pub struct SearchNodes {
+    /// Connected nodes that list the search role.
+    pub nodes: Vec<Node>,
+    /// [`offered_fields`] of `nodes`.
+    pub offered: Vec<u32>,
+    /// Why a provider was dropped, one entry per dropped provider.
+    pub failures: Vec<SearchFailure>,
+}
+
+/// Up to `max` search providers that `entry` finds ([`dyapp_p2p_net::SEARCH_KEY`]), each
+/// connected and asked for its info. A provider that fails or does not list the search role is
+/// dropped.
+pub async fn connect_search_nodes(
+    entry: &mut Node,
+    protocols: Arc<Protocols>,
+    max: usize,
+) -> SearchNodes {
+    let (mut nodes, mut infos, mut failures) = (Vec::new(), Vec::new(), Vec::new());
+    for addr in entry.providers(dyapp_p2p_net::SEARCH_KEY, max).await {
+        let reached = match Node::connect(addr, protocols.clone()).await {
+            Ok(mut node) => node.info().await.map(|info| (node, info)),
+            Err(error) => Err(error),
+        };
+        match reached {
+            Ok((node, info)) if info.roles.contains(&(proto::Role::Search as i32)) => {
+                nodes.push(node);
+                infos.push(info);
+            }
+            Ok(_) => failures.push(SearchFailure::Unavailable),
+            Err(error) => failures.push((&error).into()),
+        }
+    }
+    let offered = offered_fields(&infos);
+    SearchNodes {
+        nodes,
+        offered,
+        failures,
+    }
 }
 
 /// Profiles matching every condition, from up to `limit` hits (0 means 50) of each node in

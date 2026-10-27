@@ -658,8 +658,23 @@ impl Node {
     /// TURN credentials for a call's ICE servers from a node with the turn role; find such
     /// nodes with [`Self::providers`] on [`dyapp_p2p_net::TURN_KEY`]. Ask again before `expires`.
     pub async fn turn(&mut self) -> Result<proto::TurnCredentials, Error> {
+        let response = self
+            .node(node_request::Request::Turn(proto::TurnRequest {}))
+            .await?;
+        response.turn.ok_or(Error::Reply("no TURN credentials"))
+    }
+
+    /// The node's roles and limits; each value is a hint from an untrusted node.
+    pub async fn info(&mut self) -> Result<proto::NodeInfo, Error> {
+        let response = self
+            .node(node_request::Request::Info(proto::InfoRequest {}))
+            .await?;
+        response.info.ok_or(Error::Reply("no node info"))
+    }
+
+    async fn node(&mut self, request: node_request::Request) -> Result<proto::NodeResponse, Error> {
         let request = proto::NodeRequest {
-            request: Some(node_request::Request::Turn(proto::TurnRequest {})),
+            request: Some(request),
         };
         self.swarm
             .behaviour_mut()
@@ -672,7 +687,7 @@ impl Node {
             })
             .await?;
         ok(response.status)?;
-        response.turn.ok_or(Error::Reply("no TURN credentials"))
+        Ok(response)
     }
 
     // Sends `request` without a puzzle, and once more with a solution when the node asks.
