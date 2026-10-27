@@ -510,7 +510,12 @@ const searchQuery = () => {
   if (country) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [country.toUpperCase()] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
   const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
-  return { age, conditions, limit: 0 };
+  const company = document.getElementById('search-company').value.trim();
+  const kind = company ? document.getElementById('search-employer').value : 'any';
+  const employer = kind === 'same' ? { kind, company }
+    : kind === 'exclude' ? { kind, companies: company.split(';').map((name) => name.trim()).filter(Boolean) }
+    : { kind: 'any' };
+  return { age, conditions, employer, limit: 0 };
 };
 const failureText = (failure) => {
   const text = window.strings[`search.failure.${failure.kind}`];

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
-use dyapp_client::search::{self, SearchFailure};
+use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -53,6 +53,30 @@ impl TryFrom<Condition> for proto::Condition {
     }
 }
 
+/// The company filter as the page sends it, tagged by `kind`; it runs only on this device.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum EmployerFilter {
+    #[default]
+    Any,
+    Same {
+        company: String,
+    },
+    Exclude {
+        companies: Vec<String>,
+    },
+}
+
+impl From<EmployerFilter> for Employer {
+    fn from(filter: EmployerFilter) -> Self {
+        match filter {
+            EmployerFilter::Any => Self::Any,
+            EmployerFilter::Same { company } => Self::Same(company),
+            EmployerFilter::Exclude { companies } => Self::Exclude(companies),
+        }
+    }
+}
+
 /// One search as the page sends it.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 #[serde(default)]
@@ -60,6 +84,7 @@ pub struct Query {
     /// Inclusive years; the lower bound is raised to 18.
     pub age: Option<(u32, u32)>,
     pub conditions: Vec<Condition>,
+    pub employer: EmployerFilter,
     /// Hits per node; 0 means 50.
     pub limit: u32,
 }
@@ -135,9 +160,9 @@ pub struct Results {
 /// Searches up to `limit` hits per node (0 means 50) of up to 3 search providers of the active
 /// network, with the publish proof-of-work minimum and without blocked peers; `age` is an
 /// inclusive range of years, checked against public birth dates today; no conditions asks for a
-/// sample. Each call connects again, so retry is a new call. Errors are `notConnected` (no
-/// active network or no answering node), `invalid search op`, `invalid search age` or a
-/// storage message.
+/// sample; `employer` then narrows the verified results on this device. Each call connects
+/// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
+/// node), `invalid search op`, `invalid search age` or a storage message.
 pub async fn search(
     cache: &Mutex<Profiles>,
     dir: &Path,
@@ -145,6 +170,7 @@ pub async fn search(
     query: Query,
 ) -> Result<Results, String> {
     let limit = query.limit;
+    let employer = Employer::from(query.employer.clone());
     let conditions = query.conditions(profile::today()?)?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let blocked = store.blocked_peers().map_err(|e| e.to_string())?;
@@ -166,6 +192,7 @@ pub async fn search(
         &blocked,
     )
     .await;
+    employer.retain(&mut results.profiles);
     compatibility::rank(&own, &mut results.profiles);
     let mut cache = cache.lock().map_err(|e| e.to_string())?;
     let profiles = results
@@ -253,7 +280,7 @@ mod tests {
         let query = |age| Query {
             age,
             conditions: vec![gender.clone()],
-            limit: 0,
+            ..Query::default()
         };
         let out = query(Some((20, 30))).conditions(today).unwrap();
         assert_eq!(out.len(), 2);
@@ -276,5 +303,22 @@ mod tests {
             }
         );
         assert_eq!(Failure::from(SearchFailure::NoNodes), Failure::NoNodes);
+    }
+
+    #[test]
+    fn the_page_employer_filter_reaches_the_core_filter() {
+        let query: Query = serde_json::from_str(
+            r#"{"employer": {"kind": "exclude", "companies": ["Acme", "Other"]}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            Employer::from(query.employer),
+            Employer::Exclude(vec!["Acme".into(), "Other".into()])
+        );
+        let same: EmployerFilter =
+            serde_json::from_str(r#"{"kind": "same", "company": "Acme"}"#).unwrap();
+        assert_eq!(Employer::from(same), Employer::Same("Acme".into()));
+        let none: Query = serde_json::from_str("{}").unwrap();
+        assert_eq!(none.employer, EmployerFilter::Any);
     }
 }

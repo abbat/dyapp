@@ -95,6 +95,15 @@
       <form id="search" novalidate>
         <h2 data-i18n="search.title"></h2>
         <p class="notice" data-i18n="search.sample"></p>
+        <label for="search-employer" data-i18n="search.employer"></label>
+        <select id="search-employer">
+          <option value="any" data-i18n="search.employer.any"></option>
+          <option value="same" data-i18n="search.employer.same"></option>
+          <option value="exclude" data-i18n="search.employer.exclude"></option>
+        </select>
+        <label for="search-company" data-i18n="search.company"></label>
+        <input id="search-company" spellcheck="false">
+        <p class="notice" data-i18n="search.employerNotice"></p>
         <div id="search-filters" hidden>
           <div id="search-age" hidden>
             <label for="search-age-min" data-i18n="search.ageMin"></label>

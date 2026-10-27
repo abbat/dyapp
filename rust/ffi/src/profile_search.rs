@@ -7,7 +7,7 @@ use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
 use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
-use dyapp_client::search::{self, SearchFailure};
+use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::store::Store;
 use dyapp_p2p_net::{proto, Protocols};
 use std::path::PathBuf;
@@ -56,6 +56,34 @@ impl From<SearchCondition> for proto::Condition {
             op: op.into(),
             ints: condition.ints,
             strings: condition.strings,
+        }
+    }
+}
+
+/// Which companies verified results may have; applied only on this device, so no node learns it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, uniffi::Enum)]
+pub enum SearchEmployer {
+    /// Any company or none.
+    #[default]
+    Any,
+    /// Only this company, compared without case and with whitespace collapsed.
+    Same {
+        /// Company name.
+        company: String,
+    },
+    /// None of these companies; profiles without a company pass.
+    Exclude {
+        /// Company names.
+        companies: Vec<String>,
+    },
+}
+
+impl From<SearchEmployer> for Employer {
+    fn from(employer: SearchEmployer) -> Self {
+        match employer {
+            SearchEmployer::Any => Self::Any,
+            SearchEmployer::Same { company } => Self::Same(company),
+            SearchEmployer::Exclude { companies } => Self::Exclude(companies),
         }
     }
 }
@@ -145,13 +173,14 @@ impl ProfileSearcher {
         }))
     }
 
-    /// Search up to `limit` hits per node (0 means 50); no conditions asks for a sample. Each call
-    /// connects again, so retry is a new call; without an answering active network it fails with
-    /// `notConnected`.
+    /// Search up to `limit` hits per node (0 means 50); no conditions asks for a sample, and
+    /// `employer` then narrows the verified results on this device. Each call connects again, so
+    /// retry is a new call; without an answering active network it fails with `notConnected`.
     pub fn search(
         &self,
         key: Arc<IdentityKey>,
         conditions: Vec<SearchCondition>,
+        employer: SearchEmployer,
         limit: u32,
     ) -> Result<ProfileSearchResult, CoreError> {
         let mut cache = self.cache.lock().map_err(failed)?;
@@ -176,6 +205,7 @@ impl ProfileSearcher {
             .await;
             Ok::<_, CoreError>((reached, results))
         })?;
+        Employer::from(employer).retain(&mut results.profiles);
         compatibility::rank(&own, &mut results.profiles);
         let profiles = results
             .profiles
@@ -223,7 +253,7 @@ mod tests {
             name: String::new(),
         };
         network::save(&dir, Settings::Draft, &network).unwrap();
-        let search = || searcher.search(key.clone(), Vec::new(), 0);
+        let search = || searcher.search(key.clone(), Vec::new(), SearchEmployer::Any, 0);
         assert_eq!(search().unwrap_err().to_string(), "notConnected");
         network::save(&dir, Settings::Active, &network).unwrap();
         // A retry is a new call on the same searcher.
@@ -249,6 +279,12 @@ mod tests {
         assert_eq!(
             ProfileSearchFailure::from(SearchFailure::Invalid),
             ProfileSearchFailure::Invalid
+        );
+        assert_eq!(
+            Employer::from(SearchEmployer::Exclude {
+                companies: vec!["Acme".into()]
+            }),
+            Employer::Exclude(vec!["Acme".into()])
         );
     }
 }

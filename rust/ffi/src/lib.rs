@@ -26,7 +26,7 @@ pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
 mod profile_search;
 pub use profile_search::{
     FoundProfile, ProfileSearchFailure, ProfileSearchResult, ProfileSearcher, SearchCondition,
-    SearchOp,
+    SearchEmployer, SearchOp,
 };
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
