@@ -8,6 +8,10 @@ private enum IdentityAction: Sendable {
     case ready(IdentityCandidate, String), failed
 }
 
+private enum RemovalAction: Sendable {
+    case resolved(IdentityResolution), failed(IdentityResolution)
+}
+
 /// Inventory and explicit identity actions for the selected Apple key slot.
 struct IdentitySettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +23,19 @@ struct IdentitySettingsView: View {
     @State private var readFailed = false
     @State private var isWorking = false
     @State private var actionFailed = false
+    @State private var showRemoveConfirmation = false
+
+    private var removalWarning: LocalizedStringKey {
+        rows.count == 1 ? "settings.removeLastWarning" : "settings.removeWarning"
+    }
+
+    private var removableSlot: UUID? {
+        guard case .slot(let id) = candidate.location,
+              rows.first(where: { $0.candidate.location == candidate.location })?.peerID == peerId else {
+            return nil
+        }
+        return id
+    }
 
     var body: some View {
         Form {
@@ -72,6 +89,24 @@ struct IdentitySettingsView: View {
                 if isWorking { ProgressView("settings.working") }
                 if actionFailed {
                     Text("settings.actionFailed").accessibilityIdentifier("settings-action-error")
+                }
+            }
+
+            if let id = removableSlot {
+                Section {
+                    Button("settings.remove", role: .destructive) {
+                        showRemoveConfirmation = true
+                    }
+                    .disabled(isLoading || readFailed || isWorking)
+                    .accessibilityIdentifier("settings-remove")
+                }
+                .alert("settings.removeTitle", isPresented: $showRemoveConfirmation) {
+                    Button("settings.removeCancel", role: .cancel) {}
+                    Button("settings.removeConfirm", role: .destructive) {
+                        Task { await remove(id) }
+                    }
+                } message: {
+                    Text(peerId) + Text(verbatim: "\n") + Text(removalWarning)
                 }
             }
         }
@@ -144,6 +179,35 @@ struct IdentitySettingsView: View {
             return .failed
         }.value
         finish(result)
+    }
+
+    @MainActor
+    private func remove(_ id: UUID) async {
+        guard !isWorking else { return }
+        isWorking = true
+        actionFailed = false
+        let confirmedPeerID = peerId
+        let result = await Task.detached(priority: .userInitiated) { () -> RemovalAction in
+            do { return .resolved(try RustBridge.removeIdentity(id, confirming: confirmedPeerID)) }
+            catch {
+                return .failed((try? RustBridge.identityState()) ?? .recovery(nil, .unavailable))
+            }
+        }.value
+        isWorking = false
+        switch result {
+        case .resolved(let resolution):
+            onIdentityChanged(resolution)
+            dismiss()
+
+        case .failed(let resolution):
+            if resolution != .ready(candidate, peerId) {
+                onIdentityChanged(resolution)
+                dismiss()
+            } else {
+                actionFailed = true
+                await load()
+            }
+        }
     }
 
     @MainActor

@@ -45,11 +45,11 @@ struct IdentityCandidate: Equatable, Sendable {
     let state: IdentitySlot.State
 }
 
-enum IdentityRecoveryReason: Equatable {
+enum IdentityRecoveryReason: Equatable, Sendable {
     case missing, damaged, unavailable, invalidPointer, incomplete, deleting
 }
 
-enum IdentityResolution: Equatable {
+enum IdentityResolution: Equatable, Sendable {
     case setup
     case picker([IdentityCandidate])
     case ready(IdentityCandidate, String)

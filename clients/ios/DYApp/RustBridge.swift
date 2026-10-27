@@ -53,6 +53,13 @@ enum RustBridge {
         return .ready(IdentityCandidate(location: location, state: .ready), peerID)
     }
 
+    /// Remove only the confirmed UUID slot, then resolve the remaining candidates without selection.
+    static func removeIdentity(_ id: UUID, confirming peerID: String) throws -> IdentityResolution {
+        let store = try identityStore()
+        try store.remove(id, confirming: peerID)
+        return (try? store.resolve()) ?? .recovery(nil, .unavailable)
+    }
+
     /// Existing folder for this identity; the legacy key stays at the app root.
     static func networkDirectory(root: URL, candidate: IdentityCandidate) -> URL {
         switch candidate.location {

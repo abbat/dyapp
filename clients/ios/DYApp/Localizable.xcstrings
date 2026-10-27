@@ -193,6 +193,42 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Не удалось выполнить действие. Проверьте хранилище и повторите попытку; текущий ключ не заменён." } }
       }
     },
+    "settings.remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove this identity" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить эту идентичность" } }
+      }
+    },
+    "settings.removeTitle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove identity?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить идентичность?" } }
+      }
+    },
+    "settings.removeCancel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Keep identity" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Оставить идентичность" } }
+      }
+    },
+    "settings.removeConfirm": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove permanently" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить навсегда" } }
+      }
+    },
+    "settings.removeLastWarning": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This is the last local copy shown on this device. The key cannot be recovered without a backup." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Это последняя локальная копия на этом устройстве. Без резервной копии ключ нельзя восстановить." } }
+      }
+    },
+    "settings.removeWarning": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This key cannot be recovered without a backup. Other identities will remain on this device." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Без резервной копии этот ключ нельзя восстановить. Другие идентичности останутся на устройстве." } }
+      }
+    },
     "network.activeReadFailed": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "The active network could not be read. Retry after fixing its file." } },

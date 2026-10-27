@@ -17,7 +17,10 @@ check; Retry reuses the draft. Continue opens the profile editor after activatio
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you click it. **Switch to this
 identity** reopens an existing key before selecting it; an unreadable identity stays unavailable.
-A failed action shows an error and keeps your current selection. Remove is planned.
+A failed Create or Switch shows an error and keeps your current selection. For a selected UUID
+identity, **Remove this identity** shows its Peer ID and a backup warning; **Keep identity**
+cancels. **Remove permanently** erases that local key and returns to setup or the identity picker.
+Legacy identities cannot be removed here. The picker selection controls are planned.
 
 This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
 notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI
