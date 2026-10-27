@@ -111,13 +111,18 @@ recovery. Refuse removal of a damaged slot and of the legacy slot until a
 separate migration flow exists. Removing the active slot returns to the picker;
 it never selects another identity silently. Published network data may remain.
 
-`PlatformKeyStore.eraseWrappingKey(forSlot:)` now deletes and verifies only one UUID account;
-the slot lifecycle and confirmation UI are still planned. A native unit test verifies that an
-erase leaves another slot and the legacy account readable.
+`PlatformKeyStore.eraseWrappingKey(forSlot:)` deletes and verifies only one UUID account.
+`IdentitySlotStore.remove(_:confirming:)` now serializes removal with the slot lock: it checks
+the ready slot's Peer ID against the confirmation, refuses unknown or nonregular slot content,
+writes the tombstone, records no selection when the removed slot was active or the picker had no
+selection, erases the slot's Keychain item, and removes
+only known files before removing the tombstone. A retry can finish after the Keychain item or
+directory has gone; if the item still exists, it must open and match the confirmed Peer ID again.
+The Settings confirmation UI remains planned.
 
 A valid regular `profiles/<uuid>.deleting` file containing exactly `deleting\n` now keeps that
 candidate visible as deleting even after its slot directory is partly or fully gone. Malformed
-files and symlinks are ignored. The actual slot cleanup and confirmation UI remain planned.
+files and symlinks are ignored. A UUID with any tombstone file is never reused during creation.
 
 ## Choice and trade-offs
 

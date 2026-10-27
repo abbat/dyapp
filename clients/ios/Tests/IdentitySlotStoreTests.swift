@@ -187,6 +187,63 @@ final class IdentitySlotStoreTests: XCTestCase {
         XCTAssertEqual(try store.candidates(), [candidate])
     }
 
+    func testConfirmedRemovalKeepsOtherSlotAndLeavesNoSelection() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let first = try store.create()
+        let survivor = try store.create()
+        try store.select(.slot(first.slot.id))
+        XCTAssertThrowsError(try store.remove(first.slot.id, confirming: survivor.peerId))
+        XCTAssertEqual(try store.open(first.slot).peerId(), first.peerId)
+
+        try store.remove(first.slot.id, confirming: first.peerId)
+        XCTAssertFalse(try PlatformKeyStore.forSlot(first.slot.id).containsWrappingKey())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path.appendingPathComponent("profiles")
+            .appendingPathComponent(first.slot.id.uuidString.lowercased()).path))
+        XCTAssertEqual(try store.resolve(), .picker([
+            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+        ]))
+        XCTAssertEqual(try store.open(survivor.slot).peerId(), survivor.peerId)
+    }
+
+    func testRemovalRefusesUnknownContentBeforeErasingKey() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path)
+        let slot = try store.create()
+        let folder = path.appendingPathComponent("profiles")
+            .appendingPathComponent(slot.slot.id.uuidString.lowercased())
+        try Data("keep".utf8).write(to: folder.appendingPathComponent("unknown"))
+        XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId))
+        XCTAssertEqual(try store.open(slot.slot).peerId(), slot.peerId)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path.appendingPathComponent("profiles")
+            .appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting").path))
+    }
+
+    func testRemovalResumesAfterKeychainEraseAndMissingDirectory() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let slot = try store.create()
+        let profiles = path.appendingPathComponent("profiles")
+        let tombstone = profiles.appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting")
+        try Data("deleting\n".utf8).write(to: tombstone)
+        try PlatformKeyStore.eraseWrappingKey(forSlot: slot.slot.id)
+        let folder = profiles.appendingPathComponent(slot.slot.id.uuidString.lowercased())
+        try FileManager.default.removeItem(at: folder)
+        try store.remove(slot.slot.id, confirming: slot.peerId)
+        XCTAssertEqual(try store.candidates(), [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tombstone.path))
+    }
+
+    func testRemovalFromPickerDoesNotAutoSelectSoleSurvivor() throws {
+        let store = IdentitySlotStore(root: try root(), legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let removed = try store.create()
+        let survivor = try store.create()
+        try store.remove(removed.slot.id, confirming: removed.peerId)
+        XCTAssertEqual(try store.resolve(), .picker([
+            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+        ]))
+    }
+
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())

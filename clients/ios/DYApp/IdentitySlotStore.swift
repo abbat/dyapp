@@ -17,6 +17,8 @@ enum IdentitySlotError: Error {
     case missingKey
     case nonRegularKey
     case reopenMismatch
+    case peerIDMismatch
+    case unsafeRemoval
     case lockFailed(Int32)
     case filesystem(Int32)
 }
@@ -83,6 +85,12 @@ final class IdentitySlotStore {
         profiles.appendingPathComponent("\(id.uuidString.lowercased()).deleting")
     }
 
+    private func hasDeletingMarker(_ id: UUID) -> Bool {
+        let file = deletingMarker(for: id)
+        return (try? isRegularFile(file)) == true &&
+            (try? Data(contentsOf: file)) == Data("deleting\n".utf8)
+    }
+
     private func withLock<T>(_ body: () throws -> T) throws -> T {
         try files.createDirectory(at: root, withIntermediateDirectories: true)
         let lock = root.appendingPathComponent(".identity-slots.lock")
@@ -128,8 +136,7 @@ final class IdentitySlotStore {
             let markerName = String(entry.lastPathComponent.dropLast(".deleting".count))
             guard let id = UUID(uuidString: markerName),
                   markerName == id.uuidString.lowercased(),
-                  (try? isRegularFile(deletingMarker(for: id))) == true,
-                  (try? Data(contentsOf: entry)) == Data("deleting\n".utf8) else { continue }
+                  hasDeletingMarker(id) else { continue }
             if let index = slots.firstIndex(where: { $0.id == id }) {
                 slots[index] = IdentitySlot(id: id, state: .deleting)
             } else {
@@ -307,7 +314,9 @@ final class IdentitySlotStore {
             for _ in 0..<8 {
                 let id = newID()
                 let store = PlatformKeyStore.forSlot(id)
-                if try store.containsWrappingKey() { continue }
+                if try store.containsWrappingKey() || (try existsWithoutFollowing(deletingMarker(for: id))) {
+                    continue
+                }
                 let path = directory(for: id)
                 // mkdir is exclusive. A racing or stranded directory cannot be reused.
                 if Darwin.mkdir(path.path, S_IRWXU) != 0 {
@@ -327,6 +336,84 @@ final class IdentitySlotStore {
                 return (IdentitySlot(id: id, state: .ready), peerId)
             }
             throw IdentitySlotError.noFreeSlot
+        }
+    }
+}
+
+extension IdentitySlotStore {
+    private func removableFiles(for id: UUID) throws -> [URL] {
+        let parent = try profiles.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard parent.isDirectory == true, parent.isSymbolicLink != true else {
+            throw IdentitySlotError.unsafeRemoval
+        }
+        let folder = directory(for: id)
+        guard try existsWithoutFollowing(folder) else { return [] }
+        let values = try folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true else {
+            throw IdentitySlotError.unsafeRemoval
+        }
+        let allowed: Set<String> = ["identity.key", "state", "network", "network-draft"]
+        let entries = try files.contentsOfDirectory(at: folder,
+                                                    includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        for entry in entries {
+            guard allowed.contains(entry.lastPathComponent), try isRegularFile(entry) else {
+                throw IdentitySlotError.unsafeRemoval
+            }
+        }
+        return entries
+    }
+
+    private func prepareRemoval(_ id: UUID, confirming peerID: String) throws -> [URL] {
+        guard let slot = try slotsWithoutLock().first(where: { $0.id == id }),
+              slot.state == .ready || (slot.state == .deleting && hasDeletingMarker(id)) else {
+            throw IdentitySlotError.notReady
+        }
+        let keyStore = PlatformKeyStore.forSlot(id)
+        if try keyStore.containsWrappingKey() {
+            // A tombstone alone never authorizes erasing a still-present Keychain item.
+            let key = try openWithoutLock(IdentitySlot(id: id, state: .ready))
+            guard key.peerId() == peerID else { throw IdentitySlotError.peerIDMismatch }
+        } else if slot.state != .deleting {
+            throw IdentitySlotError.missingKey
+        }
+        let entries = try removableFiles(for: id)
+        if slot.state == .ready {
+            let tombstone = deletingMarker(for: id)
+            guard try !existsWithoutFollowing(tombstone) else { throw IdentitySlotError.unsafeRemoval }
+            try Data("deleting\n".utf8).write(to: tombstone, options: .atomic)
+        }
+        return entries
+    }
+
+    private func clearSelectionForRemoval(_ id: UUID) throws {
+        let needsPicker: Bool
+        switch try activePointerWithoutLock() {
+        case .selected(let location):
+            needsPicker = location == .slot(id)
+
+        case .absent, .invalid:
+            needsPicker = true
+
+        case .unselected:
+            needsPicker = false
+        }
+        if needsPicker {
+            try Data("none\n".utf8).write(to: root.appendingPathComponent("active-profile"), options: .atomic)
+        }
+    }
+
+    /// Remove one confirmed UUID slot. A tombstone permits retry after Keychain or file cleanup fails.
+    func remove(_ id: UUID, confirming peerID: String) throws {
+        try withLock {
+            let entries = try prepareRemoval(id, confirming: peerID)
+            try clearSelectionForRemoval(id)
+            try PlatformKeyStore.eraseWrappingKey(forSlot: id)
+            for entry in entries { try files.removeItem(at: entry) }
+            let folder = directory(for: id)
+            if try existsWithoutFollowing(folder), Darwin.rmdir(folder.path) != 0 {
+                throw IdentitySlotError.filesystem(errno)
+            }
+            try files.removeItem(at: deletingMarker(for: id))
         }
     }
 }
