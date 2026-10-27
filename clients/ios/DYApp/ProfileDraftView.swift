@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ProfileDraftLoad: Sendable {
-    case loaded([String: UInt32]?)
+    case loaded(ProfileDraft?)
     case failed
 }
 

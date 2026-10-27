@@ -73,7 +73,8 @@ internal fun PlacePicker(inputs: PlaceInputs) {
                 modifier = Modifier.testTag("country-$code"))
         }
     }
-    OutlinedTextField(inputs.text, { inputs.text = it; inputs.place = null },
+    // A focused field can repeat its last text after a country change; only a real edit drops the pick.
+    OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
         label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),
         singleLine = true, modifier = Modifier.testTag("profile-place"))
     if (inputs.unknown) PlaceSuggestions(inputs, placeLang())

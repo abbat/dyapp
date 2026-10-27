@@ -80,6 +80,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-none").performClick()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("preview-place").assertDoesNotExist()
         compose.onNodeWithTag("preview-country").assertDoesNotExist()
