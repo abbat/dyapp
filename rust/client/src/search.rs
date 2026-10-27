@@ -9,6 +9,7 @@ use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, Condition, Status};
 use dyapp_p2p_net::search_results;
 use dyapp_profile::VerifiedProfile;
+use std::time::Duration;
 
 /// Keys one get request may carry.
 const GET_KEYS: usize = 50;
@@ -19,6 +20,44 @@ pub struct SearchResults {
     pub profiles: Vec<VerifiedProfile>,
     /// A node failed, skipped an uncheckable condition, omitted an age filter, or cut a reply.
     pub partial: bool,
+    /// Why nodes failed, one entry per failed request, in the order they failed.
+    pub failures: Vec<SearchFailure>,
+}
+
+/// Why a search gave no usable reply from a node; each has its own message and retry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchFailure {
+    /// No search node was given.
+    NoNodes,
+    /// The node could not be reached, the request broke, or the node would not serve it.
+    Unavailable,
+    /// The node did not reply within [`crate::TIMEOUT`].
+    Timeout,
+    /// The node is busy; ask again after this long.
+    RateLimited(Duration),
+    /// The node set a puzzle the client would not solve or still refused the solution.
+    Puzzle,
+    /// The reply was malformed or carried a record with a forged signature.
+    Invalid,
+}
+
+impl From<&Error> for SearchFailure {
+    fn from(error: &Error) -> Self {
+        match error {
+            Error::Timeout => Self::Timeout,
+            Error::RateLimited(after) => Self::RateLimited(*after),
+            Error::Status(Status::Puzzle)
+            | Error::Reply("puzzle too hard" | "bad puzzle challenge") => Self::Puzzle,
+            Error::Connect(_)
+            | Error::Request(_)
+            | Error::Status(
+                Status::Denied | Status::Full | Status::Refused | Status::Unsupported,
+            ) => {
+                Self::Unavailable
+            }
+            _ => Self::Invalid,
+        }
+    }
 }
 
 /// Profiles matching every condition, from up to `limit` hits (0 means 50) of each node in
@@ -35,6 +74,10 @@ pub async fn search(
 ) -> SearchResults {
     let (mut replies, mut cached) = (Vec::new(), Vec::new());
     let mut partial = nodes.is_empty();
+    let mut failures = Vec::new();
+    if nodes.is_empty() {
+        failures.push(SearchFailure::NoNodes);
+    }
     let active = conditions
         .iter()
         .any(|c| c.field == search_results::ACTIVE_DAY);
@@ -42,9 +85,13 @@ pub async fn search(
         .iter()
         .any(|c| c.field == search_results::BIRTH_AGE);
     for node in nodes {
-        let Ok(reply) = node.search_query(conditions.to_vec(), limit).await else {
-            partial = true;
-            continue;
+        let reply = match node.search_query(conditions.to_vec(), limit).await {
+            Ok(reply) => reply,
+            Err(error) => {
+                failures.push((&error).into());
+                partial = true;
+                continue;
+            }
         };
         partial |= reply.partial || (age && !reply.applied.contains(&search_results::BIRTH_AGE));
         // The client cannot re-check activity, so a node that skipped it adds nothing.
@@ -63,8 +110,12 @@ pub async fn search(
                 _ => keys.push(hit.key),
             }
         }
-        let (records, incomplete) = fetch(node, keys).await;
+        let (records, incomplete) = fetch(node, keys, &mut failures).await;
         partial |= incomplete;
+        // `check` drops such a record anyway; the node that sent it is not to be trusted.
+        if records.iter().any(|r| dyapp_profile::verify(r).is_err()) {
+            failures.push(SearchFailure::Invalid);
+        }
         replies.push(records);
     }
     let mut found = search_results::check(conditions, min_pow_bits, &replies);
@@ -87,6 +138,7 @@ pub async fn search(
     SearchResults {
         profiles: found,
         partial,
+        failures,
     }
 }
 
@@ -119,16 +171,25 @@ pub async fn publish_due(
     Ok(taken)
 }
 
-// The records of `keys` that `node` returns, asking again for those a cut reply left out.
-async fn fetch(node: &mut Node, keys: Vec<Vec<u8>>) -> (Vec<SignedRecord>, bool) {
+// The records of `keys` that `node` returns, asking again for those a cut reply left out; a failed
+// request goes to `failures`.
+async fn fetch(
+    node: &mut Node,
+    keys: Vec<Vec<u8>>,
+    failures: &mut Vec<SearchFailure>,
+) -> (Vec<SignedRecord>, bool) {
     let mut records = Vec::new();
     let mut incomplete = false;
     for chunk in keys.chunks(GET_KEYS) {
         let mut wanted = chunk.to_vec();
         while !wanted.is_empty() {
-            let Ok(reply) = node.search_get(wanted.clone()).await else {
-                incomplete = true;
-                break;
+            let reply = match node.search_get(wanted.clone()).await {
+                Ok(reply) => reply,
+                Err(error) => {
+                    failures.push((&error).into());
+                    incomplete = true;
+                    break;
+                }
             };
             let asked = wanted.len();
             for record in reply.records {
@@ -448,6 +509,59 @@ mod tests {
         let two_gets = gets(&two_asked);
         assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);
         assert!(!two_gets.concat().contains(&key(&e)));
+    }
+
+    #[tokio::test]
+    async fn classifies_failures_and_drops_forged_records() {
+        let [a, b] = [(); 2].map(|()| Identity::generate());
+        let mut forged = record(&b, 1, 30);
+        forged.signature[0] ^= 1;
+        let mut answers = vec![
+            ok(Vec::new(), vec![record(&a, 1, 30), forged], false),
+            ok(vec![hit(key(&a), 1), hit(key(&b), 1)], Vec::new(), false),
+        ];
+        let (liar, _) = fake(move |_| answers.pop().unwrap()).await;
+        let (busy, _) = fake(|_| status(Status::RateLimited, 30)).await;
+        let (hard, _) = fake(|_| SearchResponse {
+            status: Status::Puzzle.into(),
+            puzzle_challenge: vec![3; 16],
+            puzzle_bits: crate::MAX_PUZZLE_BITS + 1,
+            ..SearchResponse::default()
+        })
+        .await;
+        let (broken, _) = fake(|_| status(Status::Invalid, 0)).await;
+        let (refusing, _) = fake(|_| status(Status::Refused, 0)).await;
+        let mut nodes = [liar, busy, hard, broken, refusing];
+        let cache = Profiles::default();
+        let search = search(&mut nodes, &[], 0, 0, &cache, &[]);
+        let found = tokio::time::timeout(Duration::from_secs(10), search)
+            .await
+            .unwrap();
+        assert!(found.partial);
+        let peers: Vec<_> = found.profiles.iter().map(|p| p.peer_id.clone()).collect();
+        assert_eq!(peers, [a.peer_id()]);
+        assert_eq!(
+            found.failures,
+            [
+                SearchFailure::Invalid,
+                SearchFailure::RateLimited(Duration::from_secs(30)),
+                SearchFailure::Puzzle,
+                SearchFailure::Invalid,
+                SearchFailure::Unavailable,
+            ]
+        );
+        let none = super::search(&mut [], &[], 0, 0, &cache, &[]).await;
+        assert!(none.partial && none.profiles.is_empty());
+        assert_eq!(none.failures, [SearchFailure::NoNodes]);
+        for (error, failure) in [
+            (Error::Timeout, SearchFailure::Timeout),
+            (Error::Connect(String::new()), SearchFailure::Unavailable),
+            (Error::Request(String::new()), SearchFailure::Unavailable),
+            (Error::Status(Status::Puzzle), SearchFailure::Puzzle),
+            (Error::Reply("bad hit"), SearchFailure::Invalid),
+        ] {
+            assert_eq!(SearchFailure::from(&error), failure);
+        }
     }
 
     async fn within(

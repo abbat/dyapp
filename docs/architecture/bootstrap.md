@@ -572,7 +572,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   it. `dyapp_client::search::search` runs this over the given nodes: it fetches only the hits
   whose version the client's profile cache lacks, in gets of 50 keys, asks again for the keys a
   `partial` reply left out, skips a failing node and returns the profiles in no set order.
-  Replies carry no coverage hints.
+  Replies carry no coverage hints. The result lists one typed failure per failed request: no
+  nodes, node unavailable, timeout, rate limit with its wait, proof-of-work puzzle, or an invalid
+  reply, which includes a hit whose record fails its signature.
 - **Capacity.** [search-capacity.md](search-capacity.md) checks this design up to 50M users: it
   holds once 2 search nodes exist. An `in` on `place` runs as one ordered scan per place merged
   by `r`: a single SQLite query sorts every row of the places in a temporary B-tree and
