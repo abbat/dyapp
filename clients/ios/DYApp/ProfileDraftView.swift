@@ -39,10 +39,12 @@ struct ProfileBirthParts: Equatable {
     }
 
     func validate() throws {
+        guard try assessment().valid else { throw ProfileBirthError.invalid }
+    }
+
+    func assessment() throws -> BirthAssessment {
         let days = UInt64(max(0, floor(Date().timeIntervalSince1970 / 86_400)))
-        guard try assessBirthParts(year: year, month: month, day: day, todayUnixDays: days).valid else {
-            throw ProfileBirthError.invalid
-        }
+        return try assessBirthParts(year: year, month: month, day: day, todayUnixDays: days)
     }
 }
 
@@ -79,6 +81,41 @@ struct ProfileDraftStore {
     func save(_ values: [String: UInt32], birth: ProfileBirthParts) throws {
         try birth.validate()
         try save(birth.inserted(into: values))
+    }
+}
+
+struct ProfilePublicField: Equatable {
+    let scaleKey: String
+    let choiceKey: String
+}
+
+/// An exact public projection of the saved draft. Zero means unpublished for every scale.
+struct ProfilePublicPreview {
+    let fields: [ProfilePublicField]
+    let birth: ProfileBirthParts
+    let youngest: UInt32?
+    let oldest: UInt32?
+
+    init(draft: [String: UInt32]) throws {
+        var selected: [ProfilePublicField] = []
+        let scales = profileScales()
+        let known = Set(scales.map(\.key)).union(ProfileBirthParts.keys)
+        guard draft.keys.allSatisfy(known.contains) else { throw CocoaError(.fileReadCorruptFile) }
+        for scale in scales {
+            let code = draft[scale.key] ?? 0
+            guard code != 0 else { continue }
+            guard let choice = scale.choices.first(where: { $0.code == code }) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            selected.append(ProfilePublicField(scaleKey: scale.key, choiceKey: choice.key))
+        }
+        let birth = ProfileBirthParts(draft: draft)
+        let assessment = try birth.assessment()
+        guard assessment.valid else { throw ProfileBirthError.invalid }
+        fields = selected
+        self.birth = birth
+        youngest = assessment.youngest
+        oldest = assessment.oldest
     }
 }
 

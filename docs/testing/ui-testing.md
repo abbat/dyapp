@@ -36,6 +36,8 @@ The migration test also removes the slot and checks that its slot draft is clean
 root copy remains unchanged.
 Another shared unit test checks that empty birth parts stay absent, yearless February 29 is valid,
 and an impossible full date is rejected through the Rust UniFFI assessment.
+The Apple preview model test checks that every unset field stays unpublished, partial birth parts
+are preserved, and an available year produces ordered inclusive age bounds.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64

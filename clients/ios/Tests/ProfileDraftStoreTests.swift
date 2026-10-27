@@ -3,6 +3,34 @@ import Foundation
 import XCTest
 
 final class ProfileDraftStoreTests: XCTestCase {
+    func testPublicPreviewOmitsEveryUnpublishedScaleAndKeepsExactBirthParts() throws {
+        let empty = try ProfilePublicPreview(draft: [:])
+        XCTAssertTrue(empty.fields.isEmpty)
+        XCTAssertEqual(empty.birth, ProfileBirthParts(year: nil, month: nil, day: nil))
+        XCTAssertNil(empty.youngest)
+        XCTAssertNil(empty.oldest)
+
+        let scale = try XCTUnwrap(profileScales().first { $0.key != "gender" })
+        let choice = try XCTUnwrap(scale.choices.first)
+        let preview = try ProfilePublicPreview(draft: [
+            scale.key: choice.code,
+            "gender": 0,
+            "birthMonth": 2,
+            "birthDay": 29,
+        ])
+        XCTAssertEqual(preview.fields, [ProfilePublicField(scaleKey: scale.key, choiceKey: choice.key)])
+        XCTAssertEqual(preview.birth, ProfileBirthParts(year: nil, month: 2, day: 29))
+        XCTAssertNil(preview.youngest)
+        XCTAssertNil(preview.oldest)
+
+        let aged = try ProfilePublicPreview(draft: ["birthYear": 1_950])
+        XCTAssertNotNil(aged.youngest)
+        XCTAssertNotNil(aged.oldest)
+        XCTAssertLessThanOrEqual(try XCTUnwrap(aged.youngest), try XCTUnwrap(aged.oldest))
+        XCTAssertThrowsError(try ProfilePublicPreview(draft: [scale.key: UInt32.max]))
+        XCTAssertThrowsError(try ProfilePublicPreview(draft: ["unknown": 1]))
+    }
+
     func testBirthPartsStayOptionalAndUseSharedCoreValidation() throws {
         let empty = try ProfileBirthParts(yearText: "", monthText: "", dayText: "")
         XCTAssertEqual(empty, ProfileBirthParts(year: nil, month: nil, day: nil))
