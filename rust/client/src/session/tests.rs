@@ -545,3 +545,81 @@ fn failed_store_write_invalidates_session_until_recovery() {
     session.recover(&seal_key).unwrap();
     assert!(session.device.is_some());
 }
+
+#[test]
+fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
+    let seal_key = [6; 32];
+    let Invite {
+        mut session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&temp_path(), &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let (a, b) = (alice_id.peer_id(), bob_id.peer_id());
+    let now = crate::now() * 1000;
+    let presence = |group: &mut dyapp_messaging::mls::Group, wall_ms| {
+        let hlc = dyapp_messaging::hlc::Timestamp::new(wall_ms, 0).into();
+        chat::message(group, &alice, &Body::Presence { hlc }).unwrap()[0]
+            .mls
+            .clone()
+    };
+
+    // Not a match yet: nothing is sent and a received presence is dropped.
+    assert!(session.stage_presence(now, &seal_key).unwrap().is_empty());
+    let early = presence(&mut group, now);
+    assert!(matches!(
+        session.stage_envelope(&key(2), &early, &profiles, &seal_key),
+        Ok(Some(Event::Message { .. }))
+    ));
+    assert!(!session.store.active_recently(&a, now).unwrap());
+
+    for (sender, target, id) in [(&a, &b, 1), (&b, &a, 2)] {
+        let event = crate::interactions::Interaction {
+            kind: crate::interactions::Kind::Like,
+            event_id: [id; 16],
+            hlc: 1,
+        };
+        session
+            .store
+            .apply_interaction(sender, target, b"d", event)
+            .unwrap();
+    }
+    let writes = session.stage_presence(now, &seal_key).unwrap();
+    assert_eq!(writes.len(), 1);
+    assert!(session
+        .stage_presence(now + 1, &seal_key)
+        .unwrap()
+        .is_empty());
+    let hour = now + 3_600_000;
+    assert_eq!(session.stage_presence(hour, &seal_key).unwrap().len(), 1);
+    // Unsent presence is given up when the receiver would stop showing it.
+    let due = |session: &Session| session.due_outbound(i64::MAX).unwrap().len();
+    assert_eq!(due(&session), 2);
+    let expiry = |at: u64| i64::try_from(at + 2 * 3_600_000).unwrap();
+    assert_eq!(session.store.expire_outbound(expiry(now) - 1).unwrap(), 0);
+    assert_eq!(session.store.expire_outbound(expiry(now)).unwrap(), 1);
+    assert_eq!(session.store.expire_outbound(expiry(hour)).unwrap(), 1);
+    assert_eq!(due(&session), 0);
+    session.store.set_send_presence(false).unwrap();
+    let later = now + 2 * 3_600_000;
+    assert!(session.stage_presence(later, &seal_key).unwrap().is_empty());
+
+    // A match's presence shows even with ours hidden; one from the future is refused.
+    let seen = presence(&mut group, now);
+    assert!(matches!(
+        session.stage_envelope(&key(3), &seen, &profiles, &seal_key),
+        Ok(Some(Event::Message { .. }))
+    ));
+    assert!(session.store.active_recently(&a, now).unwrap());
+    let future = presence(&mut group, now + 3_600_000);
+    assert!(matches!(
+        session.stage_envelope(&key(4), &future, &profiles, &seal_key),
+        Ok(Some(Event::Refused(_)))
+    ));
+}

@@ -3,9 +3,10 @@
 This is the planned client contract for presence under
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): a match can see that the other side
 used the app recently, and the user can hide it. Implemented in the Rust client: the wire body
-(`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class) and the store rules
-(`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules).
-Planned: the session send on foreground and apply on receive, the outbox expiry, and app UI.
+(`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class), the store rules
+(`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules),
+`Session::announce_presence` for the foreground send, the apply on receive and the outbox
+expiry. Planned: app UI that calls the send and shows the mark.
 
 ## What a peer learns
 
@@ -54,7 +55,7 @@ many matches can still lose an old like to presence; the throttle keeps that rar
 The receiver applies the 60-second future-skew guard to the HLC, then keeps only the latest
 presence per peer identity. It drops presence from a blocked peer and from a peer that is not a
 current match, before observing its HLC. A presence never notifies and never changes likes,
-views or chat.
+views or chat, and it gets no receipt: the sender never retries it after a node accepts it.
 
 ## What a node learns
 

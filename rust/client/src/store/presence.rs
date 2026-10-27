@@ -19,6 +19,7 @@ CREATE TABLE `presence` (
     `sent_ms` INTEGER CHECK (`sent_ms` >= 0),
     `received_hlc` INTEGER CHECK (`received_hlc` >= 0)
 ) STRICT;
+ALTER TABLE `outbox` ADD COLUMN `expires_at_ms` INTEGER;
 PRAGMA user_version = 11;
 ";
 
@@ -106,6 +107,14 @@ impl Store {
             params![target, sent],
         )?;
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, false)?;
+        // A late presence is wrong, not merely slow: give it up with the receiver's window.
+        let expires = sent.saturating_add(PRESENCE_WINDOW_MS as i64);
+        for write in writes {
+            tx.execute(
+                "UPDATE `outbox` SET `expires_at_ms` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![write.mailbox().as_slice(), write.id().as_slice(), expires],
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }

@@ -152,11 +152,12 @@ impl Store {
         Ok((dropped, faulty))
     }
 
-    /// Give up writes first accepted 30 or more days before `now_ms`. Returns how many.
+    /// Give up writes first accepted 30 or more days before `now_ms` and writes past their own
+    /// expiry, such as a presence. Returns how many.
     pub fn expire_outbound(&self, now_ms: i64) -> Result<usize, Error> {
         Ok(self.db.execute(
-            "DELETE FROM `outbox` WHERE `accepted_at_ms` <= ?1",
-            [now_ms.saturating_sub(GIVE_UP_MS)],
+            "DELETE FROM `outbox` WHERE `accepted_at_ms` <= ?1 OR `expires_at_ms` <= ?2",
+            [now_ms.saturating_sub(GIVE_UP_MS), now_ms],
         )?)
     }
 }

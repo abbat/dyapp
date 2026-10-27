@@ -253,6 +253,7 @@ mod tests {
              ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
              ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
              ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; DROP TABLE `peers`;
+             ALTER TABLE `outbox` DROP COLUMN `expires_at_ms`;
              DROP TABLE `presence`; PRAGMA user_version = 4;",
         )
         .unwrap();

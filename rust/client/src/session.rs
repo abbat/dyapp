@@ -151,6 +151,12 @@ impl Session {
             )),
             _ => None,
         };
+        let presence = match body {
+            Body::Presence { hlc } => {
+                Some((self.partner(group_id).ok_or(Error::UnknownGroup)?, *hlc))
+            }
+            _ => None,
+        };
         let group = self
             .groups
             .iter_mut()
@@ -180,6 +186,8 @@ impl Session {
             if let Some((target, source_device, event)) = interaction {
                 self.store
                     .stage_interaction(&target, &source_device, event, &sealed, &writes)?;
+            } else if let Some((target, hlc)) = &presence {
+                self.store.stage_presence(target, *hlc, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
             } else if matches!(
@@ -387,6 +395,39 @@ impl Session {
         self.send_body(nodes, group_id, &Body::Interaction(event), seal_key)
             .await?;
         Ok(Some(event))
+    }
+
+    /// When the app comes to the foreground: send one presence to each allowed match not sent one
+    /// in the last hour ([presence](../../docs/design/presence.md)). Unsent ones expire in 2 h.
+    pub async fn announce_presence(
+        &mut self,
+        nodes: &mut [Node],
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let writes = self.stage_presence(crate::now() * 1000, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await
+    }
+
+    fn stage_presence(
+        &mut self,
+        wall_ms: u64,
+        seal_key: &[u8; 32],
+    ) -> Result<Vec<PreparedEnvelope>, Error> {
+        let ids: Vec<Vec<u8>> = self
+            .groups
+            .iter()
+            .map(|group| group.id().to_vec())
+            .collect();
+        let mut writes = Vec::new();
+        for id in ids {
+            let Some(target) = self.partner(&id) else {
+                continue;
+            };
+            if let Some(hlc) = self.store.draft_presence(&target, wall_ms)? {
+                writes.extend(self.stage_message(&id, &Body::Presence { hlc }, seal_key)?);
+            }
+        }
+        Ok(writes)
     }
 
     async fn send_body(
@@ -735,6 +776,24 @@ impl Session {
                 }
             }
         }
+        if let Event::Message {
+            sender,
+            body: Body::Presence { hlc },
+            ..
+        } = &event
+        {
+            if !blocked && sender != self.store.owner_peer_id() {
+                let wall_ms = crate::now() * 1000;
+                match self.store.receive_presence(sender, *hlc, wall_ms) {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        event = Event::Refused("presence from the future".into());
+                    }
+                    applied => {
+                        applied?;
+                    }
+                }
+            }
+        }
         let staged = if matches!(event, Event::Refused(_)) {
             // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
             (|| {
@@ -832,11 +891,12 @@ impl Session {
     }
 }
 
-/// The group whose sender waits for a receipt of this committed event: any but a receipt.
+/// The group whose sender waits for a receipt of this committed event: any but a receipt or a
+/// presence, which nobody retries.
 fn receipted_group(event: &Event) -> Option<&Vec<u8>> {
     match event {
         Event::Message {
-            body: Body::Receipt(_),
+            body: Body::Receipt(_) | Body::Presence { .. },
             ..
         } => None,
         Event::Message { group, .. }
