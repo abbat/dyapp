@@ -3,6 +3,23 @@ import Foundation
 import XCTest
 
 final class ProfileDraftStoreTests: XCTestCase {
+    func testPreviewUsesSavedDraftInsteadOfUnsavedEditorValues() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let slots = IdentitySlotStore(root: root)
+        let slot = try slots.create()
+        let candidate = IdentityCandidate(location: .slot(slot.slot.id), state: .ready)
+        let draft = ProfileDraftStore(root: root, candidate: candidate, peerId: slot.peerId)
+        try draft.save(["gender": 1])
+        let unsavedEditorValues: [String: UInt32] = ["gender": 2]
+        let savedPreview = try ProfilePublicPreview(draft: XCTUnwrap(draft.load()))
+        let unsavedPreview = try ProfilePublicPreview(draft: unsavedEditorValues)
+        XCTAssertNotEqual(savedPreview.fields, unsavedPreview.fields)
+        XCTAssertEqual(savedPreview.fields.first?.scaleKey, "gender")
+        XCTAssertEqual(try draft.load(), ["gender": 1])
+    }
+
     func testPublicPreviewOmitsEveryUnpublishedScaleAndKeepsExactBirthParts() throws {
         let empty = try ProfilePublicPreview(draft: [:])
         XCTAssertTrue(empty.fields.isEmpty)

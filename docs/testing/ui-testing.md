@@ -38,6 +38,8 @@ Another shared unit test checks that empty birth parts stay absent, yearless Feb
 and an impossible full date is rejected through the Rust UniFFI assessment.
 The Apple preview model test checks that every unset field stays unpublished, partial birth parts
 are preserved, and an available year produces ordered inclusive age bounds.
+The preview screen is reached from the editor without an attestation; native Apple UI checks
+remain in CI.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64

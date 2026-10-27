@@ -157,6 +157,10 @@ struct ProfileDraftView: View {
             Button("profile.save") { save() }
                 .disabled(readFailed)
                 .accessibilityIdentifier("profile-save")
+            NavigationLink("profile.preview") {
+                ProfilePreviewView(candidate: candidate, peerId: peerId)
+            }
+            .accessibilityIdentifier("profile-preview")
             if !status.isEmpty {
                 Text(LocalizedStringKey(status))
             }
@@ -198,4 +202,73 @@ struct ProfileDraftView: View {
         }
     }
 
+}
+
+/// Reads the saved draft so unsaved editor changes cannot appear as public data.
+struct ProfilePreviewView: View {
+    let candidate: IdentityCandidate
+    let peerId: String
+    @State private var preview: ProfilePublicPreview?
+    @State private var readFailed = false
+
+    var body: some View {
+        Form {
+            if let preview {
+                if preview.fields.isEmpty && preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) {
+                    Text("profile.noPublicFields")
+                }
+                ForEach(preview.fields, id: \.scaleKey) { field in
+                    HStack {
+                        Text(LocalizedStringKey("profile.field.\(field.scaleKey)"))
+                        Spacer()
+                        Text(LocalizedStringKey("profile.value.\(field.scaleKey).\(field.choiceKey)"))
+                    }
+                }
+                if let year = preview.birth.year { birthRow("profile.birthYear", value: year) }
+                if let month = preview.birth.month { birthRow("profile.birthMonth", value: month) }
+                if let day = preview.birth.day { birthRow("profile.birthDay", value: day) }
+                HStack {
+                    Text("profile.age")
+                    Spacer()
+                    if let youngest = preview.youngest, let oldest = preview.oldest {
+                        if youngest == oldest {
+                            Text(verbatim: String(youngest))
+                        } else {
+                            Text(verbatim: "\(youngest)-\(oldest)")
+                        }
+                    } else {
+                        Text("profile.ageUnknown")
+                    }
+                }
+                Text("profile.publicDisclosure")
+                if preview.birth.year != nil && preview.birth.month != nil && preview.birth.day != nil {
+                    Text("profile.fullDateDisclosure")
+                }
+            } else if readFailed {
+                Text("profile.readFailed")
+            } else {
+                Text("profile.noSavedDraft")
+            }
+        }
+        .navigationTitle("profile.preview")
+        .onAppear(perform: load)
+    }
+
+    private func birthRow(_ key: String, value: UInt32) -> some View {
+        HStack {
+            Text(LocalizedStringKey(key))
+            Spacer()
+            Text(verbatim: String(value))
+        }
+    }
+
+    private func load() {
+        do {
+            let store = ProfileDraftStore(root: try RustBridge.directory(), candidate: candidate, peerId: peerId)
+            guard let draft = try store.load() else { return }
+            preview = try ProfilePublicPreview(draft: draft)
+        } catch {
+            readFailed = true
+        }
+    }
 }

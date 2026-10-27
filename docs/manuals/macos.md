@@ -17,7 +17,9 @@ check; Retry reuses the draft. Continue opens the profile editor after activatio
 The public profile draft editor has nine optional pickers; **Not published** leaves each one
 unset. Birth year, month and day are also independent optional fields. **Save draft** checks any
 supplied combination with the shared profile rules and stores it beside this identity; an invalid
-date leaves the prior draft unchanged. Public preview and publication are planned.
+date leaves the prior draft unchanged. **Preview public profile** reads the saved draft, shows
+only selected public values, the exact birth parts and possible age, and warns that others may
+keep copies after deletion. A full date has an additional warning. Publication is planned.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you click it. **Switch to this

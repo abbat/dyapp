@@ -995,6 +995,48 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Исправьте дату рождения." } }
       }
     },
+    "profile.preview": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preview public profile" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Предпросмотр публичного профиля" } }
+      }
+    },
+    "profile.noSavedDraft": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save a draft to preview it." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохраните черновик для предпросмотра." } }
+      }
+    },
+    "profile.noPublicFields": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No profile fields are selected for publication." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Для публикации не выбрано ни одного поля профиля." } }
+      }
+    },
+    "profile.age": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Possible age" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возможный возраст" } }
+      }
+    },
+    "profile.ageUnknown": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unknown" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Неизвестен" } }
+      }
+    },
+    "profile.publicDisclosure": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Published data can be copied by others and may remain available after deletion." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Другие люди могут копировать опубликованные данные; они могут остаться доступными после удаления." } }
+      }
+    },
+    "profile.fullDateDisclosure": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A full birth date reveals more than a partial date." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Полная дата рождения раскрывает больше, чем неполная." } }
+      }
+    },
     "profile.saved": {
       "localizations": {
         "en": {
