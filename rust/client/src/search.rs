@@ -10,6 +10,7 @@ use dyapp_p2p_net::proto::{self, Condition, Status};
 use dyapp_p2p_net::search_results;
 use dyapp_p2p_net::Protocols;
 use dyapp_profile::VerifiedProfile;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,6 +25,46 @@ pub struct SearchResults {
     pub partial: bool,
     /// Why nodes failed, one entry per failed request, in the order they failed.
     pub failures: Vec<SearchFailure>,
+}
+
+/// A company filter applied only on this device to verified results; no node sees it, and it
+/// cannot hide anyone's own public profile from colleagues.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Employer {
+    /// Every profile.
+    #[default]
+    Any,
+    /// Only profiles naming this company.
+    Same(String),
+    /// Profiles naming none of these companies; a profile without a company always passes.
+    Exclude(Vec<String>),
+}
+
+impl Employer {
+    /// Keep the `profiles` this filter allows, comparing company names without case and with
+    /// whitespace collapsed.
+    pub fn retain(&self, profiles: &mut Vec<VerifiedProfile>) {
+        let key = |c: &str| {
+            c.split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_lowercase()
+        };
+        match self {
+            Self::Any => {}
+            Self::Same(company) => {
+                let company = key(company);
+                profiles.retain(|p| !company.is_empty() && key(&p.profile.company) == company);
+            }
+            Self::Exclude(companies) => {
+                let companies: HashSet<_> = companies.iter().map(|c| key(c)).collect();
+                profiles.retain(|p| {
+                    p.profile.company.trim().is_empty()
+                        || !companies.contains(&key(&p.profile.company))
+                });
+            }
+        }
+    }
 }
 
 /// Why a search gave no usable reply from a node; each has its own message and retry.
@@ -736,5 +777,33 @@ mod tests {
         assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
         assert_eq!(beat.pow_bits, 2);
         assert_eq!(record.public_key, key.to_vec());
+    }
+
+    #[test]
+    fn employer_filter_ignores_case_and_spacing_and_keeps_profiles_without_a_company() {
+        let found = |company: &str| {
+            let profile = Profile {
+                version: 1,
+                company: company.into(),
+                ..Profile::default()
+            };
+            dyapp_profile::verify(&profile.sign(&Identity::generate())).unwrap()
+        };
+        let all = vec![found("Acme  Corp"), found(""), found("Other")];
+        let kept = |filter: Employer| {
+            let mut profiles = all.clone();
+            filter.retain(&mut profiles);
+            profiles
+                .iter()
+                .map(|p| p.profile.company.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(kept(Employer::Any), ["Acme  Corp", "", "Other"]);
+        assert_eq!(kept(Employer::Same(" acme corp ".into())), ["Acme  Corp"]);
+        assert!(kept(Employer::Same("  ".into())).is_empty());
+        assert_eq!(
+            kept(Employer::Exclude(vec!["ACME CORP".into(), "".into()])),
+            ["", "Other"]
+        );
     }
 }
