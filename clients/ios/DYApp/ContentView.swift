@@ -31,81 +31,96 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 16) {
-                Text("app.name").font(.largeTitle)
-                switch identity {
-                case .setup:
-                    Text("identity.lossWarning")
-                    Button("identity.create") { createIdentity() }
-                        .accessibilityIdentifier("identity-create")
-
-                case let .ready(candidate, peerId):
+            // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
+            if case let .ready(candidate, peerId) = identity, activeNetwork == .needsSetup {
+                NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
                     Text(peerId).accessibilityIdentifier("peer-id")
                     NavigationLink(destination: settingsView(candidate, peerId)) {
                         Text("settings.title")
                     }
                     .accessibilityIdentifier("settings-open")
-                    switch activeNetwork {
-                    case .loading:
-                        ProgressView("network.loading")
-
-                    case .needsSetup:
-                        NetworkDraftView(candidate: candidate, peerId: peerId)
-
-                    case .ready:
-                        if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
-                            Text("status.ready").accessibilityIdentifier("app-ready")
-                        }
-                        NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
-                            Text("network.title")
-                        }
-                        .accessibilityIdentifier("network-edit")
-                        NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId)) {
-                            Text("profile.title")
-                        }
-                        .accessibilityIdentifier("profile-edit")
-
-                    case .readFailed:
-                        Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")
-                        Button("identity.retry") { Task { await loadActiveNetwork() } }
-                            .accessibilityIdentifier("network-active-retry")
-                    }
-
-                case .recovery:
-                    Text("identity.recovery").accessibilityIdentifier("identity-recovery")
-                    Button("identity.retry") { refreshIdentity() }
-                        .accessibilityIdentifier("identity-retry")
-
-                case .picker:
-                    Text("identity.picker").accessibilityIdentifier("identity-picker")
-                    if pickerLoading { ProgressView("settings.loading") }
-                    if pickerReadFailed {
-                        Text("settings.readFailed").accessibilityIdentifier("identity-picker-error")
-                    }
-                    ForEach(pickerRows) { row in
-                        if let peerID = row.peerID {
-                            Text(peerID)
-                            Button("settings.select") { Task { await selectPicker(row.candidate.location) } }
-                                .disabled(pickerWorking)
-                                .accessibilityIdentifier("identity-picker-select-\(row.id)")
-                        } else {
-                            Text(pickerStatus(for: row.candidate.state))
-                        }
-                    }
-                    Button("identity.create") { createIdentity() }
-                        .disabled(pickerWorking || pickerLoading || pickerReadFailed)
-                        .accessibilityIdentifier("identity-picker-create")
-                    if pickerActionFailed {
-                        Text("settings.actionFailed").accessibilityIdentifier("identity-picker-action-error")
-                    }
-                    Button("identity.retry") { Task { await loadPicker() } }
-                        .accessibilityIdentifier("identity-retry")
-                }
+                }))
+            } else {
+                start
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
         .task(id: identity) { await loadPicker() }
+    }
+
+    private var start: some View {
+        VStack(spacing: 16) {
+            Text("app.name").font(.largeTitle)
+            switch identity {
+            case .setup:
+                Text("identity.lossWarning")
+                Button("identity.create") { createIdentity() }
+                    .accessibilityIdentifier("identity-create")
+
+            case let .ready(candidate, peerId):
+                Text(peerId).accessibilityIdentifier("peer-id")
+                NavigationLink(destination: settingsView(candidate, peerId)) {
+                    Text("settings.title")
+                }
+                .accessibilityIdentifier("settings-open")
+                switch activeNetwork {
+                case .loading:
+                    ProgressView("network.loading")
+
+                case .needsSetup:
+                    EmptyView()
+
+                case .ready:
+                    if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
+                        Text("status.ready").accessibilityIdentifier("app-ready")
+                    }
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                        Text("network.title")
+                    }
+                    .accessibilityIdentifier("network-edit")
+                    NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId)) {
+                        Text("profile.title")
+                    }
+                    .accessibilityIdentifier("profile-edit")
+
+                case .readFailed:
+                    Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")
+                    Button("identity.retry") { Task { await loadActiveNetwork() } }
+                        .accessibilityIdentifier("network-active-retry")
+                }
+
+            case .recovery:
+                Text("identity.recovery").accessibilityIdentifier("identity-recovery")
+                Button("identity.retry") { refreshIdentity() }
+                    .accessibilityIdentifier("identity-retry")
+
+            case .picker:
+                Text("identity.picker").accessibilityIdentifier("identity-picker")
+                if pickerLoading { ProgressView("settings.loading") }
+                if pickerReadFailed {
+                    Text("settings.readFailed").accessibilityIdentifier("identity-picker-error")
+                }
+                ForEach(pickerRows) { row in
+                    if let peerID = row.peerID {
+                        Text(peerID)
+                        Button("settings.select") { Task { await selectPicker(row.candidate.location) } }
+                            .disabled(pickerWorking)
+                            .accessibilityIdentifier("identity-picker-select-\(row.id)")
+                    } else {
+                        Text(pickerStatus(for: row.candidate.state))
+                    }
+                }
+                Button("identity.create") { createIdentity() }
+                    .disabled(pickerWorking || pickerLoading || pickerReadFailed)
+                    .accessibilityIdentifier("identity-picker-create")
+                if pickerActionFailed {
+                    Text("settings.actionFailed").accessibilityIdentifier("identity-picker-action-error")
+                }
+                Button("identity.retry") { Task { await loadPicker() } }
+                    .accessibilityIdentifier("identity-retry")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func pickerStatus(for state: IdentitySlot.State) -> LocalizedStringKey {

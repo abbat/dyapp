@@ -9,6 +9,8 @@ private enum NetworkDraftLoad: Sendable {
 struct NetworkDraftView: View {
     let candidate: IdentityCandidate
     let peerId: String
+    /// Rows shown above the form when it is the start screen.
+    var header: AnyView?
     @State private var bootstrapRows = ""
     @State private var networkName = ""
     @State private var isLoading = true
@@ -99,7 +101,19 @@ struct NetworkDraftView: View {
     }
 
     var body: some View {
+        #if os(macOS)
+        // The macOS 12 form does not scroll on its own.
+        ScrollView { form.padding() }
+        #else
+        form
+        #endif
+    }
+
+    private var form: some View {
         Form {
+            if let header {
+                Section { header }
+            }
             Section {
                 TextEditor(text: $bootstrapRows)
                     .frame(minHeight: 120)
