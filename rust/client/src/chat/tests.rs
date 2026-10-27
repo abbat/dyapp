@@ -112,6 +112,21 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     assert_eq!(*device, alice.device_key().unwrap());
     assert_eq!(acked, [vec![3]]);
 
+    // Presence is a signal too: short padding, delivered as a message body.
+    let presence = Body::Presence { hlc: 43 };
+    let sent = message(&mut group, &alice, &presence).unwrap();
+    assert!(sent[0].mls.len() < MIN_PADDED_BYTES);
+    let (events, _) = apply_all(
+        &bob,
+        &mut groups,
+        vec![envelope(5, sent[0].mls.clone())],
+        &profiles,
+    );
+    let [Event::Message { body, .. }] = events.as_slice() else {
+        panic!("expected decrypted presence");
+    };
+    assert!(*body == presence);
+
     // An untagged plaintext, as before the frame, is refused and still acked.
     let raw = group.encrypt(&alice, &pad(b"hi")).unwrap();
     let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(4, raw)], &profiles);
@@ -169,13 +184,18 @@ fn message_operations_have_strict_frames() {
         operation: [3; 16],
         hlc: 42,
     };
+    let presence = Body::Presence {
+        hlc: 0x0102_0304_0506_0708,
+    };
     for body in [
         Body::text_with_id([4; 16], vec![5; MAX_TEXT_BYTES]),
         edit.clone(),
         delete.clone(),
+        presence.clone(),
     ] {
         assert!(Body::decode(&body.encode()).ok() == Some(body));
     }
+    assert_eq!(presence.encode(), [10, 1, 2, 3, 4, 5, 6, 7, 8]);
     assert_eq!(
         &edit.encode()[33..41],
         &0x0102_0304_0506_0708u64.to_be_bytes()
@@ -210,6 +230,9 @@ fn message_operations_have_strict_frames() {
         ]
         .concat(),
         vec![10],
+        vec![10; 8],
+        vec![10; 10],
+        vec![11],
     ] {
         assert!(
             Body::decode(&bad).is_err(),

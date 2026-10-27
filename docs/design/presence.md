@@ -2,8 +2,9 @@
 
 This is the planned client contract for presence under
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): a match can see that the other side
-used the app recently, and the user can hide it. Nothing in this document is implemented yet;
-the work is tracked under `dyapp-5su`.
+used the app recently, and the user can hide it. Only the wire body is implemented
+(`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class and dropped on
+receive); the audience setting, sending, receiving state and app UI are planned.
 
 ## What a peer learns
 

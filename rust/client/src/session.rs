@@ -160,7 +160,7 @@ impl Session {
             let deliveries = chat::message(group, device, body)?;
             let today = (crate::now() / 86_400) as u32;
             let class = match body {
-                Body::Interaction(_) => EnvelopeClass::Signal,
+                Body::Interaction(_) | Body::Presence { .. } => EnvelopeClass::Signal,
                 _ => EnvelopeClass::Message,
             };
             let writes = deliveries
@@ -776,9 +776,13 @@ impl Session {
                 }
                 let (kind, payload) = match &event {
                     _ if blocked => (InboxKind::StateChange, Vec::new()),
-                    // Token bodies are acted on, not shown in history.
+                    // Token and presence bodies are acted on, not shown in history.
                     Event::Message {
-                        body: Body::TokenRequest(_) | Body::TokenAnswer(_) | Body::Receipt(_),
+                        body:
+                            Body::TokenRequest(_)
+                            | Body::TokenAnswer(_)
+                            | Body::Receipt(_)
+                            | Body::Presence { .. },
                         ..
                     } => (InboxKind::StateChange, Vec::new()),
                     Event::Message {
