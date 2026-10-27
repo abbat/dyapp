@@ -321,6 +321,19 @@ const searchOnLoopback = async (connected) => {
     throw new Error(`loopback search: ${status}, peers ${peers}`);
   }
 };
+// The fixture forged the signature of the published profile in the node's index: the search drops
+// it and lists the forged reply instead of showing a person.
+const searchForged = async () => {
+  document.getElementById('run-search').click();
+  await window.searchDone;
+  const failures = [...document.getElementById('search-failures').children]
+    .map((item) => item.textContent);
+  if (document.querySelectorAll('#search-results [data-peer-id]').length
+    || !failures.includes(window.strings['search.failure.invalid'])) {
+    throw new Error(`forged search: ${document.getElementById('search-status').textContent}, `
+      + `failures ${failures}`);
+  }
+};
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
@@ -388,6 +401,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'search-no-network' || step === 'search') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await searchOnLoopback(step === 'search');
+    } else if (step === 'search-forged') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await searchForged();
     } else if (step === 'profile-publish') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await publishProfileOnLoopback();

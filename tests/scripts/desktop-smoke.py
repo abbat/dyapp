@@ -132,6 +132,22 @@ def check_profile_readback(node, seed, peer_id, env, storage):
         raise RuntimeError("node signed readback differs from UI draft")
 
 
+def forge_search_signature(node_storage):
+    """Flips the last byte, the signature, of the one record in the node's
+    search index (profiles-idx.db or a later generation of it)."""
+    indexes = sorted(node_storage.glob("profiles-idx*.db"))
+    if len(indexes) != 1:
+        raise RuntimeError(f"expected one search index, found {indexes}")
+    with sqlite3.connect(indexes[0], timeout=30) as db:
+        rows = db.execute("SELECT `key`, `record` FROM `record`").fetchall()
+        if len(rows) != 1:
+            raise RuntimeError(f"expected one indexed record, got {len(rows)}")
+        key, record = rows[0]
+        forged = record[:-1] + bytes([record[-1] ^ 1])
+        db.execute("UPDATE `record` SET `record` = ? WHERE `key` = ?",
+                   (forged, key))
+
+
 def smoke(executable, flows=True):
     """flows=False skips the stateful identity and network flows, which a
     stateless fixture app cannot pass; only tests of this script use it."""
@@ -305,6 +321,9 @@ def smoke(executable, flows=True):
             check_profile_readback(node, seed, peer_id, env, storage)
             case("search", [*file, "--ui-test-step=search"], profile,
                  timeout=180)
+            forge_search_signature(storage / "node")
+            case("search-forged", [*file, "--ui-test-step=search-forged"],
+                 profile, timeout=180)
         finally:
             server.terminate()
             server.wait(timeout=30)
