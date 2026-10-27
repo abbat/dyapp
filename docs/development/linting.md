@@ -151,8 +151,14 @@ fn ffi_entry(/* … */) {}
 ```
 
 ```python
-import optional_module  # noqa: F401  (re-exported for callers)
+import optional_module  # noqa: F401 -- re-exported for callers
 ```
+
+A Python `# noqa` must name its codes and give a reason after ` -- `. flake8 has no
+unused-noqa check, so `make quality` runs `tests/scripts/check-noqa.py tests tools`: it reruns
+flake8 with `--disable-noqa` on the files that have one and fails on a bare `# noqa`, a missing
+reason, or a suppressed code flake8 no longer reports on that line. Delete such a code or the
+whole comment. There is no `# nosec`: bandit is not used.
 
 A suppression comment only silences the named lint at that spot. It does not satisfy other lints,
 and it does not apply to other linters (an `#[expect]` for a default Clippy lint does not hide

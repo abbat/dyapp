@@ -44,6 +44,7 @@ step() {
             check shellcheck shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             check flake8 python3 -m flake8 tests tools
+            check noqa python3 -B tests/scripts/check-noqa.py tests tools
             check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
             check rustfmt cargo fmt --all -- --check
             check cargo-shear cargo shear

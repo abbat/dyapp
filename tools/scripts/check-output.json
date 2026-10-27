@@ -58,6 +58,7 @@
   "junit": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "python-tests": {"fix":"docs/testing/README.md#1-unit-tests-in-each-crate","format":"unittest"},
   "json-check": {"fix":"docs/development/code-quality.md#check-output","format":"json"},
+  "noqa": {"fix":"docs/development/linting.md#suppressing-a-finding","format":"lines","pattern":"^.+:\\d+: "},
   "flake8": {"fix":"docs/development/linting.md#python","format":"lines","pattern":"^.+:\\d+:\\d+: [A-Z]\\d+\\b"},
   "actionlint": {"fix":"docs/development/linting.md#where-each-linter-runs","format":"lines","pattern":"^.+:\\d+:\\d+:"},
   "shellcheck": {"fix":"docs/development/linting.md#common-fixes","format":"lines","pattern":"^In .+ line \\d+:|^.*\\bSC\\d{4}\\b"},
