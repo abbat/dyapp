@@ -116,6 +116,12 @@ COVERED = {
     # decision.
     "d55d219dc5c7e7bbabe5e6fd80f5f1e62d70b5d8":
         "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
+    # serde_json for the shared desktop search tests in the Tauri Windows app.
+    "81de44f5959c12fb14d8563317524d296e57e1d0":
+        "docs/decisions/0002-rust-core-native-apps-tauri-desktop.md",
+    # miniz_oxide inflates the client's embedded place names.
+    "58c848701fd99068fb0e83ca4c445680ff1a8164":
+        "docs/decisions/0003-public-signed-profile-encrypted-private-data.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

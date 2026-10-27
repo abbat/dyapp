@@ -17,7 +17,9 @@ that store and relay them.
   mental-health indicators) as well.
 - **Location is a place, never coordinates:** the GeoNames ID of a city or district the user
   picks within their country from GeoNames cities1000 (CC BY 4.0), or none. Place names are the
-  client's. Search matches the place exactly and must work without it.
+  client's: the picker offers the cities15000 subset with English and Russian names, embedded
+  compressed in the client core so that picking a place needs no network. Search matches the
+  place exactly and must work without it.
 - **The profile is tamper-proof:** every profile version is signed with the owner's Ed25519
   identity key ([ADR 0004](0004-identity-keys.md)). Readers and index nodes reject unsigned or
   badly signed profiles.
