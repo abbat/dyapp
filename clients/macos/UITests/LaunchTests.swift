@@ -96,7 +96,7 @@ extension LaunchTests {
     @objc
     func testRemovalConfirmationRussianAndPseudoLanguage() {
         let russian = isolatedApp()
-        russian.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        russian.launchArguments.insert(contentsOf: ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"], at: 0)
         russian.launch()
         createIdentity(russian)
         russian.buttons["settings-open"].tap()
@@ -112,7 +112,7 @@ extension LaunchTests {
         russian.terminate()
 
         let pseudo = isolatedApp()
-        pseudo.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
+        pseudo.launchArguments.insert(contentsOf: ["-NSDoubleLocalizedStrings", "YES"], at: 0)
         pseudo.launch()
         createIdentity(pseudo)
         pseudo.buttons["settings-open"].tap()
@@ -405,6 +405,9 @@ extension LaunchTests {
         app.terminate()
     }
 
+    /// Put `-Key value` defaults before the slot root: the argument domain reads the slot root as a
+    /// key and takes the next argument as its value, and AppKit opens a stray value as a document
+    /// instead of showing the window.
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]
@@ -434,7 +437,7 @@ extension LaunchTests {
     /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
     func testDoubleLengthPseudoLanguage() {
         let app = isolatedApp()
-        app.launchArguments += ["-NSDoubleLocalizedStrings", "YES"]
+        app.launchArguments.insert(contentsOf: ["-NSDoubleLocalizedStrings", "YES"], at: 0)
         app.launch()
         createIdentity(app)
         let save = app.buttons["network-save"]
@@ -447,7 +450,7 @@ extension LaunchTests {
 
     func testRussianLanguage() {
         let app = isolatedApp()
-        app.launchArguments += ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"]
+        app.launchArguments.insert(contentsOf: ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"], at: 0)
         app.launch()
         createIdentity(app)
         let save = app.buttons["network-save"]

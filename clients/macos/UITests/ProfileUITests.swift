@@ -34,7 +34,7 @@ final class ProfileUITests: XCTestCase {
             }),
         ]
         for (language, expected) in failures {
-            app.launchArguments = base + language + ["--ui-test-fail-publish"]
+            app.launchArguments = language + base + ["--ui-test-fail-publish"]
             assertFailedPublish(app, month: month, expected: expected)
         }
 
