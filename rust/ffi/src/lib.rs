@@ -425,6 +425,15 @@ pub fn search_places(country: String, prefix: String, lang: String, limit: u32) 
         .collect()
 }
 
+/// The countries the place picker offers, as ISO codes in code order.
+#[uniffi::export]
+pub fn place_countries() -> Vec<String> {
+    dyapp_client::places::countries()
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}
@@ -503,6 +512,9 @@ mod tests {
         let found = search_places("DE".into(), "ber".into(), "en".into(), 3);
         assert_eq!(found.len(), 3);
         assert_eq!((found[0].id, found[0].name.as_str()), (berlin.id, "Berlin"));
+        let countries = place_countries();
+        assert!(countries.contains(&"DE".to_string()));
+        assert!(countries.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     /// XOR with a fixed byte: stands in for the platform keystore.

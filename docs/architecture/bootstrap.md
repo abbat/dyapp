@@ -319,7 +319,8 @@ resent from the sender's retry queue.
   `rust/client/data/places.z`, about 490 KB of zlib text written by
   `tools/scripts/geonames-names.py`. `dyapp_client::places` names a stored `place` and searches
   a country's places by name prefix, largest first; it is inflated once on first use. UniFFI
-  exposes it as `place_name` and `search_places`. The place pickers in the apps are planned.
+  exposes it as `place_countries`, `place_name` and `search_places`. The desktop profile and
+  search pages pick places; the mobile pickers are planned.
 - Every profile string follows one rule, `dyapp_profile::is_clean_text`: NFC, no control,
   format (bidi, zero-width) or private-use characters except ZWNJ and ZWJ; enum-like strings hold
   at most 64 characters and `interests` at most 32 items of 64; `publish` refuses a profile that
