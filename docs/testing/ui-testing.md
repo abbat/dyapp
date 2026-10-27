@@ -26,7 +26,9 @@ tests cancel removal, then confirm it, select the surviving Peer ID in the picke
 after restart. A shared native unit test also reopens the surviving slot after another slot is
 removed and checks its active and draft network files plus stable Peer ID. Both Apple UI suites
 also verify Russian removal labels and that the double-length pseudo-language confirmation
-remains hittable. No suite
+remains hittable. Shared native unit tests additionally check that an unreadable slot cannot
+replace the active selection and that a lost selected Keychain item produces recovery without
+creating another key. No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID

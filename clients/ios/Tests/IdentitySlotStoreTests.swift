@@ -388,6 +388,50 @@ extension IdentitySlotStoreTests {
 
 extension IdentitySlotStoreTests {
     @objc
+    func testUnreadableSlotCannotReplaceSelectedIdentity() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let selected = try store.create()
+        let unreadable = try store.create()
+        try store.select(.slot(selected.slot.id))
+        let pointer = path.appendingPathComponent("active-profile")
+        let savedPointer = try Data(contentsOf: pointer)
+        let file = path.appendingPathComponent("profiles")
+            .appendingPathComponent(unreadable.slot.id.uuidString.lowercased())
+            .appendingPathComponent("identity.key")
+        try Data("invalid wrapped key".utf8).write(to: file, options: .atomic)
+
+        XCTAssertThrowsError(try store.select(.slot(unreadable.slot.id)))
+        XCTAssertEqual(try Data(contentsOf: pointer), savedPointer)
+        XCTAssertEqual(try store.resolve(), .ready(
+            IdentityCandidate(location: .slot(selected.slot.id), state: .ready), selected.peerId
+        ))
+        XCTAssertTrue(try PlatformKeyStore.forSlot(unreadable.slot.id).containsWrappingKey())
+        XCTAssertEqual(try store.candidates().count, 2)
+    }
+
+    @objc
+    func testLostSelectedKeyIsUnavailableWithoutReplacement() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let lost = try store.create()
+        try store.select(.slot(lost.slot.id))
+        let pointer = path.appendingPathComponent("active-profile")
+        let savedPointer = try Data(contentsOf: pointer)
+        try PlatformKeyStore.eraseWrappingKey(forSlot: lost.slot.id)
+
+        XCTAssertEqual(try store.resolve(), .recovery(.slot(lost.slot.id), .unavailable))
+        XCTAssertThrowsError(try store.select(.slot(lost.slot.id)))
+        XCTAssertEqual(try Data(contentsOf: pointer), savedPointer)
+        XCTAssertFalse(try PlatformKeyStore.forSlot(lost.slot.id).containsWrappingKey())
+        XCTAssertEqual(try store.candidates(), [
+            IdentityCandidate(location: .slot(lost.slot.id), state: .ready),
+        ])
+    }
+}
+
+extension IdentitySlotStoreTests {
+    @objc
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
