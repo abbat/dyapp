@@ -67,7 +67,9 @@ and unchecked 18+ and public-data confirmations. It rejects publish without the 
 acknowledgement and checks that editing clears both confirmations. A separate save/restart pair
 checks a nonempty draft and its public preview. On Linux, another case uses a loopback `dyappd`
 node to publish the reviewed fields with both confirmations, waits for the verified version,
-then compares the node's signed profile payload with the locally saved draft. The same Linux
+then compares the node's signed profile payload with the locally saved draft and checks that the
+post-publish UI readback fields, age range and full-date warning equal the reviewed preview. The
+same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
 then connects and retries it. After activation, the desktop test moves the network editor into
 Settings and back, checks that draft rows and failed row statuses survive navigation, and compares

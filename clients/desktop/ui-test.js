@@ -253,12 +253,23 @@ const publishProfileOnLoopback = async (saved = false, fails = false) => {
     `${window.strings['profile.birthYear']}: 1990`,
     `${window.strings['profile.birthMonth']}: 2`,
   ].join('|')) throw new Error(`profile preview changed: ${fields}`);
+  const previewAge = document.getElementById('profile-age').textContent;
+  const previewDateWarning = document.getElementById('profile-date-warning').hidden;
   document.getElementById('profile-disclosure').checked = true;
   document.getElementById('profile-attested').checked = true;
   const result = waitForProfileStatus(
     fails ? 'profile.notConnected' : 'profile.published', fails ? '' : '1', 150000);
   document.getElementById('profile-publish').click();
   await result;
+  if (!fails) {
+    const readback = [...document.querySelectorAll('#profile-public-fields li')]
+      .map((item) => item.textContent);
+    if (readback.join('|') !== fields.join('|')
+      || document.getElementById('profile-age').textContent !== previewAge
+      || document.getElementById('profile-date-warning').hidden !== previewDateWarning) {
+      throw new Error(`published readback differs from preview: ${readback}`);
+    }
+  }
   if (document.getElementById('profile-attested').checked
     || document.getElementById('profile-disclosure').checked) {
     throw new Error('publish confirmations remained selected');
