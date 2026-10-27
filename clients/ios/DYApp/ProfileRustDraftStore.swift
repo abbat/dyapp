@@ -30,7 +30,7 @@ struct ProfileRustDraftStore {
         )
     }
 
-    private static func values(from draft: PublicProfileDraft) -> [String: UInt32] {
+    static func values(from draft: PublicProfileDraft) -> [String: UInt32] {
         var values: [String: UInt32] = [:]
         for (key, code) in [
             ("gender", draft.gender),

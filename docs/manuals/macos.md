@@ -19,13 +19,14 @@ unset. Birth year, month and day are also independent optional fields. **Save dr
 supplied combination with the shared profile rules and stores it in this identity's `client.db`; an invalid
 date leaves the prior draft unchanged. **Preview public profile** reads the saved draft, shows
 only selected public values, the exact birth parts and possible age, and warns that others may
-keep copies after deletion. A full date has an additional warning. Publication is planned.
+keep copies after deletion. A full date has an additional warning.
 The editor also shows separate 18+ and public-data confirmations and the eligibility result for
 the saved draft. Changing or saving any field clears both confirmations. They are never needed to
-save or preview. Unsaved edits disable confirmation until saved; the network publish action is planned.
-After both confirmations and the eligibility check, **Prepare publication** runs the shared proof
-in short saved steps. **Cancel preparation** keeps the draft and progress; repeat the confirmations
-to retry. Network publication and its result screen are planned.
+save or preview. Unsaved edits disable confirmation until saved. After both confirmations and the
+eligibility check, **Publish profile** runs the shared proof in short saved steps, then publishes
+through the active network. **Cancel preparation** keeps the draft and progress. On success the
+screen shows the verified version and exact public fields; after failure, repeat both confirmations
+and retry.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 **Create another identity** makes a separate Peer ID only after you click it. **Switch to this

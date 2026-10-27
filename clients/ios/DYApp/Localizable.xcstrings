@@ -1085,12 +1085,6 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сохранённый черновик проходит проверку для публикации." } }
       }
     },
-    "profile.preparePublish": {
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Prepare publication" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Подготовить публикацию" } }
-      }
-    },
     "profile.retryProof": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Retry preparation" } },
@@ -1131,6 +1125,78 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Preparation failed. You can retry." } },
         "ru": { "stringUnit": { "state": "translated", "value": "Подготовка не удалась. Можно повторить." } }
+      }
+    },
+    "profile.publish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publish profile" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Опубликовать профиль" } }
+      }
+    },
+    "profile.retryPublish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry publication" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторить публикацию" } }
+      }
+    },
+    "profile.publishing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publishing and verifying the result…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Публикация и проверка результата…" } }
+      }
+    },
+    "profile.published": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Published profile verified" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Опубликованный профиль проверен" } }
+      }
+    },
+    "profile.publishedVersion": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Version" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Версия" } }
+      }
+    },
+    "profile.publishError.underage": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The saved birth date may indicate an age below 18." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранённая дата рождения может означать возраст меньше 18 лет." } }
+      }
+    },
+    "profile.publishError.notAttested": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Confirm you are 18 or older and retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подтвердите возраст от 18 лет и повторите попытку." } }
+      }
+    },
+    "profile.publishError.invalidBirthDate": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Correct the saved birth date and retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Исправьте сохранённую дату рождения и повторите попытку." } }
+      }
+    },
+    "profile.publishError.notConnected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The active network is unavailable. Check the connection and retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Активная сеть недоступна. Проверьте подключение и повторите попытку." } }
+      }
+    },
+    "profile.publishError.unsolved": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparation is incomplete. Retry publication." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Подготовка не завершена. Повторите публикацию." } }
+      }
+    },
+    "profile.publishError.readback": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not verify the published profile. Retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось проверить опубликованный профиль. Повторите попытку." } }
+      }
+    },
+    "profile.publishError.generic": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publication failed. Your draft is saved; retry when ready." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Публикация не удалась. Черновик сохранён; повторите попытку позже." } }
       }
     },
     "profile.noPublicFields": {

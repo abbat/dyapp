@@ -42,6 +42,9 @@ The preview screen is reached from the editor without an attestation; native App
 remain in CI.
 The Apple draft adapter unit test imports old JSON without deleting it, confirms `client.db` takes
 precedence on later loads, and checks that another identity keeps an independent empty draft.
+The Apple publication view maps the Rust signed readback to a separate, immutable snapshot before
+rendering the version and public fields. Native UI confirmation/cancel/retry coverage is the final
+Apple profile checkpoint.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64

@@ -146,7 +146,8 @@ network settings to find a node. A draft network is never used for publication. 
 preparation does not alter the profile draft. Swift `RustBridge.publishProfile` reopens the
 selected key, verifies its Peer ID, and calls the Rust publisher off the UI thread. The call
 requires a solved proof and fresh 18+ attestation; it returns only after signed readback matches,
-and failures leave the draft for retry. The Apple publish controls are planned next.
+and failures leave the draft for retry. The Apple editor now drives this call after its saved proof
+is solved and renders the verified readback in the profile form.
 Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
 key and network files; the old root copy remains untouched.
 
