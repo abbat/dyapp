@@ -192,9 +192,18 @@ final class IdentitySlotStoreTests: XCTestCase {
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let first = try store.create()
         let survivor = try store.create()
+        let survivorFolder = path.appendingPathComponent("profiles")
+            .appendingPathComponent(survivor.slot.id.uuidString.lowercased())
+        let survivorKey = survivorFolder.appendingPathComponent("identity.key")
+        let keyBytes = try Data(contentsOf: survivorKey)
+        let draft = survivorFolder.appendingPathComponent("network-draft")
+        try Data("survivor draft".utf8).write(to: draft)
         try store.select(.slot(first.slot.id))
         XCTAssertThrowsError(try store.remove(first.slot.id, confirming: survivor.peerId))
         XCTAssertEqual(try store.open(first.slot).peerId(), first.peerId)
+        XCTAssertEqual(try store.resolve(), .ready(
+            IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId
+        ))
 
         try store.remove(first.slot.id, confirming: first.peerId)
         XCTAssertFalse(try PlatformKeyStore.forSlot(first.slot.id).containsWrappingKey())
@@ -204,6 +213,27 @@ final class IdentitySlotStoreTests: XCTestCase {
             IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
         ]))
         XCTAssertEqual(try store.open(survivor.slot).peerId(), survivor.peerId)
+        XCTAssertEqual(try Data(contentsOf: survivorKey), keyBytes)
+        XCTAssertEqual(try Data(contentsOf: draft), Data("survivor draft".utf8))
+    }
+
+    func testRemovalRefusesDamagedSlotAndPreservesLegacyAccount() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let legacy = IdentityKey.generate()
+        let legacyFile = path.appendingPathComponent("identity.key")
+        try legacy.wrap(store: legacyStore).write(to: legacyFile, options: .atomic)
+        let original = try Data(contentsOf: legacyFile)
+        let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        let slot = try store.create()
+        let state = path.appendingPathComponent("profiles")
+            .appendingPathComponent(slot.slot.id.uuidString.lowercased())
+            .appendingPathComponent("state")
+        try Data("invalid\n".utf8).write(to: state, options: .atomic)
+        XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId))
+        XCTAssertTrue(try PlatformKeyStore.forSlot(slot.slot.id).containsWrappingKey())
+        XCTAssertEqual(try Data(contentsOf: legacyFile), original)
+        XCTAssertEqual(try store.open(.legacy).peerId(), legacy.peerId())
     }
 
     func testRemovalRefusesUnknownContentBeforeErasingKey() throws {
