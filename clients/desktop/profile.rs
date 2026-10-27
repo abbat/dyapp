@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::publish::{self, Block};
+use dyapp_client::search;
 use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
@@ -20,6 +21,8 @@ use dyapp_profile::{CivilDate, Profile};
 pub const POW_BITS: u32 = 11;
 // Nonces between saves and cancellation checks: a fraction of a second of Argon2id.
 const STEP: u64 = 8;
+/// Search nodes a publish sends the profile to; they gossip it on.
+const SEARCH_NODES: usize = 2;
 
 /// Stops a running [`solve`]; shared with the blocking thread that runs it.
 #[derive(Default)]
@@ -277,6 +280,14 @@ pub async fn publish(
     let published = publish::publish(&store, &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
+    // Best effort: a profile no search node took stays held for the next publish.
+    let protocols = Arc::new(Protocols::new(&active.name).map_err(|e| e.to_string())?);
+    let mut reached = search::connect_search_nodes(&mut node, protocols, SEARCH_NODES).await;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs();
+    let _ = search::publish_due(&store, &mut reached.nodes, now).await;
     Ok(view(&published, today))
 }
 

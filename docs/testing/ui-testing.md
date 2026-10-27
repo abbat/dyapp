@@ -239,7 +239,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `build/debug/dyapp-linux` 32 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
-  missing), connect the form, activate the network, publish the profile and search for it. This
+  missing), connect the form, activate the network, publish the profile and find it as the only search result. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
   keeps 22 bits.
 

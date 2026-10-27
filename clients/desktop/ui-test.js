@@ -300,7 +300,7 @@ const checkSavedProfile = async () => {
   }
 };
 // Without a network the search asks to connect and offers a retry; on the loopback node it
-// returns the sample with the node's filters and no failures.
+// returns the sample, the published profile alone, with the node's filters and no failures.
 const searchOnLoopback = async (connected) => {
   document.getElementById('run-search').click();
   await window.searchDone;
@@ -314,12 +314,10 @@ const searchOnLoopback = async (connected) => {
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
     .map((item) => item.dataset.peerId);
-  const sample = peers.length
-    ? status === `${window.strings['search.results']} ${peers.length}`
-    : status === window.strings['search.empty'];
-  if (!sample || retry || document.getElementById('search-failures').children.length
+  if (status !== `${window.strings['search.results']} 1` || retry
+    || document.getElementById('search-failures').children.length
     || document.getElementById('search-filters').hidden
-    || peers.some((peer) => peer !== document.getElementById('peer-id').textContent)) {
+    || peers.join() !== document.getElementById('peer-id').textContent) {
     throw new Error(`loopback search: ${status}, peers ${peers}`);
   }
 };
