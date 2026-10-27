@@ -57,7 +57,8 @@ checks that the peer ID, unwrapped again from the stored identity key, stays the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 The Android place picker test picks Germany, refuses to save unlisted text, picks Berlin from
 the "Berl" suggestions, previews the country and place, then clears the country and checks both
-are gone from the preview.
+are gone from the preview. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
+Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it.
 Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
 isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same

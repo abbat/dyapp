@@ -43,7 +43,7 @@ final class ProfileUITests: XCTestCase {
         openProfile(app)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback")
-        XCTAssertTrue(readback.firstMatch.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(reveal(readback.firstMatch, in: app, timeout: 60).exists, app.debugDescription)
         // One element per text, or one combined element whose label joins them with ", ".
         let texts = readback.allElementsBoundByIndex.map(\.label).joined(separator: ", ")
             .components(separatedBy: ", ")
@@ -51,6 +51,46 @@ final class ProfileUITests: XCTestCase {
             XCTAssertTrue(texts.contains(text), "\(texts)")
         }
         XCTAssertFalse(texts.contains("Birth year (optional)"), "\(texts)")
+        app.terminate()
+    }
+
+    /// Only a suggested place saves; the preview names the country and the picked place.
+    func testPlacePickerSavesOnlyASuggestedPlace() {
+        let app = unlockedApp()
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        reveal(app.buttons["profile-country"], in: app).tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
+        search.tap()
+        search.typeText("Germany")
+        app.buttons["country-DE"].tap()
+
+        let place = app.textFields["profile-place"]
+        reveal(place, in: app).tap()
+        typeSlowly("Nowhere", into: place)
+        reveal(app.buttons["profile-save"], in: app).tap()
+        let status = app.staticTexts["profile-status"]
+        XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(status.label, "Pick a place from the suggestions for the chosen country.")
+
+        // "Berl" suggests Berlin, GeoNames 2950159; picking it saves its ID.
+        reveal(place, in: app).tap()
+        place.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Nowhere".count))
+        typeSlowly("Berl", into: place)
+        reveal(app.buttons["place-2950159"], in: app).tap()
+        reveal(app.buttons["profile-save"], in: app).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == 'Draft saved'"), object: status
+        ),
+        ], timeout: 10), .completed)
+        reveal(app.buttons["profile-preview"], in: app).tap()
+        let row = app.descendants(matching: .any)["preview-place"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(row.label.contains("Berlin"), row.label)
+        XCTAssertTrue(app.descendants(matching: .any)["preview-country"].exists)
         app.terminate()
     }
 
@@ -63,7 +103,8 @@ final class ProfileUITests: XCTestCase {
         XCTAssertEqual(month.value as? String, "5")
         publish(app)
         let error = app.staticTexts["profile-publish-error"]
-        XCTAssertTrue(error.waitForExistence(timeout: 60), app.debugDescription)
+        // The error row sits below the proof progress, past the lazy form's first screen.
+        XCTAssertTrue(reveal(error, in: app, timeout: 60).exists, app.debugDescription)
         XCTAssertTrue(expected(error.label), error.label)
         XCTAssertFalse(app.buttons["profile-prepare-publish"].isEnabled)
         XCTAssertEqual(app.switches["profile-confirm-adult"].value as? String, "0")

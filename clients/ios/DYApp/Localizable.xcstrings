@@ -955,6 +955,54 @@
         }
       }
     },
+    "profile.country": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Country"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страна"
+          }
+        }
+      }
+    },
+    "profile.place": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Town or city"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Населённый пункт"
+          }
+        }
+      }
+    },
+    "profile.placeUnknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a place from the suggestions for the chosen country."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите населённый пункт из подсказок для выбранной страны."
+          }
+        }
+      }
+    },
     "profile.save": {
       "localizations": {
         "en": {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-private enum ProfileDraftLoad: Sendable {
+enum ProfileDraftLoad: Sendable {
     case loaded([String: UInt32]?)
     case failed
 }
@@ -147,6 +147,7 @@ struct ProfileDraftView: View {
     @State private var savedValues: [String: UInt32] = [:]
     @State private var country = ""
     @State private var savedCountry = ""
+    @State private var placeText = ""
     @State private var birthYear = ""
     @State private var birthMonth = ""
     @State private var birthDay = ""
@@ -196,6 +197,10 @@ struct ProfileDraftView: View {
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-field-" + scale.key)
             }
+            PlacePicker(country: $country, place: Binding(
+                get: { values[ProfileDraft.placeKey] },
+                set: { values[ProfileDraft.placeKey] = $0 }
+            ), text: $placeText, disabled: isLoading || readFailed || isSaving || isSolving)
             TextField("profile.birthYear", text: $birthYear)
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-birth-year")
@@ -215,6 +220,7 @@ struct ProfileDraftView: View {
             .accessibilityIdentifier("profile-preview")
             if !status.isEmpty {
                 Text(LocalizedStringKey(status))
+                    .accessibilityIdentifier("profile-status")
             }
             if isLoading { Text("profile.loading") }
             if isSaving { Text("profile.saving") }
@@ -235,6 +241,7 @@ struct ProfileDraftView: View {
         .navigationTitle("profile.title")
         .task(id: candidate.location.marker) { await load() }
         .onChange(of: values) { _ in invalidateConsent() }
+        .onChange(of: country) { _ in invalidateConsent() }
         .onChange(of: birthYear) { _ in invalidateConsent() }
         .onChange(of: birthMonth) { _ in invalidateConsent() }
         .onChange(of: birthDay) { _ in invalidateConsent() }
@@ -264,6 +271,7 @@ struct ProfileDraftView: View {
         savedValues = [:]
         country = ""
         savedCountry = ""
+        placeText = ""
         birthYear = ""
         birthMonth = ""
         birthDay = ""
@@ -287,6 +295,8 @@ struct ProfileDraftView: View {
                 values = decoded.values.filter { !ProfileBirthParts.keys.contains($0.key) }
                 country = decoded.country
                 savedCountry = country
+                placeText = values[ProfileDraft.placeKey]
+                    .flatMap { placeName(country: country, id: $0, lang: placeLang()) }.map(placeLabel) ?? ""
                 let birth = ProfileBirthParts(draft: decoded.values)
                 birthYear = birth.year.map(String.init) ?? ""
                 birthMonth = birth.month.map(String.init) ?? ""
@@ -307,6 +317,10 @@ struct ProfileDraftView: View {
     @MainActor
     private func save() async {
         guard !isLoading && !isSaving && !readFailed else { return }
+        guard placeText.isEmpty || values[ProfileDraft.placeKey] != nil else {
+            status = "profile.placeUnknown"
+            return
+        }
         do {
             let birth = try ProfileBirthParts(yearText: birthYear, monthText: birthMonth, dayText: birthDay)
             try birth.validate()
@@ -394,99 +408,5 @@ struct ProfileDraftView: View {
             eligibilityFailed = true
             eligibilityChecked = false
         }
-    }
-
-}
-
-/// Reads the saved draft so unsaved editor changes cannot appear as public data.
-struct ProfilePreviewView: View {
-    let candidate: IdentityCandidate
-    let peerId: String
-    @State private var preview: ProfilePublicPreview?
-    @State private var readFailed = false
-    @State private var isLoading = true
-
-    var body: some View {
-        Form {
-            if let preview {
-                if preview.fields.isEmpty && preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) {
-                    Text("profile.noPublicFields")
-                }
-                ForEach(preview.fields, id: \.scaleKey) { field in
-                    HStack {
-                        Text(LocalizedStringKey("profile.field.\(field.scaleKey)"))
-                        Spacer()
-                        Text(LocalizedStringKey("profile.value.\(field.scaleKey).\(field.choiceKey)"))
-                    }
-                }
-                if let year = preview.birth.year { birthRow("profile.birthYear", value: year) }
-                if let month = preview.birth.month { birthRow("profile.birthMonth", value: month) }
-                if let day = preview.birth.day { birthRow("profile.birthDay", value: day) }
-                HStack {
-                    Text("profile.age")
-                    Spacer()
-                    if let youngest = preview.youngest, let oldest = preview.oldest {
-                        if youngest == oldest {
-                            Text(verbatim: String(youngest))
-                        } else {
-                            Text(verbatim: "\(youngest)-\(oldest)")
-                        }
-                    } else {
-                        Text("profile.ageUnknown")
-                    }
-                }
-                Text("profile.publicDisclosure")
-                if preview.birth.year != nil && preview.birth.month != nil && preview.birth.day != nil {
-                    Text("profile.fullDateDisclosure")
-                }
-            } else if readFailed {
-                Text("profile.readFailed")
-            } else if isLoading {
-                Text("profile.loading")
-            } else {
-                Text("profile.noSavedDraft")
-            }
-        }
-        .navigationTitle("profile.preview")
-        .task(id: candidate.location.marker) { await load() }
-    }
-
-    private func birthRow(_ key: String, value: UInt32) -> some View {
-        HStack {
-            Text(LocalizedStringKey(key))
-            Spacer()
-            Text(verbatim: String(value))
-        }
-    }
-
-    @MainActor
-    private func load() async {
-        isLoading = true
-        preview = nil
-        readFailed = false
-        let selected = candidate
-        let selectedPeer = peerId
-        let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
-            do {
-                return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
-            } catch {
-                return .failed
-            }
-        }.value
-        guard !Task.isCancelled else { return }
-        switch result {
-        case .loaded(let draft):
-            if let draft {
-                do {
-                    preview = try ProfilePublicPreview(draft: draft.values, country: draft.country)
-                } catch {
-                    readFailed = true
-                }
-            }
-
-        case .failed:
-            readFailed = true
-        }
-        isLoading = false
     }
 }
