@@ -118,7 +118,8 @@ writes the tombstone, records no selection when the removed slot was active or t
 selection, erases the slot's Keychain item, and removes
 only known files before removing the tombstone. A retry can finish after the Keychain item or
 directory has gone; if the item still exists, it must open and match the confirmed Peer ID again.
-The Settings confirmation UI remains planned.
+The store verifies Keychain absence itself after the erase call, including when an injected
+erase operation is used by tests. The Settings confirmation UI remains planned.
 
 A valid regular `profiles/<uuid>.deleting` file containing exactly `deleting\n` now keeps that
 candidate visible as deleting even after its slot directory is partly or fully gone. Malformed

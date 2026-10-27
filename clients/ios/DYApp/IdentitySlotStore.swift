@@ -19,6 +19,7 @@ enum IdentitySlotError: Error {
     case reopenMismatch
     case peerIDMismatch
     case unsafeRemoval
+    case keyStillPresent
     case lockFailed(Int32)
     case filesystem(Int32)
 }
@@ -65,13 +66,16 @@ final class IdentitySlotStore {
     private let root: URL
     private let files = FileManager.default
     private let legacyStore: PlatformKeyStore
+    private let eraseWrappingKey: (UUID) throws -> Void
     private let newID: () -> UUID
     private var profiles: URL { root.appendingPathComponent("profiles", isDirectory: true) }
 
     init(root: URL, legacyStore: PlatformKeyStore = .shared,
+         eraseWrappingKey: @escaping (UUID) throws -> Void = { try PlatformKeyStore.eraseWrappingKey(forSlot: $0) },
          newID: @escaping () -> UUID = { UUID() }) {
         self.root = root
         self.legacyStore = legacyStore
+        self.eraseWrappingKey = eraseWrappingKey
         self.newID = newID
     }
 
@@ -407,7 +411,10 @@ extension IdentitySlotStore {
         try withLock {
             let entries = try prepareRemoval(id, confirming: peerID)
             try clearSelectionForRemoval(id)
-            try PlatformKeyStore.eraseWrappingKey(forSlot: id)
+            try eraseWrappingKey(id)
+            guard try !PlatformKeyStore.forSlot(id).containsWrappingKey() else {
+                throw IdentitySlotError.keyStillPresent
+            }
             for entry in entries { try files.removeItem(at: entry) }
             let folder = directory(for: id)
             if try existsWithoutFollowing(folder), Darwin.rmdir(folder.path) != 0 {

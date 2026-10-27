@@ -273,7 +273,82 @@ final class IdentitySlotStoreTests: XCTestCase {
             IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
         ]))
     }
+}
 
+extension IdentitySlotStoreTests {
+    @objc
+    func testFailedKeychainEraseLeavesVisibleTombstoneAndRequiresSamePeerIDOnRetry() throws {
+        enum SimulatedFailure: Error { case erase }
+        let path = try root()
+        var failErase = true
+        let erase: (UUID) throws -> Void = { id in
+            if failErase { throw SimulatedFailure.erase }
+            try PlatformKeyStore.eraseWrappingKey(forSlot: id)
+        }
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()),
+                                      eraseWrappingKey: erase)
+        let removed = try store.create()
+        let survivor = try store.create()
+        try store.select(.slot(removed.slot.id))
+
+        XCTAssertThrowsError(try store.remove(removed.slot.id, confirming: removed.peerId))
+        let deleting = IdentityCandidate(location: .slot(removed.slot.id), state: .deleting)
+        XCTAssertTrue(try store.candidates().contains(deleting))
+        XCTAssertEqual(try store.resolve(), .picker([
+            deleting, IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+        ].sorted { $0.location.marker < $1.location.marker }))
+        XCTAssertTrue(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
+        XCTAssertThrowsError(try store.remove(removed.slot.id, confirming: survivor.peerId))
+        XCTAssertTrue(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
+
+        failErase = false
+        try store.remove(removed.slot.id, confirming: removed.peerId)
+        XCTAssertEqual(try store.candidates(), [
+            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+        ])
+        XCTAssertEqual(try store.open(survivor.slot).peerId(), survivor.peerId)
+    }
+
+    @objc
+    func testRemovalResumesAfterPartialFileCleanup() throws {
+        let path = try root()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let slot = try store.create()
+        let profiles = path.appendingPathComponent("profiles")
+        let folder = profiles.appendingPathComponent(slot.slot.id.uuidString.lowercased())
+        let tombstone = profiles.appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting")
+        try Data("deleting\n".utf8).write(to: tombstone)
+        try PlatformKeyStore.eraseWrappingKey(forSlot: slot.slot.id)
+        try FileManager.default.removeItem(at: folder.appendingPathComponent("identity.key"))
+        XCTAssertEqual(try store.candidates(), [
+            IdentityCandidate(location: .slot(slot.slot.id), state: .deleting),
+        ])
+        try store.remove(slot.slot.id, confirming: slot.peerId)
+        XCTAssertEqual(try store.candidates(), [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tombstone.path))
+    }
+
+    @objc
+    func testRemovalVerifiesKeychainItemIsGoneBeforeFileCleanup() throws {
+        let path = try root()
+        let skipErase: (UUID) throws -> Void = { _ in }
+        let store = IdentitySlotStore(root: path, eraseWrappingKey: skipErase)
+        let slot = try store.create()
+        XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId)) { error in
+            guard let slotError = error as? IdentitySlotError,
+                  case .keyStillPresent = slotError else {
+                return XCTFail("expected a still-present Keychain item")
+            }
+        }
+        XCTAssertTrue(try PlatformKeyStore.forSlot(slot.slot.id).containsWrappingKey())
+        XCTAssertEqual(try store.candidates(), [
+            IdentityCandidate(location: .slot(slot.slot.id), state: .deleting),
+        ])
+    }
+}
+
+extension IdentitySlotStoreTests {
+    @objc
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
@@ -297,6 +372,7 @@ final class IdentitySlotStoreTests: XCTestCase {
         XCTAssertFalse(try PlatformKeyStore.forSlot(id).containsWrappingKey())
     }
 
+    @objc
     func testDirectoryCollisionIsNeverOverwritten() throws {
         let path = try root()
         let collision = UUID()
