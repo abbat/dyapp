@@ -94,7 +94,7 @@ impl PublicProfileDraft {
         Ok(())
     }
 
-    fn apply_to(&self, profile: &mut Profile) {
+    pub(crate) fn apply_to(&self, profile: &mut Profile) {
         profile.gender = self.gender;
         profile.orientation = self.orientation;
         profile.relationship_goal = self.relationship_goal;
