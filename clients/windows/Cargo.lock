@@ -1337,6 +1337,7 @@ dependencies = [
  "anyhow",
  "dyapp-identity",
  "dyapp-profile",
+ "either",
  "ipnet",
  "libp2p",
  "prost",

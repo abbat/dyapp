@@ -6,13 +6,13 @@
     reason = "NetworkBehaviour derive emits an undocumented event type"
 )]
 use super::{
-    Announce, DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour,
+    Announce, AutoRelay, DigestBehaviour, Endpoints, IncomingGroupGuard, InventoryBehaviour,
     KeyPackageBehaviour, MailboxBehaviour, MediaBehaviour, NodeBehaviour, PowGate,
     ProfileBehaviour, PushBehaviour, SearchBehaviour,
 };
 use libp2p::swarm::behaviour::toggle::Toggle;
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{autonat, connection_limits, dcutr, gossipsub, kad, memory_connection_limits, relay};
+use libp2p::{connection_limits, dcutr, gossipsub, kad, memory_connection_limits, relay};
 
 /// Every behaviour of a client or node swarm.
 #[derive(NetworkBehaviour)]
@@ -32,8 +32,8 @@ pub struct Behaviour {
     /// Identify, with [`IDENTIFY_PROTOCOL`](crate::IDENTIFY_PROTOCOL), announcing only preferred
     /// listen addresses.
     pub identify: Announce,
-    /// External address confirmation.
-    pub autonat: autonat::Behaviour,
+    /// External address confirmation; reserves a relay circuit while the node is private.
+    pub autonat: AutoRelay,
     /// Circuit relay v2 client: reservations on relays and dials through circuits.
     pub relay_client: relay::client::Behaviour,
     /// Circuit relay v2 hop protocol, on relay nodes only.

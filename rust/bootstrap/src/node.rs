@@ -128,6 +128,7 @@ pub fn swarm_with_protocols(
             dial_guard: Some(DialGuard::new(guard_dials)),
             dial_filter,
             relay,
+            autonat: Default::default(),
         },
     )
 }

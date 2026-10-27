@@ -46,7 +46,7 @@ so a migrated connection keeps its first IP.
 | Transports | QUIC (`/udp/<port>/quic-v1`) and TCP with Noise and Yamux |
 | Kademlia | protocol `/dyapp/kad`, in-memory record store |
 | identify | protocol `/dyapp`, agent version `dyapp`; tells peers their observed address. It announces only the global listen addresses, or all of them when none is global. `dyappd` routes a same-IP listen address from the connection's remote endpoint immediately; other claimed addresses require a one-address, peer-ID-pinned successful probe. Node/search DHT membership still requires the corresponding protocol and node-ID proof of work. Both DHTs filter inbound records; dyappd stores no remote DHT values or search providers, and keeps a store-DHT provider only when every advertised address matches a live connection IP of that provider. |
-| AutoNAT | v1, as client and server; confirms external addresses |
+| AutoNAT | v1, as client and server; confirms external addresses. While it reports the node private, the node listens on a relay circuit (below) |
 | Dialing | Happy Eyeballs (RFC 8305), libp2p smart dial: every address of a peer is dialled, QUIC before TCP and IPv6 before IPv4; IPv4 starts 250 ms after IPv6 on public addresses, 30 ms on private ones, and the first connection wins. A failed IPv6 dial does not start IPv4 sooner, and an IPv6 failure is not remembered, so every dial tries IPv6 again |
 | Idle connections | closed after 60 s |
 | Limits | connection limits (none by default), 100 concurrent streams per connection and protocol |
@@ -114,9 +114,14 @@ Not implemented yet:
 - Local reputation lives in `dyappd`, not here ([bootstrap](bootstrap.md#rate-limiting)).
 - Every swarm carries the circuit relay v2 client and DCUtR, and `SwarmOptions::relay` turns
   on the relay hop protocol with its limits; a p2p-net test connects two peers without
-  listeners through a relay and exchanges a request. Nothing reserves relay slots or dials
-  circuits yet; `dyappd` serves the hop protocol under its `relay` role
-  ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
+  listeners through a relay and exchanges a request. `dyappd` serves the hop protocol under its
+  `relay` role ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
+  `AutoRelay` wraps AutoNAT and remembers peers it dialled directly whose identify lists the hop
+  protocol. While AutoNAT reports the node private, it listens on
+  `<relay address>/p2p/<relay>/p2p-circuit` through one of them, and identify announces the
+  circuit address. When that listener closes it tries the next relay; a relay that closed one
+  returns only on a new connection. A public status removes the listener. Kad still stores
+  circuit addresses, and nothing prefers direct addresses over circuits when dialling.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 
 ## Dial filtering

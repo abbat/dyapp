@@ -24,6 +24,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod announce;
 pub use announce::Announce;
+mod auto_relay;
+pub use auto_relay::AutoRelay;
 mod behaviour;
 pub use behaviour::{Behaviour, BehaviourEvent};
 mod dial_filter;
@@ -350,6 +352,8 @@ pub struct SwarmOptions {
     pub dial_filter: DialFilter,
     /// Serve the circuit relay v2 hop protocol with these limits; `None` serves no circuits.
     pub relay: Option<relay::Config>,
+    /// AutoNAT probes; tests shorten the timers and allow loopback addresses.
+    pub autonat: autonat::Config,
 }
 
 impl Default for SwarmOptions {
@@ -366,6 +370,7 @@ impl Default for SwarmOptions {
             dial_guard: None,
             dial_filter: DialFilter::default(),
             relay: None,
+            autonat: autonat::Config::default(),
         }
     }
 }
@@ -422,6 +427,7 @@ pub fn build_configured_swarm(
         dial_guard,
         dial_filter,
         relay,
+        autonat,
     } = options;
     let pow_gate = dial_guard.clone().map(PowGate::new);
     Ok(SwarmBuilder::with_existing_identity(keypair)
@@ -524,7 +530,7 @@ pub fn build_configured_swarm(
                     identify::Config::new(protocols.version.clone(), key.public())
                         .with_agent_version(AGENT_VERSION.into()),
                 )),
-                autonat: autonat::Behaviour::new(peer_id, autonat::Config::default()),
+                autonat: AutoRelay::new(autonat::Behaviour::new(peer_id, autonat)),
                 relay_client,
                 relay: relay
                     .map(|config| relay::Behaviour::new(peer_id, config))

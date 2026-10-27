@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = "1.0"
+either = "1.18"
 ipnet = "2.12"
 dyapp-identity = { path = "../identity" }
 dyapp-profile = { path = "../profile" }
