@@ -120,8 +120,10 @@ Not implemented yet:
   protocol. While AutoNAT reports the node private, it listens on
   `<relay address>/p2p/<relay>/p2p-circuit` through one of them, and identify announces the
   circuit address. When that listener closes it tries the next relay; a relay that closed one
-  returns only on a new connection. A public status removes the listener. Kad still stores
-  circuit addresses, and nothing prefers direct addresses over circuits when dialling.
+  returns only on a new connection. A public status removes the listener. Circuit addresses
+  never enter either DHT and are not probed as claims. A dial to a peer adds a circuit through
+  every connected relay but that peer; smart dial starts circuits after the private and public
+  direct addresses (250 ms later when public ones exist) and before DNS-only ones.
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 
 ## Dial filtering

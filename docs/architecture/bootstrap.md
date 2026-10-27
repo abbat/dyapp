@@ -138,8 +138,11 @@ request size limit.
 Every swarm also speaks libp2p's circuit relay v2 client protocol and DCUtR, and a swarm built
 with `SwarmOptions::relay` serves the hop protocol with libp2p's relay limits. A relayed
 connection counts under the relay's IP. The `relay` role (with `store`) turns the hop protocol
-on in `dyappd` with the `[relay]` limits; slot reservations and circuit dials are planned
-([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
+on in `dyappd` with the `[relay]` limits. A node AutoNAT reports private reserves a slot on a
+connected relay, and a dial to a peer also tries a circuit through every connected relay;
+circuit addresses never enter either DHT
+([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md),
+[P2P networking](p2p-networking.md)).
 
 **Authorisation.** The Noise peer ID is a transport key, never an identity
 ([ADR 0006](../decisions/0006-transport-keys-separate-from-identity.md)), so anything that acts

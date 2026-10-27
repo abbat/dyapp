@@ -175,7 +175,11 @@ pub(super) fn add_node(
     if search || (kad && pow) {
         admission.roles.insert(peer_id, (kad, search));
         let now = Instant::now();
+        // A circuit never enters the DHTs, so it is not probed.
         for address in info.listen_addrs {
+            if dyapp_p2p_net::is_circuit(&address) {
+                continue;
+            }
             if dyapp_p2p_net::same_ip(&remote, &address) {
                 proved.push(address);
             } else if !admission.claims.claim(now, peer_id, address) {

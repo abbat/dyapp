@@ -695,6 +695,11 @@ pub fn set_distinct_groups(on: bool) {
     DISTINCT_GROUPS.store(on, Ordering::Relaxed);
 }
 
+/// Whether `address` routes through a relay circuit.
+pub fn is_circuit(address: &Multiaddr) -> bool {
+    address.iter().any(|p| p == Protocol::P2pCircuit)
+}
+
 /// Whether two direct addresses name exactly the same IP, independent of port and transport.
 /// DNS, relayed routes and multiple IP components cannot prove a direct remote endpoint.
 pub fn same_ip(observed: &Multiaddr, claimed: &Multiaddr) -> bool {
@@ -756,8 +761,8 @@ fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
 /// table, or, with [`set_distinct_groups`] on, its /16 already has a peer in the bucket. A peer
 /// without the node-ID proof of work ([`id_pow_bits`]) is never added: it is
 /// served, but never routed to or given replicas. A full bucket keeps its oldest live peers: the
-/// newcomer only replaces one that stopped answering. Returns whether the address was passed to
-/// Kademlia.
+/// newcomer only replaces one that stopped answering. A relay circuit never enters: a peer is
+/// routed only at its own addresses. Returns whether the address was passed to Kademlia.
 pub fn add_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Multiaddr) -> bool {
     admit(&mut swarm.behaviour_mut().kad, peer, address)
 }
@@ -775,6 +780,10 @@ fn admit(
 ) -> bool {
     if !id_has_pow(&peer, id_pow_bits()) {
         tracing::debug!(%peer, "peer ID without proof of work not routed");
+        return false;
+    }
+    if is_circuit(&address) {
+        tracing::debug!(%peer, %address, "relay circuit not routed");
         return false;
     }
     if let (Some(group), Some(wide)) = (ip_group(&address, false), ip_group(&address, true)) {

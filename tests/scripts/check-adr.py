@@ -89,6 +89,9 @@ COVERED = {
         "docs/decisions/0016-protocol-evolution.md",
     "94365d7035a3af82594be109d70236d10ab96e5c":
         "docs/decisions/0016-protocol-evolution.md",
+    # AutoRelay's `either` dependency; the trailer gave only the ADR number.
+    "779e2d6a426409599b3e5864049981ba0b13189b":
+        "docs/decisions/0031-circuit-relay-and-hole-punching.md",
     # The FFI seed check reuses the libp2p stack clients already speak.
     "c3e9bd7a3454615663abd977eddaaae211e1cd02":
         "docs/decisions/0014-libp2p-only-node-protocol.md",

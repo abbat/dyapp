@@ -1,6 +1,7 @@
 //! AutoNAT that reserves a circuit relay v2 slot while it reports the node private: it remembers
 //! dialled peers whose identify lists the hop protocol and listens on a circuit through one of
-//! them, then through another when that listener closes.
+//! them, then through another when that listener closes. A dial to a peer also tries a circuit
+//! through each of them; smart dial starts circuits after the direct addresses.
 
 use either::Either;
 use libp2p::autonat;
@@ -64,8 +65,8 @@ pub struct AutoRelay {
     inner: autonat::Behaviour,
     /// Remote addresses of our own direct dials.
     dialled: HashMap<ConnectionId, Multiaddr>,
-    /// Connected relays and an address we reached each on.
-    relays: HashMap<PeerId, Multiaddr>,
+    /// Connected relays, an address we reached each on, and whether it may take a reservation.
+    relays: HashMap<PeerId, (Multiaddr, bool)>,
     listener: Option<ListenerId>,
 }
 
@@ -80,11 +81,31 @@ impl AutoRelay {
         }
     }
 
+    /// The circuit to `peer` through each connected relay but itself: a dialer cannot know which
+    /// relay holds the peer's reservation, and one without it refuses at once.
+    fn circuits(&self, peer: PeerId) -> Vec<Multiaddr> {
+        self.relays
+            .iter()
+            .filter(|(relay, _)| **relay != peer)
+            .map(|(relay, (address, _))| circuit(address.clone(), *relay))
+            .collect()
+    }
+
     fn closed(&mut self, id: ListenerId) {
         if self.listener == Some(id) {
             self.listener = None;
         }
     }
+}
+
+/// `address` of `relay`, without a trailing peer ID, extended to a circuit through it.
+fn circuit(mut address: Multiaddr, relay: PeerId) -> Multiaddr {
+    if let Some(Protocol::P2p(_)) = address.iter().last() {
+        address.pop();
+    }
+    address
+        .with(Protocol::P2p(relay))
+        .with(Protocol::P2pCircuit)
 }
 
 impl NetworkBehaviour for AutoRelay {
@@ -121,8 +142,14 @@ impl NetworkBehaviour for AutoRelay {
         addresses: &[Multiaddr],
         role: Endpoint,
     ) -> Result<Vec<Multiaddr>, ConnectionDenied> {
-        self.inner
-            .handle_pending_outbound_connection(id, peer, addresses, role)
+        let mut found = self
+            .inner
+            .handle_pending_outbound_connection(id, peer, addresses, role)?;
+        // A hole punch dials as listener at given addresses.
+        if let (Some(peer), Endpoint::Dialer) = (peer, role) {
+            found.extend(self.circuits(peer));
+        }
+        Ok(found)
     }
 
     fn handle_established_outbound_connection(
@@ -137,7 +164,7 @@ impl NetworkBehaviour for AutoRelay {
             .inner
             .handle_established_outbound_connection(id, peer, address, role, port_use)?;
         // A circuit cannot carry another reservation.
-        if !address.iter().any(|p| p == Protocol::P2pCircuit) {
+        if !crate::is_circuit(address) {
             self.dialled.insert(id, address.clone());
         }
         Ok(handler.select(HopWatch::default()))
@@ -168,7 +195,7 @@ impl NetworkBehaviour for AutoRelay {
             Either::Left(event) => self.inner.on_connection_handler_event(peer, id, event),
             Either::Right(()) => {
                 if let Some(address) = self.dialled.get(&id) {
-                    self.relays.insert(peer, address.clone());
+                    self.relays.insert(peer, (address.clone(), true));
                 }
             }
         }
@@ -189,17 +216,17 @@ impl NetworkBehaviour for AutoRelay {
             }
             None if private => {
                 // ponytail: one reservation through any relay, fine for a handful of bootstraps.
-                let Some((peer, address)) = self.relays.iter().next() else {
+                let Some((peer, (address, candidate))) = self
+                    .relays
+                    .iter_mut()
+                    .find(|(_, (_, candidate))| *candidate)
+                else {
                     return Poll::Pending;
                 };
-                let (peer, mut address) = (*peer, address.clone());
-                // A refusing relay is not retried in a loop; a new connection adds it back.
-                self.relays.remove(&peer);
-                if let Some(Protocol::P2p(_)) = address.iter().last() {
-                    address.pop();
-                }
-                let opts =
-                    ListenOpts::new(address.with(Protocol::P2p(peer)).with(Protocol::P2pCircuit));
+                // A refusing relay is not retried in a loop; a new connection makes it a
+                // candidate again.
+                *candidate = false;
+                let opts = ListenOpts::new(circuit(address.clone(), *peer));
                 self.listener = Some(opts.listener_id());
                 Poll::Ready(ToSwarm::ListenOn { opts })
             }
@@ -211,12 +238,24 @@ impl NetworkBehaviour for AutoRelay {
 #[cfg(test)]
 mod tests {
     use crate::{build_configured_swarm, BehaviourEvent, Mode, SwarmOptions};
+    use libp2p::core::Endpoint;
     use libp2p::futures::StreamExt;
     use libp2p::identity::Keypair;
     use libp2p::multiaddr::Protocol;
-    use libp2p::swarm::SwarmEvent;
-    use libp2p::{autonat, relay};
+    use libp2p::swarm::{ConnectionId, NetworkBehaviour, SwarmEvent};
+    use libp2p::{autonat, relay, Multiaddr, PeerId};
     use std::time::Duration;
+
+    #[test]
+    fn a_relay_circuit_never_enters_either_dht() {
+        let mut swarm = crate::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
+        let (peer, relay) = (PeerId::random(), PeerId::random());
+        let direct: Multiaddr = "/ip4/198.51.100.1/tcp/7070".parse().unwrap();
+        let circuit = super::circuit(direct.clone(), relay);
+        assert!(!crate::add_peer(&mut swarm, peer, circuit.clone()));
+        assert!(!crate::add_search_peer(&mut swarm, peer, circuit));
+        assert!(crate::add_peer(&mut swarm, peer, direct));
+    }
 
     #[tokio::test]
     async fn a_private_node_listens_on_a_circuit_through_a_connected_relay() {
@@ -252,7 +291,7 @@ mod tests {
         };
         relay.add_external_address(address.clone());
         // Without a listener the dial-back to the observed address fails: AutoNAT says private.
-        node.dial(address).unwrap();
+        node.dial(address.clone()).unwrap();
         let (mut private, mut circuit) = (false, None);
         tokio::time::timeout(Duration::from_secs(30), async {
             while circuit.is_none() {
@@ -272,9 +311,30 @@ mod tests {
         .unwrap();
         let circuit = circuit.unwrap();
         assert!(private);
-        assert!(
-            circuit.iter().any(|p| p == Protocol::P2pCircuit),
-            "{circuit}"
-        );
+        assert!(crate::is_circuit(&circuit), "{circuit}");
+
+        // A dial to another peer adds the circuit through the relay after its direct address.
+        fn dial(node: &mut libp2p::Swarm<crate::Behaviour>, peer: PeerId) -> Vec<Multiaddr> {
+            node.behaviour_mut()
+                .handle_pending_outbound_connection(
+                    ConnectionId::new_unchecked(usize::MAX),
+                    Some(peer),
+                    &[],
+                    Endpoint::Dialer,
+                )
+                .unwrap()
+        }
+        let relay_peer = *relay.local_peer_id();
+        assert!(dial(&mut node, relay_peer)
+            .iter()
+            .all(|a| !crate::is_circuit(a)));
+        let target = PeerId::random();
+        let direct: Multiaddr = "/ip4/198.51.100.1/tcp/7070".parse().unwrap();
+        node.behaviour_mut()
+            .kad
+            .add_address(&target, direct.clone());
+        let found = dial(&mut node, target);
+        let circuit = super::circuit(address, relay_peer);
+        assert_eq!(found, [direct.with(Protocol::P2p(target)), circuit]);
     }
 }
