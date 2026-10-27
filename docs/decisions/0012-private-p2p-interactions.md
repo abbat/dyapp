@@ -25,7 +25,8 @@ keep likes, view history or matching preferences private, or enforce rules such 
   is a local setting of the viewer, not a profile field. There is no reciprocity: turning sending
   off does not stop receiving. Undelivered signals are stored on bootstrap like messages.
 - **Online presence** is visible to whomever the user chooses; the setting is local and presence is
-  sent only to the allowed peers.
+  sent only to the allowed peers. The planned [presence design](../design/presence.md) sends a
+  coarse "active recently" signal to matches unless the user hides it.
 - **Messages to non-matches** are allowed with rate limiting and one pending message until the
   recipient replies.
 - **Multiple profiles are separate identities:** each has its own identity key
