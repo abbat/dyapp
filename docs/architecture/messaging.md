@@ -68,7 +68,10 @@ release secret, 32 bytes each, the plaintext size, an optional JPEG preview of a
 printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length
 is refused. A message carries at most 64 KiB of previews: each of `n` images gets
 `attachment::preview_budget(n)`, min(24 KiB, 64 KiB / n). `Session::send_attachment` uploads the
-sealed blob to the first node that takes it before it stages the message, and `attachment::fetch`
+sealed blob to the first node that takes it before it stages the message. One attachment is one
+blob, so its sealed size is capped by the node media limit of 6 MiB: there is no split into
+several blobs and the client does not check the size first. Planned: apps compress larger media
+or refuse it before upload. `attachment::fetch`
 reads and opens it on receipt. Recipients never release the blob: every device of the chat is an
 MLS member and the first release would drop it for the others, so it expires after the node's
 retention. `attachment::auto_download` downloads a contact's original without a tap only on an
