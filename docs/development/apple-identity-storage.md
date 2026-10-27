@@ -52,8 +52,9 @@ visible, marks the selected slot, names both Keychain and local key file, and ne
 `active-profile` or creates a key. Its network link edits only the selected slot. Settings now
 offers explicit Create and Switch actions in detached tasks; Switch calls the existing guarded
 `select`, and the root screen reloads the newly selected slot's Active network before showing
-Ready or its draft form. A failed action keeps the prior UI selection and shows an error. Removal
-controls are planned separately.
+Ready or its draft form. A failed Create or Switch keeps the prior UI selection and shows an
+error. Selected ready UUID slots can be removed after a second confirmation; the root picker
+requires an explicit choice of any survivor.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their
@@ -119,7 +120,10 @@ selection, erases the slot's Keychain item, and removes
 only known files before removing the tombstone. A retry can finish after the Keychain item or
 directory has gone; if the item still exists, it must open and match the confirmed Peer ID again.
 The store verifies Keychain absence itself after the erase call, including when an injected
-erase operation is used by tests. The Settings confirmation UI remains planned.
+erase operation is used by tests. iOS and macOS Settings now show the selected UUID's Peer ID,
+backup warning and a second destructive confirmation before calling this operation. A shared
+native test reopens a surviving Peer ID and its active/draft network files after another slot is
+removed.
 
 A valid regular `profiles/<uuid>.deleting` file containing exactly `deleting\n` now keeps that
 candidate visible as deleting even after its slot directory is partly or fully gone. Malformed
@@ -161,5 +165,6 @@ Shared iOS/macOS unit tests exercise independent per-slot Keychain accounts, cro
 unwrap failure, the legacy account and an absent account that stays absent after unwrap.
 The shared start screen creates and selects a UUID slot only after Create is pressed.
 The native iOS/macOS launch tests use isolated slot roots and legacy Keychain
-accounts, and check first creation and stable Peer IDs after relaunch. Native CI
-validation and picker, selection, removal and recovery fixture tests remain pending.
+accounts, and check first creation, picker selection, confirmed removal and stable Peer IDs after
+relaunch. Shared unit tests cover deleting tombstones, retry and survivor network isolation.
+Additional unavailable-Keychain and corrupt-pointer UI fixtures remain planned.

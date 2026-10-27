@@ -349,6 +349,45 @@ extension IdentitySlotStoreTests {
 
 extension IdentitySlotStoreTests {
     @objc
+    func testSurvivorNetworkAndPeerIDReopenAfterOtherSlotRemoval() throws {
+        let path = try root()
+        let legacyStore = PlatformKeyStore.forSlot(UUID())
+        let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        let survivor = try store.create()
+        let removed = try store.create()
+        let survivorCandidate = IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
+        let removedCandidate = IdentityCandidate(location: .slot(removed.slot.id), state: .ready)
+        let survivorDir = RustBridge.networkDirectory(root: path, candidate: survivorCandidate)
+        let removedDir = RustBridge.networkDirectory(root: path, candidate: removedCandidate)
+        let survivorNetwork = NetworkSettings(seeds: ["survivor.example:33445"], name: "survivor")
+        let removedNetwork = NetworkSettings(seeds: ["removed.example:33445"], name: "removed")
+        try saveNetworkDraft(dir: survivorDir.path, draft: survivorNetwork)
+        try saveNetworkDraft(dir: removedDir.path, draft: removedNetwork)
+        for dir in [survivorDir, removedDir] {
+            try Data(contentsOf: dir.appendingPathComponent("network-draft"))
+                .write(to: dir.appendingPathComponent("network"))
+        }
+        try store.select(.slot(removed.slot.id))
+        try store.remove(removed.slot.id, confirming: removed.peerId)
+
+        let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
+        XCTAssertEqual(try reopened.resolve(), .picker([
+            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+        ]))
+        XCTAssertEqual(try reopened.select(.slot(survivor.slot.id)), survivor.peerId)
+        XCTAssertEqual(try reopened.open(survivor.slot).peerId(), survivor.peerId)
+        for file in [NetworkFile.draft, .active] {
+            let settings = try XCTUnwrap(loadNetwork(dir: survivorDir.path, file: file))
+            XCTAssertEqual(settings.seeds, survivorNetwork.seeds)
+            XCTAssertEqual(settings.name, survivorNetwork.name)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: removedDir.path))
+        XCTAssertFalse(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
+    }
+}
+
+extension IdentitySlotStoreTests {
+    @objc
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
