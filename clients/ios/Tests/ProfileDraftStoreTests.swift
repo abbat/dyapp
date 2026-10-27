@@ -3,6 +3,55 @@ import Foundation
 import XCTest
 
 final class ProfileDraftStoreTests: XCTestCase {
+    func testRustImportKeepsLegacyJSONAndPrefersClientDatabase() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let slots = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
+        let first = try slots.create()
+        let candidate = IdentityCandidate(location: .slot(first.slot.id), state: .ready)
+        let old = root.appendingPathComponent("profile-draft-\(first.peerId).json")
+        try JSONEncoder().encode(["gender": UInt32(1), "birthMonth": 2, "birthDay": 29]).write(to: old)
+        let store = ProfileRustDraftStore(root: root, candidate: candidate, peerId: first.peerId,
+                                          key: try slots.open(candidate.location))
+        XCTAssertEqual(try store.load(), ["gender": 1, "birthMonth": 2, "birthDay": 29])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath:
+            RustBridge.networkDirectory(root: root, candidate: candidate)
+                .appendingPathComponent("client.db").path))
+
+        try ProfileDraftStore(root: root, candidate: candidate, peerId: first.peerId).save(["gender": 2])
+        XCTAssertEqual(try store.load(), ["gender": 1, "birthMonth": 2, "birthDay": 29])
+        try store.save(["gender": 3])
+        XCTAssertEqual(try store.load(), ["gender": 3])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
+
+        let second = try slots.create()
+        let otherCandidate = IdentityCandidate(location: .slot(second.slot.id), state: .ready)
+        let other = ProfileRustDraftStore(root: root, candidate: otherCandidate, peerId: second.peerId,
+                                          key: try slots.open(otherCandidate.location))
+        XCTAssertNil(try other.load())
+        try other.save([:])
+        XCTAssertEqual(try other.load(), [:])
+        XCTAssertEqual(try store.load(), ["gender": 3])
+    }
+
+    func testFailedRustImportLeavesJSONAvailableForRetry() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let slots = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
+        let slot = try slots.create()
+        let candidate = IdentityCandidate(location: .slot(slot.slot.id), state: .ready)
+        let json = ProfileDraftStore(root: root, candidate: candidate, peerId: slot.peerId)
+        try json.save(["birthYear": 1_900, "birthMonth": 2, "birthDay": 29])
+        let saved = try Data(contentsOf: json.file)
+        let rust = ProfileRustDraftStore(root: root, candidate: candidate, peerId: slot.peerId,
+                                         key: try slots.open(candidate.location))
+        XCTAssertThrowsError(try rust.load())
+        XCTAssertEqual(try Data(contentsOf: json.file), saved)
+    }
+
     func testPreviewUsesSavedDraftInsteadOfUnsavedEditorValues() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

@@ -134,6 +134,11 @@ The Rust FFI draft load/save API can now open a `client.db` in the same slot wit
 `IdentityKey`. It checks the database's identity binding, validates optional birth parts and
 nonzero scale codes, and preserves stored publication version and proof-work progress when
 editing. The Apple UI migration from JSON to this API is planned.
+The shared Swift Rust draft adapter now prefers an existing `client.db` draft. If none exists, it
+loads the current slot JSON (including the older Peer-ID-named root copy), validates the exact
+editable values and copies them into `client.db`. It leaves both JSON files intact, including after
+failed validation or storage, so migration can be retried. The editor and preview still use JSON
+until their next checkpoint switches them to this adapter.
 Confirmed slot removal recognizes and removes its `profile-draft.json` alongside the wrapped
 key and network files; the old root copy remains untouched.
 

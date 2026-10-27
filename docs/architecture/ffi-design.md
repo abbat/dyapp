@@ -72,10 +72,15 @@ or returns constants.
 | `PublicProfileDraft` | Record | Nine zero-default categorical fields and independently optional birth year, month and day | Editable values only; zero publishes no categorical value. Version and proof-work progress stay in the stored Rust `Profile`. |
 | `load_profile_draft` | function | `(dir: String, key: IdentityKey) -> Result<Option<PublicProfileDraft>, CoreError>` | Reads the identity-bound `client.db` draft without creating a database when absent; an identity mismatch fails. Apple editor integration is planned. |
 | `save_profile_draft` | function | `(dir: String, key: IdentityKey, draft: PublicProfileDraft) -> Result<(), CoreError>` | Validates scales and optional birth parts, then updates only editable fields in `client.db`, retaining version and proof-work progress. Apple editor integration is planned. |
+
 | `ProfileService` | Object | `new()` | Stub; native editors currently save local drafts, while publication and the 18+ gate remain planned. The [client screen contract](../design/v0.0.1-client-screens.md#profile-draft-and-publication) governs their future integration. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `placeholder`, no birth-date parts, and `verified = false`. |
 | | method | `update_field(field: String, value: String) -> Result<(), CoreError>` | **Stub.** No-op. |
 | `UserProfile` | Record | `user_id: String`, optional `birth_year`, `birth_month`, `birth_day` (`u32`), `verified: bool` | Copied by value. |
+
+The Apple `ProfileRustDraftStore` adapter maps the generated record to local editor values and
+imports an existing JSON draft only when no Rust draft exists. JSON remains available for retry;
+the editor and preview will switch to this adapter in the next checkpoint.
 
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
 search, or app lifecycle functions.
