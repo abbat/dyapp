@@ -75,12 +75,17 @@ pub fn swarm_with_wire(
         Arc::new(dyapp_p2p_net::Protocols::public()),
         false,
         dyapp_p2p_net::DialFilter::default(),
+        None,
     )
 }
 
 /// Builds a node with protocol IDs shared with its service; config selection is separate.
 /// Outbound dials always pass the peer-proof gate; `guard_dials` adds the IP and group limits,
-/// and `dial_filter` refuses its ranges.
+/// and `dial_filter` refuses its ranges. `relay` serves the circuit relay v2 hop protocol.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "each argument is a separate config part"
+)]
 pub fn swarm_with_protocols(
     keypair: Keypair,
     limits: &Limits,
@@ -89,6 +94,7 @@ pub fn swarm_with_protocols(
     protocols: Arc<dyapp_p2p_net::Protocols>,
     guard_dials: bool,
     dial_filter: dyapp_p2p_net::DialFilter,
+    relay: Option<libp2p::relay::Config>,
 ) -> anyhow::Result<Swarm<Behaviour>> {
     let mode = if roles.contains(&Role::Store) {
         Mode::Auto
@@ -121,7 +127,7 @@ pub fn swarm_with_protocols(
             )?),
             dial_guard: Some(DialGuard::new(guard_dials)),
             dial_filter,
-            relay: None,
+            relay,
         },
     )
 }

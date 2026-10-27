@@ -22,12 +22,13 @@
 # seeds = []                     # host:port or host:port/<peer-id>; IP or DNS host
 
 # --- Roles -------------------------------------------------------------------------------------
-# What the node serves; list several to combine them. "media", "turn" and "search" do not
-# include "store" and need it in the list too.
+# What the node serves; list several to combine them. "media", "turn", "search" and "relay" do
+# not include "store" and need it in the list too.
 #   "store"   profiles, mailboxes and the network directory (DHT); the base role
 #   "media"   media files (avatars, attachments), see limits.media_max_mb
 #   "turn"    passwords for a coturn relay that helps calls through NAT, see [turn]
 #   "search"  profile search, see [search]; indexes the whole network, up to search.max_bytes
+#   "relay"   short circuits that let peers behind NAT reach each other, see [relay]
 # roles = ["store", "search"]    # e.g. ["store", "search", "media"]
 
 [storage]
@@ -110,6 +111,17 @@
 # secret = ""                         # prefer secret_file; an option shows in ps
 # secret_file = ""                    # file with the secret (one trailing newline dropped), e.g. a systemd credential
 # credential_minutes = 60             # lifetime of the passwords handed out
+
+[relay]
+# Used by the relay role: circuit relay v2 slots for peers behind NAT, enough to set up a hole
+# punch and small exchanges. libp2p's rate limits per peer and IP apply on top.
+# max_reservations = 128              # reservations held at once
+# max_reservations_per_peer = 4       # reservations of one peer
+# reservation_minutes = 60            # how long a reservation lasts before renewal
+# max_circuits = 16                   # circuits open at once
+# max_circuits_per_peer = 4           # circuits to or from one peer
+# circuit_seconds = 120               # how long one circuit stays open
+# circuit_kb = 128                    # KiB one circuit carries each way before it closes
 
 [maintenance]
 # interval_minutes = 60               # cleanup of expired data, peer list save, seed redial

@@ -115,7 +115,7 @@ Not implemented yet:
 - Every swarm carries the circuit relay v2 client and DCUtR, and `SwarmOptions::relay` turns
   on the relay hop protocol with its limits; a p2p-net test connects two peers without
   listeners through a relay and exchanges a request. Nothing reserves relay slots or dials
-  circuits yet, and `dyappd` has no relay role yet
+  circuits yet; `dyappd` serves the hop protocol under its `relay` role
   ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
 - No seed list is built in: operators set `seeds` themselves, and no client joins yet.
 

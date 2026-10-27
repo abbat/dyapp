@@ -63,7 +63,7 @@ Each role is enabled separately in the node config:
 | media | media blobs and erasure-coded shards, thumbnails |
 | search | the search index over profiles collected from the whole network |
 | TURN | short-lived credentials for an operator-run coturn relay of call media |
-| relay | nothing; serves short circuit relay v2 slots to peers behind NAT (planned, [ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)) |
+| relay | nothing; serves short circuit relay v2 slots to peers behind NAT within the `[relay]` limits ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)) |
 
 Every role has its own DHT key space, so replicas for a role are chosen only among the nodes
 that run it. A node announces its roles through libp2p identify. A reachable node is a DHT
@@ -137,8 +137,8 @@ request size limit.
 
 Every swarm also speaks libp2p's circuit relay v2 client protocol and DCUtR, and a swarm built
 with `SwarmOptions::relay` serves the hop protocol with libp2p's relay limits. A relayed
-connection counts under the relay's IP. The `relay` role that turns the hop protocol on in
-`dyappd`, slot reservations and circuit dials are planned
+connection counts under the relay's IP. The `relay` role (with `store`) turns the hop protocol
+on in `dyappd` with the `[relay]` limits; slot reservations and circuit dials are planned
 ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
 
 **Authorisation.** The Noise peer ID is a transport key, never an identity

@@ -40,6 +40,7 @@ back. A node serves one or more roles:
 | `media` | Media blobs: avatars and chat attachments. |
 | `turn` | Short-lived passwords for a coturn relay running next to the node ([TURN relay](#turn-relay)). Calls are not part of the first release. |
 | `search` | Profile search ([Search](../architecture/bootstrap.md#search)). On by default, so a small network has search; it keeps an index of the whole network's profiles, up to `search.max_bytes` (50 GiB) of disk. Lower that on a small disk, or set `roles = ["store"]`. |
+| `relay` | Short circuit relay v2 slots that let peers behind NAT reach each other and set up a hole punch, within the [`[relay]`](#relay) limits. Clients do not reserve slots yet. |
 
 Every write is replicated whole to five DHT points and acknowledged once two distinct nodes
 store it; media larger than 1 MiB is split into Reed-Solomon shards. Nodes repair missing
@@ -326,7 +327,7 @@ than `keygen` must run as the owner of `storage.dir` (`sudo -u dyappd dyappd ...
 | `listen` | `["[::1]:33445", "127.0.0.1:33445"]` | Addresses the node listens on. Loopback only by default, so a fresh install serves nobody; a serving node sets `["[::]:33445", "0.0.0.0:33445"]`. IPv6 sockets are IPv6-only, so a dual-stack node lists both. Each address serves TCP and QUIC (UDP) on its port. An address that does not open is logged as `not listening` and skipped; the node exits only when none opens. |
 | `external` | `[]` | Public addresses announced to peers, when known (a static address, port forwarding). Empty: peers learn the listen addresses through identify (only the global ones when there are any), and the address they see the node from is announced once AutoNAT confirms it. Until then the node is a DHT client: it uses the DHT but serves no part of it. |
 | `seeds` | `[]` | Nodes to join through: `host:port` or `host:port/<peer ID>`, the host an IP or a DNS name (e.g. `seed.example.org:33445`, `[2001:db8::7]:33445`). The peer ID, printed by the seed's `dyappd id`, pins the seed's key: a different key is refused and logged at warn. A name with several A/AAAA records is tried address by address. Without a pin, whoever controls the name or host controls the first peers. Later starts also dial the peers cached in `storage.dir`, so seeds are only a way in. Libp2p multiaddrs are refused. |
-| `roles` | `["store", "search"]` | Any of `store`, `media`, `turn`, `search` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
+| `roles` | `["store", "search"]` | Any of `store`, `media`, `turn`, `search`, `relay` ([What a node does](#what-a-node-does)). Each non-store role is refused at startup without `store` in the list. A node without a role answers its requests `UNSUPPORTED`. |
 
 `listen` and `external` take an IP, not a host name; an IPv6 address goes in brackets.
 
@@ -464,6 +465,23 @@ Used by the `turn` role only.
 | `secret` | `""` | coturn's `static-auth-secret`. Prefer `secret_file`; otherwise set `DYAPPD_TURN_SECRET` in a mode 0600 `EnvironmentFile=`, never on the command line. |
 | `secret_file` | `""` | A file holding the secret, e.g. a systemd credential (`LoadCredential=turn.secret:/etc/dyappd/turn.secret` and `DYAPPD_TURN_SECRET_FILE=%d/turn.secret`). One trailing newline is dropped. Setting both `secret` and `secret_file`, or an empty or unreadable file, stops startup. |
 | `credential_minutes` | 60 | Lifetime of the passwords handed out. |
+
+### `[relay]`
+
+Used by the `relay` role only. A circuit carries a peer's traffic through this node only until
+the peers punch a direct connection, so the limits are small. libp2p's own rate limits per
+peer and per IP apply on top. Every value must be at least 1
+([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `max_reservations` | 128 | Reservations held at once. |
+| `max_reservations_per_peer` | 4 | Reservations of one peer. |
+| `reservation_minutes` | 60 | How long a reservation lasts before the peer renews it. |
+| `max_circuits` | 16 | Circuits open at once. |
+| `max_circuits_per_peer` | 4 | Circuits to or from one peer. |
+| `circuit_seconds` | 120 | How long one circuit stays open. |
+| `circuit_kb` | 128 | KiB one circuit carries each way before it closes. |
 
 ### `[search]`
 

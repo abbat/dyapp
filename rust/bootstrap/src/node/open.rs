@@ -63,6 +63,7 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
         protocols.clone(),
         config.network.guard_dials,
         dial_filter.clone(),
+        config.relay_hop(),
     )?;
     // A host without IPv6 cannot open [::]; the node runs on whatever does open.
     let mut listening = 0;

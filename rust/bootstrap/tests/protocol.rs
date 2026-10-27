@@ -6,6 +6,8 @@ mod address_admission;
 mod keypackages;
 #[path = "protocol/profile_pow.rs"]
 mod profile_pow;
+#[path = "protocol/relay.rs"]
+mod relay;
 
 use dyapp_bootstrap::config::{Limits, Role};
 use dyapp_bootstrap::search::SearchIndex;
@@ -85,6 +87,7 @@ async fn start_config_in_protocols(
         service.protocols.clone(),
         false,
         dyapp_p2p_net::DialFilter::default(),
+        service.config.relay_hop(),
     )
     .unwrap();
     if service.config.roles.contains(&Role::Media) {
@@ -647,6 +650,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
             service.protocols.clone(),
             false,
             dyapp_p2p_net::DialFilter::default(),
+            None,
         )
         .unwrap();
         swarm

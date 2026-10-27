@@ -15,6 +15,8 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use zeroize::Zeroizing;
 
+pub use relay::Relay;
+
 /// Prefix of environment variables that override config keys: `DYAPPD_<SECTION>_<KEY>`, or
 /// `DYAPPD_<KEY>` for a top-level key. Section names have no `_`, so the first one ends it.
 pub const ENV_PREFIX: &str = "DYAPPD_";
@@ -256,7 +258,7 @@ pub struct NodeConfig {
     pub external: Vec<String>,
     /// `host:port[/peer-ID]` nodes dialed over TCP and QUIC; see [`seed`].
     pub seeds: Vec<String>,
-    /// Roles this node serves: store, media, search, turn.
+    /// Roles this node serves: store, media, search, turn, relay.
     pub roles: Vec<Role>,
     /// The `[storage]` section.
     pub storage: StorageConfig,
@@ -268,6 +270,8 @@ pub struct NodeConfig {
     pub network: Network,
     /// The `[turn]` section.
     pub turn: Turn,
+    /// The `[relay]` section.
+    pub relay: Relay,
     /// The `[media]` section.
     pub media: Media,
     /// The `[search]` section.
@@ -515,6 +519,8 @@ pub enum Role {
     Search,
     /// TURN credentials for a coturn relay.
     Turn,
+    /// Circuit relay v2 slots for peers behind NAT.
+    Relay,
 }
 
 /// Where the node keeps its key and databases.
@@ -635,6 +641,7 @@ impl Default for NodeConfig {
             maintenance: Maintenance::default(),
             network: Network::default(),
             turn: Turn::default(),
+            relay: Relay::default(),
             media: Media::default(),
             search: Search::default(),
             metrics: Metrics::default(),
@@ -781,6 +788,13 @@ impl StorageConfig {
 }
 
 impl NodeConfig {
+    /// The hop config of role relay; `None` without it.
+    pub fn relay_hop(&self) -> Option<libp2p::relay::Config> {
+        self.roles
+            .contains(&Role::Relay)
+            .then(|| self.relay.libp2p())
+    }
+
     /// Reads `turn.secret_file` into `turn.secret`; call before [`NodeConfig::validate`].
     pub fn resolve_secrets(&mut self) -> anyhow::Result<()> {
         let path = &self.turn.secret_file;
@@ -933,6 +947,7 @@ impl NodeConfig {
 
 mod binding;
 mod key;
+mod relay;
 mod ru;
 mod validation_impl;
 

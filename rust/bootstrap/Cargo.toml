@@ -38,7 +38,7 @@ governor = "0.10"
 memory-stats = "1"
 
 # Node config and the libp2p node
-libp2p = { version = "0.57", features = ["ed25519", "gossipsub"] }
+libp2p = { version = "0.57", features = ["ed25519", "gossipsub", "relay"] }
 toml = "1"
 serde_ignored = "0.1"
 dyapp-p2p-net = { path = "../p2p-net" }

@@ -178,6 +178,22 @@ pub(super) const DESCRIPTIONS: &[(&str, &str)] = &[
         "turn.credential_minutes",
         "срок действия выдаваемых паролей в минутах",
     ),
+    ("relay.max_reservations", "резерваций relay одновременно"),
+    ("relay.max_reservations_per_peer", "резерваций одного узла"),
+    (
+        "relay.reservation_minutes",
+        "срок резервации до продления, в минутах",
+    ),
+    ("relay.max_circuits", "цепей relay одновременно"),
+    (
+        "relay.max_circuits_per_peer",
+        "цепей к одному узлу или от него",
+    ),
+    ("relay.circuit_seconds", "время жизни одной цепи в секундах"),
+    (
+        "relay.circuit_kb",
+        "КиБ, которые цепь передаёт в каждую сторону до закрытия",
+    ),
     (
         "maintenance.interval_minutes",
         "интервал очистки просроченных данных, сохранения узлов и повторного дозвона до seeds",

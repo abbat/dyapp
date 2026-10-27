@@ -179,6 +179,12 @@ fn invalid_config_fails() {
         turn(c);
         c.turn.urls = vec!["relay.example:3478".into()];
     }));
+    assert!(invalid(|c| c.roles = vec![Role::Relay]));
+    assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Relay]));
+    assert!(invalid(|c| {
+        c.roles = vec![Role::Store, Role::Relay];
+        c.relay.circuit_kb = 0;
+    }));
     assert!(invalid(|c| c.roles = vec![Role::Media]));
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
     assert!(invalid(|c| c.roles = vec![Role::Search]));

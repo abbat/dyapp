@@ -23,15 +23,26 @@ impl NodeConfig {
                 "listen: укажите хотя бы один адрес"
             ));
         }
-        if let Some(role) = self
-            .roles
-            .iter()
-            .find(|r| !matches!(r, Role::Store | Role::Media | Role::Turn | Role::Search))
-        {
+        if let Some(role) = self.roles.iter().find(|r| {
+            !matches!(
+                r,
+                Role::Store | Role::Media | Role::Turn | Role::Search | Role::Relay
+            )
+        }) {
             if russian_locale() {
                 anyhow::bail!("роль {role:?} пока не реализована");
             }
             anyhow::bail!("role {role:?} is not implemented yet");
+        }
+        if self.roles.contains(&Role::Relay) {
+            // As with turn: peers find relays among store nodes in the routing table.
+            if !self.roles.contains(&Role::Store) {
+                anyhow::bail!(message(
+                    "role relay needs role store",
+                    "для роли relay нужна роль store"
+                ));
+            }
+            self.relay.validate()?;
         }
         // ponytail: a media node is found through the store role's key space; media-only nodes
         // need their own Kademlia protocol.

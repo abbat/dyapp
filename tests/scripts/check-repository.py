@@ -54,7 +54,8 @@ DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
                     re.S)
 PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
-ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs"}
+ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs",
+                     "rust/bootstrap/src/config/relay.rs"}
 # Practice D1: visible UI strings live in the platform catalogues.
 CATALOGUES = {"android": "clients/android/app/src/main/res/values/strings.xml",
               "apple": "clients/ios/DYApp/Localizable.xcstrings",
