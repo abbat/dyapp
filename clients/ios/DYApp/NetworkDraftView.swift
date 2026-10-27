@@ -11,6 +11,8 @@ struct NetworkDraftView: View {
     let peerId: String
     /// Rows shown above the form when it is the start screen.
     var header: AnyView?
+    /// Called instead of pushing the profile when the start screen owns that navigation.
+    var onActivated: (() -> Void)?
     @State private var bootstrapRows = ""
     @State private var networkName = ""
     @State private var isLoading = true
@@ -356,6 +358,10 @@ extension NetworkDraftView {
         guard !Task.isCancelled else { return }
         isActivating = false
         activationFailed = !success
-        activated = success
+        if success, let onActivated {
+            onActivated()
+        } else {
+            activated = success
+        }
     }
 }

@@ -23,10 +23,25 @@ struct ContentView: View {
     @State private var pickerReadFailed = false
     @State private var pickerWorking = false
     @State private var pickerActionFailed = false
+    @State private var profilePending = false
+    @State private var profileOpen = false
 
     private var selectedMarker: String? {
         if case let .ready(candidate, _) = identity { return candidate.location.marker }
         return nil
+    }
+
+    /// iOS never pushed from a hidden link on the setup root, so after Continue switch to the ready
+    /// start screen and open the profile from there. The macOS sidebar keeps the setup form's own push.
+    private var setupActivated: (() -> Void)? {
+        #if os(iOS)
+        return {
+            profilePending = true
+            activeNetwork = .ready
+        }
+        #else
+        return nil
+        #endif
     }
 
     var body: some View {
@@ -41,7 +56,7 @@ struct ContentView: View {
                             Text("settings.title")
                         }
                         .accessibilityIdentifier("settings-open")
-                    }))
+                    }), onActivated: setupActivated)
                 } else {
                     start
                 }
@@ -88,10 +103,18 @@ struct ContentView: View {
                         Text("network.title")
                     }
                     .accessibilityIdentifier("network-edit")
-                    NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId)) {
+                    NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
+                                   isActive: $profileOpen) {
                         Text("profile.title")
                     }
                     .accessibilityIdentifier("profile-edit")
+                    // Activate the link once it is on screen; one created already active may not push.
+                    .onAppear {
+                        if profilePending {
+                            profilePending = false
+                            profileOpen = true
+                        }
+                    }
 
                 case .readFailed:
                     Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")
