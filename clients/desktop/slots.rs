@@ -11,7 +11,7 @@ use dyapp_identity::Identity;
 pub const LEGACY: &str = "legacy-primary";
 
 /// Files belonging to the slot that a confirmed removal may erase.
-const REMOVABLE: [&str; 11] = [
+const REMOVABLE: [&str; 14] = [
     "storage-mode",
     "state",
     "state.tmp",
@@ -23,6 +23,10 @@ const REMOVABLE: [&str; 11] = [
     "client.db-wal",
     "client.db-shm",
     "client.db-journal",
+    "node.json",
+    "node.json.tmp",
+    // The node's key and stores.
+    "node",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -586,8 +590,10 @@ mod tests {
         assert!(remove(&root, &second.id, Some(&bob), &load, &erase).is_err());
         assert_eq!(state(&second.id), Some(State::Deleting));
         working.set(true);
-        // Network settings go with the slot.
+        // Network and node settings and the node's stores go with the slot.
         fs::write(second.dir.join("network-draft"), "dyapp-network 1\nname \n").unwrap();
+        fs::write(second.dir.join("node.json"), "{}").unwrap();
+        fs::create_dir_all(second.dir.join("node/profiles")).unwrap();
         fs::write(second.dir.join("client.db"), "draft").unwrap();
         fs::write(second.dir.join("client.db-wal"), "draft").unwrap();
         remove(&root, &second.id, Some(&bob), &load, &erase).unwrap();

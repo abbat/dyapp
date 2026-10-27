@@ -537,6 +537,8 @@ async function render(state) {
     await showNetwork();
     await showProfile();
     resetSearch();
+    // Starts the node when its setting is on and stops another identity's node; never blocks.
+    invoke('apply_node').catch(() => {});
     show(identity, 'status.ready');
     return state;
   }

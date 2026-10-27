@@ -73,8 +73,9 @@ lost (not for a missing key or one another slot also holds). Remove stays disabl
 confirmation box is ticked. The `remove_identity` command then removes the slot as described
 below and returns to the picker, or to the storage choice when none is left. It refuses the
 legacy slot, which needs the migration below, and a damaged slot, whose files it cannot
-interpret. A confirmed removal includes that slot's network settings and `client.db` profile
-draft (including SQLite sidecars); unknown files still prevent removal. Merely opening the
+interpret. A confirmed removal stops the running node and includes that slot's network and node
+settings, the node's key and stores and the `client.db` profile draft (including SQLite
+sidecars); unknown files still prevent removal. Merely opening the
 profile form does not create `client.db` before the first draft save.
 
 | Item | Planned location / name |
@@ -83,6 +84,7 @@ profile form does not create `client.db` before the first draft save.
 | Lifecycle | `<app-config>/profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | File-backed key | `<app-config>/profiles/<slot>/identity.key`, with `storage-mode` = `file` in that directory. |
 | Network settings | `<app-config>/profiles/<slot>/network-draft` and `network`, written by `dyapp_identity::network`; the legacy slot keeps them at the root. |
+| Node (Linux) | `<app-config>/profiles/<slot>/node.json` holds the node settings and `node/` its key and stores ([ADR 0030](../decisions/0030-desktop-full-node.md)); the legacy slot keeps them at the root. |
 | Profile draft database | `<app-config>/profiles/<slot>/client.db`; the virtual legacy slot uses root `client.db`. The broader client store is [planned](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |

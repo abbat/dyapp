@@ -61,6 +61,15 @@ matches found are kept, each node problem is listed (no node, unreachable, timeo
 seconds to wait, an unsolved puzzle or a forged reply) and **Retry** asks again. **Load another
 sample** runs the same search again.
 
+## Run a node
+
+While the window is open, the app can run a store and search node for the open identity on its
+active network ([ADR 0030](../decisions/0030-desktop-full-node.md)). It is off by default. When
+on, it uses up to 1 GiB of disk by default (a quarter for profiles, half for mailboxes, a quarter
+for the search index) and 64 connections, and keeps its own node key and stores in the
+identity's folder. Switching identities stops the previous identity's node; removing an
+identity removes its node files too. The settings screen to turn it on is planned.
+
 ## Build
 
 ```sh

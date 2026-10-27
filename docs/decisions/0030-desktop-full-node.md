@@ -31,4 +31,5 @@ TURN roles stay on dedicated nodes. Mobile apps stay light clients.
 - The node is reachable only where AutoNAT says so; behind NAT it serves only the connections it
   opens until NAT traversal lands.
 - A desktop node is up only while the app runs, so replication must keep tolerating churn.
-- Windows and macOS desktops follow the same decision when they gain the client.
+- `dyapp-bootstrap` builds only on Unix, so the Windows desktop runs no node until it builds
+  there; macOS follows when it gains the desktop client.

@@ -15,6 +15,10 @@ use tauri::Manager;
 mod file_store;
 #[path = "network.rs"]
 mod network;
+// The node library is Unix-only, so Windows builds without it (ADR 0030).
+#[cfg(unix)]
+#[path = "node.rs"]
+mod node;
 #[path = "profile.rs"]
 mod profile;
 #[path = "search.rs"]
@@ -227,10 +231,14 @@ async fn create_identity(
 async fn remove_identity(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
+    #[cfg(unix)] nodes: tauri::State<'_, node::NodeState>,
     slot: String,
     peer_id: Option<String>,
 ) -> Result<HashMap<&'static str, String>, String> {
     let dir = config_dir(&app)?;
+    // The slot's node must not hold its folder open while it is removed.
+    #[cfg(unix)]
+    node::stop(&nodes).await;
     let remaining = tauri::async_runtime::spawn_blocking(move || {
         slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
         slots::list(&dir).map(|slots| slots.len())
@@ -401,6 +409,47 @@ async fn search_profiles(
     .map_err(|e| e.to_string())?
 }
 
+/// The open identity's node settings; see `node::load`.
+#[cfg(unix)]
+#[tauri::command]
+async fn load_node_settings(
+    state: tauri::State<'_, IdentityState>,
+) -> Result<node::Settings, String> {
+    node::load(&identity_dir(&state)?)
+}
+
+/// Saves the node settings and restarts the node as they say; see `node::apply`.
+#[cfg(unix)]
+#[tauri::command]
+async fn save_node_settings(
+    state: tauri::State<'_, IdentityState>,
+    nodes: tauri::State<'_, node::NodeState>,
+    settings: node::Settings,
+) -> Result<HashMap<&'static str, String>, String> {
+    let dir = identity_dir(&state)?;
+    node::save(&dir, &settings)?;
+    node::apply(&nodes, &dir).await
+}
+
+/// Starts or stops the node for the open identity, as on start or after a switch.
+#[cfg(unix)]
+#[tauri::command]
+async fn apply_node(
+    state: tauri::State<'_, IdentityState>,
+    nodes: tauri::State<'_, node::NodeState>,
+) -> Result<HashMap<&'static str, String>, String> {
+    node::apply(&nodes, &identity_dir(&state)?).await
+}
+
+#[cfg(unix)]
+#[tauri::command]
+async fn node_status(
+    state: tauri::State<'_, IdentityState>,
+    nodes: tauri::State<'_, node::NodeState>,
+) -> Result<HashMap<&'static str, String>, String> {
+    Ok(node::status(&nodes, &identity_dir(&state)?).await)
+}
+
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -467,7 +516,10 @@ fn main() {
         dyapp_p2p_net::set_id_pow_bits(8);
     }
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(unix)]
+    let builder = builder.manage(node::NodeState::default());
+    builder
         .manage(IdentityState(Mutex::new(None)))
         .manage(NetworkState::default())
         .manage(ProfileState::default())
@@ -492,6 +544,14 @@ fn main() {
             publish_profile,
             send_search_profile,
             search_profiles,
+            #[cfg(unix)]
+            load_node_settings,
+            #[cfg(unix)]
+            save_node_settings,
+            #[cfg(unix)]
+            apply_node,
+            #[cfg(unix)]
+            node_status,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,
