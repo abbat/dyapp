@@ -68,6 +68,9 @@ Multi-peer scenario testing:
   [bootstrap testing](../architecture/bootstrap.md#testing) and the
   [acceptance list](bootstrap-acceptance.md).
 - **Rate limiting**: per-peer governors, active peer tracking
+- **Relaying**: a loopback `dyappd` with roles `store` and `relay`; two peers without direct
+  listeners reserve slots, one dials the other by peer ID alone and gets an answer over the
+  circuit, and the relay's Kademlia hands out no circuit address
 - **Hybrid logical clock**: causality preservation and the same order on every peer
 - **Codec negotiation**: agreement algorithm with remote offers
 

@@ -140,7 +140,8 @@ with `SwarmOptions::relay` serves the hop protocol with libp2p's relay limits. A
 connection counts under the relay's IP. The `relay` role (with `store`) turns the hop protocol
 on in `dyappd` with the `[relay]` limits. A node AutoNAT reports private reserves a slot on a
 connected relay, and a dial to a peer also tries a circuit through every connected relay;
-circuit addresses never enter either DHT
+circuit addresses never enter either DHT. `make test-integration` has two such peers
+exchange a request through a `dyappd` relay
 ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md),
 [P2P networking](p2p-networking.md)).
 

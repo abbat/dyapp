@@ -108,7 +108,9 @@ Decided (see the [ADRs](../decisions/README.md)):
 
 Open design choices:
 
-- NAT traversal for messaging (hole punching, TURN nodes).
+- NAT traversal for calls (TURN nodes). Messaging peers behind NAT reserve circuit relay v2
+  slots on `dyappd` nodes with the `relay` role and try DCUtR hole punching
+  ([ADR 0031](../decisions/0031-circuit-relay-and-hole-punching.md)).
 - Video signaling channel (over bootstrap, over QUIC, or other).
 - Replication between bootstrap nodes.
 - Local at-rest storage and its encryption on each platform.
@@ -118,7 +120,8 @@ Open design choices:
 
 **Today:** none end-to-end. Each crate is exercised by its own unit tests, and
 `tests/integration_tests.rs` (registered under the bootstrap crate) combines the
-library types in-process, without any network.
+library types in-process; its one networked test has two peers without direct listeners
+exchange a request through a loopback `dyappd` relay.
 
 **Target message flow (planned):**
 
