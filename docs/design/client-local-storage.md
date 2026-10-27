@@ -61,13 +61,14 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit (version 5) | `(mailbox, token key, epoch)` belongs to one contact. |
 | `peers` | Local block and mute flags (version 8), a local contact name (version 9) and the device keys a verified contact listed (version 10) per peer identity | Never published or included in a signal; absent means neither flag, no name and unverified. The local name, at most 64 characters of clean text, replaces the profile's public name; the public name is shown with the verified or unverified mark. A profile listing a device not seen at verification clears the mark until the safety number or QR code is compared again ([ADR 0004](../decisions/0004-identity-keys.md)). |
 | `presence` | Per peer identity, when presence was last sent and the latest received presence HLC (version 11) | Sent at most hourly to an unblocked match; received presence from a blocked peer or non-match is dropped before its HLC is observed ([presence](presence.md)). |
+| `read_marks` | Per chat group and peer, the latest peer text a read receipt was sent for and the latest own text the peer has read (version 12) | Order is `chat_messages` row order; a mark only moves forward, and a receipt from a blocked peer or naming an unknown text is dropped ([read receipts](read-receipts.md)). |
 
 `send_profile_views` defaults to false when absent; `send_presence` (presence audience: on is
-matches, off is nobody) defaults to true. The stored value is versioned and must be a
-single byte 0 or 1; an unknown version or value returns an error rather than silently enabling
-signals. An absent pass record means no pass. Pass/undo updates carry a persisted HLC timestamp;
-an older update cannot overwrite a newer local choice. Each profile database owns its settings
-and pass history; neither is published to bootstrap.
+matches, off is nobody) defaults to true; `send_read_receipts` defaults to false. The stored
+value is versioned and must be a single byte 0 or 1; an unknown version or value returns an
+error rather than silently enabling signals. An absent pass record means no pass. Pass/undo
+updates carry a persisted HLC timestamp; an older update cannot overwrite a newer local choice.
+Each profile database owns its settings and pass history; neither is published to bootstrap.
 
 `search_publish` holds the search publish window: the last time search nodes accepted the profile,
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest

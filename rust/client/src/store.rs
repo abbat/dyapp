@@ -15,12 +15,13 @@ mod outbox;
 mod peers;
 mod presence;
 mod profile_draft;
+mod reads;
 mod search_publish;
 mod tokens;
 pub use likes::Likes;
 pub use peers::ContactName;
 
-const VERSION: i64 = 11;
+const VERSION: i64 = 12;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -190,7 +191,10 @@ impl Store {
             if version < 10 {
                 tx.execute_batch(peers::SCHEMA_V10)?;
             }
-            tx.execute_batch(presence::SCHEMA_V11)?;
+            if version < 11 {
+                tx.execute_batch(presence::SCHEMA_V11)?;
+            }
+            tx.execute_batch(reads::SCHEMA_V12)?;
             tx.commit()?;
         }
         Ok(Self {

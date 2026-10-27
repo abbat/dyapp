@@ -4,9 +4,9 @@ This is the planned client contract for read receipts and typing indicators unde
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): both are MLS messages between chat
 members, never stored on nodes beyond mailbox delivery, and each can be turned off locally.
 Implemented in the Rust client: the read receipt wire body (`Body::Read` in
-`rust/client/src/chat.rs`, sent with the signal class and never shown in history). Planned: the
-setting and read marks in the store, the session send and apply, the app UI, and typing
-indicators.
+`rust/client/src/chat.rs`, sent with the signal class and never shown in history), and the
+setting and read marks in the store (`rust/client/src/store/reads.rs`). Planned: the session send
+and apply, the app UI, and typing indicators.
 
 Read receipts are distinct from delivery receipts (`Body::Receipt`, tag 5,
 [messaging](../architecture/messaging.md)): a delivery receipt says a device committed envelopes
@@ -52,9 +52,11 @@ its own mark once attachments carry an ID.
 
 The app calls the client when it shows a chat's messages. The client sends one receipt to the
 chat's other members when the setting is on, the peer is not blocked, and the latest seen text
-from that peer differs from the one last receipted in that chat. Scrolling back sends nothing,
-and reopening a chat with no new text sends nothing. A receipt is retried like any outbox write,
-gets no delivery receipt itself and has no expiry: a late read mark is still true.
+from that peer is later than the one last receipted in that chat. Scrolling back sends nothing,
+and reopening a chat with no new text sends nothing. "Later" is the order in which a device
+recorded the texts; the author's own texts are recorded in the order they were sent. A receipt is
+retried like any outbox write, gets no delivery receipt itself and has no expiry: a late read
+mark is still true.
 
 ### Receiving
 
