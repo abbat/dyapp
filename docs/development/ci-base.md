@@ -75,6 +75,12 @@ grew the client by 44.8%. The device IPA and macOS ZIP budgets were measured aga
 language mode with deployment targets below iOS 15 and macOS 12 embeds the back-deployed
 `libswift_Concurrency.dylib` in the app, growing the IPA by 84.7% and the ZIP by 14.3%. The targets were then raised to
 iOS 15 and macOS 12, which use the system runtime; the budgets were kept, not measured again.
+The native Ubuntu, Android, IPA and macOS ZIP budgets were measured again on `6d705f8b`, in the
+[2026-10-27 reproducible run](https://github.com/abbat/dyapp/actions/runs/40477943040) and
+[release-sizes run](https://github.com/abbat/dyapp/actions/runs/40484057583), after a week of
+client growth: the Linux app links the node library of
+[ADR 0030](../decisions/0030-desktop-full-node.md) (+172%), the ZIP grew by 131%, the APK by 77%, the
+IPA by 41% and `dyappd` by 7.7%. Where the mobile and macOS growth comes from is not yet known.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as
