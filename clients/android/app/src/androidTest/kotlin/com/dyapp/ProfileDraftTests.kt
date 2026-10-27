@@ -80,7 +80,7 @@ class ProfileDraftTests {
 
     private fun clearCountryClearsPlace() {
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
-        compose.onNodeWithTag("country-none").performClick()
+        compose.onNodeWithTag("country-none").performScrollTo().performClick()
         compose.onNodeWithTag("profile-country").assertTextEquals(string(R.string.profile_unset))
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         // A save hides the stale preview; the status alone still reads "saved" from the last save.
