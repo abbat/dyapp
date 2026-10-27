@@ -43,6 +43,13 @@ pub fn search(country: &str, prefix: &str, lang: &str, limit: usize) -> Vec<Plac
     found.iter().take(limit).map(|r| r.place(lang)).collect()
 }
 
+/// The countries that have places, in code order.
+pub fn countries() -> Vec<&'static str> {
+    let mut found: Vec<_> = rows().map(|r| r.country).collect();
+    found.dedup();
+    found
+}
+
 struct Row {
     country: &'static str,
     id: u32,
@@ -144,7 +151,10 @@ mod tests {
         let name = |lang| place("DE", 2950159, lang).map(|p| p.name);
         assert_eq!(name("en").as_deref(), Some("Berlin"));
         assert_eq!(name("de").as_deref(), Some("Berlin"));
-        assert!(!berlin.region.is_empty());
+        // DE.16; other countries have a .16 region and DE has earlier ones.
+        assert_eq!(berlin.region, "Берлин");
+        let region = place("DE", 2950159, "en").map(|p| p.region);
+        assert_eq!(region.as_deref(), Some("State of Berlin"));
         assert_eq!(place("FR", 2950159, "en"), None);
         assert_eq!(place("DE", 1, "en"), None);
     }
@@ -159,5 +169,13 @@ mod tests {
         assert_eq!(search("RU", "", "en", 1)[0].name, "Moscow");
         assert!(search("RU", "zzzz", "en", 5).is_empty());
         assert!(search("XX", "", "en", 5).is_empty());
+    }
+
+    #[test]
+    fn countries_are_listed_once_in_order() {
+        let all = countries();
+        assert!(all.windows(2).all(|w| w[0] < w[1]));
+        assert!(all.contains(&"DE") && all.contains(&"RU"));
+        assert!((100..250).contains(&all.len()), "{}", all.len());
     }
 }

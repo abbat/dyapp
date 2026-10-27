@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use dyapp_client::places;
 use dyapp_client::publish::{self, Block};
 use dyapp_client::search;
 use dyapp_client::store::Store;
@@ -44,6 +45,30 @@ pub struct Draft {
     pub birth_year: Option<u32>,
     pub birth_month: Option<u32>,
     pub birth_day: Option<u32>,
+    /// ISO 3166-1 alpha-2 code from [`places::countries`], empty when unset.
+    #[serde(default)]
+    pub country: String,
+    /// Decimal [`places::Place::id`] in `country`, empty when unset.
+    #[serde(default)]
+    pub place: String,
+}
+
+/// A place offered by the place picker.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Place {
+    pub id: u32,
+    pub name: String,
+    pub region: String,
+}
+
+impl From<places::Place> for Place {
+    fn from(place: places::Place) -> Self {
+        Self {
+            id: place.id,
+            name: place.name,
+            region: place.region,
+        }
+    }
 }
 
 /// A profile picker option supplied by the shared Rust vocabulary.
@@ -140,8 +165,20 @@ impl From<&Profile> for Draft {
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
+            country: profile.country.clone(),
+            place: profile.place.clone(),
         }
     }
+}
+
+/// Whether `country` and `place` are each empty or offered by the picker; a place needs its
+/// country.
+fn known_place(country: &str, place: &str) -> bool {
+    (country.is_empty() || places::countries().contains(&country))
+        && (place.is_empty()
+            || place.parse::<u32>().is_ok_and(|id| {
+                id.to_string() == place && places::place(country, id, "en").is_some()
+            }))
 }
 
 fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<View, String> {
@@ -210,6 +247,9 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
             return Err("invalid profile scale".into());
         }
     }
+    if !known_place(&draft.country, &draft.place) {
+        return Err("invalid place".into());
+    }
     let store = open(dir, identity)?;
     let profile = Profile {
         gender: draft.gender,
@@ -224,6 +264,8 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         birth_year: draft.birth_year,
         birth_month: draft.birth_month,
         birth_day: draft.birth_day,
+        country: draft.country,
+        place: draft.place,
         ..stored(&store)?
     };
     store
@@ -391,6 +433,32 @@ mod tests {
         assert_eq!((yearless.ages, yearless.problem), (None, None));
         let child = save(&dir, &alice, woman(Some(2025))).unwrap();
         assert_eq!(child.problem, Some("underage"));
+    }
+
+    #[test]
+    fn only_a_picked_place_is_saved_and_it_survives_reopening() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        let at = |country: &str, place: &str| Draft {
+            country: country.into(),
+            place: place.into(),
+            ..woman(None)
+        };
+        let berlin = save(&dir, &alice, at("DE", "2950159")).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().draft, berlin.draft);
+        assert_eq!(berlin.draft.place, "2950159");
+        assert!(save(&dir, &alice, at("DE", "")).is_ok());
+        for (country, place) in [
+            ("XX", ""),
+            ("de", ""),
+            ("", "2950159"),
+            ("FR", "2950159"),
+            ("DE", "02950159"),
+            ("DE", "Berlin"),
+        ] {
+            let error = save(&dir, &alice, at(country, place));
+            assert_eq!(error, Err("invalid place".into()), "{country} {place}");
+        }
+        assert_eq!(load(&dir, &alice).unwrap().draft.country, "DE");
     }
 
     #[test]
