@@ -80,6 +80,10 @@ or returns constants.
 | | method | `check_connection() -> Result<(), CoreError>` | Dials only the identity's activated network, trying each bootstrap row's TCP and QUIC addresses. A draft-only or empty active network returns `notConnected` without changing `client.db`. |
 | | method | `publish(key: IdentityKey, attested: bool) -> Result<ProfilePublished, CoreError>` | Rechecks the fresh 18+ gate, requires the 11-bit proof, connects through active settings and delegates to shared `publish::publish`. Only verified signed readback returns a public draft and version; failures preserve the saved draft. Swift `RustBridge.publishProfile` reopens and checks the selected Peer ID before this call. The Apple publish UI uses it. |
 | `ProfilePublished` | Record | `draft: PublicProfileDraft`, `version: u64` | The signed readback values and version after successful publication. |
+| `ProfileSearcher` | Object | `new(dir: String) -> Result<Self, CoreError>` | Prepares a private runtime and an in-memory verified profile cache for an existing identity folder; native calls run off the UI thread. Android will use it; the app does not call it yet. |
+| | method | `search(key: IdentityKey, conditions: Vec<SearchCondition>, limit: u32) -> Result<ProfileSearchResult, CoreError>` | Connects through active settings, asks up to 3 search providers for their `NodeInfo` and runs shared `search::search` with the 11-bit proof minimum, skipping blocked peers. No conditions asks for a sample; `limit` 0 means 50 hits per node. Every call connects again, so retry is a new call; no answering active network fails with `notConnected`. |
+| `SearchCondition` | Record | `field: u32`, `op: SearchOp` (`Eq`, `In`, `Range`), `ints: Vec<i64>`, `strings: Vec<String>` | One filter on a field number from `offered`. |
+| `ProfileSearchResult` | Record | `offered: Vec<u32>`, `profiles: Vec<FoundProfile>`, `partial: bool`, `failures: Vec<ProfileSearchFailure>` | `offered` lists the fields every reached node filters on and the client checks. `FoundProfile` is `{ peer_id, draft: PublicProfileDraft, version }`, verified by the shared core. `partial` is set when a provider was dropped or a node's coverage may be incomplete. `ProfileSearchFailure` is `NoNodes`, `Unavailable`, `Timeout`, `RateLimited { retry_after_ms }`, `Puzzle` or `Invalid`, one per dropped provider or failed request. |
 
 | `ProfileService` | Object | `new()` | Stub; native editors currently save local drafts, while publication and the 18+ gate remain planned. The [client screen contract](../design/v0.0.1-client-screens.md#profile-draft-and-publication) governs their future integration. |
 | | method | `get_profile() -> Result<UserProfile, CoreError>` | **Stub.** Returns `placeholder`, no birth-date parts, and `verified = false`. |
@@ -92,7 +96,7 @@ The editor and preview now use this adapter on a background task, reopening the 
 checking its Peer ID before touching `client.db`.
 
 Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`, sync, discovery,
-search, or app lifecycle functions.
+or app lifecycle functions.
 
 The first-run connection surface (`load_network` to `ConnectionCheck`) follows the
 [typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract-planned);

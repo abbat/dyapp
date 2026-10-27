@@ -23,6 +23,11 @@ mod profile_network;
 pub use profile_network::{ProfilePublished, ProfilePublisher};
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
+mod profile_search;
+pub use profile_search::{
+    FoundProfile, ProfileSearchFailure, ProfileSearchResult, ProfileSearcher, SearchCondition,
+    SearchOp,
+};
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};
 mod strip;
