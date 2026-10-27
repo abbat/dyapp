@@ -121,7 +121,8 @@ pending slot left by a simulated crash, pick from the picker after `active-profi
 corrupted, reopen it and remove it through the remove screen; add another file identity, show
 recovery after its key is deleted and remove it from recovery (each removal must delete only
 its slot folder and reopen the system identity); file create/restart, then
-reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair;
+reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair, which rejects an unlisted place, picks Berlin from the
+suggestions, checks it after the restart and clears it with the country;
 then Russian, pseudo-locale and an
 injected hidden-ready rejection. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print

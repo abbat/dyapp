@@ -260,10 +260,33 @@ const waitForProfileStatus = (key, detail = '', ms = 10000) => new Promise((reso
   observer.observe(status, { childList: true });
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`profile status: ${status.textContent}`)); }, ms);
 });
+// Picks Germany and the first suggestion for "Berl", the largest match: Berlin.
+const pickPlace = async () => {
+  const country = document.getElementById('profile-country');
+  const place = document.getElementById('profile-place');
+  country.value = 'DE';
+  country.dispatchEvent(new Event('input', { bubbles: true }));
+  place.value = 'Berl';
+  place.dispatchEvent(new Event('input', { bubbles: true }));
+  await window.placesShown;
+  const label = document.querySelector('#profile-places option')?.value;
+  if (!label?.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
+    throw new Error(`place suggestion missing: ${label}`);
+  }
+  place.value = label;
+  place.dispatchEvent(new Event('input', { bubbles: true }));
+  if (!place.checkValidity()) throw new Error('picked place rejected');
+};
 const saveProfileForRestart = async () => {
   document.getElementById('profile-gender').value = '1';
   document.getElementById('birth-year').value = '1990';
   document.getElementById('birth-month').value = '2';
+  const place = document.getElementById('profile-place');
+  place.value = 'Nowhere';
+  place.dispatchEvent(new Event('input', { bubbles: true }));
+  await window.placesShown;
+  if (place.checkValidity()) throw new Error('unlisted place accepted');
+  await pickPlace();
   const saved = waitForProfileStatus('profile.saved');
   document.getElementById('profile-save').click();
   await saved;
@@ -315,9 +338,31 @@ const checkSavedProfile = async () => {
   if (document.getElementById('profile-gender').value !== '1'
     || document.getElementById('birth-year').value !== '1990'
     || document.getElementById('birth-month').value !== '2'
-    || document.getElementById('birth-day').value !== '') {
+    || document.getElementById('birth-day').value !== ''
+    || document.getElementById('profile-country').value !== 'DE') {
     throw new Error('profile draft changed after restart');
   }
+  const place = document.getElementById('profile-place').value;
+  if (!place.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
+    throw new Error(`picked place lost after restart: ${place}`);
+  }
+  document.getElementById('profile-preview-action').click();
+  await waitFor('profile-preview');
+  const placeFields = [...document.querySelectorAll('#profile-public-fields li')]
+    .map((item) => item.textContent).filter((field) => field.startsWith(window.strings['profile.country'])
+      || field.startsWith(window.strings['profile.place']));
+  if (placeFields.join('|') !== [
+    `${window.strings['profile.country']}: ${new Intl.DisplayNames([window.locale], { type: 'region' }).of('DE')}`,
+    `${window.strings['profile.place']}: ${place}`,
+  ].join('|')) throw new Error(`place preview changed: ${placeFields}`);
+  // Clearing the country clears the place; the later publish steps expect neither.
+  const country = document.getElementById('profile-country');
+  country.value = '';
+  country.dispatchEvent(new Event('input', { bubbles: true }));
+  if (document.getElementById('profile-place').value !== '') throw new Error('place outlived its country');
+  const cleared = waitForProfileStatus('profile.saved');
+  document.getElementById('profile-save').click();
+  await cleared;
   document.getElementById('profile-preview-action').click();
   await waitFor('profile-preview');
   const fields = [...document.querySelectorAll('#profile-public-fields li')]

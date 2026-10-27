@@ -25,7 +25,7 @@
     #node input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
     #profile { text-align: start; }
     #profile label { display: block; margin-top: 1rem; }
-    #profile select, #profile input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
+    #profile select, #profile input[type=number], #profile-place { width: 100%; box-sizing: border-box; font: inherit; }
     #profile-preview { text-align: start; overflow-wrap: anywhere; }
     #profile-preview ul { padding-inline-start: 1.5rem; }
     #search { text-align: start; overflow-wrap: anywhere; }
@@ -68,6 +68,11 @@
       <form id="profile" novalidate>
         <h2 data-i18n="profile.title"></h2>
         <div id="profile-scales"></div>
+        <label for="profile-country" data-i18n="profile.country"></label>
+        <select id="profile-country"></select>
+        <label for="profile-place" data-i18n="profile.place"></label>
+        <input id="profile-place" list="profile-places" autocomplete="off">
+        <datalist id="profile-places"></datalist>
         <label for="birth-year" data-i18n="profile.birthYear"></label>
         <input id="birth-year" type="number" min="1" max="9999">
         <label for="birth-month" data-i18n="profile.birthMonth"></label>

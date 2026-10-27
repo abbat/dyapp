@@ -279,11 +279,45 @@ const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
   return value === '' ? null : Number(value);
 };
+// The place input holds a suggestion's text; placeIds maps each shown suggestion to its GeoNames
+// ID, so typed text that is no suggestion fails validation instead of being saved.
+const placeCountry = document.getElementById('profile-country');
+const placeInput = document.getElementById('profile-place');
+const placeList = document.getElementById('profile-places');
+let placeIds = new Map();
+const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
+const showPlaces = (places) => {
+  placeIds = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
+  placeList.replaceChildren(...[...placeIds.keys()].map((label) => {
+    const option = document.createElement('option');
+    option.value = label;
+    return option;
+  }));
+};
+const checkPlace = () => placeInput.setCustomValidity(
+  placeInput.value && !placeIds.has(placeInput.value) ? window.strings['profile.placeUnknown'] : '');
+const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
+placeCountry.addEventListener('input', () => {
+  placeInput.value = '';
+  showPlaces([]);
+  checkPlace();
+});
+placeInput.addEventListener('input', () => {
+  const text = placeInput.value;
+  if (placeIds.has(text)) return checkPlace();
+  window.placesShown = invoke('search_places', {
+    country: placeCountry.value, prefix: text, lang: window.locale, limit: 20,
+  }).then((places) => {
+    if (placeInput.value === text) showPlaces(places);
+    checkPlace();
+  });
+});
 const profileDraft = () => ({
   ...Object.fromEntries(scaleFields.map((scale) => [
     camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
   ])),
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
+  country: placeCountry.value, place: placeIds.get(placeInput.value) || '',
 });
 const profileMessage = (key, detail = '') => {
   profileStatus.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
@@ -304,7 +338,8 @@ const showSearchWait = (view) => {
   if (minutes) searchWaitTimer = setTimeout(sendSearchProfile, minutes * 60_000);
 };
 const showProfile = async () => {
-  const [scales, view] = await Promise.all([invoke('profile_scales'), invoke('load_profile')]);
+  const [scales, view, countries] = await Promise.all(
+    [invoke('profile_scales'), invoke('load_profile'), invoke('place_countries')]);
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile();
   scaleFields = scales;
@@ -331,6 +366,25 @@ const showProfile = async () => {
   for (const part of ['year', 'month', 'day']) {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
+  const unsetCountry = document.createElement('option');
+  unsetCountry.value = '';
+  unsetCountry.textContent = window.strings['profile.unset'];
+  placeCountry.replaceChildren(unsetCountry, ...countries
+    .map((code) => [code, countryName(code)])
+    .sort(([, a], [, b]) => a.localeCompare(b, window.locale))
+    .map(([code, name]) => {
+      const option = document.createElement('option');
+      option.value = code;
+      option.textContent = name;
+      return option;
+    }));
+  placeCountry.value = view.draft.country;
+  const place = view.draft.place && await invoke('place_name', {
+    country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
+  });
+  showPlaces(place ? [place] : []);
+  placeInput.value = place ? placeLabel(place) : '';
+  checkPlace();
   profileAttested.checked = false;
   profileDisclosure.checked = false;
   profilePreview.hidden = true;
@@ -344,6 +398,8 @@ const publicFields = (draft) => {
     return option ? [`${window.strings[`profile.field.${scale.key}`]}: ${window.strings[
       `profile.value.${scale.key}.${option.key}`]}`] : [];
   });
+  if (draft.country) fields.push(`${window.strings['profile.country']}: ${countryName(draft.country)}`);
+  if (draft.place) fields.push(`${window.strings['profile.place']}: ${placeInput.value}`);
   for (const part of ['year', 'month', 'day']) {
     const value = draft[`birth${part[0].toUpperCase()}${part.slice(1)}`];
     if (value !== null) fields.push(`${window.strings[`profile.birth${part[0].toUpperCase()}${part.slice(1)}`]}: ${value}`);
