@@ -59,7 +59,7 @@ class AppUITests {
     fun recreationKeepsReadyScreenAndPeerId() {
         val before = compose.shownPeerId()
         compose.activityRule.scenario.recreate()
-        compose.skipNetworkEntry()
+        // A network draft closed with Back stays closed.
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
             .assertTextEquals(string(R.string.status_ready))
         // The new screen unwraps the stored key again, as a restarted app does.

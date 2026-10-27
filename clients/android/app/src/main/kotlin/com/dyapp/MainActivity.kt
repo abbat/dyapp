@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -220,7 +221,8 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     }
     val opened = shown.opened
     val networkNeeded = rememberNetworkEntryNeeded(opened as? Opened.Ready)
-    var networkDismissed by remember((opened as? Opened.Ready)?.slot?.id) { mutableStateOf(false) }
+    // Survives rotation, so Back keeps the draft closed for this session.
+    var networkDismissed by rememberSaveable((opened as? Opened.Ready)?.slot?.id) { mutableStateOf(false) }
     val explicitEditor = viewingSettings || editingProfile || viewingNetwork
     val automaticNetwork = networkNeeded != false && !networkDismissed
     if (opened is Opened.Ready && (explicitEditor || automaticNetwork)) {
