@@ -20,7 +20,7 @@ pub use pin::{hash_app_pin, verify_app_pin};
 mod profile_draft;
 pub use profile_draft::{load_profile_draft, save_profile_draft, PublicProfileDraft};
 mod profile_network;
-pub use profile_network::ProfilePublisher;
+pub use profile_network::{ProfilePublished, ProfilePublisher};
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
 mod preview;

@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn today() -> Result<CivilDate, CoreError> {
+pub(crate) fn today() -> Result<CivilDate, CoreError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| CoreError::Failed(error.to_string()))?;
@@ -17,7 +17,11 @@ fn today() -> Result<CivilDate, CoreError> {
         .ok_or_else(|| CoreError::Failed("invalid UTC date".into()))
 }
 
-fn block_at(profile: &Profile, attested: bool, today: CivilDate) -> Option<&'static str> {
+pub(crate) fn block_at(
+    profile: &Profile,
+    attested: bool,
+    today: CivilDate,
+) -> Option<&'static str> {
     publish::check(profile, attested, today)
         .err()
         .map(|block| match block {
@@ -42,7 +46,7 @@ pub fn profile_publish_block(
     Ok(block_at(&profile, attested, today()?).map(str::to_owned))
 }
 
-const POW_BITS: u32 = 11;
+pub(crate) const POW_BITS: u32 = 11;
 const STEP_TRIES: u64 = 8;
 
 /// One persisted proof-work step; both flags false means more work remains.

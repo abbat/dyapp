@@ -1,7 +1,11 @@
 //! A profile publisher uses only the selected identity folder's active network.
 
 use crate::profile_draft::database;
+use crate::profile_publish::{block_at, today, POW_BITS};
 use crate::CoreError;
+use crate::{IdentityKey, PublicProfileDraft};
+use dyapp_client::publish;
+use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::{seed, Protocols};
@@ -10,6 +14,15 @@ use std::sync::{Arc, Mutex};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
+}
+
+/// Public fields and version returned only after the shared core verifies signed readback.
+#[derive(Clone, Debug, uniffi::Record)]
+pub struct ProfilePublished {
+    /// The verified public profile fields.
+    pub draft: PublicProfileDraft,
+    /// The verified published version.
+    pub version: u64,
 }
 
 pub(crate) fn active_network(dir: &Path) -> Result<Network, CoreError> {
@@ -64,6 +77,35 @@ impl ProfilePublisher {
         let network = active_network(&self.dir)?;
         self.runtime.block_on(connect(&network)).map(|_| ())
     }
+
+    /// Publish a solved draft through the active network and verify its signed readback.
+    /// Any error leaves the saved draft available for retry.
+    pub fn publish(
+        &self,
+        key: Arc<IdentityKey>,
+        attested: bool,
+    ) -> Result<ProfilePublished, CoreError> {
+        let _serial = self.serial.lock().map_err(failed)?;
+        let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
+        let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
+        if let Some(reason) = block_at(&draft, attested, today()?) {
+            return Err(CoreError::Failed(format!("blocked: {reason}")));
+        }
+        if draft.pow_bits < POW_BITS {
+            return Err(CoreError::Failed("unsolved".into()));
+        }
+        let network = active_network(&self.dir)?;
+        let published = self.runtime.block_on(async {
+            let mut node = connect(&network).await?;
+            publish::publish(&store, &mut node, &key.identity, &draft)
+                .await
+                .map_err(failed)
+        })?;
+        Ok(ProfilePublished {
+            draft: PublicProfileDraft::from(&published),
+            version: published.version,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -95,5 +137,50 @@ mod tests {
             "notConnected"
         );
         assert!(!dir.join("client.db").exists());
+    }
+
+    #[test]
+    fn blocked_or_unconnected_publish_keeps_the_saved_draft() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-publish-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = IdentityKey::generate();
+        crate::save_profile_draft(
+            dir.to_str().unwrap().to_owned(),
+            key.clone(),
+            PublicProfileDraft {
+                gender: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let publisher = ProfilePublisher::new(dir.to_str().unwrap().to_owned()).unwrap();
+        let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();
+        let before = store.profile_draft().unwrap().unwrap();
+        assert_eq!(
+            publisher
+                .publish(key.clone(), false)
+                .unwrap_err()
+                .to_string(),
+            "blocked: notAttested"
+        );
+        assert_eq!(
+            publisher
+                .publish(key.clone(), true)
+                .unwrap_err()
+                .to_string(),
+            "unsolved"
+        );
+        let mut solved = before.clone();
+        solved.pow_bits = POW_BITS;
+        store.save_profile_draft(&solved).unwrap();
+        assert_eq!(
+            publisher.publish(key, true).unwrap_err().to_string(),
+            "notConnected"
+        );
+        assert_eq!(store.profile_draft().unwrap(), Some(solved));
     }
 }

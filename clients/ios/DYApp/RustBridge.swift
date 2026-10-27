@@ -99,6 +99,15 @@ enum RustBridge {
         try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).save(values)
     }
 
+    /// Publish only the selected identity's solved draft through its active network, off the UI thread.
+    static func publishProfile(for candidate: IdentityCandidate, peerId: String,
+                               attested: Bool) throws -> ProfilePublished {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        return try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested)
+    }
+
     private static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
         if let id = uiTestSlotID {
