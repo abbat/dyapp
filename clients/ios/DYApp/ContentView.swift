@@ -60,10 +60,13 @@ struct ContentView: View {
 
             case let .ready(candidate, peerId):
                 Text(peerId).accessibilityIdentifier("peer-id")
-                NavigationLink(destination: settingsView(candidate, peerId)) {
-                    Text("settings.title")
+                // Settings opened while loading vanished when setup replaced this layout.
+                if activeNetwork != .loading {
+                    NavigationLink(destination: settingsView(candidate, peerId)) {
+                        Text("settings.title")
+                    }
+                    .accessibilityIdentifier("settings-open")
                 }
-                .accessibilityIdentifier("settings-open")
                 switch activeNetwork {
                 case .loading:
                     ProgressView("network.loading")

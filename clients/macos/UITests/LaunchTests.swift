@@ -102,7 +102,7 @@ extension LaunchTests {
         russian.buttons["settings-open"].tap()
         let remove = russian.buttons["settings-remove"]
         XCTAssertTrue(remove.waitForExistence(timeout: 10))
-        XCTAssertEqual(remove.value as? String ?? remove.label, "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{44d}\u{442}\u{443} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}")
+        XCTAssertEqual(remove.label, "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{44d}\u{442}\u{443} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}")
         remove.tap()
         let alert = russian.alerts["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}?"]
         XCTAssertTrue(alert.waitForExistence(timeout: 10))
@@ -118,7 +118,7 @@ extension LaunchTests {
         pseudo.buttons["settings-open"].tap()
         let pseudoRemove = pseudo.buttons["settings-remove"]
         XCTAssertTrue(pseudoRemove.waitForExistence(timeout: 10))
-        let title = pseudoRemove.value as? String ?? pseudoRemove.label
+        let title = pseudoRemove.label
         XCTAssertTrue(title.hasPrefix("Remove this identity"))
         XCTAssertTrue(title.count >= 2 * "Remove this identity".count)
         XCTAssertTrue(pseudoRemove.isHittable)
@@ -418,6 +418,8 @@ extension LaunchTests {
         let create = app.buttons["identity-create"]
         XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
         if create.exists { create.tap() }
+        // Settings appear only once the start screen has settled on its layout.
+        XCTAssertTrue(app.buttons["settings-open"].waitForExistence(timeout: 10), app.debugDescription)
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {
@@ -442,8 +444,12 @@ extension LaunchTests {
         createIdentity(app)
         let save = app.buttons["network-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10))
-        let text = save.value as? String ?? save.label
+        let text = save.label
         XCTAssertTrue(text.hasPrefix("Save draft") && text.count >= 2 * "Save draft".count, text)
+        // Doubled header rows can push the save button below the window; scroll the form down.
+        for _ in 0..<10 where !save.isHittable {
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -200)
+        }
         XCTAssertTrue(save.isHittable)
         app.terminate()
     }
@@ -455,7 +461,7 @@ extension LaunchTests {
         createIdentity(app)
         let save = app.buttons["network-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10))
-        XCTAssertEqual(save.value as? String ?? save.label,
+        XCTAssertEqual(save.label,
                        "\u{0421}\u{043e}\u{0445}\u{0440}\u{0430}\u{043d}\u{0438}\u{0442}\u{044c} "
                        + "\u{0447}\u{0435}\u{0440}\u{043d}\u{043e}\u{0432}\u{0438}\u{043a}")
         app.terminate()

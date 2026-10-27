@@ -190,6 +190,8 @@ must not overwrite an existing slot during any future import.
 Shared iOS/macOS unit tests exercise independent per-slot Keychain accounts, cross-account
 unwrap failure, the legacy account and an absent account that stays absent after unwrap.
 The shared start screen creates and selects a UUID slot only after Create is pressed.
+It offers Settings only after the active network has loaded, since the setup form then replaces
+the start layout and would drop a Settings page opened earlier.
 The native iOS/macOS launch tests use isolated slot roots and legacy Keychain
 accounts, and check first creation, picker selection, confirmed removal and stable Peer IDs after
 relaunch. Shared unit tests cover deleting tombstones, retry and survivor network isolation.
