@@ -161,6 +161,32 @@ final class IdentitySlotStoreTests: XCTestCase {
         XCTAssertEqual(try store.resolve(), .recovery(.legacy, .missing))
     }
 
+    func testDeletingTombstoneRemainsVisibleWithoutDirectory() throws {
+        let path = try root()
+        let profiles = path.appendingPathComponent("profiles")
+        try FileManager.default.createDirectory(at: profiles, withIntermediateDirectories: true)
+        let id = UUID()
+        let marker = profiles.appendingPathComponent("\(id.uuidString.lowercased()).deleting")
+        try Data("deleting\n".utf8).write(to: marker)
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let candidate = IdentityCandidate(location: .slot(id), state: .deleting)
+        XCTAssertEqual(try store.candidates(), [candidate])
+        XCTAssertEqual(try store.resolve(), .recovery(.slot(id), .deleting))
+
+        let folder = profiles.appendingPathComponent(id.uuidString.lowercased())
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        try Data("pending\n".utf8).write(to: folder.appendingPathComponent("state"))
+        XCTAssertEqual(try store.candidates(), [candidate])
+        try Data("wrong\n".utf8).write(to: marker, options: .atomic)
+        XCTAssertEqual(try store.candidates(), [IdentityCandidate(location: .slot(id), state: .pending)])
+
+        let otherID = UUID()
+        let link = profiles.appendingPathComponent("\(otherID.uuidString.lowercased()).deleting")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: marker)
+        try Data("deleting\n".utf8).write(to: marker, options: .atomic)
+        XCTAssertEqual(try store.candidates(), [candidate])
+    }
+
     func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
         let path = try root()
         let legacyStore = PlatformKeyStore.forSlot(UUID())

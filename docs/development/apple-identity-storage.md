@@ -115,6 +115,10 @@ it never selects another identity silently. Published network data may remain.
 the slot lifecycle and confirmation UI are still planned. A native unit test verifies that an
 erase leaves another slot and the legacy account readable.
 
+A valid regular `profiles/<uuid>.deleting` file containing exactly `deleting\n` now keeps that
+candidate visible as deleting even after its slot directory is partly or fully gone. Malformed
+files and symlinks are ignored. The actual slot cleanup and confirmation UI remain planned.
+
 ## Choice and trade-offs
 
 Per-slot Keychain items make removal independent and allow a missing wrapping

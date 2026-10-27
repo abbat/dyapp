@@ -17,7 +17,8 @@ The shells call the Rust core for a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)); shared
 iOS/macOS unit tests also check per-slot Keychain wrapping account isolation and network draft
 file separation/corruption. They verify that erasing one UUID wrapping item leaves another slot
-and the legacy account readable. No suite
+and the legacy account readable, and that a valid deleting tombstone remains visible when its
+slot directory is missing while malformed or symlink markers are refused. No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID

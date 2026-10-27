@@ -79,6 +79,9 @@ final class IdentitySlotStore {
 
     private func marker(for id: UUID) -> URL { directory(for: id).appendingPathComponent("state") }
     private func keyFile(for id: UUID) -> URL { directory(for: id).appendingPathComponent("identity.key") }
+    private func deletingMarker(for id: UUID) -> URL {
+        profiles.appendingPathComponent("\(id.uuidString.lowercased()).deleting")
+    }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {
         try files.createDirectory(at: root, withIntermediateDirectories: true)
@@ -110,7 +113,9 @@ final class IdentitySlotStore {
 
     private func slotsWithoutLock() throws -> [IdentitySlot] {
         guard files.fileExists(atPath: profiles.path) else { return [] }
-        return try files.contentsOfDirectory(at: profiles, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        let entries = try files.contentsOfDirectory(at: profiles,
+                                                    includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        var slots = entries
             .compactMap { url -> IdentitySlot? in
                 guard let id = UUID(uuidString: url.lastPathComponent),
                       id.uuidString.lowercased() == url.lastPathComponent else { return nil }
@@ -119,7 +124,19 @@ final class IdentitySlotStore {
                     ? self.state(for: id) : .damaged
                 return IdentitySlot(id: id, state: state)
             }
-            .sorted { $0.id.uuidString < $1.id.uuidString }
+        for entry in entries where entry.lastPathComponent.hasSuffix(".deleting") {
+            let markerName = String(entry.lastPathComponent.dropLast(".deleting".count))
+            guard let id = UUID(uuidString: markerName),
+                  markerName == id.uuidString.lowercased(),
+                  (try? isRegularFile(deletingMarker(for: id))) == true,
+                  (try? Data(contentsOf: entry)) == Data("deleting\n".utf8) else { continue }
+            if let index = slots.firstIndex(where: { $0.id == id }) {
+                slots[index] = IdentitySlot(id: id, state: .deleting)
+            } else {
+                slots.append(IdentitySlot(id: id, state: .deleting))
+            }
+        }
+        return slots.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     func slots() throws -> [IdentitySlot] { try withLock { try slotsWithoutLock() } }
