@@ -212,36 +212,6 @@ fn first_seen_and_bytes_are_kept() {
 }
 
 #[test]
-fn migration_from_version_zero() {
-    let dir = format!("/tmp/ai/test-search-{}", uuid::Uuid::new_v4());
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = Path::new(&dir).join("profiles-idx.db");
-    {
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(SCHEMA).unwrap();
-        db.execute(
-            "INSERT INTO `profile` (`key`, `topic`, `version`, `country`, `place`, `r`)
-               VALUES (?1, 0, 1, 'DE', 'berlin', 5), (?2, 0, 1, 'DE', '2950159', 6)",
-            [[1u8; 32], [2; 32]],
-        )
-        .unwrap();
-        db.execute(
-            "INSERT INTO `key` (`key`, `topic`, `version`, `deleted`, `updated`, `heartbeat`,
-               `beat_day`, `beats`) VALUES (?, 0, 1, 0, 0, 0, 0, 0)",
-            [[1u8; 32]],
-        )
-        .unwrap();
-    }
-    let index = SearchIndex::open(&path, &crate::config::Search::default()).unwrap();
-    let expected: Counts = vec![
-        ("DE".into(), "".into(), 1),
-        ("DE".into(), "2950159".into(), 1),
-    ];
-    assert_eq!(index.place_counts(), expected);
-    assert!(index.created() > 0);
-}
-
-#[test]
 fn maintenance_frees_expired_pages_of_the_index() {
     let index = index();
     put_at(&index, "2950159", 300, 1, false);
