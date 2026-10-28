@@ -28,98 +28,57 @@ pub(crate) fn storage_error(error: impl ToString) -> BootstrapError {
     BootstrapError::StorageError(error.to_string())
 }
 
-/// A format step: brings a store file from version `i` to `i + 1`, where `i` is its index. Files
-/// from before format versions are at 0 whatever they hold, so a step must also succeed when its
-/// change is already there.
-pub(crate) type Step = fn(&Connection) -> rusqlite::Result<()>;
-
-/// Opens a store file, creates `schema` (version 0) and runs `steps` from the file's
-/// `PRAGMA user_version` on, one transaction each. A file newer than `steps` is refused.
-pub(crate) fn open(path: &Path, schema: &str, steps: &[Step]) -> Result<Mutex<Connection>> {
-    let mut db = Connection::open(path).map_err(storage_error)?;
+/// Opens a store file and creates `schema`. The format has no versions before the first release:
+/// a file with a nonzero `PRAGMA user_version` is from a newer dyappd and is refused.
+pub(crate) fn open(path: &Path, schema: &[&str]) -> Result<Mutex<Connection>> {
+    let db = Connection::open(path).map_err(storage_error)?;
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(storage_error)?;
-    let version = usize::try_from(version).unwrap_or(usize::MAX);
-    if version > steps.len() {
+    if version != 0 {
         return Err(storage_error(format!(
-            "{} has store format {version}, this dyappd knows up to {}; run a newer dyappd",
-            path.display(),
-            steps.len()
+            "{} has store format {version}, this dyappd knows up to 0; run a newer dyappd",
+            path.display()
         )));
     }
     // auto_vacuum takes effect only before the first table is created.
     db.execute_batch(&format!(
         "PRAGMA auto_vacuum = INCREMENTAL; PRAGMA journal_mode = WAL; \
-         PRAGMA synchronous = NORMAL; PRAGMA journal_size_limit = {WAL_LIMIT}; {schema}"
+         PRAGMA synchronous = NORMAL; PRAGMA journal_size_limit = {WAL_LIMIT}; {}",
+        schema.concat()
     ))
     .map_err(storage_error)?;
-    for (done, step) in steps.iter().enumerate().skip(version) {
-        let tx = db.transaction().map_err(storage_error)?;
-        step(&tx).map_err(storage_error)?;
-        let next = i64::try_from(done + 1).map_err(storage_error)?;
-        tx.pragma_update(None, "user_version", next)
-            .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)?;
-        tracing::info!(file = %path.display(), version = done + 1, "store format step done");
-    }
     Ok(Mutex::new(db))
 }
 
-/// Adds `column` to `table` unless the table has it already.
-pub(crate) fn add_column(
-    db: &Connection,
-    table: &'static str,
-    column: &'static str,
-    declaration: &str,
-) -> rusqlite::Result<()> {
-    let exists: bool = db.query_row(
-        "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE `name` = ?2)",
-        [table, column],
-        |row| row.get(0),
-    )?;
-    if !exists {
-        db.execute_batch(&format!(
-            "ALTER TABLE `{table}` ADD COLUMN `{column}` {declaration};"
-        ))?;
-    }
-    Ok(())
-}
+/// `last_seen`: node time of a newer publish, or the latest validated heartbeat time.
+const PROFILES: &str = "CREATE TABLE IF NOT EXISTS `profiles` (
+         `peer_id` TEXT PRIMARY KEY,
+         `record` BLOB NOT NULL,
+         `live` INTEGER NOT NULL,
+         `last_seen` INTEGER NOT NULL
+     );
+     CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);";
 
-/// `profiles.db` format steps.
-const PROFILE_STEPS: &[Step] = &[profiles_last_seen, keypackages::profiles_keypackages];
-
-/// `last_seen`: node time of a newer publish, or the latest validated heartbeat time. Rows
-/// stored before the column count as seen now, so an upgrade deletes nothing.
-fn profiles_last_seen(db: &Connection) -> rusqlite::Result<()> {
-    let now = chrono::Utc::now().timestamp();
-    add_column(
-        db,
-        "profiles",
-        "last_seen",
-        &format!("INTEGER NOT NULL DEFAULT {now}"),
-    )?;
-    db.execute_batch("CREATE INDEX IF NOT EXISTS `profiles_seen` ON `profiles` (`last_seen`);")
-}
-
-/// `messages.db` format steps.
-const MESSAGE_STEPS: &[Step] = &[
-    messages_class,
-    envelopes::messages_tokens,
-    revocations::messages_revocations,
-];
-
-/// `class`: 1 for a signal, 0 for a message; rows stored before the column are messages. The
-/// covering index serves the per-class sums, the signal victim choice and the mailbox lookups of
-/// the dropped `envelopes_mailbox`.
-fn messages_class(db: &Connection) -> rusqlite::Result<()> {
-    add_column(db, "envelopes", "class", "INTEGER NOT NULL DEFAULT 0")?;
-    db.execute_batch(
-        "CREATE INDEX IF NOT EXISTS `envelopes_class` \
-             ON `envelopes` (`mailbox`, `class`, `seq`, `size`);
-         DROP INDEX IF EXISTS `envelopes_mailbox`;",
-    )
-}
+/// `seq` keeps arrival order; `size` is the stored record length; `class` is 1 for a signal, 0
+/// for a message. The covering class index serves the per-class sums, the signal victim choice
+/// and the mailbox lookups.
+const ENVELOPES: &str = "CREATE TABLE IF NOT EXISTS `envelopes` (
+         `seq` INTEGER PRIMARY KEY,
+         `mailbox` BLOB NOT NULL,
+         `id` BLOB NOT NULL,
+         `record` BLOB NOT NULL,
+         `size` INTEGER NOT NULL,
+         `expires_at` INTEGER NOT NULL,
+         `class` INTEGER NOT NULL DEFAULT 0,
+         `token_key` BLOB,
+         `via` BLOB NOT NULL DEFAULT x'',
+         `source_group` BLOB NOT NULL DEFAULT x'',
+         UNIQUE (`mailbox`, `id`)
+     );
+     CREATE INDEX IF NOT EXISTS `envelopes_expiry` ON `envelopes` (`expires_at`);
+     CREATE INDEX IF NOT EXISTS `envelopes_class` ON `envelopes` (`mailbox`, `class`, `seq`, `size`);
+";
 
 const PROFILES_AFTER: &str =
     "SELECT `record` FROM `profiles` WHERE `live` AND `peer_id` > ? ORDER BY `peer_id` LIMIT ?";
@@ -247,31 +206,11 @@ impl BootstrapStore {
 
     /// Opens or creates the profile and mailbox databases.
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
-        let profiles = open(
-            profiles,
-            "CREATE TABLE IF NOT EXISTS `profiles` (
-                 `peer_id` TEXT PRIMARY KEY,
-                 `record` BLOB NOT NULL,
-                 `live` INTEGER NOT NULL
-             );",
-            PROFILE_STEPS,
-        )?;
         Ok(Self {
-            profiles,
+            profiles: open(profiles, &[PROFILES, keypackages::SCHEMA])?,
             messages: open(
                 messages,
-                // `seq` keeps arrival order; `size` is the stored record length.
-                "CREATE TABLE IF NOT EXISTS `envelopes` (
-                     `seq` INTEGER PRIMARY KEY,
-                     `mailbox` BLOB NOT NULL,
-                     `id` BLOB NOT NULL,
-                     `record` BLOB NOT NULL,
-                     `size` INTEGER NOT NULL,
-                     `expires_at` INTEGER NOT NULL,
-                     UNIQUE (`mailbox`, `id`)
-                 );
-                 CREATE INDEX IF NOT EXISTS `envelopes_expiry` ON `envelopes` (`expires_at`);",
-                MESSAGE_STEPS,
+                &[ENVELOPES, envelopes::SCHEMA, revocations::SCHEMA],
             )?,
         })
     }
@@ -550,14 +489,6 @@ mod tests {
     fn profiles_expire_after_the_owner_was_last_seen() {
         let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
         std::fs::create_dir_all(&dir).unwrap();
-        // A profiles.db from before `last_seen`: its row counts as seen at the upgrade.
-        Connection::open(format!("{dir}/profiles.db"))
-            .unwrap()
-            .execute_batch(
-                "CREATE TABLE `profiles` (`peer_id` TEXT PRIMARY KEY, `record` BLOB NOT NULL, \
-                 `live` INTEGER NOT NULL); INSERT INTO `profiles` VALUES ('old', x'', 1);",
-            )
-            .unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
         let now = chrono::Utc::now().timestamp();
         let owner = Identity::generate();
@@ -569,121 +500,32 @@ mod tests {
         assert_eq!(store.expire_profiles(now - 60).unwrap(), 0);
         assert!(store.touch_profile(&owner.peer_id(), now + 100).unwrap());
         assert!(!store.touch_profile("unknown", now).unwrap());
-        assert_eq!(store.expire_profiles(now + 50).unwrap(), 1);
-        assert!(store.get_profile("old").unwrap().is_none());
+        assert_eq!(store.expire_profiles(now + 50).unwrap(), 0);
         assert!(store.get_profile(&owner.peer_id()).unwrap().is_some());
         assert_eq!(store.expire_profiles(now + 100).unwrap(), 1);
     }
 
     #[test]
-    fn store_format_steps_run_once_and_a_newer_file_is_refused() {
+    fn a_newer_store_file_is_refused() {
         let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = format!("{dir}/profiles.db");
-        let version = || -> i64 {
-            Connection::open(&path)
-                .unwrap()
-                .query_row("PRAGMA user_version", [], |row| row.get(0))
-                .unwrap()
-        };
-        // A version 0 file that already has the step's column, as nodes before versions left it.
-        Connection::open(&path)
-            .unwrap()
-            .execute_batch(
-                "CREATE TABLE `profiles` (`peer_id` TEXT PRIMARY KEY, `record` BLOB NOT NULL, \
-                 `live` INTEGER NOT NULL, `last_seen` INTEGER NOT NULL DEFAULT 0);",
-            )
-            .unwrap();
         drop(BootstrapStore::new(&dir).unwrap());
-        assert_eq!(version(), PROFILE_STEPS.len() as i64);
         drop(BootstrapStore::new(&dir).unwrap());
-        assert_eq!(version(), PROFILE_STEPS.len() as i64);
-
-        Connection::open(&path)
+        Connection::open(format!("{dir}/profiles.db"))
             .unwrap()
-            .pragma_update(None, "user_version", 99)
+            .pragma_update(None, "user_version", 1)
             .unwrap();
         let error = BootstrapStore::new(&dir).err().unwrap().to_string();
         assert!(
-            error.contains("profiles.db") && error.contains("99"),
+            error.contains("profiles.db") && error.contains("format 1"),
             "{error}"
         );
     }
 
     #[test]
-    fn a_failed_store_format_step_rolls_back_and_reruns() {
+    fn the_envelope_lookups_use_the_class_index() {
         let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = std::path::PathBuf::from(format!("{dir}/test.db"));
-        let schema = "CREATE TABLE IF NOT EXISTS `t` (`v` BLOB NOT NULL);";
-        let first: Step = |db| db.execute_batch("INSERT INTO `t` VALUES (x'01');");
-        // The disk fills up after the step has written part of its change.
-        let full: Step = |db| {
-            db.execute_batch("INSERT INTO `t` VALUES (x'02');")?;
-            let pages: i64 = db.query_row("PRAGMA page_count", [], |row| row.get(0))?;
-            db.pragma_update(None, "max_page_count", pages)?;
-            db.execute("INSERT INTO `t` VALUES (?1)", [vec![0u8; 1 << 20]])
-                .map(drop)
-        };
-        let second: Step = |db| db.execute_batch("INSERT INTO `t` VALUES (x'03');");
-        let state = || -> (i64, Vec<Vec<u8>>) {
-            let db = Connection::open(&path).unwrap();
-            let version = db
-                .query_row("PRAGMA user_version", [], |row| row.get(0))
-                .unwrap();
-            let mut rows = db.prepare("SELECT `v` FROM `t` ORDER BY rowid").unwrap();
-            let rows = rows
-                .query_map([], |row| row.get(0))
-                .unwrap()
-                .collect::<rusqlite::Result<Vec<Vec<u8>>>>()
-                .unwrap();
-            (version, rows)
-        };
-
-        let error = open(&path, schema, &[first, full]).err().unwrap();
-        assert!(error.to_string().contains("full"), "{error}");
-        assert_eq!(state(), (1, vec![vec![1]]));
-
-        drop(open(&path, schema, &[first, second]).unwrap());
-        assert_eq!(state(), (2, vec![vec![1], vec![3]]));
-    }
-
-    #[test]
-    fn messages_class_step_migrates_an_old_file() {
-        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = format!("{dir}/messages.db");
-        Connection::open(&path)
-            .unwrap()
-            .execute_batch(
-                "CREATE TABLE `envelopes` (`seq` INTEGER PRIMARY KEY, `mailbox` BLOB NOT NULL,
-                     `id` BLOB NOT NULL, `record` BLOB NOT NULL, `size` INTEGER NOT NULL,
-                     `expires_at` INTEGER NOT NULL, UNIQUE (`mailbox`, `id`));
-                 CREATE INDEX `envelopes_mailbox` ON `envelopes` (`mailbox`, `seq`);
-                 INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`)
-                     VALUES (x'01', x'02', x'', 0, 0);",
-            )
-            .unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
         let db = lock(&store.messages).unwrap();
-        let class: i64 = db
-            .query_row("SELECT `class` FROM `envelopes`", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(class, 0);
-        let index = |name: &str| -> bool {
-            db.query_row(
-                "SELECT EXISTS (SELECT 1 FROM `sqlite_master` WHERE `type` = 'index' AND `name` = ?)",
-                [name],
-                |row| row.get(0),
-            )
-            .unwrap()
-        };
-        assert!(!index("envelopes_mailbox"));
-        assert!(index("envelopes_class"));
-        let version: i64 = db
-            .query_row("PRAGMA user_version", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, MESSAGE_STEPS.len() as i64);
         let plan = |sql: &str| -> String {
             db.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
                 .unwrap()
@@ -710,12 +552,5 @@ mod tests {
                 "{sql}: {plan}"
             );
         }
-        drop(db);
-        drop(store);
-        Connection::open(&path)
-            .unwrap()
-            .pragma_update(None, "user_version", 99)
-            .unwrap();
-        assert!(BootstrapStore::new(&dir).is_err());
     }
 }

@@ -5,15 +5,13 @@ use crate::error::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::KeyPackageRecord;
 use prost::Message;
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension, TransactionBehavior};
 
 const MAX_ORDINARY: i64 = 20;
 const MAX_BYTES: i64 = 512 * 1024;
 const MAX_CONSUMED: i64 = 1024;
 
-pub(super) fn profiles_keypackages(db: &Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `keypackages` (
+pub(super) const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS `keypackages` (
              `hash` BLOB NOT NULL,
              `owner` BLOB NOT NULL,
              `mailbox` BLOB NOT NULL,
@@ -28,9 +26,7 @@ pub(super) fn profiles_keypackages(db: &Connection) -> rusqlite::Result<()> {
          );
          CREATE INDEX IF NOT EXISTS `keypackages_mailbox`
              ON `keypackages` (`owner`, `mailbox`, `slot`, `last_resort`, `consumed`, `expires`);
-         CREATE INDEX IF NOT EXISTS `keypackages_expiry` ON `keypackages` (`expires`);",
-    )
-}
+         CREATE INDEX IF NOT EXISTS `keypackages_expiry` ON `keypackages` (`expires`);";
 
 impl BootstrapStore {
     /// Stores a signed package without resetting an earlier consume. False means quota is full.

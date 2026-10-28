@@ -674,13 +674,13 @@ fetch reveal device count and contact interest to store nodes; no private direct
   and no queued key left, the flag is
   cleared. The flag survives a restart. Incremental vacuum keeps its page budget and network
   repair keeps its traffic cap.
-- Format versions (implemented, [Storage](#storage)): each file holds its format in
-  `PRAGMA user_version`, one number that only grows; there is no downgrade, a fix ships as a
-  higher version. On open the node runs the numbered steps from the file's version to its own, in
-  order, one transaction each. A cheap step (a new column with a default, an index, a table) runs
-  in place. A binary that finds a file newer than it knows refuses to start and names the file.
-  Planned: a step that rewrites rows builds the new file next to the old one (for example
-  `profiles-v2.db`) from the stored signed records, in the background under the I/O budget, while
+- Format versions ([Storage](#storage)): each file holds its format in `PRAGMA user_version`,
+  one number that only grows; there is no downgrade, a fix ships as a higher version. Implemented:
+  every file is at format 0 until the first release, and a binary that finds a file newer than it
+  knows refuses to start and names the file. Planned after the first release: on open the node
+  runs the numbered steps from the file's version to its own, in order, one transaction each; a
+  cheap step (a new column with a default, an index, a table) runs in place, and a step that
+  rewrites rows builds the new file next to the old one (for example `profiles-v2.db`) from the stored signed records, in the background under the I/O budget, while
   the old file answers and takes writes; the builder then copies the rows written since it
   started (by rowid or `seq`), switches under a short lock and deletes the old file. Deletes during
   the build (acks, expiry, eviction) go to both files, so nothing deleted comes back. The build
@@ -1450,25 +1450,15 @@ the quota; the service passes the pool only with `limits.require_write_tokens`.
 tokenless bytes until it is no longer the largest, until the tokenless total is within a limit;
 the service calls it after each stored tokenless envelope.
 
-Each file has one connection behind a mutex. `storage::open` keeps the format version in
-`PRAGMA user_version` and runs the missing steps in place on open, each in its own transaction:
-`profiles.db` 1 adds `last_seen`, `media.db` 1 adds the owner `last_seen`, the attachment
-`created`, the signed `record` columns, `cost` and the replica tables, `media.db` 2 the purge
-counter, `media.db` 3 the `released` table; `messages.db` 1 adds the
-envelope `class` column and the `(mailbox, class, seq, size)` index in place of `(mailbox, seq)`,
-`messages.db` 2 the `token_key`, `via` and `source_group` columns, their partial indexes, the
-tokenless counter tables and triggers, counting existing rows as tokenless, `messages.db` 3 the
-`revoked` and `revokes` tables;
-`deny.db` is at 0. The first start after each `messages.db` step builds the indexes, O(n) once
-(seconds on a large file). An older `dyappd` refuses the newer `messages.db`; to roll back, move
-it aside, losing at most one TTL of undelivered mail, part of which mailbox repair returns. A file from before versions counts as 0 and its steps skip changes already there. A
-file newer than the binary fails the start with `<file> has store format N, this dyappd knows up
-to M; run a newer dyappd`. Rebuilding a file next to the old one is planned
-([Principles](#principles)).
+Each file has one connection behind a mutex. `storage::open` creates the file's schema in place.
+Before the first release every store is at format 0 with no steps: a schema change edits the
+format-0 schema and needs a fresh store. A file with a nonzero `PRAGMA user_version` fails the
+start with `<file> has store format N, this dyappd knows up to 0; run a newer dyappd`. Format
+steps, run in place on open one transaction each, and rebuilding a file next to the old one are
+planned for changes after the first release ([Principles](#principles)).
 
 **Compaction:** `BootstrapStore::cleanup_expired` deletes expired envelopes; `dyappd` calls it every hour, then `expire_profiles` deletes profiles and tombstones whose owner was last
-seen more than `limits.profile_ttl_days` ago (`last_seen` column, added on upgrade with the
-upgrade time for existing rows), and the search index drops keys not heard from in that time,
+seen more than `limits.profile_ttl_days` ago (`last_seen` column), and the search index drops keys not heard from in that time,
 at most 4096 per run; under a full quota `evict_profiles` and `evict_envelopes` delete the oldest rows by rowid ([resource guards](#resource-guards)). `INSERT OR REPLACE` gives a republished profile a new, highest rowid, so rowid order is publish order.
 
 **Maintenance:** every `maintenance.interval_minutes` (default 60) `dyappd` calls

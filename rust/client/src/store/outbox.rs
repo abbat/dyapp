@@ -11,22 +11,6 @@ const GIVE_UP_MS: i64 = 30 * 86_400_000;
 /// Replication lag allowed before a receipt for a later write proves an earlier one was dropped.
 const GRACE_MS: i64 = 60_000;
 
-/// Rows staged before receipts keep waiting for one; `accepted_at_ms` is NULL until a node takes
-/// the write.
-pub(super) const SCHEMA_V6: &str = r"
-ALTER TABLE `outbox` ADD COLUMN `awaits_receipt` INTEGER NOT NULL DEFAULT 1
-    CHECK (`awaits_receipt` IN (0, 1));
-ALTER TABLE `outbox` ADD COLUMN `accepted_at_ms` INTEGER;
-PRAGMA user_version = 6;
-";
-
-/// The latest node to accept each write and when; NULL once the node is faulted for it.
-pub(super) const SCHEMA_V7: &str = r"
-ALTER TABLE `outbox` ADD COLUMN `accepted_by` TEXT;
-ALTER TABLE `outbox` ADD COLUMN `last_accepted_ms` INTEGER;
-PRAGMA user_version = 7;
-";
-
 impl Store {
     /// Like [`Store::stage_outbound`], for a receipt: node acceptance is enough to drop it.
     pub fn stage_receipt(

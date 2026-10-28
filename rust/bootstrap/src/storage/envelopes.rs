@@ -58,12 +58,7 @@ pub enum Put {
 
 /// `token_key` (NULL: tokenless), `via` and `source_group` per envelope; tokenless bytes per
 /// (mailbox, class) and per class, kept by triggers so every delete path keeps them exact.
-pub(super) fn messages_tokens(db: &Connection) -> rusqlite::Result<()> {
-    add_column(db, "envelopes", "token_key", "BLOB")?;
-    add_column(db, "envelopes", "via", "BLOB NOT NULL DEFAULT x''")?;
-    add_column(db, "envelopes", "source_group", "BLOB NOT NULL DEFAULT x''")?;
-    db.execute_batch(
-        "CREATE INDEX IF NOT EXISTS `envelopes_tokenless` ON `envelopes`
+pub(super) const SCHEMA: &str = "CREATE INDEX IF NOT EXISTS `envelopes_tokenless` ON `envelopes`
              (`mailbox`, `class`, `via`, `source_group`, `seq`, `size`) WHERE `token_key` IS NULL;
          CREATE INDEX IF NOT EXISTS `envelopes_tokened` ON `envelopes`
              (`mailbox`, `token_key`, `class`, `seq`, `size`) WHERE `token_key` IS NOT NULL;
@@ -73,12 +68,6 @@ pub(super) fn messages_tokens(db: &Connection) -> rusqlite::Result<()> {
          CREATE INDEX IF NOT EXISTS `tokenless_mailbox_bytes` ON `tokenless_mailbox` (`class`, `bytes`);
          CREATE TABLE IF NOT EXISTS `tokenless_total` (`class` INTEGER PRIMARY KEY,
              `bytes` INTEGER NOT NULL);
-         DELETE FROM `tokenless_mailbox`;
-         DELETE FROM `tokenless_total`;
-         INSERT INTO `tokenless_mailbox` SELECT `mailbox`, `class`, SUM(`size`) FROM `envelopes`
-             WHERE `token_key` IS NULL GROUP BY `mailbox`, `class`;
-         INSERT INTO `tokenless_total` SELECT `class`, SUM(`bytes`) FROM `tokenless_mailbox`
-             GROUP BY `class`;
          CREATE TRIGGER IF NOT EXISTS `tokenless_insert` AFTER INSERT ON `envelopes`
              WHEN NEW.`token_key` IS NULL BEGIN
              INSERT INTO `tokenless_mailbox` VALUES (NEW.`mailbox`, NEW.`class`, NEW.`size`)
@@ -93,9 +82,7 @@ pub(super) fn messages_tokens(db: &Connection) -> rusqlite::Result<()> {
              DELETE FROM `tokenless_mailbox`
                  WHERE `mailbox` = OLD.`mailbox` AND `class` = OLD.`class` AND `bytes` <= 0;
              UPDATE `tokenless_total` SET `bytes` = `bytes` - OLD.`size` WHERE `class` = OLD.`class`;
-         END;",
-    )
-}
+         END;";
 
 // The put-path statements; a test checks none of them scans.
 pub(super) const EXISTS: &str =

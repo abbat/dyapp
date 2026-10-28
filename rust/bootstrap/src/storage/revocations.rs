@@ -7,17 +7,14 @@ pub const MAX_REVOKED: i64 = 4096;
 
 /// `revoked`: one row per (mailbox, key) until the latest revoke naming it expires. `revokes`:
 /// the signed records, served to other replicas by repair.
-pub(super) fn messages_revocations(db: &Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `revoked` (`mailbox` BLOB NOT NULL, `token_key` BLOB NOT NULL,
+pub(super) const SCHEMA: &str =
+    "CREATE TABLE IF NOT EXISTS `revoked` (`mailbox` BLOB NOT NULL, `token_key` BLOB NOT NULL,
              `expires_at` INTEGER NOT NULL, PRIMARY KEY (`mailbox`, `token_key`)) WITHOUT ROWID;
          CREATE INDEX IF NOT EXISTS `revoked_expiry` ON `revoked` (`expires_at`);
          CREATE TABLE IF NOT EXISTS `revokes` (`seq` INTEGER PRIMARY KEY,
              `mailbox` BLOB NOT NULL, `record` BLOB NOT NULL, `expires_at` INTEGER NOT NULL,
              UNIQUE (`mailbox`, `record`));
-         CREATE INDEX IF NOT EXISTS `revokes_expiry` ON `revokes` (`expires_at`);",
-    )
-}
+         CREATE INDEX IF NOT EXISTS `revokes_expiry` ON `revokes` (`expires_at`);";
 
 // Statements a test checks for scans.
 pub(super) const DELETE_REVOKED: &str = "DELETE FROM `envelopes` \

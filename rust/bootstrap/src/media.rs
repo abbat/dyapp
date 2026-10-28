@@ -10,7 +10,7 @@
 //! `limits.media_cache_minutes`; under the disk guard it goes before any list.
 
 use crate::replication::MediaManifestExt;
-use crate::storage::{add_column, free, lock, open, storage_error, Step};
+use crate::storage::{free, lock, open, storage_error};
 use crate::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
@@ -111,61 +111,6 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
 const KEEPS_AFTER: &str = "SELECT `owner`, `record` FROM `owners` \
      WHERE `owner` > ? AND `record` IS NOT NULL ORDER BY `owner` LIMIT ?";
 
-/// `media.db` format steps.
-const MEDIA_STEPS: &[Step] = &[
-    media_replicas,
-    media_purge_stats,
-    media_releases,
-    media_cache,
-];
-
-/// Owner `last_seen` (rows stored before it count as seen now), attachment `created`, the
-/// signed records, blob `cost`, and the manifest and shard tables of erasure-coded replicas.
-fn media_replicas(db: &Connection) -> rusqlite::Result<()> {
-    let now = chrono::Utc::now().timestamp();
-    add_column(
-        db,
-        "owners",
-        "last_seen",
-        &format!("INTEGER NOT NULL DEFAULT {now}"),
-    )?;
-    add_column(db, "attachments", "created", "INTEGER NOT NULL DEFAULT 0")?;
-    add_column(db, "owners", "record", "BLOB")?;
-    add_column(db, "attachments", "record", "BLOB")?;
-    add_column(db, "blobs", "cost", "INTEGER")?;
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
-         CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
-         `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
-         CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
-         CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);",
-    )
-}
-
-fn media_purge_stats(db: &Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `count` INTEGER NOT NULL);\n         INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);",
-    )
-}
-
-/// Release hashes of released attachments, kept until the attachments' expiry.
-fn media_releases(db: &Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `released` (`release` BLOB PRIMARY KEY, `expires` INTEGER NOT NULL)
-             WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS `released_expires` ON `released` (`expires`);",
-    )
-}
-
-/// Assembled blobs and their last read, in Unix seconds.
-fn media_cache(db: &Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `cache` (`hash` BLOB PRIMARY KEY, `size` INTEGER NOT NULL,
-             `read` INTEGER NOT NULL) WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS `cache_read` ON `cache` (`read`);",
-    )
-}
-
 /// Writes `data` aside and renames it to `path`, so a reader never sees a partial file.
 fn write_aside(path: &Path, data: &[u8]) -> Result<()> {
     let dir = path
@@ -210,15 +155,23 @@ impl MediaStore {
         fs::create_dir_all(&data).map_err(storage_error)?;
         let db = open(
             &db,
-            // `size` is NULL while a listed blob has not been put.
-            "CREATE TABLE IF NOT EXISTS `owners` (
+            // `size` is NULL while a listed blob has not been put. `last_seen`, `created` and
+            // `record`: when the owner was last seen, when an attachment was stored, and the
+            // signed records. `manifests` and `shards` hold the erasure-coded replicas,
+            // `released` the release hashes of released attachments until the attachments'
+            // expiry, `cache` the assembled blobs and their last read, in Unix seconds.
+            &["CREATE TABLE IF NOT EXISTS `owners` (
                  `owner` TEXT PRIMARY KEY,
-                 `version` INTEGER NOT NULL
+                 `version` INTEGER NOT NULL,
+                 `last_seen` INTEGER NOT NULL,
+                 `record` BLOB
              );
+             CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
              CREATE TABLE IF NOT EXISTS `blobs` (
                  `owner` TEXT NOT NULL,
                  `hash` BLOB NOT NULL,
                  `size` INTEGER,
+                 `cost` INTEGER,
                  PRIMARY KEY (`owner`, `hash`)
              );
              CREATE INDEX IF NOT EXISTS `blobs_hash` ON `blobs` (`hash`);
@@ -226,11 +179,25 @@ impl MediaStore {
                  `slot` TEXT PRIMARY KEY,
                  `release` BLOB NOT NULL,
                  `owner` TEXT NOT NULL,
-                 `expires` INTEGER NOT NULL
+                 `expires` INTEGER NOT NULL,
+                 `created` INTEGER NOT NULL,
+                 `record` BLOB
              );
              CREATE INDEX IF NOT EXISTS `attachments_owner` ON `attachments` (`owner`);
-             CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);",
-            MEDIA_STEPS,
+             CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);
+             CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);
+             CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
+             CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
+                 `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
+             CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
+                 `count` INTEGER NOT NULL);
+             INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);
+             CREATE TABLE IF NOT EXISTS `released` (`release` BLOB PRIMARY KEY,
+                 `expires` INTEGER NOT NULL) WITHOUT ROWID;
+             CREATE INDEX IF NOT EXISTS `released_expires` ON `released` (`expires`);
+             CREATE TABLE IF NOT EXISTS `cache` (`hash` BLOB PRIMARY KEY, `size` INTEGER NOT NULL,
+                 `read` INTEGER NOT NULL) WITHOUT ROWID;
+             CREATE INDEX IF NOT EXISTS `cache_read` ON `cache` (`read`);"],
         )?;
         // A blob listed again while already held takes its size.
         lock(&db)?

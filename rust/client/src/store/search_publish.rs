@@ -79,7 +79,7 @@ impl Store {
         let value: Option<Vec<u8>> = self
             .db
             .query_row(
-                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 2",
+                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 1",
                 [BEAT_KEY],
                 |row| row.get(0),
             )
@@ -98,8 +98,8 @@ impl Store {
         getrandom::fill(&mut random).map_err(|_| Error::Random)?;
         let next = (now / 86_400 + 1) * 86_400 + u64::from_be_bytes(random) % 86_400;
         self.db.execute(
-            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 2, ?2)
-             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 2, `value` = excluded.`value`",
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
             params![BEAT_KEY, next.to_be_bytes().to_vec()],
         )?;
         Ok(())

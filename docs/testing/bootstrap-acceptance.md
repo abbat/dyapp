@@ -192,8 +192,7 @@ assertion changes.
 | SIGTERM stops the node without a handler; SQLite WAL keeps committed data | — | — | accepted: [Decisions](#decisions) |
 | The package installs on Debian 12, runs as `dyappd` and removes cleanly | Package | `deb-test.sh` | exists, local only |
 | The tarball installs by hand on Debian 12 as in the manual; `status` tells the running node from the stopped one | Package | `tarball-test.sh` | exists, local only |
-| Store format steps run once; a newer file is refused | Unit | `storage.rs::store_format_steps_run_once_and_a_newer_file_is_refused` | exists |
-| A store format step that fails mid-way (disk full) leaves the previous format and reruns cleanly | Unit | `storage.rs::a_failed_store_format_step_rolls_back_and_reruns` | exists |
+| A store file newer than the binary is refused | Unit | `storage.rs::a_newer_store_file_is_refused` | exists |
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |
 | Config precedence file < env < CLI; unknown keys fail; node key bound to the data | Unit, Property | `config.rs` | exists |
 | Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; updater integration planned |

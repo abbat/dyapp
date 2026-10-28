@@ -14,7 +14,6 @@ mod operations;
 #[cfg(test)]
 mod outbound_tests;
 
-// This table is part of the fresh pre-release schema; no migration/version bump is needed.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
     `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),

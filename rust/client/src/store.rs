@@ -21,7 +21,7 @@ mod tokens;
 pub use likes::Likes;
 pub use peers::ContactName;
 
-const VERSION: i64 = 12;
+const VERSION: i64 = 1;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -143,15 +143,22 @@ impl Store {
                     return Err(Error::Unversioned);
                 }
                 let tx = db.transaction()?;
-                tx.execute_batch(SCHEMA_V1)?;
-                tx.execute_batch(messages::SCHEMA)?;
+                for schema in [
+                    SCHEMA,
+                    messages::SCHEMA,
+                    peers::SCHEMA,
+                    presence::SCHEMA,
+                    reads::SCHEMA,
+                ] {
+                    tx.execute_batch(schema)?;
+                }
                 tx.execute(
                     "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
                     params![identity.peer_id()],
                 )?;
                 tx.commit()?;
             }
-            1..=VERSION => {}
+            VERSION => {}
             other => return Err(Error::FutureVersion(other)),
         }
         let bound: String = db.query_row(
@@ -161,41 +168,6 @@ impl Store {
         )?;
         if bound != identity.peer_id() {
             return Err(Error::WrongIdentity);
-        }
-        if version < VERSION {
-            let tx = db.transaction()?;
-            if version < 2 {
-                tx.execute_batch(SCHEMA_V2)?;
-            }
-            if version < 3 {
-                tx.execute_batch(SCHEMA_V3)?;
-            }
-            if version < 4 {
-                tx.execute_batch(SCHEMA_V4)?;
-            }
-            if version < 5 {
-                tx.execute_batch(SCHEMA_V5)?;
-            }
-            if version < 6 {
-                tx.execute_batch(outbox::SCHEMA_V6)?;
-            }
-            if version < 7 {
-                tx.execute_batch(outbox::SCHEMA_V7)?;
-            }
-            if version < 8 {
-                tx.execute_batch(peers::SCHEMA_V8)?;
-            }
-            if version < 9 {
-                tx.execute_batch(peers::SCHEMA_V9)?;
-            }
-            if version < 10 {
-                tx.execute_batch(peers::SCHEMA_V10)?;
-            }
-            if version < 11 {
-                tx.execute_batch(presence::SCHEMA_V11)?;
-            }
-            tx.execute_batch(reads::SCHEMA_V12)?;
-            tx.commit()?;
         }
         Ok(Self {
             db,
@@ -437,7 +409,7 @@ fn catalog(tx: &rusqlite::Transaction, group_id: &[u8], peer_id: &str) -> Result
     Ok(())
 }
 
-const SCHEMA_V1: &str = r"
+const SCHEMA: &str = r"
 CREATE TABLE `profile_binding` (
     `slot` INTEGER PRIMARY KEY CHECK (`slot` = 1),
     `peer_id` TEXT NOT NULL
@@ -461,6 +433,13 @@ CREATE TABLE `outbox` (
     `signed_envelope` BLOB NOT NULL,
     `retry_at_ms` INTEGER NOT NULL,
     `attempts` INTEGER NOT NULL CHECK (`attempts` >= 0),
+    -- Rows staged before receipts keep waiting for one; NULL until a node takes the write.
+    `awaits_receipt` INTEGER NOT NULL DEFAULT 1 CHECK (`awaits_receipt` IN (0, 1)),
+    `accepted_at_ms` INTEGER,
+    -- The latest node to accept the write and when; NULL once the node is faulted for it.
+    `accepted_by` TEXT,
+    `last_accepted_ms` INTEGER,
+    `expires_at_ms` INTEGER,
     PRIMARY KEY (`mailbox`, `envelope_id`)
 ) STRICT;
 CREATE TABLE `settings` (
@@ -473,18 +452,10 @@ CREATE TABLE `pass_history` (
     `passed` INTEGER NOT NULL CHECK (`passed` IN (0, 1)),
     `updated_hlc` INTEGER NOT NULL
 ) STRICT;
-PRAGMA user_version = 1;
-";
-
-const SCHEMA_V2: &str = r"
 CREATE TABLE `conversation_groups` (
     `group_id` BLOB PRIMARY KEY CHECK (length(`group_id`) > 0),
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0)
 ) STRICT;
-PRAGMA user_version = 2;
-";
-
-const SCHEMA_V3: &str = r"
 CREATE TABLE `interaction_ledger` (
     `sender` TEXT NOT NULL CHECK (length(`sender`) > 0),
     `event_id` BLOB NOT NULL CHECK (length(`event_id`) = 16),
@@ -502,20 +473,12 @@ CREATE TABLE `like_state` (
     `event_id` BLOB NOT NULL CHECK (length(`event_id`) = 16),
     PRIMARY KEY (`sender`, `target`)
 ) STRICT;
-PRAGMA user_version = 3;
-";
-
-const SCHEMA_V4: &str = r"
 CREATE TABLE `view_days` (
     `sender` TEXT NOT NULL,
     `target` TEXT NOT NULL,
     `day` INTEGER NOT NULL CHECK (`day` >= 0),
     PRIMARY KEY (`sender`, `target`, `day`)
 ) STRICT;
-PRAGMA user_version = 4;
-";
-
-const SCHEMA_V5: &str = r"
 CREATE TABLE `held_tokens` (
     `mailbox` BLOB NOT NULL CHECK (length(`mailbox`) = 32),
     `epoch` INTEGER NOT NULL CHECK (`epoch` >= 0),
@@ -532,12 +495,12 @@ CREATE TABLE `issued_tokens` (
     PRIMARY KEY (`mailbox`, `token_key`, `epoch`)
 ) STRICT;
 CREATE INDEX `issued_tokens_contact` ON `issued_tokens` (`contact`);
-PRAGMA user_version = 5;
+PRAGMA user_version = 1;
 ";
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{Error, InboxKey, InboxKind, Likes, Store, SCHEMA_V1, VERSION};
+    use super::{Error, InboxKey, InboxKind, Store, VERSION};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -593,48 +556,6 @@ pub(crate) mod tests {
             Store::open(&unknown, &alice),
             Err(Error::Unversioned)
         ));
-    }
-
-    #[test]
-    fn migrates_bound_v1_database_without_losing_records() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(SCHEMA_V1).unwrap();
-        db.execute(
-            "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
-            [alice.peer_id()],
-        )
-        .unwrap();
-        db.execute(
-            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)",
-            rusqlite::params!["send_profile_views", vec![1_u8]],
-        )
-        .unwrap();
-        drop(db);
-        assert!(matches!(
-            Store::open(&path, &Identity::generate()),
-            Err(Error::WrongIdentity)
-        ));
-        let db = Connection::open(&path).unwrap();
-        assert_eq!(
-            db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
-                .unwrap(),
-            1
-        );
-        drop(db);
-        let store = Store::open(&path, &alice).unwrap();
-        assert!(store.send_profile_views().unwrap());
-        assert!(store.known_groups().unwrap().is_empty());
-        assert_eq!(store.likes(&alice.peer_id()).unwrap(), Likes::default());
-        assert!(store.write_token_epochs(&[0; 32], 0).unwrap().is_empty());
-        drop(store);
-        let db = Connection::open(&path).unwrap();
-        assert_eq!(
-            db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
-                .unwrap(),
-            VERSION
-        );
     }
 
     #[test]

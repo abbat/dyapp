@@ -9,7 +9,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 const SETTING: &str = "send_read_receipts";
 
-pub(super) const SCHEMA_V12: &str = r"
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE `read_marks` (
     `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),
@@ -17,7 +17,6 @@ CREATE TABLE `read_marks` (
     `received_up_to` BLOB CHECK (`received_up_to` IS NULL OR length(`received_up_to`) = 16),
     PRIMARY KEY (`group_id`, `peer_id`)
 ) STRICT;
-PRAGMA user_version = 12;
 ";
 
 impl Store {
@@ -247,22 +246,5 @@ mod tests {
         store.set_blocked(&b, true).unwrap();
         assert!(!store.receive_read(GROUP, &b, [4; 16]).unwrap());
         assert_eq!(store.read_up_to(GROUP, &b).unwrap(), Some([3; 16]));
-    }
-
-    #[test]
-    fn migrates_v11_database_to_read_marks() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
-        let mut store = Store::open(&path, &alice).unwrap();
-        text(&mut store, &a, 1);
-        drop(store);
-        let db = rusqlite::Connection::open(&path).unwrap();
-        db.execute_batch("DROP TABLE `read_marks`; PRAGMA user_version = 11;")
-            .unwrap();
-        drop(db);
-        let mut store = Store::open(&path, &alice).unwrap();
-        assert!(!store.send_read_receipts().unwrap());
-        assert!(store.receive_read(GROUP, &b, [1; 16]).unwrap());
     }
 }

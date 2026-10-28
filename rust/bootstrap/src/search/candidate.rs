@@ -262,7 +262,7 @@ impl SearchIndex {
         // A candidate of an earlier attempt is stale: tracking restarts below.
         remove_files(&candidate.path);
         self.track_start()?;
-        let mut db = storage::open(&candidate.path, SCHEMA, STEPS)?
+        let mut db = storage::open(&candidate.path, &[SCHEMA])?
             .into_inner()
             .map_err(storage_error)?;
         stamp(&db, candidate.version, false)?;

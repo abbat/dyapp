@@ -179,7 +179,7 @@ impl SearchIndex {
         }
         let active = generation_file(path, version);
         let fresh = version >= 2 && !active.exists();
-        let conn = storage::open(&active, SCHEMA, STEPS)?
+        let conn = storage::open(&active, &[SCHEMA])?
             .into_inner()
             .map_err(storage_error)?;
         if fresh {
@@ -291,7 +291,7 @@ impl SearchIndex {
             }
         };
         let finish = || -> Result<(Connection, i64)> {
-            let mut conn = storage::open(&candidate.path, SCHEMA, STEPS)?
+            let mut conn = storage::open(&candidate.path, &[SCHEMA])?
                 .into_inner()
                 .map_err(storage_error)?;
             let rows = read(&db, &keys)?;
@@ -362,7 +362,7 @@ impl SearchIndex {
             version: self.target,
         };
         remove_files(&candidate.path);
-        let db = storage::open(&candidate.path, SCHEMA, STEPS)?
+        let db = storage::open(&candidate.path, &[SCHEMA])?
             .into_inner()
             .map_err(storage_error)?;
         stamp(&db, candidate.version, false)?;

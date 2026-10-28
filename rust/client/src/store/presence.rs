@@ -13,14 +13,12 @@ pub const PRESENCE_WINDOW_MS: u64 = 2 * 3_600_000;
 pub const PRESENCE_THROTTLE_MS: u64 = 3_600_000;
 const SETTING: &str = "send_presence";
 
-pub(super) const SCHEMA_V11: &str = r"
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE `presence` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
     `sent_ms` INTEGER CHECK (`sent_ms` >= 0),
     `received_hlc` INTEGER CHECK (`received_hlc` >= 0)
 ) STRICT;
-ALTER TABLE `outbox` ADD COLUMN `expires_at_ms` INTEGER;
-PRAGMA user_version = 11;
 ";
 
 impl Store {

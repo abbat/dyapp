@@ -103,15 +103,14 @@ future and skips one from another own device until device sync exists. `Session:
 match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the
 signal class.
 No app shows a like yet.
-`rust/client::store::Store::open` now creates or reopens an identity-bound, version-5 SQLite
+`rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
 The store persists the view-sending choice and local pass/undo state with a privacy-preserving
 default of no view signals. See the [client storage design](../design/client-local-storage.md).
 The store can now commit a caller-provided sealed MLS snapshot and exact prepared mailbox writes
 in one SQLite transaction, reopen due writes after restart and schedule a later retry. A conflict
-on an existing mailbox/ID with different signed bytes rolls the whole transaction back. A
-version-1 to -7 database migrates to version 8 after its identity binding is checked. The
+on an existing mailbox/ID with different signed bytes rolls the whole transaction back. The
 group catalog records group IDs and verified peer associations with the sealed Device and
 prepared Welcome writes; `load_groups` restores those groups after restart and refuses missing
 or mismatched entries.

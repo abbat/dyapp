@@ -237,32 +237,6 @@ mod tests {
     use super::super::{Error, Store};
     use crate::prepare_put;
     use dyapp_identity::Identity;
-    use rusqlite::Connection;
-
-    #[test]
-    fn migrates_v4_database_to_token_tables() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        let store = Store::open(&path, &alice).unwrap();
-        store.set_send_profile_views(true).unwrap();
-        drop(store);
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(
-            "DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
-             ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
-             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; DROP TABLE `peers`;
-             ALTER TABLE `outbox` DROP COLUMN `expires_at_ms`;
-             DROP TABLE `presence`; DROP TABLE `read_marks`; PRAGMA user_version = 4;",
-        )
-        .unwrap();
-        drop(db);
-        let mut store = Store::open(&path, &alice).unwrap();
-        assert!(store.send_profile_views().unwrap());
-        store.token_key(&[1; 32], 5, &[7; 32]).unwrap();
-        store.record_issued("bob", &[1; 32], &[3; 32], 5).unwrap();
-    }
 
     #[test]
     fn held_key_is_sealed_stable_and_bound_to_its_row() {

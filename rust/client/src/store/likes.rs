@@ -316,7 +316,6 @@ mod tests {
     use dyapp_messaging::hlc::Timestamp;
     use dyapp_p2p_net::proto;
     use prost::Message as _;
-    use rusqlite::Connection;
 
     fn event(kind: Kind, id: u8, hlc: u64) -> Interaction {
         Interaction {
@@ -515,30 +514,6 @@ mod tests {
                 ours: true,
                 theirs: false
             }));
-    }
-
-    #[test]
-    fn migrates_v2_database_to_interaction_state() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        drop(Store::open(&path, &alice).unwrap());
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(
-            "DROP TABLE `interaction_ledger`; DROP TABLE `like_state`; DROP TABLE `view_days`;
-             DROP TABLE `held_tokens`; DROP TABLE `issued_tokens`;
-             ALTER TABLE `outbox` DROP COLUMN `awaits_receipt`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_at_ms`;
-             ALTER TABLE `outbox` DROP COLUMN `accepted_by`;
-             ALTER TABLE `outbox` DROP COLUMN `last_accepted_ms`; DROP TABLE `peers`;
-             ALTER TABLE `outbox` DROP COLUMN `expires_at_ms`;
-             DROP TABLE `presence`; DROP TABLE `read_marks`; PRAGMA user_version = 2;",
-        )
-        .unwrap();
-        drop(db);
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
-        let mut store = Store::open(&path, &alice).unwrap();
-        assert!(put(&mut store, &a, &b, b"a1", event(Kind::Like, 1, 1)));
-        assert!(store.likes(&b).unwrap().ours);
     }
 
     fn hlc(wall_ms: u64, counter: u16) -> u64 {

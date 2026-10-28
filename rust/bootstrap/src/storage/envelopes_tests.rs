@@ -365,35 +365,3 @@ fn put_with_eviction_over_100k_envelopes() {
     assert!(left < 1000, "{left}");
     assert_counters(&store);
 }
-
-#[test]
-fn messages_tokens_step_migrates_an_old_file() {
-    let dir = format!("/tmp/ai/test-bootstrap-{}", uuid::Uuid::new_v4());
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = format!("{dir}/messages.db");
-    // A file after the `class` step.
-    Connection::open(&path)
-        .unwrap()
-        .execute_batch(
-            "CREATE TABLE `envelopes` (`seq` INTEGER PRIMARY KEY, `mailbox` BLOB NOT NULL,
-                 `id` BLOB NOT NULL, `record` BLOB NOT NULL, `size` INTEGER NOT NULL,
-                 `expires_at` INTEGER NOT NULL, `class` INTEGER NOT NULL DEFAULT 0,
-                 UNIQUE (`mailbox`, `id`));
-             INSERT INTO `envelopes` (`mailbox`, `id`, `record`, `size`, `expires_at`, `class`)
-                 VALUES (x'01', x'01', x'', 10, 0, 0), (x'01', x'02', x'', 5, 0, 1),
-                 (x'01', x'03', x'', 7, 0, 1);
-             PRAGMA user_version = 1;",
-        )
-        .unwrap();
-    let store = BootstrapStore::new(&dir).unwrap();
-    assert_counters(&store);
-    let db = lock(&store.messages).unwrap();
-    let bytes: i64 = db
-        .query_row(TOKENLESS_BYTES, params![&[1u8][..], 1], |row| row.get(0))
-        .unwrap();
-    assert_eq!(bytes, 12);
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |row| row.get(0))
-        .unwrap();
-    assert_eq!(version, MESSAGE_STEPS.len() as i64);
-}

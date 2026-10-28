@@ -97,7 +97,7 @@ test covers match, unlike, replayed put, offline retry and daily view. Concurren
 local event, sealed MLS state and encrypted outbox together before sending; offline retry after a
 restart reuses the exact staged signal.
 
-`rust/client::store::Store::apply_interaction` (schema version 4) covers the local state part of
+`rust/client::store::Store::apply_interaction` covers the local state part of
 fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded
 event, and in one transaction records the event in a replay ledger keyed by sender identity and
 event ID and updates the latest like state of that direction. One of the two identities must be

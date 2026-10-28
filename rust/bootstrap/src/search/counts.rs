@@ -1,43 +1,6 @@
-//! Search index migrations, per-place profile counts, the newcomer quota and eviction.
+//! Per-place profile counts, the newcomer quota and eviction.
 
 use super::*;
-/// Newcomer and place-count bookkeeping; places outside the GeoNames set move to the country.
-pub(super) fn newcomers_and_places(db: &Connection) -> rusqlite::Result<()> {
-    storage::add_column(db, "key", "first_seen", "INTEGER NOT NULL DEFAULT 0")?;
-    storage::add_column(db, "key", "bytes", "INTEGER NOT NULL DEFAULT 0")?;
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS `place_count` (`country` TEXT NOT NULL, `place` TEXT NOT NULL,
-           `n` INTEGER NOT NULL, PRIMARY KEY (`country`, `place`)) WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS `place_count_n` ON `place_count` (`n`);
-         CREATE INDEX IF NOT EXISTS `key_first_seen` ON `key` (`first_seen`, `bytes`);
-         CREATE TABLE IF NOT EXISTS `meta` (`name` TEXT PRIMARY KEY, `value` INTEGER NOT NULL)
-           WITHOUT ROWID;
-         UPDATE `key` SET `bytes` = COALESCE(
-           (SELECT length(`record`) FROM `record` WHERE `record`.`key` = `key`.`key`), 0);
-         UPDATE `profile` SET `country` = COALESCE(`country`, ''), `place` = COALESCE(`place`, '');",
-    )?;
-    let places: Vec<(String, String)> = db
-        .prepare("SELECT DISTINCT `country`, `place` FROM `profile`")?
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-        .collect::<rusqlite::Result<_>>()?;
-    for (country, place) in places {
-        if crate::places::canonical(&country, &place) != place {
-            db.execute(
-                "UPDATE `profile` SET `place` = '' WHERE `country` = ? AND `place` = ?",
-                params![country, place],
-            )?;
-        }
-    }
-    db.execute_batch(
-        "DELETE FROM `place_count`;
-         INSERT INTO `place_count` SELECT `country`, `place`, COUNT(*) FROM `profile` GROUP BY 1, 2;",
-    )?;
-    db.execute(
-        "INSERT OR IGNORE INTO `meta` (`name`, `value`) VALUES ('created', ?)",
-        [chrono::Utc::now().timestamp()],
-    )?;
-    Ok(())
-}
 
 /// Adds `delta` to the profiles indexed under (country, place); a zero count has no row.
 pub(super) fn count_place(tx: &Connection, country: &str, place: &str, delta: i64) -> Result<()> {

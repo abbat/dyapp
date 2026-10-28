@@ -83,7 +83,7 @@ impl DenyStore {
         Ok(Self {
             db: open(
                 path,
-                "CREATE TABLE IF NOT EXISTS `deny` (
+                &["CREATE TABLE IF NOT EXISTS `deny` (
                      `entry` TEXT PRIMARY KEY,
                      `note` TEXT NOT NULL,
                      `added` INTEGER NOT NULL
@@ -93,8 +93,7 @@ impl DenyStore {
                      `time` INTEGER NOT NULL,
                      `record` BLOB NOT NULL,
                      `received` INTEGER NOT NULL
-                 );",
-                &[],
+                 );"],
             )?,
         })
     }

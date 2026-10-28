@@ -62,7 +62,7 @@ async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
 
     // A crash left an incomplete later generation: it is deleted, NEXT stays active.
     let later = generation_file(&base, NEXT + 1);
-    let db = storage::open(&later, SCHEMA, STEPS).unwrap();
+    let db = storage::open(&later, &[SCHEMA]).unwrap();
     stamp(&db.into_inner().unwrap(), NEXT + 1, false).unwrap();
     let index = reopen(&base, NEXT + 1).unwrap();
     assert_eq!(index.index_version(), NEXT);

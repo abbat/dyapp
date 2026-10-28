@@ -6,24 +6,16 @@ use dyapp_profile::{is_clean_text, DeviceCertificate, VerifiedProfile, MAX_FIELD
 use prost::Message as _;
 use rusqlite::{params, OptionalExtension};
 
-pub(super) const SCHEMA_V8: &str = r"
+// `verified_devices`: the device keys the contact listed when it was verified, 32 bytes each;
+// NULL is unverified.
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE `peers` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
     `blocked` INTEGER NOT NULL DEFAULT 0 CHECK (`blocked` IN (0, 1)),
-    `muted` INTEGER NOT NULL DEFAULT 0 CHECK (`muted` IN (0, 1))
+    `muted` INTEGER NOT NULL DEFAULT 0 CHECK (`muted` IN (0, 1)),
+    `local_name` TEXT NOT NULL DEFAULT '',
+    `verified_devices` BLOB
 ) STRICT;
-PRAGMA user_version = 8;
-";
-
-pub(super) const SCHEMA_V9: &str = r"
-ALTER TABLE `peers` ADD COLUMN `local_name` TEXT NOT NULL DEFAULT '';
-PRAGMA user_version = 9;
-";
-
-// The device keys the contact listed when it was verified, 32 bytes each; NULL is unverified.
-pub(super) const SCHEMA_V10: &str = r"
-ALTER TABLE `peers` ADD COLUMN `verified_devices` BLOB;
-PRAGMA user_version = 10;
 ";
 
 /// The name an app shows for a peer.

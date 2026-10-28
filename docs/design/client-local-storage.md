@@ -4,8 +4,8 @@ The Rust client keeps active MLS handles in memory and seals them to SQLite. Thi
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-10
-schema and retains earlier migration code after checking the identity binding. It persists the
+page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
+schema; before the first release a schema change edits version 1 in place, with no migration. It persists the
 per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
 chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
 stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
@@ -40,28 +40,28 @@ go into logs or migration diagnostics.
 
 ## Versioned records
 
-The initial SQLite schema has one transactionally migrated `user_version`, one profile binding,
+The initial SQLite schema has one `user_version` (1), one profile binding,
 and these logical tables. Exact SQL and indexes belong to the storage implementation and its ADR.
 
 | Table | Durable content | Key / invariant |
 | --- | --- | --- |
 | `profile_binding` | Derived Peer ID and store format | Exactly one identity per database; mismatch fails closed. |
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
-| `conversation_groups` | Group ID and verified peer association (version 2) | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
+| `conversation_groups` | Group ID and verified peer association | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
 | `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Fresh pre-release schema only, without a version bump or migration. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. Chat operations and private interactions share one persisted HLC; rejected operations roll back clock changes. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. The Store also provides `stage_chat_outbound` to commit an own text/edit/delete projection with exact outbox writes and sealed MLS state before network delivery; Session send routing is planned. |
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
-| `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it (version 6); which node accepted the latest copy and when (version 7); an optional expiry time (version 11) | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
+| `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it; which node accepted the latest copy and when; an optional expiry time | `(mailbox, envelope ID)` is unique; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
 | `settings` | Typed, versioned per-profile values such as view sending | Per profile; documented defaults for absent values. The planned app lock is app-wide and its PIN verifier belongs in platform-protected storage, not this table. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
-| `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload (version 3) | `(sender, event ID)` is unique; a replay with other bytes is refused. |
-| `like_state` | Latest like or unlike per sender and target (version 3) | Replaced only by a greater `(HLC, device, event ID)`. |
-| `view_days` | UTC days on which one profile viewed another (version 4) | One sent view per peer per day; received views are recorded regardless of the send setting. |
-| `held_tokens` | Own token key per owner mailbox and UTC day, sealed, and the owner's signed WriteToken (version 5) | `(mailbox, epoch)` is unique; a retry returns the same key. |
-| `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit (version 5) | `(mailbox, token key, epoch)` belongs to one contact. |
-| `peers` | Local block and mute flags (version 8), a local contact name (version 9) and the device keys a verified contact listed (version 10) per peer identity | Never published or included in a signal; absent means neither flag, no name and unverified. The local name, at most 64 characters of clean text, replaces the profile's public name; the public name is shown with the verified or unverified mark. A profile listing a device not seen at verification clears the mark until the safety number or QR code is compared again ([ADR 0004](../decisions/0004-identity-keys.md)). |
-| `presence` | Per peer identity, when presence was last sent and the latest received presence HLC (version 11) | Sent at most hourly to an unblocked match; received presence from a blocked peer or non-match is dropped before its HLC is observed ([presence](presence.md)). |
-| `read_marks` | Per chat group and peer, the latest peer text a read receipt was sent for and the latest own text the peer has read (version 12) | Order is `chat_messages` row order; a mark only moves forward, and a receipt from a blocked peer or naming an unknown text is dropped ([read receipts](read-receipts.md)). |
+| `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload | `(sender, event ID)` is unique; a replay with other bytes is refused. |
+| `like_state` | Latest like or unlike per sender and target | Replaced only by a greater `(HLC, device, event ID)`. |
+| `view_days` | UTC days on which one profile viewed another | One sent view per peer per day; received views are recorded regardless of the send setting. |
+| `held_tokens` | Own token key per owner mailbox and UTC day, sealed, and the owner's signed WriteToken | `(mailbox, epoch)` is unique; a retry returns the same key. |
+| `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit | `(mailbox, token key, epoch)` belongs to one contact. |
+| `peers` | Local block and mute flags, a local contact name and the device keys a verified contact listed per peer identity | Never published or included in a signal; absent means neither flag, no name and unverified. The local name, at most 64 characters of clean text, replaces the profile's public name; the public name is shown with the verified or unverified mark. A profile listing a device not seen at verification clears the mark until the safety number or QR code is compared again ([ADR 0004](../decisions/0004-identity-keys.md)). |
+| `presence` | Per peer identity, when presence was last sent and the latest received presence HLC | Sent at most hourly to an unblocked match; received presence from a blocked peer or non-match is dropped before its HLC is observed ([presence](presence.md)). |
+| `read_marks` | Per chat group and peer, the latest peer text a read receipt was sent for and the latest own text the peer has read | Order is `chat_messages` row order; a mark only moves forward, and a receipt from a blocked peer or naming an unknown text is dropped ([read receipts](read-receipts.md)). |
 
 `send_profile_views` defaults to false when absent; `send_presence` (presence audience: on is
 matches, off is nobody) defaults to true; `send_read_receipts` defaults to false. The stored
@@ -77,7 +77,7 @@ the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.
 `search::publish_due` sends it to the given search nodes; a `STALE` reply counts as accepted, and
 with no node accepting, the longest `RATE_LIMITED` wait holds it. The Linux desktop shows the
 minutes left (`Store::search_profile_minutes_left`) and sends a due profile while it runs and on
-start. `search_heartbeat` (format 2)
+start. `search_heartbeat` (format 1)
 holds the big-endian Unix second at which the next heartbeat is due: a random second of the UTC
 day after a node last accepted one, so app opens do not set the time. `search::beat_due` sends
 one with that day's proof of work only once it is due, and a `RATE_LIMITED` reply (two already
@@ -88,8 +88,9 @@ Like/unlike/view event ordering and match derivation belong to the
 separately authoritative boolean. Chat history and outgoing work share this store so a failed
 network attempt does not discard the user's message.
 
-Migration starts a transaction, verifies the bound identity and current schema version, applies
-one monotonic version step, and commits only after its integrity checks. A future version, invalid
+Opening verifies the bound identity and the schema version. Migration steps are planned for
+schema changes after the first release: each starts a transaction, applies one monotonic version
+step, and commits only after its integrity checks. A future version, invalid
 binding or corrupt database fails closed with a recoverable error; it never silently creates an
 empty replacement at that path. Before a destructive migration, the app must offer a consistent
 backup. Copying a live WAL database file alone is not a consistent backup: an app-provided export

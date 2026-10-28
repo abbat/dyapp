@@ -2,7 +2,7 @@
 //! and the per-key limit counters. Disposable: catch-up refills it from other search nodes.
 
 use crate::error::Result;
-use crate::storage::{self, lock, storage_error, Step};
+use crate::storage::{self, lock, storage_error};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::Profile;
 use prost::Message;
@@ -42,14 +42,23 @@ CREATE TABLE IF NOT EXISTS `record` (`key` BLOB PRIMARY KEY, `record` BLOB NOT N
 -- Every known key, tombstones too: version, limits and heartbeat for expiry and eviction.
 CREATE TABLE IF NOT EXISTS `key` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NULL,
   `version` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, `updated` INTEGER NOT NULL,
-  `heartbeat` INTEGER NOT NULL, `beat_day` INTEGER NOT NULL, `beats` INTEGER NOT NULL)
+  `heartbeat` INTEGER NOT NULL, `beat_day` INTEGER NOT NULL, `beats` INTEGER NOT NULL,
+  `first_seen` INTEGER NOT NULL DEFAULT 0, `bytes` INTEGER NOT NULL DEFAULT 0)
   WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `key_heartbeat` ON `key` (`heartbeat`);
 CREATE INDEX IF NOT EXISTS `key_topic` ON `key` (`topic`, `key`);
+CREATE INDEX IF NOT EXISTS `key_first_seen` ON `key` (`first_seen`, `bytes`);
 CREATE TABLE IF NOT EXISTS `digest` (`topic` INTEGER, `bucket` INTEGER, `hash` BLOB,
   PRIMARY KEY (`topic`, `bucket`)) WITHOUT ROWID;
+-- Newcomer and place-count bookkeeping.
+CREATE TABLE IF NOT EXISTS `place_count` (`country` TEXT NOT NULL, `place` TEXT NOT NULL,
+  `n` INTEGER NOT NULL, PRIMARY KEY (`country`, `place`)) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS `place_count_n` ON `place_count` (`n`);
+CREATE TABLE IF NOT EXISTS `meta` (`name` TEXT PRIMARY KEY, `value` INTEGER NOT NULL)
+  WITHOUT ROWID;
+INSERT OR IGNORE INTO `meta` (`name`, `value`)
+  VALUES ('created', CAST(strftime('%s', 'now') AS INTEGER));
 ";
-const STEPS: &[Step] = &[counts::newcomers_and_places];
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
 pub fn topic(key: &[u8; 32]) -> u32 {
