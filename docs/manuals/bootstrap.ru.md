@@ -171,9 +171,15 @@ BindReadOnlyPaths=/etc/dyappd/resolv.conf:/etc/resolv.conf
 
 ```bash
 docker volume create dyappd
+docker network create dyappd           # свой мост: правила исходящего трафика ниже ловят его подсеть
 run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
-$run dyappd:latest keygen              # один раз: около минуты на 2 vCPU
-$run -d --name dyappd --memory 1g -p 33445:33445/tcp -p 33445:33445/udp \
+# один раз: около минуты на 2 vCPU; ключ лежит вне тома, для узла только для чтения
+sudo install -d -m 0700 -o 65532 -g 65532 /etc/dyappd
+$run dyappd:latest keygen - | sudo install -m 0400 -o 65532 -g 65532 /dev/stdin /etc/dyappd/node.key
+$run -d --name dyappd --network dyappd --memory 1g --pids-limit 256 \
+    --mount type=bind,src=/etc/dyappd/node.key,dst=/run/secrets/node.key,readonly \
+    -e DYAPPD_STORAGE_KEY=/run/secrets/node.key \
+    -p 33445:33445/tcp -p 33445:33445/udp \
     -e DYAPPD_SEEDS='["seed.example.org:33445"]' dyappd:latest
 docker exec dyappd dyappd deny add <entry> [note]   # применяется в течение 10 с
 docker exec dyappd dyappd status
@@ -189,7 +195,38 @@ docker logs dyappd
 `--<section>.<key>` после имени образа или файл настроек, смонтированный только для чтения в
 `/etc/dyappd.toml`: он читается без `--config`. С `--memory 1g` значение по умолчанию
 `limits.max_memory_mb = 768` сбрасывает запросы раньше предела Docker. В контейнере
-ключ — обычный файл 0600 в томе.
+ключ — обычный файл; смонтированный только для чтения, как выше, он не может быть заменён
+скомпрометированным узлом. Оставляйте профиль seccomp Docker по умолчанию: никогда
+`--security-opt seccomp=unconfined` или `--privileged`.
+
+У `IPAddressDeny` из unit нет аналога для контейнера, поэтому запретите те же диапазоны
+метаданных облака и link-local на хосте. Для сети-моста — в цепочке `DOCKER-USER` (подсеть видна
+в `docker network inspect dyappd`):
+
+```bash
+for range in 169.254.0.0/16 100.100.100.200/32; do
+    sudo iptables -I DOCKER-USER -s <subnet> -d "$range" -j DROP
+done
+for range in fe80::/10 fd00:ec2::254/128; do
+    sudo ip6tables -I DOCKER-USER -s <IPv6 subnet> -d "$range" -j DROP
+done
+```
+
+С `--network host` пакеты узла уходят через `OUTPUT` под его UID:
+
+```bash
+for range in 169.254.0.0/16 100.100.100.200/32; do
+    sudo iptables -I OUTPUT -m owner --uid-owner 65532 -d "$range" -j DROP
+done
+for range in fe80::/10 fd00:ec2::254/128; do
+    sudo ip6tables -I OUTPUT -m owner --uid-owner 65532 -d "$range" -j DROP
+done
+```
+
+Сохраните их средством вашего межсетевого экрана (`netfilter-persistent save`). В своей сети-мосте
+контейнер спрашивает встроенный DNS Docker, который пересылает запросы с хоста; с
+`--network host` и link-local DNS-сервером смонтируйте список серверов вне этих диапазонов:
+`--mount type=bind,src=/etc/dyappd/resolv.conf,dst=/etc/resolv.conf,readonly`.
 
 Образ не опубликован в реестре, манифестов Kubernetes пока нет.
 
@@ -716,6 +753,11 @@ scrape_configs:
   формата рядом со старым, пока старый продолжает отвечать, запланировано.
 - `apt` сохраняет ваш отредактированный `/etc/dyappd.toml`; сравните его с новым значением по
   умолчанию в `/etc/dyappd.toml.dpkg-dist`, если `apt` его предложит.
+- Ограничения нового unit действуют с перезапуска, который делает обновление. Прочитайте вывод
+  обновления: пакет предупреждает там о link-local DNS-сервере, который запрещает unit.
+
+Устанавливайте только пакет или образ, который вы проверили ([Где взять dyappd](#где-взять-dyappd));
+узел никогда не обновляет себя сам.
 
 ### Откат
 
@@ -846,8 +888,17 @@ no-cli
 выделения, поэтому ставьте его примерно равным каналу, делённому на `max-bps`. Пример рассчитан
 на канал 1 Гбит/с с запасом.
 
-Передавайте секрет файлом через `turn.secret_file` (или `DYAPPD_TURN_SECRET` через systemd
-`EnvironmentFile=` с режимом 0600). Откройте порт
+Передавайте секрет файлом, никогда в командной строке. Под systemd держите его владельцем root с
+режимом 0600 и передайте как credential в drop-in (`systemctl edit dyappd`):
+
+```ini
+[Service]
+LoadCredential=turn.secret:/etc/dyappd/turn.secret
+Environment=DYAPPD_TURN_SECRET_FILE=%d/turn.secret
+```
+
+В контейнере смонтируйте файл только для чтения и задайте
+`DYAPPD_TURN_SECRET_FILE=/run/secrets/turn.secret`. Откройте порт
 прослушивания (3478 UDP и TCP, 5349 для TLS) и диапазон портов ретрансляции
 (`min-port`/`max-port`, по умолчанию 49152–65535). При запуске узел отклоняет роль без секрета или
 с URL, который не начинается с `turn:` или `turns:`. Учётные данные истекают через
@@ -1075,6 +1126,42 @@ chronyc tracking      # "Leap status: Normal" и малое смещение "Sy
 - При подозрении на доступ переустановите из пакета, который вы собрали или проверили сами,
   выполните [Компрометация ключа узла](#компрометация-ключа-узла) и смените секрет
   [TURN](#turn-ретранслятор).
+
+### Признаки компрометации хоста
+
+Ни один из них не доказывает компрометацию, а атакующий с root может скрыть каждый; проверяйте их
+время от времени и после всего необычного:
+
+```bash
+dpkg --verify dyappd                        # пустой вывод: файлы пакета не изменены
+docker image inspect --format '{{.Id}}' dyappd:latest   # дайджест, который вы проверили
+sudo sha256sum /var/lib/dyappd/node.key     # или запечатанный ключ: сравните со значением, записанным после keygen
+journalctl -k | grep -i seccomp             # узел вызывает отфильтрованный системный вызов
+systemctl status dyappd                     # циклы перезапуска; IP: входящий и исходящий трафик с запуска
+systemctl show -p IPIngressBytes,IPEgressBytes dyappd
+```
+
+Ненулевой `denied_dials` в периодической строке состояния в журнале узла считает попытки
+соединения с запрещённым диапазоном со времени прошлой строки: обычно это адрес враждебного пира,
+возможно — неправильное поведение самого узла.
+
+### После компрометации хоста
+
+Перезапуск или обновление пакета не восстанавливают узел; каталог данных считается заражённым.
+
+1. Отключите узел от сети (остановите его или закройте порты) и сохраните копию диска для
+   анализа вне хоста.
+2. Переустановите хост или запустите новую ВМ с доверенного носителя; не используйте повторно
+   `storage.dir`, его резервные копии после предполагаемого момента и старые настройки, не
+   прочитав их.
+3. Установите проверенный пакет или образ и выполните keygen для нового peer ID; сообщите
+   операторам, которые закрепили или запретили старый ID
+   ([Компрометация ключа узла](#компрометация-ключа-узла)).
+4. Смените секрет [TURN](#turn-ретранслятор) в узле и coturn одновременно, а также все облачные и
+   SSH-учётные данные, бывшие на хосте.
+5. Запускайте с пустыми хранилищами: реплики на других узлах восстановят профили, почтовые ящики и
+   медиа ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)); единственный узел теряет
+   свою единственную копию.
 
 ### Рекомендации
 

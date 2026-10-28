@@ -72,7 +72,7 @@ defences already in place. Nodes are untrusted by design
 | 9 | Denial of service beyond the current guards: CPU asymmetry, crafted payloads | High | High | ⚠️ Partial: rate limits, resource guards, frame caps, per-group connection limits, a search fair queue and puzzle; write tokens, a TURN quota per IP group and fuzzing are planned ([below](#denial-of-service)) |
 | 10 | Homoglyphs and Unicode tricks: hidden code, typosquatting, lookalike domains and apps | High | Medium | ⚠️ Partial: Rust confusable and bidi lints and a repository Unicode check; official names are planned ([below](#homoglyphs-and-unicode-tricks)) |
 | 11 | Social engineering and operations: phishing, account takeover, fake releases | High | Medium | ⚠️ Partial: seeds pinned to peer IDs, per-node deny lists, a [security policy](../../.github/SECURITY.md) and private reporting are in place; account hardening and in-app warnings are planned ([below](#social-engineering-and-operations)) |
-| 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ❌ Planned |
+| 12 | Privilege escalation and host blast radius of a compromised node | High | Medium | ⚠️ Partial: a sandboxed systemd unit, an egress filter for metadata and link-local ranges, a read-only key and a recovery runbook; network namespaces, Landlock and integrity monitoring are planned ([below](#compromised-node-host)) |
 | 13 | Disclosure of node internals: private addresses, versions, logs, metrics | Medium | High | ✅ Implemented: metrics only on an opt-in loopback listener without peer or key labels, no software version in `NodeInfo`, logs without peer identifiers, only global addresses and the agent version `dyapp` in identify ([below](#node-internals-disclosure)) |
 | 14 | Illegal content planted on nodes, legal pressure on operators | High | Medium | ⚠️ Partial: deny list, local purge of listed blobs and an operator guide, technical abuse response only (accepted residual risk) ([below](#illegal-content-and-legal-pressure)) |
 | 15 | Data tampering: media, deny lists, signature encoding, rollback | High | Medium | ⚠️ Partial: owner signatures over the bytes as received, content addressing, version checks, and a client-side profile rollback check in `rust/client` ([below](#data-tampering)) |
@@ -557,6 +557,29 @@ signing remains planned ([clock hints](../architecture/protobuf-schema.md#clock-
 | Fake send time in a message | Client | Low × medium | Accept: the app shows it as the sender's claim |
 | TURN credential expiry on a skewed relay | `node.turn` | Low × low | Accept: the node and its relay belong to one operator |
 
+### Compromised node host
+
+Class 12 in detail. A remote code execution bug in `dyappd` gives the attacker the node's user,
+its key, its stores and its network position; the defences keep it from the rest of the host and
+from the cloud account. In place: the Debian unit runs `dyappd` as its own user with no
+capabilities, a read-only system, `/proc` limited to its own processes, private IPC and keyrings,
+`@system-service` system calls, execution only from `/usr` and a read-only `node.key`;
+`IPAddressDeny` and the node's own `deny_dial` refuse cloud metadata and link-local addresses;
+the TURN secret is a credential file. The container runs read-only with every capability dropped,
+the default seccomp profile, a PID and memory limit, and host firewall rules for the same ranges
+([container image](../manuals/bootstrap.md#container-image)). The operator manual lists
+[signs](../manuals/bootstrap.md#signs-of-a-host-compromise) and a
+[recovery runbook](../manuals/bootstrap.md#after-a-host-compromise).
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Read cloud metadata credentials and take over the cloud account | Node RCE, network | Critical × medium | Fix: `IPAddressDeny`, `deny_dial` and the container firewall rules refuse `169.254.0.0/16`, `fe80::/10`, `fd00:ec2::254/128` and `100.100.100.200/32`. Accept: a provider whose metadata lives elsewhere needs a drop-in; an operator who allows a link-local resolver reopens its address, ports included |
+| Escalate to root through the kernel or a setuid binary | Node RCE | Critical × low | Partial: no capabilities, `NoNewPrivileges`, `RestrictSUIDSGID`, a system call filter, no new namespaces. Planned: Landlock |
+| Run a dropped binary or keep a foothold across restarts | Node RCE, disk write | High × medium | Partial: no execution outside `/usr`, a read-only system and `node.key`; the stores remain writable, so the runbook treats the data directory as infected. Planned: AIDE or auditd, a check of the key's fingerprint at start |
+| Reach other services on the host or the LAN | Node RCE, network | High × medium | Partial: only IP, Unix and netlink sockets. Planned: a network namespace with nftables that allows only the node's own traffic; NAT64 for IPv6-only hosts |
+| Read other users' files or mount filesystems | Node RCE | Medium × low | Partial: `ProtectHome`, `PrivateTmp`, `ProtectSystem=strict`. Planned: `RestrictFileSystems` |
+| Exhaust the host's memory, processes or CPU | Node RCE, load | Medium × medium | Fix: `MemoryMax`, `TasksMax`, `CPUQuota` and the container's `--memory` and `--pids-limit` |
+
 ### Cloud host access
 
 Class 23 in detail. Most nodes run on a rented VM, and whoever controls the hypervisor, the
@@ -566,7 +589,8 @@ identity, so a stolen node key does not expose the operator's own account; the d
 network and to the users the node serves. In place: `node.key` has mode 0600 and a
 [compromise runbook](../manuals/bootstrap.md#node-key-compromise); nodes write no request
 logs and no client IP to disk (the only addresses on disk are the peer cache, anchors and IP
-groups the operator denied); the TURN secret lives in a separate `EnvironmentFile=`; every record
+groups the operator denied); the TURN secret lives in a separate root-owned file passed as a
+credential; every record
 a node holds is signed by its owner. Nothing is encrypted at rest, the binary is not checked at
 start, and a hypervisor can read any VM's memory unless it is a confidential VM. The unit keeps
 `dyappd` out of core dumps and swap, and the package seals the node key with `systemd-creds` to
@@ -578,7 +602,7 @@ risks are accepted for v1 below.
 |--------|-------------|---------------------|---------|
 | Copy `node.key` from the volume, a snapshot or a backup and run a node under its peer ID: its proof-of-work DHT position, its local reputation with peers, a seed others pin as `host:port/<peer ID>` | Disk read | High × medium | Fix: `dyappd` reads the key from a path it does not interpret; the package seals it with `systemd-creds --with-key=auto`, so with a vTPM a copied volume alone does not open it ([node key](../manuals/bootstrap.md#node-key)). Accept: without a TPM the host key lies on the same disk, and a host without systemd uses a 0600 file, a passphrase or an encrypted volume; the [runbook](../manuals/bootstrap.md#node-key-compromise) moves a node whose key leaked to a new key, and impersonating a pinned seed also needs its address |
 | Read the stores: mailbox addresses, sender keys, write token keys (one contact's envelopes per day, until the TTL), revoked token keys, sizes and times of envelopes, profiles, the search index, media manifests, the deny list | Disk read | Medium × medium | Accept: the same view as the node operator ([privacy](privacy.md)); profiles are public and envelopes from `rust/client` hold only MLS ciphertext |
-| Read the TURN secret and mint relay credentials | Disk read (`EnvironmentFile=`), memory | Medium × medium | Accept: coturn's `total-quota` and `max-bps` bound the relay; the operator rotates the secret in the node and coturn together ([TURN relay](../manuals/bootstrap.md#turn-relay)) |
+| Read the TURN secret and mint relay credentials | Disk read (`turn.secret_file`), memory | Medium × medium | Accept: coturn's `total-quota` and `max-bps` bound the relay; the operator rotates the secret in the node and coturn together ([TURN relay](../manuals/bootstrap.md#turn-relay)) |
 | Dump memory: the node key, the TURN secret, live TLS and Noise session keys, peer IPs of open connections, nonces and rate-limit state | Hypervisor | High × low | Accept: with the session keys and captured traffic the attacker sees the live requests a node operator sees, including client IPs; only a confidential VM (AMD SEV-SNP, Intel TDX) closes this. In place: `LimitCORE=0`, `MemorySwapMax=0` and a non-dumpable process keep the key out of crash dumps and swap, not out of a live hypervisor read |
 | Replace the `dyappd` binary, the systemd unit or the config: a backdoored node that logs client IPs against keys, withholds or delays data, serves old profiles, points seeds at the attacker's nodes | Disk write | High × low | Accept: such a node is a hostile node (class 8) under an honest operator's name; it cannot forge signed records or read end-to-end content. No check at start for v1: whoever writes the disk can also replace any check that runs from it; signed releases verified at install are planned ([updates](../manuals/bootstrap.md#updates)), and Secure Boot with dm-verity is the host-side defence for an operator who needs it |
 | Plant illegal media or records to expose the operator | Disk write | High × low | Accept for v1: the same legal exposure as class 14; only full-volume encryption (LUKS, a provider-encrypted volume with the operator's key) would make an offline write impossible, and that is the host's choice |

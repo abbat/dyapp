@@ -168,9 +168,15 @@ identity: delete them by hand to [retire the node](#retiring-a-node).
 
 ```bash
 docker volume create dyappd
+docker network create dyappd           # its own bridge: the egress rules below match its subnet
 run="docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true -v dyappd:/var/lib/dyappd"
-$run dyappd:latest keygen              # once: about a minute on 2 vCPU
-$run -d --name dyappd --memory 1g -p 33445:33445/tcp -p 33445:33445/udp \
+# once: about a minute on 2 vCPU; the key stays outside the volume, read-only for the node
+sudo install -d -m 0700 -o 65532 -g 65532 /etc/dyappd
+$run dyappd:latest keygen - | sudo install -m 0400 -o 65532 -g 65532 /dev/stdin /etc/dyappd/node.key
+$run -d --name dyappd --network dyappd --memory 1g --pids-limit 256 \
+    --mount type=bind,src=/etc/dyappd/node.key,dst=/run/secrets/node.key,readonly \
+    -e DYAPPD_STORAGE_KEY=/run/secrets/node.key \
+    -p 33445:33445/tcp -p 33445:33445/udp \
     -e DYAPPD_SEEDS='["seed.example.org:33445"]' dyappd:latest
 docker exec dyappd dyappd deny add <entry> [note]   # applied within 10 s
 docker exec dyappd dyappd status
@@ -185,7 +191,38 @@ bind mount needs `chown 65532:65532`. The image sets `listen` to `["[::]:33445",
 other settings are `DYAPPD_` variables, `--<section>.<key>` options after the image name, or a
 config file mounted read-only at `/etc/dyappd.toml`, which is read without `--config`. With
 `--memory 1g` the default `limits.max_memory_mb = 768` sheds requests before Docker's limit. In
-a container the key is a plain 0600 file in the volume.
+a container the key is a plain file; mounted read-only as above, a compromised node cannot
+replace it. Keep Docker's default seccomp profile: never `--security-opt seccomp=unconfined`
+or `--privileged`.
+
+The unit's `IPAddressDeny` has no container counterpart, so deny the same cloud metadata and
+link-local ranges on the host. For a bridge network, in the `DOCKER-USER` chain (the subnet is in
+`docker network inspect dyappd`):
+
+```bash
+for range in 169.254.0.0/16 100.100.100.200/32; do
+    sudo iptables -I DOCKER-USER -s <subnet> -d "$range" -j DROP
+done
+for range in fe80::/10 fd00:ec2::254/128; do
+    sudo ip6tables -I DOCKER-USER -s <IPv6 subnet> -d "$range" -j DROP
+done
+```
+
+With `--network host` the node's packets leave through `OUTPUT` under its UID:
+
+```bash
+for range in 169.254.0.0/16 100.100.100.200/32; do
+    sudo iptables -I OUTPUT -m owner --uid-owner 65532 -d "$range" -j DROP
+done
+for range in fe80::/10 fd00:ec2::254/128; do
+    sudo ip6tables -I OUTPUT -m owner --uid-owner 65532 -d "$range" -j DROP
+done
+```
+
+Save them with your firewall's tool (`netfilter-persistent save`). On its own bridge network the
+container asks Docker's embedded DNS, which forwards from the host; with `--network host` and a
+link-local resolver, mount a resolver list outside these ranges:
+`--mount type=bind,src=/etc/dyappd/resolv.conf,dst=/etc/resolv.conf,readonly`.
 
 The image is not published to a registry, and there are no Kubernetes manifests yet.
 
@@ -710,6 +747,11 @@ at a time:
   to the old one while the old one keeps answering is planned.
 - `apt` keeps your edited `/etc/dyappd.toml`; compare it with the new default in
   `/etc/dyappd.toml.dpkg-dist` when `apt` offers one.
+- A new unit's restrictions apply at the restart the upgrade makes. Read the upgrade's output: the
+  package warns there about a link-local resolver the unit denies.
+
+Install only a package or image you verified ([Getting dyappd](#getting-dyappd)); the node never
+updates itself.
 
 ### Rollback
 
@@ -837,8 +879,17 @@ expiry, which the node derives from the client's IP group, so clients behind one
 `total-quota` caps all allocations, so set it to about the uplink divided by `max-bps`. The
 example fits a 1 Gbit/s uplink with headroom.
 
-Give the node the secret as a file through `turn.secret_file` (or `DYAPPD_TURN_SECRET` in a
-systemd `EnvironmentFile=` with mode 0600). Open the
+Give the node the secret as a file, never on the command line. Under systemd, keep it root-owned
+with mode 0600 and pass it as a credential in a drop-in (`systemctl edit dyappd`):
+
+```ini
+[Service]
+LoadCredential=turn.secret:/etc/dyappd/turn.secret
+Environment=DYAPPD_TURN_SECRET_FILE=%d/turn.secret
+```
+
+In a container, mount the file read-only and set
+`DYAPPD_TURN_SECRET_FILE=/run/secrets/turn.secret`. Open the
 listening port (3478 UDP and TCP, 5349 for TLS) and the relay port range (`min-port`/`max-port`,
 49152–65535 by default). At startup the node refuses the role without a secret or with a URL
 that does not start with `turn:` or `turns:`. Credentials expire after `turn.credential_minutes`;
@@ -1054,6 +1105,39 @@ no start-time integrity check, so:
 - Keep backups that hold the key off the provider, or encrypted with a key it does not have.
 - If you suspect access, reinstall from a package you build or verify yourself, follow
   [Node key compromise](#node-key-compromise) and rotate the [TURN](#turn-relay) secret.
+
+### Signs of a host compromise
+
+None of these proves a compromise, and an attacker with root can hide each one; check them from
+time to time and after anything unusual:
+
+```bash
+dpkg --verify dyappd                        # no output: the packaged files are unchanged
+docker image inspect --format '{{.Id}}' dyappd:latest   # the digest you verified
+sudo sha256sum /var/lib/dyappd/node.key     # or the sealed key: compare with the value noted after keygen
+journalctl -k | grep -i seccomp             # the node calling a filtered system call
+systemctl status dyappd                     # restart loops; IP: traffic in and out since start
+systemctl show -p IPIngressBytes,IPEgressBytes dyappd
+```
+
+A nonzero `denied_dials` in the node's periodic status log line counts dials to a denied range
+since the last line: usually a hostile peer's address, possibly the node itself misbehaving.
+
+### After a host compromise
+
+A restart or a package update is not a recovery; the data directory counts as infected.
+
+1. Take the node off the network (stop it, or block its ports) and keep a copy of the disk for
+   analysis away from the host.
+2. Reinstall the host, or start a fresh VM, from media you trust; do not reuse `storage.dir`, its
+   backups after the suspected time or the old config without reading it.
+3. Install a verified package or image and run keygen for a new peer ID; tell the operators who
+   pin or deny the old ID ([Node key compromise](#node-key-compromise)).
+4. Rotate the [TURN](#turn-relay) secret in the node and coturn together, and any cloud or SSH
+   credentials the host held.
+5. Start with empty stores: replicas on other nodes repair profiles, mailboxes and media
+   ([ADR 0009](../decisions/0009-message-delivery-and-storage.md)); a single node loses its only
+   copy.
 
 ### Best practices
 
