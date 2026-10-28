@@ -26,6 +26,10 @@ final class ProfileDraftStoreTests: XCTestCase {
         try store.save(ProfileDraft(values: ["gender": 3]))
         XCTAssertEqual(try store.load(), ProfileDraft(values: ["gender": 3]))
         XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
+        let goal = ProfileDraft(values: ["gender": 3, "relationship_goal": 1])
+        try store.save(goal)
+        XCTAssertEqual(try store.load(), goal)
+        try store.save(ProfileDraft(values: ["gender": 3]))
 
         let second = try slots.create()
         let otherCandidate = IdentityCandidate(location: .slot(second.slot.id), state: .ready)
