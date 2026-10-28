@@ -1339,6 +1339,7 @@ dependencies = [
  "dyapp-identity",
  "dyapp-profile",
  "either",
+ "hickory-resolver",
  "ipnet",
  "libp2p",
  "prost",
