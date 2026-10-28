@@ -49,6 +49,8 @@ score = 72.2
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # tests/scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.
+# macOS: the app stopped while waiting for the local-node check; the retry passed.
+"ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-10-28
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
