@@ -4,6 +4,8 @@
 udid = "udid"
 # hax-lib, the verification library under libcrux (deny.toml).
 hax = "hax"
+# GObject introspection packages (gir1.2-*) in the prototype image.
+gir = "gir"
 
 [files]
 # Raw fuzz inputs and the embedded GeoNames places.
