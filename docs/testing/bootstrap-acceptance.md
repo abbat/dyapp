@@ -162,6 +162,7 @@ assertion changes.
 | Strikes ban until quiet; group and sender quotas | Unit | `rate_limit.rs::strikes_ban_until_quiet`, `service/tests/mailbox.rs::group_and_sender_quotas_and_bans` | exists |
 | Connections over the count limit are refused | Functional | `protocol.rs::connections_over_the_limit_are_refused` | exists |
 | Fine IP group shares 32 pending/established incoming slots; outgoing exempt; failure/close/composed refusal frees slots; QUIC churn drains | Real TCP/QUIC, unit | `node/tests/groups.rs::incoming_group_caps_pending_tcp_and_releases_failed_handshakes`, `::incoming_group_caps_established_tcp_but_exempts_outgoing_and_releases_close`, `::composed_peer_limit_refusal_does_not_leak_incoming_group_reservation`, `::quic_churn_releases_incoming_groups`, `p2p-net/src/incoming_groups.rs` | exists |
+| Fine groups of one coarse group (/24s in a /16, /48s in a /32) share ten times the group budget; the coarse group is computed from the connection's IP | Unit | `service/tests.rs::fine_groups_of_one_coarse_group_share_ten_times_the_budget`, `node/tests.rs::ip_groups_mask_the_prefix` | exists |
 | Connections over the memory share are refused | Functional | `protocol.rs::connections_over_the_memory_limit_are_refused` | exists |
 | Idle nodes drain: nothing pending, no watch, no entry of a closed connection (`node state` on SIGHUP) | E2E | `network-test.py::drained` | exists |
 | Resident memory levels off under repeated load (second-half peak ≤ first-half peak + 10 %) | Memory plateau | `network-test.py::plateau` | exists, local only |

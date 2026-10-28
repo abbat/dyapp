@@ -671,6 +671,19 @@ fn fine_groups_of_one_coarse_group_share_ten_times_the_budget() {
         get_at(&at("q", "10.1.0.0/24", "10.1.0.0/16")),
         Status::NotFound
     );
+    // The same for /48s inside one IPv6 /32.
+    for i in 0..10 {
+        let peer = at(
+            &format!("v{i}"),
+            &format!("2001:db8:{i}::/48"),
+            "2001:db8::/32",
+        );
+        assert_eq!(get_at(&peer), Status::NotFound);
+    }
+    assert_eq!(
+        get_at(&at("v10", "2001:db8:a::/48", "2001:db8::/32")),
+        Status::RateLimited
+    );
 }
 
 #[test]
