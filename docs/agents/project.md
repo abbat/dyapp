@@ -156,6 +156,8 @@ capture per port across restarts. Raw failure evidence includes node-port header
   `gh run download <id> -D DIR -p '*android*'`; all artifacts include the large Apple bundles.
   Android UI evidence is under `platform-reports/android-*/`: `instrumentation*.txt` (one per
   attempt), `logcat.txt`, `failure.png`, and `node/` for the loopback dyappd.
+  The Apple bundles (`apple-ios`, `apple-macos`, ~500 MB each) do not fit a small `/tmp`: put
+  them under the ignored `build/`, with `TMPDIR` there too, since `gh` stages the zip in it.
 - A sudden Apple IPA/ZIP size jump: grep the release-sizes `build.log` artifact for embedded
   `libswift_*.dylib`. Swift 6 mode with a deployment target below iOS 15 / macOS 12 embeds the
   back-deployed concurrency runtime. Download artifacts with `gh run download <id> -n <name>`.
