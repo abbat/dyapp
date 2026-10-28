@@ -88,7 +88,8 @@ class ProfilePublishTests {
             if (shows(R.string.network_connected)) return@repeat
             compose.onNodeWithTag("network-check").performScrollTo().performClick()
             compose.waitUntil(PUBLISH_WAIT_MS) {
-                shows(R.string.network_connected) || shows(R.string.network_unreachable)
+                shows(R.string.network_connected) || shows(R.string.network_unreachable) ||
+                    shows(R.string.network_check_failed)
             }
         }
         waitForText("network-check-status", R.string.network_connected)

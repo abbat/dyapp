@@ -430,6 +430,14 @@ pub fn build_configured_swarm(
         autonat,
     } = options;
     let pow_gate = dial_guard.clone().map(PowGate::new);
+    // Android without an active network, or a host without /etc/resolv.conf: no name servers, so
+    // IP addresses still dial and host names fail in this swarm.
+    let (dns_config, dns_options) = hickory_resolver::system_conf::read_system_conf()
+        .unwrap_or_else(|error| {
+            tracing::warn!(%error, "no system DNS configuration: host names will not resolve");
+            let none = libp2p::dns::ResolverConfig::from_parts(None, vec![], vec![]);
+            (none, libp2p::dns::ResolverOpts::default())
+        });
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_other_transport(|key| -> Result<_, Box<dyn Error + Send + Sync>> {
@@ -451,7 +459,7 @@ pub fn build_configured_swarm(
             Ok(DenyDial::new(guarded, dial_filter).boxed())
         })
         .map_err(|error| anyhow::anyhow!("transport: {error}"))?
-        .with_dns()?
+        .with_dns_config(dns_config, dns_options)
         // Circuits ride connections of the transport above: the filter, the guard and
         // `Endpoints` see the relay's IP, never the far peer's.
         .with_relay_client(noise::Config::new, yamux::Config::default)?
