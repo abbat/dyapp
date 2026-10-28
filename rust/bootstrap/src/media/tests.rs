@@ -184,26 +184,6 @@ fn assembled_blobs_expire_when_idle_and_go_first_under_the_disk_guard() {
 }
 
 #[test]
-fn old_layout_is_moved() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
-    let data = vec![7u8; 10];
-    let hash = dyapp_identity::sha256(&data).to_vec();
-    {
-        let media = MediaStore::open(&dir).unwrap();
-        media
-            .keep("bob", 1, std::slice::from_ref(&hash), 10)
-            .unwrap();
-        media.put("bob", &data, 1000).unwrap();
-    }
-    fs::rename(dir.join("data"), dir.join("media")).unwrap();
-    fs::rename(dir.join("media.db"), dir.join("media/media.db")).unwrap();
-    let media = MediaStore::open(&dir).unwrap();
-    assert_eq!(media.get(&hash).unwrap(), Some(data));
-    assert_eq!(media.usage().unwrap().0, 10);
-    assert!(!dir.join("media").exists());
-}
-
-#[test]
 fn attach_put_release_and_expire() {
     let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
     let media = MediaStore::open(&dir).unwrap();

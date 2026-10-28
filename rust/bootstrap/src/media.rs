@@ -142,16 +142,6 @@ impl MediaStore {
     /// `dir/cache`.
     pub fn open(dir: &Path) -> Result<Self> {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
-        // Older nodes kept both in `dir/media`. Each step is a rename, so a crash between them
-        // is finished by the next start.
-        let old = dir.join("media");
-        if old.join("media.db").exists() && !data.exists() {
-            fs::rename(&old, &data).map_err(storage_error)?;
-            tracing::info!(from = %old.display(), to = %data.display(), "media store moved");
-        }
-        if data.join("media.db").exists() && !db.exists() {
-            fs::rename(data.join("media.db"), &db).map_err(storage_error)?;
-        }
         fs::create_dir_all(&data).map_err(storage_error)?;
         let db = open(
             &db,

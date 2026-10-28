@@ -61,7 +61,7 @@ impl NodeConfig {
     }
 
     /// Whether `storage.dir` holds node data: a store, its SQLite sidecars, the media blobs in
-    /// `data/` or the old `media/` layout. The deny list, peer caches and the key are not data.
+    /// `data/`. The deny list, peer caches and the key are not data.
     pub(super) fn has_data(&self) -> anyhow::Result<bool> {
         let dir = &self.storage.dir;
         let sidecars = self.storage.stores().into_iter().flat_map(|store| {
@@ -71,7 +71,7 @@ impl NodeConfig {
                 PathBuf::from(name)
             })
         });
-        for path in sidecars.chain([dir.join("data"), dir.join("media")]) {
+        for path in sidecars.chain([dir.join("data")]) {
             match fs::symlink_metadata(&path) {
                 Ok(_) => return Ok(true),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}

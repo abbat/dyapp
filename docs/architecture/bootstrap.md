@@ -766,7 +766,7 @@ reload; the node refuses new puts and reads of that hash.
   it holds the name (empty for the public network, no newline). `keygen` or the first start
   writes it and never replaces it; a start under another `network.name`, or a malformed or
   oversized file, is refused with "use a new storage.dir". A directory without the file but with
-  data (a store, its `-wal`/`-shm`/`-journal` sidecars, `data/` or the old `media/` layout) predates
+  data (a store, its `-wal`/`-shm`/`-journal` sidecars, `data/`) predates
   network names and belongs to the public network; the deny list, peer caches and the key are not
   data.
 - Settings live in the config file and the systemd unit and need a restart. The `dyappd` binary

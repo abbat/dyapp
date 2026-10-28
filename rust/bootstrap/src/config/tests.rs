@@ -463,7 +463,7 @@ fn data_without_a_marker_belongs_to_the_public_network() {
         .into_iter()
         .flat_map(|store| ["", "-wal", "-shm", "-journal"].map(|suffix| format!("{store}{suffix}")))
         .collect();
-    data.extend(["data/".into(), "media/".into()]);
+    data.push("data/".into());
     for name in data {
         let mut config = named("city");
         let path = config.storage.dir.join(&name);
