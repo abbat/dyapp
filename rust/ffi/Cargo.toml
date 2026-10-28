@@ -24,6 +24,11 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "net", "rt", "sync", "time"] }
 zeroize = "1.9"
 
+# The DNS resolver reads the Android name servers through ndk-context (ADR 0032).
+[target.'cfg(target_os = "android")'.dependencies]
+jni-sys = "0.4"
+ndk-context = "0.1"
+
 [dev-dependencies]
 libp2p = "0.57"
 

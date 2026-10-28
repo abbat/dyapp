@@ -35,6 +35,11 @@ Kotlin output is one file, `uniffi/dyapp/dyapp.kt` (package `uniffi.dyapp`). It
 loads `libdyapp_ffi.so` through JNA (`net.java.dev.jna:jna`, the `@aar` artifact
 on Android) and throws `CoreException` for a failed call.
 
+On Android, `DYApplication.onCreate` also loads the same library through `System.loadLibrary`
+and calls the JNI export `Java_com_dyapp_DYApplication_nativeInit` (`rust/ffi/src/android.rs`). It stores the Java VM and
+the application `Context` in `ndk-context` once per process, so the libp2p DNS resolver can read
+the system name servers ([ADR 0032](../decisions/0032-android-context-for-dns.md)).
+
 ## Android
 
 `clients/android/app/build.gradle` wires both steps into the app build; outputs land in

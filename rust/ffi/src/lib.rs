@@ -8,6 +8,8 @@ use tokio::sync::RwLock;
 use uniffi::*;
 use zeroize::Zeroizing;
 
+#[cfg(target_os = "android")]
+mod android;
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod network;

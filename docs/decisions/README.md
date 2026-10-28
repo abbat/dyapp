@@ -68,5 +68,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0029](0029-partial-public-birth-date.md) | Optional partial public birth date and derived age |
 | [0030](0030-desktop-full-node.md) | Desktop app runs node roles in process |
 | [0031](0031-circuit-relay-and-hole-punching.md) | Circuit relay on bootstrap nodes and hole punching |
+| [0032](0032-android-context-for-dns.md) | Android context for the DNS resolver |
 
 All listed ADRs are accepted.

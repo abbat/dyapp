@@ -11,6 +11,7 @@
 |--------|--------|
 | `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
 | `clients/android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Creates or opens the active identity slot and shows its peer ID. |
+| `rust/ffi/src/android.rs` | Android only: the JNI export `DYApplication.nativeInit` that gives the DNS resolver the app `Context` ([ADR 0032](../decisions/0032-android-context-for-dns.md)). |
 | `clients/android/app/src/main/kotlin/com/dyapp/Slots.kt` | Identity slots under `noBackupFilesDir`: create, open, recovery states and removal; see [Android identity storage](../development/android-identity-storage.md). |
 | `clients/android/app/src/main/kotlin/com/dyapp/PlatformKeyStore.kt` | The app's `KeyStore`: AES-256-GCM with a non-exportable Android Keystore key, one alias per identity slot. |
 | `clients/ios/DYApp/RustBridge.swift` | Creates or opens the stored `IdentityKey` and shows its peer ID; shared by the iOS and macOS apps. |
