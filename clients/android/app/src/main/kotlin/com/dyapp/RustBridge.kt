@@ -3,6 +3,7 @@ package com.dyapp
 import android.content.Context
 import android.util.Log
 import uniffi.dyapp.ConnectionCheck
+import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkFile
 import uniffi.dyapp.NetworkSettings
 import uniffi.dyapp.loadNetwork as ffiLoadNetwork
@@ -34,6 +35,15 @@ object RustBridge {
 
     /** Create a checker for this ready slot; run and activate off the UI thread. */
     fun connectionCheck(opened: Opened.Ready) = ConnectionCheck(opened.slot.dir.absolutePath)
+
+    /** Runs [action] on this ready slot's folder and reopened key; a changed Peer ID refuses it. */
+    fun <T> withKey(opened: Opened.Ready, action: (String, IdentityKey) -> T): T {
+        val slot = opened.slot
+        return IdentityKey.unwrap(PlatformKeyStore(slot.alias), slot.keyFile.readBytes()).use { key ->
+            check(key.peerId() == opened.peerId) { "The identity key changed" }
+            action(slot.dir.absolutePath, key)
+        }
+    }
 
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.

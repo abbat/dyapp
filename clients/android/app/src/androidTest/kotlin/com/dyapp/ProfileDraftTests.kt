@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
@@ -13,6 +14,7 @@ import java.time.ZoneOffset
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
+import uniffi.dyapp.profileScales
 
 class ProfileDraftTests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -50,6 +52,26 @@ class ProfileDraftTests {
         val unknown = compose.activity.getString(R.string.profile_age, string(R.string.profile_age_unknown))
         compose.onNodeWithTag("profile-preview-age").performScrollTo().assertTextEquals(unknown)
         compose.onNodeWithTag("profile-full-date").assertDoesNotExist()
+    }
+
+    @Test
+    fun multiWordScaleSurvivesReopeningTheEditor() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        // Its Rust key has an underscore, which the client.db record maps by name.
+        val scale = profileScales().first { it.key == "relationship_goal" }
+        val choice = label("value.${scale.key}.${scale.choices.first().key}")
+        compose.onNodeWithTag("profile-${scale.key}").performScrollTo().performClick()
+        compose.onNodeWithText(choice).performClick()
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
+        compose.onNodeWithText(string(R.string.profile_back)).performScrollTo().performClick()
+        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-${scale.key}").performScrollTo().assertTextEquals(choice)
+    }
+
+    private fun label(key: String) = compose.activity.run {
+        getString(resources.getIdentifier("profile_" + key.replace('.', '_'), "string", packageName))
     }
 
     @Test

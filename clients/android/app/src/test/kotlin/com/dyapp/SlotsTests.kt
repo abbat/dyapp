@@ -112,9 +112,11 @@ class SlotsTests {
         assertTrue(runCatching { slots.remove(id, second.peerId) }.isFailure)
         assertEquals("deleting $id ${second.peerId}", state())
         keys.deleteWorks = true
-        // Network settings go with the slot.
+        // Network settings and the profile draft go with the slot.
         File(second.slot.dir, "network").writeText("dyapp-network 1\nname \n")
         File(second.slot.dir, "profile-draft.json").writeText("{}")
+        File(second.slot.dir, "client.db").writeText("draft")
+        File(second.slot.dir, "client.db-wal").writeText("wal")
         slots.remove(id, second.peerId)
         assertTrue(slots.list().none { it.id == id })
         assertNull(slots.active())

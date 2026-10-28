@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.assessBirthParts
-import java.io.File
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
@@ -34,10 +33,10 @@ private fun possibleAgeOnUtcToday(saved: Map<String, Int>): String? {
 }
 
 @Composable
-internal fun PreviewSection(file: File, scales: List<ProfileScale>, saves: Int) {
-    // Reads the saved file, so unsaved edits never appear; each save hides a stale preview.
+internal fun PreviewSection(read: () -> ProfileDraft, scales: List<ProfileScale>, saves: Int) {
+    // Reads the saved draft, so unsaved edits never appear; each save hides a stale preview.
     var preview by remember(saves) { mutableStateOf<Result<ProfileDraft>?>(null) }
-    OutlinedButton(onClick = { preview = runCatching { readDraft(file, scales) } },
+    OutlinedButton(onClick = { preview = runCatching(read) },
         modifier = Modifier.testTag("profile-preview")) {
         Text(stringResource(R.string.profile_preview))
     }

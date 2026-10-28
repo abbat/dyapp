@@ -267,7 +267,8 @@ class Slots(private val root: File, private val keys: SlotKeys) {
 
         private val removableSlotFiles = setOf(
             SLOT_STATE_FILE, "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
-            "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new"
+            "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new",
+            "client.db", "client.db-wal", "client.db-shm", "client.db-journal"
         )
 
         private const val SLOT_RESERVATION_ATTEMPTS = 8

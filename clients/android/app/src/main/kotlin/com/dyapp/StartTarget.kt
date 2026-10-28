@@ -36,7 +36,7 @@ internal fun showReadyEditor(slots: Slots, opened: Opened.Ready?, editor: StartT
     if (opened == null || editor == null && !automatic) return false
     when {
         editor == StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, close)
-        editor == StartTarget.PROFILE -> ProfileDraftScreen(opened.slot, close)
+        editor == StartTarget.PROFILE -> ProfileDraftScreen(opened, close)
         networkNeeded == null -> Text(stringResource(R.string.network_loading))
         else -> NetworkDraftScreen(opened) {
             close()

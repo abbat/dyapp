@@ -29,7 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.profileScales
-import java.io.File
 
 @Composable
 internal fun label(context: Context, key: String): String {
@@ -38,13 +37,16 @@ internal fun label(context: Context, key: String): String {
     return if (id == 0) key else stringResource(id)
 }
 
-/** Local profile draft editor and preview; Rust supplies the closed wire choices. Publishing is not wired here. */
+/**
+ * Profile draft editor and preview over `client.db`; Rust supplies the closed wire choices. Publishing is
+ * not wired here.
+ */
 @Composable
-fun ProfileDraftScreen(slot: Slot, onBack: () -> Unit) {
-    val context = LocalContext.current
-    val file = remember(slot.id) { File(slot.dir, "profile-draft.json") }
+fun ProfileDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
     val scales = remember { profileScales() }
-    val loaded = remember(file) { runCatching { readDraft(file, scales) } }
+    // ponytail: Keystore unwrap and SQLite on the main thread, as identity opening; move off it
+    // with the client runtime.
+    val loaded = remember(opened.slot.id) { runCatching { loadDraft(opened, scales) } }
     if (loaded.isFailure) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text(stringResource(R.string.profile_read_failed))
@@ -52,7 +54,7 @@ fun ProfileDraftScreen(slot: Slot, onBack: () -> Unit) {
         }
         return
     }
-    ProfileDraftForm(file, scales, loaded.getOrThrow(), onBack)
+    ProfileDraftForm(opened, scales, loaded.getOrThrow(), onBack)
 }
 
 private class BirthInputs(saved: Map<String, Int>) {
@@ -61,27 +63,32 @@ private class BirthInputs(saved: Map<String, Int>) {
     var day by mutableStateOf(saved[BIRTH_DAY]?.toString().orEmpty())
 }
 
-private fun saveDraft(file: File, values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs): Int {
+private fun saveEdits(opened: Opened.Ready, values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs): Int {
     val parts = parseBirthParts(birth.year, birth.month, birth.day)
     val picked = place.place?.let { mapOf(PLACE to it) }.orEmpty()
     val kept = values.filterKeys { it !in BIRTH_KEYS && it != PLACE }
     return when {
         parts == null -> R.string.profile_birth_invalid
         place.unknown -> R.string.profile_place_unknown
-        else -> runCatching { writeDraft(file, ProfileDraft(kept + parts + picked, place.country)) }
+        else -> runCatching { saveDraft(opened, ProfileDraft(kept + parts + picked, place.country)) }
             .fold({ R.string.profile_saved }, { R.string.profile_save_failed })
     }
 }
 
 @Composable
-private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: ProfileDraft, onBack: () -> Unit) {
+private fun ProfileDraftForm(
+    opened: Opened.Ready,
+    scales: List<ProfileScale>,
+    saved: ProfileDraft,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
-    val values = remember(file) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
+    val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     var status by remember { mutableStateOf("") }
     var saves by remember { mutableIntStateOf(0) }
-    val birth = remember(file) { BirthInputs(saved.values) }
+    val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
     val lang = placeLang()
-    val place = remember(file) {
+    val place = remember(opened.slot.id) {
         PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
     }
     Column(
@@ -94,12 +101,12 @@ private fun ProfileDraftForm(file: File, scales: List<ProfileScale>, saved: Prof
         }
         PlacePicker(place)
         BirthDateFields(birth)
-        Button(onClick = { status = context.getString(saveDraft(file, values, birth, place)); saves++ },
+        Button(onClick = { status = context.getString(saveEdits(opened, values, birth, place)); saves++ },
             modifier = Modifier.testTag("profile-save")) {
             Text(stringResource(R.string.profile_save))
         }
         Text(status, Modifier.testTag("profile-status"))
-        PreviewSection(file, scales, saves)
+        PreviewSection({ loadDraft(opened, scales) }, scales, saves)
         OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }
 }
