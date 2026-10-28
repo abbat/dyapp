@@ -21,7 +21,7 @@ Package: dyappd
 Version: $version
 Architecture: $arch
 Maintainer: Anton Batenev <antonbatenev@yandex.ru>
-Depends: adduser, libc6 (>= 2.36)
+Depends: adduser, libc6 (>= 2.36), procps
 Section: net
 Priority: optional
 Description: dyapp bootstrap node

@@ -3,6 +3,12 @@
 set -euo pipefail
 deb=$(ls /deb/dyappd_*.deb)
 dpkg -i "$deb" >/dev/null
+# Debian 12's systemd knows every directive; an unknown key is only a warning, so any output fails.
+if ! verify=$(systemd-analyze verify --man=no /lib/systemd/system/dyappd.service 2>&1) \
+    || [ -n "$verify" ]; then
+    echo "$verify"
+    exit 1
+fi
 getent passwd dyappd | grep -q ':/var/lib/dyappd:/usr/sbin/nologin$'
 test "$(stat -c %U /var/lib/dyappd)" = dyappd
 # No systemd in the container: run what ExecStart runs, as User= would. A low proof of work keeps

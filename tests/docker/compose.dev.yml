@@ -68,7 +68,10 @@ services:
     profiles: [security]
   # The release binary on Debian 12, written to the host's build/deb as the calling user.
   deb-test:
-    image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    image: dyapp:deb-test
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.deb-test
     cpus: ${DYAPP_CPUS:-4}
     cap_drop: [ALL]
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]

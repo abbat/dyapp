@@ -110,13 +110,22 @@ sudo apt install ./dyappd_*.deb        # создаёт пользователя
 - работает от системного пользователя `dyappd` (без оболочки и входа) без capabilities, с
   `NoNewPrivileges`, системой только для чтения (`ProtectSystem=strict`), без доступа к `/home`, с
   отдельным `/tmp` и правом записи только в `/var/lib/dyappd`;
+- не может заменить `node.key` или `node.id` (bind mount только для чтения), запустить что-либо
+  вне `/usr` (`NoExecPaths=/`, `ExecPaths=/usr`), видеть чужие процессы и системную часть `/proc`
+  (`ProtectProc=invisible`, `ProcSubset=pid`) или делить System V IPC и keyring с другими unit
+  (`PrivateIPC`, `RemoveIPC`, `KeyringMode=private`);
+- не может обращаться к link-local адресам и адресам метаданных облака
+  (`IPAddressDeny=169.254.0.0/16 fe80::/10 fd00:ec2::254/128 100.100.100.200/32`), открывает
+  только сокеты IPv4, IPv6, Unix и netlink (`RestrictAddressFamilies`) и считает свой трафик
+  (`IPAccounting=yes`: `systemctl show -p IPIngressBytes,IPEgressBytes dyappd`);
 - ограничен `MemoryHigh=768M`, `MemoryMax=1G`, `CPUQuota=150%` и `TasksMax=256`;
   `limits.max_memory_mb` по умолчанию равен MemoryHigh, поэтому узел сбрасывает запросы раньше,
   чем ядро начнёт его тормозить. На большем хосте поднимите оба значения в drop-in;
 - задаёт `LimitCORE=0` и `MemorySwapMax=0` (cgroup v2); `dyappd` также при запуске делает себя
   недампируемым, так что ключ узла не попадает в core dump и swap;
 - расшифровывает [запечатанный ключ узла](#ключ-узла) через `LoadCredentialEncrypted=node.key`;
-- пишет журнал в journal с `RUST_LOG=info`; `systemctl reload dyappd` посылает SIGHUP.
+- пишет журнал в journal с `RUST_LOG=info`; `systemctl reload dyappd` посылает SIGHUP через
+  `/bin/kill`, поэтому пакет зависит от `procps`.
 
 Порт по умолчанию 33445 не требует привилегий; подходит любой порт, seeds и клиенты его
 указывают, а сама смена порта не скрывает трафик от DPI
@@ -131,6 +140,25 @@ ReadWritePaths=/srv/dyappd
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ```
+
+Узел сам разрешает имена seed-узлов, поэтому DNS-сервер на link-local адресе (некоторые облака
+отдают DNS на `169.254.169.253` или `fe80::…`; см. `nameserver` в `/etc/resolv.conf`) блокируется
+`IPAddressDeny`, и имена seed-узлов перестают разрешаться. Дайте узлу свой список серверов в
+drop-in:
+
+```ini
+[Service]
+# /etc/dyappd/resolv.conf содержит nameserver вне 169.254.0.0/16 и fe80::/10
+BindReadOnlyPaths=/etc/dyappd/resolv.conf:/etc/resolv.conf
+```
+
+Только если другой DNS-сервер недоступен, разрешите один адрес через
+`IPAddressAllow=169.254.169.253/32`: разрешённый адрес сильнее любого запрета, поэтому никогда не
+разрешайте целый диапазон. Если после обновления узел пишет в журнал
+`Address family not supported`, новая версия открывает семейство сокетов, которого нет в unit:
+добавьте его в `RestrictAddressFamilies=` в drop-in и сообщите об этом.
+`systemd-analyze security dyappd` показывает, что песочница ещё разрешает; это ориентир, у его
+оценки нет порога, которому пакет обязан соответствовать.
 
 Удаление пакета останавливает и отключает unit. Полное удаление (`apt purge dyappd`) оставляет
 пользователя, `/var/lib/dyappd` и `/etc/credstore.encrypted/node.key`, потому что ключ — это

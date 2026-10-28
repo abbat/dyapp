@@ -36,7 +36,7 @@ pulls anything).
 | Integration | `make test-integration` | bootstrap `integration_tests` + network compose + `rust-check.sh memory` (5-minute RSS plateau) |
 | First-deployment rehearsal (about 3 h) | `make rehearsal FROM=<git ref>`, or CI `rehearsal.yml` (manual) | `rust-check.sh rehearsal`: `tests/scripts/rehearsal.py`, see [operator manual](../manuals/bootstrap.md#first-deployment) |
 | Everything (pre-push) | `make test-all` | `tests/scripts/docker-test.sh all` |
-| Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim |
+| Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim with procps and systemd (`tests/docker/Dockerfile.deb-test`; `deb-test.sh` runs `systemd-analyze verify` on the unit) |
 | Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
 | fmt check | `make fmt` | `cargo fmt --all -- --check`; the Docker checkout is read-only, so apply its diffs with host `rustfmt --edition 2021 <files>` |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |

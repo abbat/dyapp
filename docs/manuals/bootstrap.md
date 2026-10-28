@@ -109,13 +109,22 @@ The package holds `/usr/bin/dyappd`, `/etc/dyappd.toml` (a conffile, kept on upg
 - runs as the system user `dyappd` (no shell, no login) with no capabilities, `NoNewPrivileges`,
   a read-only system (`ProtectSystem=strict`), no access to `/home`, a private `/tmp` and write
   access to `/var/lib/dyappd` only;
+- cannot replace `node.key` or `node.id` (read-only bind mounts), run anything outside `/usr`
+  (`NoExecPaths=/`, `ExecPaths=/usr`), see other processes or the system part of `/proc`
+  (`ProtectProc=invisible`, `ProcSubset=pid`), or share System V IPC and keyrings with other
+  units (`PrivateIPC`, `RemoveIPC`, `KeyringMode=private`);
+- cannot reach link-local and cloud metadata addresses
+  (`IPAddressDeny=169.254.0.0/16 fe80::/10 fd00:ec2::254/128 100.100.100.200/32`), opens only
+  IPv4, IPv6, Unix and netlink sockets (`RestrictAddressFamilies`) and counts its traffic
+  (`IPAccounting=yes`: `systemctl show -p IPIngressBytes,IPEgressBytes dyappd`);
 - is bounded to `MemoryHigh=768M`, `MemoryMax=1G`, `CPUQuota=150%` and `TasksMax=256`;
   `limits.max_memory_mb` defaults to MemoryHigh, so the node sheds requests before the kernel
   throttles it. On a larger host raise both in a drop-in;
 - sets `LimitCORE=0` and `MemorySwapMax=0` (cgroup v2); `dyappd` also makes itself non-dumpable at
   start, so the node key stays out of core dumps and swap;
 - decrypts the [sealed node key](#node-key) with `LoadCredentialEncrypted=node.key`;
-- logs to the journal with `RUST_LOG=info`; `systemctl reload dyappd` sends SIGHUP.
+- logs to the journal with `RUST_LOG=info`; `systemctl reload dyappd` sends SIGHUP with
+  `/bin/kill`, hence the package's `procps` dependency.
 
 The default port 33445 needs no privilege; any port works, seeds and clients carry it, and
 another port alone does not hide the traffic from DPI
@@ -130,6 +139,24 @@ ReadWritePaths=/srv/dyappd
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ```
+
+The node resolves seed names itself, so a DNS resolver on a link-local address (some clouds
+serve DNS at `169.254.169.253` or `fe80::…`; see `nameserver` in `/etc/resolv.conf`) is refused
+by `IPAddressDeny` and seed names stop resolving. Give the node its own resolver list in a
+drop-in:
+
+```ini
+[Service]
+# /etc/dyappd/resolv.conf holds a nameserver outside 169.254.0.0/16 and fe80::/10
+BindReadOnlyPaths=/etc/dyappd/resolv.conf:/etc/resolv.conf
+```
+
+Only when no other resolver is reachable, allow the one address with
+`IPAddressAllow=169.254.169.253/32`: an allowed address wins over every deny, so never allow a
+whole range. If the node logs `Address family not supported` after an upgrade, the new version
+opens a socket family the unit does not list: add it to `RestrictAddressFamilies=` in a drop-in
+and report it. `systemd-analyze security dyappd` lists what the sandbox still allows; read it as
+a guide, its score has no threshold the package must meet.
 
 Removing the package stops and disables the unit. Purging (`apt purge dyappd`) keeps the user,
 `/var/lib/dyappd` and `/etc/credstore.encrypted/node.key`, because the key is the node's

@@ -18,6 +18,7 @@ prepare:
 	bash tests/scripts/ui-test.sh prepare
 	bash tests/scripts/docker-test.sh network-prepare
 	$(DOCKER) -f tools/docker/compose.dev.yml --profile deb build deb
+	$(TEST_COMPOSE) --profile deb build deb-test
 
 test:
 	bash tests/scripts/docker-test.sh test

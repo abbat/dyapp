@@ -191,6 +191,7 @@ assertion changes.
 | A restarted node keeps its peer ID | E2E | `network-test.py::profile_repair`, `::media_retention` | exists |
 | SIGTERM stops the node without a handler; SQLite WAL keeps committed data | — | — | accepted: [Decisions](#decisions) |
 | The package installs on Debian 12, runs as `dyappd` and removes cleanly | Package | `deb-test.sh` | exists, local only |
+| Debian 12's `systemd-analyze verify` prints nothing for the packaged unit | Package | `deb-test.sh` | exists, local only |
 | The tarball installs by hand on Debian 12 as in the manual; `status` tells the running node from the stopped one | Package | `tarball-test.sh` | exists, local only |
 | A store file newer than the binary is refused | Unit | `storage.rs::a_newer_store_file_is_refused` | exists |
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |

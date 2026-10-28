@@ -41,6 +41,7 @@ jobs:
           bash tests/scripts/docker-test.sh prepare
           python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml --profile base build linux-base
           python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml --profile deb build deb
+          python3 tools/scripts/docker-local.py -f tools/docker/compose.dev.yml -f tests/docker/compose.dev.yml --profile deb build deb-test
       - name: package and test
         run: make deb image
       # Prebuilt release binary, pinned by checksum, as in security.yml.
