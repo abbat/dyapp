@@ -1,6 +1,11 @@
 package com.dyapp
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -111,5 +116,49 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("preview-place").assertDoesNotExist()
         compose.onNodeWithTag("preview-country").assertDoesNotExist()
+    }
+
+    private fun eligibility(id: Int) {
+        compose.waitUntil(PUBLISH_WAIT_MS) {
+            val matcher = hasTestTag("profile-publish-eligibility") and hasText(string(id))
+            compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun confirmBoth() {
+        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-confirm-public").performScrollTo().performClick()
+        eligibility(R.string.profile_eligible)
+    }
+
+    @Test
+    fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-prepare-publish").performScrollTo().assertIsNotEnabled()
+        confirmBoth()
+
+        // An unsaved edit clears and disables both confirmations until it is saved.
+        compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextInput("2000")
+        eligibility(R.string.profile_save_changes_before_publish)
+        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff().assertIsNotEnabled()
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff().assertIsEnabled()
+        confirmBoth()
+
+        // Skipped network entry leaves no active network: the proof runs, publication fails and retries.
+        compose.onNodeWithTag("profile-prepare-publish").performScrollTo().performClick()
+        compose.waitUntil(PUBLISH_WAIT_MS) {
+            compose.onAllNodes(hasTestTag("profile-publish-error")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("profile-publish-error").performScrollTo()
+            .assertTextEquals(string(R.string.profile_publish_error_not_connected))
+        compose.onNodeWithTag("profile-confirm-public").performScrollTo().assertIsOff()
+        compose.onNodeWithText(string(R.string.profile_retry_publish)).assertExists()
+        compose.onNodeWithTag("profile-prepare-publish").assertIsNotEnabled()
+    }
+
+    private companion object {
+        const val PUBLISH_WAIT_MS = 30_000L
     }
 }

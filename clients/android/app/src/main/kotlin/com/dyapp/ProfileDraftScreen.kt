@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +39,7 @@ internal fun label(context: Context, key: String): String {
 }
 
 /**
- * Profile draft editor and preview over `client.db`; Rust supplies the closed wire choices. Publishing is
- * not wired here.
+ * Profile draft editor, preview and publication over `client.db`; Rust supplies the closed wire choices.
  */
 @Composable
 fun ProfileDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
@@ -84,8 +84,6 @@ private fun ProfileDraftForm(
 ) {
     val context = LocalContext.current
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
-    var status by remember { mutableStateOf("") }
-    var saves by remember { mutableIntStateOf(0) }
     val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
     val lang = placeLang()
     val place = remember(opened.slot.id) {
@@ -101,14 +99,38 @@ private fun ProfileDraftForm(
         }
         PlacePicker(place)
         BirthDateFields(birth)
-        Button(onClick = { status = context.getString(saveEdits(opened, values, birth, place)); saves++ },
-            modifier = Modifier.testTag("profile-save")) {
-            Text(stringResource(R.string.profile_save))
-        }
-        Text(status, Modifier.testTag("profile-status"))
-        PreviewSection({ loadDraft(opened, scales) }, scales, saves)
+        SaveAndPublish(opened, scales, inputs(values, birth, place)) { saveEdits(opened, values, birth, place) }
         OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }
+}
+
+private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs) =
+    listOf(values.toMap(), birth.year, birth.month, birth.day, place.country, place.place, place.text)
+
+// Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
+@Composable
+private fun SaveAndPublish(
+    opened: Opened.Ready,
+    scales: List<ProfileScale>,
+    edits: List<Any?>,
+    save: () -> Int,
+) {
+    val context = LocalContext.current
+    var status by remember { mutableStateOf("") }
+    var saves by remember { mutableIntStateOf(0) }
+    var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
+    val unsaved = edits != savedEdits
+    Button(onClick = {
+        val result = save()
+        status = context.getString(result)
+        saves++
+        if (result == R.string.profile_saved) savedEdits = edits
+    }, modifier = Modifier.testTag("profile-save")) {
+        Text(stringResource(R.string.profile_save))
+    }
+    Text(status, Modifier.testTag("profile-status"))
+    PreviewSection({ loadDraft(opened, scales) }, scales, saves)
+    key(saves, unsaved) { PublishSection(opened, scales, unsaved) }
 }
 
 @Composable

@@ -40,7 +40,7 @@ internal fun PreviewSection(read: () -> ProfileDraft, scales: List<ProfileScale>
         modifier = Modifier.testTag("profile-preview")) {
         Text(stringResource(R.string.profile_preview))
     }
-    preview?.fold({ ProfilePreview(it, scales, LocalContext.current) },
+    preview?.fold({ ProfilePreview(it, scales, LocalContext.current, R.string.profile_preview_title) },
         { Text(stringResource(R.string.profile_read_failed)) })
 }
 
@@ -59,13 +59,14 @@ private fun birthRows(saved: Map<String, Int>) = listOf(BIRTH_YEAR to R.string.p
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
+/** The public rows of [draft] under [title], with the possible age and the disclosures. */
 @Composable
-private fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
+internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, context: Context, title: Int) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
     val birth = birthRows(saved)
-    Text(stringResource(R.string.profile_preview_title))
+    Text(stringResource(title))
     if (fields.isEmpty() && places.isEmpty() && birth.isEmpty()) Text(stringResource(R.string.profile_preview_empty))
     for ((scale, choice) in fields) {
         Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),

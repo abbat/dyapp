@@ -78,8 +78,8 @@ absent, previews exactly what will be published, and warns about a full date.
 Every publish requires explicit 18+ self-attestation. With a year, the youngest
 possible age must also be at least 18 on the current UTC date; without a year,
 age remains unknown and the attestation alone is used. Missing parts are never
-inferred. The Linux and Windows desktop page edits and publishes a profile;
-Android, iOS and macOS keep local drafts but do not publish them yet.
+inferred. The Linux and Windows desktop page, Android, iOS and macOS edit and publish a profile
+after fresh 18+ and public-data confirmations.
 
 Search canonicalizes a supplied place against its embedded GeoNames country/place set.
 A profile with no place, or an unknown country/place pair, is indexed in the country
