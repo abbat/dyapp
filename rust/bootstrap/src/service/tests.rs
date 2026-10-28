@@ -564,8 +564,8 @@ fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
 fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
     let sender = replica_peer("node");
     for protocol in 0..4 {
-        for bucket in 0..4 {
-            if bucket >= 2 && protocol < 2 {
+        for bucket in 0..5 {
+            if (2..4).contains(&bucket) && protocol < 2 {
                 continue;
             }
             let mut service = media_service(|l| {
@@ -576,11 +576,13 @@ fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
                 l.bytes_per_second = 1_000_000;
             });
             service.media_bytes = PeerRateLimiter::new(1);
+            service.coarse_groups = PeerRateLimiter::new(1);
             assert!(match bucket {
                 0 => service.rate_limiter.check_limit(&sender.id),
                 1 => service.groups.check_limit(&sender.group),
                 2 => service.media_peers.check_limit(&sender.id),
                 3 => service.media_bytes.check_limit(&sender.id),
+                4 => service.coarse_groups.check_limit(&sender.coarse),
                 _ => unreachable!(),
             });
             assert_eq!(
