@@ -223,7 +223,8 @@ host key is used, which sits on the same disk: that covers a stray copy of the k
 copied volume.
 
 **Checking the TPM.** A TPM device on the host does not prove the key is bound to it; check each
-step:
+step. These steps follow the systemd documentation and have not yet been run on a real TPM or
+vTPM; report any step that behaves differently.
 
 | Step | Command | Expected |
 |------|---------|----------|
