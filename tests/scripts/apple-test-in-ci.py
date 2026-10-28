@@ -14,10 +14,13 @@ def run(arguments, log, env=None, timeout=None):
         result = subprocess.run(
             arguments, stdout=output, stderr=subprocess.STDOUT,
             check=False, env=env, timeout=timeout)
-    print(log.read_text())
+    text = log.read_text()
+    print(text)
     if result.returncode:
+        # The check wrapper shows only this error, so it carries the log tail.
         raise RuntimeError(
-            f"Command failed ({result.returncode}): {arguments}")
+            f"Command failed ({result.returncode}): {arguments}\n"
+            f"{text[-4096:]}")
 
 
 @contextmanager
