@@ -931,9 +931,8 @@ the topic: P platform, K key-as-account, N network, F profile and search, S sett
 
 Merged and deduplicated. Q1 to Q7 are conflicts between reports that need a decision in the IA.
 
-Q1 to Q7, Q9 to Q12 and Q18 were answered on 2026-10-28; the answers are in
-[ADR 0033](../decisions/0033-desktop-navigation-shell.md). Q8 and Q13 to Q17 stay open; Q19 is
-not planned.
+Q1 to Q18 were answered on 2026-10-28 and 2026-10-29; the answers are in
+[ADR 0033](../decisions/0033-desktop-navigation-shell.md). Q19 is not planned.
 
 | # | Question | Where it matters |
 |---|----------|------------------|

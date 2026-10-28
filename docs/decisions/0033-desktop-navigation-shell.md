@@ -32,7 +32,18 @@ The desktop client gets one app shell:
   box; afterwards the picker opens, or the wizard when no identity remains. Publishing opens a
   dialog with the profile preview and the consent boxes.
 - **Backup:** no export or restore in v0.0.1; a calm "no backup" line at creation and in Settings,
-  with no repeating reminder.
+  with no repeating reminder. A file-stored key has no passphrase in v0.0.1; the creation step
+  says it is kept unencrypted in a file.
+- **Launch** with an active network connects at once and opens Profile; the sidebar status shows
+  connecting, connected (one compatible node answered) or offline, which opens Network.
+- **Errors** show a localized sentence from the state code, with the untranslated code and the
+  affected row under a collapsed "Details" disclosure that has a Copy button.
+- **Profile visibility:** a "Hide from search" switch on Profile publishes a tombstone and turns
+  back on by publishing the saved draft as a new version. Removing an identity first publishes a
+  tombstone in the same action; if no node accepts it, the dialog says the profile disappears by
+  itself after the nodes' profile lifetime (30 days by default) and offers Retry or Remove anyway.
+- **Publishing progress:** the proof of work takes about a minute on a desktop, so the publish
+  dialog shows progress with elapsed time and Cancel.
 - **Styling** is one own stylesheet with CSS custom properties (spacing, type roles, colours) on
   system fonts, no framework. Theme follows the system by default, with System, Light and Dark in
   Settings.
@@ -44,5 +55,8 @@ The desktop client gets one app shell:
   and need UI tests at 440 and 1280 px.
 - A ticked box is weaker than typing a Peer ID suffix; revisit if users remove keys by mistake.
 - The theme choice adds a setting and a test; WebKitGTK must honour the forced scheme.
-- Restore, key export, local identity labels and a macOS sidebar are later work; the wizard and
-  the switcher must leave room for a Restore entry.
+- Restore, key export, a key-file passphrase and local identity labels are later work; the wizard
+  and the switcher must leave room for a Restore entry. macOS keeps its own native client and is
+  not bound by this shell.
+- Sending a tombstone and the hide switch need a client-core call and tests on every platform; a
+  hidden profile must not send heartbeats.
