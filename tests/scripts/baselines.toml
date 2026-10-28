@@ -53,6 +53,11 @@ score = 72.2
 "ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-10-28
 # iOS: the cancelled retry passed on the second iteration.
 "NetworkDraftTests testCancelRetryKeepsPriorActiveNetwork()" = 2026-10-28
+# iOS: the local-node check showed no row outcome within 30 s; the retry passed.
+"LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-10-28
+"LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
+# Android: publishing without a network failed once; the retry passed.
+"com.dyapp.ProfilePublishTests publishNeedsFreshConfirmationsAndReportsNoNetwork" = 2026-10-28
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
