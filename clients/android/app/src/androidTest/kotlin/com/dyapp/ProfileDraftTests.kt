@@ -2,6 +2,8 @@ package com.dyapp
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -62,7 +64,8 @@ class ProfileDraftTests {
         val scale = profileScales().first { it.key == "relationship_goal" }
         val choice = label("value.${scale.key}.${scale.choices.first().key}")
         compose.onNodeWithTag("profile-${scale.key}").performScrollTo().performClick()
-        compose.onNodeWithText(choice).performClick()
+        // A retried run can already show the choice on the field itself.
+        compose.onNode(hasText(choice) and !hasTestTag("profile-${scale.key}")).performClick()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithText(string(R.string.profile_back)).performScrollTo().performClick()
