@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Save every screen of the static desktop prototype in English and Russian, narrow and wide.
+"""Save every static desktop prototype screen, en and ru, narrow and wide.
 
-Runs under xvfb-run in the prototype image: loads /prototype/index.html?lang=X#screen in a
-WebKitGTK view and writes /shots/<screen>-<lang>-<width>.png.
+Runs under xvfb-run in the prototype image: loads
+/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
+/shots/<screen>-<lang>-<width>.png.
 """
 import sys
 
@@ -14,7 +15,8 @@ from gi.repository import GLib, Gtk, WebKit2  # noqa: E402
 
 SCREENS = [
     "wizard-identity", "wizard-network", "picker", "recovery",
-    "profile", "profile-hidden", "profile-dark", "publish-dialog", "publish-progress",
+    "profile", "profile-hidden", "profile-dark",
+    "publish-dialog", "publish-progress",
     "network", "network-checking", "network-error",
     "search", "search-loading", "search-empty", "search-error",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
@@ -24,7 +26,7 @@ WIDTHS = [440, 1280]
 HEIGHT = 800
 SOURCE, OUT = "/prototype/index.html", "/shots"
 
-jobs = [(s, l, w) for w in WIDTHS for l in LANGS for s in SCREENS]
+jobs = [(s, lang, w) for w in WIDTHS for lang in LANGS for s in SCREENS]
 failed = []
 window = Gtk.OffscreenWindow()
 view = WebKit2.WebView()
@@ -39,7 +41,8 @@ def next_job():
     screen, lang, width = jobs[0]
     window.resize(width, HEIGHT)
     view.set_size_request(width, HEIGHT)
-    # A changed hash alone is a same-page jump with no load event, so the query differs too.
+    # A changed hash alone is a same-page jump with no load event,
+    # so the query differs too.
     view.load_uri(f"file://{SOURCE}?lang={lang}&shot={len(jobs)}#{screen}")
 
 
@@ -57,7 +60,8 @@ def loaded(_view, event):
     if event == WebKit2.LoadEvent.FINISHED:
         # Let layout settle after the inline script hides the other screens.
         GLib.timeout_add(150, lambda: view.get_snapshot(
-            WebKit2.SnapshotRegion.FULL_DOCUMENT, WebKit2.SnapshotOptions.NONE, None, saved
+            WebKit2.SnapshotRegion.FULL_DOCUMENT,
+            WebKit2.SnapshotOptions.NONE, None, saved,
         ) and False)
 
 
@@ -74,5 +78,6 @@ GLib.idle_add(lambda: next_job() and False)
 Gtk.main()
 for line in failed:
     print(line, file=sys.stderr)
-print(f"{len(SCREENS) * len(LANGS) * len(WIDTHS) - len(failed)} screenshots in {OUT}")
+total = len(SCREENS) * len(LANGS) * len(WIDTHS)
+print(f"{total - len(failed)} screenshots in {OUT}")
 sys.exit(1 if failed else 0)
