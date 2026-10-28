@@ -149,6 +149,13 @@ capture per port across restarts. Raw failure evidence includes node-port header
 - Plain `cargo clippy -D warnings` does not count `unwrap`, `expect` or `panic!` in library
   code; `core / quality` does, against per-crate budgets (dyapp-client is 0). Run
   `python3 -B tests/scripts/check-panics.py` in the dev container before pushing new Rust code.
+- Commit only on a recorded exit status: run `make quality > LOG 2>&1; echo rc=$? >> LOG` and
+  start the commit with `grep -q '^rc=0$' LOG &&`; `tail LOG && git commit` commits a failure.
+  Do not wait for a process with `pgrep -f PATTERN` in a loop: the loop's own command line
+  matches. For a failed CI job, download only its platform's artifact,
+  `gh run download <id> -D DIR -p '*android*'`; all artifacts include the large Apple bundles.
+  Android UI evidence is under `platform-reports/android-*/`: `instrumentation*.txt` (one per
+  attempt), `logcat.txt`, `failure.png`, and `node/` for the loopback dyappd.
 - A sudden Apple IPA/ZIP size jump: grep the release-sizes `build.log` artifact for embedded
   `libswift_*.dylib`. Swift 6 mode with a deployment target below iOS 15 / macOS 12 embeds the
   back-deployed concurrency runtime. Download artifacts with `gh run download <id> -n <name>`.

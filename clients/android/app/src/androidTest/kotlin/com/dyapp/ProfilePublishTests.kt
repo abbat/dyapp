@@ -1,5 +1,7 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -28,9 +30,15 @@ class ProfilePublishTests {
 
     private fun string(id: Int) = compose.activity.getString(id)
 
-    private fun waitForText(tag: String, id: Int) = compose.waitUntil(PUBLISH_WAIT_MS) {
-        compose.onAllNodes(hasTestTag(tag) and hasText(string(id))).fetchSemanticsNodes().isNotEmpty()
-    }
+    private fun texts(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
+        .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
+
+    // A timeout names what the tag and the network check rows showed instead.
+    private fun waitForText(tag: String, id: Int) = runCatching {
+        compose.waitUntil(PUBLISH_WAIT_MS) {
+            compose.onAllNodes(hasTestTag(tag) and hasText(string(id))).fetchSemanticsNodes().isNotEmpty()
+        }
+    }.onFailure { throw AssertionError("$tag shows ${texts(tag)}, rows ${texts("network-row")}", it) }
 
     private fun eligibility(id: Int) = waitForText("profile-publish-eligibility", id)
 
