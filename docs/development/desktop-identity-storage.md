@@ -66,8 +66,8 @@ The app opens and creates identities through `clients/desktop/slots.rs`: it keep
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID
 or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
-identity" from the ready or recovery screen. "Remove this identity" on the ready screen
-or a missing, incomplete or deleting recovery screen shows the Peer ID, storage mode, key file
+identity" from Settings or the recovery screen. "Remove this identity" in Settings
+or on a missing, incomplete or deleting recovery screen shows the Peer ID, storage mode, key file
 path and whether it is the last local copy; a no-undo warning appears only when a key would be
 lost (not for a missing key or one another slot also holds). Remove stays disabled until a
 confirmation box is ticked. The `remove_identity` command then removes the slot as described

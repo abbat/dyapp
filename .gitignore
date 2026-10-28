@@ -22,6 +22,8 @@ __pycache__/
 *.pb.rs
 *.pb.swift
 *.pb.kt
+# Tauri capability schemas written by a desktop build
+/clients/*/gen/
 
 # cargo-fuzz
 tests/fuzz/target/

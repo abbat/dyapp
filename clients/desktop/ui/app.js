@@ -26,6 +26,7 @@ const setup = document.getElementById('setup');
 const identity = document.getElementById('identity');
 const systemChoice = document.getElementById('system-choice');
 const fileChoice = document.getElementById('file-choice');
+const createIdentity = document.getElementById('create-identity');
 const storageError = document.getElementById('storage-error');
 
 const switchIdentity = document.getElementById('switch-identity');
@@ -44,9 +45,10 @@ const show = (section, status) => {
     identity.insertBefore(network, document.getElementById('profile'));
   }
   for (const each of sections) each.hidden = each !== section;
-  switchIdentity.hidden = section !== identity && section !== sections[3];
+  // Ready keeps identity actions in Settings; recovery has no other way out.
+  switchIdentity.hidden = section !== sections[3];
   // The backend refuses to remove a damaged or unreadable slot.
-  removeIdentity.hidden = section !== identity && !(section === sections[3]
+  removeIdentity.hidden = !(section === sections[3]
     && ['missing', 'incomplete', 'deleting'].includes(current?.reason));
   storageError.hidden = true;
   ready.textContent = window.strings[status];
@@ -688,22 +690,22 @@ async function render(state) {
     return state;
   }
   if (state.status !== 'setup') throw new Error('Unknown identity state');
+  // Nothing is created until Create; the recommended available store is preselected.
   systemChoice.disabled = state.systemAvailable !== 'true';
   fileChoice.disabled = false;
+  createIdentity.disabled = false;
+  (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
   document.getElementById('system-reason').textContent = systemChoice.disabled
     ? window.strings[state.systemReason] : '';
   show(setup, 'status.choose');
   return state;
 }
 
-const choose = (mode) => {
-  systemChoice.disabled = true;
-  fileChoice.disabled = true;
-  return act(invoke('create_identity', { mode }));
-};
-
-systemChoice.addEventListener('click', () => choose('system'));
-fileChoice.addEventListener('click', () => choose('file'));
+createIdentity.addEventListener('click', () => {
+  const mode = systemChoice.checked ? 'system' : 'file';
+  for (const each of [systemChoice, fileChoice, createIdentity]) each.disabled = true;
+  act(invoke('create_identity', { mode }));
+});
 switchIdentity.addEventListener('click', () => act({ status: 'picker' }));
 document.getElementById('add-identity')
   .addEventListener('click', () => act(invoke('storage_options')));

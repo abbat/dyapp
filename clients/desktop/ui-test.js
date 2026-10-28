@@ -12,10 +12,31 @@ const waitFor = (id) => new Promise((resolve, reject) => {
   observer.observe(section, { attributes: true, attributeFilter: ['hidden'] });
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`${id} not shown`)); }, 10000);
 });
+// The hidden attribute must remove an element from the layout, whatever its display rule.
+const hiddenRendered = () => [...document.querySelectorAll('[hidden]')]
+  .filter((element) => getComputedStyle(element).display !== 'none')
+  .map((element) => element.id || element.tagName);
+// First run: no identity actions, the recommended available store preselected, and a storage
+// choice alone creates nothing until Create.
 const chooseStorage = async (mode) => {
   const choice = document.getElementById(`${mode}-choice`);
   if (!choice || choice.disabled || choice.hidden) throw new Error('storage choice unavailable');
+  const rendered = hiddenRendered();
+  if (rendered.length) throw new Error(`hidden but rendered: ${rendered}`);
+  if (!document.getElementById('switch-identity').hidden
+    || !document.getElementById('remove-identity').hidden) throw new Error('identity actions on setup');
+  const system = document.getElementById('system-choice');
+  if (!document.getElementById(system.disabled ? 'file-choice' : 'system-choice').checked) {
+    throw new Error('recommended storage not preselected');
+  }
+  if (system.disabled && !document.getElementById('system-reason').textContent) {
+    throw new Error('system storage reason missing');
+  }
+  const before = (await invokeTest('list_identities')).length;
   choice.click();
+  if ((await invokeTest('list_identities')).length !== before
+    || document.getElementById('setup').hidden) throw new Error('storage choice created an identity');
+  document.getElementById('create-identity').click();
   await waitFor('identity');
 };
 const pickReady = async (mode) => {
@@ -543,6 +564,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready,
       peerId: /^[0-9a-f]{64}$/.test(peerId),
       peerIdReflows: narrowLines > 1 && wideLines === 1,
+      hiddenNotRendered: hiddenRendered().length === 0,
+      noIdentityActions: document.getElementById('switch-identity').hidden
+        && document.getElementById('remove-identity').hidden,
     };
     const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
     return invokeTest('ui_test_result', {

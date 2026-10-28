@@ -8,7 +8,12 @@
     body { font: 18px system-ui, sans-serif; margin: 0; }
     main { max-width: 960px; margin: auto; padding: 3rem 1.5rem; text-align: center; }
     #setup { max-width: 640px; margin-inline: auto; }
+    /* Author display rules would otherwise override the user agent's [hidden]. */
+    [hidden] { display: none !important; }
     button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
+    #storage { text-align: start; border: 0; padding: 0; margin: 0; }
+    #storage legend { font-weight: bold; }
+    #storage label { display: block; margin-top: 1rem; }
     button:disabled { opacity: .5; }
     .notice { font-size: .9rem; }
     #peer-id, #key-path, #identities, #settings-identities,
@@ -38,11 +43,18 @@
     <h1 data-i18n="app.name"></h1>
     <p id="app-ready" role="status" data-i18n="status.loading"></p>
     <section id="setup" hidden>
-      <h2 data-i18n="storage.title"></h2>
-      <button id="system-choice" type="button" data-i18n="storage.system.choice"></button>
-      <p id="system-reason" class="notice" role="status"></p>
-      <button id="file-choice" type="button" data-i18n="storage.file.choice"></button>
-      <p class="notice" data-i18n="storage.file.warning"></p>
+      <h2 data-i18n="setup.title"></h2>
+      <p data-i18n="setup.intro"></p>
+      <fieldset id="storage">
+        <legend data-i18n="storage.title"></legend>
+        <label><input id="system-choice" type="radio" name="storage" value="system">
+          <span data-i18n="storage.system.choice"></span></label>
+        <p id="system-reason" class="notice" role="status"></p>
+        <label><input id="file-choice" type="radio" name="storage" value="file">
+          <span data-i18n="storage.file.choice"></span></label>
+        <p class="notice" data-i18n="storage.file.warning"></p>
+      </fieldset>
+      <button id="create-identity" type="button" data-i18n="setup.create"></button>
     </section>
     <section id="identity" hidden>
       <p data-i18n="storage.peerId"></p>

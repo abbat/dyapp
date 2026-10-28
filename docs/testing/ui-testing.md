@@ -51,7 +51,9 @@ No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
 the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID
-after a second launch. File-mode cases check the visible key-file path and backup guidance;
+after a second launch. Before Create it checks the first-run screen: the recommended available
+store is preselected, a choice alone creates nothing, no identity action is shown and no element
+with the `hidden` attribute is rendered; the ready screen repeats the last two checks. File-mode cases check the visible key-file path and backup guidance;
 system-mode cases check that no file path is shown. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.

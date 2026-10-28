@@ -4,11 +4,19 @@ The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local ident
 connects to bootstrap nodes, edits and publishes a public profile and searches published
 profiles. Chats in the window are planned.
 
+## First launch
+
+With no identity yet, the window explains what an identity is and offers the key storage: system
+credential storage, preselected and recommended when the session has it (otherwise the reason is
+shown and the app-data file is preselected), or an app-data file with its copy warning. Nothing is
+created until **Create identity**. Restoring an existing identity is planned.
+
 ## Settings
 
 From an open identity, **Settings** lists local identities with their key storage kind and marks
 the active one. **Add a new identity** opens the explicit key-storage choice with its backup
-warning; **Switch or add an identity** opens the existing picker. **Remove this identity** shows
+warning; **Switch or add an identity** opens the existing picker. These identity actions live
+only in Settings, and on the recovery screen for a key that cannot be opened. **Remove this identity** shows
 the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
 Remove is enabled. Cancel returns to Settings without deleting anything. **Back** returns to the
 same identity.
