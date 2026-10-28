@@ -241,12 +241,7 @@ Checked 2026-10-28 against the inventory above and `app.js`.
 
 ## Screenshots
 
-Planned: screenshots of each screen and state, filled by later work.
-
-## Accessibility checks
-
-Planned: keyboard, focus, label and announcement checks, filled by later work.
-
-## Heuristic findings
-
-Planned: a heuristic review of the screens, filled by later work.
+`make ui-test-linux` saves every state the Linux UI test visits, in English and Russian at 440
+and 1280 px wide, as `build/ux-research/current/<state>-<lang>-<width>.png` (not committed).
+The current screens are replaced by the redesign, so they get no separate accessibility or
+heuristic audit; automated accessibility checks are planned for the new screens.
