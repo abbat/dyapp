@@ -262,20 +262,17 @@ extension LaunchTests {
         rows.tap()
         typeSlowly("not-an-address", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
-        // The check closes the keyboard and the form scrolls back; reveal the row after that.
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "Retry connection"),
-            object: app.buttons["network-check"]
-        ),
-        ], timeout: 10), .completed)
+        // The rows below the check exist once it ends. A drag after the keyboard closes sends
+        // the form back to the top, out of the lazy rows, so read them without reveal.
         let result = app.descendants(matching: .any)["network-row-0"]
-        XCTAssertTrue(reveal(result, in: app).exists)
+        XCTAssertTrue(result.waitForExistence(timeout: 10))
         XCTAssertTrue(result.label.contains("Invalid address"), result.label)
-        XCTAssertFalse(reveal(app.buttons["network-continue"], in: app).isEnabled)
+        XCTAssertTrue(app.buttons["network-continue"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["network-continue"].isEnabled)
         let retry = app.buttons["network-check"]
         XCTAssertEqual(retry.label, "Retry connection")
         retry.tap()
-        XCTAssertTrue(reveal(result, in: app).exists)
+        XCTAssertTrue(result.waitForExistence(timeout: 10))
         app.terminate()
     }
 
