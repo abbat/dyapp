@@ -79,7 +79,18 @@ class ProfilePublishTests {
         compose.onNodeWithTag("network-draft-open").performScrollTo().performClick()
         compose.onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
         compose.onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
-        compose.onNodeWithTag("network-check").performScrollTo().performClick()
+        // The first dial of a cold, software-emulated app can outlast the 5 s check: retry as a
+        // user would.
+        fun shows(id: Int) = compose.onAllNodes(hasTestTag("network-check-status") and hasText(string(id)))
+            .fetchSemanticsNodes()
+            .isNotEmpty()
+        repeat(CHECK_TRIES) {
+            if (shows(R.string.network_connected)) return@repeat
+            compose.onNodeWithTag("network-check").performScrollTo().performClick()
+            compose.waitUntil(PUBLISH_WAIT_MS) {
+                shows(R.string.network_connected) || shows(R.string.network_unreachable)
+            }
+        }
         waitForText("network-check-status", R.string.network_connected)
         compose.onNodeWithTag("network-continue").performScrollTo().performClick()
         waitForText("network-check-status", R.string.network_active)
@@ -120,6 +131,7 @@ class ProfilePublishTests {
     private companion object {
         const val PUBLISH_WAIT_MS = 30_000L
         const val READBACK_WAIT_MS = 120_000L
+        const val CHECK_TRIES = 3
 
         // The emulator runner's loopback dyappd, as the guest reaches its container.
         const val LOCAL_NODE = "10.0.2.2:33445"
