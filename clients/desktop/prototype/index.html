@@ -1,0 +1,377 @@
+<!doctype html>
+<!-- Static desktop prototype (ADR 0033); not shipped. Pick a screen with #<screen>, the
+     language with ?lang=ru. Strings live in strings.js; nothing here talks to the app. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DYApp prototype</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+  <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
+</svg>
+
+<!-- First run: full-window wizard, step 1 creates the identity, step 2 the network (skippable). -->
+<main class="page" data-on="wizard-identity">
+  <div class="card">
+    <div class="steps" data-t="wizard.step1"></div>
+    <h1 data-t="wizard.identity.title"></h1>
+    <p data-t="wizard.identity.intro"></p>
+    <fieldset id="storage">
+      <legend data-t="storage.title"></legend>
+      <label class="choice"><input type="radio" name="storage" id="system-choice" checked>
+        <span><span data-t="storage.system"></span><br><span class="caption" data-t="storage.system.note"></span></span></label>
+      <label class="choice"><input type="radio" name="storage" id="file-choice">
+        <span><span data-t="storage.file"></span><br><span class="caption" data-t="storage.file.note"></span></span></label>
+    </fieldset>
+    <p class="caption" id="no-backup" data-t="backup.none"></p>
+    <div class="actions"><button class="btn primary" id="create-identity" data-t="wizard.create"></button></div>
+  </div>
+</main>
+
+<main class="page" data-on="wizard-network">
+  <div class="card">
+    <div class="steps" data-t="wizard.step2"></div>
+    <h1 data-t="wizard.network.title"></h1>
+    <p class="caption"><span data-t="identity.peer"></span> <code id="peer-id">12D3KooWQx7mN4…Fk9Qx</code>
+      <button class="btn quiet" id="copy-peer-id" data-t="action.copy"></button></p>
+    <div class="field">
+      <label for="seeds" data-t="network.seeds"></label>
+      <textarea id="seeds">node1.example.org:33445
+[2001:db8::7]:33445</textarea>
+      <p class="caption" data-t="network.seeds.hint"></p>
+    </div>
+    <details id="network-name-details"><summary data-t="network.name.toggle"></summary>
+      <div class="field"><label for="network-name" data-t="network.name"></label>
+        <input type="text" id="network-name"><p class="caption" data-t="network.name.hint"></p></div>
+    </details>
+    <div class="actions">
+      <button class="btn start" id="skip-network" data-t="wizard.skip"></button>
+      <button class="btn primary" id="check-connection" data-t="network.check"></button>
+    </div>
+  </div>
+</main>
+
+<!-- Identity picker: several identities and none chosen, or after a removal. -->
+<main class="page" data-on="picker">
+  <div class="card">
+    <h1 data-t="picker.title"></h1>
+    <p class="muted" data-t="picker.intro"></p>
+    <div id="identities">
+      <button class="list-button" id="pick-1"><span class="avatar">Fk</span>
+        <span><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
+      <button class="list-button" id="pick-2"><span class="avatar">7a</span>
+        <span><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
+    </div>
+    <div class="actions"><button class="btn" id="add-identity"><span data-t="identity.add"></span></button></div>
+  </div>
+</main>
+
+<!-- Recovery: the chosen identity cannot be opened. -->
+<main class="page" data-on="recovery">
+  <div class="card">
+    <h1 data-t="recovery.title"></h1>
+    <div class="notice error" role="alert">
+      <p id="recovery-reason" data-t="recovery.reason"></p>
+      <details><summary data-t="details"></summary>
+        <pre id="recovery-details">storage.system.locked
+12D3KooWQx7mN4…Fk9Qx</pre>
+        <button class="btn quiet" id="copy-recovery-details" data-t="action.copy"></button></details>
+    </div>
+    <p class="caption"><span data-t="identity.peer"></span> <code id="recovery-peer">12D3KooWQx…Fk9Qx</code></p>
+    <div class="actions">
+      <button class="btn start danger" id="remove-identity" data-t="remove.open"></button>
+      <button class="btn" id="switch-identity" data-t="identity.switch"></button>
+      <button class="btn primary" id="retry" data-t="action.retry"></button>
+    </div>
+  </div>
+</main>
+
+<!-- App shell: every screen after first run. -->
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline">
+  <header class="topbar">
+    <button class="btn quiet" id="menu-open" data-ta="nav.menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+    <span class="title" data-t="app.name"></span>
+    <span class="dot" data-off="network-error"></span><span class="dot off" data-on="network-error"></span>
+  </header>
+  <div class="scrim"></div>
+  <nav class="sidebar" aria-label="Main">
+    <button class="nav identity" id="identity-switcher" aria-haspopup="menu">
+      <span class="avatar">Fk</span>
+      <span class="label"><code>12D3…Fk9Qx</code><span class="sub" data-t="storage.kind.system"></span></span>
+    </button>
+    <div class="menu" id="identity-menu" role="menu" data-on="switcher">
+      <button class="nav" role="menuitem" id="switch-to-2"><span class="avatar">7a</span>
+        <span class="label"><code>12D3…7aZ2p</code><span class="sub" data-t="storage.kind.file"></span></span></button>
+      <button class="nav" role="menuitem" id="add-identity-menu"><svg class="icon"><use href="#i-plus"/></svg>
+        <span class="label" data-t="identity.add"></span></button>
+    </div>
+    <button class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
+      <svg class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
+    <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error">
+      <svg class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
+    <button class="nav" id="nav-network" data-current="network network-checking network-error">
+      <svg class="icon"><use href="#i-network"/></svg><span class="label" data-t="nav.network"></span></button>
+    <div class="spacer"></div>
+    <button class="nav" id="nav-settings" data-current="settings remove-dialog remove-offline">
+      <svg class="icon"><use href="#i-settings"/></svg><span class="label" data-t="nav.settings"></span></button>
+    <button class="nav" id="connection-status" role="status">
+      <span class="dot" data-off="network-error network-checking"></span>
+      <span class="dot busy" data-on="network-checking"></span>
+      <span class="dot off" data-on="network-error"></span>
+      <span class="label"><span data-t="status.connected" data-off="network-error network-checking"></span>
+        <span data-t="status.checking" data-on="network-checking"></span>
+        <span data-t="status.offline" data-on="network-error"></span>
+        <span class="sub" data-t="status.network.public"></span></span>
+    </button>
+  </nav>
+
+  <main class="content">
+    <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
+    <section id="profile" data-on="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
+      <h1 data-t="nav.profile"></h1>
+      <p class="muted" id="profile-status" data-t="profile.status.published"></p>
+      <div class="card">
+        <div class="switch-row">
+          <label for="profile-hidden" style="margin:0"><span data-t="profile.hide"></span><br>
+            <span class="caption" style="font-weight:400" data-t="profile.hide.hint"></span></label>
+          <input type="checkbox" class="switch" id="profile-hidden" role="switch" data-checked="profile-hidden">
+        </div>
+      </div>
+      <div class="notice warn" id="profile-hidden-notice" data-on="profile-hidden" data-t="profile.hidden.notice"></div>
+      <div class="card">
+        <h2 data-t="profile.basics"></h2>
+        <div class="grid">
+          <div class="field"><label for="profile-gender" data-t="profile.gender"></label>
+            <select id="profile-gender"><option data-t="profile.gender.value"></option></select></div>
+          <div class="field"><label for="profile-goal" data-t="profile.goal"></label>
+            <select id="profile-goal"><option data-t="profile.goal.value"></option></select></div>
+        </div>
+        <h2 style="margin-top:var(--space-4)" data-t="profile.birth"></h2>
+        <div class="grid">
+          <div class="field"><label for="birth-year" data-t="profile.birth.year"></label><input type="number" id="birth-year" value="1994"></div>
+          <div class="field"><label for="birth-month" data-t="profile.birth.month"></label><select id="birth-month"><option data-t="profile.notSet"></option></select></div>
+          <div class="field"><label for="birth-day" data-t="profile.birth.day"></label><select id="birth-day"><option data-t="profile.notSet"></option></select></div>
+        </div>
+        <p class="caption" id="profile-age" data-t="profile.age"></p>
+      </div>
+      <div class="card">
+        <h2 data-t="profile.place"></h2>
+        <div class="grid">
+          <div class="field"><label for="profile-country" data-t="profile.country"></label>
+            <select id="profile-country"><option data-t="profile.country.value"></option></select></div>
+          <div class="field"><label for="profile-place" data-t="profile.city"></label><input type="text" id="profile-place" data-tv="profile.city.value"></div>
+        </div>
+      </div>
+      <details class="card" id="profile-more"><summary data-t="profile.more"></summary></details>
+      <div class="actions">
+        <button class="btn" id="profile-save" data-t="profile.save"></button>
+        <button class="btn primary" id="profile-publish" data-t="profile.publish"></button>
+      </div>
+    </section>
+
+    <!-- Network: addresses at once, the name under a disclosure, one Check and connect. -->
+    <section id="network" data-on="network network-checking network-error">
+      <h1 data-t="nav.network"></h1>
+      <p class="muted" id="network-status" data-on="network" data-t="network.status.connected"></p>
+      <p class="muted" data-on="network-checking" data-t="network.status.checking"></p>
+      <div class="notice error" role="alert" id="network-error" data-on="network-error">
+        <p data-t="network.error"></p>
+        <details open><summary data-t="details"></summary>
+          <pre id="network-error-details">unreachable
+node1.example.org:33445: timed out after 10 s
+[2001:db8::7]:33445: connection refused</pre>
+          <button class="btn quiet" id="copy-network-details" data-t="action.copy"></button></details>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label for="network-seeds" data-t="network.seeds"></label>
+          <textarea id="network-seeds">node1.example.org:33445
+[2001:db8::7]:33445</textarea>
+          <p class="caption" data-t="network.seeds.hint"></p>
+        </div>
+        <details id="network-name-toggle"><summary data-t="network.name.toggle"></summary>
+          <div class="field"><label for="network-name-field" data-t="network.name"></label>
+            <input type="text" id="network-name-field"><p class="caption" data-t="network.name.hint"></p></div>
+        </details>
+        <table class="rows" id="seed-rows">
+          <tr><td><code>node1.example.org:33445</code></td>
+            <td><span class="state-ok" data-on="network" data-t="row.ok"></span>
+              <span class="state-busy" data-on="network-checking" data-t="row.checking"></span>
+              <span class="state-bad" data-on="network-error" data-t="row.timeout"></span></td></tr>
+          <tr><td><code>[2001:db8::7]:33445</code></td>
+            <td><span class="state-ok" data-on="network" data-t="row.ok"></span>
+              <span class="state-busy" data-on="network-checking" data-t="row.checking"></span>
+              <span class="state-bad" data-on="network-error" data-t="row.refused"></span></td></tr>
+        </table>
+        <div class="progress" data-on="network-checking" role="progressbar"></div>
+        <div class="actions">
+          <button class="btn" id="cancel-check" data-on="network-checking" data-t="action.cancel"></button>
+          <button class="btn primary" id="check-and-connect" data-t="network.check" data-disabled="network-checking"></button>
+        </div>
+      </div>
+      <p class="caption" data-t="network.keep"></p>
+    </section>
+
+    <!-- Search: filters, a verified sample, and its loading, empty and error states. -->
+    <section id="search" data-on="search search-loading search-empty search-error">
+      <h1 data-t="nav.search"></h1>
+      <p class="muted" data-t="search.sample"></p>
+      <div class="card">
+        <div class="grid">
+          <div class="field"><label for="search-age-min" data-t="search.ageFrom"></label><input type="number" id="search-age-min" value="25"></div>
+          <div class="field"><label for="search-age-max" data-t="search.ageTo"></label><input type="number" id="search-age-max" value="35"></div>
+          <div class="field"><label for="search-country" data-t="profile.country"></label>
+            <select id="search-country"><option data-t="profile.country.value"></option></select></div>
+          <div class="field"><label for="search-place" data-t="profile.city"></label><input type="text" id="search-place"></div>
+        </div>
+        <details id="search-more" style="margin-top:var(--space-3)"><summary data-t="search.more"></summary></details>
+        <div class="actions"><button class="btn primary" id="run-search" data-t="search.run" data-disabled="search-loading"></button></div>
+      </div>
+      <div id="search-results" data-on="search">
+        <p class="caption" id="search-status" data-t="search.found"></p>
+        <div class="card result"><span class="avatar">Ns</span><div><code>12D3…Ns4Lq</code>
+          <p class="caption" data-t="search.result1"></p></div></div>
+        <div class="card result"><span class="avatar">b8</span><div><code>12D3…b8Wte</code>
+          <p class="caption" data-t="search.result2"></p></div></div>
+        <div class="actions"><button class="btn" id="search-again" data-t="search.again"></button></div>
+      </div>
+      <div data-on="search-loading" role="status" aria-busy="true">
+        <p class="caption" data-t="search.loading"></p>
+        <div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+      <div class="empty" data-on="search-empty">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <h2 data-t="search.empty.title"></h2>
+        <p data-t="search.empty.text"></p>
+        <button class="btn" id="search-again-empty" data-t="search.again"></button>
+      </div>
+      <div class="notice error" role="alert" data-on="search-error">
+        <p data-t="search.error"></p>
+        <details><summary data-t="details"></summary>
+          <pre id="search-failures">notConnected
+search providers asked: 0 of 3</pre>
+          <button class="btn quiet" id="copy-search-details" data-t="action.copy"></button></details>
+        <div class="actions"><button class="btn" id="search-retry" data-t="action.retry"></button></div>
+      </div>
+    </section>
+
+    <!-- Settings: identities, appearance, language, node. -->
+    <section id="settings" data-on="settings remove-dialog remove-offline">
+      <h1 data-t="nav.settings"></h1>
+      <div class="card" id="settings-identities">
+        <h2 data-t="settings.identities"></h2>
+        <table class="rows">
+          <tr><td><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="settings.active"></span></td>
+            <td><button class="btn" id="settings-remove" data-t="remove.open"></button></td></tr>
+          <tr><td><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></td>
+            <td><button class="btn" id="settings-remove-2" data-t="remove.open"></button></td></tr>
+        </table>
+        <p class="caption" data-t="backup.none"></p>
+        <div class="actions"><button class="btn" id="settings-create" data-t="identity.add"></button></div>
+      </div>
+      <div class="card">
+        <h2 data-t="settings.appearance"></h2>
+        <fieldset id="theme"><legend data-t="settings.theme"></legend>
+          <label class="choice"><input type="radio" name="theme" id="theme-system" checked><span data-t="settings.theme.system"></span></label>
+          <label class="choice"><input type="radio" name="theme" id="theme-light"><span data-t="settings.theme.light"></span></label>
+          <label class="choice"><input type="radio" name="theme" id="theme-dark"><span data-t="settings.theme.dark"></span></label>
+        </fieldset>
+        <div class="field"><label for="language" data-t="settings.language"></label>
+          <select id="language"><option>English</option><option>Русский</option></select></div>
+      </div>
+      <div class="card" id="node">
+        <h2 data-t="settings.node"></h2>
+        <label class="choice"><input type="checkbox" id="node-enabled"><span data-t="settings.node.enable"></span></label>
+        <p class="caption" data-t="settings.node.hint"></p>
+      </div>
+      <p class="caption" data-t="settings.version"></p>
+    </section>
+  </main>
+</div>
+
+<!-- Publish dialog: exact public fields, two fresh consents, then proof-of-work progress. -->
+<div class="modal-scrim" data-on="publish-dialog publish-progress">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="publish-title">
+    <h2 id="publish-title" data-t="publish.title"></h2>
+    <p class="muted" data-t="publish.intro"></p>
+    <dl class="facts" id="profile-public-fields">
+      <dt data-t="profile.gender"></dt><dd data-t="profile.gender.value"></dd>
+      <dt data-t="profile.goal"></dt><dd data-t="profile.goal.value"></dd>
+      <dt data-t="profile.birth"></dt><dd>1994</dd>
+      <dt data-t="profile.ageShort"></dt><dd data-t="profile.ageRange"></dd>
+      <dt data-t="profile.country"></dt><dd data-t="profile.country.value"></dd>
+      <dt data-t="profile.city"></dt><dd data-t="profile.city.value"></dd>
+    </dl>
+    <div data-on="publish-dialog">
+      <label class="choice"><input type="checkbox" id="profile-attested"><span data-t="publish.adult"></span></label>
+      <label class="choice"><input type="checkbox" id="profile-disclosure"><span data-t="publish.copies"></span></label>
+    </div>
+    <div data-on="publish-progress" role="status">
+      <p data-t="publish.working"></p>
+      <div class="progress" role="progressbar"></div>
+      <p class="caption" data-t="publish.elapsed"></p>
+    </div>
+    <div class="actions">
+      <button class="btn focus" id="profile-cancel" data-t="action.cancel"></button>
+      <button class="btn primary" id="profile-publish-confirm" data-t="publish.confirm" disabled></button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove dialog: tick to confirm; the profile is withdrawn first. -->
+<div class="modal-scrim" data-on="remove-dialog remove-offline">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="remove-title">
+    <h2 id="remove-title" data-t="remove.title"></h2>
+    <p><code id="remove-peer">12D3KooWQx7mN4…Fk9Qx</code></p>
+    <p data-t="remove.text"></p>
+    <div data-on="remove-dialog">
+      <label class="choice"><input type="checkbox" id="remove-confirm"><span data-t="remove.confirm"></span></label>
+      <div class="actions">
+        <button class="btn focus" id="remove-cancel" data-t="action.cancel"></button>
+        <button class="btn danger" id="remove-action" data-t="remove.action" disabled></button>
+      </div>
+    </div>
+    <div data-on="remove-offline">
+      <div class="notice warn" role="alert" data-t="remove.offline"></div>
+      <div class="actions">
+        <button class="btn focus" id="remove-cancel-offline" data-t="action.cancel"></button>
+        <button class="btn" id="remove-retry" data-t="action.retry"></button>
+        <button class="btn danger" id="remove-anyway" data-t="remove.anyway"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="strings.js"></script>
+<script>
+// Show the screen named by the hash in the language named by ?lang=; nothing else.
+const screen = location.hash.slice(1) || 'profile';
+const lang = new URLSearchParams(location.search).get('lang') === 'ru' ? 'ru' : 'en';
+const t = STRINGS[lang];
+const has = (el, name) => el.dataset[name].split(' ').includes(screen);
+document.documentElement.lang = lang;
+document.documentElement.dataset.screen = screen;
+if (screen === 'profile-dark') document.documentElement.dataset.theme = 'dark';
+for (const el of document.querySelectorAll('[data-on]')) el.hidden = !has(el, 'on');
+for (const el of document.querySelectorAll('[data-off]')) el.hidden = has(el, 'off');
+for (const el of document.querySelectorAll('[data-current]'))
+  if (has(el, 'current')) el.setAttribute('aria-current', 'page');
+for (const el of document.querySelectorAll('[data-disabled]')) el.disabled = has(el, 'disabled');
+for (const el of document.querySelectorAll('[data-checked]')) el.checked = has(el, 'checked');
+for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.dataset.t] ?? '?' + el.dataset.t;
+for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
+for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
+document.title = t['app.name'] + ' — ' + screen;
+</script>
+</body>
+</html>

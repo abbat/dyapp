@@ -87,6 +87,21 @@ services:
       DYAPP_UI_SHOTS: /shots
     command: [bash, -c, "bash /app/tests/scripts/check-container-isolation.sh && exec bash /app/tests/scripts/linux-test.sh"]
 
+  prototype-shots:
+    <<: *runtime
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.prototype
+    image: dyapp:prototype
+    profiles: [prototype, all]
+    network_mode: none
+    volumes:
+      - ../../clients/desktop/prototype:/prototype:ro
+      - ../../build/ux-research/prototype:/shots
+    environment:
+      HOME: /home/appuser
+    command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py]
+
 volumes:
   ui-reports:
   android-avd:

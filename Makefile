@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-test-shell
 
 .SILENT:
 
@@ -94,6 +94,9 @@ ui-test-android:
 
 ui-test-android-emulator:
 	bash tests/scripts/ui-test.sh android-emulator
+
+ui-prototype:
+	bash tests/scripts/ui-test.sh prototype
 
 ui-test-linux:
 	bash tests/scripts/ui-test.sh linux

@@ -195,6 +195,7 @@ bash tests/scripts/ui-test.sh prepare           # build images (online; also run
 bash tests/scripts/ui-test.sh android           # = make ui-test-android
 bash tests/scripts/ui-test.sh android-emulator  # = make ui-test-android-emulator
 bash tests/scripts/ui-test.sh linux             # = make ui-test-linux
+bash tests/scripts/ui-test.sh prototype         # = make ui-prototype; desktop prototype screenshots
 bash tests/scripts/ui-test.sh all               # = make ui-test; the three above in order
 bash tests/scripts/ui-test.sh shell [android|linux]   # = make ui-test-shell (android)
 ```
@@ -277,6 +278,16 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `profile-publish-failed`, `profile-published`, `search-not-connected`, `search-results`,
   `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
   too quickly to capture.
+
+### Desktop prototype screenshots
+
+`ui-test.sh prototype` (`make ui-prototype`) empties `build/ux-research/prototype/` and runs the
+light `dyapp:prototype` image (Debian 12, WebKitGTK 4.1, Xvfb; no Rust build, also built by
+`prepare`). `prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
+for each screen of [Desktop screens](../design/desktop-screens.md) in English and Russian, at 440
+and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
+non-zero when any page fails to load or save. The prototype has no logic, so this checks layout
+and wording only; the maintainer reviews the files by eye.
 
 ### Reports on the host
 
