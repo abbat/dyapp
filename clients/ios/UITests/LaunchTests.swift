@@ -262,6 +262,12 @@ extension LaunchTests {
         rows.tap()
         typeSlowly("not-an-address", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
+        // The check closes the keyboard and the form scrolls back; reveal the row after that.
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Retry connection"),
+            object: app.buttons["network-check"]
+        ),
+        ], timeout: 10), .completed)
         let result = app.descendants(matching: .any)["network-row-0"]
         XCTAssertTrue(reveal(result, in: app).exists)
         XCTAssertTrue(result.label.contains("Invalid address"), result.label)
