@@ -543,7 +543,9 @@ settings, search, profile and main-window layout.
 
 ## 8. Candidate decisions
 
-All entries are candidates; none is accepted. Cost: S small (copy, markup, one component), M medium
+All entries are candidates. [ADR 0033](../decisions/0033-desktop-navigation-shell.md) settles
+the shell and the questions answered in section 9; where it differs from a candidate, the ADR
+wins. Cost: S small (copy, markup, one component), M medium
 (new component with state wiring or core events), L large (new design or format). The prefix groups
 the topic: P platform, K key-as-account, N network, F profile and search, S settings, R references.
 
@@ -928,6 +930,10 @@ the topic: P platform, K key-as-account, N network, F profile and search, S sett
 ## 9. Open questions for the maintainer
 
 Merged and deduplicated. Q1 to Q7 are conflicts between reports that need a decision in the IA.
+
+Q1 to Q7, Q9 to Q12 and Q18 were answered on 2026-10-28; the answers are in
+[ADR 0033](../decisions/0033-desktop-navigation-shell.md). Q8 and Q13 to Q17 stay open; Q19 is
+not planned.
 
 | # | Question | Where it matters |
 |---|----------|------------------|
