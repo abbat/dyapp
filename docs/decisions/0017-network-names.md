@@ -28,7 +28,7 @@ or trailing space, compared as bytes; empty is the public network. Its namespace
   differs from its own and adds it to no DHT and no anchor list. Before identify, a request of
   another network fails in multistream-select and is never decoded.
 - `storage.dir` is bound to one network by its `network` file; a node with another name refuses
-  to start on it, and a directory with data but no file belongs to the public network.
+  to start on it.
 
 Rejected: libp2p pnet and a Noise prologue need a secret key such a group cannot keep, and pnet
 does not work with QUIC; a network field in every message is checked only after decoding.

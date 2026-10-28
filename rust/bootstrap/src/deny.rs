@@ -189,31 +189,6 @@ impl DenyStore {
             .query_row("PRAGMA data_version", [], |row| row.get(0))
             .map_err(storage_error)
     }
-
-    /// Moves the entries of the old `<storage.dir>/deny` file in, once: the file is renamed to
-    /// `deny.imported`. Returns the entries read; ones that do not parse are logged and skipped.
-    pub fn import(&self, file: &Path, limits: &Limits) -> Result<usize> {
-        let text = match std::fs::read_to_string(file) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
-            text => text.map_err(storage_error)?,
-        };
-        let mut count = 0;
-        for line in text.lines() {
-            let (entry, note) = line.split_once('#').unwrap_or((line, ""));
-            if entry.trim().is_empty() {
-                continue;
-            }
-            match normalize(entry, limits) {
-                Some(entry) => {
-                    self.add(&entry, note.trim())?;
-                    count += 1;
-                }
-                None => tracing::warn!(entry = entry.trim(), "deny file entry skipped"),
-            }
-        }
-        std::fs::rename(file, file.with_file_name("deny.imported")).map_err(storage_error)?;
-        Ok(count)
-    }
 }
 
 #[cfg(test)]
@@ -221,20 +196,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn deny_store_adds_removes_and_imports_the_old_file() {
+    fn deny_store_adds_lists_and_removes() {
         let dir = std::env::temp_dir().join(format!("dyapp-deny-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = DenyStore::open(&dir.join("deny.db")).unwrap();
         let peer = PeerId::random().to_string();
-        let hash = "AB".repeat(32);
-        std::fs::write(
-            dir.join("deny"),
-            format!("# operator list\n{peer}  # spam\n\n203.0.113.0/24\n{hash}\nbogus\n"),
-        )
-        .unwrap();
+        let hash = "ab".repeat(32);
+        assert!(store.add(&peer, "spam").unwrap());
+        assert!(store.add("203.0.113.0/24", "").unwrap());
+        assert!(store.add(&hash, "").unwrap());
         let limits = Limits::default();
-        assert_eq!(store.import(&dir.join("deny"), &limits).unwrap(), 3);
-        assert!(!dir.join("deny").exists() && dir.join("deny.imported").exists());
         let entries = store.entries().unwrap();
         assert!(entries.contains(&peer) && entries.contains("203.0.113.0/24"));
         assert!(entries.contains(&hash.to_lowercase()));

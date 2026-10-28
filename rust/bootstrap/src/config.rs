@@ -929,18 +929,6 @@ impl NodeConfig {
                     )
                 ),
             })?;
-        // Ignoring a removed store path would start that store empty in storage.dir.
-        if let Some(key) = ignored.iter().find(|key| {
-            ["storage.profiles", "storage.messages", "storage.media"].contains(&key.as_str())
-        }) {
-            anyhow::bail!(
-                "{key} {}",
-                message(
-                    "is removed: move the store into storage.dir and drop the key",
-                    "удалён: перенесите хранилище в storage.dir и уберите этот ключ"
-                )
-            );
-        }
         Ok((config, ignored))
     }
 }

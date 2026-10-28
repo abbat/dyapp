@@ -202,8 +202,7 @@ common libp2p identify/AutoNAT protocols can still operate.
 `network.name` is parsed from file/env/CLI and validated with the same rules, defaulting to
 empty. `NodeConfig::bind_network` binds `storage.dir` to one network through the `network`
 marker file (the name, no newline), written by `keygen` or at the first start and never
-replaced; a directory with data but no marker belongs to the public network
-([bootstrap](bootstrap.md#storage-network)). `dyappd` checks the marker after loading the node
+replaced ([bootstrap](bootstrap.md#storage-network)). `dyappd` checks the marker after loading the node
 key and before opening any store. `dyappd info` and the other client commands speak the
 network of their config's `network.name` and fail on an invalid name.
 `tests/scripts/network-test.py --local` checks a named node: keygen writes the marker, a client of the

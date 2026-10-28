@@ -7,7 +7,7 @@ mod stored;
 use search_jobs::{start_search, SearchDone, SearchJob};
 
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
-/// every 10 seconds and on SIGHUP; an old `<storage.dir>/deny` file is imported once at start.
+/// every 10 seconds and on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     use tokio::signal::unix::{signal, SignalKind};
     let mut hangup = match signal(SignalKind::hangup()) {
@@ -20,11 +20,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
         Ok(deny) => deny,
         Err(error) => return tracing::error!(%error, "deny list not opened"),
     };
-    match deny.import(&storage.dir.join("deny"), &service.config.limits) {
-        Ok(0) => {}
-        Ok(imported) => tracing::info!(imported, "deny file moved into deny.db"),
-        Err(error) => tracing::error!(%error, "deny file not imported"),
-    }
     let mut deny_version = None;
     reload_deny(&service, &deny, &mut deny_version);
     let mut deny_check = tokio::time::interval(Duration::from_secs(10));

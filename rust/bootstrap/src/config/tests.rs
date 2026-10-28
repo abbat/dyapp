@@ -458,29 +458,23 @@ fn keygen_and_start_bind_storage_to_one_network() {
 }
 
 #[test]
-fn data_without_a_marker_belongs_to_the_public_network() {
+fn keygen_refuses_a_directory_with_node_data() {
     let mut data: Vec<String> = ["profiles.db", "profiles-idx.db", "messages.db", "media.db"]
         .into_iter()
         .flat_map(|store| ["", "-wal", "-shm", "-journal"].map(|suffix| format!("{store}{suffix}")))
         .collect();
     data.push("data/".into());
     for name in data {
-        let mut config = named("city");
+        let config = named("city");
         let path = config.storage.dir.join(&name);
         if name.ends_with('/') {
             fs::create_dir(&path).unwrap();
         } else {
             fs::write(&path, b"").unwrap();
         }
-        let error = config.bind_network().unwrap_err().to_string();
-        assert!(
-            error.contains("storage belongs to the public network"),
-            "{name}: {error}"
-        );
-        assert_eq!(marker(&config), b"", "{name}");
+        assert!(config.has_data().unwrap(), "{name}");
         config.keygen(None).unwrap_err();
-        config.network.name = String::new();
-        config.bind_network().unwrap();
+        assert!(!config.storage.key_path().exists(), "{name}");
     }
 
     // The deny list, peer caches and a key alone are not data.
@@ -493,8 +487,7 @@ fn data_without_a_marker_belongs_to_the_public_network() {
     ] {
         fs::write(path, b"").unwrap();
     }
-    config.bind_network().unwrap();
-    assert_eq!(marker(&config), b"city");
+    assert!(!config.has_data().unwrap());
 }
 
 #[test]

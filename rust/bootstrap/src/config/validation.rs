@@ -212,8 +212,6 @@ fn invalid_config_fails() {
     assert!(invalid(|c| c.storage.dir = "/proc/dyappd".into()));
     let roles = [("DYAPPD_ROLES".into(), "[\"x\"]".into())];
     assert!(NodeConfig::load(None, roles, &[]).is_err());
-    let removed = [("DYAPPD_STORAGE_MEDIA".into(), "/big/media".into())];
-    assert!(NodeConfig::load(None, removed, &[]).is_err());
 }
 
 #[test]

@@ -765,10 +765,9 @@ reload; the node refuses new puts and reads of that hash.
 - <a id="storage-network"></a>The data directory belongs to one network: the `network` file in
   it holds the name (empty for the public network, no newline). `keygen` or the first start
   writes it and never replaces it; a start under another `network.name`, or a malformed or
-  oversized file, is refused with "use a new storage.dir". A directory without the file but with
-  data (a store, its `-wal`/`-shm`/`-journal` sidecars, `data/`) predates
-  network names and belongs to the public network; the deny list, peer caches and the key are not
-  data.
+  oversized file, is refused with "use a new storage.dir". `keygen` refuses a directory with node
+  data (a store, its `-wal`/`-shm`/`-journal` sidecars, `data/`); the deny list, peer caches and
+  the key are not data.
 - Settings live in the config file and the systemd unit and need a restart. The `dyappd` binary
   also carries the admin subcommands: `deny add|remove|list` edits `deny.db`, which the running
   node applies within 10 seconds and logs ([Deny list](#deny-list)), `deny received` prints the
@@ -1076,8 +1075,7 @@ The current protocol replies are:
   is stored as `203.0.113.0/24`; another prefix length is refused). The running node checks the
   store every 10 seconds and on SIGHUP, reloads it when it changed and logs the entry count and
   how many were added and removed; a read error keeps the old list. The node holds the entries
-  in memory. An old `<storage.dir>/deny` text file (one entry per line, `#` comments) is imported
-  once at start and renamed to `deny.imported`; lines that do not parse are logged and skipped.
+  in memory.
   A listed peer or IP group gets `REFUSED` on every profile, mailbox and media request; a listed
   key gets `REFUSED` on its profile publish and get, on puts it signs or addressed to its
   mailbox, on its fetch and on its media `keep` and `put`. `REFUSED` is no strike, so the client

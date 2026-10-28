@@ -7,19 +7,14 @@ use super::*;
 const MAX_MARKER: u64 = 64;
 
 impl NodeConfig {
-    /// Checks that `storage.dir` belongs to `network.name`, writing the `network` marker when it
-    /// is missing: the configured name for a fresh directory, the public network (empty) for one
-    /// with data from before network names. An existing marker is never replaced.
+    /// Checks that `storage.dir` belongs to `network.name`, writing the configured name to the
+    /// `network` marker when it is missing. An existing marker is never replaced.
     pub fn bind_network(&self) -> anyhow::Result<()> {
         let path = self.storage.dir.join("network");
         let stored = match read_marker(&path)? {
             Some(stored) => stored,
             None => {
-                let stored = if self.has_data()? {
-                    ""
-                } else {
-                    self.network.name.as_str()
-                };
+                let stored = self.network.name.as_str();
                 match OpenOptions::new().write(true).create_new(true).open(&path) {
                     Ok(mut file) => {
                         file.write_all(stored.as_bytes())

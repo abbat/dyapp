@@ -297,13 +297,6 @@ fn project_authored_config_errors_follow_locale() {
         assert!(en.contains(english), "{args:?}: {en}");
         assert!(ru.contains(russian), "{args:?}: {ru}");
     }
-    let config = dir.join("removed.toml");
-    std::fs::write(&config, "[storage]\nprofiles = \"old.db\"\n").unwrap();
-    let args = ["--config", config.to_str().unwrap(), "status"];
-    let en = String::from_utf8(command_locale(&dir, &args, "C").stderr).unwrap();
-    let ru = String::from_utf8(command_locale(&dir, &args, "ru_RU.UTF-8").stderr).unwrap();
-    assert!(en.contains("storage.profiles is removed"), "{en}");
-    assert!(ru.contains("storage.profiles удалён"), "{ru}");
 }
 
 #[test]
