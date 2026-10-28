@@ -121,14 +121,17 @@ final class ProfileUITests: XCTestCase {
         rows.tap()
         typeSlowly("127.0.0.1:33445", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
-        // Reveal only after the check: its rows move Continue while they appear, and a hit test
-        // of a moving button fails the test. A slow simulator takes about 20 s to check.
-        let next = app.buttons["network-continue"]
+        // Reveal Continue only after the check answers: its rows move Continue while they appear,
+        // and a hit test of a moving button fails the test. A slow simulator takes about 20 s.
+        let status = reveal(app.staticTexts["network-check-status"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: next
+            predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
+            object: status
         ),
         ], timeout: 30), .completed)
-        reveal(next, in: app).tap()
+        let next = reveal(app.buttons["network-continue"], in: app)
+        XCTAssertTrue(next.isEnabled)
+        next.tap()
     }
 
     private func openProfile(_ app: XCUIApplication) {
