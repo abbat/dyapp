@@ -22,7 +22,8 @@ third party and the user's DNS and VPN would be ignored).
 On Android, `dyapp-ffi` depends on `ndk-context` and `jni-sys`, both already built for Android
 as dependencies of `hickory-resolver`. A JNI export, `Java_com_dyapp_DYApplication_nativeInit`,
 stores the Java VM and a global reference to the application `Context` once per process; the
-app's `Application` subclass calls it in `onCreate`, before any activity or service starts.
+app's `Application` subclass calls it in `onCreate`, before any activity or service starts. The
+manifest requests `ACCESS_NETWORK_STATE`, which `ConnectivityManager.getActiveNetwork` needs.
 
 ## Consequences
 
