@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,7 +75,10 @@ private suspend fun checkDraft(checker: ConnectionCheck, draft: NetworkSettings,
     checked.fold(onSuccess = { rows ->
         state.checkRows = draft.seeds.zip(rows)
         state.checkStatus = checkSummary(rows)
-    }, onFailure = { state.checkStatus = checkFailure(it) })
+    }, onFailure = {
+        Log.w("dyapp", "Connection check failed", it)
+        state.checkStatus = checkFailure(it)
+    })
 }
 
 private suspend fun activateDraft(checker: ConnectionCheck, state: NetworkDraftState) {
