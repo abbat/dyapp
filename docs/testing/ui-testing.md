@@ -62,6 +62,9 @@ Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and pre
 The Android publish test checks that an unsaved edit clears and disables both confirmations
 until saved, then confirms both, runs the proof without an active network and expects the
 localized not-connected failure, retry label and cleared confirmations.
+A second Android publish test checks and activates the emulator runner's loopback node
+(`10.0.2.2:33445`), publishes a saved draft and expects the signed readback, then deletes the
+`network` and `network-draft` files so the other tests still start without an active network.
 Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
 isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
@@ -108,7 +111,7 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 20 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 21 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×4, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 32 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 25 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the seven that need dyappd (25) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
@@ -210,6 +213,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 1000, pre-builds `:app:assembleDebug`,
   `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin`. No Rust `.so` or generated
   bindings are copied (there are none to copy).
+  It also builds a host `build/debug/dyappd` and keeps only that binary.
 - **`android`** → service `android-unit-test` → `android-test-in-container.sh unit`: offline
   `./gradlew --rerun-tasks :app:testDebugUnitTest`, then `check-junit-results.py`.
 - **`android-emulator`** → service `android-emulator-test`, which `depends_on` service
@@ -218,6 +222,9 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
     (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `tests/docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
+    Before the emulator, it generates a low-cost test key under `/tmp` and starts that `dyappd` on
+    `127.0.0.1:33445`, advertised as `10.0.2.2:33445`, the guest's address for the container's
+    loopback; its logs go to `node/` on the reports volume.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it

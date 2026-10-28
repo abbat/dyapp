@@ -35,6 +35,12 @@ case "${1:?suite required}" in
         # /avd is a disk volume (see compose.ui.yml); --force drops the previous run's AVD.
         echo no | avdmanager create avd --force -n test_device -k 'system-images;android-31;default;x86_64' -p /avd/test_device
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
+        # Loopback dyappd for the publish test; the guest reaches this container's 127.0.0.1 at 10.0.2.2.
+        export DYAPPD_LISTEN='["127.0.0.1:33445"]' DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
+            DYAPPD_STORAGE_DIR=/tmp/ai/node DYAPPD_NETWORK_ID_POW_BITS=8
+        mkdir -p /reports/node
+        /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
+        /app/build/debug/dyappd > /reports/node/node.log 2>&1 &
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
             -feature -Vulkan

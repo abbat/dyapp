@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.test.platform.app.InstrumentationRegistry
 import java.time.LocalDate
 import java.time.ZoneOffset
 import org.junit.Rule
@@ -118,12 +119,11 @@ class ProfileDraftTests {
         compose.onNodeWithTag("preview-country").assertDoesNotExist()
     }
 
-    private fun eligibility(id: Int) {
-        compose.waitUntil(PUBLISH_WAIT_MS) {
-            val matcher = hasTestTag("profile-publish-eligibility") and hasText(string(id))
-            compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
-        }
+    private fun waitForText(tag: String, id: Int) = compose.waitUntil(PUBLISH_WAIT_MS) {
+        compose.onAllNodes(hasTestTag(tag) and hasText(string(id))).fetchSemanticsNodes().isNotEmpty()
     }
+
+    private fun eligibility(id: Int) = waitForText("profile-publish-eligibility", id)
 
     private fun confirmBoth() {
         compose.onNodeWithTag("profile-confirm-adult").performScrollTo().performClick()
@@ -158,7 +158,54 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-prepare-publish").assertIsNotEnabled()
     }
 
+    private fun activateLocalNode() {
+        compose.onNodeWithTag("network-draft-open").performScrollTo().performClick()
+        compose.onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
+        compose.onNodeWithTag("network-check").performScrollTo().performClick()
+        waitForText("network-check-status", R.string.network_connected)
+        compose.onNodeWithTag("network-continue").performScrollTo().performClick()
+        waitForText("network-check-status", R.string.network_active)
+        compose.onNodeWithTag("network-back").performScrollTo().performClick()
+    }
+
+    // Other tests expect no active network, so the activated settings never outlive this test.
+    private fun forgetNetworks() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        for (root in listOf(context.filesDir, context.noBackupFilesDir)) {
+            root.walkBottomUp().filter { it.isFile && it.name in NETWORK_FILES }.forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun publishThroughTheLocalNodeShowsTheSignedReadback() {
+        compose.skipNetworkEntry()
+        try {
+            activateLocalNode()
+            compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextClearance()
+            compose.onNodeWithTag("profile-birth-year").performTextInput("1990")
+            compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+            confirmBoth()
+            compose.onNodeWithTag("profile-prepare-publish").performScrollTo().performClick()
+            // The software emulator proves and publishes slowly.
+            compose.waitUntil(READBACK_WAIT_MS) {
+                compose.onAllNodes(hasTestTag("profile-published-readback")).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("profile-publish-error").assertDoesNotExist()
+            compose.onNodeWithText(string(R.string.profile_published)).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff()
+        } finally {
+            forgetNetworks()
+        }
+    }
+
     private companion object {
         const val PUBLISH_WAIT_MS = 30_000L
+        const val READBACK_WAIT_MS = 120_000L
+
+        // The emulator runner's loopback dyappd, as the guest reaches its container.
+        const val LOCAL_NODE = "10.0.2.2:33445"
+        val NETWORK_FILES = setOf("network", "network-draft")
     }
 }
