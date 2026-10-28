@@ -298,7 +298,7 @@ extension LaunchTests {
             predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
             object: status
         ),
-        ], timeout: 15), .completed)
+        ], timeout: 30), .completed)
         XCTAssertTrue(reveal(next, in: app).isEnabled)
         next.tap()
         XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
