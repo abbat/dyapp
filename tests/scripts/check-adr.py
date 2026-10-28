@@ -122,6 +122,10 @@ COVERED = {
     # miniz_oxide inflates the client's embedded place names.
     "58c848701fd99068fb0e83ca4c445680ff1a8164":
         "docs/decisions/0003-public-signed-profile-encrypted-private-data.md",
+    # The pre-release reset of the client and node store schemas to their
+    # first version; the formats stay ADR 0025's and ADR 0015's.
+    "1da8bcc1f7c4258cc1d7b6979e1eeb75dc016405":
+        "docs/decisions/0025-client-local-sqlite-storage.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
