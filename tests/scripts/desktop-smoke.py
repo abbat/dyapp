@@ -160,6 +160,8 @@ def smoke(executable, flows=True):
 
     def case(name, extra, profile, broken=False, peer=True, timeout=60):
         arguments = [executable, "--ui-test", *extra]
+        if os.environ.get("DYAPP_SMOKE_RU") == "1":
+            arguments.append("--ui-test-ru")
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
         process = run(arguments, timeout=timeout, env=env)
         match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)

@@ -264,6 +264,19 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   and lists the forged reply. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
   keeps 22 bits.
+- **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
+  `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
+  `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs
+  ImageMagick `import -window root` and restores the size; the Xvfb screen is 1280x1400. Files are
+  `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
+  `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
+  `--ui-test-ru`) for the `-ru` files, so the screenshots roughly double the desktop smoke time.
+  Without `DYAPP_UI_SHOTS` the command does nothing. A failed screenshot only logs to stderr.
+  States: `setup`, `picker`, `ready`, `settings`, `remove`, `recovery`, `network-empty`,
+  `network-failure`, `network-connected`, `profile-edit`, `profile-preview`,
+  `profile-publish-failed`, `profile-published`, `search-not-connected`, `search-results`,
+  `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
+  too quickly to capture.
 
 ### Reports on the host
 

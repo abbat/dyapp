@@ -509,6 +509,42 @@ fn ui_test_step() -> String {
         .unwrap_or_default()
 }
 
+/// UI test only, with `DYAPP_UI_SHOTS=<dir>`: saves the screen as `<dir>/<name>-<lang>-<width>.png`
+/// at a narrow and a wide window, then restores the size. An existing file is kept, and a failed
+/// screenshot never fails the test.
+#[tauri::command]
+async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
+    let dir = match std::env::var_os("DYAPP_UI_SHOTS") {
+        Some(dir) if std::env::args().any(|arg| arg == "--ui-test") => PathBuf::from(dir),
+        _ => return Ok(()),
+    };
+    if name.is_empty() || !name.bytes().all(|b| b.is_ascii_lowercase() || b == b'-') {
+        return Err("invalid screenshot name".into());
+    }
+    let lang = if ui_test_russian() { "ru" } else { "en" };
+    let original = window.inner_size().map_err(|e| e.to_string())?;
+    for width in [440u32, 1280] {
+        let file = dir.join(format!("{name}-{lang}-{width}.png"));
+        if file.exists() {
+            continue;
+        }
+        let _ = window.set_position(tauri::LogicalPosition::new(0, 0));
+        let _ = window.set_size(tauri::LogicalSize::new(width, 1400));
+        // Xvfb has no window manager: give the webview time to lay out at the new size.
+        std::thread::sleep(Duration::from_millis(600));
+        let crop = format!("{width}x1400+0+0");
+        let shot = std::process::Command::new("import")
+            .args(["-window", "root", "-crop", &crop, "+repage"])
+            .arg(&file)
+            .status();
+        if !shot.map(|s| s.success()).unwrap_or(false) {
+            eprintln!("screenshot {} failed", file.display());
+        }
+    }
+    let _ = window.set_size(original);
+    Ok(())
+}
+
 #[tauri::command]
 fn ui_test_result(
     app: tauri::AppHandle,
@@ -584,6 +620,7 @@ fn main() {
             ui_test_mode,
             ui_test_existing,
             ui_test_step,
+            ui_test_shot,
             ui_test_result
         ])
         .on_page_load(move |webview, payload| {

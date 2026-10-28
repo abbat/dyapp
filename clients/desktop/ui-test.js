@@ -3,6 +3,8 @@ const invokeTest = window.__TAURI__.core.invoke;
 const fail = (error) => invokeTest('ui_test_result', {
   passed: false, peerId: '', reason: String(error),
 });
+// Saves screenshots of the current screen when the run asks for them (a no-op otherwise).
+const shot = (name) => invokeTest('ui_test_shot', { name }).catch(() => {});
 const waitFor = (id) => new Promise((resolve, reject) => {
   const section = document.getElementById(id);
   if (!section.hidden) { resolve(); return; }
@@ -32,6 +34,7 @@ const chooseStorage = async (mode) => {
   if (system.disabled && !document.getElementById('system-reason').textContent) {
     throw new Error('system storage reason missing');
   }
+  await shot('setup');
   const before = (await invokeTest('list_identities')).length;
   choice.click();
   if ((await invokeTest('list_identities')).length !== before
@@ -43,6 +46,7 @@ const pickReady = async (mode) => {
   const pick = document.querySelector(
     `#identities button[data-status="ready"][data-mode="${mode}"]`);
   if (!pick) throw new Error('no ready identity in the picker');
+  await shot('picker');
   pick.click();
   await waitFor('identity');
 };
@@ -63,6 +67,7 @@ const checkSettingsInventory = async (peerId, mode) => {
       observer.disconnect(); reject(new Error('Settings inventory did not load'));
     }, 10000);
   });
+  await shot('settings');
   const active = [...list.children].filter((item) => item.dataset.active === 'true');
   if (active.length !== 1 || !active[0].textContent.includes(peerId)
       || !active[0].textContent.includes(window.strings[`identity.mode.${mode}`])) {
@@ -96,6 +101,7 @@ const removeOpened = async (state, mode) => {
     document.getElementById('remove-identity').click();
   }
   await waitFor('remove');
+  await shot('remove');
   const action = document.getElementById('remove-action');
   if (document.getElementById('remove-peer').textContent
     !== (state.peerId || strings[`recovery.${state.reason}`])) throw new Error('wrong Peer ID');
@@ -134,12 +140,15 @@ const connectNetwork = async (seed) => {
   await window.connectionActivated;
   if (document.getElementById('network-status').textContent
     !== window.strings['network.active']) throw new Error('connection not activated');
+  await shot('network-connected');
 };
 // An empty list is refused, then a refused and a malformed row keep Continue disabled.
 const checkNetwork = async () => {
   if (await submitCheck('') !== 'empty') throw new Error('empty list not reported');
+  await shot('network-empty');
   const rows = await submitCheck(testSeeds);
   if (rows.join() !== 'unreachable,invalidAddress') throw new Error(`rows ${rows}`);
+  await shot('network-failure');
   if (document.getElementById('network-status').textContent
     !== window.strings['network.invalidAddress']) throw new Error('row problem not summarized');
   if (!document.getElementById('continue-connection').disabled) {
@@ -239,8 +248,10 @@ const checkNode = async () => {
   await waitFor('identity');
 };
 const checkEmptyProfilePreview = async () => {
+  await shot('profile-edit');
   document.getElementById('profile-preview-action').click();
   await waitFor('profile-preview');
+  await shot('profile-preview');
   if (document.getElementById('profile-public-fields').textContent
     !== window.strings['profile.empty']) throw new Error('unset fields appeared in preview');
   if (document.getElementById('profile-age').textContent
@@ -341,6 +352,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false) => {
     fails ? 'profile.notConnected' : 'profile.published', fails ? '' : '1', 150000);
   document.getElementById('profile-publish').click();
   await result;
+  await shot(fails ? 'profile-publish-failed' : 'profile-published');
   if (!fails) {
     const readback = [...document.querySelectorAll('#profile-public-fields li')]
       .map((item) => item.textContent);
@@ -413,6 +425,7 @@ const searchOnLoopback = async (connected) => {
     if (status !== window.strings['search.notConnected'] || !retry) {
       throw new Error(`search without a network: ${status}, retry ${retry}`);
     }
+    await shot('search-not-connected');
     return;
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
@@ -424,12 +437,14 @@ const searchOnLoopback = async (connected) => {
     || peers.join() !== document.getElementById('peer-id').textContent) {
     throw new Error(`loopback search: ${status}, peers ${peers}, failures ${failures}`);
   }
+  await shot('search-results');
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
   await pickPlace('search');
   document.getElementById('run-search').click();
   await window.searchDone;
   const placed = document.getElementById('search-status').textContent;
   if (placed !== window.strings['search.empty']) throw new Error(`place search: ${placed}`);
+  await shot('search-empty');
   document.getElementById('search-country').value = '';
   document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
 };
@@ -445,11 +460,13 @@ const searchForged = async () => {
     throw new Error(`forged search: ${document.getElementById('search-status').textContent}, `
       + `failures ${failures}`);
   }
+  await shot('search-error');
 };
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
     if (step === 'recovery') {
+      await shot('recovery');
       const passed = state.status === 'recovery' && state.reason === 'missing'
         && !document.getElementById('recovery').hidden
         && document.getElementById('recovery-reason').textContent
@@ -530,6 +547,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkEmptyProfilePreview();
     }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (existing && !step) await shot('ready');
     const ready = document.getElementById('app-ready');
     const rect = ready.getBoundingClientRect();
     const style = getComputedStyle(ready);

@@ -33,16 +33,19 @@ if [[ ${DYAPP_KVM:-0} == 1 ]]; then
     DYAPP_KVM_GID=$(stat -c %g /dev/kvm)
     export DYAPP_KVM_GID
 fi
+# The Linux run saves its screenshots here; stale ones would be kept, so start empty.
+shots() { mkdir -p build/ux-research/current && rm -f build/ux-research/current/*.png; }
 run() {
     python3 tools/scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }
 case "${1:-help}" in
     android) run android-unit-test ;;
     android-emulator) run android-emulator-test ;;
-    linux) run linux-test ;;
+    linux) shots; run linux-test ;;
     all)
         run android-unit-test
         run android-emulator-test
+        shots
         run linux-test
         echo 'Local Docker UI inventory passed; Apple/Windows native CI is required separately.'
         ;;

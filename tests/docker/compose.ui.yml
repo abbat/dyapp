@@ -79,8 +79,12 @@ services:
     image: dyapp:linux-test
     profiles: [linux, test, all]
     network_mode: none
+    volumes:
+      - ui-reports:/reports
+      - ../../build/ux-research/current:/shots
     environment:
       HOME: /home/appuser
+      DYAPP_UI_SHOTS: /shots
     command: [bash, -c, "bash /app/tests/scripts/check-container-isolation.sh && exec bash /app/tests/scripts/linux-test.sh"]
 
 volumes:
