@@ -2,7 +2,16 @@
 # Installs the package on a clean Debian 12 and starts the node as the package's user.
 set -euo pipefail
 deb=$(ls /deb/dyappd_*.deb)
-dpkg -i "$deb" >/dev/null
+# A link-local resolver gets a warning on configure, another one none. The container's
+# resolv.conf is a mount, so it is rewritten in place and restored.
+cp -f /etc/resolv.conf /tmp/resolv.conf
+echo "nameserver 169.254.169.254" >/etc/resolv.conf
+dpkg -i "$deb" >/dev/null 2>/tmp/dpkg.log
+grep -q "nameserver 169.254.169.254 .* link-local" /tmp/dpkg.log || { cat /tmp/dpkg.log; exit 1; }
+echo "nameserver 10.0.0.2" >/etc/resolv.conf
+dpkg -i "$deb" >/dev/null 2>/tmp/dpkg.log
+if grep -q link-local /tmp/dpkg.log; then cat /tmp/dpkg.log; exit 1; fi
+cat /tmp/resolv.conf >/etc/resolv.conf
 # Debian 12's systemd knows every directive; an unknown key is only a warning, so any output fails.
 if ! verify=$(systemd-analyze verify --man=no /lib/systemd/system/dyappd.service 2>&1) \
     || [ -n "$verify" ]; then

@@ -152,8 +152,10 @@ BindReadOnlyPaths=/etc/dyappd/resolv.conf:/etc/resolv.conf
 ```
 
 Only when no other resolver is reachable, allow the one address with
-`IPAddressAllow=169.254.169.253/32`: an allowed address wins over every deny, so never allow a
-whole range. If the node logs `Address family not supported` after an upgrade, the new version
+`IPAddressAllow=169.254.169.253/32`: an allowed address wins over every deny and the filter
+has no ports, so never allow a whole range, and on Google Cloud, where `169.254.169.254` serves
+both DNS and metadata, allowing it reopens the metadata server. The package warns on install and
+upgrade when `/etc/resolv.conf` names a link-local resolver. If the node logs `Address family not supported` after an upgrade, the new version
 opens a socket family the unit does not list: add it to `RestrictAddressFamilies=` in a drop-in
 and report it. `systemd-analyze security dyappd` lists what the sandbox still allows; read it as
 a guide, its score has no threshold the package must meet.

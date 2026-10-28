@@ -5,6 +5,19 @@ if [ "$1" = configure ] && ! getent passwd dyappd >/dev/null; then
     adduser --system --group --home /var/lib/dyappd dyappd
 fi
 
+# The first nameserver in 169.254.0.0/16 or fe80::/10, which the unit's IPAddressDeny refuses.
+link_local_resolver() {
+    [ -r /etc/resolv.conf ] || return 1
+    awk '$1 == "nameserver" && tolower($2) ~ /^(169\.254\.|fe[89ab][0-9a-f]:)/ { print $2; found = 1; exit }
+         END { exit !found }' /etc/resolv.conf
+}
+
+if [ "$1" = configure ] && resolver=$(link_local_resolver); then
+    echo "dyappd: the nameserver $resolver in /etc/resolv.conf is link-local, which the unit denies;" >&2
+    echo "  seed names will not resolve. Give the node its own resolver with a drop-in:" >&2
+    echo "  BindReadOnlyPaths=/etc/dyappd/resolv.conf:/etc/resolv.conf (see the operator manual)" >&2
+fi
+
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     if [ "$1" = configure ] && [ -z "$2" ]; then
