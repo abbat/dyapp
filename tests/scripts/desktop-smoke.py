@@ -343,6 +343,12 @@ def smoke(executable, flows=True):
                 raise RuntimeError("failed publish replaced the identity")
             case("search-no-network",
                  [*file, "--ui-test-step=search-no-network"], profile)
+            case("network-wrong", [*file, f"--ui-test-step=wrong:{seed}"],
+                 profile)
+            if (storage / "profiles" / (storage / "active-profile")
+                    .read_text().strip() / "network").exists():
+                raise RuntimeError("a wrong network was activated")
+            # The relaunch reopens the failed draft and the retry connects.
             connected = case("network-connect",
                              [*file, f"--ui-test-step=connect:{seed}"],
                              profile)

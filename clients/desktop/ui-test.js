@@ -206,6 +206,25 @@ const checkNetwork = async () => {
     throw new Error('continue enabled without a connected node');
   }
 };
+// The live node under a wrong pin or another network name, then down: Continue stays off.
+const checkWrongNetwork = async (seed) => {
+  const name = document.getElementById('network-name');
+  const otherPeer = '12D3KooW9tJMax94Lrqw7Y5Qw36viGQAS2gTEPQ5Wg1vTk7xPfQs';
+  const expect = async (rows, statuses, summary) => {
+    const shown = await submitCheck(rows);
+    if (shown.join() !== statuses || document.getElementById('network-status').textContent
+      !== window.strings[summary]) throw new Error(`${rows}: rows ${shown}`);
+    if (!document.getElementById('continue-connection').disabled) {
+      throw new Error(`continue enabled for ${rows}`);
+    }
+  };
+  await expect(`${seed}/${otherPeer}`, 'wrongPeer', 'network.wrong');
+  name.value = 'city';
+  await expect(seed, 'wrongNetwork', 'network.wrong');
+  // The saved draft goes back to the node's network, so the next launch retries it.
+  name.value = '';
+  await expect('127.0.0.1:1', 'unreachable', 'network.unreachable');
+};
 // Leaving the Network area and coming back keeps the draft and the checked row status.
 const checkNetworkInSettings = async () => {
   const seeds = document.getElementById('seeds');
@@ -662,6 +681,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step.startsWith('connect:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await connectNetwork(step.slice('connect:'.length));
+    } else if (step.startsWith('wrong:')) {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkWrongNetwork(step.slice('wrong:'.length));
     } else if (step === 'network-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
