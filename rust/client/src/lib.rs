@@ -25,7 +25,7 @@ use dyapp_p2p_net::proto::{
 };
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
 use dyapp_p2p_net::{id_has_pow, id_pow_bits};
-use dyapp_p2p_net::{SwarmOptions, REPLICAS};
+use dyapp_p2p_net::{SwarmOptions, WireBytes, REPLICAS};
 use dyapp_profile::VerifiedProfile;
 use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
@@ -38,7 +38,7 @@ use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::collections::HashSet;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// How long a dial or one request may take.
@@ -226,6 +226,20 @@ pub(crate) fn prepare(
     PreparedEnvelope::from_bytes(record.encode_to_vec())
 }
 
+static WIRE: OnceLock<Arc<WireBytes>> = OnceLock::new();
+
+/// Payload counter shared by every client swarm of this process.
+fn wire() -> Arc<WireBytes> {
+    WIRE.get_or_init(Arc::default).clone()
+}
+
+/// `[in, out]` payload bytes of every client swarm since the first one started this process;
+/// `None` before that. Excludes transport, encryption and gossip control traffic.
+pub fn traffic() -> Option<[u64; 2]> {
+    let slots = WIRE.get()?.totals().0;
+    Some(slots.iter().fold([0, 0], |[i, o], [a, b]| [i + a, o + b]))
+}
+
 /// A connection to one node.
 pub struct Node {
     swarm: Swarm<Behaviour>,
@@ -238,6 +252,7 @@ impl Node {
         let options = SwarmOptions {
             mode: Mode::Client,
             protocols,
+            wire: wire(),
             ..SwarmOptions::default()
         };
         let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options)

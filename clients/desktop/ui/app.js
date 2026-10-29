@@ -200,6 +200,28 @@ const showUsage = async () => {
   usageTimer = setTimeout(showUsage, 10_000);
 };
 
+// The status bar: client traffic every 2 s, unavailable until a client swarm starts.
+let statusTimer;
+const showStatus = async () => {
+  clearTimeout(statusTimer);
+  const { strings } = window;
+  const traffic = document.getElementById('status-traffic');
+  const messages = document.getElementById('status-messages');
+  try {
+    const status = await invoke('status');
+    traffic.textContent = status.traffic === null ? strings['statusbar.noTraffic']
+      : strings['statusbar.traffic'].replace('{in}', sizeText(status.traffic[0]))
+        .replace('{out}', sizeText(status.traffic[1]));
+    messages.textContent = status.messages === null ? strings['statusbar.noMessages']
+      : strings['statusbar.messages'].replace('{size}', sizeText(status.messages));
+  } catch (_) {
+    traffic.textContent = strings['statusbar.noTraffic'];
+    messages.textContent = strings['statusbar.noMessages'];
+  }
+  traffic.title = strings['statusbar.trafficNote'];
+  statusTimer = setTimeout(showStatus, 2000);
+};
+
 const showSettings = async () => {
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
@@ -847,6 +869,7 @@ async function render(state) {
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
     showArea('profile-area');
+    window.statusShown = showStatus();
     wizardStep(fresh);
     show(fresh ? wizardNetwork : identity, 'status.ready');
     return state;

@@ -19,6 +19,13 @@ pub struct Usage {
     pub free: Option<u64>,
 }
 
+/// The status bar; `traffic` is `[in, out]` and `None` until a client swarm starts.
+#[derive(Serialize)]
+pub struct Status {
+    pub traffic: Option<[u64; 2]>,
+    pub messages: Option<u64>,
+}
+
 /// Bytes of the file or of every file under the directory `path`; `None` when any is unreadable.
 fn bytes(path: &Path) -> Option<u64> {
     let meta = fs::symlink_metadata(path).ok()?;
@@ -28,10 +35,14 @@ fn bytes(path: &Path) -> Option<u64> {
     fs::read_dir(path).ok()?.map(|entry| bytes(&entry.ok()?.path())).sum()
 }
 
+/// Bytes of the client store in slot folder `dir` with its `-wal`/`-shm` siblings.
+pub fn messages(dir: &Path) -> Option<u64> {
+    let siblings = ["client.db-wal", "client.db-shm"].map(|name| bytes(&dir.join(name)));
+    bytes(&dir.join("client.db")).map(|used| used + siblings.into_iter().flatten().sum::<u64>())
+}
+
 /// The usage of slot folder `dir`; `config` is the app config directory that holds the slots.
 pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
-    let db = dir.join("client.db");
-    let siblings = ["client.db-wal", "client.db-shm"].map(|name| bytes(&dir.join(name)));
     #[cfg(unix)]
     let (node_path, node, node_limit) = {
         let store = dir.join("node");
@@ -46,8 +57,8 @@ pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
     let free = None;
     Usage {
         identity_dir: config.map(|path| path.display().to_string()),
-        messages_path: db.display().to_string(),
-        messages: bytes(&db).map(|used| used + siblings.into_iter().flatten().sum::<u64>()),
+        messages_path: dir.join("client.db").display().to_string(),
+        messages: messages(dir),
         node_path,
         node,
         node_limit,

@@ -489,6 +489,15 @@ async fn storage_usage(
         .map_err(|e| e.to_string())
 }
 
+/// The status bar: client traffic since start and the open identity's message store bytes.
+#[tauri::command]
+fn status(state: tauri::State<'_, IdentityState>) -> usage::Status {
+    usage::Status {
+        traffic: dyapp_client::traffic(),
+        messages: identity_dir(&state).ok().and_then(|dir| usage::messages(&dir)),
+    }
+}
+
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -631,6 +640,7 @@ fn main() {
             #[cfg(unix)]
             node_status,
             storage_usage,
+            status,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

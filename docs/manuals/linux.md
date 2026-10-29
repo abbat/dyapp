@@ -42,6 +42,11 @@ Remove is enabled. Cancel closes the dialog and leaves Settings open without del
 the free space on that disk. It refreshes every 10 seconds while Settings is open. A size it cannot
 read says "Unavailable" rather than 0; the node store does so until the node first runs.
 
+The status bar at the bottom of the window shows the data received and sent since the app started
+and the size of the message store, refreshed every 2 seconds. Traffic says "unavailable" until the
+app first connects (a search, a profile publish or a network Check). It counts dyapp requests and
+replies only, not connection, encryption or gossip overhead.
+
 The **Network** area keeps its edits and Check results while you visit other areas. An
 unsuccessful Check leaves the prior active network unchanged.
 

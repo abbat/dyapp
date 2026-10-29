@@ -475,10 +475,27 @@ const checkSavedProfile = async () => {
     throw new Error('publish attestation survived restart');
   }
 };
+// The status bar: traffic is unavailable until a search starts the client swarm, then counts the
+// reply; the message store always has a size once the identity is open.
+const checkStatus = async (traffic) => {
+  const { strings } = window;
+  window.statusShown = showStatus();
+  await window.statusShown;
+  const text = (id) => document.getElementById(id).textContent;
+  const [, received] = text('status-traffic').match(/(\d[\d.,]*)\s/) ?? [];
+  if (traffic ? !received || !(Number.parseFloat(received.replace(',', '.')) > 0)
+    : text('status-traffic') !== strings['statusbar.noTraffic']) {
+    throw new Error(`status bar traffic: ${text('status-traffic')}`);
+  }
+  if (!text('status-messages') || text('status-messages') === strings['statusbar.noMessages']) {
+    throw new Error(`status bar messages: ${text('status-messages')}`);
+  }
+};
 // Without a network the search asks to connect and offers the Network area; on the loopback node it
 // returns the sample, the published profile alone, with the node's filters and no failures.
 // The profile has no place, so filtering by Berlin finds nobody.
 const searchOnLoopback = async (connected) => {
+  await checkStatus(false);
   await openArea('search-area');
   document.getElementById('run-search').click();
   await window.searchDone;
@@ -502,6 +519,8 @@ const searchOnLoopback = async (connected) => {
     throw new Error(`loopback search: ${status}, peers ${peers}, failures ${failures}`);
   }
   await shot('search-results');
+  await checkStatus(true);
+  await shot('statusbar');
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
   await pickPlace('search');
   document.getElementById('run-search').click();

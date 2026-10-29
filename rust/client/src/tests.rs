@@ -140,6 +140,8 @@ async fn node_put_and_prepared_retry_reach_the_mailbox() {
     assert_eq!(fresh.id, fresh_id);
     assert_eq!(fresh.mailbox, mailbox);
     assert_eq!(fresh.ciphertext, [2]);
+    // Other tests share the process counter, so only its presence and growth are certain here.
+    assert!(crate::traffic().is_some_and(|[_, out]| out >= prepared.as_bytes().len() as u64));
     task.abort();
 }
 
