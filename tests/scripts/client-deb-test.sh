@@ -10,6 +10,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends /deb/dyapp_*.deb xvfb xauth dbus-x11 gnome-keyring python3 \
+    python3-gi libayatana-appindicator3-1 \
     >/dev/null
 test -f /usr/share/applications/dyapp.desktop
 test -f /usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml

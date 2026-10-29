@@ -591,6 +591,44 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       }
       return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
+    if (step.startsWith('tray:')) {
+      // quit: the tray host clicks Quit; none: no host, the settings are off with a note;
+      // close: turn on close-to-tray, close, and the host's Open brings the window back;
+      // persisted: the setting survived a relaunch; vanish: the host goes away, the window returns.
+      const kind = step.slice('tray:'.length);
+      if (kind === 'quit') return undefined;
+      const labels = [window.strings['tray.open'], window.strings['tray.quit']];
+      const tray = async (check) => {
+        for (let i = 0; i < 30; i += 1) {
+          const now = await invokeTest('set_tray', { prefs: null, labels });
+          if (check(now)) return;
+          await new Promise((resolve) => { setTimeout(resolve, 500); });
+        }
+        throw new Error(`tray ${kind}: ${JSON.stringify(await invokeTest('set_tray', { prefs: null, labels }))}`);
+      };
+      if (state.status === 'setup') await chooseStorage(mode);
+      if (kind !== 'none') await tray((now) => now.available);
+      await openArea('settings');
+      await window.trayShown;
+      const show = document.getElementById('tray-show');
+      const close = document.getElementById('tray-close');
+      if (kind === 'none') {
+        if (!show.disabled || !close.disabled || document.getElementById('tray-note').hidden) {
+          throw new Error('tray settings usable without a tray host');
+        }
+        await shot('tray-none');
+        return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
+      }
+      if (kind === 'close') {
+        if (!show.checked || close.checked || close.disabled) throw new Error('tray defaults wrong');
+        close.click();
+        await shot('tray');
+      } else if (!close.checked) throw new Error('close-to-tray not restored');
+      await tray((now) => now.closeToTray);
+      await invokeTest('ui_test_close');
+      if (kind === 'vanish') await tray((now) => !now.available);
+      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
+    }
     if (step.startsWith('wizard-connect:')) {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode, step.slice('wizard-connect:'.length));

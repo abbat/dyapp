@@ -1,4 +1,5 @@
 """Launch a real bundled Tauri app, check rendered UI and injected failure."""
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -397,6 +398,45 @@ def smoke(executable, flows=True):
     language_step = "--ui-test-step=settings-language"
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("settings-english", ["--ui-test-file", language_step], profile)
+
+    @contextlib.contextmanager
+    def fake_tray(mode, profile):
+        """A tray host on the session bus for one case (fake-tray.py)."""
+        (Path(profile) / "tray-click").unlink(missing_ok=True)
+        host = subprocess.Popen(  # pylint: disable=consider-using-with
+            ["/usr/bin/python3", str(Path(__file__).with_name("fake-tray.py")),
+             mode, str(profile)], stdout=subprocess.PIPE, text=True)
+        try:
+            if host.stdout.readline().strip() != "ready":
+                raise RuntimeError(f"fake tray host did not start: {mode}")
+            yield
+        finally:
+            host.terminate()
+            host.wait(timeout=10)
+
+    def tray(profile):
+        """Without a host the tray settings are off; with one, Quit exits,
+        close-to-tray hides the window until Open, the setting survives a
+        relaunch, and a host that goes away brings the window back."""
+        file = ["--ui-test-file"]
+        case("tray-none", [*file, "--ui-test-step=tray:none"], profile,
+             peer=False)
+        with fake_tray("quit", profile):
+            case("tray-quit", [*file, "--ui-test-step=tray:quit"], profile,
+                 peer=False)
+        with fake_tray("open", profile):
+            case("tray-close", [*file, "--ui-test-step=tray:close"], profile,
+                 peer=False)
+        saved = json.loads((Path(profile) / "tray.json").read_text())
+        if saved != {"show": True, "closeToTray": True}:
+            raise RuntimeError(f"tray settings not saved: {saved}")
+        with fake_tray("open", profile):
+            case("tray-relaunch", [*file, "--ui-test-step=tray:persisted"],
+                 profile, peer=False)
+        with fake_tray("vanish", profile):
+            case("tray-vanish", [*file, "--ui-test-step=tray:vanish"],
+                 profile, peer=False)
+
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         russian = ["--ui-test-file", "--ui-test-ru", language_step]
         case("russian-locale", russian, profile)
@@ -409,6 +449,9 @@ def smoke(executable, flows=True):
     if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             window(profile)
+    if flows and os.name == "posix":
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            tray(profile)
     (reports / "desktop-ui-results.json").write_text(
         json.dumps(results, indent=2))
     print(f"{len(results)} desktop UI cases passed")
