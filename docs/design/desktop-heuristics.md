@@ -3,8 +3,7 @@
 A review of every state of the desktop prototype (`clients/desktop/prototype/`, see
 [desktop screens](desktop-screens.md)) against Jakob Nielsen's
 [10 usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/). It was
-done on 2026-10-29, before the shell was built, and every finding of severity 2 or more is
-fixed in the prototype. The rule that keeps it current is under [When to review](#when-to-review).
+done on 2026-10-29, before the shell was built, and every finding is fixed in the prototype. The rule that keeps it current is under [When to review](#when-to-review).
 
 ## Method
 
@@ -65,16 +64,21 @@ are not designed yet.
 | Shell at 640 px and below | H1 | Connection only as a coloured dot | The top bar shows the status word too |
 | `profile-dark` at 440 px | H8 | Selects too narrow, text cut | Grid columns at least 200 px or full width |
 | `chats` | H1 | Nav badge 3 against row counts 2, 1 and 2 | The badge counts unread messages and requests (2 + 1) and its label says so |
-| `recovery` | H5 | Remove first in the row, next to "Use another identity" | Kept: it is apart from Retry and the dialog needs a ticked box |
+| `recovery` | H5 | Remove first in the row, next to "Use another identity" | "Remove this identity…" is a quiet link under the Peer ID, apart from the row |
 
 States with no finding: `wizard-identity`, `picker`, `publish-dialog`, `publish-progress`,
 `network-checking`, `search`, `profile-view`, `chat-menu`, `chat-clear-dialog`, `chat-cleared`,
 `switcher`, `menu`, `remove-offline`.
 
+### Accepted exceptions
+
+None.
+
 ## When to review
 
 Before any change to the prototype or to a client screen, re-check the changed states and their
-neighbours against H1–H10 in both languages at 440 and 1280 px, and record each finding of
-severity 2 or more here with its fix, or as open with the reason. A change ships with no open
-finding of severity 3 or 4. This is the heuristics part of practice
+neighbours against H1–H10 in both languages at 440 and 1280 px, and record each finding here
+with its fix. A change ships with no open finding of any severity (1-4). The only way past a
+finding is an exception the maintainer accepted, recorded here with the reason and the date;
+an agent never accepts one itself. This is the heuristics part of practice
 [D3](../development/practices.md); the human approval part is not adopted yet.

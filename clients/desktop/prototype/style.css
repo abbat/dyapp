@@ -278,7 +278,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 
 /* Heuristic review fixes (docs/design/desktop-heuristics.md). */
 .full-id { display: block; word-break: break-all; margin-top: var(--space-1); }
-.notice .btn.quiet { padding-inline: 0; }
+.notice .btn.quiet, .btn.link { padding-inline: 0; }
 .avatars .avatar + .avatar { position: relative; }
 .chat { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--space-6)); }
 .chat .thread { flex: 1; }

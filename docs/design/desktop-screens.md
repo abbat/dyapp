@@ -59,7 +59,7 @@ state code.
 | Details | `recovery-details` | Collapsed; code and row |
 | Copy details | `copy-recovery-details` | |
 | Peer ID | `recovery-peer` | Full ID |
-| Remove | `remove-identity` | Opens the removal dialog |
+| Remove | `remove-identity` | "Remove this identity…", a quiet link under the Peer ID; opens the removal dialog |
 | Use another identity | `switch-identity` | |
 | Retry | `retry` | Primary |
 
