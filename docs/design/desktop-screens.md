@@ -232,13 +232,15 @@ Own messages show Sent or Delivered, and Read only when the peer sends read rece
 message says so, and a deleted one leaves a placeholder. Edit and Delete (`msg-menu`) apply to
 own messages and are best effort. `chat-first`: to a non-match, one message is sent and the
 composer stays disabled until a reply or a match. `chat-request`: an incoming message from a
-non-match, with Reply through the composer or Block. "Anna is typing…" (`chat-typing`) shows for 10 seconds after
+non-match, with Reply through the composer or Block. `chat-more` opens the header menu
+(`chat-menu`) with Clear chat (`chat-clear`) and Block (`chat-block`). "Anna is typing…" (`chat-typing`) shows for 10 seconds after
 the last typing signal, only over a direct path.
 
 ```plantuml
 @startsalt
 {+
-[< (chat-back)] | [(photo) Anna · Active recently (chat-profile, chat-presence)] | [Block (chat-block)]
+[< (chat-back)] | [(photo) Anna · Active recently (chat-profile, chat-presence)] | [… (chat-more)]
+{+ Clear chat (chat-clear) | Block (chat-block) } (chat-menu)
 first: notice (chat-first-notice) · request: notice (chat-request-notice)
 Today
                        Hi Anna! … 14:05
@@ -246,6 +248,23 @@ Thanks! … 14:11
 <i>Message deleted
                 Shall we …? edited · 14:20 · Delivered [Edit] [Delete] (msg-menu)
 "Message" (chat-input) | [Send (chat-send)]
+}
+@endsalt
+```
+
+`chat-clear-dialog` confirms Clear chat: the messages are deleted from this computer only, the
+peer keeps theirs, cleared messages do not come back and unsent ones are cancelled
+([contract](message-edits-and-deletion.md#clearing-a-conversation-planned)). `chat-cleared`: the
+same chat, empty, with a note; the match and the chat row stay.
+
+```plantuml
+@startsalt
+{+
+<b>Clear this chat?
+Deleted from this computer; the other person keeps their copy
+Cleared messages do not come back; unsent ones are cancelled; the match stays
+[Cancel (chat-clear-cancel)] | [Clear chat (chat-clear-confirm)]
+cleared: Chat cleared on this computer (chat-cleared-note)
 }
 @endsalt
 ```

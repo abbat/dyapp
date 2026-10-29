@@ -20,6 +20,7 @@
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
 </svg>
 
@@ -99,7 +100,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match chats chat chat-first chat-request">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
   <header class="topbar">
     <button class="btn quiet" id="menu-open" data-ta="nav.menu"><svg class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -121,7 +122,7 @@
       <svg class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
     <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-match">
       <svg class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
-    <button class="nav" id="nav-chats" data-current="chats chat chat-first chat-request">
+    <button class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
       <svg class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button class="nav" id="nav-network" data-current="network network-checking network-error">
@@ -321,29 +322,34 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-first chat-request">
+    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
       <div class="chat-head">
         <button class="btn quiet" id="chat-back" data-ta="nav.chats"><svg class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
         <button class="peer" id="chat-profile">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat"></span>
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-menu chat-clear-dialog chat-cleared"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat" data-t="view.name"></b><code data-on="chat-first">…b8Wte3</code><code data-on="chat-request">…r5Kd2M</code>
-            <span class="sub caption ellipsis" id="chat-presence" data-on="chat" data-t="chat.active"></span></span></button>
-        <button class="btn" id="chat-block" data-t="view.block"></button>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-menu chat-clear-dialog chat-cleared" data-t="view.name"></b><code data-on="chat-first">…b8Wte3</code><code data-on="chat-request">…r5Kd2M</code>
+            <span class="sub caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-cleared" data-t="chat.active"></span></span></button>
+        <button class="btn quiet" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg class="icon"><use href="#i-more"/></svg></button>
+        <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
+          <button class="nav" role="menuitem" id="chat-clear" data-t="chat.clear"></button>
+          <button class="nav" role="menuitem" id="chat-block" data-t="view.block"></button>
+        </div>
       </div>
       <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
       <div class="notice warn" id="chat-request-notice" data-on="chat-request" data-t="chat.request.notice"></div>
       <div class="thread" id="chat-thread">
-        <span class="day" data-t="chat.today"></span>
-        <div class="msg out" data-on="chat"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat"><span data-t="chat.deleted"></span></div>
-        <div class="msg out" data-on="chat"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+        <span class="day" data-off="chat-cleared" data-t="chat.today"></span>
+        <p class="caption cleared" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
           <span class="msg-menu" id="msg-menu"><button class="btn quiet" data-t="chat.edit"></button><button class="btn quiet" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
-        <span class="caption" id="chat-typing" data-on="chat" data-t="chat.typing"></span>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
       </div>
@@ -425,6 +431,19 @@ search providers asked: 0 of 3</pre>
     <div class="actions">
       <button class="btn focus" id="profile-cancel" data-t="action.cancel"></button>
       <button class="btn primary" id="profile-publish-confirm" data-t="publish.confirm" disabled></button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear chat dialog: local only, the peer keeps their copy. -->
+<div class="modal-scrim" data-on="chat-clear-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="clear-title">
+    <h2 id="clear-title" data-t="clear.title"></h2>
+    <p data-t="clear.text"></p>
+    <p class="caption" data-t="clear.later"></p>
+    <div class="actions">
+      <button class="btn focus" id="chat-clear-cancel" data-t="action.cancel"></button>
+      <button class="btn danger" id="chat-clear-confirm" data-t="clear.action"></button>
     </div>
   </div>
 </div>

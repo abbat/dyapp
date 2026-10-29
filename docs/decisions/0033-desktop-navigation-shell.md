@@ -36,7 +36,8 @@ The desktop client gets one app shell:
 - **Chats** lists, for the active identity only, who liked you, message requests from
   non-matches and the conversations. A conversation shows "Active recently" for a match, edited
   and deleted marks, Sent or Delivered on own messages, and Edit and Delete on them. To a
-  non-match one message is sent, then the composer waits for a reply or a match.
+  non-match one message is sent, then the composer waits for a reply or a match. The header
+  menu holds Block and **Clear chat**, which empties the conversation on this device only.
 - **Connection status** at the bottom of the sidebar shows connected or not and opens Network.
 - **Network form** shows the network name ("Public network" when empty) and the bootstrap
   addresses at once, and one **Check and connect** action with Cancel; a failure or cancel keeps the prior network.

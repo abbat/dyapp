@@ -59,6 +59,23 @@ staging. Only a present own text in the same group can be targeted; deletion is 
 operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
 locally before delivery is pending on the peer until its receipt.
 
+## Clearing a conversation (planned)
+
+**Clear chat** in the chat header menu deletes the whole conversation from this device only. In
+one transaction the Store removes every current text and placeholder of the group, the pending
+operations claimed for it and the unsent outbox entries, and keeps a key-only mark
+`(group, author, message ID)` for each removed message and each target of a removed pending
+operation. A text, edit or delete that later names a marked ID, by re-delivery, a delayed
+envelope or device sync, is discarded and still ACKed, so a cleared message neither shows nor
+loads again. The marks hold no text and go when the conversation is deleted. A tag 1 text has no
+send time, so a message first received after the clear shows as new even if it was written
+earlier.
+
+The match, likes, block state and the chat row stay; the chat opens empty with a note. The peer
+and nodes are not told and keep their copies; to ask for removal, delete own messages first
+([best effort](../decisions/0011-best-effort-deletion.md)). The same physical-remnant caveat as
+above applies.
+
 ## Best-effort node removal
 
 The sender sends the delete as an encrypted MLS operation. On receipt, the recipient replaces

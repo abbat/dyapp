@@ -21,6 +21,7 @@ SCREENS = [
     "search", "search-loading", "search-empty", "search-error",
     "profile-view", "profile-view-match",
     "chats", "chat", "chat-first", "chat-request",
+    "chat-menu", "chat-clear-dialog", "chat-cleared",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
 ]
 LANGS = ["en", "ru"]
