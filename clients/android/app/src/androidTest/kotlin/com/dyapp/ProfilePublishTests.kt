@@ -1,13 +1,10 @@
 package com.dyapp
 
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -16,7 +13,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
@@ -30,17 +26,7 @@ class ProfilePublishTests {
 
     private fun string(id: Int) = compose.activity.getString(id)
 
-    private fun texts(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
-        .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
-
-    // A timeout names what the tag and the network check rows showed instead.
-    private fun waitForText(tag: String, id: Int) = runCatching {
-        compose.waitUntil(PUBLISH_WAIT_MS) {
-            compose.onAllNodes(hasTestTag(tag) and hasText(string(id))).fetchSemanticsNodes().isNotEmpty()
-        }
-    }.onFailure { throw AssertionError("$tag shows ${texts(tag)}, rows ${texts("network-row")}", it) }
-
-    private fun eligibility(id: Int) = waitForText("profile-publish-eligibility", id)
+    private fun eligibility(id: Int) = compose.waitForText("profile-publish-eligibility", id)
 
     private fun confirmBoth() {
         compose.onNodeWithTag("profile-confirm-adult").performScrollTo().performClick()
@@ -79,31 +65,11 @@ class ProfilePublishTests {
         compose.onNodeWithTag("network-draft-open").performScrollTo().performClick()
         compose.onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
         compose.onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
-        // The first dial of a cold, software-emulated app can outlast the 5 s check: retry as a
-        // user would.
-        fun shows(id: Int) = compose.onAllNodes(hasTestTag("network-check-status") and hasText(string(id)))
-            .fetchSemanticsNodes()
-            .isNotEmpty()
-        repeat(CHECK_TRIES) {
-            if (shows(R.string.network_connected)) return@repeat
-            compose.onNodeWithTag("network-check").performScrollTo().performClick()
-            compose.waitUntil(PUBLISH_WAIT_MS) {
-                shows(R.string.network_connected) || shows(R.string.network_unreachable) ||
-                    shows(R.string.network_check_failed)
-            }
-        }
-        waitForText("network-check-status", R.string.network_connected)
+        compose.checkNetwork(retryUnreachable = true)
+        compose.waitForText("network-check-status", R.string.network_connected)
         compose.onNodeWithTag("network-continue").performScrollTo().performClick()
-        waitForText("network-check-status", R.string.network_active)
+        compose.waitForText("network-check-status", R.string.network_active)
         compose.onNodeWithTag("network-back").performScrollTo().performClick()
-    }
-
-    // Other tests expect no active network, so the activated settings never outlive this test.
-    private fun forgetNetworks() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        for (root in listOf(context.filesDir, context.noBackupFilesDir)) {
-            root.walkBottomUp().filter { it.isFile && it.name in NETWORK_FILES }.forEach { it.delete() }
-        }
     }
 
     @Test
@@ -132,10 +98,5 @@ class ProfilePublishTests {
     private companion object {
         const val PUBLISH_WAIT_MS = 30_000L
         const val READBACK_WAIT_MS = 120_000L
-        const val CHECK_TRIES = 3
-
-        // The emulator runner's loopback dyappd, as the guest reaches its container.
-        const val LOCAL_NODE = "10.0.2.2:33445"
-        val NETWORK_FILES = setOf("network", "network-draft")
     }
 }

@@ -67,11 +67,17 @@ localized not-connected failure, retry label and cleared confirmations.
 A second Android publish test checks and activates the emulator runner's loopback node
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
-Their network form UI tests save bootstrap rows and a network name, relaunch the app in the same
-isolated slot root, and check that the values reappear in the automatic form while Ready remains
+The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
+in the same isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
 Peer ID on Ready; the form is then available through Network connection. Shared unit tests reopen
 two UUID slot folders and check that each retains its own draft and active settings.
+The Android network draft tests save an invalid row, a closed port (`10.0.2.2:1`) and the local
+node pinned to a foreign Peer ID under the name `city`, recreate the activity and expect the same
+Peer ID and draft on the automatic form. The check marks the three rows invalid, unreachable and
+wrong Peer ID, and the local node under `city` belongs to another network; Continue stays off. A
+second test checks the closed port, retries with the local node, continues to the active state and
+recreates the activity onto Ready with the same Peer ID. Both delete the network files afterwards.
 Apple UI tests also open read-only Settings after creation, find the selected inventory row by
 accessibility identifier and Peer ID, and verify the network editor link remains available.
 They create a second identity, switch back to the first, and relaunch to confirm its Peer ID
@@ -125,7 +131,7 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 22 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 24 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 45 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 35 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the ten that need dyappd and the five Linux tray cases (30) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
