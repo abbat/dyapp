@@ -68,7 +68,6 @@ pub async fn check(network: &Network, wait: Duration) -> Result<Vec<Row>, CheckE
     let options = SwarmOptions {
         mode: Mode::Client,
         protocols: protocols.into(),
-        wire: crate::wire(),
         ..SwarmOptions::default()
     };
     let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options)
