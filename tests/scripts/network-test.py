@@ -640,7 +640,7 @@ def main():
     if len(sys.argv) != 1:
         raise ValueError(usage)
     # The client has no DNS transport: resolve the container names here.
-    suite([addresses(socket.gethostbyname(host), 7070)
+    suite([addresses(socket.gethostbyname(host), 33445)
            for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT,
           relay=True)
 

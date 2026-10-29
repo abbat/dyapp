@@ -25,12 +25,12 @@ x-peer: &peer
     - >-
       bash tests/scripts/check-container-isolation.sh
       && ip=$$(getent hosts "$$HOSTNAME" | cut -d " " -f 1)
-      && export DYAPPD_EXTERNAL="[\"$$ip:7070\"]"
+      && export DYAPPD_EXTERNAL="[\"$$ip:33445\"]"
       && { test -e /tmp/node/node.key || build/debug/dyappd keygen; }
       && exec build/debug/dyappd
   environment: &env
     # The default listens on loopback only.
-    DYAPPD_LISTEN: '["[::]:7070", "0.0.0.0:7070"]'
+    DYAPPD_LISTEN: '["[::]:33445", "0.0.0.0:33445"]'
     DYAPPD_STORAGE_DIR: /tmp/node
     DYAPPD_ROLES: '["store", "search", "media"]'
     # A low node-ID proof of work keeps keygen fast; the network test sets the same.
@@ -43,7 +43,7 @@ x-peer: &peer
     # Repair and ack forwarding run seconds after the nodes meet.
     DYAPPD_NETWORK_STORAGE_TRUST_MINUTES: "0"
   healthcheck:
-    test: [CMD, python3, /workspace/tests/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/7070]
+    test: [CMD, python3, /workspace/tests/scripts/network-test.py, --health, /ip4/127.0.0.1/tcp/33445]
     interval: 5s
     timeout: 20s
     retries: 12
@@ -76,7 +76,7 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD_SEEDS: '["bootstrap-a:7070"]'
+      DYAPPD_SEEDS: '["bootstrap-a:33445"]'
     # A node dials its seed once, at start.
     depends_on:
       bootstrap-a:
@@ -86,7 +86,7 @@ services:
     <<: *peer
     environment:
       <<: *env
-      DYAPPD_SEEDS: '["bootstrap-a:7070"]'
+      DYAPPD_SEEDS: '["bootstrap-a:33445"]'
       DYAPPD_LIMITS_REQUESTS_PER_SECOND: "5"
     depends_on:
       bootstrap-a:

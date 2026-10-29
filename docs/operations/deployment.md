@@ -174,7 +174,7 @@ docker run --rm --network none --user 1000:1000 --tmpfs /tmp:rw,exec,mode=1777 \
     build/debug/dyappd keygen
     build/debug/dyappd &
     sleep 3
-    build/debug/dyappd info [::1]:7070
+    build/debug/dyappd info [::1]:33445
     kill %1'
 # → {"max_profile_bytes":1048576,"roles":["ROLE_STORE","ROLE_SEARCH"],"status":"STATUS_OK"}
 ```
@@ -185,7 +185,7 @@ docker run --rm --network none --user 1000:1000 --tmpfs /tmp:rw,exec,mode=1777 \
 export DYAPPD_STORAGE_DIR=/tmp/ai/node DYAPPD_NETWORK_ID_POW_BITS=8
 cargo run --package dyapp-bootstrap --bin dyappd -- keygen
 cargo run --package dyapp-bootstrap --bin dyappd &
-cargo run --package dyapp-bootstrap --bin dyappd -- info [::1]:7070
+cargo run --package dyapp-bootstrap --bin dyappd -- info [::1]:33445
 ```
 
 Prerequisites: Rust 1.99 (`rust-toolchain.toml`) and a C compiler for the

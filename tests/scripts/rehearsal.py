@@ -29,7 +29,7 @@ net = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(net)
 
 HOSTS = ("127.1.0.1", "127.2.0.1", "127.3.0.1")
-PORT = 7070
+PORT = 33445
 TRUST_MINUTES = int(os.environ.get(
     "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES", "60"))
 STARTED = time.monotonic()
