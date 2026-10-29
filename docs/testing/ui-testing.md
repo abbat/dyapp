@@ -283,7 +283,8 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 
 `ui-test.sh prototype` (`make ui-prototype`) empties `build/ux-research/prototype/` and runs the
 light `dyapp:prototype` image (Debian 12, WebKitGTK 4.1, Xvfb; no Rust build, also built by
-`prepare`). `prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
+`prepare`; the script and the prototype are mounted, so editing them needs no rebuild).
+`prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
 for each screen of [Desktop screens](../design/desktop-screens.md) in English and Russian, at 440
 and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
 non-zero when any page fails to load or save. The prototype has no logic, so this checks layout

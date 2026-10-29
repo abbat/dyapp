@@ -37,9 +37,9 @@ No key backup in this version (no-backup)
 {+
 Step 2 of 2
 Peer ID: 12D3…Fk9Qx (peer-id) | [Copy (copy-peer-id)]
+Network name "Public network" (network-name)
 Bootstrap addresses (seeds)
 {+ host:port per line }
-[▸ Private network] network name (network-name)
 [Skip for now (skip-network)] | [Check and connect (check-connection)]
 }
 @endsalt
@@ -47,15 +47,17 @@ Bootstrap addresses (seeds)
 
 ## Picker and recovery
 
-`picker`: several identities and none active, or after a removal. `recovery`: the active identity
+`picker`: several identities and none active, or after a removal. Every identity list (picker,
+switcher, Settings) leads each row with a round avatar: the thumbnail of the identity's first
+profile photo, or the first two characters after `12D3KooW` when it has none. `recovery`: the active identity
 cannot be opened; the localized reason, then Details with the state code.
 
 ```plantuml
 @startsalt
 {+
 <b>Choose an identity
-[12D3…Fk9Qx · System keyring (pick-1)]
-[12D3…7aZ2p · Key file (pick-2)]
+[(photo) 12D3…Fk9Qx · System keyring (pick-1)]
+[(7a) 12D3…7aZ2p · Key file (pick-2)]
 [Add identity (add-identity)]
 }
 @endsalt
@@ -81,10 +83,11 @@ off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
 ```plantuml
 @startsalt
 {#
-[Fk 12D3…Fk9Qx · System keyring (identity-switcher)] | Active section
+[(photo) 12D3…Fk9Qx · System keyring (identity-switcher)] | Active section
 {+ 12D3…7aZ2p (switch-to-2) | Add identity (add-identity-menu) } (identity-menu) | .
 [Profile (nav-profile)] | .
 [Search (nav-search)] | .
+[Chats · 3 (nav-chats, chats-unread)] | .
 [Network (nav-network)] | .
 [Settings (nav-settings)] | .
 ● Connected · Public network (connection-status) | .
@@ -135,7 +138,8 @@ Progress bar · 0:24 elapsed (publish-progress only)
 
 ## Network
 
-`network`, `network-checking` and `network-error`. One **Check and connect**; a failure or cancel
+`network`, `network-checking` and `network-error`. The network name stands above the addresses,
+its placeholder says "Public network" when empty. One **Check and connect**; a failure or cancel
 keeps the prior network. The error shows Details with the code and the row outcomes.
 
 ```plantuml
@@ -144,8 +148,8 @@ keeps the prior network. The error shows Details with the code and the row outco
 <b>Network
 Status (network-status)
 Error notice · [▸ Details] (network-error-details) [Copy (copy-network-details)]
+Network name "Public network" (network-name-field)
 Bootstrap addresses (network-seeds)
-[▸ Private network] (network-name-field)
 node1.example.org:33445 | Answered / Checking / No answer (seed-rows)
 [Cancel (cancel-check)] | [Check and connect (check-and-connect)]
 }
@@ -173,19 +177,96 @@ Error · [▸ Details] (search-failures) [Copy (copy-search-details)] [Retry (se
 @endsalt
 ```
 
+## Found profile
+
+`profile-view` opens from a result card (`result-1`, `result-2`) inside Search, which stays
+selected. Search lists load only thumbnails; the full photos load here. Field values are claims
+of the owner and say so (`view-claims`); nothing is shown as verified. Before a match the hint
+says one message can be sent until a reply. `profile-view-match`: a mutual like adds the match
+notice, Like becomes Liked (`aria-pressed`), and pressing it sends the unlike, which ends the
+match for both. Block is local and hides the peer from search and chats.
+
+```plantuml
+@startsalt
+{+
+[< Back to results (view-back)]
+Photo gallery, thumbnails under it (view-photos)
+<b>Anna
+Woman, 29–30 · Leipzig, Germany
+Peer ID 12D3KooWNs…Ns4Lq (view-peer) | [Copy (copy-view-peer)]
+match: You like each other (view-match)
+[Block (view-block)] | [Message (view-message)] | [♥ Like (view-like)]
+match: [Block] | [♥ Liked (view-unlike)] | [Message (view-message-match)]
+Looking for, children, interests, languages (view-fields)
+Written by the profile owner; nobody checks it (view-claims)
+}
+@endsalt
+```
+
+## Chats
+
+`chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
+received likes; liking back makes a match. **Message requests** come from non-matches; the sender
+learns nothing until a reply (read receipts are off by default). Conversations show the avatar,
+the public name or short Peer ID, the last message, its time and the unread count.
+
+```plantuml
+@startsalt
+{+
+<b>Chats
+[(avatars) Liked you · 2 (chats-liked)]
+[(r5) Message requests · 1 (chats-requests)]
+Conversations (chat-list)
+[(photo) Anna · See you on Saturday then! · 14:32 · 2 (chat-1)]
+[(b8) 12D3…b8Wte · You: Hi! … · Yesterday (chat-2)]
+}
+@endsalt
+```
+
+`chat`: one conversation with a match. The header shows "Active recently" when the last signal
+from the peer is at most 2 hours old (`chat-presence`); there is no online or last-seen time.
+Own messages show Sent or Delivered, and Read only when the peer sends read receipts; an edited
+message says so, and a deleted one leaves a placeholder. Edit and Delete (`msg-menu`) apply to
+own messages and are best effort. `chat-first`: to a non-match, one message is sent and the
+composer stays disabled until a reply or a match. `chat-request`: an incoming message from a
+non-match, with Reply through the composer or Block. "Anna is typing…" (`chat-typing`) shows for 10 seconds after
+the last typing signal, only over a direct path.
+
+```plantuml
+@startsalt
+{+
+[< (chat-back)] (photo) Anna · Active recently (chat-presence) | [Profile (chat-profile)] | [Block (chat-block)]
+first: notice (chat-first-notice) · request: notice (chat-request-notice)
+Today
+                       Hi Anna! … 14:05
+Thanks! … 14:11
+<i>Message deleted
+                Shall we …? edited · 14:20 · Delivered [Edit] [Delete] (msg-menu)
+"Message" (chat-input) | [Send (chat-send)]
+}
+@endsalt
+```
+
 ## Settings and removal
+
+Privacy settings are local to the identity and never published. Defaults: no profile views and
+no read receipts sent, typing shown, presence to matches, notifications on. Turning sending off
+never stops receiving.
 
 ```plantuml
 @startsalt
 {+
 <b>Settings
 Identities (settings-identities)
-12D3…Fk9Qx · Active | [Remove (settings-remove)]
-12D3…7aZ2p · Key file | [Remove (settings-remove-2)]
+(photo) 12D3…Fk9Qx · Active | [Remove (settings-remove)]
+(7a) 12D3…7aZ2p · Key file | [Remove (settings-remove-2)]
 No key backup in this version
 [Add identity (settings-create)]
 Theme (X) System (theme-system) () Light (theme-light) () Dark (theme-dark)
 Language ^English^ (language)
+Privacy: [ ] views (send-views) [ ] read receipts (send-read-receipts) [X] typing (send-typing)
+Active recently: (X) Matches (presence-matches) () Nobody (presence-nobody)
+[X] New messages and likes (message-notifications)
 [ ] Run a node (node-enabled)
 }
 @endsalt

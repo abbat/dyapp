@@ -10,7 +10,7 @@ same-looking full-width buttons, about 30 lines of CSS and no navigation. The ma
 unusable. [Desktop UX references](../design/desktop-ux-references.md) collected how GNOME,
 Fluent, Apple and Material guidelines and key-as-account apps (Signal, Session, Element, Jami,
 Syncthing, KeePassXC) solve the same tasks, and listed the open choices in its section 9. The
-desktop app has four areas (Profile, Search, Network, Settings), several local identities, no key
+desktop app has five areas (Profile, Search, Chats, Network, Settings), several local identities, no key
 backup in v0.0.1, and the Android client must keep the same control IDs and decision order.
 
 ## Decision
@@ -19,14 +19,22 @@ The desktop client gets one app shell:
 
 - **First run** is a short full-window wizard before the shell exists: create an identity, then
   the network form, which may be skipped. The shell opens on Profile.
-- **Navigation** is a left sidebar with icon and label for Profile, Search and Network, and
-  Settings pinned last. It becomes an icon rail at 641-1007 px and an off-canvas menu at 640 px
+- **Navigation** is a left sidebar with icon and label for Profile, Search, Chats (with an unread
+  count) and Network, and Settings pinned last. It becomes an icon rail at 641-1007 px and an off-canvas menu at 640 px
   and below. The layout works down to a 400 px wide window.
-- **Identity switcher** at the top of the sidebar shows the active identity by its shortened Peer
-  ID and storage kind, and lists the others plus "Add identity". Removal lives in Settings.
+- **Identity switcher** at the top of the sidebar shows the active identity by a round avatar
+  (its first profile photo, else Peer ID letters), shortened Peer ID and storage kind, and lists
+  the others plus "Add identity". Removal lives in Settings.
+- **Found profile** opens from a search result in the Search area: the photos, the public
+  fields marked as unchecked claims, and Like, Message and Block; a mutual like shows a match
+  notice and Liked, which takes the like back.
+- **Chats** lists, for the active identity only, who liked you, message requests from
+  non-matches and the conversations. A conversation shows "Active recently" for a match, edited
+  and deleted marks, Sent or Delivered on own messages, and Edit and Delete on them. To a
+  non-match one message is sent, then the composer waits for a reply or a match.
 - **Connection status** at the bottom of the sidebar shows connected or not and opens Network.
-- **Network form** shows the bootstrap addresses at once, the network name under a disclosure,
-  and one **Check and connect** action with Cancel; a failure or cancel keeps the prior network.
+- **Network form** shows the network name ("Public network" when empty) and the bootstrap
+  addresses at once, and one **Check and connect** action with Cancel; a failure or cancel keeps the prior network.
 - **Confirmations** are modal dialogs, Cancel left and the action right, focus on Cancel. Removing
   an identity, the active one included, needs a ticked "I understand this key cannot be recovered"
   box; afterwards the picker opens, or the wizard when no identity remains. Publishing opens a

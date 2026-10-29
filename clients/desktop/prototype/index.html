@@ -17,6 +17,9 @@
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
 </svg>
 
@@ -44,16 +47,15 @@
     <h1 data-t="wizard.network.title"></h1>
     <p class="caption"><span data-t="identity.peer"></span> <code id="peer-id">12D3KooWQx7mN4…Fk9Qx</code>
       <button class="btn quiet" id="copy-peer-id" data-t="action.copy"></button></p>
+    <div class="field"><label for="network-name" data-t="network.name"></label>
+      <input type="text" id="network-name" data-tp="network.name.public">
+      <p class="caption" data-t="network.name.hint"></p></div>
     <div class="field">
       <label for="seeds" data-t="network.seeds"></label>
       <textarea id="seeds">node1.example.org:33445
 [2001:db8::7]:33445</textarea>
       <p class="caption" data-t="network.seeds.hint"></p>
     </div>
-    <details id="network-name-details"><summary data-t="network.name.toggle"></summary>
-      <div class="field"><label for="network-name" data-t="network.name"></label>
-        <input type="text" id="network-name"><p class="caption" data-t="network.name.hint"></p></div>
-    </details>
     <div class="actions">
       <button class="btn start" id="skip-network" data-t="wizard.skip"></button>
       <button class="btn primary" id="check-connection" data-t="network.check"></button>
@@ -67,9 +69,9 @@
     <h1 data-t="picker.title"></h1>
     <p class="muted" data-t="picker.intro"></p>
     <div id="identities">
-      <button class="list-button" id="pick-1"><span class="avatar">Fk</span>
+      <button class="list-button" id="pick-1"><span class="avatar photo" aria-hidden="true"></span>
         <span><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
-      <button class="list-button" id="pick-2"><span class="avatar">7a</span>
+      <button class="list-button" id="pick-2"><span class="avatar" aria-hidden="true">7a</span>
         <span><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
     </div>
     <div class="actions"><button class="btn" id="add-identity"><span data-t="identity.add"></span></button></div>
@@ -97,7 +99,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match chats chat chat-first chat-request">
   <header class="topbar">
     <button class="btn quiet" id="menu-open" data-ta="nav.menu"><svg class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -106,19 +108,22 @@
   <div class="scrim"></div>
   <nav class="sidebar" aria-label="Main">
     <button class="nav identity" id="identity-switcher" aria-haspopup="menu">
-      <span class="avatar">Fk</span>
+      <span class="avatar photo" aria-hidden="true"></span>
       <span class="label"><code>12D3…Fk9Qx</code><span class="sub" data-t="storage.kind.system"></span></span>
     </button>
     <div class="menu" id="identity-menu" role="menu" data-on="switcher">
-      <button class="nav" role="menuitem" id="switch-to-2"><span class="avatar">7a</span>
+      <button class="nav" role="menuitem" id="switch-to-2"><span class="avatar" aria-hidden="true">7a</span>
         <span class="label"><code>12D3…7aZ2p</code><span class="sub" data-t="storage.kind.file"></span></span></button>
       <button class="nav" role="menuitem" id="add-identity-menu"><svg class="icon"><use href="#i-plus"/></svg>
         <span class="label" data-t="identity.add"></span></button>
     </div>
     <button class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
       <svg class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
-    <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error">
+    <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-match">
       <svg class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
+    <button class="nav" id="nav-chats" data-current="chats chat chat-first chat-request">
+      <svg class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
+      <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button class="nav" id="nav-network" data-current="network network-checking network-error">
       <svg class="icon"><use href="#i-network"/></svg><span class="label" data-t="nav.network"></span></button>
     <div class="spacer"></div>
@@ -193,16 +198,15 @@ node1.example.org:33445: timed out after 10 s
           <button class="btn quiet" id="copy-network-details" data-t="action.copy"></button></details>
       </div>
       <div class="card">
+        <div class="field"><label for="network-name-field" data-t="network.name"></label>
+          <input type="text" id="network-name-field" data-tp="network.name.public">
+          <p class="caption" data-t="network.name.hint"></p></div>
         <div class="field">
           <label for="network-seeds" data-t="network.seeds"></label>
           <textarea id="network-seeds">node1.example.org:33445
 [2001:db8::7]:33445</textarea>
           <p class="caption" data-t="network.seeds.hint"></p>
         </div>
-        <details id="network-name-toggle"><summary data-t="network.name.toggle"></summary>
-          <div class="field"><label for="network-name-field" data-t="network.name"></label>
-            <input type="text" id="network-name-field"><p class="caption" data-t="network.name.hint"></p></div>
-        </details>
         <table class="rows" id="seed-rows">
           <tr><td><code>node1.example.org:33445</code></td>
             <td><span class="state-ok" data-on="network" data-t="row.ok"></span>
@@ -239,10 +243,10 @@ node1.example.org:33445: timed out after 10 s
       </div>
       <div id="search-results" data-on="search">
         <p class="caption" id="search-status" data-t="search.found"></p>
-        <div class="card result"><span class="avatar">Ns</span><div><code>12D3…Ns4Lq</code>
-          <p class="caption" data-t="search.result1"></p></div></div>
-        <div class="card result"><span class="avatar">b8</span><div><code>12D3…b8Wte</code>
-          <p class="caption" data-t="search.result2"></p></div></div>
+        <button class="list-button" id="result-1"><span class="avatar photo p2" aria-hidden="true"></span>
+          <span><b data-t="view.name"></b> <code>12D3…Ns4Lq</code><br><span class="caption" data-t="search.result1"></span></span></button>
+        <button class="list-button" id="result-2"><span class="avatar" aria-hidden="true">b8</span>
+          <span><code>12D3…b8Wte</code><br><span class="caption" data-t="search.result2"></span></span></button>
         <div class="actions"><button class="btn" id="search-again" data-t="search.again"></button></div>
       </div>
       <div data-on="search-loading" role="status" aria-busy="true">
@@ -265,15 +269,99 @@ search providers asked: 0 of 3</pre>
       </div>
     </section>
 
+    <!-- Found profile: opened from a result; the full photos load now. -->
+    <section id="profile-view" data-on="profile-view profile-view-match">
+      <button class="btn quiet back" id="view-back"><svg class="icon"><use href="#i-back"/></svg><span data-t="view.back"></span></button>
+      <div class="gallery" id="view-photos">
+        <div class="main photo p2" role="img" data-ta="view.photo"></div>
+        <div class="thumbs"><span class="photo p2" aria-current="true"></span><span class="photo p3"></span><span class="photo p4"></span></div>
+      </div>
+      <h1><span data-t="view.name"></span></h1>
+      <p class="muted" data-t="search.result1"></p>
+      <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">12D3KooWNs…Ns4Lq</code>
+        <button class="btn quiet" id="copy-view-peer" data-t="action.copy"></button></p>
+      <div class="notice" id="view-match" data-on="profile-view-match"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
+      <div class="actions view-actions">
+        <button class="btn start" id="view-block" data-t="view.block"></button>
+        <button class="btn" id="view-message" data-on="profile-view" data-t="view.message"></button>
+        <button class="btn primary" id="view-like" data-on="profile-view" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span data-t="view.like"></span></button>
+        <button class="btn liked" id="view-unlike" data-on="profile-view-match" aria-pressed="true"><svg class="icon"><use href="#i-heart"/></svg><span data-t="view.liked"></span></button>
+        <button class="btn primary" id="view-message-match" data-on="profile-view-match" data-t="view.message"></button>
+      </div>
+      <p class="caption" data-on="profile-view" data-t="view.first.hint"></p>
+      <p class="caption" data-on="profile-view-match" data-t="view.unlike.hint"></p>
+      <div class="card">
+        <dl class="facts" id="view-fields">
+          <dt data-t="profile.goal"></dt><dd data-t="profile.goal.value"></dd>
+          <dt data-t="view.kids"></dt><dd data-t="view.kids.value"></dd>
+          <dt data-t="view.interests"></dt><dd data-t="view.interests.value"></dd>
+          <dt data-t="view.languages"></dt><dd data-t="view.languages.value"></dd>
+        </dl>
+        <p class="caption" id="view-claims" data-t="view.claims"></p>
+      </div>
+    </section>
+
+    <!-- Chats: likes, message requests and conversations of the active identity only. -->
+    <section id="chats" data-on="chats">
+      <h1 data-t="nav.chats"></h1>
+      <button class="list-button" id="chats-liked"><span class="avatars"><span class="avatar photo p3" aria-hidden="true"></span><span class="avatar" aria-hidden="true">k3</span></span>
+        <span class="grow"><b data-t="chats.liked"></b><br><span class="caption" data-t="chats.liked.text"></span></span><span class="badge">2</span></button>
+      <button class="list-button" id="chats-requests"><span class="avatar" aria-hidden="true">r5</span>
+        <span class="grow"><b data-t="chats.requests"></b><br><span class="caption" data-t="chats.requests.text"></span></span><span class="badge">1</span></button>
+      <h2 style="margin-top:var(--space-4)" data-t="chats.conversations"></h2>
+      <div id="chat-list">
+        <button class="list-button" id="chat-1"><span class="avatar photo p2" aria-hidden="true"></span>
+          <span class="grow"><b data-t="view.name"></b><span class="ellipsis caption" data-t="chat.m4"></span></span>
+          <span class="meta"><span class="caption">14:32</span><br><span class="badge" data-ta="chats.unread">2</span></span></button>
+        <button class="list-button" id="chat-2"><span class="avatar" aria-hidden="true">b8</span>
+          <span class="grow"><code>12D3…b8Wte</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
+          <span class="meta"><span class="caption" data-t="chats.yesterday"></span></span></button>
+      </div>
+      <p class="caption" data-t="chats.identity"></p>
+    </section>
+
+    <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
+    <section id="chat" class="chat" data-on="chat chat-first chat-request">
+      <div class="chat-head">
+        <button class="btn quiet" id="chat-back" data-ta="nav.chats"><svg class="icon"><use href="#i-back"/></svg></button>
+        <span class="avatar photo p2" aria-hidden="true" data-on="chat"></span>
+        <span class="avatar" aria-hidden="true" data-on="chat-first">b8</span>
+        <span class="avatar" aria-hidden="true" data-on="chat-request">r5</span>
+        <span class="grow"><b data-on="chat" data-t="view.name"></b><code data-on="chat-first">12D3…b8Wte</code><code data-on="chat-request">12D3…r5Kd2</code>
+          <span class="sub caption" id="chat-presence" data-on="chat" data-t="chat.active"></span></span>
+        <button class="btn" id="chat-profile" data-t="chat.profile"></button>
+        <button class="btn" id="chat-block" data-t="view.block"></button>
+      </div>
+      <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
+      <div class="notice warn" id="chat-request-notice" data-on="chat-request" data-t="chat.request.notice"></div>
+      <div class="thread" id="chat-thread">
+        <span class="day" data-t="chat.today"></span>
+        <div class="msg out" data-on="chat"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu"><button class="btn quiet" data-t="chat.edit"></button><button class="btn quiet" data-t="chat.delete"></button></span></div>
+        <div class="msg in" data-on="chat"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat" data-t="chat.typing"></span>
+        <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
+        <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
+      </div>
+      <div class="composer">
+        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
+        <button class="btn primary" id="chat-send" data-t="chat.send" data-disabled="chat-first"></button>
+      </div>
+      <p class="caption" data-on="chat-first" data-t="chat.first.wait"></p>
+    </section>
+
     <!-- Settings: identities, appearance, language, node. -->
     <section id="settings" data-on="settings remove-dialog remove-offline">
       <h1 data-t="nav.settings"></h1>
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
         <table class="rows">
-          <tr><td><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="settings.active"></span></td>
+          <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="settings.active"></span></span></td>
             <td><button class="btn" id="settings-remove" data-t="remove.open"></button></td></tr>
-          <tr><td><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></td>
+          <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span><span><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></span></td>
             <td><button class="btn" id="settings-remove-2" data-t="remove.open"></button></td></tr>
         </table>
         <p class="caption" data-t="backup.none"></p>
@@ -288,6 +376,18 @@ search providers asked: 0 of 3</pre>
         </fieldset>
         <div class="field"><label for="language" data-t="settings.language"></label>
           <select id="language"><option>English</option><option>Русский</option></select></div>
+      </div>
+      <div class="card" id="privacy">
+        <h2 data-t="settings.privacy"></h2>
+        <label class="choice"><input type="checkbox" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" id="send-typing" checked><span data-t="privacy.typing"></span></label>
+        <fieldset id="presence-audience" style="margin:var(--space-3) 0 var(--space-2)"><legend data-t="privacy.presence"></legend>
+          <label class="choice"><input type="radio" name="presence" id="presence-matches" checked><span data-t="privacy.presence.matches"></span></label>
+          <label class="choice"><input type="radio" name="presence" id="presence-nobody"><span data-t="privacy.presence.nobody"></span></label>
+        </fieldset>
+        <label class="choice"><input type="checkbox" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
+        <p class="caption" data-t="privacy.hint"></p>
       </div>
       <div class="card" id="node">
         <h2 data-t="settings.node"></h2>
@@ -371,6 +471,7 @@ for (const el of document.querySelectorAll('[data-checked]')) el.checked = has(e
 for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.dataset.t] ?? '?' + el.dataset.t;
 for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
+for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
 document.title = t['app.name'] + ' — ' + screen;
 </script>
 </body>

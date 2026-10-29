@@ -98,6 +98,8 @@ services:
     volumes:
       - ../../clients/desktop/prototype:/prototype:ro
       - ../../build/ux-research/prototype:/shots
+      # Mounted so a changed screen list needs no image rebuild.
+      - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
     environment:
       HOME: /home/appuser
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py]
