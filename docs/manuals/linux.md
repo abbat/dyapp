@@ -30,6 +30,14 @@ The app remembers the window size, position and maximized state when it exits an
 the next launch. A window saved on a display that is gone opens centred on the primary display.
 The window is at least 400×560 px. **Ctrl+Q** quits the app.
 
+**Settings → Window** controls the tray icon. **Show icon in tray** is on by default; the icon's
+menu has **Open** and **Quit**. With **Close window to tray** on, closing the window hides it and
+the app keeps running until **Quit**. The tray needs a StatusNotifierItem host in the desktop
+session (KDE Plasma, Xfce, or GNOME with the AppIndicator extension) and the
+`libayatana-appindicator3-1` library, which the package recommends. Without them both settings are
+off and closing the window quits the app. If the tray goes away while the window is hidden, the
+window comes back.
+
 ## Settings
 
 The **Settings** area lists local identities with their key storage kind and marks

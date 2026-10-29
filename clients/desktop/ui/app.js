@@ -222,6 +222,24 @@ const showStatus = async () => {
   statusTimer = setTimeout(showStatus, 2000);
 };
 
+// Settings → Window: the tray icon and close-to-tray, usable only while a tray host is running.
+const trayShow = document.getElementById('tray-show');
+const trayClose = document.getElementById('tray-close');
+const setTray = async (prefs) => {
+  const labels = [window.strings['tray.open'], window.strings['tray.quit']];
+  const tray = await invoke('set_tray', { prefs, labels });
+  trayShow.checked = tray.show;
+  trayShow.disabled = !tray.available;
+  trayClose.checked = tray.closeToTray;
+  trayClose.disabled = !tray.available || !tray.show;
+  document.getElementById('tray-note').hidden = tray.available;
+  return tray;
+};
+const changeTray = () => setTray({ show: trayShow.checked, closeToTray: trayClose.checked });
+trayShow.addEventListener('change', changeTray);
+trayClose.addEventListener('change', changeTray);
+window.trayShown = window.stringsShown.then(() => setTray(null));
+
 const showSettings = async () => {
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
@@ -231,6 +249,7 @@ const showSettings = async () => {
   error.hidden = true;
   window.nodeShown = showNode();
   window.usageShown = showUsage();
+  window.trayShown = setTray(null);
   try {
     const items = await invoke('list_identities');
     list.replaceChildren(...knowPeers(items).map(settingsIdentity));

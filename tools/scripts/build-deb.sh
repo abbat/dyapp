@@ -69,6 +69,7 @@ Version: $client_version
 Architecture: $arch
 Maintainer: Anton Batenev <antonbatenev@yandex.ru>
 Depends: $depends
+Recommends: libayatana-appindicator3-1
 Section: net
 Priority: optional
 Description: dyapp desktop client

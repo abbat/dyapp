@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
-tauri = { version = "=2.12.3", features = [] }
+tauri = { version = "=2.12.3", features = ["tray-icon"] }
 dyapp-client = { path = "../../rust/client" }
 dyapp-identity = { path = "../../rust/identity" }
 dyapp-p2p-net = { path = "../../rust/p2p-net" }

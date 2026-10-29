@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
-tauri = { version = "=2.12.3", features = [] }
+tauri = { version = "=2.12.3", features = ["tray-icon"] }
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-client = { path = "../../rust/client" }
 dyapp-identity = { path = "../../rust/identity" }
@@ -17,6 +17,7 @@ secret-service = { version = "=5.2.0", default-features = false, features = [
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt", "sync"] }
+zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 zeroize = "1.9"
 
 [dev-dependencies]

@@ -27,6 +27,8 @@ mod search;
 mod slots;
 #[path = "system_store.rs"]
 mod system_store;
+#[path = "tray.rs"]
+mod tray;
 #[path = "usage.rs"]
 mod usage;
 #[path = "window.rs"]
@@ -605,6 +607,39 @@ fn quit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// Settings → Window: the tray icon and close-to-tray, stored when `prefs` is given; `labels` are
+/// Open and Quit in the UI language. Async: building the icon must not hold the main thread.
+#[tauri::command]
+async fn set_tray(
+    app: tauri::AppHandle,
+    prefs: Option<tray::Prefs>,
+    labels: [String; 2],
+) -> tray::State {
+    tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
+}
+
+/// UI test only: closes the window, expects it hidden to the tray, writes `tray-click` to the test
+/// config dir for the fake tray host, then waits for the host to bring the window back.
+#[tauri::command]
+async fn ui_test_close(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
+    if !std::env::args().any(|arg| arg == "--ui-test") {
+        return Err("UI test only".into());
+    }
+    window.close().map_err(|e| e.to_string())?;
+    std::thread::sleep(Duration::from_millis(600));
+    if window.is_visible().map_err(|e| e.to_string())? {
+        return Err("closing kept the window on screen".into());
+    }
+    std::fs::write(config_dir(&app)?.join("tray-click"), "").map_err(|e| e.to_string())?;
+    for _ in 0..40 {
+        std::thread::sleep(Duration::from_millis(500));
+        if window.is_visible().map_err(|e| e.to_string())? {
+            return Ok(());
+        }
+    }
+    Err("the window did not come back from the tray".into())
+}
+
 /// UI test only: moves and resizes the window when `set` is given, then returns its bounds and
 /// the primary display's, in physical pixels.
 #[tauri::command]
@@ -659,19 +694,25 @@ fn main() {
         .manage(ProfileState::default())
         .manage(search::SearchState::default())
         .manage(window::WindowState::default())
+        .manage(tray::Tray::default())
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main, config_dir(app.handle()).ok().as_deref());
             }
+            tray::watch(app.handle().clone());
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if matches!(
-                event,
-                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
-            ) {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
                 window::track(window, &window.state::<window::WindowState>());
             }
+            tauri::WindowEvent::CloseRequested { api, .. }
+                if window.state::<tray::Tray>().hides_on_close() =>
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             identity_state,
@@ -713,7 +754,9 @@ fn main() {
             ui_test_step,
             ui_test_shot,
             ui_test_window,
+            ui_test_close,
             ui_test_result,
+            set_tray,
             quit
         ])
         .on_page_load(move |webview, payload| {

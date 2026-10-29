@@ -1465,6 +1465,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tokio",
+ "zbus",
  "zeroize",
 ]
 
