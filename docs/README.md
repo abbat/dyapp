@@ -33,7 +33,7 @@ it are entry points that tools discover by path (see
 - [Read receipts and typing indicators](design/read-receipts.md): planned opt-in "read up to" signal; typing waits for a direct path
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
-- [Desktop screens](design/desktop-screens.md): planned Salt cards and control IDs for the desktop shell, with the static prototype
+- [Desktop screens](design/desktop-screens.md): planned control IDs and states for the desktop shell, checked against the static prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors

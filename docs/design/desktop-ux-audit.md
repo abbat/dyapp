@@ -217,10 +217,11 @@ Checked 2026-10-28 against the inventory above and `app.js`.
   explicit `save-draft` or `apply-network`; edits save on change.
 - Profile: no `More optional fields`, no About, no photos (all planned or blocked in the
   draft). The draft's birth-date precision select is absent because three number inputs
-  replaced it (the integration contract describes the inputs, the Salt card does not).
+  replaced it (the integration contract describes the inputs, the draft control list does not).
 - Search: no control to open a result for the verified public profile, no compatibility
   counts (planned), no `More filters` button (filters appear after the first sample).
-- Picker, recovery and remove screens have no Salt card, only prose.
+- Picker, recovery and remove screens have no control list in the draft, only prose;
+  [Desktop screens](desktop-screens.md) now lists their IDs.
 - Published and retry states of the profile are text in `profile-status`; there is no
   distinct published view.
 

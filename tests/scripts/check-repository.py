@@ -66,6 +66,11 @@ RUSSIAN = {"android": "clients/android/app/src/main/res/values-ru/strings.xml",
 KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
 SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
+# Screen pages list control IDs and states that their prototype must contain.
+SCREENS = {
+    "docs/design/desktop-screens.md": "clients/desktop/prototype/index.html"}
+SCREEN_ID = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`")
+PROTOTYPE_ID = re.compile(r'\b(?:id|data-on)="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.
 HANDLERS = ("rust/bootstrap/src/service.rs",
             "rust/bootstrap/src/service/mailbox.rs",
@@ -421,6 +426,19 @@ def translation_errors(texts):
     return errors
 
 
+def screen_errors(texts):
+    """Screen-page IDs and states missing from the matching prototype."""
+    errors = []
+    for page, prototype in SCREENS.items():
+        known = {name
+                 for found in PROTOTYPE_ID.findall(texts.get(prototype, ""))
+                 for name in found.split()}
+        listed = dict.fromkeys(SCREEN_ID.findall(texts.get(page, "")))
+        errors += [f"{page}: `{name}` not in {prototype}"
+                   for name in listed if name not in known]
+    return errors
+
+
 def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
     targets = "".join(text for name, text in texts.items()
@@ -524,6 +542,9 @@ def main():
     errors = i18n_errors(texts) + translation_errors(texts)
     if errors:
         raise ValueError("UI strings (practice D1):\n" + "\n".join(errors))
+    errors = screen_errors(texts)
+    if errors:
+        raise ValueError("Screen IDs (docs/design):\n" + "\n".join(errors))
     errors = fuzz_errors(texts)
     if errors:
         raise ValueError("Fuzz targets (tests/fuzz/):\n" + "\n".join(errors))
@@ -556,7 +577,7 @@ def main():
           "characters, ASCII paths, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
           "properties, network handlers have fuzz targets, UI strings "
-          "come from catalogues, "
+          "come from catalogues, screen pages match their prototypes, "
           "mutants skips give a reason, "
           f"source files <= {size['max_lines']} "
           "lines or their budget; "
