@@ -85,8 +85,11 @@ The same native UI cases verify that Continue stays disabled after an invalid ro
 unit test verifies that calling Activate then leaves the active settings absent.
 The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
-when space grows, without changing the identifier. On first identity creation, desktop smoke
-also opens Settings to verify the active Peer ID and key backend, creates another identity there,
+when space grows, without changing the identifier. Its final check also runs the short Peer ID
+rule on fixed IDs: "@" and the last 6 characters, one more for each tail another known ID shares,
+and a copy of the same ID in another slot counts as no collision. On first identity creation, desktop smoke
+also opens Settings to verify the active identity's full Peer ID, its short form and key backend,
+creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
 verify the surviving identity and Settings inventory.
 The English, Russian and pseudo-language runs check Settings actions, the active identity's

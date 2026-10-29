@@ -18,6 +18,17 @@ const waitFor = (id) => new Promise((resolve, reject) => {
 const hiddenRendered = () => [...document.querySelectorAll('[hidden]')]
   .filter((element) => getComputedStyle(element).display !== 'none')
   .map((element) => element.id || element.tagName);
+// The short Peer ID rule: "@" and the last 6 characters, one more per shared tail, and a copy
+// of the same ID in another slot is no collision.
+const shortPeerIdRule = () => {
+  const short = window.shortPeerId;
+  const a = `${'0'.repeat(56)}12abcdef`;
+  const b = `${'1'.repeat(56)}92abcdef`;
+  const c = `${'2'.repeat(56)}12abcdef`;
+  return short(a, [a]) === '@abcdef' && short(a, [a, a]) === '@abcdef'
+    && short(a, [a, b]) === '@12abcdef' && short(b, [a, b]) === '@92abcdef'
+    && short(a, [a, b, c]) === '@012abcdef';
+};
 // First run: no identity actions, the recommended available store preselected, and a storage
 // choice alone creates nothing until Create.
 const chooseStorage = async (mode) => {
@@ -69,7 +80,9 @@ const checkSettingsInventory = async (peerId, mode) => {
   });
   await shot('settings');
   const active = [...list.children].filter((item) => item.dataset.active === 'true');
-  if (active.length !== 1 || !active[0].textContent.includes(peerId)
+  const short = window.shortPeerId(peerId, expected.map((item) => item.peerId));
+  if (active.length !== 1 || active[0].dataset.peerId !== peerId
+      || !active[0].textContent.includes(short)
       || !active[0].textContent.includes(window.strings[`identity.mode.${mode}`])) {
     throw new Error('Settings marked the wrong active identity or storage mode');
   }
@@ -581,6 +594,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       visibility: style.visibility === 'visible' && style.opacity !== '0',
       onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready,
       peerId: /^[0-9a-f]{64}$/.test(peerId),
+      shortPeerId: shortPeerIdRule(),
       peerIdReflows: narrowLines > 1 && wideLines === 1,
       hiddenNotRendered: hiddenRendered().length === 0,
       noIdentityActions: document.getElementById('switch-identity').hidden

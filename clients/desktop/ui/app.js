@@ -73,11 +73,33 @@ const act = async (pending) => {
   }
 };
 
+// A git-style short Peer ID: "@" and the last 6 characters, longer until no other known ID
+// shares the tail. It helps to recognize a peer and is no check; the full ID stays in the title.
+const shortPeerId = (id, known) => {
+  let length = Math.min(6, id.length);
+  while (length < id.length && known.some((other) => other !== id && other.endsWith(id.slice(-length)))) {
+    length += 1;
+  }
+  return `@${id.slice(-length)}`;
+};
+window.shortPeerId = shortPeerId;
+// The local identities are the only known peers until contacts exist.
+let knownPeers = [];
+const knowPeers = (items) => {
+  knownPeers = items.filter((item) => item.peerId).map((item) => item.peerId);
+  return items;
+};
+const peerLabel = (element, id) => {
+  Object.assign(element.dataset, { peerId: id });
+  element.title = id;
+  return shortPeerId(id, knownPeers);
+};
+
 const identityButton = (item) => {
   const button = document.createElement('button');
   button.type = 'button';
   Object.assign(button.dataset, { status: item.status, mode: item.mode || '' });
-  const name = item.status === 'ready' ? item.peerId : reasonText(item.reason);
+  const name = item.status === 'ready' ? peerLabel(button, item.peerId) : reasonText(item.reason);
   const mode = window.strings[`identity.mode.${item.mode}`];
   button.textContent = mode ? `${name} — ${mode}` : name;
   button.addEventListener('click', () => act(invoke('select_identity', { slot: item.slot })));
@@ -88,7 +110,7 @@ const identityButton = (item) => {
 
 const settingsIdentity = (item) => {
   const entry = document.createElement('li');
-  const name = item.status === 'ready' ? item.peerId : reasonText(item.reason);
+  const name = item.status === 'ready' ? peerLabel(entry, item.peerId) : reasonText(item.reason);
   const mode = window.strings[`identity.mode.${item.mode}`] || '';
   const active = item.slot === current.slot ? window.strings['settings.active'] : '';
   entry.textContent = [name, mode, active].filter(Boolean).join(' — ');
@@ -106,7 +128,7 @@ const showSettings = async () => {
   window.nodeShown = showNode();
   try {
     const items = await invoke('list_identities');
-    list.replaceChildren(...items.map(settingsIdentity));
+    list.replaceChildren(...knowPeers(items).map(settingsIdentity));
     error.hidden = true;
   } catch (_) {
     list.replaceChildren();
@@ -679,7 +701,7 @@ async function render(state) {
   }
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
-    document.getElementById('identities').replaceChildren(...items.map(identityButton));
+    document.getElementById('identities').replaceChildren(...knowPeers(items).map(identityButton));
     show(sections[2], 'status.pick');
     return state;
   }

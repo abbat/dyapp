@@ -26,8 +26,8 @@ The desktop client gets one app shell:
   (its first profile photo, else letters of its short Peer ID), shortened Peer ID and storage kind, and lists
   the others plus "Add identity". Removal lives in Settings.
 - **Peer ID** is shortened like a git hash: "@" and the last 6 characters, longer until it is
-  unique among the identity's known peers. Every Ed25519 Peer ID starts with `12D3KooW`, so the
-  start tells nothing apart. The short form only helps to recognize a peer and is no check: a
+  unique among the identity's known peers. A Peer ID is 64 hex characters of a key hash, so any
+  part tells peers apart and the tail matches the git habit. The short form only helps to recognize a peer and is no check: a
   key with the same tail can be found. The full ID shows where it is checked or copied: the
   wizard, recovery and removal. Avatar letters are the two characters after its "@".
 - **Found profile** opens from a search result in the Search area: the photos, the public

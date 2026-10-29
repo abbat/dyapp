@@ -14,7 +14,8 @@ created until **Create identity**. Restoring an existing identity is planned.
 ## Settings
 
 From an open identity, **Settings** lists local identities with their key storage kind and marks
-the active one. **Add a new identity** opens the explicit key-storage choice with its backup
+the active one. The list and the picker show a short Peer ID like a git hash: "@" and the last 6
+characters, longer when another local identity ends the same way; hover a row for the full ID. **Add a new identity** opens the explicit key-storage choice with its backup
 warning; **Switch or add an identity** opens the existing picker. These identity actions live
 only in Settings, and on the recovery screen for a key that cannot be opened. **Remove this identity** shows
 the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
