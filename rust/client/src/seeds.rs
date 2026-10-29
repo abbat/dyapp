@@ -190,9 +190,17 @@ mod tests {
                     .unwrap();
             }
         };
+        // The versions clients announce: dyappd drops a peer of another network by it.
+        let heard = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let record = heard.clone();
         let server = tokio::spawn(async move {
             loop {
-                server.select_next_some().await;
+                if let SwarmEvent::Behaviour(BehaviourEvent::Identify(
+                    identify::Event::Received { info, .. },
+                )) = server.select_next_some().await
+                {
+                    record.lock().unwrap().push(info.protocol_version);
+                }
             }
         });
         let closed = TcpListener::bind("127.0.0.1:0")
@@ -227,6 +235,14 @@ mod tests {
         assert_eq!(rows[0], Row::WrongNetwork);
         assert_eq!(rows[2], Row::WrongPin);
         assert_eq!(rows[3], Row::WrongNetwork);
+        let city = Protocols::new("city").unwrap().version;
+        tokio::time::timeout(wait, async {
+            while !heard.lock().unwrap().contains(&city) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .expect("the node never heard the checked network's version");
 
         assert_eq!(
             check(&Network::default(), wait).await,
