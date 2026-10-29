@@ -26,13 +26,28 @@ pub struct Status {
     pub messages: Option<u64>,
 }
 
-/// Bytes of the file or of every file under the directory `path`; `None` when any is unreadable.
+/// Bytes of the file or of every file under the directory `path`; `None` when `path` is missing or
+/// any file is unreadable.
 fn bytes(path: &Path) -> Option<u64> {
-    let meta = fs::symlink_metadata(path).ok()?;
+    fs::symlink_metadata(path).ok()?;
+    within(path)
+}
+
+/// As [`bytes`], but a file that vanishes during the walk takes no space: a running node removes
+/// its temporary files while the card is measured.
+fn within(path: &Path) -> Option<u64> {
+    let gone = |e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound;
+    let meta = match fs::symlink_metadata(path) {
+        Err(e) if gone(&e) => return Some(0),
+        meta => meta.ok()?,
+    };
     if !meta.is_dir() {
         return Some(meta.len());
     }
-    fs::read_dir(path).ok()?.map(|entry| bytes(&entry.ok()?.path())).sum()
+    match fs::read_dir(path) {
+        Err(e) if gone(&e) => Some(0),
+        entries => entries.ok()?.map(|entry| within(&entry.ok()?.path())).sum(),
+    }
 }
 
 /// Bytes of the client store in slot folder `dir` with its `-wal`/`-shm` siblings.
@@ -87,6 +102,8 @@ mod tests {
         fs::create_dir_all(dir.join("node/media")).unwrap();
         fs::write(dir.join("node/profiles.db"), [0; 7]).unwrap();
         fs::write(dir.join("node/media/chunk"), [0; 5]).unwrap();
+        assert_eq!(within(&dir.join("node/vanished")), Some(0));
+        assert_eq!(bytes(&dir.join("node/vanished")), None);
         let full = usage(Some(Path::new("/config")), &dir);
         assert_eq!(full.identity_dir.as_deref(), Some("/config"));
         assert_eq!(full.messages, Some(120));
