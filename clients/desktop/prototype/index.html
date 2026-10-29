@@ -45,7 +45,7 @@
   <div class="card">
     <div class="steps" data-t="wizard.step2"></div>
     <h1 data-t="wizard.network.title"></h1>
-    <p class="caption"><span data-t="identity.peer"></span> <code id="peer-id">12D3KooWQx7mN4…Fk9Qx</code>
+    <p class="caption"><span data-t="identity.peer"></span> <code id="peer-id">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code>
       <button class="btn quiet" id="copy-peer-id" data-t="action.copy"></button></p>
     <div class="field"><label for="network-name" data-t="network.name"></label>
       <input type="text" id="network-name" data-tp="network.name.public">
@@ -70,9 +70,9 @@
     <p class="muted" data-t="picker.intro"></p>
     <div id="identities">
       <button class="list-button" id="pick-1"><span class="avatar photo" aria-hidden="true"></span>
-        <span><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
+        <span><code>…Fk9Qx2</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
       <button class="list-button" id="pick-2"><span class="avatar" aria-hidden="true">7a</span>
-        <span><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
+        <span><code>…7aZ2pL</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
     </div>
     <div class="actions"><button class="btn" id="add-identity"><span data-t="identity.add"></span></button></div>
   </div>
@@ -86,10 +86,10 @@
       <p id="recovery-reason" data-t="recovery.reason"></p>
       <details><summary data-t="details"></summary>
         <pre id="recovery-details">storage.system.locked
-12D3KooWQx7mN4…Fk9Qx</pre>
+12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</pre>
         <button class="btn quiet" id="copy-recovery-details" data-t="action.copy"></button></details>
     </div>
-    <p class="caption"><span data-t="identity.peer"></span> <code id="recovery-peer">12D3KooWQx…Fk9Qx</code></p>
+    <p class="caption"><span data-t="identity.peer"></span> <code id="recovery-peer">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code></p>
     <div class="actions">
       <button class="btn start danger" id="remove-identity" data-t="remove.open"></button>
       <button class="btn" id="switch-identity" data-t="identity.switch"></button>
@@ -109,11 +109,11 @@
   <nav class="sidebar" aria-label="Main">
     <button class="nav identity" id="identity-switcher" aria-haspopup="menu">
       <span class="avatar photo" aria-hidden="true"></span>
-      <span class="label"><code>12D3…Fk9Qx</code><span class="sub" data-t="storage.kind.system"></span></span>
+      <span class="label"><code>…Fk9Qx2</code><span class="sub" data-t="storage.kind.system"></span></span>
     </button>
     <div class="menu" id="identity-menu" role="menu" data-on="switcher">
       <button class="nav" role="menuitem" id="switch-to-2"><span class="avatar" aria-hidden="true">7a</span>
-        <span class="label"><code>12D3…7aZ2p</code><span class="sub" data-t="storage.kind.file"></span></span></button>
+        <span class="label"><code>…7aZ2pL</code><span class="sub" data-t="storage.kind.file"></span></span></button>
       <button class="nav" role="menuitem" id="add-identity-menu"><svg class="icon"><use href="#i-plus"/></svg>
         <span class="label" data-t="identity.add"></span></button>
     </div>
@@ -244,9 +244,9 @@ node1.example.org:33445: timed out after 10 s
       <div id="search-results" data-on="search">
         <p class="caption" id="search-status" data-t="search.found"></p>
         <button class="list-button" id="result-1"><span class="avatar photo p2" aria-hidden="true"></span>
-          <span><b data-t="view.name"></b> <code>12D3…Ns4Lq</code><br><span class="caption" data-t="search.result1"></span></span></button>
+          <span><b data-t="view.name"></b> <code>…Ns4Lq8</code><br><span class="caption" data-t="search.result1"></span></span></button>
         <button class="list-button" id="result-2"><span class="avatar" aria-hidden="true">b8</span>
-          <span><code>12D3…b8Wte</code><br><span class="caption" data-t="search.result2"></span></span></button>
+          <span><code>…b8Wte3</code><br><span class="caption" data-t="search.result2"></span></span></button>
         <div class="actions"><button class="btn" id="search-again" data-t="search.again"></button></div>
       </div>
       <div data-on="search-loading" role="status" aria-busy="true">
@@ -278,7 +278,7 @@ search providers asked: 0 of 3</pre>
       </div>
       <h1><span data-t="view.name"></span></h1>
       <p class="muted" data-t="search.result1"></p>
-      <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">12D3KooWNs…Ns4Lq</code>
+      <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">…Ns4Lq8</code>
         <button class="btn quiet" id="copy-view-peer" data-t="action.copy"></button></p>
       <div class="notice" id="view-match" data-on="profile-view-match"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
       <div class="actions view-actions">
@@ -306,15 +306,15 @@ search providers asked: 0 of 3</pre>
       <h1 data-t="nav.chats"></h1>
       <button class="list-button" id="chats-liked"><span class="avatars"><span class="avatar photo p3" aria-hidden="true"></span><span class="avatar" aria-hidden="true">k3</span></span>
         <span class="grow"><b data-t="chats.liked"></b><br><span class="caption" data-t="chats.liked.text"></span></span><span class="badge">2</span></button>
-      <button class="list-button" id="chats-requests"><span class="avatar" aria-hidden="true">r5</span>
+      <button class="list-button" id="chats-requests"><span class="avatar photo p4" aria-hidden="true"></span>
         <span class="grow"><b data-t="chats.requests"></b><br><span class="caption" data-t="chats.requests.text"></span></span><span class="badge">1</span></button>
       <h2 style="margin-top:var(--space-4)" data-t="chats.conversations"></h2>
       <div id="chat-list">
         <button class="list-button" id="chat-1"><span class="avatar photo p2" aria-hidden="true"></span>
           <span class="grow"><b data-t="view.name"></b><span class="ellipsis caption" data-t="chat.m4"></span></span>
           <span class="meta"><span class="caption">14:32</span><br><span class="badge" data-ta="chats.unread">2</span></span></button>
-        <button class="list-button" id="chat-2"><span class="avatar" aria-hidden="true">b8</span>
-          <span class="grow"><code>12D3…b8Wte</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
+        <button class="list-button" id="chat-2"><span class="avatar photo p3" aria-hidden="true"></span>
+          <span class="grow"><code>…b8Wte3</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
           <span class="meta"><span class="caption" data-t="chats.yesterday"></span></span></button>
       </div>
       <p class="caption" data-t="chats.identity"></p>
@@ -324,12 +324,13 @@ search providers asked: 0 of 3</pre>
     <section id="chat" class="chat" data-on="chat chat-first chat-request">
       <div class="chat-head">
         <button class="btn quiet" id="chat-back" data-ta="nav.chats"><svg class="icon"><use href="#i-back"/></svg></button>
-        <span class="avatar photo p2" aria-hidden="true" data-on="chat"></span>
-        <span class="avatar" aria-hidden="true" data-on="chat-first">b8</span>
-        <span class="avatar" aria-hidden="true" data-on="chat-request">r5</span>
-        <span class="grow"><b data-on="chat" data-t="view.name"></b><code data-on="chat-first">12D3…b8Wte</code><code data-on="chat-request">12D3…r5Kd2</code>
-          <span class="sub caption" id="chat-presence" data-on="chat" data-t="chat.active"></span></span>
-        <button class="btn" id="chat-profile" data-t="chat.profile"></button>
+        <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
+        <button class="peer" id="chat-profile">
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat"></span>
+          <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
+          <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
+          <span class="grow"><b class="ellipsis" data-on="chat" data-t="view.name"></b><code data-on="chat-first">…b8Wte3</code><code data-on="chat-request">…r5Kd2M</code>
+            <span class="sub caption ellipsis" id="chat-presence" data-on="chat" data-t="chat.active"></span></span></button>
         <button class="btn" id="chat-block" data-t="view.block"></button>
       </div>
       <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
@@ -359,9 +360,9 @@ search providers asked: 0 of 3</pre>
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
         <table class="rows">
-          <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>12D3KooWQx…Fk9Qx</code><br><span class="caption" data-t="settings.active"></span></span></td>
+          <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>…Fk9Qx2</code><br><span class="caption" data-t="settings.active"></span></span></td>
             <td><button class="btn" id="settings-remove" data-t="remove.open"></button></td></tr>
-          <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span><span><code>12D3KooWLm…7aZ2p</code><br><span class="caption" data-t="storage.kind.file"></span></span></td>
+          <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span><span><code>…7aZ2pL</code><br><span class="caption" data-t="storage.kind.file"></span></span></td>
             <td><button class="btn" id="settings-remove-2" data-t="remove.open"></button></td></tr>
         </table>
         <p class="caption" data-t="backup.none"></p>
@@ -432,7 +433,7 @@ search providers asked: 0 of 3</pre>
 <div class="modal-scrim" data-on="remove-dialog remove-offline">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="remove-title">
     <h2 id="remove-title" data-t="remove.title"></h2>
-    <p><code id="remove-peer">12D3KooWQx7mN4…Fk9Qx</code></p>
+    <p><code id="remove-peer">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code></p>
     <p data-t="remove.text"></p>
     <div data-on="remove-dialog">
       <label class="choice"><input type="checkbox" id="remove-confirm"><span data-t="remove.confirm"></span></label>

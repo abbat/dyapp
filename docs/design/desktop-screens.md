@@ -36,7 +36,7 @@ No key backup in this version (no-backup)
 @startsalt
 {+
 Step 2 of 2
-Peer ID: 12D3…Fk9Qx (peer-id) | [Copy (copy-peer-id)]
+Peer ID: 12D3KooWQxMASi…Fk9Qx2, full (peer-id) | [Copy (copy-peer-id)]
 Network name "Public network" (network-name)
 Bootstrap addresses (seeds)
 {+ host:port per line }
@@ -49,15 +49,17 @@ Bootstrap addresses (seeds)
 
 `picker`: several identities and none active, or after a removal. Every identity list (picker,
 switcher, Settings) leads each row with a round avatar: the thumbnail of the identity's first
-profile photo, or the first two characters after `12D3KooW` when it has none. `recovery`: the active identity
+profile photo, or the first two characters of the short Peer ID when it has none. A short Peer
+ID is "…" and the last 6 characters, longer until unique among the identity's known peers; the
+full ID shows in the wizard, recovery and removal. `recovery`: the active identity
 cannot be opened; the localized reason, then Details with the state code.
 
 ```plantuml
 @startsalt
 {+
 <b>Choose an identity
-[(photo) 12D3…Fk9Qx · System keyring (pick-1)]
-[(7a) 12D3…7aZ2p · Key file (pick-2)]
+[(photo) …Fk9Qx2 · System keyring (pick-1)]
+[(7a) …7aZ2pL · Key file (pick-2)]
 [Add identity (add-identity)]
 }
 @endsalt
@@ -83,8 +85,8 @@ off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
 ```plantuml
 @startsalt
 {#
-[(photo) 12D3…Fk9Qx · System keyring (identity-switcher)] | Active section
-{+ 12D3…7aZ2p (switch-to-2) | Add identity (add-identity-menu) } (identity-menu) | .
+[(photo) …Fk9Qx2 · System keyring (identity-switcher)] | Active section
+{+ …7aZ2pL (switch-to-2) | Add identity (add-identity-menu) } (identity-menu) | .
 [Profile (nav-profile)] | .
 [Search (nav-search)] | .
 [Chats · 3 (nav-chats, chats-unread)] | .
@@ -193,7 +195,7 @@ match for both. Block is local and hides the peer from search and chats.
 Photo gallery, thumbnails under it (view-photos)
 <b>Anna
 Woman, 29–30 · Leipzig, Germany
-Peer ID 12D3KooWNs…Ns4Lq (view-peer) | [Copy (copy-view-peer)]
+Peer ID …Ns4Lq8 (view-peer) | [Copy (copy-view-peer)]
 match: You like each other (view-match)
 [Block (view-block)] | [Message (view-message)] | [♥ Like (view-like)]
 match: [Block] | [♥ Liked (view-unlike)] | [Message (view-message-match)]
@@ -207,23 +209,24 @@ Written by the profile owner; nobody checks it (view-claims)
 
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
-learns nothing until a reply (read receipts are off by default). Conversations show the avatar,
-the public name or short Peer ID, the last message, its time and the unread count.
+learns nothing until a reply (read receipts are off by default). Conversations and requests show the
+peer's photo thumbnail (letters only without a photo), the public name or short Peer ID, the last message, its time and the unread count.
 
 ```plantuml
 @startsalt
 {+
 <b>Chats
 [(avatars) Liked you · 2 (chats-liked)]
-[(r5) Message requests · 1 (chats-requests)]
+[(photo) Message requests · 1 (chats-requests)]
 Conversations (chat-list)
 [(photo) Anna · See you on Saturday then! · 14:32 · 2 (chat-1)]
-[(b8) 12D3…b8Wte · You: Hi! … · Yesterday (chat-2)]
+[(photo) …b8Wte3 · You: Hi! … · Yesterday (chat-2)]
 }
 @endsalt
 ```
 
-`chat`: one conversation with a match. The header shows "Active recently" when the last signal
+`chat`: one conversation with a match. The peer's avatar and name in the header
+(`chat-profile`) open the found profile, so a narrow window keeps one text button. The header shows "Active recently" when the last signal
 from the peer is at most 2 hours old (`chat-presence`); there is no online or last-seen time.
 Own messages show Sent or Delivered, and Read only when the peer sends read receipts; an edited
 message says so, and a deleted one leaves a placeholder. Edit and Delete (`msg-menu`) apply to
@@ -235,7 +238,7 @@ the last typing signal, only over a direct path.
 ```plantuml
 @startsalt
 {+
-[< (chat-back)] (photo) Anna · Active recently (chat-presence) | [Profile (chat-profile)] | [Block (chat-block)]
+[< (chat-back)] | [(photo) Anna · Active recently (chat-profile, chat-presence)] | [Block (chat-block)]
 first: notice (chat-first-notice) · request: notice (chat-request-notice)
 Today
                        Hi Anna! … 14:05
@@ -258,8 +261,8 @@ never stops receiving.
 {+
 <b>Settings
 Identities (settings-identities)
-(photo) 12D3…Fk9Qx · Active | [Remove (settings-remove)]
-(7a) 12D3…7aZ2p · Key file | [Remove (settings-remove-2)]
+(photo) …Fk9Qx2 · Active | [Remove (settings-remove)]
+(7a) …7aZ2pL · Key file | [Remove (settings-remove-2)]
 No key backup in this version
 [Add identity (settings-create)]
 Theme (X) System (theme-system) () Light (theme-light) () Dark (theme-dark)
@@ -280,7 +283,7 @@ nodes' profile lifetime and offers Retry or Remove anyway.
 @startsalt
 {+
 <b>Remove this identity?
-12D3KooWQx…Fk9Qx (remove-peer)
+12D3KooWQxMASi…Fk9Qx2, full (remove-peer)
 [ ] I understand this key cannot be recovered (remove-confirm)
 [Cancel (remove-cancel)] | [Remove identity (remove-action)]
 offline: [Cancel (remove-cancel-offline)] | [Retry (remove-retry)] | [Remove anyway (remove-anyway)]

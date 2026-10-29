@@ -180,10 +180,18 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .btn svg.icon { width: 18px; height: 18px; vertical-align: -4px; margin-right: var(--space-1); }
 .btn.liked { color: var(--danger); border-color: var(--danger); }
 .btn.liked svg.icon { fill: currentColor; }
+.gallery .main { margin-inline: auto; }
+.gallery .thumbs { justify-content: center; }
 .view-actions { margin-top: 0; }
+.view-actions ~ .caption { margin-top: var(--space-3); }
 .chat-head { display: flex; gap: var(--space-2); align-items: center; padding-bottom: var(--space-3);
   margin-bottom: var(--space-3); border-bottom: 1px solid var(--line); }
 .chat-head .sub { display: block; }
+.chat-head .peer { flex: 1; min-width: 0; display: flex; gap: var(--space-2); align-items: center;
+  padding: var(--space-1); border: 0; border-radius: var(--radius); background: none; color: inherit;
+  font: inherit; text-align: start; cursor: pointer; }
+.chat-head .peer:hover { background: var(--accent-soft); }
+.chat-head .peer .avatar, .chat-head .btn { flex: none; }
 .thread { display: flex; flex-direction: column; gap: var(--space-2); min-height: 320px; }
 .day { align-self: center; font: var(--text-caption); color: var(--muted); }
 .msg { max-width: 75%; padding: var(--space-2) var(--space-3); border-radius: 14px;
