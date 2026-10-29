@@ -46,7 +46,8 @@ its own list in `deny.toml`. The Linux and Windows client locks link `dyapp-clie
 OSV files repeat the workspace's paste, proc-macro-error2, libcrux-kem and crypto-bigint entries;
 the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstrap`) and accepts
 the unmaintained zvariant, zbus_names and zvariant_derive: secret-service 5.2, the key store
-backend, still needs zbus 5, while zbus 6 absorbs those crates.
+backend, still needs zbus 5, while zbus 6 absorbs those crates. The Windows lock lists the same three
+through tauri-plugin-single-instance, whose zbus dependency is Linux-only and never compiled there.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.
