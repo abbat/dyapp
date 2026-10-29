@@ -28,7 +28,8 @@ click outside it.
 
 The app remembers the window size, position and maximized state when it exits and restores them on
 the next launch. A window saved on a display that is gone opens centred on the primary display.
-The window is at least 400×560 px. **Ctrl+Q** quits the app.
+The window is at least 400×560 px. **Ctrl+Q** quits the app. Launching the app again while it runs
+brings up the running window.
 
 **Settings → Window** controls the tray icon. **Show icon in tray** is on by default; the icon's
 menu has **Open** and **Quit**. With **Close window to tray** on, closing the window hides it and

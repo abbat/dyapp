@@ -625,8 +625,13 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
         await shot('tray');
       } else if (!close.checked) throw new Error('close-to-tray not restored');
       await tray((now) => now.closeToTray);
-      await invokeTest('ui_test_close');
+      await invokeTest('ui_test_hide', { close: true });
       if (kind === 'vanish') await tray((now) => !now.available);
+      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
+    }
+    if (step === 'single') {
+      // A second launch, started by the smoke once the window is hidden, shows it again.
+      await invokeTest('ui_test_hide', { close: false });
       return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
     if (step.startsWith('wizard-connect:')) {

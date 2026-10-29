@@ -70,5 +70,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0031](0031-circuit-relay-and-hole-punching.md) | Circuit relay on bootstrap nodes and hole punching |
 | [0032](0032-android-context-for-dns.md) | Android context for the DNS resolver |
 | [0033](0033-desktop-navigation-shell.md) | Desktop navigation shell |
+| [0034](0034-desktop-tray-and-single-instance.md) | Desktop tray and single instance |
 
 All listed ADRs are accepted.

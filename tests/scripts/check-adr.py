@@ -26,6 +26,8 @@ SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
 # Pushed commits that lack the trailer and the ADR covering each;
 # history is not rewritten.
 COVERED = {
+    "009967ffa2f2a9dac9be49a0e11c3dee53c907f3":
+        "docs/decisions/0034-desktop-tray-and-single-instance.md",
     "03cd1c6b7b31d750fe2b9880caa5af4331e57f5c":
         "docs/decisions/0025-client-local-sqlite-storage.md",
     "6c4bd5546c975a2caace805e53785bb200dde199":

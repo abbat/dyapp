@@ -1,4 +1,5 @@
 """Launch a real bundled Tauri app, check rendered UI and injected failure."""
+from concurrent.futures import ThreadPoolExecutor
 import contextlib
 import json
 import os
@@ -211,6 +212,25 @@ def smoke(executable, flows=True):
         case("window-off-screen", [*file, "--ui-test-step=window:centre"],
              profile, peer=False)
 
+    def single(profile):
+        """A second launch shows the hidden window of the running one and
+        exits."""
+        hidden = Path(profile) / "hidden"
+        with ThreadPoolExecutor(1) as pool:
+            first = pool.submit(case, "single-instance",
+                                ["--ui-test-file", "--ui-test-step=single"],
+                                profile, peer=False)
+            for _ in range(120):
+                if hidden.exists() or first.done():
+                    break
+                time.sleep(0.5)
+            if hidden.exists():
+                env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
+                second = run([executable], timeout=30, env=env)
+                if second.returncode != 0:
+                    raise RuntimeError(f"second launch failed: {second}")
+            first.result()
+
     def mixed(profile, first):
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
@@ -402,7 +422,7 @@ def smoke(executable, flows=True):
     @contextlib.contextmanager
     def fake_tray(mode, profile):
         """A tray host on the session bus for one case (fake-tray.py)."""
-        (Path(profile) / "tray-click").unlink(missing_ok=True)
+        (Path(profile) / "hidden").unlink(missing_ok=True)
         host = subprocess.Popen(  # pylint: disable=consider-using-with
             ["/usr/bin/python3", str(Path(__file__).with_name("fake-tray.py")),
              mode, str(profile)], stdout=subprocess.PIPE, text=True)
@@ -449,6 +469,8 @@ def smoke(executable, flows=True):
     if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             window(profile)
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            single(profile)
     if flows and os.name == "posix":
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             tray(profile)

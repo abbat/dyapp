@@ -618,26 +618,31 @@ async fn set_tray(
     tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
 }
 
-/// UI test only: closes the window, expects it hidden to the tray, writes `tray-click` to the test
-/// config dir for the fake tray host, then waits for the host to bring the window back.
+/// UI test only: closes the window (to the tray) or hides it, expects it off screen, writes `hidden`
+/// to the test config dir for the smoke (a fake tray host or a second launch), then waits for the
+/// window to come back.
 #[tauri::command]
-async fn ui_test_close(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
+async fn ui_test_hide(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    close: bool,
+) -> Result<(), String> {
     if !std::env::args().any(|arg| arg == "--ui-test") {
         return Err("UI test only".into());
     }
-    window.close().map_err(|e| e.to_string())?;
+    if close { window.close() } else { window.hide() }.map_err(|e| e.to_string())?;
     std::thread::sleep(Duration::from_millis(600));
     if window.is_visible().map_err(|e| e.to_string())? {
-        return Err("closing kept the window on screen".into());
+        return Err("the window stayed on screen".into());
     }
-    std::fs::write(config_dir(&app)?.join("tray-click"), "").map_err(|e| e.to_string())?;
+    std::fs::write(config_dir(&app)?.join("hidden"), "").map_err(|e| e.to_string())?;
     for _ in 0..40 {
         std::thread::sleep(Duration::from_millis(500));
         if window.is_visible().map_err(|e| e.to_string())? {
             return Ok(());
         }
     }
-    Err("the window did not come back from the tray".into())
+    Err("the window did not come back".into())
 }
 
 /// UI test only: moves and resizes the window when `set` is given, then returns its bounds and
@@ -685,7 +690,9 @@ fn main() {
         dyapp_p2p_net::set_id_pow_bits(8);
     }
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
-    let builder = tauri::Builder::default();
+    // A second launch shows the running window and exits.
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)));
     #[cfg(unix)]
     let builder = builder.manage(node::NodeState::default());
     builder
@@ -754,7 +761,7 @@ fn main() {
             ui_test_step,
             ui_test_shot,
             ui_test_window,
-            ui_test_close,
+            ui_test_hide,
             ui_test_result,
             set_tray,
             quit

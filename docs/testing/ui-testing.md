@@ -94,7 +94,8 @@ switches between both identities, cancels removal once, then confirms removal an
 verify the surviving identity and Settings inventory.
 The window cases move the window, quit with Ctrl+Q, check `window.json`, relaunch to the same
 bounds, then relaunch with an off-screen saved position and expect the window centred on the
-primary display.
+primary display. The single-instance case hides the window and launches the app again: the second
+launch must exit and the hidden window must come back.
 On Linux the tray cases run `fake-tray.py`, a StatusNotifierItem host on the session bus that clicks
 the tray menu by position: without a host the tray settings are off; the host's Quit exits the app;
 close-to-tray hides the window until the host's Open, and `tray.json` keeps the setting across a
@@ -125,8 +126,8 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 22 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 44 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 34 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the ten that need dyappd and the five Linux tray cases (29) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 45 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 35 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the ten that need dyappd and the five Linux tray cases (30) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 
@@ -269,7 +270,7 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 39 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 41 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
   missing), connect the form, activate the network, publish the profile and find it as the only search result. Then the script flips the
@@ -382,8 +383,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 - Product-level UI flows (onboarding, profiles, matching, messaging) have no tests yet.
 - Desktop window and tray behaviour
   ([state table](../design/v0.0.1-client-screens.md#desktop-window-and-tray)) needs a real
-  session: the Docker Xvfb has no tray host, so the Linux suite can check only the saved-state
-  file and the “no tray” path; tray menus, display changes and the macOS Dock are checked by
+  session: in Docker the tray host is `fake-tray.py`, which clicks the menu over D-Bus, so real
+  panels, display changes and the macOS Dock are checked by
   hand on each OS.
 
 ## Troubleshooting

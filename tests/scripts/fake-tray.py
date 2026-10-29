@@ -2,7 +2,7 @@
 the session bus, takes the app's tray item and clicks its menu (Open, Quit).
 
 quit: clicks Quit once the item is there; open: clicks Open once the app
-writes tray-click to the config dir; vanish: exits once the app writes it."""
+writes hidden to the config dir; vanish: exits once the app writes it."""
 from pathlib import Path
 import sys
 
@@ -17,7 +17,7 @@ NODE = Gio.DBusNodeInfo.new_for_xml(f"""<node><interface name="{WATCHER}">
 <property name="ProtocolVersion" type="i" access="read"/>
 </interface></node>""")
 
-mode, trigger = sys.argv[1], Path(sys.argv[2]) / "tray-click"
+mode, trigger = sys.argv[1], Path(sys.argv[2]) / "hidden"
 bus = Gio.bus_get_sync(Gio.BusType.SESSION)
 loop = GLib.MainLoop()
 items = []
