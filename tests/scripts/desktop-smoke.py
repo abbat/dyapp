@@ -192,6 +192,24 @@ def smoke(executable, flows=True):
         if reopened != first:
             raise RuntimeError("removed identity reopened after restart")
 
+    def window(profile):
+        """Ctrl+Q saves the moved window, a relaunch puts it back, and one
+        saved on a display that went away comes back centred."""
+        state = Path(profile) / "window.json"
+        file = ["--ui-test-file"]
+        case("window-save", [*file, "--ui-test-step=window:save"], profile,
+             peer=False)
+        saved = json.loads(state.read_text())
+        if saved != {"normal": {"x": 120, "y": 80, "width": 900,
+                                "height": 640}, "maximized": False}:
+            raise RuntimeError(f"window state not saved: {saved}")
+        case("window-restore", [*file, "--ui-test-step=window:restore"],
+             profile, peer=False)
+        saved["normal"]["x"] = -5000
+        state.write_text(json.dumps(saved))
+        case("window-off-screen", [*file, "--ui-test-step=window:centre"],
+             profile, peer=False)
+
     def mixed(profile, first):
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
@@ -388,6 +406,9 @@ def smoke(executable, flows=True):
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("hidden-ready-rejected", ["--ui-test-file", "--break-ui"],
              profile, broken=True)
+    if flows:
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            window(profile)
     (reports / "desktop-ui-results.json").write_text(
         json.dumps(results, indent=2))
     print(f"{len(results)} desktop UI cases passed")

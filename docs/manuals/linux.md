@@ -26,6 +26,10 @@ An open identity shows a sidebar with the identity on top and four areas: **Prof
 name); below 641 px it hides behind the **Menu** button in the top bar and closes on Escape or a
 click outside it.
 
+The app remembers the window size, position and maximized state when it exits and restores them on
+the next launch. A window saved on a display that is gone opens centred on the primary display.
+The window is at least 400×560 px. **Ctrl+Q** quits the app.
+
 ## Settings
 
 The **Settings** area lists local identities with their key storage kind and marks

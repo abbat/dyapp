@@ -92,6 +92,9 @@ also opens Settings to verify the active identity's full Peer ID, its short form
 creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
 verify the surviving identity and Settings inventory.
+The window cases move the window, quit with Ctrl+Q, check `window.json`, relaunch to the same
+bounds, then relaunch with an off-screen saved position and expect the window centred on the
+primary display.
 The English, Russian and pseudo-language runs check Settings actions, the active identity's
 localized storage kind, and the failed network status in the selected catalogue.
 It also checks that a profile with no selected fields previews an unknown age, no full-date warning,
@@ -118,8 +121,8 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 22 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 34 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 26 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eight that need dyappd (26) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 39 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 29 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the ten that need dyappd (29) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 

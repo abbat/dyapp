@@ -567,6 +567,30 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await shot('recovery-details');
       return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
+    if (step.startsWith('window:')) {
+      // save: move the window and quit with Ctrl+Q; restore: the saved bounds are back;
+      // centre: an off-screen saved window lands in the middle of the primary display.
+      const saved = { x: 120, y: 80, width: 900, height: 640 };
+      const kind = step.slice('window:'.length);
+      if (kind === 'save') {
+        const [at] = await invokeTest('ui_test_window', { set: saved });
+        if (JSON.stringify(at) !== JSON.stringify(saved)) throw new Error(`window not moved: ${JSON.stringify(at)}`);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', ctrlKey: true }));
+        return undefined;
+      }
+      const [at, primary] = await invokeTest('ui_test_window');
+      const centred = {
+        x: primary.x + Math.floor((primary.width - at.width) / 2),
+        y: primary.y + Math.floor((primary.height - at.height) / 2),
+        width: at.width,
+        height: at.height,
+      };
+      const expected = kind === 'restore' ? saved : centred;
+      if (JSON.stringify(at) !== JSON.stringify(expected)) {
+        throw new Error(`window ${kind}: ${JSON.stringify(at)}, expected ${JSON.stringify(expected)}`);
+      }
+      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
+    }
     if (step.startsWith('wizard-connect:')) {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode, step.slice('wizard-connect:'.length));

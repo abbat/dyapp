@@ -251,7 +251,10 @@ const setMenu = (open) => {
 };
 menuOpen.addEventListener('click', () => setMenu(document.documentElement.dataset.screen !== 'menu'));
 document.getElementById('scrim').addEventListener('click', () => setMenu(false));
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setMenu(false); });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') setMenu(false);
+  if (event.ctrlKey && event.key.toLowerCase() === 'q') invoke('quit');
+});
 const showArea = (area) => {
   for (const button of document.querySelectorAll('#sidebar [data-area]')) {
     document.getElementById(button.dataset.area).hidden = button.dataset.area !== area;

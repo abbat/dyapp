@@ -29,6 +29,8 @@ mod slots;
 mod system_store;
 #[path = "usage.rs"]
 mod usage;
+#[path = "window.rs"]
+mod window;
 
 /// The open identity and its slot folder.
 struct IdentityState(Mutex<Option<(Arc<Identity>, PathBuf)>>);
@@ -593,6 +595,54 @@ fn ui_test_result(
     app.exit(if success { 0 } else { 1 });
 }
 
+/// Ctrl+Q: ends the process; the window state is saved on the way out.
+#[tauri::command]
+fn quit(app: tauri::AppHandle) {
+    // The UI smoke ends its window steps here, so this exit is its pass.
+    if std::env::args().any(|arg| arg == "--ui-test") {
+        println!("UI_SMOKE_PASS:");
+    }
+    app.exit(0);
+}
+
+/// UI test only: moves and resizes the window when `set` is given, then returns its bounds and
+/// the primary display's, in physical pixels.
+#[tauri::command]
+async fn ui_test_window(
+    window: tauri::Window,
+    set: Option<window::Rect>,
+) -> Result<[window::Rect; 2], String> {
+    if !std::env::args().any(|arg| arg == "--ui-test") {
+        return Err("UI test only".into());
+    }
+    if let Some(at) = set {
+        window
+            .set_size(tauri::PhysicalSize::new(at.width, at.height))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_position(tauri::PhysicalPosition::new(at.x, at.y))
+            .map_err(|e| e.to_string())?;
+        // Xvfb has no window manager: give the move time to land.
+        std::thread::sleep(Duration::from_millis(600));
+    }
+    let position = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.inner_size().map_err(|e| e.to_string())?;
+    let monitor = window
+        .primary_monitor()
+        .map_err(|e| e.to_string())?
+        .ok_or("no display")?;
+    let rect = |x, y, width, height| window::Rect { x, y, width, height };
+    Ok([
+        rect(position.x, position.y, size.width, size.height),
+        rect(
+            monitor.position().x,
+            monitor.position().y,
+            monitor.size().width,
+            monitor.size().height,
+        ),
+    ])
+}
+
 fn main() {
     let test_mode = std::env::args().any(|arg| arg == "--ui-test");
     // The isolated loopback smoke uses a cheap node-ID puzzle on both ends.
@@ -608,6 +658,21 @@ fn main() {
         .manage(NetworkState::default())
         .manage(ProfileState::default())
         .manage(search::SearchState::default())
+        .manage(window::WindowState::default())
+        .setup(|app| {
+            if let Some(main) = app.get_webview_window("main") {
+                window::restore(&main, config_dir(app.handle()).ok().as_deref());
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(
+                event,
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
+            ) {
+                window::track(window, &window.state::<window::WindowState>());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             identity_state,
             storage_options,
@@ -647,7 +712,9 @@ fn main() {
             ui_test_existing,
             ui_test_step,
             ui_test_shot,
-            ui_test_result
+            ui_test_window,
+            ui_test_result,
+            quit
         ])
         .on_page_load(move |webview, payload| {
             if test_mode && payload.event() == PageLoadEvent::Finished {
@@ -661,8 +728,15 @@ fn main() {
                     .expect("start UI test");
             }
         })
-        .run(tauri::generate_context!())
-        .expect("launch DYApp");
+        .build(tauri::generate_context!())
+        .expect("launch DYApp")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Ok(config) = config_dir(app) {
+                    window::save(&app.state::<window::WindowState>(), &config);
+                }
+            }
+        });
 }
 
 #[cfg(test)]
@@ -687,7 +761,9 @@ mod tests {
         let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
         let app = &context.config().app;
         assert_eq!(app.windows.len(), 1);
-        assert!(app.windows[0].visible);
+        // Hidden until `window::restore` has placed it, then shown.
+        assert!(!app.windows[0].visible);
+        assert_eq!((app.windows[0].min_width, app.windows[0].min_height), (Some(400.0), Some(560.0)));
         assert_eq!(app.windows[0].title, "DYApp");
         assert!(matches!(app.windows[0].url, tauri::WebviewUrl::App(_)));
         // No capabilities: the page can call only the app's own command, no plugin APIs.
