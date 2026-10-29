@@ -37,6 +37,11 @@ key that cannot be opened. **Remove this identity…**, in the active identity's
 the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
 Remove is enabled. Cancel closes the dialog and leaves Settings open without deleting anything.
 
+**Storage**, below the identities, shows the identities folder, the open identity's message store
+(`client.db`) and its size, the network-help node store against its disk limit with a bar, and
+the free space on that disk. It refreshes every 10 seconds while Settings is open. A size it cannot
+read says "Unavailable" rather than 0; the node store does so until the node first runs.
+
 The **Network** area keeps its edits and Check results while you visit other areas. An
 unsuccessful Check leaves the prior active network unchanged.
 

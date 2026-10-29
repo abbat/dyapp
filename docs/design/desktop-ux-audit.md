@@ -162,7 +162,7 @@ Conditions in app.js:
 | settings-create | button | identity.add | Add a new identity | Добавить новую идентичность | via #settings | no |
 | node | form | - | - | - | yes | no |
 | node-enabled | input[checkbox] | node.enabled | Help the network while the app is open: store and search other people's profiles and messages | Помогать сети, пока приложение открыто: хранить и искать чужие профили и сообщения | via #node | no |
-| node-disk | input[number] | node.disk | Disk limit, MB | Лимит диска, МБ | via #node | no |
+| node-disk | input[number] | node.disk | Disk limit, MiB | Лимит диска, МиБ | via #node | no |
 | node-connections | input[number] | node.connections | Connection limit | Лимит соединений | via #node | no |
 | node-status | p[role=status] | - | - | - | via #node | no |
 | node-save | button | node.save | Save node settings | Сохранить настройки узла | via #node | no |

@@ -239,6 +239,19 @@
             <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
           </div>
         </div>
+        <div id="usage" class="card" hidden>
+          <h2 data-i18n="usage.title"></h2>
+          <table class="rows"><tbody>
+            <tr><td data-i18n="usage.identityDir"></td><td><code id="usage-identity-dir" class="caption"></code></td></tr>
+            <tr><td data-i18n="usage.messages"></td>
+              <td><span id="usage-messages"></span><br><code id="usage-messages-path" class="caption"></code></td></tr>
+            <tr id="usage-node-row"><td id="usage-node-label" data-i18n="usage.node"></td>
+              <td><span id="usage-node"></span>
+                <meter id="usage-node-bar" aria-labelledby="usage-node-label" hidden></meter><br>
+                <code id="usage-node-path" class="caption"></code></td></tr>
+            <tr id="usage-free-row"><td data-i18n="usage.free"></td><td id="usage-free"></td></tr>
+          </tbody></table>
+        </div>
         <form id="node" class="card" novalidate hidden>
           <h2 data-i18n="node.title"></h2>
           <label class="choice"><input id="node-enabled" type="checkbox">

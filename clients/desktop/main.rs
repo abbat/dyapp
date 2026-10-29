@@ -27,6 +27,8 @@ mod search;
 mod slots;
 #[path = "system_store.rs"]
 mod system_store;
+#[path = "usage.rs"]
+mod usage;
 
 /// The open identity and its slot folder.
 struct IdentityState(Mutex<Option<(Arc<Identity>, PathBuf)>>);
@@ -474,6 +476,19 @@ async fn node_status(
     Ok(node::status(&nodes, &identity_dir(&state)?).await)
 }
 
+/// Settings → Storage for the open identity; see `usage::usage`.
+#[tauri::command]
+async fn storage_usage(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+) -> Result<usage::Usage, String> {
+    let config = config_dir(&app).ok();
+    let dir = identity_dir(&state)?;
+    tauri::async_runtime::spawn_blocking(move || usage::usage(config.as_deref(), &dir))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -615,6 +630,7 @@ fn main() {
             apply_node,
             #[cfg(unix)]
             node_status,
+            storage_usage,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

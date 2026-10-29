@@ -153,7 +153,7 @@ fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
 }
 
 /// Bytes free for this user on the file system of `path`.
-pub(crate) fn free(path: &str) -> Result<u64> {
+pub fn free(path: &str) -> Result<u64> {
     let path = std::ffi::CString::new(path).map_err(storage_error)?;
     let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
     // SAFETY: `path` is NUL-terminated and `fs` is written by statvfs before it is read.

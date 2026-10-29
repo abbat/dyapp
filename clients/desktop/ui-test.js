@@ -258,10 +258,32 @@ const saveNode = async (enabled, disk) => {
   await window.nodeApplied;
   return document.getElementById('node').dataset.status;
 };
+// Settings → Storage: the node store is Unavailable until the node first runs, then sized.
+const checkUsage = async (limit) => {
+  const { strings } = window;
+  await openArea('profile-area');
+  await openArea('settings');
+  await window.usageShown;
+  const text = (id) => document.getElementById(id).textContent;
+  const bar = document.getElementById('usage-node-bar');
+  if (document.getElementById('usage').hidden || !text('usage-identity-dir')
+    || text('usage-identity-dir') === strings['usage.unavailable']
+    || text('usage-messages') === strings['usage.unavailable']
+    || !text('usage-messages-path').endsWith('client.db')
+    || !text('usage-node-path').endsWith('node')
+    || document.getElementById('usage-free-row').hidden) {
+    throw new Error('Storage card misses a path or a known size');
+  }
+  if (limit ? bar.hidden || bar.max !== limit || !(bar.value > 0)
+      || text('usage-node') === strings['usage.unavailable']
+    : !bar.hidden || text('usage-node') !== strings['usage.unavailable']) {
+    throw new Error(`Storage card shows the node store wrong: ${text('usage-node')}`);
+  }
+};
 // The node starts on the loopback network, then stops; bad limits never reach the app.
 const checkNode = async () => {
   const { strings } = window;
-  await openArea('settings');
+  await checkUsage(0);
   await window.nodeShown;
   const form = document.getElementById('node');
   if (form.hidden || document.getElementById('node-enabled').checked
@@ -279,6 +301,8 @@ const checkNode = async () => {
     || text.length <= strings['node.running'].length + 1) {
     throw new Error(`node did not start: ${text}`);
   }
+  await checkUsage(64 << 20);
+  await shot('settings-storage');
   if (await saveNode(false, '64') !== 'off') throw new Error('node did not stop');
   await openArea('profile-area');
 };

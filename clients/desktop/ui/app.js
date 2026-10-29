@@ -155,6 +155,51 @@ const settingsIdentity = (item) => {
   return row;
 };
 
+// Settings → Storage: binary units with one decimal; an unknown number reads Unavailable, not 0.
+const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+const sizeText = (bytes) => {
+  let unit = 0;
+  let value = bytes;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const digits = unit ? 1 : 0;
+  const number = new Intl.NumberFormat(window.locale, {
+    minimumFractionDigits: digits, maximumFractionDigits: digits,
+  }).format(value);
+  return `${number} ${window.strings[`usage.unit.${units[unit]}`]}`;
+};
+const knownSize = (bytes) => (bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes));
+const usageText = (id, text) => { document.getElementById(id).textContent = text; };
+let usageTimer;
+const showUsage = async () => {
+  clearTimeout(usageTimer);
+  const card = document.getElementById('usage');
+  if (document.getElementById('settings').hidden) return;
+  try {
+    const usage = await invoke('storage_usage');
+    usageText('usage-identity-dir', usage.identityDir ?? window.strings['usage.unavailable']);
+    usageText('usage-messages', knownSize(usage.messages));
+    usageText('usage-messages-path', usage.messagesPath);
+    document.getElementById('usage-node-row').hidden = usage.nodePath === null;
+    const limited = usage.node !== null && usage.nodeLimit !== null;
+    usageText('usage-node', limited ? window.strings['usage.of']
+      .replace('{used}', sizeText(usage.node)).replace('{limit}', sizeText(usage.nodeLimit))
+      : knownSize(usage.node));
+    usageText('usage-node-path', usage.nodePath ?? '');
+    const bar = document.getElementById('usage-node-bar');
+    bar.hidden = !limited;
+    if (limited) Object.assign(bar, { max: usage.nodeLimit, value: usage.node });
+    document.getElementById('usage-free-row').hidden = usage.free === null;
+    if (usage.free !== null) usageText('usage-free', sizeText(usage.free));
+    card.hidden = false;
+  } catch (_) {
+    card.hidden = true;
+  }
+  usageTimer = setTimeout(showUsage, 10_000);
+};
+
 const showSettings = async () => {
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
@@ -163,6 +208,7 @@ const showSettings = async () => {
   list.replaceChildren();
   error.hidden = true;
   window.nodeShown = showNode();
+  window.usageShown = showUsage();
   try {
     const items = await invoke('list_identities');
     list.replaceChildren(...knowPeers(items).map(settingsIdentity));
