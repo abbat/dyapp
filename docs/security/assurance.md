@@ -163,4 +163,3 @@ CVE id (`git grep` over `tests/`, `rust/*/tests`, `rust/*/src` and `tests/fuzz/`
 weekly [flow report](../development/flow-metrics.md). Every alert and advisory is also an A8
 trigger: the flow report expects a [postmortem](../development/flow-metrics.md#postmortems-a8)
 bead within 48 hours, and an SLO breach belongs in it. The fix itself follows the normal flow.
-

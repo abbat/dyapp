@@ -63,7 +63,7 @@ is never returned.
 
 ### Caller (what the API supports today)
 
-```
+```text
 Caller app                    VideoSession                Callee
   | create_offer()  ─────────▶ | set_local_description     |
   |◀──────── offer SDP ─────── | state = OfferCreated      |
@@ -81,7 +81,7 @@ created, never the caller's own offer.
 
 ### Callee
 
-```
+```text
 Callee app                    VideoSession
   | [receive offer: no signaling channel exists]
   | set_remote_offer(offer) ──▶ | set_remote_description    |
@@ -144,7 +144,7 @@ is established. The intended addition is end-to-end frame encryption on top
 (insertable streams style), so that a TURN relay or a compromised SFU cannot
 see content:
 
-```
+```text
 Raw frame
   ↓ encode (codec)
   ↓ encrypt payload with SFrame (RFC 9605), keys from the MLS exporter
@@ -187,6 +187,7 @@ See [Privacy & Metadata Visibility](../security/privacy.md).
 ## Testing
 
 Unit tests (`rust/video/src/*.rs`):
+
 - Session creation, `create_offer` → `mark_offer_sent` state changes, `close`
 - Two sessions in one process exchange offer, answer and gathered host candidates and
   both reach `Connected`

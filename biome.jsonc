@@ -1,0 +1,28 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+  // The desktop web UI and its static prototype; JSON data files are not linted.
+  "files": {
+    "includes": ["clients/desktop/**/*.js", "clients/desktop/**/*.html", "clients/desktop/**/*.css"]
+  },
+  // Lint only: the files keep their hand formatting.
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "html": { "linter": { "enabled": true } },
+  "linter": {
+    // The recommended rules, the default, with these changes.
+    "rules": {
+      "a11y": {
+        // Label and heading text is filled at runtime from the i18n catalogs (data-i18n, data-t),
+        // so the static markup has none; check-repository.py requires every data-i18n key to exist.
+        "noLabelWithoutControl": "off",
+        "useHeadingContent": "off"
+      },
+      "style": {
+        // style.css groups rules by component, so a later component rule often has a lower
+        // specificity than an earlier contextual one (.chat-head .menu, then .menu) on other
+        // properties; the UI screenshots catch a cascade that changes the look.
+        "noDescendingSpecificity": "off"
+      }
+    }
+  }
+}

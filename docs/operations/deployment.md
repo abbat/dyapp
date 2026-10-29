@@ -15,7 +15,7 @@ dyapp is **fully distributed** — each participant runs their own client. No ce
 Planned: clients do not run a libp2p node yet, so today every client goes through bootstrap
 nodes (Model 2).
 
-```
+```text
 Device A (iOS)
   ├─ P2P client
   ├─ Signed profile sync
@@ -39,16 +39,18 @@ Message relay: P2P direct or gossip via other peers
 ```
 
 **Pros:**
+
 - Zero infrastructure cost
 - No operator holds profiles or mailboxes; peers still see each other's IP addresses
 
 **Cons:**
+
 - Slower peer discovery (DHT bootstrap takes time)
 - Offline messages require custom relay (implement P2P gossip)
 
 ### Model 2: Bootstrap Nodes (Recommended)
 
-```
+```text
 Dedicated Bootstrap Nodes (1-3 instances)
   ├─ libp2p node protocol (profiles and mailbox today)
   ├─ Profile index (search by age/location)
@@ -62,6 +64,7 @@ Users (iOS/Android/macOS/Linux)
 ```
 
 **Pros:**
+
 - Fast peer discovery (IP:port from bootstrap)
 - Offline message delivery
 - Profile searching
@@ -73,12 +76,13 @@ Users (iOS/Android/macOS/Linux)
   ([replication](../architecture/bootstrap.md#replication-and-repair)).
 
 **Cons:**
+
 - Need to operate 1-3 servers (~$10-50/month)
 - Bootstrap sees peer IDs, IPs, who messages whom, age, location — and all content until client crypto exists ([Privacy](../security/privacy.md))
 
 ### Model 3: Hybrid (DHT + Optional Bootstrap)
 
-```
+```text
 Primary: DHT peer discovery (free, takes 30-60 sec)
 Fallback: Bootstrap nodes (fast, 1-2 sec)
 

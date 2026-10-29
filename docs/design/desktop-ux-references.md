@@ -54,14 +54,14 @@ system theme and scale), not pixels.
 - **Common denominator:** left sidebar (icon and label) for 3+ areas, Settings last, collapse to a
   rail or off-canvas menu near 640 px. dyapp has 4-6 destinations (identity, network, node, profile,
   search, settings), which fits.
-- Sources: https://developer.gnome.org/hig/patterns/nav/sidebars.html,
-  https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/adaptive-layouts.html,
-  https://developer.gnome.org/hig/guidelines/adaptive.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/controls/navigationview,
-  https://developer.apple.com/design/human-interface-guidelines/sidebars,
-  https://developer.android.com/develop/ui/compose/layouts/adaptive/use-window-size-classes,
-  https://developer.android.com/develop/ui/compose/layouts/adaptive/build-adaptive-navigation,
-  https://develop.kde.org/hig/
+- Sources: <https://developer.gnome.org/hig/patterns/nav/sidebars.html>,
+  <https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/adaptive-layouts.html>,
+  <https://developer.gnome.org/hig/guidelines/adaptive.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/controls/navigationview>,
+  <https://developer.apple.com/design/human-interface-guidelines/sidebars>,
+  <https://developer.android.com/develop/ui/compose/layouts/adaptive/use-window-size-classes>,
+  <https://developer.android.com/develop/ui/compose/layouts/adaptive/build-adaptive-navigation>,
+  <https://develop.kde.org/hig/>
 
 ### 2.2 Layout and spacing
 
@@ -73,9 +73,9 @@ system theme and scale), not pixels.
 - **Common denominator:** left-aligned single column, 4 px spacing scale, text width about 40rem,
   page about 60rem, `rem` and `ch` units. Today's `main { max-width: 960px; text-align: center }`
   does not match; never centre forms.
-- Sources: https://learn.microsoft.com/en-us/windows/apps/design/app-settings/guidelines-for-app-settings,
-  https://developer.gnome.org/hig/patterns/containers/boxed-lists.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography
+- Sources: <https://learn.microsoft.com/en-us/windows/apps/design/app-settings/guidelines-for-app-settings>,
+  <https://developer.gnome.org/hig/patterns/containers/boxed-lists.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography>
 
 ### 2.3 Typography
 
@@ -86,8 +86,8 @@ system theme and scale), not pixels.
 
 - **Common denominator:** `system-ui`, four roles (caption, body, heading, title) in `rem`, weights
   400 and 600, sentence case. The current 18 px body is larger than every platform norm (14-15 px).
-- Sources: https://developer.gnome.org/hig/guidelines/typography.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography
+- Sources: <https://developer.gnome.org/hig/guidelines/typography.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography>
 
 ### 2.4 Button hierarchy
 
@@ -100,10 +100,10 @@ system theme and scale), not pixels.
 - **Common denominator:** one emphasised action per view or dialog, verb labels, three levels
   (primary, default, destructive), content-width buttons in a footer row. Current full-width stacked
   buttons and `opacity:.5` disabled state are weak.
-- Sources: https://developer.gnome.org/hig/patterns/controls/buttons.html,
-  https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/style-classes.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/dialogs,
-  https://developer.apple.com/design/human-interface-guidelines/alerts (partial read)
+- Sources: <https://developer.gnome.org/hig/patterns/controls/buttons.html>,
+  <https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/style-classes.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/dialogs>,
+  <https://developer.apple.com/design/human-interface-guidelines/alerts> (partial read)
 
 ### 2.5 Forms and validation
 
@@ -115,11 +115,11 @@ system theme and scale), not pixels.
 
 - **Common denominator:** label above field, hint below, inline error tied with `aria-describedby`
   and `aria-invalid`, never colour alone; validate on submit and blur, not per keystroke.
-- Sources: https://learn.microsoft.com/en-us/windows/apps/design/controls/text-box,
-  https://developer.gnome.org/hig/patterns/feedback/dialogs.html,
-  https://fluent2.microsoft.design/components/web/react/core/field/usage,
-  https://fluent2.microsoft.design/components/web/react/core/messagebar/usage,
-  https://www.nngroup.com/articles/errors-forms-design-guidelines/ (snippet)
+- Sources: <https://learn.microsoft.com/en-us/windows/apps/design/controls/text-box>,
+  <https://developer.gnome.org/hig/patterns/feedback/dialogs.html>,
+  <https://fluent2.microsoft.design/components/web/react/core/field/usage>,
+  <https://fluent2.microsoft.design/components/web/react/core/messagebar/usage>,
+  <https://www.nngroup.com/articles/errors-forms-design-guidelines/> (snippet)
 
 ### 2.6 Empty, error and progress states
 
@@ -132,10 +132,10 @@ system theme and scale), not pixels.
 - **Common denominator:** every screen has an empty state (heading, one sentence, one action);
   errors render inline with text, icon and a retry action; `<progress>` when the total is known,
   labelled indeterminate otherwise. No platform progress rule was verified (GNOME page 404).
-- Sources: https://developer.gnome.org/hig/patterns/feedback/placeholders.html,
-  https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/class.StatusPage.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/controls/infobar,
-  https://developer.apple.com/design/human-interface-guidelines/alerts
+- Sources: <https://developer.gnome.org/hig/patterns/feedback/placeholders.html>,
+  <https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/class.StatusPage.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/controls/infobar>,
+  <https://developer.apple.com/design/human-interface-guidelines/alerts>
 
 ### 2.7 Dialogs and confirmations
 
@@ -148,9 +148,9 @@ system theme and scale), not pixels.
 - **Common denominator:** dialogs only for irreversible decisions, specific verb on the confirm
   button, safe action focused, Esc cancels, Enter never destructive. Platforms disagree on button
   order; a webview cannot satisfy all, so one order must be chosen (see decision P3).
-- Sources: https://developer.gnome.org/hig/patterns/feedback/dialogs.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/dialogs,
-  https://developer.apple.com/design/human-interface-guidelines/alerts
+- Sources: <https://developer.gnome.org/hig/patterns/feedback/dialogs.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/dialogs>,
+  <https://developer.apple.com/design/human-interface-guidelines/alerts>
 
 ### 2.8 Settings
 
@@ -162,9 +162,9 @@ system theme and scale), not pixels.
 
 - **Common denominator:** settings as grouped single-column rows (label, description, control),
   instant apply where cheap, follow the OS theme and scale instead of own dark-mode or font settings.
-- Sources: https://learn.microsoft.com/en-us/windows/apps/design/app-settings/guidelines-for-app-settings,
-  https://developer.apple.com/design/human-interface-guidelines/settings,
-  https://developer.gnome.org/hig/patterns/containers/boxed-lists.html
+- Sources: <https://learn.microsoft.com/en-us/windows/apps/design/app-settings/guidelines-for-app-settings>,
+  <https://developer.apple.com/design/human-interface-guidelines/settings>,
+  <https://developer.gnome.org/hig/patterns/containers/boxed-lists.html>
 
 ### 2.9 Notifications
 
@@ -176,9 +176,9 @@ system theme and scale), not pixels.
 - **Common denominator:** three tiers: banner (persistent state), toast (one-shot, optional Undo),
   OS notification (background events only). Toast needs an `aria-live` region and must not
   auto-dismiss while it holds focus or an action. Auto-dismiss timing is not specified anywhere.
-- Sources: https://developer.gnome.org/hig/patterns/feedback/toasts.html,
-  https://developer.gnome.org/hig/patterns/feedback/banners.html,
-  https://learn.microsoft.com/en-us/windows/apps/design/controls/infobar
+- Sources: <https://developer.gnome.org/hig/patterns/feedback/toasts.html>,
+  <https://developer.gnome.org/hig/patterns/feedback/banners.html>,
+  <https://learn.microsoft.com/en-us/windows/apps/design/controls/infobar>
 
 ### 2.10 Accessibility
 
@@ -192,10 +192,10 @@ system theme and scale), not pixels.
   `forced-colors` check on Windows, targets 24 px minimum (aim 32-36 px on desktop), status text
   with `role="status"`, no meaning by colour alone. WebView2 (Windows) and WebKitGTK (Linux)
   differ in support and version; verify in both.
-- Sources: https://developer.gnome.org/hig/guidelines/accessibility.html,
-  https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html,
-  https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors,
-  https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/system-color
+- Sources: <https://developer.gnome.org/hig/guidelines/accessibility.html>,
+  <https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html>,
+  <https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors>,
+  <https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/system-color>
 
 ### 2.11 Summary of the platform baseline
 
@@ -231,10 +231,10 @@ profiles in one desktop app.
 | KeePassXC | New database wizard vs open | User chooses file location; key file kept separately | Key-file helper text: keep it secret, never lose it | Tabs | Remove key file is an explicit button |
 | GNOME Secrets | Welcome with "New Safe" and open file | File chooser; recent list | Little explicit wording | Recent list | No deletion flow |
 
-Sources: https://getsession.org/faq, https://briarproject.org/manual/,
-https://simplex.chat/docs/guide/chat-profiles.html,
-https://simplex.chat/docs/guide/managing-data.html,
-https://github.com/simplex-chat/simplex-chat/blob/stable/docs/guide/chat-profiles.md
+Sources: <https://getsession.org/faq>, <https://briarproject.org/manual/>,
+<https://simplex.chat/docs/guide/chat-profiles.html>,
+<https://simplex.chat/docs/guide/managing-data.html>,
+<https://github.com/simplex-chat/simplex-chat/blob/stable/docs/guide/chat-profiles.md>
 (Session, Jami, Element, Signal, Fractal, KeePassXC and Secrets: source files and string keys in the
 shallow clones; Briar manual and Signal support pages failed to load, see section 10).
 
@@ -282,19 +282,19 @@ syntax help.
 | Transmission, qBittorrent | Listening port is a plain preference with a default | Port test only on request; "closed" distinguished from "unknown"; qBittorrent shows "DHT: 0 nodes" briefly after start | qBittorrent status bar: icon (connected, firewalled, offline), DHT count, speeds, tooltip; "firewalled" is a warning, not an error (third-party sources) |
 | Element | Default homeserver; "Edit homeserver" reveals a URL field; deployments can disable it | Validates on Continue; reported failures: invalid URL doing nothing; vague "couldn't reach this homeserver" hiding the cause | n/a |
 
-Sources: https://support.torproject.org/running-tor-browser/,
-https://docs.syncthing.net/intro/gui.html, https://docs.syncthing.net/users/config.html,
-https://docs.syncthing.net/users/faq.html, https://docs.jami.net/en_US/user/lan-only.html (snippet),
-https://docs.jami.net/en_US/user/faq.html (snippet),
-https://forum.jami.net/t/how-to-specify-a-bootstrap-server-to-jamid/5381 (snippet),
-https://github.com/qTox/qTox/blob/master/doc/user_manual_en.md,
-https://qtox.github.io/doxygen/core_8cpp_source.html, https://github.com/qTox/qTox/issues/5794,
-https://briarproject.org/manual/, https://simplex.chat/docs/server.html,
-https://trac.transmissionbt.com/ticket/1257, https://forum.qbittorrent.org/viewtopic.php?t=3229,
-https://natchecker.com/blog/qbittorrent-connection-status-firewalled (third-party),
-https://github.com/element-hq/element-web/issues/10274 (snippet),
-https://github.com/element-hq/element-x-android/issues/4556 (snippet),
-https://github.com/element-hq/element-web/blob/develop/docs/config.md (snippet)
+Sources: <https://support.torproject.org/running-tor-browser/>,
+<https://docs.syncthing.net/intro/gui.html>, <https://docs.syncthing.net/users/config.html>,
+<https://docs.syncthing.net/users/faq.html>, <https://docs.jami.net/en_US/user/lan-only.html> (snippet),
+<https://docs.jami.net/en_US/user/faq.html> (snippet),
+<https://forum.jami.net/t/how-to-specify-a-bootstrap-server-to-jamid/5381> (snippet),
+<https://github.com/qTox/qTox/blob/master/doc/user_manual_en.md>,
+<https://qtox.github.io/doxygen/core_8cpp_source.html>, <https://github.com/qTox/qTox/issues/5794>,
+<https://briarproject.org/manual/>, <https://simplex.chat/docs/server.html>,
+<https://trac.transmissionbt.com/ticket/1257>, <https://forum.qbittorrent.org/viewtopic.php?t=3229>,
+<https://natchecker.com/blog/qbittorrent-connection-status-firewalled> (third-party),
+<https://github.com/element-hq/element-web/issues/10274> (snippet),
+<https://github.com/element-hq/element-x-android/issues/4556> (snippet),
+<https://github.com/element-hq/element-web/blob/develop/docs/config.md> (snippet)
 
 ### 4.2 Takeaways
 
@@ -329,23 +329,23 @@ profile uses a select.
 | Fluent 2 | Message bar on failed submit with an action | n/a | Do not mark every field required; state the rule once |
 | Material 3 | Filter chips under a search field, never alone | n/a | With 4-5 filters chips add little over labelled fields |
 
-Sources: https://help.hinge.co/hc/en-us/articles/360011053094-How-do-I-edit-my-profile,
-https://help.hinge.co/hc/en-us/articles/36311352171539-How-do-I-edit-my-Prompts,
-https://support.bumble.com/hc/en-us/articles/31602664871453-Adding-profile-prompts,
-https://apps.apple.com/us/app/bumble-app/id930441707 (snippet),
-https://www.help.tinder.com/hc/en-gb/articles/115003340963-Discovery-Settings,
-https://okcupid-app.zendesk.com/hc/en-us/articles/23110176786587-Finding-searching-and-adjusting-who-you-see,
-https://docs.joinmastodon.org/user/profile/, https://docs.joinmastodon.org/user/discoverability/,
-https://github.com/mastodon/mastodon/discussions/17218,
-https://fedi.tips/how-do-i-customise-my-profile-how-do-i-upload-a-profile-banner-how-do-i-verify-my-account/ (snippet),
-https://support.signal.org/hc/en-us/articles/360007059952-Edit-my-Profile,
-https://support.signal.org/hc/en-us/articles/360007459591-Signal-Profiles-and-Message-Requests,
-https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/class.StatusPage.html,
-https://lobehub.com/skills/neversight-skills_feed-designing-gnome-ui (third party, lower trust),
-https://fluent2.microsoft.design/components/web/react/core/field/usage,
-https://fluent2.microsoft.design/components/web/react/core/messagebar/usage,
-https://m3.material.io/components/chips/guidelines, https://m2.material.io/components/chips,
-https://www.nngroup.com/articles/errors-forms-design-guidelines/ (snippet).
+Sources: <https://help.hinge.co/hc/en-us/articles/360011053094-How-do-I-edit-my-profile>,
+<https://help.hinge.co/hc/en-us/articles/36311352171539-How-do-I-edit-my-Prompts>,
+<https://support.bumble.com/hc/en-us/articles/31602664871453-Adding-profile-prompts>,
+<https://apps.apple.com/us/app/bumble-app/id930441707> (snippet),
+<https://www.help.tinder.com/hc/en-gb/articles/115003340963-Discovery-Settings>,
+<https://okcupid-app.zendesk.com/hc/en-us/articles/23110176786587-Finding-searching-and-adjusting-who-you-see>,
+<https://docs.joinmastodon.org/user/profile/>, <https://docs.joinmastodon.org/user/discoverability/>,
+<https://github.com/mastodon/mastodon/discussions/17218>,
+<https://fedi.tips/how-do-i-customise-my-profile-how-do-i-upload-a-profile-banner-how-do-i-verify-my-account/> (snippet),
+<https://support.signal.org/hc/en-us/articles/360007059952-Edit-my-Profile>,
+<https://support.signal.org/hc/en-us/articles/360007459591-Signal-Profiles-and-Message-Requests>,
+<https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/class.StatusPage.html>,
+<https://lobehub.com/skills/neversight-skills_feed-designing-gnome-ui> (third party, lower trust),
+<https://fluent2.microsoft.design/components/web/react/core/field/usage>,
+<https://fluent2.microsoft.design/components/web/react/core/messagebar/usage>,
+<https://m3.material.io/components/chips/guidelines>, <https://m2.material.io/components/chips>,
+<https://www.nngroup.com/articles/errors-forms-design-guidelines/> (snippet).
 The Bumble editing support page and one other URL were redacted in the source report and are
 omitted here.
 
@@ -374,21 +374,21 @@ omitted here.
 | Firefox | Separate Profile Manager window | List | Remove | Two-way choice: delete files or not (keep is recommended) | Optional |
 | KeePassXC | Application dialog plus per-database dialog | Per database | Context | Scales with recoverability; recycle-bin move needs none, permanent delete asks | Recycle bin |
 
-Sources: https://developer.gnome.org/hig/patterns/feedback/dialogs.html,
-https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/ (snippet),
-https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.2/class.Toast.html (snippet),
-https://help.gnome.org/users/gnome-help/stable/accounts-remove.html.hr,
-https://support.microsoft.com/en-us/accessibility/windows/understand-and-explore-windows-settings (snippet),
-https://docs.element.io/latest/element-support/element-webdesktop-client-settings/element-settings/,
-https://docs.element.io/latest/element-support/element-webdesktop-client-settings/sessions/ (snippet),
-https://github.com/signalapp/Signal-Desktop/commit/a8722716c14343bcf8459d71e37db7c048aa5cc0,
-https://github.com/signalapp/Signal-Desktop/issues/3728,
-https://support.signal.org/hc/en-us/articles/360007321111-Unlinking-devices (snippet),
-https://support.mozilla.org/en-US/kb/configuration-options-accounts,
-https://support.mozilla.org/en-US/questions/1036973 (snippet),
-https://support.mozilla.org/en-US/kb/profile-manager-create-remove-switch-firefox-profiles (snippet),
-https://bugzilla.mozilla.org/show_bug.cgi?id=1442200,
-https://keepassxc.org/docs/KeePassXC_UserGuide (TOC only); KeePassXC settings, config and window
+Sources: <https://developer.gnome.org/hig/patterns/feedback/dialogs.html>,
+<https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/> (snippet),
+<https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.2/class.Toast.html> (snippet),
+<https://help.gnome.org/users/gnome-help/stable/accounts-remove.html.hr>,
+<https://support.microsoft.com/en-us/accessibility/windows/understand-and-explore-windows-settings> (snippet),
+<https://docs.element.io/latest/element-support/element-webdesktop-client-settings/element-settings/>,
+<https://docs.element.io/latest/element-support/element-webdesktop-client-settings/sessions/> (snippet),
+<https://github.com/signalapp/Signal-Desktop/commit/a8722716c14343bcf8459d71e37db7c048aa5cc0>,
+<https://github.com/signalapp/Signal-Desktop/issues/3728>,
+<https://support.signal.org/hc/en-us/articles/360007321111-Unlinking-devices> (snippet),
+<https://support.mozilla.org/en-US/kb/configuration-options-accounts>,
+<https://support.mozilla.org/en-US/questions/1036973> (snippet),
+<https://support.mozilla.org/en-US/kb/profile-manager-create-remove-switch-firefox-profiles> (snippet),
+<https://bugzilla.mozilla.org/show_bug.cgi?id=1442200>,
+<https://keepassxc.org/docs/KeePassXC_UserGuide> (TOC only); KeePassXC settings, config and window
 sources were read in a shallow clone.
 
 ### 6.2 Takeaways
@@ -421,74 +421,74 @@ or date is the app version (Flathub) or the file-name date (docs).
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| Tor Browser | Start window with Connect | https://support.torproject.org/tor-browser/getting-started/first-launch/connect.png | current |
-| Tor Browser | Language choice (page text) | https://tb-manual.torproject.org/running-tor-browser/ | undated |
-| Syncthing docs | First start (caption only, stale) | https://docs.syncthing.net/_images/gs1.png | v1.7.1, 2020 |
-| KeePassXC | Unlock database | https://dl.flathub.org/media/org/keepassxc/KeePassXC.desktop/8703bd4e659abcb1dac1d6646881bb00/screenshots/image-2_orig.png | 2.8.0 |
-| GNOME Secrets | Safe unlocking (caption only) | https://dl.flathub.org/media/org/gnome/World.Secrets/c3aeb38516791b22b131a795233d2f0f/screenshots/image-2_orig.png | 14.0 |
+| Tor Browser | Start window with Connect | <https://support.torproject.org/tor-browser/getting-started/first-launch/connect.png> | current |
+| Tor Browser | Language choice (page text) | <https://tb-manual.torproject.org/running-tor-browser/> | undated |
+| Syncthing docs | First start (caption only, stale) | <https://docs.syncthing.net/_images/gs1.png> | v1.7.1, 2020 |
+| KeePassXC | Unlock database | <https://dl.flathub.org/media/org/keepassxc/KeePassXC.desktop/8703bd4e659abcb1dac1d6646881bb00/screenshots/image-2_orig.png> | 2.8.0 |
+| GNOME Secrets | Safe unlocking (caption only) | <https://dl.flathub.org/media/org/gnome/World.Secrets/c3aeb38516791b22b131a795233d2f0f/screenshots/image-2_orig.png> | 14.0 |
 
 ### 7.2 Create vs restore
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| GNOME Secrets | Safe creation (caption only) | https://dl.flathub.org/media/org/gnome/World.Secrets/c3aeb38516791b22b131a795233d2f0f/screenshots/image-3_orig.png | 14.0 |
-| GNOME Secrets | App page | https://flathub.org/apps/org.gnome.World.Secrets | 14.0 |
-| SimpleX docs | Creating additional profiles | https://simplex.chat/blog/images/20230204-profiles2.png | 2023-02 |
+| GNOME Secrets | Safe creation (caption only) | <https://dl.flathub.org/media/org/gnome/World.Secrets/c3aeb38516791b22b131a795233d2f0f/screenshots/image-3_orig.png> | 14.0 |
+| GNOME Secrets | App page | <https://flathub.org/apps/org.gnome.World.Secrets> | 14.0 |
+| SimpleX docs | Creating additional profiles | <https://simplex.chat/blog/images/20230204-profiles2.png> | 2023-02 |
 
 ### 7.3 Backup and loss warning
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| SimpleX docs | Database passphrase | https://simplex.chat/blog/images/20220928-passphrase.png | 2022-09, old UI |
-| SimpleX docs | Delete files and media | https://simplex.chat/blog/images/20220928-files-media.png | 2022-09 |
+| SimpleX docs | Database passphrase | <https://simplex.chat/blog/images/20220928-passphrase.png> | 2022-09, old UI |
+| SimpleX docs | Delete files and media | <https://simplex.chat/blog/images/20220928-files-media.png> | 2022-09 |
 
 ### 7.4 Account switch and add
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| SimpleX docs | Switching profiles | https://simplex.chat/blog/images/20230204-profiles1.png | 2023-02 |
-| SimpleX docs | Add profile | https://simplex.chat/blog/images/20230204-profiles2.png | 2023-02 |
-| SimpleX docs | Hidden profiles | https://simplex.chat/blog/images/20230328-hidden-profiles1.png | 2023-03 |
-| SimpleX docs | Incognito mode | https://simplex.chat/blog/images/20220901-incognito1.png | 2022-09 |
-| Element docs | Sessions list (sessions, not accounts) | https://docs.element.io/latest/assets/images/bookstack/image-1690992436887.png | 2023-08 |
+| SimpleX docs | Switching profiles | <https://simplex.chat/blog/images/20230204-profiles1.png> | 2023-02 |
+| SimpleX docs | Add profile | <https://simplex.chat/blog/images/20230204-profiles2.png> | 2023-02 |
+| SimpleX docs | Hidden profiles | <https://simplex.chat/blog/images/20230328-hidden-profiles1.png> | 2023-03 |
+| SimpleX docs | Incognito mode | <https://simplex.chat/blog/images/20220901-incognito1.png> | 2022-09 |
+| Element docs | Sessions list (sessions, not accounts) | <https://docs.element.io/latest/assets/images/bookstack/image-1690992436887.png> | 2023-08 |
 
 ### 7.5 Remove and delete confirmation
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| Element docs | Sign out a session (alt text only) | https://docs.element.io/latest/assets/images/bookstack/image-1690992891681.png | 2023-08 |
-| SimpleX docs | Delete files and media (not profile removal) | https://simplex.chat/blog/images/20220928-files-media.png | 2022-09 |
+| Element docs | Sign out a session (alt text only) | <https://docs.element.io/latest/assets/images/bookstack/image-1690992891681.png> | 2023-08 |
+| SimpleX docs | Delete files and media (not profile removal) | <https://simplex.chat/blog/images/20220928-files-media.png> | 2022-09 |
 
 ### 7.6 Network entry and connection status
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| Tor Browser | Connection Assist, automatic | https://support.torproject.org/tor-browser/getting-started/first-launch/connection-assist-auto.png | current |
-| Tor Browser | Connection Assist, select | https://support.torproject.org/tor-browser/getting-started/first-launch/connection-assist-select.png | current |
-| Tor Browser | Configure connection | https://support.torproject.org/tor-browser/getting-started/first-launch/configure.png | current |
-| Tor Browser | Test success | https://support.torproject.org/tor-browser/getting-started/first-launch/connection-test-success.png | current |
-| Tor Browser | Test failure | https://support.torproject.org/tor-browser/getting-started/first-launch/connection-test-failure.png | current |
-| Tor Browser | Bridge choice | https://support.torproject.org/tor-browser/getting-started/first-launch/pluggable-transport.png | current |
-| Tor Browser | Proxy entry | https://support.torproject.org/tor-browser/getting-started/first-launch/proxy.png | current |
-| Tor Browser | Connect automatically | https://support.torproject.org/tor-browser/getting-started/first-launch/connect-automatically.png | current |
-| SimpleX docs | Network and servers | https://simplex.chat/blog/images/20230204-transport.png | 2023-02 |
-| SimpleX docs | Server list, add server | https://simplex.chat/blog/images/20221206-server1.png | 2022-12 |
-| SimpleX docs | .onion hosts | https://simplex.chat/blog/images/20220901-onion1.png | 2022-09 |
-| Syncthing docs | Add remote device (step inferred from text) | https://docs.syncthing.net/_images/gs2.png, https://docs.syncthing.net/_images/gs3.png | v1.7.1, 2020 |
-| Syncthing Tray | Tray with connection status | https://dl.flathub.org/media/io/github/martchus.syncthingtray/92bd3d03e5356e34f12dd844079d8dfc/screenshots/image-1_orig.png | 2.1.8 |
-| qBittorrent | Main window, status bar (caption only) | https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-1_orig.png | 5.3.0 |
-| Transmission | Main window | https://dl.flathub.org/media/com/transmissionbt/Transmission/555db5eb6718f72f8880ae8c4a8773fe/screenshots/image-1_orig.png | 4.1.4 |
+| Tor Browser | Connection Assist, automatic | <https://support.torproject.org/tor-browser/getting-started/first-launch/connection-assist-auto.png> | current |
+| Tor Browser | Connection Assist, select | <https://support.torproject.org/tor-browser/getting-started/first-launch/connection-assist-select.png> | current |
+| Tor Browser | Configure connection | <https://support.torproject.org/tor-browser/getting-started/first-launch/configure.png> | current |
+| Tor Browser | Test success | <https://support.torproject.org/tor-browser/getting-started/first-launch/connection-test-success.png> | current |
+| Tor Browser | Test failure | <https://support.torproject.org/tor-browser/getting-started/first-launch/connection-test-failure.png> | current |
+| Tor Browser | Bridge choice | <https://support.torproject.org/tor-browser/getting-started/first-launch/pluggable-transport.png> | current |
+| Tor Browser | Proxy entry | <https://support.torproject.org/tor-browser/getting-started/first-launch/proxy.png> | current |
+| Tor Browser | Connect automatically | <https://support.torproject.org/tor-browser/getting-started/first-launch/connect-automatically.png> | current |
+| SimpleX docs | Network and servers | <https://simplex.chat/blog/images/20230204-transport.png> | 2023-02 |
+| SimpleX docs | Server list, add server | <https://simplex.chat/blog/images/20221206-server1.png> | 2022-12 |
+| SimpleX docs | .onion hosts | <https://simplex.chat/blog/images/20220901-onion1.png> | 2022-09 |
+| Syncthing docs | Add remote device (step inferred from text) | <https://docs.syncthing.net/_images/gs2.png>, <https://docs.syncthing.net/_images/gs3.png> | v1.7.1, 2020 |
+| Syncthing Tray | Tray with connection status | <https://dl.flathub.org/media/io/github/martchus.syncthingtray/92bd3d03e5356e34f12dd844079d8dfc/screenshots/image-1_orig.png> | 2.1.8 |
+| qBittorrent | Main window, status bar (caption only) | <https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-1_orig.png> | 5.3.0 |
+| Transmission | Main window | <https://dl.flathub.org/media/com/transmissionbt/Transmission/555db5eb6718f72f8880ae8c4a8773fe/screenshots/image-1_orig.png> | 4.1.4 |
 
 ### 7.7 Profile edit and publish
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| Mastodon docs | Profile card | https://docs.joinmastodon.org/assets/profile-card.png | undated |
-| Mastodon docs | Automated flag | https://docs.joinmastodon.org/assets/bot-flag.png | undated |
-| Tuba | Profile view | https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-3_orig.png | 0.11.1 |
-| Tuba | Composer | https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-2_orig.png | 0.11.1 |
-| Tuba | Schedule Post dialog | https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-5_orig.png | 0.11.1 |
-| SimpleX docs | Contact address creation | https://simplex.chat/blog/images/20221108-address1.png | 2022-11 |
+| Mastodon docs | Profile card | <https://docs.joinmastodon.org/assets/profile-card.png> | undated |
+| Mastodon docs | Automated flag | <https://docs.joinmastodon.org/assets/bot-flag.png> | undated |
+| Tuba | Profile view | <https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-3_orig.png> | 0.11.1 |
+| Tuba | Composer | <https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-2_orig.png> | 0.11.1 |
+| Tuba | Schedule Post dialog | <https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-5_orig.png> | 0.11.1 |
+| SimpleX docs | Contact address creation | <https://simplex.chat/blog/images/20221108-address1.png> | 2022-11 |
 
 Edit-form screenshots are thin: Mastodon shows the result, not the form.
 
@@ -496,30 +496,30 @@ Edit-form screenshots are thin: Mastodon shows the result, not the form.
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| Tuba | Search view | https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-7_orig.png | 0.11.1 |
-| qBittorrent | Search engine tab | https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-4_orig.png | 5.3.0 |
-| qBittorrent | Filter sidebar (caption only) | https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-2_orig.png | 5.3.0 |
+| Tuba | Search view | <https://dl.flathub.org/media/dev/geopjr/Tuba/150f61fcc01e79969370d454fbe39642/screenshots/image-7_orig.png> | 0.11.1 |
+| qBittorrent | Search engine tab | <https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-4_orig.png> | 5.3.0 |
+| qBittorrent | Filter sidebar (caption only) | <https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-2_orig.png> | 5.3.0 |
 
 ### 7.9 Settings
 
 | App | Step | Link | Version |
 |-----|------|------|---------|
-| qBittorrent | Options dialog with category sidebar | https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-3_orig.png | 5.3.0 |
-| Syncthing Tray | Settings dialog | https://dl.flathub.org/media/io/github/martchus.syncthingtray/92bd3d03e5356e34f12dd844079d8dfc/screenshots/image-3_orig.png | 2.1.8 |
-| Tor Browser Launcher | Settings window | https://dl.flathub.org/media/org/torproject/torbrowser-launcher/8bbf3d7c3768830e11a10b6b47366829/screenshots/image-1_orig.png | 0.3.9 |
-| SimpleX docs | App settings guide | https://simplex.chat/docs/guide/app-settings.html | undated |
-| Element docs | Settings, Sessions page | https://docs.element.io/latest/assets/images/bookstack/image-1690992096339.png | 2023-08 |
-| Firefox, Thunderbird | Main windows only, no captions | https://flathub.org/apps/org.mozilla.firefox, https://flathub.org/apps/org.mozilla.Thunderbird | 159.0 / 140.10.2esr |
+| qBittorrent | Options dialog with category sidebar | <https://dl.flathub.org/media/org/qbittorrent/qBittorrent/c5c5043daf205a37d36fe5bcd82495b2/screenshots/image-3_orig.png> | 5.3.0 |
+| Syncthing Tray | Settings dialog | <https://dl.flathub.org/media/io/github/martchus.syncthingtray/92bd3d03e5356e34f12dd844079d8dfc/screenshots/image-3_orig.png> | 2.1.8 |
+| Tor Browser Launcher | Settings window | <https://dl.flathub.org/media/org/torproject/torbrowser-launcher/8bbf3d7c3768830e11a10b6b47366829/screenshots/image-1_orig.png> | 0.3.9 |
+| SimpleX docs | App settings guide | <https://simplex.chat/docs/guide/app-settings.html> | undated |
+| Element docs | Settings, Sessions page | <https://docs.element.io/latest/assets/images/bookstack/image-1690992096339.png> | 2023-08 |
+| Firefox, Thunderbird | Main windows only, no captions | <https://flathub.org/apps/org.mozilla.firefox>, <https://flathub.org/apps/org.mozilla.Thunderbird> | 159.0 / 140.10.2esr |
 
 ### 7.10 App pages queried
 
-Flathub pages (17 listings, 41 images, all HTTP 200): Element https://flathub.org/apps/im.riot.Riot;
-Fractal https://flathub.org/apps/org.gnome.Fractal; Jami https://flathub.org/apps/net.jami.Jami
-(marketing shots); Signal https://flathub.org/apps/org.signal.Signal; SimpleX
-https://flathub.org/apps/chat.simplex.simplex (one shot, no caption); KeePassXC
-https://flathub.org/apps/org.keepassxc.KeePassXC; qTox https://flathub.org/apps/io.github.qtox.qTox;
-Session https://flathub.org/apps/network.loki.Session (one shot, no caption); Briar
-https://flathub.org/apps/org.briarproject.Briar. Molly and GNOME Settings ids returned 404.
+Flathub pages (17 listings, 41 images, all HTTP 200): Element <https://flathub.org/apps/im.riot.Riot>;
+Fractal <https://flathub.org/apps/org.gnome.Fractal>; Jami <https://flathub.org/apps/net.jami.Jami>
+(marketing shots); Signal <https://flathub.org/apps/org.signal.Signal>; SimpleX
+<https://flathub.org/apps/chat.simplex.simplex> (one shot, no caption); KeePassXC
+<https://flathub.org/apps/org.keepassxc.KeePassXC>; qTox <https://flathub.org/apps/io.github.qtox.qTox>;
+Session <https://flathub.org/apps/network.loki.Session> (one shot, no caption); Briar
+<https://flathub.org/apps/org.briarproject.Briar>. Molly and GNOME Settings ids returned 404.
 
 ### 7.11 Gaps
 
@@ -527,7 +527,7 @@ Flows with fewer than two apps with public screenshots:
 
 | Flow | Gap |
 |------|-----|
-| First run, welcome | One current set (Tor Browser); Syncthing is stale; Session, Jami, Signal, Briar, Element have none. Jami docs https://docs.jami.net/user/create-jami-account.html have steps but no images in the static HTML |
+| First run, welcome | One current set (Tor Browser); Syncthing is stale; Session, Jami, Signal, Briar, Element have none. Jami docs <https://docs.jami.net/user/create-jami-account.html> have steps but no images in the static HTML |
 | Create vs restore | No two-door screen anywhere; only Secrets and SimpleX show creation, neither shows restore |
 | Backup and loss warning | SimpleX passphrase only (2022 image); Briar manual did not load, Session recovery screens not public |
 | Account switch and add | SimpleX only; Jami switcher and Fractal session list have no official shot |

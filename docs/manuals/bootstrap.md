@@ -842,7 +842,7 @@ The `turn` role hands out credentials for a coturn relay that runs next to the n
 relays nothing itself. Calls are not part of the first release. Install coturn
 (`apt-get install coturn` on Debian 12) and set in `/etc/turnserver.conf`:
 
-```
+```text
 use-auth-secret
 static-auth-secret=<the same secret as turn.secret>
 realm=turn.example.org

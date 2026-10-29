@@ -71,6 +71,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: var(--text-body); }
+/* biome-ignore lint/complexity/noImportantStyles: the hidden attribute must win over every display rule */
 [hidden] { display: none !important; }
 h1 { font: var(--text-title); margin: 0 0 var(--space-2); }
 h2 { font: var(--text-heading); margin: 0 0 var(--space-3); }

@@ -35,7 +35,7 @@ weigh and question, never a vote to count.
 
 ## Structure in beads
 
-```
+```text
 Q  epic   labels: quorum + audit|design (+ security)    the charter
 ├── M  epic   assignee=<model>   "[quorum] <model>"      one per participant
 │   ├── spike                     research, split as it goes
@@ -119,7 +119,7 @@ Rules:
 
 Create `Q` (`bd create -t epic -l quorum,<audit|design>`) with this description:
 
-```
+```text
 Question:     what is reviewed or decided, one sentence
 Mode:         audit (design / decisions / code) | brainstorm (before a feature) [+ security]
 Scope:        paths, docs, ADRs in scope
@@ -164,7 +164,7 @@ For every proposal of every other participant:
    You may research first in new spikes under your own `M`; close them before Phase 3.
 2. Add the verdict: `bd comments add <proposal> --author <model> -f <file>`:
 
-   ```
+   ```text
    Verdict: agree | agree-with-changes | disagree | duplicate-of <id> | out-of-scope | needs-evidence
    Checked: what I verified myself (file:line, command, doc) — or "not verified"
    Why: compact why-chain from analyse
@@ -244,7 +244,7 @@ and never put quorum IDs into commit messages or tracked files.
 
 The human starts every session with one of these prompts:
 
-```
+```text
 Read docs/agents/quorum.md. Open a quorum on: <question>. Draft the charter with me.
 Read docs/agents/quorum.md. You are participant <model> in quorum <Q>, phase 1.
 Read docs/agents/quorum.md. You are participant <model> in quorum <Q>, phase 2.

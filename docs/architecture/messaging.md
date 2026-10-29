@@ -153,6 +153,7 @@ must process one envelope per transaction before UI display or ACK; `Session::re
 adapter, and the app does not call it yet.
 
 **What exists vs planned:**
+
 - Durable outbox and retries: `rust/client` `Session`; no background worker yet
 - Hybrid logical clock timestamps with a peer-ID tie-break for ordering
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
@@ -183,7 +184,8 @@ pub struct Message {
 
 **Status setters:** `mark_sent`, `mark_delivered`, `mark_read`, `mark_failed`. They do not check
 the current state, so any transition is possible. Intended flow:
-```
+
+```text
 Pending → Sent → Delivered → Read
     ↓
   Failed
@@ -245,6 +247,7 @@ wire it stays a single integer under the old `lamport_timestamp` key.
   same set of messages the same way.
 
 What this gives and what it does not:
+
 - If event X causally precedes Y, then `ts(X) < ts(Y)`, and timestamps stay close to wall time.
   Concurrent messages are ordered by their timestamps, not detected as concurrent.
 - A device whose clock runs up to 60 s fast can place its messages ahead of others' by up to
@@ -284,6 +287,7 @@ example during a call) may carry messages, as an optimisation only.
 
 **Bootstrap never sees plaintext** when the client uses `rust/client` (see
 [status](../security/encryption.md)):
+
 - Message encrypted before sending to bootstrap
 - Bootstrap only stores opaque blobs
 - Decryption happens only on peer
@@ -294,7 +298,7 @@ No serialization of these envelopes exists; `Message` derives serde but no forma
 
 ### Standard Message
 
-```
+```text
 {
   "type": "message",
   "id": "uuid",
@@ -308,7 +312,7 @@ No serialization of these envelopes exists; `Message` derives serde but no forma
 
 ### Delivery ACK
 
-```
+```text
 {
   "type": "ack",
   "message_id": "uuid",
@@ -319,7 +323,7 @@ No serialization of these envelopes exists; `Message` derives serde but no forma
 
 ### Read Receipt
 
-```
+```text
 {
   "type": "read",
   "message_id": "uuid",

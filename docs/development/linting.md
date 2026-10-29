@@ -24,7 +24,10 @@ established** ([required checks](ci-matrix.md#required-checks)).
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
-| Web / JS | — | none | — | — | not configured |
+| JavaScript, HTML, CSS | Biome 2.6.3 (`biome lint` on `clients/desktop`) | `biome.jsonc` | yes | — | enforced; lint only, no formatter |
+| Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
+| Dockerfiles | hadolint 2.15.1 on `tools/docker`, `tests/docker` | `.hadolint.yaml` | yes | — | enforced |
+| Protobuf | `buf lint` 1.75.0 on `proto` | `proto/buf.yaml` | yes | — | enforced; `STANDARD` rules |
 
 The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
 `make check`, `tests/scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`. Git hooks run only
@@ -141,6 +144,50 @@ each enum constant, has KDoc; a class stays under 10 functions. Then run `make l
 finding after `DETAILS:`; read that whole list, not only the `FAIL` line. Run `make quality`
 once it passes.
 
+## Web (`biome.jsonc`)
+
+The quality step runs `biome lint --error-on-warnings clients/desktop`: the desktop UI
+(`clients/desktop/ui`) and its static prototype, JavaScript, HTML and CSS. Name the directory:
+without it Biome also walks `build/`. The formatter and the assist actions are off, so the files
+keep their hand formatting. The recommended rules apply except three, each justified in the config:
+`noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
+catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).
+
+`biome lint --write` applies the safe fixes; review the diff. A button outside a form still
+needs `type="button"`, and a decorative SVG needs `aria-hidden="true"`.
+
+## Markdown (`.rumdl.toml`)
+
+The quality step runs `rumdl check .` on every Markdown file except `.beads/`, which `bd` writes.
+`MD013` (line length) is off: prose wraps at about 100 columns by hand, and table rows and URLs
+cannot. `MD033` allows only `<a id="…">` anchors. `rumdl fmt .` fixes most findings; review the
+diff, since a fix to one table row realigns the whole table. A fence without a language takes
+`text`.
+
+## Dockerfiles (`.hadolint.yaml`)
+
+The quality step runs hadolint on `tools/docker/Dockerfile.*` and `tests/docker/Dockerfile.*`. Two
+rules are off: `DL3008` (apt version pins; the base images are pinned by digest, and Debian drops
+superseded versions from its mirrors) and `DL3066` (`USER root` always resolves). Suppress a finding
+with a comment line above the instruction and the reason above that:
+
+```dockerfile
+# echo cannot fail, so the pipe's status is sha256sum's.
+# hadolint ignore=DL4006
+RUN echo '<sha256>  file' | sha256sum -c -
+```
+
+A comment does not change the build cache; editing a `RUN` line rebuilds every later layer.
+
+## Protobuf (`proto/buf.yaml`)
+
+The quality step runs `buf lint proto` with the `STANDARD` rules. Three are off:
+`PACKAGE_DIRECTORY_MATCH` and `DIRECTORY_SAME_PACKAGE` (protox compiles the flat `proto/`
+directory) and `PACKAGE_VERSION_SUFFIX` (protocol IDs and packages carry no version; messages evolve
+only by new fields). A finding is suppressed with a `// buf:lint:ignore <RULE>` comment on the
+element, under a comment that gives the reason. Renaming a field or an enum value changes the
+generated Rust names but not the wire.
+
 ## Suppressing a finding
 
 Fix the code first. If a suppression is justified, scope it as narrowly as possible and state why:
@@ -164,12 +211,12 @@ A suppression comment only silences the named lint at that spot. It does not sat
 and it does not apply to other linters (an `#[expect]` for a default Clippy lint does not hide
 unrelated findings in the `codeql.yml` pedantic run).
 
-There are currently no Kotlin `@Suppress` annotations or JavaScript `eslint-disable` comments
-in the clients. [Detekt 1.23.8](https://detekt.dev/docs/1.23.8/intro/) supports suppressing
-findings but has no native unused-suppression check in its configured rules; its `Unused*`
-rules check code, not annotations. The desktop JavaScript has no ESLint setup, so ESLint's
-[`reportUnusedDisableDirectives`](https://eslint.org/docs/latest/use/configure/configuration-files#report-unused-disable-directives)
-cannot be enabled without adding a linter. If ESLint is introduced, set this option to `error`.
+There are currently no Kotlin `@Suppress` annotations in the clients.
+[Detekt 1.23.8](https://detekt.dev/docs/1.23.8/intro/) supports suppressing findings but has no
+native unused-suppression check in its configured rules; its `Unused*` rules check code, not
+annotations. In the desktop web UI a `biome-ignore lint/<group>/<rule>: <reason>` comment (`//`
+in JavaScript, `/* */` in CSS, `<!-- -->` in HTML) suppresses the next line; Biome reports a
+suppression that no longer matches a finding, and `--error-on-warnings` fails the check on it.
 
 ## Common fixes
 

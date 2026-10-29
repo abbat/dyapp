@@ -7,6 +7,7 @@ it are entry points that tools discover by path (see
 ## Index
 
 ### Security
+
 - [Security policy](../.github/SECURITY.md): supported versions, scope and private vulnerability reporting
 - [Encryption & Security Status](security/encryption.md): what is and is not protected today, by layer, target design
 - [Privacy & Metadata Visibility](security/privacy.md): which observer sees which field, retention, residual risk
@@ -16,6 +17,7 @@ it are entry points that tools discover by path (see
 - [OpenMLS curve dependency migration](security/openmls-curve-migration.md): audit failure, candidate migration and compatibility gates
 
 ### Architecture
+
 - [Overview](architecture/overview.md)
 - [P2P networking](architecture/p2p-networking.md)
 - [Messaging](architecture/messaging.md)
@@ -27,6 +29,7 @@ it are entry points that tools discover by path (see
 - [Platform integration](architecture/platform-integration.md)
 
 ### Product and operator design
+
 - [Client local storage](design/client-local-storage.md): per-profile SQLite ownership, migrations and crash-safe mailbox work; [accepted ADR](decisions/0025-client-local-sqlite-storage.md)
 - [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
@@ -44,6 +47,7 @@ it are entry points that tools discover by path (see
 - [Linux Secret Service migration](design/linux-secret-service-migration.md): options and proposed ADR amendment for removing the zbus 5 advisory chain
 
 ### Development
+
 - [Git conventions](development/git-conventions.md): branches, commits, Cargo.lock, MSRV
 - [Pull request review](development/pr-review.md): checks and human review of untrusted PRs
 - [Desktop identity storage](development/desktop-identity-storage.md): user choice, runtime capability checks and persistence
@@ -65,6 +69,7 @@ it are entry points that tools discover by path (see
 - [Architecture decisions (ADR)](decisions/README.md)
 
 ### Testing
+
 - [Testing overview](testing/README.md)
 - [UI testing](testing/ui-testing.md)
 - [Docker testing](testing/docker.md)
@@ -72,9 +77,11 @@ it are entry points that tools discover by path (see
 - [RSS plateau investigation](testing/memory-plateau-investigation.md): measurements and unresolved growth attribution
 
 ### Platforms
+
 - [Empty app contract](platforms/empty-app-contract.md)
 
 ### Operations
+
 - [Deployment](operations/deployment.md)
 - [Abuse reports and legal requests](operations/abuse-and-legal-requests.md)
 - [Bootstrap node operator manual](manuals/bootstrap.md) ([Russian](manuals/bootstrap.ru.md))
@@ -85,6 +92,7 @@ it are entry points that tools discover by path (see
 - [Android client](manuals/android.md) ([Russian](manuals/android.ru.md))
 
 ### AI agents
+
 - [Project guide for agents](agents/project.md): layout, commands, limits, rules
 - [lean-ctx](agents/lean-ctx.md): optional MCP context tools
 - [Beads (`bd`)](agents/beads.md): optional local issue tracker

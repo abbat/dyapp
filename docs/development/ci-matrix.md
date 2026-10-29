@@ -11,7 +11,7 @@
 `workflow_dispatch`. A branch with an open PR therefore runs it twice (push and PR). Check names
 are `ci / <job>`, e.g. `ci / native - ios`, `ci / core / quality`.
 
-```
+```text
 ci.yml ("ci")
   ├─ core     ──▶ ci-base.yml ──▶ quality, build
   ├─ docker   (android)

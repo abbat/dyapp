@@ -15,18 +15,22 @@ Multi-layer testing. Rust line coverage is a ratchet: the workspace total never 
 Located in `#[cfg(test)]` modules within each crate.
 
 **Identity** (rust/identity)
+
 - SignedRecord: sign/verify, tampered payload, foreign key, short key
 - Identity: secret key round trip keeps the Peer ID
 
 **Profile** (rust/profile)
+
 - Highest valid version wins; a tombstone supersedes and carries no fields but the proof of work
 - Proof of work: pinned Argon2id output, `solve` round-trips and resumes
 - Rejects a bad signature or invalid content
 
 **P2P Network** (rust/p2p-net)
+
 - A client dials a server over QUIC loopback and adds it to its Kademlia routing table
 
 **Messaging** (rust/messaging)
+
 - Message: lifecycle (Pending→Sent→Delivered→Read), encryption flags
 - MLS: roundtrip, tampered, replayed and foreign messages, single-use Welcome, forged
   certificates, revoked devices, suite and lifetime checks, commits, exporter,
@@ -35,11 +39,13 @@ Located in `#[cfg(test)]` modules within each crate.
   rejection, peer-ID tie-break
 
 **Video** (rust/video)
+
 - VideoSession: state machine (Idle→OfferCreated→Connected), SDP generation
 - ICECandidate: type detection (host/srflx/relay), priority ranking
 - CodecNegotiation: agreement algorithm, no agreement without a common codec
 
 **Bootstrap** (rust/bootstrap)
+
 - Mailbox: envelope once per id, size limits, fetch with challenge, ack, replay and forgery rejected, TTL
 - Signed profile: version ordering (stale → error), tombstone kept and hidden from the list
 - Replication: encode/decode, single+multiple shard failures, fault tolerance
@@ -49,6 +55,7 @@ Located in `#[cfg(test)]` modules within each crate.
   use a test-only fixed clock, so a loaded CI host cannot refill the quota between calls.
 
 **FFI** (rust/ffi)
+
 - VideoSession wrapper: async bridging, state management
 - Type conversions: Rust → Swift/Kotlin/C
 
@@ -59,6 +66,7 @@ Located in `#[cfg(test)]` modules within each crate.
 Located in `tests/integration_tests.rs`.
 
 Multi-peer scenario testing:
+
 - **Video session**: offer/answer, ICE gathering, codec negotiation
 - **Reputation**: peer tracking, trust scoring
 - **Bootstrap**: replication fault tolerance; the node protocol end to end is in
@@ -416,11 +424,12 @@ cargo test --test integration_tests -- hybrid_clock
 
 All test functions follow pattern:
 
-```
+```text
 test_<module>_<behavior>_<outcome>
 ```
 
 Examples:
+
 - `test_hybrid_clock_ordering`
 - `test_video_session_state_transitions`
 - `test_bootstrap_cleanup_removes_expired`

@@ -251,11 +251,12 @@ entry points are a separate staged rollout, not covered by this inventory.
 
 ### Issue: "No such file or directory"
 
-```
+```text
 error: could not find `Cargo.toml`
 ```
 
 **Fix:** Run from project root:
+
 ```bash
 cd dyapp/
 docker run --rm dyapp:dev cargo test
@@ -263,34 +264,37 @@ docker run --rm dyapp:dev cargo test
 
 ### Issue: "cargo not found"
 
-```
+```text
 /bin/bash: cargo: command not found
 ```
 
 **Fix:** Make sure Docker image was built:
+
 ```bash
 docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ```
 
 ### Issue: Tests timeout
 
-```
+```text
 error: could not compile `dyapp`
 thread 'main' panicked at 'operation timed out'
 ```
 
 **Fix:** Increase timeout:
+
 ```bash
 docker run --rm dyapp:dev cargo test --workspace --release
 ```
 
 ### Issue: Out of disk space
 
-```
+```text
 no space left on device
 ```
 
 **Fix:** Clean up Docker:
+
 ```bash
 docker system prune -a
 docker volume prune
@@ -298,11 +302,12 @@ docker volume prune
 
 ### Issue: Permission denied on volume mount
 
-```
+```text
 error: Permission denied
 ```
 
 **Fix:** Adjust permissions:
+
 ```bash
 chmod 755 $(pwd)
 docker run --rm -v $(pwd):/app dyapp:dev cargo test

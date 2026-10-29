@@ -12,6 +12,7 @@ runs as its own role, on by default, and signaling is planned.
 > See [Encryption & Security Status](../security/encryption.md).
 
 **Key principles:**
+
 - **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
 - **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the [search role](#search)
@@ -794,7 +795,7 @@ A message for one device is a `SignedRecord` signed by a sender key over
 `"dyapp/envelope/v1\0" || payload`, where the payload is an `Envelope`
 ([schema](protobuf-schema.md#node-protocol)):
 
-```
+```text
 Envelope { id: 16 random bytes, mailbox: SHA-256(recipient device key), ciphertext,
            class, write_token: optional SignedRecord }
 WriteToken { mailbox, token_key, epoch: UTC day number }  // signed by the recipient device key
@@ -1154,7 +1155,7 @@ then trusts it as the owner's own claim, not as fact:
 `network.name`: they need neither the node key nor the owner of `storage.dir`. Each prints one
 JSON object:
 
-```
+```text
 dyappd sign-profile [secret hex version] → {"peer_id", "record", "secret"} (test identity, hex protobuf)
 dyappd heartbeat <addr> <secret hex> → {"status"}
 dyappd info    [::1]:33445                → {"status", "peer_id", "server_time", "roles", "max_profile_bytes"}
@@ -1252,8 +1253,9 @@ Mapping in `Replication::new_with_replication_factor`:
 The media codec uses K = ⌈size / 1 MiB⌉ data shards and M = 4 parity directly, independently
 of this general replication-factor mapping. Messages and profiles are replicated whole.
 
-**Example: RS(2,1) on 3 nodes**
-```
+### Example: RS(2,1) on 3 nodes
+
+```text
 Original record (100 bytes)
   ↓ encode RS(2,1)
 Shard 0: 50 bytes (data)    → Node A
@@ -1400,7 +1402,7 @@ starts refusing and a line when it clears, not one per request:
 One SQLite file per data type in the storage directory, WAL journal,
 `auto_vacuum = INCREMENTAL`, `journal_size_limit` 64 MiB:
 
-```
+```text
 profiles.db  profiles(peer_id PK, record BLOB, live, last_seen)
              record: SignedRecord (protobuf), latest version or tombstone (live = 0)
 messages.db  envelopes(seq PK, mailbox BLOB, id BLOB, record BLOB, size, expires_at, class,
@@ -1540,7 +1542,6 @@ read or delete a mailbox: that needs the device key. A node cannot forge an enve
 profile, since both are signed, but it can withhold, drop or delay them, or serve an older
 signed profile version.
 
-
 ❌ Read encrypted messages
 ❌ Decrypt anything (no session keys)
 ❌ See call content (no signaling endpoint exists; media goes peer to peer)
@@ -1643,6 +1644,7 @@ listener reads no request body and serves nothing else.
 ## Testing
 
 Unit test coverage:
+
 - Envelopes once per (mailbox, id), mailbox full, fetch limits and `more`, ack, expiry (`storage.rs`)
 - Signed profile: version order, forged payload, tombstone hides and blocks older versions (`storage.rs`)
 - Rate limiting (single key, separate keys)
@@ -1657,13 +1659,13 @@ Unit test coverage:
 - Media stream admission: third request on one TCP connection and seventeenth across nine
   connections fail without a response; accepted streams still answer. Codec tests prove that
   rejection reads no body bytes and that completed, malformed and dropped streams release permits.
-
 - Sender replica cap (`node/tests.rs`): shared cross-protocol quotas, local exemption, dropped-count
   reset, media queue cleanup and no trust penalty. Mailbox repair over TCP delivers 75 envelopes
   as an admitted 50-envelope batch and the remaining 25 after refill; complete inventory sends nothing.
 
 Protocol tests (`rust/bootstrap/tests/protocol.rs`): `node::run` on loopback TCP with libp2p
 clients:
+
 - `node::open` from a config (the start `dyappd` and the desktop app share, ADR 0030) answers
   `info`, holds the storage lock while it runs and frees it when its task is dropped
 - Every request type: `info`, publish and get, mailbox put, challenge, fetch and ack
@@ -1681,8 +1683,8 @@ clients:
   with `retry_after` 1, and `info` is answered within a second (`search_queries_do_not_hold_up_the_node`, timing-based)
 
 Integration tests (`tests/integration_tests.rs`, in-process, no network):
-- Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
+- Replication codec with one lost shard (`test_replication_fault_tolerance`)
 
 The network test (`tests/scripts/network-test.py`) runs three `dyappd` instances, all with
 roles `store`, `search` and `media` (only the first also serves TURN), and drives them with `dyappd`'s client commands: `info` over TCP and QUIC, publish
@@ -1718,6 +1720,7 @@ run `make test` first to build the current `dyappd` binary.
 ## Limitations & Future
 
 **Current limitations:**
+
 - App clients are not wired to the protocol yet; nodes replicate mailbox/profile writes, forward acks and repair mailbox gaps only when a device watches its mailbox
 - Search expiry drops at most 4096 silent keys an hour
 - No audit logging

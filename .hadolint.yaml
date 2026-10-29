@@ -1,0 +1,7 @@
+# Every Dockerfile under tools/docker and tests/docker; see docs/development/linting.md.
+ignored:
+  # Base images are pinned by digest. Debian drops superseded package versions from its mirrors,
+  # so `package=version` pins would break rebuilds without making them reproducible.
+  - DL3008
+  # `USER root` always resolves; the non-root users are numeric (1000:1000, 65532:65532).
+  - DL3066

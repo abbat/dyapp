@@ -314,6 +314,8 @@ message WriteToken {
 // What a node may tell apart; anything else is end-to-end encrypted.
 enum EnvelopeClass {
   // A message, also any value a node does not know.
+  // The zero value is a real class, not "unspecified": unknown values must read as messages.
+  // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
   ENVELOPE_CLASS_MESSAGE = 0;
   // A like, a view or another signal: at most 1 KiB of signed payload, its own quota per
   // mailbox, the oldest evicted at the quota.

@@ -9,7 +9,7 @@ All checks run in Docker; build the image once with `make prepare`.
 
 | Command | Runs |
 |---------|------|
-| `make quality` (= `lint`, `check`, `tests/scripts/check-quality.sh`) | `tests/scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
+| `make quality` (= `lint`, `check`, `tests/scripts/check-quality.sh`) | `tests/scripts/rust-check.sh quality` (after the container isolation check): `check-batches.py`, `check-repository.py`, `triggers.py`, `docs-sync.py`, actionlint, zizmor, gitleaks on the git history, typos, `taplo fmt --check`, Biome, rumdl, hadolint, `buf lint`, `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh`, Python unittest, flake8, SwiftLint, detekt, `cargo fmt --check`, `cargo shear`, clippy `-D warnings`, `cargo doc` with `RUSTDOCFLAGS=-D warnings` (no tests: `make test`) |
 | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, the Android part of `make quality`; both run even if the first fails |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `tests/scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
@@ -72,7 +72,7 @@ consumers and internal stage ownership.
 script; older history is grandfathered):
 
 - subject at most 72 characters, capitalised, imperative (no `-ed`, `-ing` or third-person `-s`
-  first word after an optional `scope: ` prefix), no trailing period;
+  first word after an optional `scope:` prefix and its space), no trailing period;
 - a blank line between the subject and the body;
 - a `Co-Authored-By: Name <email>` trailer (not required from `[bot]` authors such as Dependabot);
 - no tracker IDs.

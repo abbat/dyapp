@@ -135,4 +135,3 @@ A trigger whose bead is missing after the due time, or was created after it,
 is an error. Main red is seen only in the report's seven-day window, so run
 the report at least daily while a CI failure is open. Dependabot and advisory
 reads need a `gh` token with security-events access.
-

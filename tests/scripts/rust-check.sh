@@ -41,6 +41,10 @@ step() {
                 GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact .
             check typos typos
             check taplo taplo fmt --check
+            check biome biome lint --error-on-warnings --colors=off clients/desktop
+            check rumdl rumdl check --color never --no-cache .
+            check hadolint hadolint --no-color tools/docker/Dockerfile.* tests/docker/Dockerfile.*
+            check buf buf lint proto
             check shellcheck shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             check flake8 python3 -m flake8 tests tools

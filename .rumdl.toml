@@ -1,0 +1,10 @@
+# Markdown lint; see docs/development/linting.md.
+[global]
+# Prose wraps at about 100 columns by hand; table rows, URLs and index lines cannot wrap.
+disable = ["MD013"]
+# bd writes .beads/ itself.
+exclude = [".beads"]
+
+[MD033]
+# Explicit anchors on list items and paragraphs, which have no heading id to link to.
+allowed-elements = ["a"]

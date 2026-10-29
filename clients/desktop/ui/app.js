@@ -38,7 +38,6 @@ const switchIdentity = document.getElementById('switch-identity');
 const removeIdentity = document.getElementById('remove-identity');
 const removeConfirm = document.getElementById('remove-confirm');
 const removeAction = document.getElementById('remove-action');
-const settings = document.getElementById('settings');
 const removeDialog = document.getElementById('remove');
 const wizardNetwork = document.getElementById('wizard-network');
 const sections = [setup, identity, document.getElementById('picker'),

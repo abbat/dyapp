@@ -1,4 +1,5 @@
 // Prototype wording in English and Russian; the shipped strings live in ../ui/i18n.
+// biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
     'app.name': 'DYApp',

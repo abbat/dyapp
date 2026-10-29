@@ -11,10 +11,14 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
     ANDROID_SDK_ROOT=/opt/android-sdk GRADLE_USER_HOME=/opt/gradle-cache
 ENV PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:$PATH
 WORKDIR /tmp/ai
+# echo cannot fail, so the pipe's status is sha256sum's.
+# hadolint ignore=DL4006
 RUN curl -fL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o sdk.zip && \
     echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  sdk.zip' | sha256sum -c - && \
     mkdir -p /opt/android-sdk/cmdline-tools && unzip -q sdk.zip -d /opt/android-sdk/cmdline-tools && \
     mv -f /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && rm -f sdk.zip
+# yes ends on SIGPIPE when sdkmanager exits, so pipefail would fail the step.
+# hadolint ignore=DL4006
 RUN yes | sdkmanager --licenses >/dev/null
 RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
     'ndk;29.0.14206865'
@@ -39,11 +43,15 @@ COPY --chown=1000:1000 .cargo .cargo
 COPY --chown=1000:1000 proto proto
 COPY --chown=1000:1000 rust rust
 COPY --chown=1000:1000 clients clients
+# echo cannot fail, so the pipe's status is sha256sum's.
+# hadolint ignore=DL4006
 RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 1000 so the outputs need no recursive chown (a copy-up layer doubles the image size).
 # Compile and populate all runtime dependencies online; do not run tests in the build.
 # The Release tasks only cache their Gradle dependencies (Release lint included) for the offline
 # Release runner: its release Rust core is not built here and the packages are discarded.
+# The cd lasts only this step; the next one builds from the WORKDIR.
+# hadolint ignore=DL3003
 RUN cd clients/android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
     ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
     rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release

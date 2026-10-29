@@ -37,7 +37,7 @@ applies whenever a quorum is requested, and the A6 gate becomes blocking at rele
 
 In any session, in the repository root:
 
-```
+```text
 Read docs/agents/quorum.md. Open a quorum on: <question>. Draft the charter with me.
 ```
 
@@ -55,7 +55,7 @@ Start one session per participant, in parallel if you like:
 BEADS_ACTOR=<model> claude    # or: BEADS_ACTOR=<model> codex
 ```
 
-```
+```text
 Read docs/agents/quorum.md. You are participant <model> in quorum <Q>, phase 1.
 ```
 
@@ -72,7 +72,7 @@ bd comments <Q>
 When every participant has posted `phase 1 complete`, give each one (same or new session; the
 state is in beads):
 
-```
+```text
 Read docs/agents/quorum.md. You are participant <model> in quorum <Q>, phase 2.
 ```
 
@@ -85,7 +85,7 @@ synthesizer:
 BEADS_ACTOR=<model> claude
 ```
 
-```
+```text
 Read docs/agents/quorum.md. You are the synthesizer of quorum <Q>, phase 3.
 ```
 

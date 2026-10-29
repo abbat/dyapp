@@ -140,7 +140,8 @@ All jobs run directly on the runner, without Docker. Every check is a step of
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `tools/docker/Dockerfile.dev` uses;
 - downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1,
-  detekt 1.23.8, zizmor 1.30.1 and age 1.3.2 release files and checks them against the sha256 sums
+  detekt 1.23.8, zizmor 1.30.1, age 1.3.2, Biome 2.6.3, rumdl 0.3.1, hadolint 2.15.1 and buf 1.75.0
+  release files and checks them against the sha256 sums
   `tools/docker/Dockerfile.dev` uses (detekt runs on the runner's Java; the dev image installs
   OpenJDK 21; `age` and `age-keygen` serve the real-age backup preflight test);
 - installs toolchain 1.99.0 with rustfmt, clippy and llvm-tools, and exports
@@ -188,6 +189,10 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
 | Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
 | TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |
+| Web lint | `biome lint --error-on-warnings clients/desktop`: JavaScript, HTML and CSS; rules in `biome.jsonc` ([linting](linting.md#web-biomejsonc)) |
+| Markdown lint | `rumdl check .`; rules in `.rumdl.toml` ([linting](linting.md#markdown-rumdltoml)) |
+| Dockerfile lint | `hadolint tools/docker/Dockerfile.* tests/docker/Dockerfile.*`; rules in `.hadolint.yaml` ([linting](linting.md#dockerfiles-hadolintyaml)) |
+| Protobuf lint | `buf lint proto`; rules in `proto/buf.yaml` ([linting](linting.md#protobuf-protobufyaml)) |
 | Shell lint | `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |

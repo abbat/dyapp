@@ -60,7 +60,7 @@ let session = try await client.startVideoCall()
 
 ### Structure
 
-```
+```text
 platform/ios-swift/
 ├── Package.swift                    # SPM manifest
 ├── Sources/
@@ -100,7 +100,7 @@ val session = client.startVideoCall()
 
 ### Structure
 
-```
+```text
 platform/android-kotlin/
 ├── build.gradle.kts                # Gradle build
 ├── src/main/kotlin/
@@ -180,12 +180,14 @@ func testSendMessageFlow() async throws {
 ```
 
 Tests verify:
+
 - FFI calls work correctly
 - Async/await chains execute
 - Error handling surfaces properly
 - No crashes from nil dereference
 
 Tests do NOT verify:
+
 - Message ordering (Rust layer)
 - Encryption (Rust layer)
 - Peer discovery (Rust layer)
@@ -194,7 +196,7 @@ Tests do NOT verify:
 
 ### iOS App Store
 
-```
+```text
 1. Build release binary for iOS targets
 2. Package an .xcframework (xcodebuild -create-xcframework; lipo only within one platform)
 3. Embed in Xcode project
@@ -203,7 +205,7 @@ Tests do NOT verify:
 
 ### Google Play
 
-```
+```text
 1. Build release binaries for Android targets
 2. Package into AAR with Gradle
 3. Publish to Play Store
@@ -211,7 +213,7 @@ Tests do NOT verify:
 
 ### Linux Distribution
 
-```
+```text
 1. Build release binary for x86_64-linux-gnu
 2. Package .deb or .rpm
 3. Distribute via package manager
@@ -221,7 +223,7 @@ Tests do NOT verify:
 
 ### CI/CD Pipeline
 
-```
+```text
 Commit to main
   ├─ Build Rust core (cargo test)
   │  └─ FFI tests pass
@@ -253,6 +255,7 @@ app links it yet.
 | Linux    | ~10 MB     |
 
 Breakdown:
+
 - Rust core: 8-10 MB
 - WebRTC (`webrtc` crate, video) and libp2p (messaging): separate stacks, not measured
 - Crypto (ChaCha, Ed25519): 0.5 MB
@@ -260,10 +263,12 @@ Breakdown:
 ## Limitations & Future
 
 **Current limitations:**
+
 - Single platform shown (others are similar structure)
 - No UI example (intentional: platform choice is user's)
 
 **Future enhancements:**
+
 - Example native UI (SwiftUI + Jetpack Compose)
 - Streaming binary downloads (not embedded in app)
 - Hot reload for development (platform-dependent)

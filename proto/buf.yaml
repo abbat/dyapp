@@ -1,0 +1,11 @@
+# buf lint for the wire schema; see docs/development/linting.md.
+version: v2
+lint:
+  use:
+    - STANDARD
+  except:
+    # protox compiles the flat proto/ directory (rust/*/build.rs), so a package is not a directory.
+    - PACKAGE_DIRECTORY_MATCH
+    - DIRECTORY_SAME_PACKAGE
+    # Protocol IDs and packages carry no version: messages evolve only by new fields (node.proto).
+    - PACKAGE_VERSION_SUFFIX

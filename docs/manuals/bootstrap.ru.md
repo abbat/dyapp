@@ -851,7 +851,7 @@ Keygen отказывается работать, пока остались да
 `dyappd` ничего не ретранслирует. Звонки не входят в первый выпуск. Установите coturn
 (`apt-get install coturn` в Debian 12) и задайте в `/etc/turnserver.conf`:
 
-```
+```text
 use-auth-secret
 static-auth-secret=<the same secret as turn.secret>
 realm=turn.example.org
