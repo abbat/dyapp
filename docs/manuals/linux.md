@@ -8,8 +8,16 @@ profiles. Chats in the window are planned.
 
 With no identity yet, the window explains what an identity is and offers the key storage: system
 credential storage, preselected and recommended when the session has it (otherwise the reason is
-shown and the app-data file is preselected), or an app-data file with its copy warning. Nothing is
-created until **Create identity**. Restoring an existing identity is planned.
+shown and the app-data file is preselected), or an app-data file, which keeps the key unencrypted. The app cannot back up the key for
+you. Nothing is created until **Create identity**. Restoring an existing identity is planned.
+
+Step 2 shows the new full Peer ID with **Copy** and the Network form: check the bootstrap
+addresses you were given and press **Continue**, or **Skip for now** and connect later in
+**Network**.
+
+If the active identity cannot be opened, the window says why in plain words. **Details**, collapsed,
+holds the state code and the identity's folder and storage for a bug report, with **Copy**; below are
+**Remove this identity…** (where removal is safe), **Switch or add an identity** and **Retry**.
 
 ## Window layout
 

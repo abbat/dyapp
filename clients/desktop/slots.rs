@@ -311,12 +311,13 @@ pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
     open_slot(slots.swap_remove(index), load)
 }
 
-/// Opens one listed slot; a provider error is returned, not turned into a recovery reason.
+/// Opens one listed slot; a key that cannot be read is "unavailable", so the window can retry.
 pub fn open_slot(slot: Slot, load: Load<'_>) -> Result<Opened, String> {
     let reason = match slot.state {
-        State::Ready => match load(&slot)? {
-            Some(identity) => return Ok(Opened::Ready(slot, identity)),
-            None => "missing",
+        State::Ready => match load(&slot) {
+            Ok(Some(identity)) => return Ok(Opened::Ready(slot, identity)),
+            Ok(None) => "missing",
+            Err(_) => "unavailable",
         },
         State::Pending | State::Deleting => {
             let reason = if slot.state == State::Pending {
@@ -529,6 +530,12 @@ mod tests {
         set_active(&root, &first.id).unwrap();
         keys.borrow_mut().remove(&first.system_name());
         assert_eq!(state(&root), format!("missing {} None", first.id));
+        // An unreadable key is a recovery state too, never an error page.
+        let broken = |_: &Slot| Err::<Option<Identity>, String>("bad key".into());
+        assert!(matches!(
+            open(&root, &broken).unwrap(),
+            Opened::Recovery(slot, "unavailable", None) if slot.id == first.id
+        ));
         // A save that does not reopen leaves a pending slot and keeps the prior pointer.
         let lost = |_: &Slot, _: &Identity| Ok::<_, String>(());
         assert!(create(&root, "file", &lost, &load).is_err());

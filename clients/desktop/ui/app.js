@@ -40,8 +40,9 @@ const removeConfirm = document.getElementById('remove-confirm');
 const removeAction = document.getElementById('remove-action');
 const settings = document.getElementById('settings');
 const removeDialog = document.getElementById('remove');
+const wizardNetwork = document.getElementById('wizard-network');
 const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery')];
+  document.getElementById('recovery'), wizardNetwork];
 // The opened identity or recovery state the remove dialog acts on.
 let current = null;
 
@@ -71,6 +72,15 @@ const showError = () => {
 
 const reasonText = (reason) => window.strings[`recovery.${reason}`]
   || window.strings['recovery.unavailable'];
+
+// Copies the text of `source`; where the webview refuses, selects it for Ctrl+C instead.
+const copyFrom = (button, source) => button.addEventListener('click', () => {
+  window.copied = Promise.resolve(source.textContent)
+    .then((text) => navigator.clipboard.writeText(text)).then(() => {
+    button.textContent = window.strings['action.copied'];
+    setTimeout(() => { button.textContent = window.strings['action.copy']; }, 2000);
+  }, () => window.getSelection().selectAllChildren(source));
+});
 
 const act = async (pending) => {
   try {
@@ -285,6 +295,25 @@ network.addEventListener('input', () => { continueButton.disabled = true; });
 network.addEventListener('change', () => invoke('save_network_draft', { draft: draft() })
   .catch((error) => networkStatus('network.failed', String(error))));
 cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
+// First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
+const peerCode = document.getElementById('peer-id');
+const peerCard = peerCode.parentElement;
+const skipNetwork = document.getElementById('skip-network');
+const wizardStep = (on) => {
+  (on ? document.getElementById('wizard-peer') : peerCard).append(peerCode);
+  (on ? document.getElementById('wizard-form') : document.getElementById('network-area'))
+    .append(network);
+  network.classList.toggle('card', !on);
+  skipNetwork.hidden = !on;
+};
+const leaveWizard = () => {
+  if (wizardNetwork.hidden) return;
+  wizardStep(false);
+  show(identity, 'status.ready');
+};
+skipNetwork.addEventListener('click', leaveWizard);
+copyFrom(document.getElementById('copy-peer-id'), peerCode);
+
 continueButton.addEventListener('click', () => {
   continueButton.disabled = true;
   window.connectionActivated = invoke('activate_connection')
@@ -292,6 +321,7 @@ continueButton.addEventListener('click', () => {
       networkStatus('network.active');
       // A node that waited for a network starts on it now.
       invoke('apply_node').catch(() => {});
+      leaveWizard();
     })
     .catch((error) => networkStatus('network.failed', String(error)));
 });
@@ -753,6 +783,8 @@ for (const button of [searchRetry, searchAgain]) {
 }
 
 async function render(state) {
+  const fresh = created;
+  created = false;
   if (state.status === 'ready' || state.status === 'recovery') current = state;
   if (state.status === 'ready') {
     document.getElementById('peer-id').textContent = state.peerId;
@@ -770,7 +802,8 @@ async function render(state) {
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
     showArea('profile-area');
-    show(identity, 'status.ready');
+    wizardStep(fresh);
+    show(fresh ? wizardNetwork : identity, 'status.ready');
     return state;
   }
   if (state.status === 'picker') {
@@ -781,6 +814,10 @@ async function render(state) {
   }
   if (state.status === 'recovery') {
     document.getElementById('recovery-reason').textContent = reasonText(state.reason);
+    // The state code and the slot row, for a bug report.
+    document.getElementById('recovery-details').textContent = [state.reason,
+      [state.slot, state.mode].filter(Boolean).join(' ')].join('\n');
+    document.getElementById('recovery-more').open = false;
     document.getElementById('recovery-peer').textContent = state.peerId || '';
     document.getElementById('recovery-peer-row').hidden = !state.peerId;
     show(sections[3], 'status.recovery');
@@ -798,11 +835,16 @@ async function render(state) {
   return state;
 }
 
+// A new identity opens on the network step of the wizard.
+let created = false;
 createIdentity.addEventListener('click', () => {
   const mode = systemChoice.checked ? 'system' : 'file';
   for (const each of [systemChoice, fileChoice, createIdentity]) each.disabled = true;
+  created = true;
   act(invoke('create_identity', { mode }));
 });
+copyFrom(document.getElementById('copy-recovery-details'),
+  document.getElementById('recovery-details'));
 switchIdentity.addEventListener('click', () => act({ status: 'picker' }));
 document.getElementById('add-identity')
   .addEventListener('click', () => act(invoke('storage_options')));

@@ -26,6 +26,7 @@
   </main>
   <main id="setup" class="page" hidden>
     <div class="card">
+      <div id="setup-step" class="steps" data-i18n="setup.step1"></div>
       <h1 data-i18n="setup.title"></h1>
       <p class="muted" data-i18n="setup.intro"></p>
       <fieldset id="storage">
@@ -37,6 +38,7 @@
           <span><span data-i18n="storage.file.choice"></span><br>
             <span class="caption" data-i18n="storage.file.warning"></span></span></label>
       </fieldset>
+      <p id="no-backup" class="caption" data-i18n="setup.noBackup"></p>
       <div class="actions">
         <button id="setup-cancel" class="btn" type="button" data-i18n="page.cancel" hidden></button>
         <button id="create-identity" class="btn primary" type="button" data-i18n="setup.create"></button>
@@ -56,7 +58,11 @@
   <main id="recovery" class="page" hidden>
     <div class="card">
       <h1 data-i18n="status.recovery"></h1>
-      <div class="notice error" role="alert"><p id="recovery-reason"></p></div>
+      <div class="notice error" role="alert"><p id="recovery-reason"></p>
+        <details id="recovery-more"><summary data-i18n="recovery.details"></summary>
+          <pre id="recovery-details"></pre>
+          <button id="copy-recovery-details" class="btn quiet" type="button"
+            data-i18n="action.copy"></button></details></div>
       <p id="recovery-peer-row" class="caption"><span data-i18n="storage.peerId"></span>
         <code id="recovery-peer" class="full-id"></code></p>
       <button id="remove-identity" class="btn quiet link" type="button" data-i18n="identity.remove"
@@ -66,6 +72,17 @@
           hidden></button>
         <button id="retry" class="btn primary" type="button" data-i18n="recovery.retry"></button>
       </div>
+    </div>
+  </main>
+  <!-- Step 2 borrows the Peer ID and the Network form from the shell while it shows. -->
+  <main id="wizard-network" class="page" hidden>
+    <div class="card">
+      <div class="steps" data-i18n="setup.step2"></div>
+      <h1 data-i18n="setup.network.title"></h1>
+      <p class="muted" data-i18n="setup.network.intro"></p>
+      <p id="wizard-peer" class="caption"><span data-i18n="storage.peerId"></span>
+        <button id="copy-peer-id" class="btn quiet" type="button" data-i18n="action.copy"></button></p>
+      <div id="wizard-form"></div>
     </div>
   </main>
   <div id="identity" class="shell" hidden>
@@ -202,6 +219,7 @@
           <p id="network-status" class="muted" role="status"></p>
           <ol id="seed-rows"></ol>
           <div class="actions">
+            <button id="skip-network" class="btn start" type="button" data-i18n="setup.skip" hidden></button>
             <button id="cancel-check" class="btn" type="button" data-i18n="network.cancel" hidden></button>
             <button id="check-connection" class="btn primary" type="submit" data-i18n="network.check"></button>
             <button id="continue-connection" class="btn" type="button" data-i18n="network.continue"

@@ -36,7 +36,7 @@ const shortPeerIdRule = () => {
 };
 // First run: no identity actions, the recommended available store preselected, and a storage
 // choice alone creates nothing until Create.
-const chooseStorage = async (mode) => {
+const chooseStorage = async (mode, seed) => {
   const choice = document.getElementById(`${mode}-choice`);
   if (!choice || choice.disabled || choice.hidden) throw new Error('storage choice unavailable');
   const rendered = hiddenRendered();
@@ -50,13 +50,41 @@ const chooseStorage = async (mode) => {
   if (system.disabled && !document.getElementById('system-reason').textContent) {
     throw new Error('system storage reason missing');
   }
+  if (!document.getElementById('no-backup').textContent
+    || !document.getElementById('setup-step').textContent) throw new Error('step or backup line missing');
   await shot('setup');
   const before = (await invokeTest('list_identities')).length;
   choice.click();
   if ((await invokeTest('list_identities')).length !== before
     || document.getElementById('setup').hidden) throw new Error('storage choice created an identity');
   document.getElementById('create-identity').click();
+  await waitFor('wizard-network');
+  // Step 2: the full Peer ID with Copy and the Network form, which can be skipped.
+  const peerCode = document.getElementById('peer-id');
+  if (!/^[0-9a-f]{64}$/.test(peerCode.textContent)
+    || !document.getElementById('wizard-peer').contains(peerCode)
+    || !document.getElementById('wizard-form').contains(document.getElementById('network'))
+    || document.getElementById('skip-network').hidden) throw new Error('wizard network step incomplete');
+  const rendered2 = hiddenRendered();
+  if (rendered2.length) throw new Error(`hidden but rendered: ${rendered2}`);
+  await checkCopy('copy-peer-id', peerCode);
+  await shot('wizard-network');
+  if (seed) await connectNetwork(seed);
+  else document.getElementById('skip-network').click();
   await waitFor('identity');
+  if (!document.getElementById('profile-area').contains(peerCode)
+    || !document.getElementById('skip-network').hidden) throw new Error('wizard did not hand back');
+};
+// Copy puts the text of `source` on the clipboard and says so on the button.
+const checkCopy = async (id, source) => {
+  if (!navigator.clipboard) throw new Error('no clipboard API');
+  const copied = [];
+  navigator.clipboard.writeText = (text) => { copied.push(text); return Promise.resolve(); };
+  const button = document.getElementById(id);
+  button.click();
+  try { await window.copied; } finally { delete navigator.clipboard.writeText; }
+  if (copied.join() !== source.textContent
+    || button.textContent !== window.strings['action.copied']) throw new Error(`${id} did not copy`);
 };
 const pickReady = async (mode) => {
   const pick = document.querySelector(
@@ -145,7 +173,7 @@ const removeOpened = async (state, mode) => {
 const testSeeds = '127.0.0.1:1\nseed';
 const submitCheck = async (rows) => {
   const { strings } = window;
-  await openArea('network-area');
+  if (document.getElementById('wizard-network').hidden) await openArea('network-area');
   document.getElementById('seeds').value = rows;
   document.getElementById('check-connection').click();
   await window.connectionChecked;
@@ -163,7 +191,7 @@ const connectNetwork = async (seed) => {
   await window.connectionActivated;
   if (document.getElementById('network-status').textContent
     !== window.strings['network.active']) throw new Error('connection not activated');
-  await shot('network-connected');
+  if (!document.getElementById('identity').hidden) await shot('network-connected');
 };
 // An empty list is refused, then a refused and a malformed row keep Continue disabled.
 const checkNetwork = async () => {
@@ -478,15 +506,28 @@ const searchForged = async () => {
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
-    if (step === 'recovery') {
+    if (step.startsWith('recovery:')) {
+      // A localized reason first; the code and slot row only in collapsed Details, with Copy.
+      const reason = step.slice('recovery:'.length);
+      const more = document.getElementById('recovery-more');
+      const details = document.getElementById('recovery-details');
+      if (state.status !== 'recovery' || state.reason !== reason
+        || document.getElementById('recovery').hidden
+        || document.getElementById('recovery-reason').textContent
+          !== window.strings[`recovery.${reason}`]) throw new Error(`recovery ${reason} not shown`);
+      if (more.open || !details.textContent.startsWith(`${reason}\n${state.slot}`)) {
+        throw new Error(`recovery details: ${more.open} ${details.textContent}`);
+      }
       await shot('recovery');
-      const passed = state.status === 'recovery' && state.reason === 'missing'
-        && !document.getElementById('recovery').hidden
-        && document.getElementById('recovery-reason').textContent
-          === window.strings['recovery.missing'];
-      return invokeTest('ui_test_result', { passed, peerId: '', reason: 'recovery not shown' });
+      more.open = true;
+      await checkCopy('copy-recovery-details', details);
+      await shot('recovery-details');
+      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
-    if (step === 'add') {
+    if (step.startsWith('wizard-connect:')) {
+      if (state.status !== 'setup') throw new Error('storage picker not shown');
+      await chooseStorage(mode, step.slice('wizard-connect:'.length));
+    } else if (step === 'add') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
       await openArea('settings');

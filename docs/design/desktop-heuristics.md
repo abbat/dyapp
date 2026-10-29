@@ -83,6 +83,7 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 | Picker and key storage from Settings | H3 | 2 | No way back to the open identity | Cancel |
 | `profile-publish-failed`, `search-not-connected` | H1, H9 | 2 | A plain grey line when no node answered; no way on | The message is an error and offers Open Network |
 | `network-failure` | H9 | 2 | A raw error string | A localized row; the raw text in a collapsed Details |
+| `recovery` after a corrupted key file | H2, H9 | 2 | "Its storage cannot be opened now" blamed the storage and gave no next step | The text says the key could not be read and to check the storage and the key file, then retry |
 | `recovery` | H8 | 1 | An empty Peer ID row; extra space under the notice | The empty row is hidden; the notice's last margin is 0 |
 | Remove | H4 | 1 | The label opens a dialog but had no ellipsis | "Remove this identity…" |
 | `network-connected` | H8 | 1 | The node ID in the main text | The node ID is in Details |
@@ -93,8 +94,8 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 | `search-results` | H8 | 1 | A list bullet before each result's avatar | No bullets |
 | `search-error` | H8 | 1 | The node-problem bullet hung outside the notice | No bullets |
 
-States with no finding: `picker`, `setup`, `ready`, `network-empty`, `profile-edit`,
-`profile-preview`, `profile-published`, `remove`.
+States with no finding: `picker`, `setup`, `wizard-network`, `recovery-details`, `ready`,
+`network-empty`, `profile-edit`, `profile-preview`, `profile-published`, `remove`.
 
 ### Accepted exceptions
 

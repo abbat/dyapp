@@ -103,7 +103,8 @@ then compares the node's signed profile payload with the locally saved draft and
 post-publish UI readback fields, age range and full-date warning equal the reviewed preview. The
 same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
-and that search asks to connect with a retry, then connects and retries the publication. After it,
+and that search asks to connect with a retry, then connects and retries the publication. A fresh first run connects to the same node on the
+wizard's network step and must leave an active network. After it,
 a search on the node shows the sample (the own profile or none) with the node's filters and no
 failures; it must offer the place filter, and Germany with Berlin picked from the suggestions
 finds nobody, since the published profile has no place. After activation, a node case turns on the app's own node in Settings: the form shows
@@ -117,8 +118,8 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 22 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 32 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 25 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the seven that need dyappd (25) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 34 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 26 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eight that need dyappd (26) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 
@@ -131,11 +132,12 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs 19 app
-instances: system create/restart, then in that profile add a file identity, restart past a
+(`android instrumentation` when a failed run lists none). The desktop smoke runs one app
+instance per case: system create/restart, then in that profile add a file identity, restart past a
 pending slot left by a simulated crash, pick from the picker after `active-profile` is
 corrupted, reopen it and remove it through the remove screen; add another file identity, show
-recovery after its key is deleted and remove it from recovery (each removal must delete only
+recovery after its key is corrupted and again after it is deleted (Details start collapsed,
+Copy copies the code and slot row) and remove it from recovery (each removal must delete only
 its slot folder and reopen the system identity); file create/restart, then
 reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair, which rejects an unlisted place, picks Berlin from the
 suggestions, checks it after the restart and clears it with the country;
@@ -276,7 +278,8 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
   `--ui-test-ru`) for the `-ru` files, so the screenshots roughly double the desktop smoke time.
   Without `DYAPP_UI_SHOTS` the command does nothing. A failed screenshot only logs to stderr.
-  States: `setup`, `picker`, `ready`, `settings`, `remove`, `recovery`, `network-empty`,
+  States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `remove`, `recovery`,
+  `recovery-details`, `network-empty`,
   `network-failure`, `network-connected`, `profile-edit`, `profile-preview`,
   `profile-publish-failed`, `profile-published`, `search-not-connected`, `search-results`,
   `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish

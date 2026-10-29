@@ -7,8 +7,8 @@ these IDs; IDs already in the current client keep their meaning. The static prot
 stylesheet `clients/desktop/ui/style.css`, is not shipped itself and has no logic. `make ui-prototype` saves every state in English and
 Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width>.png`
 ([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The client already has the
-shell with the Profile, Search, Network and Settings areas; chats, the switcher and the
-first-run network step are planned. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the
+shell with the Profile, Search, Network and Settings areas and both first-run steps; chats and
+the switcher are planned. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the
 behaviour contracts.
 
 `make quality` checks that every ID and state in backticks on this page is an id or a

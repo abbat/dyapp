@@ -218,9 +218,13 @@ def smoke(executable, flows=True):
         remove("remove-ready", profile, added, first)
         case("readd", [*file, "--ui-test-step=add"], profile)
         added = (root / "active-profile").read_text().strip()
-        (root / "profiles" / added / "identity.key").unlink()
-        case("missing-key", [*file, "--ui-test-step=recovery"], profile,
-             peer=False)
+        key = root / "profiles" / added / "identity.key"
+        key.write_bytes(b"not a key\n")
+        case("broken-key", [*file, "--ui-test-step=recovery:unavailable"],
+             profile, peer=False)
+        key.unlink()
+        case("missing-key", [*file, "--ui-test-step=recovery:missing"],
+             profile, peer=False)
         remove("remove-missing", profile, added, first)
 
     def legacy(profile, peer_id):
@@ -333,6 +337,14 @@ def smoke(executable, flows=True):
             forge_search_signature(storage / "node")
             case("search-forged", [*file, "--ui-test-step=search-forged"],
                  profile, timeout=180)
+            # A first run that connects on the wizard's network step.
+            with tempfile.TemporaryDirectory(dir=reports) as fresh:
+                case("wizard-connect",
+                     [*file, f"--ui-test-step=wizard-connect:{seed}"], fresh)
+                fresh = Path(fresh)
+                picked = (fresh / "active-profile").read_text().strip()
+                if not (fresh / "profiles" / picked / "network").is_file():
+                    raise RuntimeError("the wizard did not activate a network")
         except RuntimeError as error:
             raise RuntimeError(f"{error}\ndyappd log:\n"
                                f"{log.read_text()[-8192:]}") from error
