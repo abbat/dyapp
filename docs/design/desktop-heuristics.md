@@ -3,7 +3,10 @@
 A review of every state of the desktop prototype (`clients/desktop/prototype/`, see
 [desktop screens](desktop-screens.md)) against Jakob Nielsen's
 [10 usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/). It was
-done on 2026-10-29, before the shell was built, and every finding is fixed in the prototype. The rule that keeps it current is under [When to review](#when-to-review).
+done on 2026-10-29, before the shell was built, and every finding is fixed in the prototype. The
+shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the shell; its findings
+are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
+[When to review](#when-to-review).
 
 ## Method
 
@@ -69,6 +72,29 @@ are not designed yet.
 States with no finding: `wizard-identity`, `picker`, `publish-dialog`, `publish-progress`,
 `network-checking`, `search`, `profile-view`, `chat-menu`, `chat-clear-dialog`, `chat-cleared`,
 `switcher`, `menu`, `remove-offline`.
+
+### Shipped UI
+
+The states `make ui-test-linux` saves to `build/ux-research/current/`, checked the same way.
+
+| State | Heuristic | Severity | Problem | Fix |
+| --- | --- | --- | --- | --- |
+| `settings` | H2, H4 | 2 | Remove sat apart from the identity it removes | Remove… is in the active identity's row |
+| Picker and key storage from Settings | H3 | 2 | No way back to the open identity | Cancel |
+| `profile-publish-failed`, `search-not-connected` | H1, H9 | 2 | A plain grey line when no node answered; no way on | The message is an error and offers Open Network |
+| `network-failure` | H9 | 2 | A raw error string | A localized row; the raw text in a collapsed Details |
+| `recovery` | H8 | 1 | An empty Peer ID row; extra space under the notice | The empty row is hidden; the notice's last margin is 0 |
+| Remove | H4 | 1 | The label opens a dialog but had no ellipsis | "Remove this identity…" |
+| `network-connected` | H8 | 1 | The node ID in the main text | The node ID is in Details |
+| `search-not-connected` | H8 | 1 | Retry repeated the Search button | Retry is hidden; Open Network shows instead |
+| Profile states | H8 | 1 | Forms stuck together; inputs and selects of different heights | A gap between grids; inputs and selects are 2.5rem high |
+| Profile and search states | H8 | 1 | Select text sat below the middle of the box | The select keeps only its own vertical padding |
+| `search-results`, `search-empty` | H8 | 1 | A wrapped label pushed its box below the rest of the row | Grid rows align to the bottom |
+| `search-results` | H8 | 1 | A list bullet before each result's avatar | No bullets |
+| `search-error` | H8 | 1 | The node-problem bullet hung outside the notice | No bullets |
+
+States with no finding: `picker`, `setup`, `ready`, `network-empty`, `profile-edit`,
+`profile-preview`, `profile-published`, `remove`.
 
 ### Accepted exceptions
 

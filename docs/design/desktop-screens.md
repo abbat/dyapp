@@ -1,13 +1,14 @@
-# Desktop screens (planned)
+# Desktop screens
 
 Control IDs and states for every screen of the Linux and Windows shell in
 [ADR 0033](../decisions/0033-desktop-navigation-shell.md). The implementation and its UI tests use
 these IDs; IDs already in the current client keep their meaning. The static prototype in
-`clients/desktop/prototype/` is the layout reference: it shows every state with the proposed
-stylesheet, is not shipped and has no logic. `make ui-prototype` saves every state in English and
+`clients/desktop/prototype/` is the layout reference: it shows every state with the shipped
+stylesheet `clients/desktop/ui/style.css`, is not shipped itself and has no logic. `make ui-prototype` saves every state in English and
 Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width>.png`
-([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The current one-page UI
-stays until the redesign lands; [v0.0.1 client screens](v0.0.1-client-screens.md) holds the
+([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The client already has the
+shell with the Profile, Search, Network and Settings areas; chats, the switcher and the
+first-run network step are planned. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the
 behaviour contracts.
 
 `make quality` checks that every ID and state in backticks on this page is an id or a
@@ -43,7 +44,8 @@ says the key is kept unencrypted. Nothing is created before **Create identity**.
 switcher, Settings) leads each row with a round avatar: the thumbnail of the identity's first
 profile photo, or the two characters after "@" in the short Peer ID when it has none. A short Peer
 ID is "@" and the last 6 characters, longer until unique among the identity's known peers; the
-full ID shows in the wizard, recovery and removal.
+full ID shows in the wizard, recovery and removal. Opened from an open identity, the picker and
+the key-storage choice also show Cancel, which returns to that identity.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -250,7 +252,7 @@ sending off never stops receiving.
 | Control | ID | Notes |
 | --- | --- | --- |
 | Identities | `settings-identities` | Avatar, short Peer ID, Active or storage kind |
-| Remove | `settings-remove`, `settings-remove-2` | Per identity row |
+| Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Unblock | `unblock-1` | Per blocked row |

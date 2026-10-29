@@ -11,21 +11,26 @@ credential storage, preselected and recommended when the session has it (otherwi
 shown and the app-data file is preselected), or an app-data file with its copy warning. Nothing is
 created until **Create identity**. Restoring an existing identity is planned.
 
+## Window layout
+
+An open identity shows a sidebar with the identity on top and four areas: **Profile**, **Search**,
+**Network** and **Settings**. Below 1008 px wide the sidebar shrinks to icons (hover one for its
+name); below 641 px it hides behind the **Menu** button in the top bar and closes on Escape or a
+click outside it.
+
 ## Settings
 
-From an open identity, **Settings** lists local identities with their key storage kind and marks
+The **Settings** area lists local identities with their key storage kind and marks
 the active one. The list and the picker show a short Peer ID like a git hash: "@" and the last 6
 characters, longer when another local identity ends the same way; hover a row for the full ID. **Add a new identity** opens the explicit key-storage choice with its backup
-warning; **Switch or add an identity** opens the existing picker. These identity actions live
-only in Settings, and on the recovery screen for a key that cannot be opened. **Remove this identity** shows
+warning; **Switch or add an identity** opens the existing picker. On both, **Cancel** returns to
+the open identity. These identity actions live only in Settings, and on the recovery screen for a
+key that cannot be opened. **Remove this identity…**, in the active identity's row, shows
 the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
-Remove is enabled. Cancel returns to Settings without deleting anything. **Back** returns to the
-same identity.
+Remove is enabled. Cancel closes the dialog and leaves Settings open without deleting anything.
 
-The same bootstrap-address editor, network name and connection status appear in Settings.
-Returning to Ready keeps the current edits and Check results; the first connection flow still
-uses that editor before an active network is configured.
-An unsuccessful Check in Settings leaves the prior active network unchanged.
+The **Network** area keeps its edits and Check results while you visit other areas. An
+unsuccessful Check leaves the prior active network unchanged.
 
 ## Connect to a network
 
@@ -52,7 +57,8 @@ it checks the signed readback before reporting the version, then sends the profi
 search nodes so others can find it. The app sends a new version to search at most every ten minutes:
 until then the profile page says in how many minutes the changes appear in search, and the app
 sends them when that time ends or on the next start. You can stop puzzle work without
-losing the draft or its progress. A network failure keeps the draft for retry. A supplied
+losing the draft or its progress. A network failure keeps the draft for retry; when no node of the
+active network answered, the error shows **Open Network**, which opens the Network area. A supplied
 birth date must be valid and, when it includes a year, must not allow an age under 18.
 
 ## Find people
@@ -67,7 +73,8 @@ in the form. Each result shows the Peer ID; open it to see the public fields.
 While a search runs, its buttons are disabled; the rest of the window stays usable. An empty
 sample means it contained no verified matches, not that none exist. When some nodes fail, the
 matches found are kept, each node problem is listed (no node, unreachable, timeout, busy with the
-seconds to wait, an unsolved puzzle or a forged reply) and **Retry** asks again. **Load another
+seconds to wait, an unsolved puzzle or a forged reply) and **Retry** asks again. When no node of
+the active network answered, the error shows **Open Network** instead of Retry. **Load another
 sample** runs the same search again.
 
 ## Run a node

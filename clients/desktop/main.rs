@@ -627,7 +627,7 @@ fn main() {
             if test_mode && payload.event() == PageLoadEvent::Finished {
                 if break_ui {
                     webview
-                        .eval("document.getElementById('app-ready').style.display = 'none'")
+                        .eval("document.querySelector('#profile-area h1').style.display = 'none'")
                         .expect("inject UI failure");
                 }
                 webview

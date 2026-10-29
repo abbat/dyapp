@@ -108,9 +108,9 @@ a search on the node shows the sample (the own profile or none) with the node's 
 failures; it must offer the place filter, and Germany with Berlin picked from the suggestions
 finds nobody, since the published profile has no place. After activation, a node case turns on the app's own node in Settings: the form shows
 its defaults, refuses a 3 MB disk limit, shows the running node ID, then stops it, and the script
-checks the saved `node.json` is off. The desktop test then moves the network editor into
-Settings and back, checks that draft rows and failed row statuses survive navigation, and compares
-the active network file byte for byte before and after a failed Settings check. A deterministic
+checks the saved `node.json` is off. The desktop test then leaves the Network area for
+Profile and comes back, checks that draft rows and failed row statuses survive navigation, and compares
+the active network file byte for byte before and after a failed check. A deterministic
 Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race the ordinary
 11-bit puzzle.
 
@@ -140,7 +140,7 @@ its slot folder and reopen the system identity); file create/restart, then
 reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair, which rejects an unlisted place, picks Berlin from the
 suggestions, checks it after the restart and clears it with the country;
 then Russian, pseudo-locale and an
-injected hidden-ready rejection. The restart in
+injected rejection that hides the Profile heading. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print
 `UI_SMOKE_PASS:<peer-id>` (empty for the recovery case) and exit 0; failures print
 `UI_SMOKE_FAIL:` with the failed UI check or error before exiting 1.

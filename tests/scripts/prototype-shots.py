@@ -2,7 +2,7 @@
 """Save every static desktop prototype screen, en and ru, narrow and wide.
 
 Runs under xvfb-run in the prototype image: loads
-/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
+/desktop/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
 /shots/<screen>-<lang>-<width>.png.
 """
 import sys
@@ -27,7 +27,7 @@ SCREENS = [
 LANGS = ["en", "ru"]
 WIDTHS = [440, 1280]
 HEIGHT = 800
-SOURCE, OUT = "/prototype/index.html", "/shots"
+SOURCE, OUT = "/desktop/prototype/index.html", "/shots"
 
 jobs = [(s, lang, w) for w in WIDTHS for lang in LANGS for s in SCREENS]
 failed = []

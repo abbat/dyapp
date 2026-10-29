@@ -4,195 +4,256 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="app.name"></title>
-  <style>
-    body { font: 18px system-ui, sans-serif; margin: 0; }
-    main { max-width: 960px; margin: auto; padding: 3rem 1.5rem; text-align: center; }
-    #setup { max-width: 640px; margin-inline: auto; }
-    /* Author display rules would otherwise override the user agent's [hidden]. */
-    [hidden] { display: none !important; }
-    button { display: block; width: 100%; margin: 1rem 0; padding: .8rem; font: inherit; }
-    #storage { text-align: start; border: 0; padding: 0; margin: 0; }
-    #storage legend { font-weight: bold; }
-    #storage label { display: block; margin-top: 1rem; }
-    button:disabled { opacity: .5; }
-    .notice { font-size: .9rem; }
-    #peer-id, #key-path, #identities, #settings-identities,
-    #recovery-peer, #remove-peer, #remove-path {
-      overflow-wrap: anywhere;
-    }
-    #identities, #settings-identities { list-style: none; padding: 0; }
-    #network { text-align: start; }
-    #network label { display: block; margin-top: 1rem; }
-    #seeds, #network-name { box-sizing: border-box; width: 100%; font: inherit; }
-    #seed-rows { overflow-wrap: anywhere; }
-    #node { text-align: start; overflow-wrap: anywhere; }
-    #node label { display: block; margin-top: 1rem; }
-    #node input[type=number] { width: 100%; box-sizing: border-box; font: inherit; }
-    #profile { text-align: start; }
-    #profile label { display: block; margin-top: 1rem; }
-    #profile select, #profile input[type=number], #profile-place { width: 100%; box-sizing: border-box; font: inherit; }
-    #profile-preview { text-align: start; overflow-wrap: anywhere; }
-    #profile-preview ul { padding-inline-start: 1.5rem; }
-    #search { text-align: start; overflow-wrap: anywhere; }
-    #search label { display: block; margin-top: 1rem; }
-    #search select, #search input { width: 100%; box-sizing: border-box; font: inherit; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1 data-i18n="app.name"></h1>
-    <p id="app-ready" role="status" data-i18n="status.loading"></p>
-    <section id="setup" hidden>
-      <h2 data-i18n="setup.title"></h2>
-      <p data-i18n="setup.intro"></p>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+    <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
+  </svg>
+  <!-- Screen readers hear each state; the visible title is the heading of the screen. -->
+  <p id="app-ready" class="sr-only" role="status" data-i18n="status.loading"></p>
+  <main id="boot" class="page">
+    <div class="card">
+      <h1 data-i18n="app.name"></h1>
+      <p id="boot-loading" class="muted" data-i18n="status.loading"></p>
+      <p id="storage-error" class="notice error" role="alert" hidden></p>
+    </div>
+  </main>
+  <main id="setup" class="page" hidden>
+    <div class="card">
+      <h1 data-i18n="setup.title"></h1>
+      <p class="muted" data-i18n="setup.intro"></p>
       <fieldset id="storage">
         <legend data-i18n="storage.title"></legend>
-        <label><input id="system-choice" type="radio" name="storage" value="system">
-          <span data-i18n="storage.system.choice"></span></label>
-        <p id="system-reason" class="notice" role="status"></p>
-        <label><input id="file-choice" type="radio" name="storage" value="file">
-          <span data-i18n="storage.file.choice"></span></label>
-        <p class="notice" data-i18n="storage.file.warning"></p>
+        <label class="choice"><input id="system-choice" type="radio" name="storage" value="system">
+          <span><span data-i18n="storage.system.choice"></span><br>
+            <span id="system-reason" class="caption" role="status"></span></span></label>
+        <label class="choice"><input id="file-choice" type="radio" name="storage" value="file">
+          <span><span data-i18n="storage.file.choice"></span><br>
+            <span class="caption" data-i18n="storage.file.warning"></span></span></label>
       </fieldset>
-      <button id="create-identity" type="button" data-i18n="setup.create"></button>
-    </section>
-    <section id="identity" hidden>
-      <p data-i18n="storage.peerId"></p>
-      <p id="peer-id"></p>
-      <button id="settings-open" type="button" data-i18n="settings.title"></button>
-      <div id="file-backup" hidden>
-        <p data-i18n="storage.file.backup"></p>
-        <p><code id="key-path"></code></p>
+      <div class="actions">
+        <button id="setup-cancel" class="btn" type="button" data-i18n="page.cancel" hidden></button>
+        <button id="create-identity" class="btn primary" type="button" data-i18n="setup.create"></button>
       </div>
-      <form id="network" novalidate>
-        <h2 data-i18n="network.title"></h2>
-        <label for="seeds" data-i18n="network.seeds"></label>
-        <textarea id="seeds" rows="3" spellcheck="false"></textarea>
-        <label for="network-name" data-i18n="network.name"></label>
-        <input id="network-name" spellcheck="false">
-        <button id="check-connection" type="submit" data-i18n="network.check"></button>
-        <button id="cancel-check" type="button" data-i18n="network.cancel" hidden></button>
-        <button id="continue-connection" type="button" data-i18n="network.continue"
-          disabled></button>
-        <p id="network-status" role="status"></p>
-        <ol id="seed-rows"></ol>
-      </form>
-      <form id="profile" novalidate>
-        <h2 data-i18n="profile.title"></h2>
-        <div id="profile-scales"></div>
-        <label for="profile-country" data-i18n="profile.country"></label>
-        <select id="profile-country"></select>
-        <label for="profile-place" data-i18n="profile.place"></label>
-        <input id="profile-place" list="profile-places" autocomplete="off">
-        <datalist id="profile-places"></datalist>
-        <label for="birth-year" data-i18n="profile.birthYear"></label>
-        <input id="birth-year" type="number" min="1" max="9999">
-        <label for="birth-month" data-i18n="profile.birthMonth"></label>
-        <input id="birth-month" type="number" min="1" max="12">
-        <label for="birth-day" data-i18n="profile.birthDay"></label>
-        <input id="birth-day" type="number" min="1" max="31">
-        <button id="profile-save" type="submit" data-i18n="profile.save"></button>
-        <button id="profile-preview-action" type="button" data-i18n="profile.previewAction"></button>
-        <section id="profile-preview" hidden>
-          <h3 data-i18n="profile.previewTitle"></h3>
-          <ul id="profile-public-fields"></ul>
-          <p id="profile-age"></p>
-          <p class="notice" data-i18n="profile.copyWarning"></p>
-          <p id="profile-date-warning" class="notice" data-i18n="profile.fullDateWarning" hidden></p>
-          <label><input id="profile-disclosure" type="checkbox">
-            <span data-i18n="profile.disclosure"></span></label>
-        </section>
-        <label><input id="profile-attested" type="checkbox">
-          <span data-i18n="profile.attested"></span></label>
-        <button id="profile-publish" type="button" data-i18n="profile.publish"></button>
-        <button id="profile-cancel" type="button" data-i18n="profile.cancel" hidden></button>
-        <p id="profile-status" role="status"></p>
-        <p id="profile-search-wait" role="status" hidden></p>
-      </form>
-      <form id="search" novalidate>
-        <h2 data-i18n="search.title"></h2>
-        <p class="notice" data-i18n="search.sample"></p>
-        <label for="search-employer" data-i18n="search.employer"></label>
-        <select id="search-employer">
-          <option value="any" data-i18n="search.employer.any"></option>
-          <option value="same" data-i18n="search.employer.same"></option>
-          <option value="exclude" data-i18n="search.employer.exclude"></option>
-        </select>
-        <label for="search-company" data-i18n="search.company"></label>
-        <input id="search-company" spellcheck="false">
-        <p class="notice" data-i18n="search.employerNotice"></p>
-        <div id="search-filters" hidden>
-          <div id="search-age" hidden>
-            <label for="search-age-min" data-i18n="search.ageMin"></label>
-            <input id="search-age-min" type="number" min="18" max="150">
-            <label for="search-age-max" data-i18n="search.ageMax"></label>
-            <input id="search-age-max" type="number" min="18" max="150">
-          </div>
-          <div id="search-country-row" hidden>
-            <label for="search-country" data-i18n="search.country"></label>
-            <input id="search-country" maxlength="2" pattern="[A-Za-z]{2}" spellcheck="false">
-          </div>
-          <div id="search-place-row" hidden>
-            <label for="search-place" data-i18n="profile.place"></label>
-            <input id="search-place" list="search-places" autocomplete="off" spellcheck="false">
-            <datalist id="search-places"></datalist>
-          </div>
-          <div id="search-scales"></div>
-        </div>
-        <button id="run-search" type="submit" data-i18n="search.run"></button>
-        <button id="search-retry" type="button" data-i18n="search.retry" hidden></button>
-        <button id="search-again" type="button" data-i18n="search.again" hidden></button>
-        <p id="search-status" role="status"></p>
-        <ul id="search-failures"></ul>
-        <ul id="search-results"></ul>
-      </form>
-    </section>
-    <section id="settings" hidden>
-      <h2 data-i18n="settings.title"></h2>
-      <p data-i18n="settings.identities"></p>
-      <ul id="settings-identities"></ul>
-      <p id="settings-error" role="alert" hidden></p>
-      <button id="settings-create" type="button" data-i18n="identity.add"></button>
-      <button id="settings-switch" type="button" data-i18n="identity.switch"></button>
-      <button id="settings-remove" type="button" data-i18n="identity.remove"></button>
-      <form id="node" novalidate hidden>
-        <h2 data-i18n="node.title"></h2>
-        <label><input id="node-enabled" type="checkbox">
-          <span data-i18n="node.enabled"></span></label>
-        <label for="node-disk" data-i18n="node.disk"></label>
-        <input id="node-disk" type="number" min="4" step="1">
-        <label for="node-connections" data-i18n="node.connections"></label>
-        <input id="node-connections" type="number" min="1" step="1">
-        <button id="node-save" type="submit" data-i18n="node.save"></button>
-        <p id="node-status" role="status"></p>
-      </form>
-      <button id="settings-back" type="button" data-i18n="settings.back"></button>
-    </section>
-    <section id="picker" hidden>
-      <ul id="identities"></ul>
-      <button id="add-identity" type="button" data-i18n="identity.add"></button>
-    </section>
-    <section id="recovery" hidden>
-      <p id="recovery-reason"></p>
-      <p id="recovery-peer"></p>
-      <button id="retry" type="button" data-i18n="recovery.retry"></button>
-    </section>
-    <section id="remove" hidden>
-      <h2 data-i18n="remove.title"></h2>
-      <p id="remove-peer"></p>
-      <p id="remove-mode"></p>
-      <p id="remove-path" hidden><code></code></p>
-      <p id="remove-copies"></p>
-      <p id="remove-warning" class="notice" data-i18n="remove.warning"></p>
-      <label><input id="remove-confirm" type="checkbox">
-        <span data-i18n="remove.confirm"></span></label>
-      <button id="remove-action" type="button" data-i18n="remove.action" disabled></button>
-      <button id="remove-cancel" type="button" data-i18n="remove.cancel"></button>
-    </section>
-    <button id="remove-identity" type="button" data-i18n="identity.remove" hidden></button>
-    <button id="switch-identity" type="button" data-i18n="identity.switch" hidden></button>
-    <p id="storage-error" role="alert" hidden></p>
+    </div>
   </main>
+  <main id="picker" class="page" hidden>
+    <div class="card">
+      <h1 data-i18n="status.pick"></h1>
+      <div id="identities"></div>
+      <div class="actions">
+        <button id="picker-cancel" class="btn" type="button" data-i18n="page.cancel" hidden></button>
+        <button id="add-identity" class="btn" type="button" data-i18n="identity.add"></button>
+      </div>
+    </div>
+  </main>
+  <main id="recovery" class="page" hidden>
+    <div class="card">
+      <h1 data-i18n="status.recovery"></h1>
+      <div class="notice error" role="alert"><p id="recovery-reason"></p></div>
+      <p id="recovery-peer-row" class="caption"><span data-i18n="storage.peerId"></span>
+        <code id="recovery-peer" class="full-id"></code></p>
+      <button id="remove-identity" class="btn quiet link" type="button" data-i18n="identity.remove"
+        hidden></button>
+      <div class="actions">
+        <button id="switch-identity" class="btn" type="button" data-i18n="identity.switch"
+          hidden></button>
+        <button id="retry" class="btn primary" type="button" data-i18n="recovery.retry"></button>
+      </div>
+    </div>
+  </main>
+  <div id="identity" class="shell" hidden>
+    <header class="topbar">
+      <button id="menu-open" class="btn quiet" type="button" data-i18n-label="nav.menu"
+        aria-controls="sidebar" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <span class="title" data-i18n="app.name"></span>
+    </header>
+    <div id="scrim" class="scrim"></div>
+    <nav id="sidebar" class="sidebar" data-i18n-label="nav.main">
+      <div id="sidebar-identity" class="nav identity"></div>
+      <button id="nav-profile" class="nav" type="button" data-area="profile-area"
+        data-i18n-label="nav.profile"><svg class="icon" aria-hidden="true"><use href="#i-profile"/></svg><span class="label" data-i18n="nav.profile"></span></button>
+      <button id="nav-search" class="nav" type="button" data-area="search-area"
+        data-i18n-label="nav.search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="label" data-i18n="nav.search"></span></button>
+      <button id="nav-network" class="nav" type="button" data-area="network-area"
+        data-i18n-label="nav.network"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg><span class="label" data-i18n="nav.network"></span></button>
+      <div class="spacer"></div>
+      <button id="nav-settings" class="nav" type="button" data-area="settings"
+        data-i18n-label="nav.settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label" data-i18n="nav.settings"></span></button>
+    </nav>
+    <main class="content">
+      <section id="profile-area">
+        <h1 data-i18n="nav.profile"></h1>
+        <div class="card">
+          <h2 data-i18n="storage.peerId"></h2>
+          <code id="peer-id" class="full-id"></code>
+        </div>
+        <div id="file-backup" class="notice warn" hidden>
+          <p data-i18n="storage.file.backup"></p>
+          <p><code id="key-path"></code></p>
+        </div>
+        <form id="profile" class="card" novalidate>
+          <h2 data-i18n="profile.title"></h2>
+          <div id="profile-scales" class="grid"></div>
+          <div class="grid">
+            <div class="field"><label for="profile-country" data-i18n="profile.country"></label>
+              <select id="profile-country"></select></div>
+            <div class="field"><label for="profile-place" data-i18n="profile.place"></label>
+              <input id="profile-place" type="text" list="profile-places" autocomplete="off">
+              <datalist id="profile-places"></datalist></div>
+          </div>
+          <div class="grid">
+            <div class="field"><label for="birth-year" data-i18n="profile.birthYear"></label>
+              <input id="birth-year" type="number" min="1" max="9999"></div>
+            <div class="field"><label for="birth-month" data-i18n="profile.birthMonth"></label>
+              <input id="birth-month" type="number" min="1" max="12"></div>
+            <div class="field"><label for="birth-day" data-i18n="profile.birthDay"></label>
+              <input id="birth-day" type="number" min="1" max="31"></div>
+          </div>
+          <div class="actions">
+            <button id="profile-save" class="btn" type="submit" data-i18n="profile.save"></button>
+            <button id="profile-preview-action" class="btn" type="button"
+              data-i18n="profile.previewAction"></button>
+          </div>
+          <section id="profile-preview" hidden>
+            <h3 data-i18n="profile.previewTitle"></h3>
+            <ul id="profile-public-fields"></ul>
+            <p id="profile-age" class="caption"></p>
+            <p class="notice warn" data-i18n="profile.copyWarning"></p>
+            <p id="profile-date-warning" class="notice warn" data-i18n="profile.fullDateWarning"
+              hidden></p>
+            <label class="choice"><input id="profile-disclosure" type="checkbox">
+              <span data-i18n="profile.disclosure"></span></label>
+          </section>
+          <label class="choice"><input id="profile-attested" type="checkbox">
+            <span data-i18n="profile.attested"></span></label>
+          <div class="actions">
+            <button id="profile-cancel" class="btn" type="button" data-i18n="profile.cancel"
+              hidden></button>
+            <button id="profile-open-network" class="btn" type="button" data-i18n="network.open"
+              hidden></button>
+            <button id="profile-publish" class="btn primary" type="button"
+              data-i18n="profile.publish"></button>
+          </div>
+          <p id="profile-status" class="muted" role="status"></p>
+          <p id="profile-search-wait" class="caption" role="status" hidden></p>
+        </form>
+      </section>
+      <section id="search-area" hidden>
+        <h1 data-i18n="search.title"></h1>
+        <p class="muted" data-i18n="search.sample"></p>
+        <form id="search" class="card" novalidate>
+          <div class="grid">
+            <div class="field"><label for="search-employer" data-i18n="search.employer"></label>
+              <select id="search-employer">
+                <option value="any" data-i18n="search.employer.any"></option>
+                <option value="same" data-i18n="search.employer.same"></option>
+                <option value="exclude" data-i18n="search.employer.exclude"></option>
+              </select></div>
+            <div class="field"><label for="search-company" data-i18n="search.company"></label>
+              <input id="search-company" type="text" spellcheck="false"></div>
+          </div>
+          <p class="caption" data-i18n="search.employerNotice"></p>
+          <div id="search-filters" class="grid" hidden>
+            <div id="search-age" class="contents" hidden>
+              <div class="field"><label for="search-age-min" data-i18n="search.ageMin"></label>
+                <input id="search-age-min" type="number" min="18" max="150"></div>
+              <div class="field"><label for="search-age-max" data-i18n="search.ageMax"></label>
+                <input id="search-age-max" type="number" min="18" max="150"></div>
+            </div>
+            <div id="search-country-row" class="field" hidden>
+              <label for="search-country" data-i18n="search.country"></label>
+              <input id="search-country" type="text" maxlength="2" pattern="[A-Za-z]{2}"
+                spellcheck="false">
+            </div>
+            <div id="search-place-row" class="field" hidden>
+              <label for="search-place" data-i18n="profile.place"></label>
+              <input id="search-place" type="text" list="search-places" autocomplete="off"
+                spellcheck="false">
+              <datalist id="search-places"></datalist>
+            </div>
+            <div id="search-scales" class="contents"></div>
+          </div>
+          <div class="actions">
+            <button id="search-open-network" class="btn" type="button" data-i18n="network.open"
+              hidden></button>
+            <button id="search-retry" class="btn" type="button" data-i18n="search.retry" hidden></button>
+            <button id="search-again" class="btn" type="button" data-i18n="search.again" hidden></button>
+            <button id="run-search" class="btn primary" type="submit" data-i18n="search.run"></button>
+          </div>
+        </form>
+        <p id="search-status" class="muted" role="status"></p>
+        <ul id="search-failures" class="notice warn"></ul>
+        <ul id="search-results"></ul>
+      </section>
+      <section id="network-area" hidden>
+        <h1 data-i18n="network.title"></h1>
+        <form id="network" class="card" novalidate>
+          <div class="field"><label for="seeds" data-i18n="network.seeds"></label>
+            <textarea id="seeds" rows="3" spellcheck="false"></textarea></div>
+          <div class="field"><label for="network-name" data-i18n="network.name"></label>
+            <input id="network-name" type="text" spellcheck="false"></div>
+          <p id="network-status" class="muted" role="status"></p>
+          <ol id="seed-rows"></ol>
+          <div class="actions">
+            <button id="cancel-check" class="btn" type="button" data-i18n="network.cancel" hidden></button>
+            <button id="check-connection" class="btn primary" type="submit" data-i18n="network.check"></button>
+            <button id="continue-connection" class="btn" type="button" data-i18n="network.continue"
+              disabled></button>
+          </div>
+        </form>
+      </section>
+      <section id="settings" hidden>
+        <h1 data-i18n="settings.title"></h1>
+        <div class="card">
+          <h2 data-i18n="settings.identities"></h2>
+          <table class="rows"><tbody id="settings-identities"></tbody></table>
+          <p id="settings-error" class="notice error" role="alert" hidden></p>
+          <button id="settings-remove" class="btn" type="button" data-i18n="identity.remove"></button>
+          <div class="actions">
+            <button id="settings-switch" class="btn" type="button" data-i18n="identity.switch"></button>
+            <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
+          </div>
+        </div>
+        <form id="node" class="card" novalidate hidden>
+          <h2 data-i18n="node.title"></h2>
+          <label class="choice"><input id="node-enabled" type="checkbox">
+            <span data-i18n="node.enabled"></span></label>
+          <div class="grid">
+            <div class="field"><label for="node-disk" data-i18n="node.disk"></label>
+              <input id="node-disk" type="number" min="4" step="1"></div>
+            <div class="field"><label for="node-connections" data-i18n="node.connections"></label>
+              <input id="node-connections" type="number" min="1" step="1"></div>
+          </div>
+          <p id="node-status" class="muted" role="status"></p>
+          <div class="actions">
+            <button id="node-save" class="btn primary" type="submit" data-i18n="node.save"></button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <dialog id="remove" class="modal" aria-labelledby="remove-title" hidden>
+    <h2 id="remove-title" data-i18n="remove.title"></h2>
+    <p id="remove-who" class="who"></p>
+    <p class="caption"><code id="remove-peer" class="full-id"></code></p>
+    <p id="remove-path" class="caption" hidden><code></code></p>
+    <p id="remove-copies"></p>
+    <p id="remove-warning" class="notice warn" data-i18n="remove.warning"></p>
+    <label class="choice"><input id="remove-confirm" type="checkbox">
+      <span data-i18n="remove.confirm"></span></label>
+    <div class="actions">
+      <button id="remove-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="remove-action" class="btn danger" type="button" data-i18n="remove.action"
+        disabled></button>
+    </div>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

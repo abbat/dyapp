@@ -14,6 +14,11 @@ const waitFor = (id) => new Promise((resolve, reject) => {
   observer.observe(section, { attributes: true, attributeFilter: ['hidden'] });
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`${id} not shown`)); }, 10000);
 });
+// Opens a sidebar area of the shell and waits until it shows.
+const openArea = async (area) => {
+  document.querySelector(`#sidebar [data-area="${area}"]`).click();
+  await waitFor(area);
+};
 // The hidden attribute must remove an element from the layout, whatever its display rule.
 const hiddenRendered = () => [...document.querySelectorAll('[hidden]')]
   .filter((element) => getComputedStyle(element).display !== 'none')
@@ -62,8 +67,7 @@ const pickReady = async (mode) => {
   await waitFor('identity');
 };
 const checkSettingsInventory = async (peerId, mode) => {
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('settings');
   const expected = await invokeTest('list_identities');
   const list = document.getElementById('settings-identities');
   await new Promise((resolve, reject) => {
@@ -80,18 +84,22 @@ const checkSettingsInventory = async (peerId, mode) => {
   });
   await shot('settings');
   const active = [...list.children].filter((item) => item.dataset.active === 'true');
-  const short = window.shortPeerId(peerId, expected.map((item) => item.peerId));
+  const short = window.shortPeerId(peerId, expected.map((item) => item.peerId).filter(Boolean));
   if (active.length !== 1 || active[0].dataset.peerId !== peerId
       || !active[0].textContent.includes(short)
       || !active[0].textContent.includes(window.strings[`identity.mode.${mode}`])) {
     throw new Error('Settings marked the wrong active identity or storage mode');
   }
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
+  await openArea('profile-area');
 };
 const switchFromSettings = async (mode) => {
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('settings');
+  document.getElementById('settings-switch').click();
+  await waitFor('picker');
+  // Cancel goes back to the open identity without switching.
+  document.getElementById('picker-cancel').click();
+  await waitFor('identity');
+  if (document.getElementById('settings').hidden) throw new Error('picker Cancel left Settings');
   document.getElementById('settings-switch').click();
   await waitFor('picker');
   await pickReady(mode);
@@ -100,15 +108,16 @@ const switchFromSettings = async (mode) => {
 const removeOpened = async (state, mode) => {
   const { strings } = window;
   if (state.status === 'ready') {
-    document.getElementById('settings-open').click();
-    await waitFor('settings');
+    await openArea('settings');
     document.getElementById('settings-remove').click();
     await waitFor('remove');
     if (!document.getElementById('remove-action').disabled) {
       throw new Error('remove enabled before confirmation');
     }
     document.getElementById('remove-cancel').click();
-    await waitFor('settings');
+    if (document.getElementById('remove').open || document.getElementById('settings').hidden) {
+      throw new Error('Cancel did not return to Settings');
+    }
     document.getElementById('settings-remove').click();
   } else {
     document.getElementById('remove-identity').click();
@@ -136,6 +145,7 @@ const removeOpened = async (state, mode) => {
 const testSeeds = '127.0.0.1:1\nseed';
 const submitCheck = async (rows) => {
   const { strings } = window;
+  await openArea('network-area');
   document.getElementById('seeds').value = rows;
   document.getElementById('check-connection').click();
   await window.connectionChecked;
@@ -168,50 +178,37 @@ const checkNetwork = async () => {
     throw new Error('continue enabled without a connected node');
   }
 };
+// Leaving the Network area and coming back keeps the draft and the checked row status.
 const checkNetworkInSettings = async () => {
-  const editor = document.getElementById('network');
   const seeds = document.getElementById('seeds');
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
-  if (!document.getElementById('settings').contains(editor)) {
-    throw new Error('Settings did not show the network editor');
-  }
+  await openArea('network-area');
   seeds.value = testSeeds;
   seeds.dispatchEvent(new Event('input', { bubbles: true }));
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
-  if (!document.getElementById('identity').contains(editor) || seeds.value !== testSeeds) {
-    throw new Error('Back lost the network draft');
-  }
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('profile-area');
+  await openArea('network-area');
+  if (seeds.value !== testSeeds) throw new Error('switching areas lost the network draft');
   await checkNetwork();
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('profile-area');
+  await openArea('network-area');
   if (document.getElementById('network-status').textContent
     !== window.strings['network.invalidAddress']
     || [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status)
       .join() !== 'unreachable,invalidAddress') {
-    throw new Error('Settings lost the failed row status');
+    throw new Error('switching areas lost the failed row status');
   }
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
+  await openArea('profile-area');
 };
 const checkSettingsLanguage = async () => {
   const strings = window.strings;
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('settings');
   const expectedTitle = window.pseudoLocale ? '[Séttíngs····]'
     : window.locale === 'ru' ? 'Настройки' : 'Settings';
-  if (document.querySelector('#settings h2').textContent !== expectedTitle) {
+  if (document.querySelector('#settings h1').textContent !== expectedTitle) {
     throw new Error('Settings title uses the wrong language');
   }
   for (const [id, key] of [
     ['settings-create', 'identity.add'], ['settings-switch', 'identity.switch'],
-    ['settings-remove', 'identity.remove'], ['settings-back', 'settings.back'],
-    ['node-save', 'node.save'],
+    ['settings-remove', 'identity.remove'], ['node-save', 'node.save'],
   ]) {
     if (document.getElementById(id).textContent !== strings[key]) {
       throw new Error(`Settings control ${id} is not localized`);
@@ -220,10 +217,9 @@ const checkSettingsLanguage = async () => {
   await checkNetwork();
   if (document.getElementById('network-status').textContent
       !== strings['network.invalidAddress']) {
-    throw new Error('Settings network status is not localized');
+    throw new Error('Network status is not localized');
   }
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
+  await openArea('profile-area');
 };
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
@@ -237,8 +233,7 @@ const saveNode = async (enabled, disk) => {
 // The node starts on the loopback network, then stops; bad limits never reach the app.
 const checkNode = async () => {
   const { strings } = window;
-  document.getElementById('settings-open').click();
-  await waitFor('settings');
+  await openArea('settings');
   await window.nodeShown;
   const form = document.getElementById('node');
   if (form.hidden || document.getElementById('node-enabled').checked
@@ -257,8 +252,7 @@ const checkNode = async () => {
     throw new Error(`node did not start: ${text}`);
   }
   if (await saveNode(false, '64') !== 'off') throw new Error('node did not stop');
-  document.getElementById('settings-back').click();
-  await waitFor('identity');
+  await openArea('profile-area');
 };
 const checkEmptyProfilePreview = async () => {
   await shot('profile-edit');
@@ -366,6 +360,9 @@ const publishProfileOnLoopback = async (saved = false, fails = false) => {
   document.getElementById('profile-publish').click();
   await result;
   await shot(fails ? 'profile-publish-failed' : 'profile-published');
+  if (document.getElementById('profile-open-network').hidden !== !fails) {
+    throw new Error(`profile Open Network shown ${fails ? 'without' : 'after'} a failure`);
+  }
   if (!fails) {
     const readback = [...document.querySelectorAll('#profile-public-fields li')]
       .map((item) => item.textContent);
@@ -426,17 +423,19 @@ const checkSavedProfile = async () => {
     throw new Error('publish attestation survived restart');
   }
 };
-// Without a network the search asks to connect and offers a retry; on the loopback node it
+// Without a network the search asks to connect and offers the Network area; on the loopback node it
 // returns the sample, the published profile alone, with the node's filters and no failures.
 // The profile has no place, so filtering by Berlin finds nobody.
 const searchOnLoopback = async (connected) => {
+  await openArea('search-area');
   document.getElementById('run-search').click();
   await window.searchDone;
   const status = document.getElementById('search-status').textContent;
   const retry = !document.getElementById('search-retry').hidden;
+  const network = !document.getElementById('search-open-network').hidden;
   if (!connected) {
-    if (status !== window.strings['search.notConnected'] || !retry) {
-      throw new Error(`search without a network: ${status}, retry ${retry}`);
+    if (status !== window.strings['search.notConnected'] || retry || !network) {
+      throw new Error(`search without a network: ${status}, retry ${retry}, network ${network}`);
     }
     await shot('search-not-connected');
     return;
@@ -464,6 +463,7 @@ const searchOnLoopback = async (connected) => {
 // The fixture forged the signature of the published profile in the node's index: the search drops
 // it and lists the forged reply instead of showing a person.
 const searchForged = async () => {
+  await openArea('search-area');
   document.getElementById('run-search').click();
   await window.searchDone;
   const failures = [...document.getElementById('search-failures').children]
@@ -489,8 +489,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     if (step === 'add') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
-      document.getElementById('settings-open').click();
-      await waitFor('settings');
+      await openArea('settings');
       document.getElementById('settings-create').click();
       await waitFor('setup');
       await chooseStorage(mode);
@@ -559,11 +558,13 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chooseStorage(mode);
       await checkEmptyProfilePreview();
     }
+    if (!document.getElementById('identity').hidden) await openArea('profile-area');
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (existing && !step) await shot('ready');
     const ready = document.getElementById('app-ready');
-    const rect = ready.getBoundingClientRect();
-    const style = getComputedStyle(ready);
+    const area = document.querySelector('#profile-area h1');
+    const rect = area.getBoundingClientRect();
+    const style = getComputedStyle(area);
     const { strings } = window;
     const peerId = document.getElementById('peer-id').textContent;
     const peer = document.getElementById('peer-id');
@@ -586,13 +587,14 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     const checks = {
       backupMatches,
       title: document.title === strings['app.name'],
-      heading: document.querySelector('h1').textContent === strings['app.name'],
+      heading: document.querySelector('.topbar .title').textContent === strings['app.name']
+        && area.textContent === strings['nav.profile'],
       readyText: ready.textContent === strings['status.ready'],
       locale: strings['status.ready'] === (window.pseudoLocale ? '[Réádý··]'
         : window.locale === 'ru' ? 'Готово' : 'Ready'),
       dimensions: rect.width > 0 && rect.height > 0,
       visibility: style.visibility === 'visible' && style.opacity !== '0',
-      onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === ready,
+      onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === area,
       peerId: /^[0-9a-f]{64}$/.test(peerId),
       shortPeerId: shortPeerIdRule(),
       peerIdReflows: narrowLines > 1 && wideLines === 1,

@@ -20,6 +20,11 @@ window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russ
     for (const element of document.querySelectorAll('[data-i18n]')) {
       element.textContent = window.strings[element.dataset.i18n];
     }
+    // Icon-only buttons in the rail still have a name and a tooltip.
+    for (const element of document.querySelectorAll('[data-i18n-label]')) {
+      element.setAttribute('aria-label', window.strings[element.dataset.i18nLabel]);
+      if (element.tagName === 'BUTTON') element.title = window.strings[element.dataset.i18nLabel];
+    }
   });
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
@@ -34,22 +39,24 @@ const removeIdentity = document.getElementById('remove-identity');
 const removeConfirm = document.getElementById('remove-confirm');
 const removeAction = document.getElementById('remove-action');
 const settings = document.getElementById('settings');
+const removeDialog = document.getElementById('remove');
 const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery'), document.getElementById('remove'), settings];
-// The opened identity or recovery state the remove screen acts on.
+  document.getElementById('recovery')];
+// The opened identity or recovery state the remove dialog acts on.
 let current = null;
 
-// Shows one section (or none) with its status line.
+// Shows one section (or none, the boot page) with its status line.
 const show = (section, status) => {
-  if (section === identity && network.parentElement !== identity) {
-    identity.insertBefore(network, document.getElementById('profile'));
-  }
+  if (removeDialog.open) removeDialog.close();
+  document.getElementById('boot').hidden = Boolean(section);
   for (const each of sections) each.hidden = each !== section;
   // Ready keeps identity actions in Settings; recovery has no other way out.
   switchIdentity.hidden = section !== sections[3];
   // The backend refuses to remove a damaged or unreadable slot.
   removeIdentity.hidden = !(section === sections[3]
     && ['missing', 'incomplete', 'deleting'].includes(current?.reason));
+  // Setup and the picker opened from an open identity can go back to it.
+  for (const id of ['setup-cancel', 'picker-cancel']) document.getElementById(id).hidden = !current;
   storageError.hidden = true;
   ready.textContent = window.strings[status];
 };
@@ -57,6 +64,7 @@ const show = (section, status) => {
 const showError = () => {
   show(null, 'status.error');
   switchIdentity.hidden = true;
+  document.getElementById('boot-loading').hidden = true;
   storageError.textContent = window.strings['storage.error'];
   storageError.hidden = false;
 };
@@ -95,36 +103,56 @@ const peerLabel = (element, id) => {
   return shortPeerId(id, knownPeers);
 };
 
+// An identity as an avatar, its short ID (or why it cannot open) and a caption under it.
+const who = (element, id, reason, caption) => {
+  const avatar = document.createElement('span');
+  avatar.className = 'avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  const name = document.createElement(id ? 'code' : 'span');
+  name.textContent = id ? peerLabel(element, id) : reasonText(reason);
+  avatar.textContent = id ? name.textContent.slice(1, 3) : '!';
+  const note = document.createElement('span');
+  note.className = 'caption';
+  note.textContent = caption;
+  const text = document.createElement('span');
+  text.append(name, document.createElement('br'), note);
+  return [avatar, text];
+};
+const modeText = (item) => window.strings[`identity.mode.${item.mode}`] || '';
+
 const identityButton = (item) => {
   const button = document.createElement('button');
   button.type = 'button';
+  button.className = 'list-button';
   Object.assign(button.dataset, { status: item.status, mode: item.mode || '' });
-  const name = item.status === 'ready' ? peerLabel(button, item.peerId) : reasonText(item.reason);
-  const mode = window.strings[`identity.mode.${item.mode}`];
-  button.textContent = mode ? `${name} — ${mode}` : name;
+  button.append(...who(button, item.status === 'ready' && item.peerId, item.reason, modeText(item)));
   button.addEventListener('click', () => act(invoke('select_identity', { slot: item.slot })));
-  const entry = document.createElement('li');
-  entry.append(button);
-  return entry;
+  return button;
 };
 
+// Remove applies to the open identity only, so it sits in that row.
+const settingsRemove = document.getElementById('settings-remove');
 const settingsIdentity = (item) => {
-  const entry = document.createElement('li');
-  const name = item.status === 'ready' ? peerLabel(entry, item.peerId) : reasonText(item.reason);
-  const mode = window.strings[`identity.mode.${item.mode}`] || '';
-  const active = item.slot === current.slot ? window.strings['settings.active'] : '';
-  entry.textContent = [name, mode, active].filter(Boolean).join(' — ');
-  entry.dataset.active = String(item.slot === current.slot);
-  return entry;
+  const row = document.createElement('tr');
+  const name = document.createElement('td');
+  name.className = 'who';
+  name.append(...who(row, item.status === 'ready' && item.peerId, item.reason, modeText(item)));
+  const active = document.createElement('td');
+  active.className = 'caption';
+  active.textContent = item.slot === current.slot ? window.strings['settings.active'] : '';
+  if (item.slot === current.slot) active.append(document.createElement('br'), settingsRemove);
+  row.append(name, active);
+  row.dataset.active = String(item.slot === current.slot);
+  return row;
 };
 
 const showSettings = async () => {
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
+  // Remove waits under the error until a row for the open identity takes it.
+  error.after(settingsRemove);
   list.replaceChildren();
   error.hidden = true;
-  settings.insertBefore(network, document.getElementById('settings-back'));
-  show(settings, 'settings.title');
   window.nodeShown = showNode();
   try {
     const items = await invoke('list_identities');
@@ -136,12 +164,33 @@ const showSettings = async () => {
     error.hidden = false;
   }
 };
-document.getElementById('settings-open').addEventListener('click', showSettings);
-document.getElementById('settings-back').addEventListener('click', () => show(identity, 'status.ready'));
-document.getElementById('settings-create')
-  .addEventListener('click', () => act(invoke('storage_options')));
-document.getElementById('settings-switch')
-  .addEventListener('click', () => act({ status: 'picker' }));
+
+// The shell: one area at a time; below 640 px the sidebar slides in over a scrim.
+const menuOpen = document.getElementById('menu-open');
+const setMenu = (open) => {
+  if (open) document.documentElement.dataset.screen = 'menu';
+  else delete document.documentElement.dataset.screen;
+  menuOpen.setAttribute('aria-expanded', String(open));
+};
+menuOpen.addEventListener('click', () => setMenu(document.documentElement.dataset.screen !== 'menu'));
+document.getElementById('scrim').addEventListener('click', () => setMenu(false));
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setMenu(false); });
+const showArea = (area) => {
+  for (const button of document.querySelectorAll('#sidebar [data-area]')) {
+    document.getElementById(button.dataset.area).hidden = button.dataset.area !== area;
+    if (button.dataset.area === area) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+  setMenu(false);
+  if (area === 'settings') showSettings();
+};
+for (const button of document.querySelectorAll('#sidebar [data-area]')) {
+  button.addEventListener('click', () => showArea(button.dataset.area));
+}
+const settingsCreate = document.getElementById('settings-create');
+const settingsSwitch = document.getElementById('settings-switch');
+settingsCreate.addEventListener('click', () => act(invoke('storage_options')));
+settingsSwitch.addEventListener('click', () => act({ status: 'picker' }));
 
 // Bootstrap settings of the open identity: draft rows, a bounded check, then Continue.
 const network = document.getElementById('network');
@@ -178,9 +227,18 @@ const showNetwork = async () => {
 const rowItem = (seed, row) => {
   const entry = document.createElement('li');
   entry.dataset.status = row.status;
+  entry.textContent = `${seed}: ${window.strings[`network.row.${row.status}`]}`;
+  // The node ID or the transport error is for an operator, so it stays collapsed.
   const detail = row.peerId || row.reason;
-  const text = `${seed}: ${window.strings[`network.row.${row.status}`]}`;
-  entry.textContent = detail ? `${text} ${detail}` : text;
+  if (detail) {
+    const more = document.createElement('details');
+    const label = document.createElement('summary');
+    const code = document.createElement('pre');
+    label.textContent = window.strings['network.details'];
+    code.textContent = detail;
+    more.append(label, code);
+    entry.append(more);
+  }
   return entry;
 };
 
@@ -352,9 +410,14 @@ const profileDraft = () => ({
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
   country: placeCountry.value, place: profilePlace.id(),
 });
-const profileMessage = (key, detail = '') => {
-  profileStatus.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
+// Without an answering node the way on is the Network area, so the message offers it.
+const statusMessage = (status, open, key, detail) => {
+  status.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
+  const offline = key.endsWith('.notConnected');
+  status.classList.toggle('error', offline);
+  document.getElementById(open).hidden = !offline;
 };
+const profileMessage = (key, detail = '') => statusMessage(profileStatus, 'profile-open-network', key, detail);
 // While the search window holds the published profile, say when it reaches search and send it
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = document.getElementById('profile-search-wait');
@@ -393,6 +456,7 @@ const showProfile = async () => {
     }));
     select.value = String(view.draft[camel(scale.key)] || 0);
     const row = document.createElement('div');
+    row.className = 'field';
     row.append(label, select);
     return row;
   }));
@@ -466,9 +530,7 @@ const setProfileBusy = (busy, solving = false) => {
   }
   switchIdentity.disabled = busy;
   removeIdentity.disabled = busy;
-  for (const id of ['settings-create', 'settings-switch', 'settings-remove']) {
-    document.getElementById(id).disabled = busy;
-  }
+  for (const button of [settingsCreate, settingsSwitch, settingsRemove]) button.disabled = busy;
   profileCancel.hidden = !solving;
 };
 const profileFailure = (error) => {
@@ -556,9 +618,8 @@ const searchPlace = placePicker(searchCountry, document.getElementById('search-p
   document.getElementById('search-places'), searchCountryCode);
 const BIRTH_AGE_FIELD = 1001;
 let searchBusy = false;
-const searchMessage = (key, detail = '') => {
-  document.getElementById('search-status').textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
-};
+const searchMessage = (key, detail = '') =>
+  statusMessage(document.getElementById('search-status'), 'search-open-network', key, detail);
 // Hidden filters are disabled, so they neither block validation nor reach the query.
 const showFilter = (element, shown) => {
   element.hidden = !shown;
@@ -585,6 +646,7 @@ const showSearchFilters = (offered) => {
     }));
     select.value = kept.get(select.id) || '0';
     const row = document.createElement('div');
+    row.className = 'field';
     row.append(label, select);
     return row;
   }));
@@ -621,12 +683,12 @@ const foundItem = async (found) => {
   const place = await placeText(found.draft.country, found.draft.place);
   const details = document.createElement('details');
   const summary = document.createElement('summary');
-  summary.textContent = found.peerId;
+  summary.className = 'who';
+  summary.append(...who(summary, found.peerId, '', place));
   const fields = document.createElement('ul');
   fields.replaceChildren(...listItems(publicFields(found.draft, place)));
   details.append(summary, fields);
   const item = document.createElement('li');
-  item.dataset.peerId = found.peerId;
   item.append(details);
   return item;
 };
@@ -635,7 +697,8 @@ const setSearchBusy = (busy) => {
   searchBusy = busy;
   for (const button of searchForm.querySelectorAll('button')) button.disabled = busy;
   for (const input of searchForm.querySelectorAll('input, select')) {
-    input.disabled = busy || Boolean(input.closest('[hidden]'));
+    const hidden = input.closest('[hidden]');
+    input.disabled = busy || Boolean(hidden && searchForm.contains(hidden));
   }
 };
 const runSearch = async () => {
@@ -647,6 +710,7 @@ const runSearch = async () => {
   searchMessage('search.loading');
   try {
     const result = await invoke('search_profiles', { query });
+    knownPeers = [...new Set([...knownPeers, ...result.profiles.map((found) => found.peerId)])];
     showSearchFilters(result.offered);
     searchFailures.replaceChildren(...listItems(result.failures.map(failureText)));
     searchResults.replaceChildren(...await Promise.all(result.profiles.map(foundItem)));
@@ -662,7 +726,7 @@ const runSearch = async () => {
     const code = String(error);
     if (code === 'notConnected') searchMessage('search.notConnected');
     else searchMessage('search.failed', code);
-    searchRetry.hidden = false;
+    searchRetry.hidden = code === 'notConnected';
   } finally {
     setSearchBusy(false);
   }
@@ -681,6 +745,9 @@ searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
   window.searchDone = runSearch();
 });
+for (const id of ['profile-open-network', 'search-open-network']) {
+  document.getElementById(id).addEventListener('click', () => showArea('network-area'));
+}
 for (const button of [searchRetry, searchAgain]) {
   button.addEventListener('click', () => { window.searchDone = runSearch(); });
 }
@@ -691,11 +758,18 @@ async function render(state) {
     document.getElementById('peer-id').textContent = state.peerId;
     document.getElementById('file-backup').hidden = state.mode !== 'file';
     document.getElementById('key-path').textContent = state.keyPath || '';
+    knowPeers(await invoke('list_identities'));
+    const sidebarIdentity = document.getElementById('sidebar-identity');
+    const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
+    text.className = 'label';
+    text.lastChild.className = 'sub';
+    sidebarIdentity.replaceChildren(avatar, text);
     await showNetwork();
     await showProfile();
     resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
+    showArea('profile-area');
     show(identity, 'status.ready');
     return state;
   }
@@ -708,6 +782,7 @@ async function render(state) {
   if (state.status === 'recovery') {
     document.getElementById('recovery-reason').textContent = reasonText(state.reason);
     document.getElementById('recovery-peer').textContent = state.peerId || '';
+    document.getElementById('recovery-peer-row').hidden = !state.peerId;
     show(sections[3], 'status.recovery');
     return state;
   }
@@ -735,15 +810,15 @@ document.getElementById('retry')
   .addEventListener('click', () => act(invoke('identity_state')));
 
 // Second confirmation: Remove stays disabled until the checkbox is ticked.
-let removeReturnToSettings = false;
 const showRemove = async () => {
   const items = await invoke('list_identities');
   const copies = current.peerId && items.some((item) => item.slot !== current.slot
     && item.status === 'ready' && item.peerId === current.peerId);
-  document.getElementById('remove-peer').textContent = current.peerId
-    || reasonText(current.reason);
-  document.getElementById('remove-mode').textContent = window.strings[
-    `identity.mode.${current.mode}`] || '';
+  const whoRow = document.getElementById('remove-who');
+  whoRow.replaceChildren(...who(whoRow, current.peerId, current.reason, modeText(current)));
+  const peer = document.getElementById('remove-peer');
+  peer.textContent = current.peerId || reasonText(current.reason);
+  peer.parentElement.hidden = !current.peerId;
   const path = document.getElementById('remove-path');
   path.hidden = !current.keyPath;
   path.querySelector('code').textContent = current.keyPath || '';
@@ -753,29 +828,27 @@ const showRemove = async () => {
   document.getElementById('remove-warning').hidden = !current.peerId || copies;
   removeConfirm.checked = false;
   removeAction.disabled = true;
-  show(sections[4], 'remove.title');
+  removeDialog.hidden = false;
+  removeDialog.showModal();
+  document.getElementById('remove-cancel').focus();
 };
-removeIdentity.addEventListener('click', () => {
-  removeReturnToSettings = false;
-  showRemove().catch(showError);
-});
-document.getElementById('settings-remove').addEventListener('click', () => {
-  removeReturnToSettings = true;
-  showRemove().catch(showError);
-});
+removeDialog.addEventListener('close', () => { removeDialog.hidden = true; });
+for (const button of [removeIdentity, settingsRemove]) {
+  button.addEventListener('click', () => showRemove().catch(showError));
+}
+for (const id of ['setup-cancel', 'picker-cancel']) {
+  document.getElementById(id).addEventListener('click', () => (current.status === 'ready'
+    ? show(identity, 'status.ready') : show(sections[3], 'status.recovery')));
+}
 removeConfirm.addEventListener('change', () => { removeAction.disabled = !removeConfirm.checked; });
 removeAction.addEventListener('click', () => {
   removeAction.disabled = true;
-  act(invoke('remove_identity', { slot: current.slot, peerId: current.peerId || null }));
+  const removed = current;
+  // Nothing is open after a removal until the backend reports the next state.
+  current = null;
+  act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
 });
-document.getElementById('remove-cancel').addEventListener('click', () => {
-  if (removeReturnToSettings) {
-    removeReturnToSettings = false;
-    showSettings();
-  } else {
-    act(current);
-  }
-});
+document.getElementById('remove-cancel').addEventListener('click', () => removeDialog.close());
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
   .then(render)

@@ -96,7 +96,7 @@ services:
     profiles: [prototype, all]
     network_mode: none
     volumes:
-      - ../../clients/desktop/prototype:/prototype:ro
+      - ../../clients/desktop:/desktop:ro
       - ../../build/ux-research/prototype:/shots
       # Mounted so a changed screen list needs no image rebuild.
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
