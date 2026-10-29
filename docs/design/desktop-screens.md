@@ -77,12 +77,14 @@ off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
 | Add identity | `add-identity-menu` | |
 | Profile | `nav-profile` | `aria-current="page"` when selected |
 | Search | `nav-search` | |
-| Chats | `nav-chats` | Unread count in `chats-unread` |
+| Chats | `nav-chats` | `chats-unread`: unread messages plus message requests |
 | Network | `nav-network` | |
 | Settings | `nav-settings` | Pinned last |
 | Connection status | `connection-status` | Connecting, Connected or Offline; opens Network |
 
-Connected means one compatible node answered.
+Connected means one compatible node answered. The top bar repeats the status as a word at 640 px
+and below. `search-error` shows the offline shell; a failed check in `network-error` keeps the
+previous network and its status.
 
 ## Profile
 
@@ -91,7 +93,7 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 
 | Control | ID | Notes |
 | --- | --- | --- |
-| Status | `profile-status` | Draft, published with version |
+| Status | `profile-status` | Draft, published with version, or hidden |
 | Hide from search | `profile-hidden` | Switch |
 | Hidden notice | `profile-hidden-notice` | Only while hidden |
 | Gender | `profile-gender` | |
@@ -123,7 +125,7 @@ keeps the prior network.
 | Control | ID | Notes |
 | --- | --- | --- |
 | Status | `network-status` | |
-| Error details | `network-error-details` | Collapsed; code and row outcomes |
+| Error details | `network-error-details` | Collapsed; code and row outcomes; the error says nothing changed |
 | Copy details | `copy-network-details` | |
 | Network name | `network-name-field` | |
 | Bootstrap addresses | `network-seeds` | |
@@ -141,11 +143,13 @@ keeps the prior network.
 | Country, town | `search-country`, `search-place` | |
 | More filters | `search-more` | Collapsed |
 | Search | `run-search` | Primary |
+| Cancel | `search-cancel` | While searching |
 | Status | `search-status` | "2 profiles" |
 | Results | `search-results` | Cards `result-1`, `result-2` |
-| Show another sample | `search-again` | `search-again-empty` in the empty state |
+| Show another sample | `search-again` | Not in the empty state; the advice points at the filters |
 | Failures | `search-failures` | Collapsed details |
 | Copy details | `copy-search-details` | |
+| Open Network | `search-open-network` | Offline only |
 | Retry | `search-retry` | |
 
 ## Found profile
@@ -154,8 +158,9 @@ keeps the prior network.
 only thumbnails; the full photos load here. Field values are claims of the owner and say so;
 nothing is shown as verified. Before a match the hint says one message can be sent until a reply.
 `profile-view-match`: a mutual like adds the match notice, Like becomes Liked (aria-pressed), and
-pressing it sends the unlike, which ends the match for both. Block is local and hides the peer
-from search and chats.
+pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the match for both.
+Block is local, hides the peer from search and chats, sits apart from Like as a quiet button under
+the fields, and is undone in Settings.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -164,11 +169,18 @@ from search and chats.
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
 | Match notice | `view-match` | Match only |
-| Block | `view-block` | |
 | Message | `view-message` | `view-message-match` after a match |
 | Like | `view-like` | `view-unlike` (Liked) after a match |
 | Fields | `view-fields` | Looking for, children, interests, languages |
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
+| Block | `view-block` | Quiet, under the fields |
+
+`unlike-dialog` confirms taking the like back.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| Cancel | `unlike-cancel` | Left, focused |
+| Take back | `unlike-confirm` | Right |
 
 ## Chats
 
@@ -204,10 +216,12 @@ over a direct path.
 | Block | `chat-block` | In the menu |
 | First-message notice | `chat-first-notice` | `chat-first` only |
 | Request notice | `chat-request-notice` | `chat-request` only |
+| Block | `request-block` | In the request notice |
 | Message actions | `msg-menu` | Edit and Delete on own messages |
+| Delete | `msg-delete` | Opens `delete-dialog` |
 | Typing | `chat-typing` | |
 | Message | `chat-input` | |
-| Send | `chat-send` | |
+| Send | `chat-send` | Disabled while the box is empty |
 
 `chat-clear-dialog` confirms Clear chat: the messages are deleted from this computer only, the
 peer keeps theirs, cleared messages do not come back and unsent ones are cancelled
@@ -220,6 +234,13 @@ same chat, empty, with a note; the match and the chat row stay.
 | Clear chat | `chat-clear-confirm` | Right |
 | Cleared note | `chat-cleared-note` | `chat-cleared` only |
 
+`delete-dialog` confirms deleting an own message for both; deletion is best effort.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| Cancel | `delete-cancel` | Left, focused |
+| Delete | `delete-confirm` | Right |
+
 ## Settings and removal
 
 `settings`. Privacy settings are local to the identity and never published. Defaults: no profile
@@ -231,6 +252,8 @@ sending off never stops receiving.
 | Identities | `settings-identities` | Avatar, short Peer ID, Active or storage kind |
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row |
 | Add identity | `settings-create` | Under the no-backup line |
+| Blocked people | `blocked` | Avatar and short Peer ID per row |
+| Unblock | `unblock-1` | Per blocked row |
 | Theme | `theme-system`, `theme-light`, `theme-dark` | System by default |
 | Language | `language` | |
 | Send profile views | `send-views` | Off |
@@ -240,7 +263,9 @@ sending off never stops receiving.
 | New messages and likes | `message-notifications` | On |
 | Run a node | `node-enabled` | Off |
 
-`remove-dialog` withdraws the profile with a tombstone, then deletes the key. `remove-offline`:
+`remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws
+the profile with a tombstone and deletes the key with this identity's chats, matches and likes on
+this computer. `remove-offline`:
 no node accepted the tombstone, so the dialog says the profile expires by itself within the
 nodes' profile lifetime and offers Retry or Remove anyway.
 

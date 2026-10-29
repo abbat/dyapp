@@ -245,4 +245,6 @@ Checked 2026-10-28 against the inventory above and `app.js`.
 `make ui-test-linux` saves every state the Linux UI test visits, in English and Russian at 440
 and 1280 px wide, as `build/ux-research/current/<state>-<lang>-<width>.png` (not committed).
 The current screens are replaced by the redesign, so they get no separate accessibility or
-heuristic audit; automated accessibility checks are planned for the new screens.
+heuristic audit; the new screens are reviewed on the prototype
+([desktop heuristic review](desktop-heuristics.md)), and automated accessibility checks are
+planned for them.

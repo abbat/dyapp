@@ -35,6 +35,7 @@ it are entry points that tools discover by path (see
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Desktop screens](design/desktop-screens.md): planned control IDs and states for the desktop shell, checked against the static prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
+- [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of every prototype state, its fixes and the rule to re-check screen changes
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX

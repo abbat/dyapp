@@ -119,6 +119,10 @@ capture per port across restarts. Raw failure evidence includes node-port header
 - **No automatic installs** (packages, toolchains, SDKs, `sudo`) and **no deletion** of files or
   data without explicit confirmation from the user. The `rm -f` / `apt-get -y` forms in AGENTS.md
   only say *how* to avoid interactive prompts, not that these actions are allowed.
+- Before changing the desktop prototype or any client screen, re-check the changed states and
+  their neighbours against Nielsen's 10 heuristics and record the findings, as described in the
+  [desktop heuristic review](../design/desktop-heuristics.md#when-to-review). No open finding of
+  severity 3 or 4 ships.
 - Track work in GitHub Issues, or in beads when set up locally ([beads.md](beads.md)).
 - Use lean-ctx when it is installed: [lean-ctx.md](lean-ctx.md).
 - Commit and push only when the user has authorised it (for the session or in their

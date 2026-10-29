@@ -31,19 +31,22 @@ The desktop client gets one app shell:
   key with the same tail can be found. The full ID shows where it is checked or copied: the
   wizard, recovery and removal. Avatar letters are the two characters after its "@".
 - **Found profile** opens from a search result in the Search area: the photos, the public
-  fields marked as unchecked claims, and Like, Message and Block; a mutual like shows a match
-  notice and Liked, which takes the like back.
+  fields marked as unchecked claims, Like and Message, and a quiet Block apart from them; a mutual
+  like shows a match notice and Liked, which takes the like back after a confirmation. Settings
+  lists blocked people with Unblock.
 - **Chats** lists, for the active identity only, who liked you, message requests from
   non-matches and the conversations. A conversation shows "Active recently" for a match, edited
-  and deleted marks, Sent or Delivered on own messages, and Edit and Delete on them. To a
+  and deleted marks, Sent or Delivered on own messages, and Edit and Delete on them; Delete asks
+  first. A message request offers Block next to the reply. To a
   non-match one message is sent, then the composer waits for a reply or a match. The header
   menu holds Block and **Clear chat**, which empties the conversation on this device only.
-- **Connection status** at the bottom of the sidebar shows connected or not and opens Network.
+- **Connection status** at the bottom of the sidebar shows connected or not and opens Network; the
+  narrow top bar shows the same word, not a colour alone.
 - **Network form** shows the network name ("Public network" when empty) and the bootstrap
   addresses at once, and one **Check and connect** action with Cancel; a failure or cancel keeps the prior network.
 - **Confirmations** are modal dialogs, Cancel left and the action right, focus on Cancel. Removing
   an identity, the active one included, needs a ticked "I understand this key cannot be recovered"
-  box; afterwards the picker opens, or the wizard when no identity remains. Publishing opens a
+  box, and the dialog names the identity and says its local chats go too; afterwards the picker opens, or the wizard when no identity remains. Publishing opens a
   dialog with the profile preview and the consent boxes.
 - **Backup:** no export or restore in v0.0.1; a calm "no backup" line at creation and in Settings,
   with no repeating reminder. A file-stored key has no passphrase in v0.0.1; the creation step
@@ -68,6 +71,8 @@ The desktop client gets one app shell:
 - The shell, collapse states, focus handling in dialogs and the off-canvas menu are built by hand
   and need UI tests at 440 and 1280 px.
 - A ticked box is weaker than typing a Peer ID suffix; revisit if users remove keys by mistake.
+- Every screen change is re-checked against Nielsen's heuristics
+  ([desktop heuristic review](../design/desktop-heuristics.md)).
 - The theme choice adds a setting and a test; WebKitGTK must honour the forced scheme.
 - Restore, key export, a key-file passphrase and local identity labels are later work; the wizard
   and the switcher must leave room for a Restore entry. macOS keeps its own native client and is

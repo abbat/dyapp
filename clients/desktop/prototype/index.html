@@ -46,8 +46,9 @@
   <div class="card">
     <div class="steps" data-t="wizard.step2"></div>
     <h1 data-t="wizard.network.title"></h1>
-    <p class="caption"><span data-t="identity.peer"></span> <code id="peer-id">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code>
-      <button class="btn quiet" id="copy-peer-id" data-t="action.copy"></button></p>
+    <p class="caption"><span data-t="identity.peer"></span>
+      <button class="btn quiet" id="copy-peer-id" data-t="action.copy"></button>
+      <code class="full-id" id="peer-id">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
     <div class="field"><label for="network-name" data-t="network.name"></label>
       <input type="text" id="network-name" data-tp="network.name.public">
       <p class="caption" data-t="network.name.hint"></p></div>
@@ -71,9 +72,9 @@
     <p class="muted" data-t="picker.intro"></p>
     <div id="identities">
       <button class="list-button" id="pick-1"><span class="avatar photo" aria-hidden="true"></span>
-        <span><code>@Fk9Qx2</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
+        <span><code>@3f9c2a</code><br><span class="caption" data-t="storage.kind.system"></span></span></button>
       <button class="list-button" id="pick-2"><span class="avatar" aria-hidden="true">7a</span>
-        <span><code>@7aZ2pL</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
+        <span><code>@7a2e5b</code><br><span class="caption" data-t="storage.kind.file"></span></span></button>
     </div>
     <div class="actions"><button class="btn" id="add-identity"><span data-t="identity.add"></span></button></div>
   </div>
@@ -87,10 +88,10 @@
       <p id="recovery-reason" data-t="recovery.reason"></p>
       <details><summary data-t="details"></summary>
         <pre id="recovery-details">storage.system.locked
-12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</pre>
+2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</pre>
         <button class="btn quiet" id="copy-recovery-details" data-t="action.copy"></button></details>
     </div>
-    <p class="caption"><span data-t="identity.peer"></span> <code id="recovery-peer">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code></p>
+    <p class="caption"><span data-t="identity.peer"></span> <code class="full-id" id="recovery-peer">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
     <div class="actions">
       <button class="btn start danger" id="remove-identity" data-t="remove.open"></button>
       <button class="btn" id="switch-identity" data-t="identity.switch"></button>
@@ -100,29 +101,31 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button class="btn quiet" id="menu-open" data-ta="nav.menu"><svg class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
-    <span class="dot" data-off="network-error"></span><span class="dot off" data-on="network-error"></span>
+    <span class="dot" data-off="search-error"></span><span class="dot off" data-on="search-error"></span>
+    <span class="caption" data-t="status.connected" data-off="search-error"></span>
+    <span class="caption" data-t="status.offline" data-on="search-error"></span>
   </header>
   <div class="scrim"></div>
   <nav class="sidebar" aria-label="Main">
     <button class="nav identity" id="identity-switcher" aria-haspopup="menu">
       <span class="avatar photo" aria-hidden="true"></span>
-      <span class="label"><code>@Fk9Qx2</code><span class="sub" data-t="storage.kind.system"></span></span>
+      <span class="label"><code>@3f9c2a</code><span class="sub" data-t="storage.kind.system"></span></span>
     </button>
     <div class="menu" id="identity-menu" role="menu" data-on="switcher">
       <button class="nav" role="menuitem" id="switch-to-2"><span class="avatar" aria-hidden="true">7a</span>
-        <span class="label"><code>@7aZ2pL</code><span class="sub" data-t="storage.kind.file"></span></span></button>
+        <span class="label"><code>@7a2e5b</code><span class="sub" data-t="storage.kind.file"></span></span></button>
       <button class="nav" role="menuitem" id="add-identity-menu"><svg class="icon"><use href="#i-plus"/></svg>
         <span class="label" data-t="identity.add"></span></button>
     </div>
     <button class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
       <svg class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
-    <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-match">
+    <button class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-match unlike-dialog">
       <svg class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
-    <button class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
+    <button class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
       <svg class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button class="nav" id="nav-network" data-current="network network-checking network-error">
@@ -131,12 +134,12 @@
     <button class="nav" id="nav-settings" data-current="settings remove-dialog remove-offline">
       <svg class="icon"><use href="#i-settings"/></svg><span class="label" data-t="nav.settings"></span></button>
     <button class="nav" id="connection-status" role="status">
-      <span class="dot" data-off="network-error network-checking"></span>
+      <span class="dot" data-off="search-error network-checking"></span>
       <span class="dot busy" data-on="network-checking"></span>
-      <span class="dot off" data-on="network-error"></span>
-      <span class="label"><span data-t="status.connected" data-off="network-error network-checking"></span>
+      <span class="dot off" data-on="search-error"></span>
+      <span class="label"><span data-t="status.connected" data-off="search-error network-checking"></span>
         <span data-t="status.checking" data-on="network-checking"></span>
-        <span data-t="status.offline" data-on="network-error"></span>
+        <span data-t="status.offline" data-on="search-error"></span>
         <span class="sub" data-t="status.network.public"></span></span>
     </button>
   </nav>
@@ -145,7 +148,8 @@
     <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
     <section id="profile" data-on="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
       <h1 data-t="nav.profile"></h1>
-      <p class="muted" id="profile-status" data-t="profile.status.published"></p>
+      <p class="muted" id="profile-status"><span data-off="profile-hidden" data-t="profile.status.published"></span>
+        <span data-on="profile-hidden" data-t="profile.status.hidden"></span></p>
       <div class="card">
         <div class="switch-row">
           <label for="profile-hidden" style="margin:0"><span data-t="profile.hide"></span><br>
@@ -192,7 +196,7 @@
       <p class="muted" data-on="network-checking" data-t="network.status.checking"></p>
       <div class="notice error" role="alert" id="network-error" data-on="network-error">
         <p data-t="network.error"></p>
-        <details open><summary data-t="details"></summary>
+        <details><summary data-t="details"></summary>
           <pre id="network-error-details">unreachable
 node1.example.org:33445: timed out after 10 s
 [2001:db8::7]:33445: connection refused</pre>
@@ -245,20 +249,20 @@ node1.example.org:33445: timed out after 10 s
       <div id="search-results" data-on="search">
         <p class="caption" id="search-status" data-t="search.found"></p>
         <button class="list-button" id="result-1"><span class="avatar photo p2" aria-hidden="true"></span>
-          <span><b data-t="view.name"></b> <code>@Ns4Lq8</code><br><span class="caption" data-t="search.result1"></span></span></button>
+          <span><b data-t="view.name"></b> <code>@4d81c6</code><br><span class="caption" data-t="search.result1"></span></span></button>
         <button class="list-button" id="result-2"><span class="avatar" aria-hidden="true">b8</span>
-          <span><code>@b8Wte3</code><br><span class="caption" data-t="search.result2"></span></span></button>
+          <span><code>@b8e0f3</code><br><span class="caption" data-t="search.result2"></span></span></button>
         <div class="actions"><button class="btn" id="search-again" data-t="search.again"></button></div>
       </div>
       <div data-on="search-loading" role="status" aria-busy="true">
         <p class="caption" data-t="search.loading"></p>
         <div class="skeleton"></div><div class="skeleton"></div>
+        <div class="actions"><button class="btn" id="search-cancel" data-t="action.cancel"></button></div>
       </div>
       <div class="empty" data-on="search-empty">
         <svg class="icon"><use href="#i-search"/></svg>
         <h2 data-t="search.empty.title"></h2>
         <p data-t="search.empty.text"></p>
-        <button class="btn" id="search-again-empty" data-t="search.again"></button>
       </div>
       <div class="notice error" role="alert" data-on="search-error">
         <p data-t="search.error"></p>
@@ -266,12 +270,13 @@ node1.example.org:33445: timed out after 10 s
           <pre id="search-failures">notConnected
 search providers asked: 0 of 3</pre>
           <button class="btn quiet" id="copy-search-details" data-t="action.copy"></button></details>
-        <div class="actions"><button class="btn" id="search-retry" data-t="action.retry"></button></div>
+        <div class="actions"><button class="btn" id="search-open-network" data-t="search.network"></button>
+          <button class="btn" id="search-retry" data-t="action.retry"></button></div>
       </div>
     </section>
 
     <!-- Found profile: opened from a result; the full photos load now. -->
-    <section id="profile-view" data-on="profile-view profile-view-match">
+    <section id="profile-view" data-on="profile-view profile-view-match unlike-dialog">
       <button class="btn quiet back" id="view-back"><svg class="icon"><use href="#i-back"/></svg><span data-t="view.back"></span></button>
       <div class="gallery" id="view-photos">
         <div class="main photo p2" role="img" data-ta="view.photo"></div>
@@ -279,18 +284,17 @@ search providers asked: 0 of 3</pre>
       </div>
       <h1><span data-t="view.name"></span></h1>
       <p class="muted" data-t="search.result1"></p>
-      <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@Ns4Lq8</code>
+      <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@4d81c6</code>
         <button class="btn quiet" id="copy-view-peer" data-t="action.copy"></button></p>
-      <div class="notice" id="view-match" data-on="profile-view-match"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
+      <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
       <div class="actions view-actions">
-        <button class="btn start" id="view-block" data-t="view.block"></button>
         <button class="btn" id="view-message" data-on="profile-view" data-t="view.message"></button>
         <button class="btn primary" id="view-like" data-on="profile-view" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span data-t="view.like"></span></button>
-        <button class="btn liked" id="view-unlike" data-on="profile-view-match" aria-pressed="true"><svg class="icon"><use href="#i-heart"/></svg><span data-t="view.liked"></span></button>
-        <button class="btn primary" id="view-message-match" data-on="profile-view-match" data-t="view.message"></button>
+        <button class="btn liked" id="view-unlike" data-on="profile-view-match unlike-dialog" aria-pressed="true"><svg class="icon"><use href="#i-heart"/></svg><span data-t="view.liked"></span></button>
+        <button class="btn primary" id="view-message-match" data-on="profile-view-match unlike-dialog" data-t="view.message"></button>
       </div>
       <p class="caption" data-on="profile-view" data-t="view.first.hint"></p>
-      <p class="caption" data-on="profile-view-match" data-t="view.unlike.hint"></p>
+      <p class="caption" data-on="profile-view-match unlike-dialog" data-t="view.unlike.hint"></p>
       <div class="card">
         <dl class="facts" id="view-fields">
           <dt data-t="profile.goal"></dt><dd data-t="profile.goal.value"></dd>
@@ -300,12 +304,14 @@ search providers asked: 0 of 3</pre>
         </dl>
         <p class="caption" id="view-claims" data-t="view.claims"></p>
       </div>
+      <!-- Block sits apart from Like so a slip does not hit it; Settings can undo it. -->
+      <div class="actions"><button class="btn quiet" id="view-block" data-t="view.block"></button></div>
     </section>
 
     <!-- Chats: likes, message requests and conversations of the active identity only. -->
     <section id="chats" data-on="chats">
       <h1 data-t="nav.chats"></h1>
-      <button class="list-button" id="chats-liked"><span class="avatars"><span class="avatar photo p3" aria-hidden="true"></span><span class="avatar" aria-hidden="true">k3</span></span>
+      <button class="list-button" id="chats-liked"><span class="avatars"><span class="avatar photo p3" aria-hidden="true"></span><span class="avatar" aria-hidden="true">e1</span></span>
         <span class="grow"><b data-t="chats.liked"></b><br><span class="caption" data-t="chats.liked.text"></span></span><span class="badge">2</span></button>
       <button class="list-button" id="chats-requests"><span class="avatar photo p4" aria-hidden="true"></span>
         <span class="grow"><b data-t="chats.requests"></b><br><span class="caption" data-t="chats.requests.text"></span></span><span class="badge">1</span></button>
@@ -315,23 +321,23 @@ search providers asked: 0 of 3</pre>
           <span class="grow"><b data-t="view.name"></b><span class="ellipsis caption" data-t="chat.m4"></span></span>
           <span class="meta"><span class="caption">14:32</span><br><span class="badge" data-ta="chats.unread">2</span></span></button>
         <button class="list-button" id="chat-2"><span class="avatar photo p3" aria-hidden="true"></span>
-          <span class="grow"><code>@b8Wte3</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
+          <span class="grow"><code>@b8e0f3</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
           <span class="meta"><span class="caption" data-t="chats.yesterday"></span></span></button>
       </div>
       <p class="caption" data-t="chats.identity"></p>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared">
+    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
       <div class="chat-head">
         <button class="btn quiet" id="chat-back" data-ta="nav.chats"><svg class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
         <button class="peer" id="chat-profile">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-menu chat-clear-dialog chat-cleared"></span>
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat chat-menu chat-clear-dialog chat-cleared" data-t="view.name"></b><code data-on="chat-first">@b8Wte3</code><code data-on="chat-request">@r5Kd2M</code>
-            <span class="sub caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-cleared" data-t="chat.active"></span></span></button>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+            <span class="sub caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
         <button class="btn quiet" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
           <button class="nav" role="menuitem" id="chat-clear" data-t="chat.clear"></button>
@@ -339,23 +345,25 @@ search providers asked: 0 of 3</pre>
         </div>
       </div>
       <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
-      <div class="notice warn" id="chat-request-notice" data-on="chat-request" data-t="chat.request.notice"></div>
+      <div class="notice warn" id="chat-request-notice" data-on="chat-request"><span data-t="chat.request.notice"></span>
+        <div class="actions"><button class="btn" id="request-block" data-t="view.block"></button></div></div>
       <div class="thread" id="chat-thread">
         <span class="day" data-off="chat-cleared" data-t="chat.today"></span>
         <p class="caption cleared" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
-        <div class="msg out" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.deleted"></span></div>
-        <div class="msg out" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
-          <span class="msg-menu" id="msg-menu"><button class="btn quiet" data-t="chat.edit"></button><button class="btn quiet" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat chat-menu chat-clear-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
-        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog" data-t="chat.typing"></span>
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu"><button class="btn quiet" data-t="chat.edit"></button><button class="btn quiet" id="msg-delete" data-t="chat.delete"></button></span></div>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog delete-dialog" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
       </div>
       <div class="composer">
         <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
-        <button class="btn primary" id="chat-send" data-t="chat.send" data-disabled="chat-first"></button>
+        <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
+        <button class="btn primary" id="chat-send" data-t="chat.send" disabled></button>
       </div>
       <p class="caption" data-on="chat-first" data-t="chat.first.wait"></p>
     </section>
@@ -366,13 +374,21 @@ search providers asked: 0 of 3</pre>
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
         <table class="rows">
-          <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>@Fk9Qx2</code><br><span class="caption" data-t="settings.active"></span></span></td>
+          <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>@3f9c2a</code><br><span class="caption" data-t="settings.active"></span></span></td>
             <td><button class="btn" id="settings-remove" data-t="remove.open"></button></td></tr>
-          <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span><span><code>@7aZ2pL</code><br><span class="caption" data-t="storage.kind.file"></span></span></td>
+          <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span><span><code>@7a2e5b</code><br><span class="caption" data-t="storage.kind.file"></span></span></td>
             <td><button class="btn" id="settings-remove-2" data-t="remove.open"></button></td></tr>
         </table>
         <p class="caption" data-t="backup.none"></p>
         <div class="actions"><button class="btn" id="settings-create" data-t="identity.add"></button></div>
+      </div>
+      <div class="card" id="blocked">
+        <h2 data-t="settings.blocked"></h2>
+        <table class="rows">
+          <tr><td class="who"><span class="avatar" aria-hidden="true">5d</span><code>@5d2a91</code></td>
+            <td><button class="btn" id="unblock-1" data-t="settings.unblock"></button></td></tr>
+        </table>
+        <p class="caption" data-t="settings.blocked.hint"></p>
       </div>
       <div class="card">
         <h2 data-t="settings.appearance"></h2>
@@ -448,12 +464,39 @@ search providers asked: 0 of 3</pre>
   </div>
 </div>
 
+<!-- Unlike dialog: Liked takes the like back, which ends the match for both. -->
+<div class="modal-scrim" data-on="unlike-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="unlike-title">
+    <h2 id="unlike-title" data-t="unlike.title"></h2>
+    <p data-t="unlike.text"></p>
+    <div class="actions">
+      <button class="btn focus" id="unlike-cancel" data-t="action.cancel"></button>
+      <button class="btn danger" id="unlike-confirm" data-t="unlike.action"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete message dialog: best effort, the peer may keep a copy. -->
+<div class="modal-scrim" data-on="delete-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+    <h2 id="delete-title" data-t="delete.title"></h2>
+    <p data-t="delete.text"></p>
+    <div class="actions">
+      <button class="btn focus" id="delete-cancel" data-t="action.cancel"></button>
+      <button class="btn danger" id="delete-confirm" data-t="chat.delete"></button>
+    </div>
+  </div>
+</div>
+
 <!-- Remove dialog: tick to confirm; the profile is withdrawn first. -->
 <div class="modal-scrim" data-on="remove-dialog remove-offline">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="remove-title">
     <h2 id="remove-title" data-t="remove.title"></h2>
-    <p><code id="remove-peer">12D3KooWQxMASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4Fk9Qx2</code></p>
+    <p class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>@3f9c2a</code><br>
+      <span class="caption" data-t="settings.active"></span></span></p>
+    <p class="caption"><code class="full-id" id="remove-peer">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
     <p data-t="remove.text"></p>
+    <p data-t="remove.loses"></p>
     <div data-on="remove-dialog">
       <label class="choice"><input type="checkbox" id="remove-confirm"><span data-t="remove.confirm"></span></label>
       <div class="actions">

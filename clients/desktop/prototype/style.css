@@ -275,3 +275,13 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
   box-shadow: 0 12px 40px #0005; }
 .modal .actions { justify-content: space-between; }
 @media (max-width: 640px) { .modal .actions { flex-direction: column-reverse; } }
+
+/* Heuristic review fixes (docs/design/desktop-heuristics.md). */
+.full-id { display: block; word-break: break-all; margin-top: var(--space-1); }
+.notice .btn.quiet { padding-inline: 0; }
+.avatars .avatar + .avatar { position: relative; }
+.chat { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--space-6)); }
+.chat .thread { flex: 1; }
+select { text-overflow: ellipsis; }
+.grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+@media (max-width: 640px) { .chat { min-height: calc(100vh - 2 * var(--space-4) - 53px); } }

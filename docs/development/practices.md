@@ -192,7 +192,8 @@ four groups, each after the previous one:
 4. process: A1, A5, A7 in full, A8, A4, C3, C8, D3.
 
 The first bootstrap release comes first: D2, D3 and the other open D practices wait until it is
-out.
+out. The Nielsen heuristics part of D3 already applies to every screen change
+([desktop heuristic review](../design/desktop-heuristics.md)); the human approval waits.
 
 Other dependencies between practices:
 
