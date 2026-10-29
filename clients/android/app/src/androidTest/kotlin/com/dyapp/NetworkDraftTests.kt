@@ -85,7 +85,18 @@ class NetworkDraftTests {
         if (name.isNotEmpty()) compose.onNodeWithTag("network-name").performTextInput(name)
     }
 
-    private fun rows() = compose.texts("network-row")
+    // A restart reopens the same identity on the automatic form with the saved draft.
+    private fun reopensDraft(peerId: String, seeds: String, name: String) {
+        compose.activityRule.scenario.recreate()
+        check(formPeerId() == peerId) { "Peer ID changed on restart" }
+        compose.onNode(hasTestTag("network-seeds") and hasText(seeds)).assertExists()
+        compose.onNode(hasTestTag("network-name") and hasText(name)).assertExists()
+    }
+
+    private fun expectRows(vararg expected: String) {
+        val rows = compose.texts("network-row")
+        check(rows == expected.toList()) { "Unexpected rows $rows" }
+    }
 
     @Test
     fun savedDraftSurvivesRestartAndFailedRowsBlockContinue() {
@@ -96,20 +107,16 @@ class NetworkDraftTests {
             compose.onNodeWithTag("network-save").performScrollTo().performClick()
             compose.waitForText("network-status", R.string.network_saved)
 
-            // A restart reopens the same identity on the automatic form with the saved draft.
-            compose.activityRule.scenario.recreate()
-            check(formPeerId() == peerId) { "Peer ID changed on restart" }
-            compose.onNode(hasTestTag("network-seeds") and hasText(seeds.joinToString("\n"))).assertExists()
-            compose.onNode(hasTestTag("network-name") and hasText("city")).assertExists()
+            reopensDraft(peerId, seeds.joinToString("\n"), "city")
 
             // An invalid row, a closed port and a wrong pin: nothing connects, Continue stays off.
             compose.checkNetwork()
             compose.waitForText("network-check-status", R.string.network_invalid_address)
-            check(rows() == listOf(
+            expectRows(
                 "${seeds[0]}: ${string(R.string.network_row_invalid_address)}",
                 "${seeds[1]}: ${string(R.string.network_row_unreachable)}",
                 "${seeds[2]}: ${string(R.string.network_row_wrong_peer)}",
-            )) { "Unexpected rows ${rows()}" }
+            )
             compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
             compose.onNodeWithTag("network-check").assertTextEquals(string(R.string.network_retry))
 
@@ -118,9 +125,7 @@ class NetworkDraftTests {
             compose.onNodeWithTag("network-check").assertTextEquals(string(R.string.network_check))
             compose.checkNetwork()
             compose.waitForText("network-check-status", R.string.network_wrong)
-            check(rows() == listOf("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")) {
-                "Unexpected rows ${rows()}"
-            }
+            expectRows("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")
             compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
         } finally {
             forgetNetworks()
