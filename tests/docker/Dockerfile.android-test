@@ -3,6 +3,7 @@ FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595
 ENV DEBIAN_FRONTEND=noninteractive \
     JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=4 \
     CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless curl unzip ca-certificates python3 build-essential \
     libnss3 libpulse0 libx11-6 libxcb1 libxcomposite1 libxcursor1 \
@@ -11,15 +12,14 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
     ANDROID_SDK_ROOT=/opt/android-sdk GRADLE_USER_HOME=/opt/gradle-cache
 ENV PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:$PATH
 WORKDIR /tmp/ai
-# echo cannot fail, so the pipe's status is sha256sum's.
-# hadolint ignore=DL4006
 RUN curl -fL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o sdk.zip && \
     echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  sdk.zip' | sha256sum -c - && \
     mkdir -p /opt/android-sdk/cmdline-tools && unzip -q sdk.zip -d /opt/android-sdk/cmdline-tools && \
     mv -f /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && rm -f sdk.zip
-# yes ends on SIGPIPE when sdkmanager exits, so pipefail would fail the step.
-# hadolint ignore=DL4006
-RUN yes | sdkmanager --licenses >/dev/null
+# yes ends on SIGPIPE when sdkmanager exits, so the step's status must be sdkmanager's alone.
+# SHELL is bash, but hadolint checks RUN lines as POSIX sh.
+# hadolint ignore=SC3040
+RUN set +o pipefail && yes | sdkmanager --licenses >/dev/null
 RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
     'ndk;29.0.14206865'
 ENV ANDROID_NDK_HOME=/opt/android-sdk/ndk/29.0.14206865
@@ -33,6 +33,7 @@ RUN rustup target add aarch64-linux-android x86_64-linux-android
 RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g 1000 appuser
 
 FROM android-tools
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /app
 RUN mkdir -p /opt/gradle-cache /reports /avd /app/build && chown 1000:1000 /app /app/build /opt/gradle-cache /reports /avd
 ENV HOME=/home/appuser
@@ -43,8 +44,6 @@ COPY --chown=1000:1000 .cargo .cargo
 COPY --chown=1000:1000 proto proto
 COPY --chown=1000:1000 rust rust
 COPY --chown=1000:1000 clients clients
-# echo cannot fail, so the pipe's status is sha256sum's.
-# hadolint ignore=DL4006
 RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 1000 so the outputs need no recursive chown (a copy-up layer doubles the image size).
 # Compile and populate all runtime dependencies online; do not run tests in the build.

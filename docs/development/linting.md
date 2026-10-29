@@ -168,14 +168,18 @@ diff, since a fix to one table row realigns the whole table. A fence without a l
 
 The quality step runs hadolint on `tools/docker/Dockerfile.*` and `tests/docker/Dockerfile.*`. Two
 rules are off: `DL3008` (apt version pins; the base images are pinned by digest, and Debian drops
-superseded versions from its mirrors) and `DL3066` (`USER root` always resolves). Suppress a finding
-with a comment line above the instruction and the reason above that:
+superseded versions from its mirrors) and `DL3066` (`USER root` always resolves). A stage that
+pipes in `RUN` sets `SHELL ["/bin/bash", "-o", "pipefail", "-c"]` rather than suppressing `DL4006`.
+Suppress a finding with a comment line above the instruction and the reason above that:
 
 ```dockerfile
-# echo cannot fail, so the pipe's status is sha256sum's.
-# hadolint ignore=DL4006
-RUN echo '<sha256>  file' | sha256sum -c -
+# The cd lasts only this step; the next one builds from the WORKDIR.
+# hadolint ignore=DL3003
+RUN cd clients/android && ./gradlew assembleDebug
 ```
+
+hadolint does not report an ignore that no longer matches; the
+[exception audit](practices.md#exception-audit-inventory) reviews them.
 
 A comment does not change the build cache; editing a `RUN` line rebuilds every later layer.
 

@@ -126,6 +126,10 @@ COVERED = {
     # first version; the formats stay ADR 0025's and ADR 0015's.
     "1da8bcc1f7c4258cc1d7b6979e1eeb75dc016405":
         "docs/decisions/0025-client-local-sqlite-storage.md",
+    # Comments only (a buf lint ignore); the wire format is unchanged and
+    # stays ADR 0016's.
+    "0795180067d3aa87383ffd9854548cc17e0e59bb":
+        "docs/decisions/0016-protocol-evolution.md",
 }
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")

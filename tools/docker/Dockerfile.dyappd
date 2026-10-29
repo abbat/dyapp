@@ -4,6 +4,7 @@ FROM dyapp:deb AS build
 # The build stage only; the image runs as 65532.
 # hadolint ignore=DL3002
 USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
@@ -11,7 +12,7 @@ COPY proto proto
 COPY rust rust
 COPY tools/scripts/check-auditable.py tools/scripts/
 # The library paths split on purpose and hold no spaces; if ldd fails, cp gets no source and fails.
-# hadolint ignore=SC2046,DL4006
+# hadolint ignore=SC2046
 RUN cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
     && install -D -s -m 0755 build/release/dyappd /out/usr/bin/dyappd \
     && python3 -B tools/scripts/check-auditable.py /out/usr/bin/dyappd Cargo.lock \
