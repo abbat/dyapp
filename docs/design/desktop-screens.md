@@ -49,8 +49,8 @@ Bootstrap addresses (seeds)
 
 `picker`: several identities and none active, or after a removal. Every identity list (picker,
 switcher, Settings) leads each row with a round avatar: the thumbnail of the identity's first
-profile photo, or the first two characters of the short Peer ID when it has none. A short Peer
-ID is "…" and the last 6 characters, longer until unique among the identity's known peers; the
+profile photo, or the two characters after "@" in the short Peer ID when it has none. A short Peer
+ID is "@" and the last 6 characters, longer until unique among the identity's known peers; the
 full ID shows in the wizard, recovery and removal. `recovery`: the active identity
 cannot be opened; the localized reason, then Details with the state code.
 
@@ -58,8 +58,8 @@ cannot be opened; the localized reason, then Details with the state code.
 @startsalt
 {+
 <b>Choose an identity
-[(photo) …Fk9Qx2 · System keyring (pick-1)]
-[(7a) …7aZ2pL · Key file (pick-2)]
+[(photo) @Fk9Qx2 · System keyring (pick-1)]
+[(7a) @7aZ2pL · Key file (pick-2)]
 [Add identity (add-identity)]
 }
 @endsalt
@@ -85,8 +85,8 @@ off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
 ```plantuml
 @startsalt
 {#
-[(photo) …Fk9Qx2 · System keyring (identity-switcher)] | Active section
-{+ …7aZ2pL (switch-to-2) | Add identity (add-identity-menu) } (identity-menu) | .
+[(photo) @Fk9Qx2 · System keyring (identity-switcher)] | Active section
+{+ @7aZ2pL (switch-to-2) | Add identity (add-identity-menu) } (identity-menu) | .
 [Profile (nav-profile)] | .
 [Search (nav-search)] | .
 [Chats · 3 (nav-chats, chats-unread)] | .
@@ -195,7 +195,7 @@ match for both. Block is local and hides the peer from search and chats.
 Photo gallery, thumbnails under it (view-photos)
 <b>Anna
 Woman, 29–30 · Leipzig, Germany
-Peer ID …Ns4Lq8 (view-peer) | [Copy (copy-view-peer)]
+Peer ID @Ns4Lq8 (view-peer) | [Copy (copy-view-peer)]
 match: You like each other (view-match)
 [Block (view-block)] | [Message (view-message)] | [♥ Like (view-like)]
 match: [Block] | [♥ Liked (view-unlike)] | [Message (view-message-match)]
@@ -220,7 +220,7 @@ peer's photo thumbnail (letters only without a photo), the public name or short 
 [(photo) Message requests · 1 (chats-requests)]
 Conversations (chat-list)
 [(photo) Anna · See you on Saturday then! · 14:32 · 2 (chat-1)]
-[(photo) …b8Wte3 · You: Hi! … · Yesterday (chat-2)]
+[(photo) @b8Wte3 · You: Hi! … · Yesterday (chat-2)]
 }
 @endsalt
 ```
@@ -280,8 +280,8 @@ never stops receiving.
 {+
 <b>Settings
 Identities (settings-identities)
-(photo) …Fk9Qx2 · Active | [Remove (settings-remove)]
-(7a) …7aZ2pL · Key file | [Remove (settings-remove-2)]
+(photo) @Fk9Qx2 · Active | [Remove (settings-remove)]
+(7a) @7aZ2pL · Key file | [Remove (settings-remove-2)]
 No key backup in this version
 [Add identity (settings-create)]
 Theme (X) System (theme-system) () Light (theme-light) () Dark (theme-dark)
