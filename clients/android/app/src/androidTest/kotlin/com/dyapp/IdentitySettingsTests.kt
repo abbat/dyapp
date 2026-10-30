@@ -62,6 +62,9 @@ class IdentitySettingsTests {
         click("remove-action")
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
         check(!PlatformKeyStore.exists(second.slot.alias)) { "The removed identity kept its key" }
+        // Later tests start from the active identity, not the picker.
+        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
     @Test
