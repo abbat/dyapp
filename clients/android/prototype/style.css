@@ -23,6 +23,7 @@
   --scrim: #00000052;
 }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #121318;
   --surface: #1f1f25;
   --surface-high: #292a2f;
@@ -51,7 +52,7 @@ code { font: 13px var(--mono); overflow-wrap: anywhere; }
 .caption { font-size: 12px; line-height: 16px; color: var(--muted); }
 .muted { color: var(--muted); }
 .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.photo { background: center / cover var(--sample-photo); }
+.photo, .avatar.photo { background: center / cover var(--sample-photo); }
 
 /* Full-screen first-run and lock pages: text on top, full-width buttons at the bottom. */
 .page { min-height: 100vh; padding: 48px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
