@@ -17,10 +17,18 @@ fn versions_limits_and_tombstones() {
     assert_eq!(index.put(&key, &p2, &r2, 1_600, true).unwrap(), Put::Stored);
     assert_eq!(index.records(&[key], 1 << 20).unwrap(), vec![r2.clone()]);
     let (_, p3, r3) = signed(&id, Profile::tombstone(3, 0, 0));
-    assert_eq!(index.put(&key, &p3, &r3, 2_300, true).unwrap(), Put::Stored);
+    // A tombstone skips the update limit; the version after it does not.
+    assert_eq!(index.put(&key, &p3, &r3, 1_700, true).unwrap(), Put::Stored);
     assert!(index.records(&[key], 1 << 20).unwrap().is_empty());
     assert_eq!(index.versions(&[key]).unwrap(), vec![Some(3)]);
     assert_eq!(index.put(&key, &p2, &r2, 9_000, true).unwrap(), Put::Stale);
+    let (_, p4, r4) = signed(&id, profile(4));
+    assert_eq!(
+        index.put(&key, &p4, &r4, 1_800, true).unwrap(),
+        Put::Limited { retry_after: 500 }
+    );
+    assert_eq!(index.put(&key, &p4, &r4, 2_300, true).unwrap(), Put::Stored);
+    assert_eq!(index.records(&[key], 1 << 20).unwrap(), vec![r4]);
 }
 
 #[test]

@@ -16,7 +16,7 @@ use std::sync::Mutex;
 pub const SEARCH_TOPICS: u32 = 16;
 /// Pre-release index format; keep at 1 through v0.0.1.
 pub const INDEX_VERSION: u32 = 1;
-/// Least seconds between indexed versions of one key.
+/// Least seconds between indexed versions of one key; a tombstone is stored at once.
 pub const UPDATE_SECONDS: i64 = 600;
 /// Heartbeats of one key accepted per UTC day.
 pub const HEARTBEATS_PER_DAY: i64 = 2;
@@ -425,7 +425,9 @@ impl SearchIndex {
             .map_err(storage_error)?;
         match known {
             Some((stored, ..)) if stored >= version => return Ok((Put::Stale, None)),
-            Some((_, updated, ..)) if limit && now - updated < UPDATE_SECONDS => {
+            // A tombstone carries no data and withdraws the profile at once; the next version
+            // after it waits out the window again.
+            Some((_, updated, ..)) if limit && !p.deleted && now - updated < UPDATE_SECONDS => {
                 let wait = UPDATE_SECONDS - (now - updated);
                 let limited = Put::Limited {
                     retry_after: wait.unsigned_abs(),
