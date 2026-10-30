@@ -181,17 +181,11 @@ docker run --rm -e CARGO_INCREMENTAL=0 dyapp:dev cargo build
 DOCKER_BUILDKIT=1 docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ```
 
-### Cache Cargo Registry
+### Build output
 
-Docker-compose automatically caches cargo registry in named volumes:
-
-```bash
-# Inspect cache
-docker volume ls | grep dyapp
-
-# Remove cache
-docker volume rm dyapp-dev_cargo-cache
-```
+The crates are fetched into the images. Containers run as the host user and write only to
+bind-mounted directories under `build/` (`workspace`, `linux`, `*-reports`, `android-avd`), so
+`rm -rf build/workspace` clears the Rust build cache.
 
 ### Use `--rm` Flag
 

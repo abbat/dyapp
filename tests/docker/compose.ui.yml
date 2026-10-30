@@ -1,20 +1,29 @@
 name: dyapp
 
+# Reports go to host directories under build/, written as the host user.
 x-runtime: &runtime
-  user: "1000:1000"
+  user: "${DYAPP_UID:-1000}:${DYAPP_GID:-1000}"
   cpus: ${DYAPP_CPUS:-4}
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
   read_only: true
-  volumes:
-    - ui-reports:/reports
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=${DYAPP_UID:-1000},gid=${DYAPP_GID:-1000},mode=0700
+
+# The Android image holds its Gradle build and cache as 1000, so its services stay 1000.
+x-android: &android
+  <<: *runtime
+  user: "1000:1000"
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
     - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
+  volumes:
+    - ../../build/android-reports:/reports
 
 services:
   android-emulator:
-    <<: *runtime
+    <<: *android
     cpus: ${DYAPP_EMULATOR_CPUS:-3}
     build:
       context: ../..
@@ -25,8 +34,8 @@ services:
     # The emulator demands 1.2 x the 6G userdata partition free (the minimum it enforces);
     # /tmp is a RAM tmpfs, so the sparse AVD lives on disk.
     volumes:
-      - ui-reports:/reports
-      - android-avd:/avd
+      - ../../build/android-reports:/reports
+      - ../../build/android-avd:/avd
     environment:
       HOME: /home/appuser
       ANDROID_SDK_ROOT: /opt/android-sdk
@@ -39,7 +48,7 @@ services:
       start_period: 30s
 
   android-unit-test:
-    <<: *runtime
+    <<: *android
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.android-test
@@ -53,7 +62,7 @@ services:
     command: [bash, /app/tests/scripts/android-test-in-container.sh, unit]
 
   android-emulator-test:
-    <<: *runtime
+    <<: *android
     cpus: 1
     build:
       context: ../..
@@ -80,10 +89,13 @@ services:
     profiles: [linux, test, all]
     network_mode: none
     volumes:
-      - ui-reports:/reports
+      - ../../build/linux-reports:/reports
+      # The checkout builds into build/linux as the host user, so the image holds no build output.
+      - ../..:/app:ro
+      - ../../build/linux:/app/build
       - ../../build/ux-research/current:/shots
     environment:
-      HOME: /home/appuser
+      HOME: /tmp
       DYAPP_UI_SHOTS: /shots
     command: [bash, -c, "bash /app/tests/scripts/check-container-isolation.sh && exec bash /app/tests/scripts/linux-test.sh"]
 
@@ -118,10 +130,6 @@ services:
       - ../../build/ux-research/prototype-android:/shots
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py, android]
-
-volumes:
-  ui-reports:
-  android-avd:
 
 networks:
   android-ui:

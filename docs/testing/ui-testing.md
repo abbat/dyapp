@@ -247,7 +247,8 @@ separately" — it does not cover iOS, macOS or Windows. There are no `ui-test-a
 `ui-test-linux-gui` targets and no X11-forwarded GUI mode.
 
 Images build only at `prepare`; `run` uses `--pull never`, and test containers run with no network
-(the emulator pair uses an internal network), read-only root, `cap_drop: ALL`, UID 1000, and
+(the emulator pair uses an internal network), read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID`; the
+Android services stay UID 1000, the owner of their image's Gradle build), and
 `check-container-isolation.sh` runs first.
 
 ### Android
@@ -263,13 +264,13 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
   `./gradlew --rerun-tasks :app:testDebugUnitTest`, then `check-junit-results.py`.
 - **`android-emulator`** → service `android-emulator-test`, which `depends_on` service
   `android-emulator` being healthy:
-  - `android-emulator` creates the AVD on the `android-avd` volume (the emulator wants ~7.4G free
+  - `android-emulator` creates the AVD in `build/android-avd` (the emulator wants ~7.4G free
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
     (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `tests/docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
     Before the emulator, it generates a low-cost test key and starts that `dyappd` on
     `127.0.0.1:33445`, advertised as `10.0.2.2:33445`, the guest's address for the container's
-    loopback; its storage and logs go to `node/` on the reports volume. After the suite,
+    loopback; its storage and logs go to `node/` in `build/android-reports`. After the suite,
     `forge-search-index.py` flips the signature of every indexed record there, and
     `SearchTests#forgedResultsAreDroppedAndListed` runs alone with `-e forged 1` (otherwise
     skipped): the search must list no profile and show the invalid-reply failure.
@@ -293,13 +294,13 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
 
 - **Image** `dyapp:linux-test` (`tests/docker/Dockerfile.linux-test`): Debian bookworm with GTK 3 /
   WebKit2GTK 4.1 dev libraries, Xvfb, D-Bus, GNOME Keyring and Rust 1.99.0 from a digest-pinned
-  image. It builds the Tauri 2 app from `clients/linux/` (+ `clients/desktop/`) and writes the test-binary inventory
-  `build/unit-build.json` at build time. The container has no checkout mount and no
-  network, and `ui-test.sh` never builds images: after changing `clients/linux/`, `clients/desktop/` or the
-  Dockerfile, run `make prepare` (or `bash tests/scripts/ui-test.sh prepare`) first, or
-  `make ui-test-linux` tests the old binaries.
-- **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app and
-  the inventory itself when no inventory exists, which is how CI's **native - linux** runs it.
+  image, and the crates fetched at image build time. The image holds no build output: the
+  container runs as the host user (`DYAPP_UID`/`DYAPP_GID`, set by `docker-local.py`), mounts
+  the checkout read-only at `/app` and builds into `build/linux` at `/app/build`, without network. `ui-test.sh` never builds images; only a changed
+  Dockerfile or `Cargo.lock` needs `make prepare` (or `bash tests/scripts/ui-test.sh prepare`).
+- **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app,
+  the test-binary inventory `build/unit-build.json` and `dyappd` (a no-op when current), which
+  is also how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
   `build/debug/dyapp-linux` 41 times using isolated test profiles. The network cases check an
@@ -346,8 +347,8 @@ The desktop prototype is mounted too, because the Android one loads its strings.
 
 ### Reports on the host
 
-Reports are written to `/reports/<container hostname>/` in the named volume `ui-reports`, not to a
-host directory. `ui-test.sh` does not pass `--rm`, so the last containers remain and can be
+Reports are written to `/reports/<container hostname>/`, a bind mount of `build/linux-reports`
+(Linux) or `build/android-reports` (Android) that `docker-local.py` creates as the host user. `ui-test.sh` does not pass `--rm`, so the last containers remain and can be
 exported:
 
 ```bash
@@ -445,7 +446,7 @@ diagnostic output for these Apple entry points. Existing SDK-free command-plan
 tests use raw mode; actual native builds/tests run only in the approved CI.
 Android unit/UI work remains enclosed by Docker capture; the emulator itself is
 a streaming service, not a finite quiet check. CI captures Compose service logs
-and copies the shared reports volume through the retained unit-test container
+and copies the Android reports through the retained unit-test container
 using `export-ui-reports.py` (`--directory PATH` selects a different destination).
 Unique directories under `build/platform-reports`
 retain XML/JSON, screenshots and validator logs without deleting earlier exports.

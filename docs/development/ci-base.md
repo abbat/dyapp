@@ -277,7 +277,7 @@ artifact **`fuzz-crashes`** keeps the crash inputs and the raw check logs. The n
 ## Running locally
 
 Locally the same `rust-check.sh` steps run offline in the hardened dev container: no network,
-read-only, `cap_drop: ALL`, UID 1000. The entrypoint `rust-command-in-container.sh` checks the
+read-only, `cap_drop: ALL`, the host user's UID/GID. The entrypoint `rust-command-in-container.sh` checks the
 isolation first.
 
 ```bash

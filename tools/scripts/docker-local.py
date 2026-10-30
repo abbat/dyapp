@@ -2,6 +2,7 @@
 import fcntl
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -95,8 +96,8 @@ def config_failure(text, status, environment, log_file=None):
     return report_failure("Docker configuration", status, text, log)
 
 
-# Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners).
-CPUS = min(4, os.cpu_count() or 1)
+# Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners); DYAPP_CPUS lowers.
+CPUS = min(int(os.environ.get("DYAPP_CPUS") or 4), 4, os.cpu_count() or 1)
 
 
 def build_images(arguments, environment, log_file=None):
@@ -146,9 +147,11 @@ def build_images(arguments, environment, log_file=None):
             buildkit = "1"
         else:
             command = ["docker", "build", "--cpu-period", "100000",
-                       "--cpu-quota", str(CPUS * 100000)]
+                       "--cpu-quota", str(CPUS * 100000),
+                       "--build-arg", f"DYAPP_CPUS={CPUS}"]
             buildkit = "0"
-        command.extend(["-t", service["image"], "-f", str(dockerfile)])
+        command.extend(["--label", "dyapp.local", "-t", service["image"],
+                        "-f", str(dockerfile)])
         if build.get("target"):
             command.extend(["--target", build["target"]])
         for key, value in build.get("args", {}).items():
@@ -161,22 +164,43 @@ def build_images(arguments, environment, log_file=None):
         )
         if status:
             return status
+    # A rebuilt image leaves its old version untagged; base images pulled by digest lack the label.
+    subprocess.run(["docker", "image", "prune", "-f", "--filter", "label=dyapp.local"],
+                   env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   check=False)
     return 0
+
+
+def make_bind_directories(arguments):
+    """Create the build/ bind mounts of the given compose files, so build/ can be deleted.
+
+    Made here, they are the host user's; Docker would create a missing one as root.
+    """
+    root = Path(__file__).resolve().parents[2]
+    files = [arguments[i + 1] for i, value in enumerate(arguments[:-1]) if value in ("-f", "--file")]
+    for file in files:
+        for name in re.findall(r"\.\./\.\./(build/[^:\s]+):", (root / file).read_text()):
+            directory = root / name
+            directory.mkdir(parents=True, exist_ok=True)
+            # shortcut: the Android image builds as 1000, so its directories are open to it on a
+            # host where the user is not 1000 (CI); drop once the Android build moves to the checkout.
+            if directory.name.startswith("android-") and os.getuid() != 1000:
+                directory.chmod(0o777)
 
 
 def main():
     temporary = Path("/tmp/ai")
     temporary.mkdir(parents=True, exist_ok=True)
-    # compose.dev.yml mounts a volume at /workspace/build inside the
-    # read-only checkout; Docker cannot create that mountpoint itself.
-    (Path(__file__).resolve().parents[2] / "build").mkdir(exist_ok=True)
     arguments = sys.argv[1:]
     log_file = None
     if arguments[:1] == ["--log-file"]:
         log_file, arguments = arguments[1], arguments[2:]
+    make_bind_directories(arguments)
     environment = {**os.environ, "COMPOSE_PARALLEL_LIMIT": "1",
                    "COVERAGE_RUN_ID": uuid.uuid4().hex,
                    "DYAPP_CPUS": str(CPUS),
+                   "DYAPP_UID": os.environ.get("DYAPP_UID") or str(os.getuid()),
+                   "DYAPP_GID": os.environ.get("DYAPP_GID") or str(os.getgid()),
                    "DYAPP_EMULATOR_CPUS": str(max(1, CPUS - 1))}
     with (temporary / "dyapp-docker.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

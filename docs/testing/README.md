@@ -389,7 +389,7 @@ JaCoCo/Kover or `test:coverage` script is wired into any gate. Any UI coverage p
 ### Saved report
 
 None is kept in the repository. Reports go to `build/coverage[.<run id>]/`. A local Docker run
-writes them into the `workspace-cache` volume, and `tests/scripts/export-coverage.py` copies them out.
+writes them into `build/workspace` on the host, and `tests/scripts/export-coverage.py` copies them out.
 When splitting inline Rust unit tests, keep their previously measured coverage:
 `cargo-llvm-cov` excludes files named `tests.rs` or `*_tests.rs` by default.
 Use ordinary module filenames for these moves; do not change the coverage filter

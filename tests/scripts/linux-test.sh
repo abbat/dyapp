@@ -1,6 +1,5 @@
 #!/bin/bash
-# Linux shell unit binaries and desktop smoke. The linux-test image builds them at image build
-# time; on a CI runner this script builds them first.
+# Linux shell unit binaries and desktop smoke, built first (a no-op when the build is current).
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 if [[ ${1:-} == --session ]]; then
@@ -22,13 +21,10 @@ fi
 shift
 manifest="$root/clients/linux/Cargo.toml"
 units="$root/build/unit-build.json"
-if [[ ! -f $units ]]; then
-    cargo build --manifest-path "$manifest" --locked
-    cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"
-fi
-if [[ ! -x $root/build/debug/dyappd ]]; then
-    cargo build --manifest-path "$root/Cargo.toml" --locked -p dyapp-bootstrap --bin dyappd
-fi
+cargo build --manifest-path "$manifest" --locked
+cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"
+# The desktop smoke checks the connection form against a loopback dyappd.
+cargo build --manifest-path "$root/Cargo.toml" --locked -p dyapp-bootstrap --bin dyappd
 mkdir -p /tmp/ai
 export DYAPP_XVFB_DIAGNOSTICS=1
 exec xvfb-run -a -e /dev/stderr -s '-screen 0 1280x1400x24' dbus-run-session -- \

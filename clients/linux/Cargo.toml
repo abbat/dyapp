@@ -40,6 +40,9 @@ allow_attributes_without_reason = "deny"
 
 # Argon2 runs at release speed in debug and test builds, as in the root workspace: the UI smoke
 # solves a profile puzzle of thousands of hashes.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.dev.package.argon2]
 opt-level = 3
 [profile.dev.package.blake2]

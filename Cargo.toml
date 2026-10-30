@@ -41,8 +41,10 @@ opt-level = 3
 lto = true
 codegen-units = 1
 
+# Line tables keep backtraces readable at a fraction of the full debuginfo size.
 [profile.dev]
 opt-level = 0
+debug = "line-tables-only"
 
 [profile.test]
 opt-level = 0

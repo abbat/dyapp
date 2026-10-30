@@ -6,17 +6,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 COPY --from=rust /usr/local/rustup /usr/local/rustup
 COPY --from=rust /usr/local/cargo /usr/local/cargo
+ARG DYAPP_CPUS=4
 ENV PATH=/usr/local/cargo/bin:$PATH RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo RUSTUP_TOOLCHAIN=1.99.0 \
-    CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4 \
-    RAYON_NUM_THREADS=4
+    CARGO_BUILD_JOBS=$DYAPP_CPUS CMAKE_BUILD_PARALLEL_LEVEL=$DYAPP_CPUS MAKEFLAGS=-j$DYAPP_CPUS \
+    RAYON_NUM_THREADS=$DYAPP_CPUS
 RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g 1000 appuser
 WORKDIR /app
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY rust rust
 COPY proto proto
 COPY clients clients
-RUN mkdir -p /app/build && cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
-    cargo build --manifest-path clients/linux/Cargo.toml --locked
+# Only the crates: builds go to the mounted checkout (linux-test, deb).
+RUN cargo fetch --locked && \
+    cargo fetch --locked --manifest-path clients/linux/Cargo.toml
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true

@@ -289,6 +289,21 @@ class Runners(unittest.TestCase):
             self.assertEqual(log.read_text().splitlines(),
                              ["start", "end"] * 4)
 
+    def test_bind_directories_come_from_the_compose_files(self):
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "tools/scripts/docker-local.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        made = []
+        with patch.object(runner.Path, "mkdir",
+                          lambda path, **_: made.append(path)), \
+                patch.object(runner.Path, "chmod"):
+            runner.make_bind_directories(
+                ["-f", "tests/docker/compose.ui.yml", "--profile", "all", "run"])
+        self.assertIn(ROOT / "build/linux-reports", made)
+        self.assertIn(ROOT / "build/ux-research/current", made)
+        self.assertNotIn(ROOT / "build/workspace", made)
+
     def test_image_builds_have_cpu_quota_and_stop_on_failure(self):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py")
@@ -307,7 +322,7 @@ class Runners(unittest.TestCase):
                 log = b"build log\n"
 
                 def execute(command, **kwargs):
-                    if command[1] == "compose":
+                    if command[1] in ("compose", "image"):
                         return config
                     os.write(kwargs["stdout"], log)
                     return subprocess.CompletedProcess([], status)
@@ -329,8 +344,14 @@ class Runners(unittest.TestCase):
                     self.assertTrue(printed.startswith("FAIL test:first:"))
                     self.assertNotIn(log.decode(), printed)
                     self.assertIn(": raw captured output", printed)
-                builds = invoke.call_args_list[1:]
+                builds = [call for call in invoke.call_args_list
+                          if call.args[0][1] == "build"]
                 self.assertEqual(len(builds), 2 if status == 0 else 1)
+                prunes = [call.args[0] for call in invoke.call_args_list
+                          if call.args[0][1] == "image"]
+                self.assertEqual(prunes, [[
+                    "docker", "image", "prune", "-f", "--filter",
+                    "label=dyapp.local"]] if status == 0 else [])
                 for call in builds:
                     command = call.args[0]
                     self.assertEqual(command[:2], ["docker", "build"])

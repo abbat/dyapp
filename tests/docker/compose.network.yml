@@ -2,7 +2,7 @@ name: dyapp
 
 x-runtime: &runtime
   image: dyapp:network-test
-  user: "1000:1000"
+  user: "${DYAPP_UID:-1000}:${DYAPP_GID:-1000}"
   cpus: 1
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -11,10 +11,10 @@ x-runtime: &runtime
   # Test the current checkout and binaries, rather than a stale image snapshot.
   volumes:
     - ../..:/workspace:ro
-    - workspace-cache:/workspace/build:ro
+    - ../../build/workspace:/workspace/build:ro
   tmpfs:
     - /tmp:rw,exec,nosuid,nodev,mode=1777
-    - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
+    - /home/appuser:rw,nosuid,nodev,uid=${DYAPP_UID:-1000},gid=${DYAPP_GID:-1000},mode=0700
 
 # The container address is announced as external, so Kademlia serves the DHT without fixed IPs.
 x-peer: &peer
@@ -107,16 +107,10 @@ services:
         condition: service_healthy
     volumes:
       - ../..:/workspace:ro
-      - workspace-cache:/workspace/build:ro
-      - network-reports:/reports
+      - ../../build/workspace:/workspace/build:ro
+      - ../../build/network-reports:/reports
     command: [bash, -c, "bash tests/scripts/check-container-isolation.sh && exec python3 tests/scripts/network-test.py"]
 
 networks:
   test-peers:
     internal: true
-
-volumes:
-  workspace-cache:
-    external: true
-    name: dyapp_workspace-cache
-  network-reports:
