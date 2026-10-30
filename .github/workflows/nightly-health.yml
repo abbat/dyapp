@@ -1,0 +1,36 @@
+name: nightly-health
+
+# Turns each scheduled run of the listed workflows into one tracked issue:
+# tools/scripts/nightly-health.py opens, comments on or closes it.
+on:
+  # Runs the default branch's copy with no code from the checked run, so
+  # zizmor's dangerous-triggers concern does not apply.
+  workflow_run:  # zizmor: ignore[dangerous-triggers]
+    workflows: [codeql, fuzz, mutants, release-sizes, reproducible, scorecard, security]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: id of a finished scheduled run to report
+        required: true
+
+permissions: {}
+
+jobs:
+  issue:
+    name: nightly-health
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -B tools/scripts/nightly-health.py --self-check
+      - run: python3 -B tools/scripts/nightly-health.py "$RUN_ID"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}

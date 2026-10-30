@@ -124,6 +124,9 @@ capture per port across restarts. Raw failure evidence includes node-port header
   [desktop heuristic review](../design/desktop-heuristics.md#when-to-review). No change ships
   with an open finding of any severity (1-4) unless the maintainer accepted it as an exception.
 - Track work in GitHub Issues, or in beads when set up locally ([beads.md](beads.md)).
+- Start a session with `gh issue list --label nightly-failure`: each open issue is a failing
+  scheduled workflow, opened by `nightly-health.yml`, and is worked before regular tasks. It
+  closes itself after the next green scheduled run.
 - Use lean-ctx when it is installed: [lean-ctx.md](lean-ctx.md).
 - Commit and push only when the user has authorised it (for the session or in their
   instructions). End commits with the Co-Authored-By line for your model (see AGENTS.md).
