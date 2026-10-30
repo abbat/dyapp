@@ -43,6 +43,7 @@
     <string name="settings_identities">Идентичности на устройстве</string>
     <string name="settings_active">Активная</string>
     <string name="settings_key_store">Хранилище ключей Android</string>
+    <string name="settings_switch">Переключиться на эту идентичность</string>
     <string name="network_title">Подключение к сети</string>
     <string name="network_seeds">Узлы начальной загрузки, по одному host:port в строке</string>
     <string name="network_name">Имя сети (пусто — публичная)</string>

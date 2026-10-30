@@ -44,6 +44,7 @@
     <string name="settings_identities">Identities on this device</string>
     <string name="settings_active">Active</string>
     <string name="settings_key_store">Android Keystore</string>
+    <string name="settings_switch">Switch to this identity</string>
     <string name="network_title">Network connection</string>
     <string name="network_seeds">Bootstrap nodes, one host:port per line</string>
     <string name="network_name">Network name (blank = public)</string>

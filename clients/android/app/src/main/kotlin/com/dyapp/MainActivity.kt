@@ -207,23 +207,29 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     // The identity the remove screen asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
     var editor by remember { mutableStateOf<StartTarget?>(null) }
-    val act = { action: () -> Opened ->
+    val act: (() -> Opened) -> Unit = { action ->
         removing = null
         shown = RustBridge.show(slots, action)
+        // Settings stays open across Create, Switch and a cancelled removal, but not past a removal.
+        if (shown.opened !is Opened.Ready) editor = null
     }
     removing?.let {
         RemoveScreen(slots, it, act)
         return
     }
     val opened = shown.opened
-    if (showReadyEditor(slots, opened as? Opened.Ready, editor) { editor = null }) return
-    StartColumn(shown, slots, act) { target ->
+    val open: (StartTarget?) -> Unit = { target ->
         when (target) {
             StartTarget.REMOVE -> removing = opened
             StartTarget.LOCK -> onLockSettings()
             else -> editor = target
         }
     }
+    if (editor == StartTarget.SETTINGS && opened is Opened.Ready) {
+        return IdentitySettingsScreen(slots, opened, act, open)
+    }
+    if (showReadyEditor(slots, opened as? Opened.Ready, editor) { editor = null }) return
+    StartColumn(shown, slots, act, open)
 }
 
 @Composable
