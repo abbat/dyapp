@@ -764,7 +764,7 @@ async function render(state) {
     text.className = 'label';
     text.lastChild.className = 'sub';
     sidebarIdentity.replaceChildren(avatar, text);
-    await showNetwork();
+    await window.showNetwork();
     window.connectionShown = connectAtLaunch();
     await showProfile();
     resetSearch();

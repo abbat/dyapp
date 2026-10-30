@@ -60,6 +60,7 @@ const showNetwork = async () => {
     networkStatus('network.failed', String(error));
   }
 };
+window.showNetwork = showNetwork;
 
 const rowItem = (seed, row) => {
   const entry = document.createElement('li');
