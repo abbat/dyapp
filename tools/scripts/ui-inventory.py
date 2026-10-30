@@ -96,7 +96,8 @@ def conditions(name, js):
             match = re.match(r"getElementById\('([^']+)'\)", target)
             ident = match.group(1) if match else names.get(target)
             if ident:
-                found.setdefault(ident, []).append((f"{name}:{number}", line.strip()))
+                found.setdefault(ident, []).append(
+                    (f"{name}:{number}", line.strip()))
     return found
 
 
@@ -119,8 +120,8 @@ def main():
         row["key"] = row["key"] or page.labels.get(row["id"]) or (
             row["label"] or {}).get("key")
     print("# Desktop UI inventory\n")
-    print("Source: clients/desktop/ui/index.html, app.js, network.js, i18n/en.json, "
-          "i18n/ru.json.\n")
+    print("Source: clients/desktop/ui/index.html, app.js, network.js, "
+          "i18n/en.json, i18n/ru.json.\n")
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
         print("| id | element | i18n key | English | Russian | hidden "

@@ -139,9 +139,10 @@ def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
     if result.get("status") != "STATUS_OK" or not result.get("record"):
         raise RuntimeError(f"published profile readback failed: {result}")
     if (signed_profile_payload(result["record"]) == draft[0]) == hidden:
-        raise RuntimeError("node signed readback "
-                           + ("still shows the hidden draft" if hidden
-                              else "differs from UI draft"))
+        what = "differs from UI draft"
+        if hidden:
+            what = "still shows the hidden draft"
+        raise RuntimeError(f"node signed readback {what}")
 
 
 def forge_search_signature(node_storage):

@@ -96,7 +96,8 @@ def config_failure(text, status, environment, log_file=None):
     return report_failure("Docker configuration", status, text, log)
 
 
-# Docker rejects a CPU limit above the host's CPU count (2 on GitHub runners); DYAPP_CPUS lowers.
+# Docker rejects a CPU limit above the host's CPU count (2 on GitHub
+# runners); DYAPP_CPUS lowers it.
 CPUS = min(int(os.environ.get("DYAPP_CPUS") or 4), 4, os.cpu_count() or 1)
 
 
@@ -164,27 +165,34 @@ def build_images(arguments, environment, log_file=None):
         )
         if status:
             return status
-    # A rebuilt image leaves its old version untagged; base images pulled by digest lack the label.
-    subprocess.run(["docker", "image", "prune", "-f", "--filter", "label=dyapp.local"],
-                   env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                   check=False)
+    # A rebuilt image leaves its old version untagged; base images pulled
+    # by digest lack the label.
+    subprocess.run(
+        ["docker", "image", "prune", "-f", "--filter", "label=dyapp.local"],
+        env=environment, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, check=False)
     return 0
 
 
 def make_bind_directories(arguments):
-    """Create the build/ bind mounts of the given compose files, so build/ can be deleted.
+    """Create the build/ bind mounts of the given compose files.
 
-    Made here, they are the host user's; Docker would create a missing one as root.
+    So build/ can be deleted. Made here, they are the host user's; Docker
+    would create a missing one as root.
     """
     root = Path(__file__).resolve().parents[2]
-    files = [arguments[i + 1] for i, value in enumerate(arguments[:-1]) if value in ("-f", "--file")]
+    files = [arguments[i + 1] for i, value in enumerate(arguments[:-1])
+             if value in ("-f", "--file")]
     for file in files:
-        for name in re.findall(r"\.\./\.\./(build/[^:\s]+):", (root / file).read_text()):
+        text = (root / file).read_text()
+        for name in re.findall(r"\.\./\.\./(build/[^:\s]+):", text):
             directory = root / name
             directory.mkdir(parents=True, exist_ok=True)
-            # shortcut: the Android image builds as 1000, so its directories are open to it on a
-            # host where the user is not 1000 (CI); drop once the Android build moves to the checkout.
-            if directory.name.startswith("android-") and os.getuid() != 1000:
+            # shortcut: the Android image builds as 1000, so its
+            # directories are open to it on a host where the user is not
+            # 1000 (CI); drop once the Android build moves to the checkout.
+            android = directory.name.startswith("android-")
+            if android and os.getuid() != 1000:
                 directory.chmod(0o777)
 
 
@@ -196,11 +204,12 @@ def main():
     if arguments[:1] == ["--log-file"]:
         log_file, arguments = arguments[1], arguments[2:]
     make_bind_directories(arguments)
+    uid, gid = str(os.getuid()), str(os.getgid())
     environment = {**os.environ, "COMPOSE_PARALLEL_LIMIT": "1",
                    "COVERAGE_RUN_ID": uuid.uuid4().hex,
                    "DYAPP_CPUS": str(CPUS),
-                   "DYAPP_UID": os.environ.get("DYAPP_UID") or str(os.getuid()),
-                   "DYAPP_GID": os.environ.get("DYAPP_GID") or str(os.getgid()),
+                   "DYAPP_UID": os.environ.get("DYAPP_UID", "") or uid,
+                   "DYAPP_GID": os.environ.get("DYAPP_GID", "") or gid,
                    "DYAPP_EMULATOR_CPUS": str(max(1, CPUS - 1))}
     with (temporary / "dyapp-docker.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
