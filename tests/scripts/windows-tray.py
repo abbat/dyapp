@@ -39,6 +39,27 @@ def log(message):
     print(f"windows-tray: {message}", file=sys.stderr, flush=True)
 
 
+class NotifyIconIdentifier(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.DWORD), ("hWnd", wintypes.HWND),
+                ("uID", wintypes.UINT), ("guidItem", ctypes.c_byte * 16)]
+
+
+def log_menu_needs(tray):
+    """tray-icon opens the menu only when it gets the cursor position and the
+    icon's rectangle; logs both, trying the first icon ids."""
+    point = wintypes.POINT()
+    log(f"GetCursorPos {user32.GetCursorPos(ctypes.byref(point))}")
+    shell32 = ctypes.WinDLL("shell32")
+    for uid in range(1, 9):
+        rect = wintypes.RECT()
+        found = NotifyIconIdentifier(ctypes.sizeof(NotifyIconIdentifier),
+                                     tray, uid)
+        result = shell32.Shell_NotifyIconGetRect(ctypes.byref(found),
+                                                 ctypes.byref(rect))
+        log(f"icon {uid} rect: result {result & 0xFFFFFFFF:#x}, "
+            f"{rect.left},{rect.top},{rect.right},{rect.bottom}")
+
+
 def shows_icons():
     """Whether a visible window titled DYApp has a small icon, set on the
     window or else on its class. Tauri sets no big one, so the taskbar takes
@@ -76,6 +97,9 @@ while True:
     menu = user32.FindWindowW(MENU_CLASS, None)
     if not menu or not user32.IsWindowVisible(menu):
         # Clicks until stopped: a click before the menu is wired is lost.
+        if state != "clicking":
+            log_menu_needs(tray)
+            state = "clicking"
         log("right click on the icon")
         user32.PostMessageW(tray, WM_USER_TRAYICON, 0, WM_RBUTTONUP)
         continue
