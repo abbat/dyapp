@@ -123,6 +123,8 @@ pub struct View {
     /// Minutes, rounded up, until the published profile held by the search window reaches
     /// search; `None` with nothing held.
     pub search_minutes: Option<u64>,
+    /// Hidden from search by a tombstone until the next publish.
+    pub hidden: bool,
 }
 
 /// The page's name for a [`Block`].
@@ -172,11 +174,14 @@ impl From<&Profile> for Draft {
 }
 
 fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<View, String> {
-    let search_minutes = match store {
-        Some(store) => store
-            .search_profile_minutes_left(unix_now()?)
-            .map_err(|e| e.to_string())?,
-        None => None,
+    let (search_minutes, hidden) = match store {
+        Some(store) => (
+            store
+                .search_profile_minutes_left(unix_now()?)
+                .map_err(|e| e.to_string())?,
+            store.profile_hidden().map_err(|e| e.to_string())?,
+        ),
+        None => (None, false),
     };
     Ok(View {
         draft: Draft::from(profile),
@@ -184,6 +189,7 @@ fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<Vi
         ages: profile.possible_age_range(today),
         problem: publish::check(profile, true, today).err().map(code),
         search_minutes,
+        hidden,
     })
 }
 
@@ -332,6 +338,22 @@ pub async fn publish(
         .map_err(|e| e.to_string())?;
     send_held(&store, &mut node, &active).await?;
     view(&published, today, Some(&store))
+}
+
+/// Hides the published profile from search with a tombstone on the active network; the draft
+/// stays and the next [`publish`] shows it again.
+pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
+    let store = open(dir, identity)?;
+    let draft = stored(&store)?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = connect(&active).await?;
+    let hidden = publish::hide(&store, &mut node, identity, &draft)
+        .await
+        .map_err(|e| e.to_string())?;
+    send_held(&store, &mut node, &active).await?;
+    view(&hidden, today()?, Some(&store))
 }
 
 /// Sends the published profile the search window holds once the window has ended, to up to

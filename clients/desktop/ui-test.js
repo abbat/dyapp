@@ -377,39 +377,48 @@ const checkNode = async () => {
   if (await saveNode(false, '64') !== 'off') throw new Error('node did not stop');
   await openArea('profile-area');
 };
+const byId = (id) => document.getElementById(id);
+const publicFieldList = () => [...document.querySelectorAll('#profile-public-fields li')]
+  .map((item) => item.textContent);
+const openPublishDialog = async () => {
+  byId('profile-publish').click();
+  await waitFor('publish-dialog');
+  if (byId('profile-attested').checked || byId('profile-disclosure').checked
+    || !byId('profile-publish-confirm').disabled) {
+    throw new Error('publish consents were preselected');
+  }
+  if (document.activeElement !== byId('profile-cancel')) throw new Error('Cancel not focused');
+  return publicFieldList();
+};
+const consent = (id) => {
+  byId(id).checked = true;
+  byId(id).dispatchEvent(new Event('change'));
+};
+const closePublishDialog = async () => {
+  byId('profile-cancel').click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  if (!byId('publish-dialog').hidden) throw new Error('Cancel left the publish dialog open');
+};
 const checkEmptyProfilePreview = async () => {
   await shot('profile-edit');
-  document.getElementById('profile-preview-action').click();
-  await waitFor('profile-preview');
-  await shot('profile-preview');
-  if (document.getElementById('profile-public-fields').textContent
-    !== window.strings['profile.empty']) throw new Error('unset fields appeared in preview');
-  if (document.getElementById('profile-age').textContent
-    !== window.strings['profile.ageUnknown']) throw new Error('unknown age not shown');
-  if (!document.getElementById('profile-date-warning').hidden) {
-    throw new Error('full-date warning shown without a birth date');
+  if (!byId('profile-hidden').disabled) throw new Error('Hide from search offered before a publish');
+  const fields = await openPublishDialog();
+  await shot('publish-dialog');
+  if (fields.join('|') !== window.strings['profile.empty']) throw new Error('unset fields appeared in preview');
+  if (byId('profile-age').textContent !== window.strings['profile.ageUnknown']) {
+    throw new Error('unknown age not shown');
   }
-  if (document.getElementById('profile-attested').checked
-    || document.getElementById('profile-disclosure').checked) {
-    throw new Error('publish confirmations were preselected');
+  if (!byId('profile-date-warning').hidden) throw new Error('full-date warning shown without a birth date');
+  consent('profile-attested');
+  if (!byId('profile-publish-confirm').disabled) throw new Error('Publish enabled with one box');
+  consent('profile-disclosure');
+  if (byId('profile-publish-confirm').disabled) throw new Error('Publish disabled with both boxes');
+  await closePublishDialog();
+  if (byId('profile-status').textContent !== window.strings['profile.saved']) {
+    throw new Error('Cancel lost the draft');
   }
-  const blocked = waitForProfileStatus('profile.problem.notAcknowledged');
-  document.getElementById('profile-attested').checked = true;
-  document.getElementById('profile-publish').click();
-  await blocked;
-  if (!document.getElementById('profile-cancel').hidden) {
-    throw new Error('puzzle started before the public-data warning was acknowledged');
-  }
-  document.getElementById('profile-attested').checked = true;
-  document.getElementById('profile-disclosure').checked = true;
-  const month = document.getElementById('birth-month');
-  month.value = '2';
-  month.dispatchEvent(new Event('input', { bubbles: true }));
-  if (!document.getElementById('profile-preview').hidden
-    || document.getElementById('profile-attested').checked
-    || document.getElementById('profile-disclosure').checked) {
-    throw new Error('editing kept a stale public-data confirmation');
-  }
+  await openPublishDialog();
+  await closePublishDialog();
 };
 const waitForProfileStatus = (key, detail = '', ms = 10000) => new Promise((resolve, reject) => {
   const status = document.getElementById('profile-status');
@@ -453,97 +462,88 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-save').click();
   await saved;
 };
+const expectedFields = () => [
+  `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
+  `${window.strings['profile.birthYear']}: 1990`,
+  `${window.strings['profile.birthMonth']}: 2`,
+].join('|');
 const publishProfileOnLoopback = async (saved = false, fails = false) => {
   if (saved) {
-    if (document.getElementById('profile-gender').value !== '1'
-      || document.getElementById('birth-year').value !== '1990'
-      || document.getElementById('birth-month').value !== '2') {
+    if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
+      || byId('birth-month').value !== '2') {
       throw new Error('failed publish lost the saved draft');
     }
   } else {
-    document.getElementById('profile-gender').value = '1';
-    document.getElementById('birth-year').value = '1990';
-    document.getElementById('birth-month').value = '2';
+    byId('profile-gender').value = '1';
+    byId('birth-year').value = '1990';
+    byId('birth-month').value = '2';
   }
-  document.getElementById('profile-preview-action').click();
-  await waitFor('profile-preview');
-  const fields = [...document.querySelectorAll('#profile-public-fields li')]
-    .map((item) => item.textContent);
-  if (fields.join('|') !== [
-    `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
-    `${window.strings['profile.birthYear']}: 1990`,
-    `${window.strings['profile.birthMonth']}: 2`,
-  ].join('|')) throw new Error(`profile preview changed: ${fields}`);
-  const previewAge = document.getElementById('profile-age').textContent;
-  const previewDateWarning = document.getElementById('profile-date-warning').hidden;
-  document.getElementById('profile-disclosure').checked = true;
-  document.getElementById('profile-attested').checked = true;
+  const fields = await openPublishDialog();
+  if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
+  consent('profile-disclosure');
+  consent('profile-attested');
   const result = waitForProfileStatus(
     fails ? 'profile.notConnected' : 'profile.published', fails ? '' : '1', 150000);
-  document.getElementById('profile-publish').click();
+  byId('profile-publish-confirm').click();
+  await waitFor('publish-progress');
+  if (!/\d:\d\d/.test(byId('publish-elapsed').textContent)) {
+    throw new Error(`elapsed time not shown: ${byId('publish-elapsed').textContent}`);
+  }
   await result;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  if (!byId('publish-dialog').hidden) throw new Error('publish dialog stayed open');
   await shot(fails ? 'profile-publish-failed' : 'profile-published');
-  if (document.getElementById('profile-open-network').hidden !== !fails) {
+  if (byId('profile-open-network').hidden !== !fails) {
     throw new Error(`profile Open Network shown ${fails ? 'without' : 'after'} a failure`);
   }
-  if (!fails) {
-    const readback = [...document.querySelectorAll('#profile-public-fields li')]
-      .map((item) => item.textContent);
-    if (readback.join('|') !== fields.join('|')
-      || document.getElementById('profile-age').textContent !== previewAge
-      || document.getElementById('profile-date-warning').hidden !== previewDateWarning) {
-      throw new Error(`published readback differs from preview: ${readback}`);
-    }
+  if (byId('profile-hidden').disabled !== fails || byId('profile-hidden').checked) {
+    throw new Error('Hide from search not offered after a publish');
   }
-  if (document.getElementById('profile-attested').checked
-    || document.getElementById('profile-disclosure').checked) {
-    throw new Error('publish confirmations remained selected');
+};
+// The switch publishes a tombstone, then the notice says how to return; the draft stays.
+const hideProfileOnLoopback = async () => {
+  const hidden = byId('profile-hidden');
+  if (hidden.disabled || hidden.checked) throw new Error('Hide from search not offered');
+  const result = waitForProfileStatus('profile.status.hidden', '', 60000);
+  hidden.checked = true;
+  hidden.dispatchEvent(new Event('change'));
+  await result;
+  await shot('profile-hidden');
+  if (!hidden.checked || byId('profile-hidden-notice').hidden
+    || byId('profile-gender').value !== '1') {
+    throw new Error('hidden profile not shown with its notice and draft');
   }
 };
 const checkSavedProfile = async () => {
-  if (document.getElementById('profile-gender').value !== '1'
-    || document.getElementById('birth-year').value !== '1990'
-    || document.getElementById('birth-month').value !== '2'
-    || document.getElementById('birth-day').value !== ''
-    || document.getElementById('profile-country').value !== 'DE') {
+  if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
+    || byId('birth-month').value !== '2' || byId('birth-day').value !== ''
+    || byId('profile-country').value !== 'DE') {
     throw new Error('profile draft changed after restart');
   }
-  const place = document.getElementById('profile-place').value;
+  const place = byId('profile-place').value;
   if (!place.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
     throw new Error(`picked place lost after restart: ${place}`);
   }
-  document.getElementById('profile-preview-action').click();
-  await waitFor('profile-preview');
-  const placeFields = [...document.querySelectorAll('#profile-public-fields li')]
-    .map((item) => item.textContent).filter((field) => field.startsWith(window.strings['profile.country'])
-      || field.startsWith(window.strings['profile.place']));
+  const placeFields = (await openPublishDialog()).filter((field) => field.startsWith(window.strings['profile.country'])
+    || field.startsWith(window.strings['profile.place']));
   if (placeFields.join('|') !== [
     `${window.strings['profile.country']}: ${new Intl.DisplayNames([window.locale], { type: 'region' }).of('DE')}`,
     `${window.strings['profile.place']}: ${place}`,
   ].join('|')) throw new Error(`place preview changed: ${placeFields}`);
+  await closePublishDialog();
   // Clearing the country clears the place; the later publish steps expect neither.
-  const country = document.getElementById('profile-country');
+  const country = byId('profile-country');
   country.value = '';
   country.dispatchEvent(new Event('input', { bubbles: true }));
-  if (document.getElementById('profile-place').value !== '') throw new Error('place outlived its country');
+  if (byId('profile-place').value !== '') throw new Error('place outlived its country');
   const cleared = waitForProfileStatus('profile.saved');
-  document.getElementById('profile-save').click();
+  byId('profile-save').click();
   await cleared;
-  document.getElementById('profile-preview-action').click();
-  await waitFor('profile-preview');
-  const fields = [...document.querySelectorAll('#profile-public-fields li')]
-    .map((item) => item.textContent);
-  if (fields.join('|') !== [
-    `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
-    `${window.strings['profile.birthYear']}: 1990`,
-    `${window.strings['profile.birthMonth']}: 2`,
-  ].join('|')) throw new Error(`profile preview changed: ${fields}`);
-  if (!document.getElementById('profile-age').textContent
-    .startsWith(`${window.strings['profile.age']}: `)) {
+  const fields = await openPublishDialog();
+  if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
+  await closePublishDialog();
+  if (!byId('profile-age').textContent.startsWith(`${window.strings['profile.age']}: `)) {
     throw new Error('known age hidden after restart');
-  }
-  if (document.getElementById('profile-attested').checked) {
-    throw new Error('publish attestation survived restart');
   }
 };
 // The status bar: traffic is unavailable until a search starts the client swarm, then counts the
@@ -796,6 +796,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'profile-publish') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await publishProfileOnLoopback();
+    } else if (step === 'profile-hide') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await hideProfileOnLoopback();
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

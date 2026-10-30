@@ -348,12 +348,15 @@ nodeForm.addEventListener('submit', (event) => {
 const profileForm = document.getElementById('profile');
 const profileScales = document.getElementById('profile-scales');
 const profileStatus = document.getElementById('profile-status');
-const profilePreview = document.getElementById('profile-preview');
+const publishDialog = document.getElementById('publish-dialog');
+const publishConfirm = document.getElementById('profile-publish-confirm');
+const profileHidden = document.getElementById('profile-hidden');
 const profileAttested = document.getElementById('profile-attested');
 const profileDisclosure = document.getElementById('profile-disclosure');
 const profileCancel = document.getElementById('profile-cancel');
 let scaleFields = [];
 let profileBusy = false;
+let profilePublished = false;
 const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
@@ -403,7 +406,8 @@ const profilePlace = placePicker(placeCountry, placeInput,
   document.getElementById('profile-places'), () => placeCountry.value);
 const profileDraft = () => ({
   ...Object.fromEntries(scaleFields.map((scale) => [
-    camel(scale.key), Number(document.getElementById(`profile-${scale.key}`).value),
+    camel(scale.key), Number(document.getElementById(
+      `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`).value),
   ])),
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
   country: placeCountry.value, place: profilePlace.id(),
@@ -437,10 +441,10 @@ const showProfile = async () => {
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile();
   scaleFields = scales;
-  profileScales.replaceChildren(...scales.map((scale) => {
+  const rows = scales.map((scale) => {
     const label = document.createElement('label');
     const select = document.createElement('select');
-    select.id = `profile-${scale.key}`;
+    select.id = `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`;
     label.htmlFor = select.id;
     label.textContent = window.strings[`profile.field.${scale.key}`];
     const unset = document.createElement('option');
@@ -457,7 +461,10 @@ const showProfile = async () => {
     row.className = 'field';
     row.append(label, select);
     return row;
-  }));
+  });
+  const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
+  document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
+  profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
   for (const part of ['year', 'month', 'day']) {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
@@ -478,11 +485,24 @@ const showProfile = async () => {
     country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
   });
   profilePlace.set(place);
-  profileAttested.checked = false;
-  profileDisclosure.checked = false;
-  profilePreview.hidden = true;
-  profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
+  showAge(view);
+  showHidden(view);
+};
+// The switch works once a version is published; hidden, the status and notice say so.
+const showHidden = (view) => {
+  profilePublished = Boolean(view.published);
+  profileHidden.disabled = !profilePublished;
+  profileHidden.checked = view.hidden;
+  document.getElementById('profile-hidden-notice').hidden = !view.hidden;
+  if (view.hidden) profileMessage('profile.status.hidden');
+  else profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
     view.published ? String(view.published) : '');
+};
+const showAge = (view) => {
+  const [youngest, oldest] = view.ages || [];
+  document.getElementById('profile-age').textContent = view.ages
+    ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
+    : window.strings['profile.ageUnknown'];
 };
 // Labelled public fields of a draft with its place named as `place`, or the empty notice.
 const publicFields = (draft, place) => {
@@ -504,32 +524,50 @@ const listItems = (values) => values.map((value) => {
   item.textContent = value;
   return item;
 });
-const previewProfile = (view) => {
-  document.getElementById('profile-public-fields')
-    .replaceChildren(...listItems(publicFields(view.draft, placeInput.value)));
-  const [youngest, oldest] = view.ages || [];
-  document.getElementById('profile-age').textContent = view.ages
-    ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
-    : window.strings['profile.ageUnknown'];
-  document.getElementById('profile-date-warning').hidden = !(view.draft.birthYear
-    && view.draft.birthMonth && view.draft.birthDay);
-  profilePreview.hidden = false;
-};
 const saveProfile = async () => {
   if (!profileForm.reportValidity()) return null;
   const view = await invoke('save_profile', { draft: profileDraft() });
+  showAge(view);
   profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');
   return view;
 };
-const setProfileBusy = (busy, solving = false) => {
+// The dialog lists exactly the public fields and asks both consents afresh each time.
+const openPublishDialog = (view) => {
+  document.getElementById('profile-public-fields')
+    .replaceChildren(...listItems(publicFields(view.draft, placeInput.value)));
+  document.getElementById('profile-date-warning').hidden = !(view.draft.birthYear
+    && view.draft.birthMonth && view.draft.birthDay);
+  profileAttested.checked = false;
+  profileDisclosure.checked = false;
+  publishConfirm.disabled = true;
+  document.getElementById('publish-consents').hidden = false;
+  document.getElementById('publish-progress').hidden = true;
+  publishDialog.hidden = false;
+  publishDialog.showModal();
+  profileCancel.focus();
+};
+const elapsed = document.getElementById('publish-elapsed');
+let elapsedTimer;
+const startElapsed = () => {
+  const start = Date.now();
+  const tick = () => {
+    const seconds = Math.floor((Date.now() - start) / 1000);
+    elapsed.textContent = window.strings['publish.elapsed']
+      .replace('{time}', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
+  };
+  tick();
+  elapsedTimer = setInterval(tick, 1000);
+};
+const setProfileBusy = (busy) => {
   profileBusy = busy;
   for (const element of profileForm.querySelectorAll('input, select, button')) {
-    if (element !== profileCancel) element.disabled = busy;
+    element.disabled = busy;
   }
+  for (const element of [profileAttested, profileDisclosure]) element.disabled = busy;
+  profileHidden.disabled = busy || !profilePublished;
   switchIdentity.disabled = busy;
   removeIdentity.disabled = busy;
   for (const button of [settingsCreate, settingsSwitch, settingsRemove]) button.disabled = busy;
-  profileCancel.hidden = !solving;
 };
 const profileFailure = (error) => {
   const code = String(error);
@@ -538,13 +576,8 @@ const profileFailure = (error) => {
   if (code === 'notConnected') return profileMessage('profile.notConnected');
   profileMessage('profile.publishFailed', code);
 };
-profileForm.addEventListener('input', (event) => {
-  if (event.target !== profileAttested && event.target !== profileDisclosure && !profileBusy) {
-    profileAttested.checked = false;
-    profileDisclosure.checked = false;
-    profilePreview.hidden = true;
-    profileMessage('profile.draft');
-  }
+profileForm.addEventListener('input', () => {
+  if (!profileBusy) profileMessage('profile.draft');
 });
 profileForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -553,51 +586,70 @@ profileForm.addEventListener('submit', async (event) => {
   try { await saveProfile(); } catch (error) { profileMessage('profile.failed', String(error)); }
   finally { setProfileBusy(false); }
 });
-document.getElementById('profile-preview-action').addEventListener('click', async () => {
+const previewAndPublish = async () => {
   if (profileBusy || !profileForm.reportValidity()) return;
   setProfileBusy(true);
   try {
     const view = await saveProfile();
-    if (view) {
-      profileDisclosure.checked = false;
-      previewProfile(view);
-    }
+    if (view && !view.problem) openPublishDialog(view);
   } catch (error) { profileMessage('profile.failed', String(error)); }
   finally { setProfileBusy(false); }
-});
+};
+document.getElementById('profile-publish').addEventListener('click', previewAndPublish);
+for (const box of [profileAttested, profileDisclosure]) {
+  box.addEventListener('change', () => {
+    publishConfirm.disabled = !(profileAttested.checked && profileDisclosure.checked);
+  });
+}
+// Cancel stops the puzzle while it runs and otherwise closes the dialog; the draft stays.
 profileCancel.addEventListener('click', () => {
+  if (!profileBusy) return publishDialog.close();
   profileCancel.disabled = true;
   invoke('cancel_profile_solve').catch(profileFailure);
 });
-document.getElementById('profile-publish').addEventListener('click', async () => {
-  if (profileBusy || !profileForm.reportValidity()) return;
-  const attested = profileAttested.checked;
-  const acknowledged = profileDisclosure.checked;
-  const needsReview = profilePreview.hidden;
+publishDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  profileCancel.click();
+});
+publishDialog.addEventListener('close', () => { publishDialog.hidden = true; });
+publishConfirm.addEventListener('click', async () => {
+  if (profileBusy || !profileAttested.checked || !profileDisclosure.checked) return;
   setProfileBusy(true);
+  publishConfirm.disabled = true;
+  document.getElementById('publish-consents').hidden = true;
+  document.getElementById('publish-progress').hidden = false;
+  startElapsed();
   try {
-    const view = await saveProfile();
-    previewProfile(view);
-    if (view.problem) return;
-    if (needsReview) return profileMessage('profile.reviewBeforePublish');
-    if (!acknowledged) return profileMessage('profile.problem.notAcknowledged');
-    if (!attested) return profileMessage('profile.problem.notAttested');
-    profileCancel.hidden = false;
     profileMessage('profile.solving');
     await invoke('solve_profile', { attested: true });
-    profileCancel.hidden = true;
     profileMessage('profile.publishing');
     const published = await invoke('publish_profile', { attested: true });
-    previewProfile(published);
     showSearchWait(published);
+    showHidden(published);
     profileMessage('profile.published', String(published.published));
   } catch (error) {
     profileFailure(error);
   } finally {
-    profileAttested.checked = false;
-    profileDisclosure.checked = false;
+    clearInterval(elapsedTimer);
+    publishDialog.close();
     setProfileBusy(false);
     profileCancel.disabled = false;
+  }
+});
+// On hides the profile with a tombstone; off publishes the saved draft again through the dialog.
+profileHidden.addEventListener('change', async () => {
+  if (!profileHidden.checked) {
+    profileHidden.checked = true;
+    return previewAndPublish();
+  }
+  setProfileBusy(true);
+  try {
+    showHidden(await invoke('hide_profile'));
+  } catch (error) {
+    profileHidden.checked = false;
+    profileFailure(error);
+  } finally {
+    setProfileBusy(false);
   }
 });
 

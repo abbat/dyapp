@@ -303,12 +303,13 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   is also how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 41 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 42 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
   missing), connect the form, activate the network, publish the profile and find it as the only search result. Then the script flips the
   signature byte of that record in the node's search index: the next search shows no person
-  and lists the forged reply. This
+  and lists the forged reply. Hide from search then leaves a tombstone on the node and the
+  hidden flag in the store. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
   keeps 22 bits.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
@@ -321,8 +322,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   Without `DYAPP_UI_SHOTS` the command does nothing. A failed screenshot only logs to stderr.
   States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `remove`, `recovery`,
   `recovery-details`, `network-empty`,
-  `network-failure`, `network-connected`, `profile-edit`, `profile-preview`,
-  `profile-publish-failed`, `profile-published`, `search-not-connected`, `search-results`,
+  `network-failure`, `network-connected`, `profile-edit`, `publish-dialog`,
+  `profile-publish-failed`, `profile-published`, `profile-hidden`, `search-not-connected`, `search-results`,
   `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
   too quickly to capture.
 

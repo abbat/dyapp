@@ -112,8 +112,11 @@ def signed_profile_payload(record_hex):
     return fields[2]
 
 
-def check_profile_readback(node, seed, peer_id, env, storage):
-    """Node's signed profile payload must equal the published local draft."""
+def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
+    """Node's signed profile payload must equal the published local draft.
+
+    Hidden, the node holds a tombstone instead and the store keeps the flag.
+    """
     slot = (storage / "active-profile").read_text().strip()
     database = storage / "profiles" / slot / "client.db"
     if not database.is_file():
@@ -122,6 +125,11 @@ def check_profile_readback(node, seed, peer_id, env, storage):
         draft = db.execute(
             "SELECT `value` FROM `settings` WHERE `key` = ?",
             ("profile_draft",)).fetchone()
+        flag = db.execute(
+            "SELECT `value` FROM `settings` WHERE `key` = ?",
+            ("profile_hidden",)).fetchone()
+    if (flag is not None and flag[0] == b"\x01") != hidden:
+        raise RuntimeError(f"profile hidden flag is {flag}, expected {hidden}")
     if draft is None:
         raise RuntimeError("published profile draft missing locally")
     readback = subprocess.run([node, "get", seed, peer_id], env=env,
@@ -130,8 +138,10 @@ def check_profile_readback(node, seed, peer_id, env, storage):
     result = json.loads(readback.stdout)
     if result.get("status") != "STATUS_OK" or not result.get("record"):
         raise RuntimeError(f"published profile readback failed: {result}")
-    if signed_profile_payload(result["record"]) != draft[0]:
-        raise RuntimeError("node signed readback differs from UI draft")
+    if (signed_profile_payload(result["record"]) == draft[0]) == hidden:
+        raise RuntimeError("node signed readback "
+                           + ("still shows the hidden draft" if hidden
+                              else "differs from UI draft"))
 
 
 def forge_search_signature(node_storage):
@@ -409,6 +419,10 @@ def smoke(executable, flows=True):
             forge_search_signature(storage / "node")
             case("search-forged", [*file, "--ui-test-step=search-forged"],
                  profile, timeout=180)
+            case("profile-hide", [*file, "--ui-test-step=profile-hide"],
+                 profile, timeout=120)
+            check_profile_readback(node, seed, peer_id, env, storage,
+                                   hidden=True)
             # A first run that connects on the wizard's network step.
             with tempfile.TemporaryDirectory(dir=reports) as fresh:
                 case("wizard-connect",

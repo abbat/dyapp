@@ -120,51 +120,53 @@
           <p data-i18n="storage.file.backup"></p>
           <p><code id="key-path"></code></p>
         </div>
-        <form id="profile" class="card" novalidate>
-          <h2 data-i18n="profile.title"></h2>
-          <div id="profile-scales" class="grid"></div>
-          <div class="grid">
-            <div class="field"><label for="profile-country" data-i18n="profile.country"></label>
-              <select id="profile-country"></select></div>
-            <div class="field"><label for="profile-place" data-i18n="profile.place"></label>
-              <input id="profile-place" type="text" list="profile-places" autocomplete="off">
-              <datalist id="profile-places"></datalist></div>
+        <p id="profile-status" class="muted" role="status"></p>
+        <p id="profile-search-wait" class="caption" role="status" hidden></p>
+        <div class="actions">
+          <button id="profile-open-network" class="btn" type="button" data-i18n="network.open"
+            hidden></button>
+        </div>
+        <div class="card">
+          <div class="switch-row">
+            <label for="profile-hidden"><span data-i18n="profile.hide"></span><br>
+              <span class="caption" data-i18n="profile.hideHint"></span></label>
+            <!-- biome-ignore lint/a11y/useAriaPropsForRole: a native checkbox exposes its checked state -->
+            <input id="profile-hidden" class="switch" type="checkbox" role="switch" disabled>
           </div>
-          <div class="grid">
-            <div class="field"><label for="birth-year" data-i18n="profile.birthYear"></label>
-              <input id="birth-year" type="number" min="1" max="9999"></div>
-            <div class="field"><label for="birth-month" data-i18n="profile.birthMonth"></label>
-              <input id="birth-month" type="number" min="1" max="12"></div>
-            <div class="field"><label for="birth-day" data-i18n="profile.birthDay"></label>
-              <input id="birth-day" type="number" min="1" max="31"></div>
+        </div>
+        <p id="profile-hidden-notice" class="notice warn" data-i18n="profile.hiddenNotice" hidden></p>
+        <form id="profile" novalidate>
+          <div class="card">
+            <h2 data-i18n="profile.basics"></h2>
+            <div id="profile-basics" class="grid"></div>
+            <h2 data-i18n="profile.birth"></h2>
+            <div class="grid">
+              <div class="field"><label for="birth-year" data-i18n="profile.birthYear"></label>
+                <input id="birth-year" type="number" min="1" max="9999"></div>
+              <div class="field"><label for="birth-month" data-i18n="profile.birthMonth"></label>
+                <input id="birth-month" type="number" min="1" max="12"></div>
+              <div class="field"><label for="birth-day" data-i18n="profile.birthDay"></label>
+                <input id="birth-day" type="number" min="1" max="31"></div>
+            </div>
+            <p id="profile-age" class="caption"></p>
           </div>
+          <div class="card">
+            <h2 data-i18n="profile.placeTitle"></h2>
+            <div class="grid">
+              <div class="field"><label for="profile-country" data-i18n="profile.country"></label>
+                <select id="profile-country"></select></div>
+              <div class="field"><label for="profile-place" data-i18n="profile.place"></label>
+                <input id="profile-place" type="text" list="profile-places" autocomplete="off">
+                <datalist id="profile-places"></datalist></div>
+            </div>
+          </div>
+          <details id="profile-more" class="card"><summary data-i18n="profile.more"></summary>
+            <div id="profile-scales" class="grid"></div></details>
           <div class="actions">
             <button id="profile-save" class="btn" type="submit" data-i18n="profile.save"></button>
-            <button id="profile-preview-action" class="btn" type="button"
-              data-i18n="profile.previewAction"></button>
-          </div>
-          <section id="profile-preview" hidden>
-            <h3 data-i18n="profile.previewTitle"></h3>
-            <ul id="profile-public-fields"></ul>
-            <p id="profile-age" class="caption"></p>
-            <p class="notice warn" data-i18n="profile.copyWarning"></p>
-            <p id="profile-date-warning" class="notice warn" data-i18n="profile.fullDateWarning"
-              hidden></p>
-            <label class="choice"><input id="profile-disclosure" type="checkbox">
-              <span data-i18n="profile.disclosure"></span></label>
-          </section>
-          <label class="choice"><input id="profile-attested" type="checkbox">
-            <span data-i18n="profile.attested"></span></label>
-          <div class="actions">
-            <button id="profile-cancel" class="btn" type="button" data-i18n="profile.cancel"
-              hidden></button>
-            <button id="profile-open-network" class="btn" type="button" data-i18n="network.open"
-              hidden></button>
             <button id="profile-publish" class="btn primary" type="button"
               data-i18n="profile.publish"></button>
           </div>
-          <p id="profile-status" class="muted" role="status"></p>
-          <p id="profile-search-wait" class="caption" role="status" hidden></p>
         </form>
       </section>
       <section id="search-area" hidden>
@@ -310,6 +312,28 @@
       <button id="remove-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
       <button id="remove-action" class="btn danger" type="button" data-i18n="remove.action"
         disabled></button>
+    </div>
+  </dialog>
+  <dialog id="publish-dialog" class="modal" aria-labelledby="publish-title" hidden>
+    <h2 id="publish-title" data-i18n="publish.title"></h2>
+    <p class="muted" data-i18n="publish.intro"></p>
+    <ul id="profile-public-fields"></ul>
+    <p id="profile-date-warning" class="notice warn" data-i18n="profile.fullDateWarning" hidden></p>
+    <div id="publish-consents">
+      <label class="choice"><input id="profile-attested" type="checkbox">
+        <span data-i18n="profile.attested"></span></label>
+      <label class="choice"><input id="profile-disclosure" type="checkbox">
+        <span data-i18n="profile.disclosure"></span></label>
+    </div>
+    <div id="publish-progress" role="status" hidden>
+      <p data-i18n="publish.working"></p>
+      <div class="progress"></div>
+      <p id="publish-elapsed" class="caption"></p>
+    </div>
+    <div class="actions">
+      <button id="profile-cancel" class="btn" type="button" data-i18n="profile.cancel"></button>
+      <button id="profile-publish-confirm" class="btn primary" type="button"
+        data-i18n="publish.confirm" disabled></button>
     </div>
   </dialog>
   <script src="app.js"></script>
