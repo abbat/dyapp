@@ -37,6 +37,7 @@ it are entry points that tools discover by path (see
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
+- [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client (planned relayout), checked against the static Android prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
 - [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of the prototype and the shipped desktop UI, its fixes and the rule to re-check screen changes
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft

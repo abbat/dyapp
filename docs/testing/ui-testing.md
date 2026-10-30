@@ -228,6 +228,7 @@ bash tests/scripts/ui-test.sh android           # = make ui-test-android
 bash tests/scripts/ui-test.sh android-emulator  # = make ui-test-android-emulator
 bash tests/scripts/ui-test.sh linux             # = make ui-test-linux
 bash tests/scripts/ui-test.sh prototype         # = make ui-prototype; desktop prototype screenshots
+bash tests/scripts/ui-test.sh prototype-android # = make ui-prototype-android; Android prototype screenshots
 bash tests/scripts/ui-test.sh all               # = make ui-test; the three above in order
 bash tests/scripts/ui-test.sh shell [android|linux]   # = make ui-test-shell (android)
 ```
@@ -325,6 +326,14 @@ for each screen of [Desktop screens](../design/desktop-screens.md) in English an
 and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
 non-zero when any page fails to load or save. The prototype has no logic, so this checks layout
 and wording only; the maintainer reviews the files by eye.
+
+### Android prototype screenshots
+
+`ui-test.sh prototype-android` (`make ui-prototype-android`) does the same for
+`clients/android/prototype/index.html` with the same image: every state of
+[Mobile screens](../design/mobile-screens.md) in English and Russian, light and dark, at 360 and
+412 px wide, saved to `build/ux-research/prototype-android/<state>[-dark]-<lang>-<width>.png`.
+The desktop prototype is mounted too, because the Android one loads its strings.
 
 ### Reports on the host
 

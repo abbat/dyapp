@@ -68,7 +68,8 @@ SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
 # Screen pages list control IDs and states that their prototype must contain.
 SCREENS = {
-    "docs/design/desktop-screens.md": "clients/desktop/prototype/index.html"}
+    "docs/design/desktop-screens.md": "clients/desktop/prototype/index.html",
+    "docs/design/mobile-screens.md": "clients/android/prototype/index.html"}
 SCREEN_ID = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`")
 PROTOTYPE_ID = re.compile(r'\b(?:id|data-on)="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.

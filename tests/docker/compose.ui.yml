@@ -104,6 +104,21 @@ services:
       HOME: /home/appuser
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py]
 
+  # The Android prototype loads the desktop strings through ../../desktop, so both are mounted.
+  prototype-shots-android:
+    <<: *runtime
+    image: dyapp:prototype
+    profiles: [prototype, all]
+    network_mode: none
+    environment:
+      HOME: /home/appuser
+    volumes:
+      - ../../clients/desktop:/desktop:ro
+      - ../../clients/android/prototype:/android/prototype:ro
+      - ../../build/ux-research/prototype-android:/shots
+      - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
+    command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py, android]
+
 volumes:
   ui-reports:
   android-avd:
