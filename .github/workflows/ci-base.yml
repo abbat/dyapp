@@ -32,6 +32,9 @@ jobs:
       - name: fetch
         run: for lock in $(git ls-files '*Cargo.lock'); do cargo fetch --locked --manifest-path "$(dirname "$lock")/Cargo.toml"; done
       - name: check
+        env:
+          # Empty for workflow_dispatch: docs-sync.py then uses origin/main.
+          DOCS_SYNC_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash tests/scripts/rust-check.sh quality
       - name: raw check logs
         if: always()

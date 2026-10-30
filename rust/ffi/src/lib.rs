@@ -515,6 +515,14 @@ mod tests {
     }
 
     #[test]
+    fn test_node_id_pow_reaches_the_network_layer() {
+        set_test_node_id_pow_bits(8);
+        assert_eq!(dyapp_p2p_net::id_pow_bits(), 8);
+        set_test_node_id_pow_bits(dyapp_p2p_net::ID_POW_BITS);
+        assert_eq!(dyapp_p2p_net::id_pow_bits(), dyapp_p2p_net::ID_POW_BITS);
+    }
+
+    #[test]
     fn places_are_named_and_found_through_the_core() {
         let berlin = place_name("DE".into(), 2950159, "ru".into()).expect("Berlin");
         assert_eq!(berlin.name, "Берлин");

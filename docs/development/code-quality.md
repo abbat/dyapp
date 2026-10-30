@@ -140,7 +140,8 @@ check. A server-side pre-update gate for owner pushes is planned. Until it exist
 ### Docs change with the code
 
 `tests/scripts/docs-sync.py` (in `make quality` and CI `quality`) enforces practice A2: every non-merge
-commit after its `BASELINE` that changes an interface line also changes a file under `docs/`.
+commit since the push or PR base (`DOCS_SYNC_BASE`; `origin/main` for a local run) that changes an
+interface line also changes a file under `docs/`. Commits already on `main` are not checked again.
 Interface lines (`RULES` in the script, a heuristic):
 
 - config keys: `pub` fields in `rust/bootstrap/src/config.rs`; `dyappd` derives its
@@ -151,8 +152,8 @@ Interface lines (`RULES` in the script, a heuristic):
 - Make targets: `target:` lines in the `Makefile`.
 
 For a false positive (say, a renamed private config field), add a `Docs-Unchanged: <reason>`
-trailer to the commit message. Like the message check, the script reads committed history, so
-fix a failing commit with `git commit --amend` or a rebase.
+trailer to the commit message. Like the message check, the script reads the commits being pushed, so
+fix a failing commit with `git commit --amend` or a rebase before the push.
 
 ### Size budgets
 

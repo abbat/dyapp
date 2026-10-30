@@ -1,11 +1,13 @@
 """Practice A2: a commit that changes an interface also changes docs/.
 
 Usage: docs-sync.py
-Checks every commit after BASELINE. A commit fails when it changes a public
-interface line (RULES) but no file under docs/, unless its message has a
-`Docs-Unchanged: <reason>` trailer for a heuristic false positive.
+Checks the commits after DOCS_SYNC_BASE: the push or PR base, by default
+origin/main for a local run before a push. A commit fails when it changes a
+public interface line (RULES) but no file under docs/, unless its message
+has a `Docs-Unchanged: <reason>` trailer for a heuristic false positive.
 """
 import importlib.util
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -16,8 +18,6 @@ SPEC = importlib.util.spec_from_file_location(
     "triggers", ROOT / "tests/scripts/triggers.py")
 TRIGGERS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TRIGGERS)
-# Commits after this one follow the rule.
-BASELINE = "61f135ef3bba3ecef10f1fe08f83d3fab1eb9274"
 # (interface, globs, changed-line regex), the shape of triggers.load().
 RULES = [
     # Config keys; dyappd derives its --section.key flags from them.
@@ -43,10 +43,13 @@ def errors(files, message):
 def main():
     git = ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}",
            "-c", "core.quotePath=false"]
-    # A shallow clone without the baseline cannot run the check: fail.
-    subprocess.check_call(git + ["cat-file", "-e", BASELINE + "^{commit}"])
+    base = os.environ.get("DOCS_SYNC_BASE") or "origin/main"
+    # A push that creates a branch (zeros) or is forced (the old head is gone).
+    if subprocess.run(git + ["cat-file", "-e", base + "^{commit}"],
+                      stderr=subprocess.DEVNULL).returncode:
+        base = "origin/main"
     shas = subprocess.check_output(
-        git + ["rev-list", "--no-merges", BASELINE + "..HEAD"],
+        git + ["rev-list", "--no-merges", base + "..HEAD"],
         text=True).split()
     failed = []
     for sha in shas:

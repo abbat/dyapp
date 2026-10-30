@@ -184,7 +184,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Dependency age | `tests/scripts/check-dependency-age.py`: no crates.io version younger than 14 days in a tracked `Cargo.lock` ([dependency age](code-quality.md#dependency-age)) |
 | Advisory review dates | `tests/scripts/check-advisory-ignores.py`: every advisory ignore in `deny.toml` ends its reason in `review by YYYY-MM-DD (issue #N)`, every `osv-scanner.toml` entry has `ignoreUntil`, no date is more than 90 days ahead, and `.cargo/audit.toml` ignores exactly the `deny.toml` ids; expired dates do not fail here ([advisory ignores](code-quality.md#advisory-ignores)) |
 | Trigger list | `tests/scripts/triggers.py`: every glob of the [trigger list](code-quality.md#trigger-list) matches a tracked file |
-| Docs with the code | `tests/scripts/docs-sync.py`: commits after its baseline that change a config key, CLI flag, public API or Make target also change `docs/` ([rules](code-quality.md#docs-change-with-the-code)) |
+| Docs with the code | `tests/scripts/docs-sync.py`: commits since the push or PR base that change a config key, CLI flag, public API or Make target also change `docs/` ([rules](code-quality.md#docs-change-with-the-code)) |
 | Workflow lint | `actionlint` |
 | Workflow security | `zizmor --offline .github`: template injection, persisted checkout credentials, excessive permissions and the other offline audits; settings in `.github/zizmor.yml` |
 | Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
