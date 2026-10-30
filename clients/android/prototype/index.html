@@ -27,6 +27,7 @@
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M3 11.5 21 3l-7 18-3-7.5z"/><path d="M11 13.5 21 3"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
 </svg>
 
@@ -276,7 +277,7 @@ search providers asked: 0 of 3</pre>
         <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@4d81c6</code>
           <button type="button" class="btn text" id="copy-view-peer" data-t="action.copy"></button></p>
         <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
-        <div class="actions">
+        <div class="actions center">
           <button type="button" class="btn" id="view-message" data-on="profile-view" data-t="view.message"></button>
           <button type="button" class="btn filled" id="view-like" data-on="profile-view" aria-pressed="false"><svg aria-hidden="true" class="icon"><use href="#i-heart"/></svg><span data-t="view.like"></span></button>
           <button type="button" class="btn tonal" id="view-unlike" data-on="profile-view-match unlike-dialog" aria-pressed="true"><svg aria-hidden="true" class="icon fill"><use href="#i-heart"/></svg><span data-t="view.liked"></span></button>
@@ -354,7 +355,7 @@ search providers asked: 0 of 3</pre>
       <div class="composer">
         <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
         <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
-        <button type="button" class="btn filled" id="chat-send" data-t="chat.send" disabled></button>
+        <button type="button" class="icon-btn send" id="chat-send" data-ta="chat.send" disabled><svg aria-hidden="true" class="icon"><use href="#i-send"/></svg></button>
       </div>
     </section>
 
