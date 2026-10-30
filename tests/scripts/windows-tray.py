@@ -47,10 +47,10 @@ def shows_icons():
     while window := user32.FindWindowExW(None, window, None, "DYApp"):
         name = ctypes.create_unicode_buffer(256)
         user32.GetClassNameW(window, name, 256)
-        icons = [user32.SendMessageW(window, WM_GETICON, kind, 0)
-                 or user32.GetClassLongPtrW(window, index)
-                 for kind, index in ((ICON_SMALL, GCLP_HICONSM),
-                                     (ICON_BIG, GCLP_HICON))]
+        own = [user32.SendMessageW(window, WM_GETICON, kind, 0)
+               for kind in (ICON_SMALL, ICON_BIG)]
+        icons = [icon or user32.GetClassLongPtrW(window, index)
+                 for icon, index in zip(own, (GCLP_HICONSM, GCLP_HICON))]
         visible = user32.IsWindowVisible(window)
         log(f"window {name.value}: visible {visible}, icons {icons}")
         if visible and all(icons):
