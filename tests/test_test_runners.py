@@ -299,7 +299,8 @@ class Runners(unittest.TestCase):
                           lambda path, **_: made.append(path)), \
                 patch.object(runner.Path, "chmod"):
             runner.make_bind_directories(
-                ["-f", "tests/docker/compose.ui.yml", "--profile", "all", "run"])
+                ["-f", "tests/docker/compose.ui.yml",
+                 "--profile", "all", "run"])
         self.assertIn(ROOT / "build/linux-reports", made)
         self.assertIn(ROOT / "build/ux-research/current", made)
         self.assertNotIn(ROOT / "build/workspace", made)
