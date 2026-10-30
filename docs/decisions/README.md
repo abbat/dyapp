@@ -71,5 +71,6 @@ its commit. History is not rewritten: a pushed commit that lacks the trailer is 
 | [0032](0032-android-context-for-dns.md) | Android context for the DNS resolver |
 | [0033](0033-desktop-navigation-shell.md) | Desktop navigation shell |
 | [0034](0034-desktop-tray-and-single-instance.md) | Desktop tray and single instance |
+| [0035](0035-windows-free-disk-space.md) | Windows free disk space |
 
 All listed ADRs are accepted.

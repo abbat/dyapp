@@ -68,8 +68,14 @@ pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
     let (node_path, node, node_limit) = (None, None, None);
     #[cfg(unix)]
     let free = dir.to_str().and_then(|path| dyapp_bootstrap::storage::free(path).ok());
-    #[cfg(not(unix))]
-    let free = None;
+    // The volume is the disk whose mount point is the longest prefix of `dir`.
+    #[cfg(windows)]
+    let free = sysinfo::Disks::new_with_refreshed_list()
+        .list()
+        .iter()
+        .filter(|disk| dir.starts_with(disk.mount_point()))
+        .max_by_key(|disk| disk.mount_point().as_os_str().len())
+        .map(sysinfo::Disk::available_space);
     Usage {
         identity_dir: config.map(|path| path.display().to_string()),
         messages_path: dir.join("client.db").display().to_string(),
@@ -107,11 +113,11 @@ mod tests {
         let full = usage(Some(Path::new("/config")), &dir);
         assert_eq!(full.identity_dir.as_deref(), Some("/config"));
         assert_eq!(full.messages, Some(120));
+        assert!(full.free.is_some_and(|free| free > 0));
         #[cfg(unix)]
         {
             assert_eq!(full.node, Some(12));
             assert_eq!(full.node_limit, Some(1024 << 20));
-            assert!(full.free.is_some_and(|free| free > 0));
         }
         fs::remove_dir_all(&dir).unwrap();
     }

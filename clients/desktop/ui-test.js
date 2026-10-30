@@ -309,13 +309,13 @@ const checkStorageCard = async () => {
   const dir = text('usage-identity-dir');
   const sep = dir.includes('\\') ? '\\' : '/';
   const path = text('usage-messages-path');
-  // Windows has no node and no free-space call yet.
+  // Windows has no node.
   const windows = navigator.userAgent.includes('Windows');
   const sizes = ['usage-messages', 'usage-node', 'usage-free'];
   if (!/^(\/|[A-Za-z]:\\)/.test(dir) || !path.startsWith(`${dir}${sep}`)
     || !path.endsWith(`${sep}client.db`)
     || text('usage-messages') === window.strings['usage.unavailable']
-    || shown('usage-node-row') === windows || shown('usage-free-row') === windows
+    || shown('usage-node-row') === windows || !shown('usage-free-row')
     || sizes.some((id) => /^0\s/.test(text(id)))) {
     throw new Error(`Storage card wrong: ${dir} ${path} ${sizes.map(text).join(' | ')}`);
   }

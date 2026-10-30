@@ -1477,6 +1477,7 @@ dependencies = [
  "keyring-core",
  "serde",
  "serde_json",
+ "sysinfo",
  "tauri",
  "tauri-build",
  "tauri-plugin-single-instance",
