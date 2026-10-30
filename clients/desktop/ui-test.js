@@ -181,20 +181,28 @@ const submitCheck = async (rows) => {
   return status === strings['network.empty'] ? 'empty'
     : [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status);
 };
-// A reachable node enables Continue, which activates the checked draft.
+const connection = () => document.getElementById('connection-status').dataset.state;
+// A failed check shows the error with every row in its details and keeps the shell status.
+const expectFailed = (rows, state) => {
+  const details = document.getElementById('network-error-details').textContent;
+  if (document.getElementById('network-error').hidden
+    || rows.some((row) => !details.includes(row))) throw new Error(`error details ${details}`);
+  if (connection() !== state) throw new Error(`failed check left ${connection()}`);
+};
+// A node that answers activates the list at once and the shell shows Connected.
 const connectNetwork = async (seed) => {
   const rows = await submitCheck(seed);
   if (rows.join() !== 'connected') throw new Error(`rows ${rows}`);
-  const next = document.getElementById('continue-connection');
-  if (next.disabled) throw new Error('continue disabled after a connected check');
-  next.click();
-  await window.connectionActivated;
   if (document.getElementById('network-status').textContent
     !== window.strings['network.active']) throw new Error('connection not activated');
+  if (connection() !== 'connected') throw new Error(`shell shows ${connection()}`);
   if (!document.getElementById('identity').hidden) await shot('network-connected');
 };
-// An empty list is refused, then a refused and a malformed row keep Continue disabled.
+// An empty list is refused, then a refused and a malformed row activate nothing.
 const checkNetwork = async () => {
+  // The launch connect settles first, so it cannot overwrite the status this check sets.
+  await window.connectionShown;
+  const state = connection();
   if (await submitCheck('') !== 'empty') throw new Error('empty list not reported');
   await shot('network-empty');
   const rows = await submitCheck(testSeeds);
@@ -202,12 +210,13 @@ const checkNetwork = async () => {
   await shot('network-failure');
   if (document.getElementById('network-status').textContent
     !== window.strings['network.invalidAddress']) throw new Error('row problem not summarized');
-  if (!document.getElementById('continue-connection').disabled) {
-    throw new Error('continue enabled without a connected node');
-  }
+  expectFailed(testSeeds.split('\n'), state);
 };
 // A seed that accepts and never answers keeps the check running until Cancel stops it.
 const cancelNetwork = async (seed) => {
+  // The launch connect settles first, so it cannot overwrite the status this check sets.
+  await window.connectionShown;
+  const state = connection();
   if (document.getElementById('wizard-network').hidden) await openArea('network-area');
   document.getElementById('seeds').value = seed;
   document.getElementById('check-connection').click();
@@ -222,21 +231,21 @@ const cancelNetwork = async (seed) => {
   }
   if (document.getElementById('network-status').textContent
     !== window.strings['network.cancelled']) throw new Error('check not cancelled');
-  if (!cancel.hidden || !document.getElementById('continue-connection').disabled) {
-    throw new Error('cancelled check left Cancel shown or Continue enabled');
-  }
+  if (!cancel.hidden) throw new Error('cancelled check left Cancel shown');
+  if (connection() !== state) throw new Error(`cancelled check left ${connection()}`);
 };
-// The live node under a wrong pin or another network name, then down: Continue stays off.
+// The live node under a wrong pin or another network name, then down: nothing activates.
 const checkWrongNetwork = async (seed) => {
+  // The launch connect settles first, so it cannot overwrite the status this check sets.
+  await window.connectionShown;
+  const state = connection();
   const name = document.getElementById('network-name');
   const otherPeer = '12D3KooW9tJMax94Lrqw7Y5Qw36viGQAS2gTEPQ5Wg1vTk7xPfQs';
   const expect = async (rows, statuses, summary) => {
     const shown = await submitCheck(rows);
     if (shown.join() !== statuses || document.getElementById('network-status').textContent
       !== window.strings[summary]) throw new Error(`${rows}: rows ${shown}`);
-    if (!document.getElementById('continue-connection').disabled) {
-      throw new Error(`continue enabled for ${rows}`);
-    }
+    expectFailed([rows], state);
   };
   await expect(`${seed}/${otherPeer}`, 'wrongPeer', 'network.wrong');
   name.value = 'city';
@@ -731,6 +740,12 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step.startsWith('connect:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await connectNetwork(step.slice('connect:'.length));
+    } else if (step.startsWith('launch:')) {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await window.connectionShown;
+      if (connection() !== step.slice('launch:'.length)) {
+        throw new Error(`launch shows ${connection()}`);
+      }
     } else if (step.startsWith('cancel:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await cancelNetwork(step.slice('cancel:'.length));
@@ -742,6 +757,8 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
       if (document.getElementById('network-status').textContent
         !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
+      await window.connectionShown;
+      if (connection() !== 'offline') throw new Error(`no active network shows ${connection()}`);
     } else if (step === 'node') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkNode();

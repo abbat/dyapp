@@ -141,11 +141,12 @@ Profile and comes back, checks that draft rows and failed row statuses survive n
 the active network file byte for byte before and after a failed check. A deterministic
 Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race the ordinary
 11-bit puzzle.
-Without a node, both platforms check the empty list, a closed port next to an invalid row with
-Continue disabled, a relaunch that keeps the draft unactivated, navigation that keeps the draft
-and failed rows, and Cancel on a seed that accepts but never answers. dyappd builds only for
-Linux, so on Windows the connected, wrong-pin, wrong-network and wizard-connect paths are an
-accepted gap: they run the same `clients/desktop` code and are verified on Linux only. The same
+Without a node, both platforms check the empty list, a closed port next to an invalid row that
+activates nothing and shows the rows in the error details, a relaunch that shows Offline and
+keeps the draft unactivated, navigation that keeps the draft and failed rows, and Cancel on a seed
+that accepts but never answers. dyappd builds only for Linux, so on Windows the connected
+(Connected again at the next launch, kept by a Cancel), wrong-pin, wrong-network and
+wizard-connect paths are an accepted gap: they run the same `clients/desktop` code and are verified on Linux only. The same
 holds for publishing, searching on a node and the node settings. Without dyappd, the smoke
 instead runs the no-network start of the Linux fixture on a fresh identity: publishing keeps the
 draft and offers the network, and search asks to connect.

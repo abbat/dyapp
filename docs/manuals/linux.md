@@ -12,7 +12,7 @@ shown and the app-data file is preselected), or an app-data file, which keeps th
 you. Nothing is created until **Create identity**. Restoring an existing identity is planned.
 
 Step 2 shows the new full Peer ID with **Copy** and the Network form: check the bootstrap
-addresses you were given and press **Continue**, or **Skip for now** and connect later in
+addresses you were given and press **Check and connect**, or **Skip for now** and connect later in
 **Network**.
 
 If the active identity cannot be opened, the window says why in plain words. **Details**, collapsed,
@@ -67,10 +67,15 @@ unsuccessful Check leaves the prior active network unchanged.
 
 After the identity opens, enter the bootstrap nodes you were given, one `host:port` per line
 (IPv6 in brackets, optionally `/<peer ID>` to pin the node), and the network name, blank for the
-public network. **Check connection** saves the rows and dials each one; every row shows its own
-result, and **Continue** turns on only when at least one node of that network answered. Continue
-makes these the active settings. The rows and settings belong to the open identity and stay in its
-folder; checking never changes the identity key.
+public network. **Check and connect** saves the rows and dials each one; every row shows its own
+result. When at least one node of that network answers, these become the active settings at once.
+Otherwise an error, with the rows in its collapsed **Details**, says nothing changed; a failed or
+cancelled check keeps the previous network. The rows and settings belong to the open identity and
+stay in its folder; checking never changes the identity key.
+
+At launch the app dials the active network by itself. The bottom of the sidebar (the top bar below
+641 px) shows **Connecting…**, **Connected** with the network name, or **Offline**; click it to open
+**Network**.
 
 ## Public profile
 

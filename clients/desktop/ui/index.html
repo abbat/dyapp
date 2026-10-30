@@ -90,6 +90,7 @@
       <button id="menu-open" class="btn quiet" type="button" data-i18n-label="nav.menu"
         aria-controls="sidebar" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
       <span class="title" data-i18n="app.name"></span>
+      <span class="dot connection-dot"></span><span class="caption connection-label"></span>
     </header>
     <div id="scrim" class="scrim"></div>
     <nav id="sidebar" class="sidebar" data-i18n-label="nav.main">
@@ -103,6 +104,10 @@
       <div class="spacer"></div>
       <button id="nav-settings" class="nav" type="button" data-area="settings"
         data-i18n-label="nav.settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label" data-i18n="nav.settings"></span></button>
+      <!-- Connecting, Connected or Offline; opens Network. The top bar repeats it at 640 px. -->
+      <button id="connection-status" class="nav" type="button" data-state="offline">
+        <span class="dot connection-dot"></span><span class="label" role="status"><span
+          class="connection-label"></span><span id="connection-network" class="sub"></span></span></button>
     </nav>
     <main class="content">
       <section id="profile-area">
@@ -211,21 +216,30 @@
       </section>
       <section id="network-area" hidden>
         <h1 data-i18n="network.title"></h1>
+        <!-- Check and connect activates only a list a node of the network answered. -->
         <form id="network" class="card" novalidate>
-          <div class="field"><label for="seeds" data-i18n="network.seeds"></label>
-            <textarea id="seeds" rows="3" spellcheck="false"></textarea></div>
-          <div class="field"><label for="network-name" data-i18n="network.name"></label>
-            <input id="network-name" type="text" spellcheck="false"></div>
           <p id="network-status" class="muted" role="status"></p>
+          <div id="network-error" class="notice error" role="alert" hidden>
+            <p data-i18n="network.error"></p>
+            <details id="network-error-more"><summary data-i18n="network.details"></summary>
+              <pre id="network-error-details"></pre>
+              <button id="copy-network-details" class="btn quiet" type="button"
+                data-i18n="action.copy"></button></details></div>
+          <div class="field"><label for="network-name" data-i18n="network.name"></label>
+            <input id="network-name" type="text" spellcheck="false"
+              data-i18n-placeholder="network.name.public">
+            <p class="caption" data-i18n="network.name.hint"></p></div>
+          <div class="field"><label for="seeds" data-i18n="network.seeds"></label>
+            <textarea id="seeds" rows="3" spellcheck="false"></textarea>
+            <p class="caption" data-i18n="network.seeds.hint"></p></div>
           <ol id="seed-rows"></ol>
           <div class="actions">
             <button id="skip-network" class="btn start" type="button" data-i18n="setup.skip" hidden></button>
             <button id="cancel-check" class="btn" type="button" data-i18n="network.cancel" hidden></button>
             <button id="check-connection" class="btn primary" type="submit" data-i18n="network.check"></button>
-            <button id="continue-connection" class="btn" type="button" data-i18n="network.continue"
-              disabled></button>
           </div>
         </form>
+        <p class="caption" data-i18n="network.keep"></p>
       </section>
       <section id="settings" hidden>
         <h1 data-i18n="settings.title"></h1>
@@ -299,5 +313,6 @@
     </div>
   </dialog>
   <script src="app.js"></script>
+  <script src="network.js"></script>
 </body>
 </html>

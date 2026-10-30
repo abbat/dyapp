@@ -25,6 +25,9 @@ window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russ
       element.setAttribute('aria-label', window.strings[element.dataset.i18nLabel]);
       if (element.tagName === 'BUTTON') element.title = window.strings[element.dataset.i18nLabel];
     }
+    for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
+      element.placeholder = window.strings[element.dataset.i18nPlaceholder];
+    }
   });
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
@@ -290,130 +293,6 @@ const settingsCreate = document.getElementById('settings-create');
 const settingsSwitch = document.getElementById('settings-switch');
 settingsCreate.addEventListener('click', () => act(invoke('storage_options')));
 settingsSwitch.addEventListener('click', () => act({ status: 'picker' }));
-
-// Bootstrap settings of the open identity: draft rows, a bounded check, then Continue.
-const network = document.getElementById('network');
-const seeds = document.getElementById('seeds');
-const networkName = document.getElementById('network-name');
-const checkButton = document.getElementById('check-connection');
-const cancelButton = document.getElementById('cancel-check');
-const continueButton = document.getElementById('continue-connection');
-const seedRows = document.getElementById('seed-rows');
-const networkStatus = (key, detail) => {
-  const text = window.strings[key];
-  document.getElementById('network-status').textContent = detail ? `${text} ${detail}` : text;
-};
-const draft = () => ({
-  seeds: seeds.value.split('\n').map((row) => row.trim()).filter(Boolean),
-  name: networkName.value,
-});
-
-// Fills the form from the draft, else the active settings; a damaged file is shown, not reset.
-const showNetwork = async () => {
-  seedRows.replaceChildren();
-  continueButton.disabled = true;
-  try {
-    const active = await invoke('load_network', { file: 'active' });
-    const saved = await invoke('load_network', { file: 'draft' }) || active;
-    seeds.value = saved ? saved.seeds.join('\n') : '';
-    networkName.value = saved ? saved.name : '';
-    networkStatus(active ? 'network.active' : 'network.idle');
-  } catch (error) {
-    networkStatus('network.failed', String(error));
-  }
-};
-
-const rowItem = (seed, row) => {
-  const entry = document.createElement('li');
-  entry.dataset.status = row.status;
-  entry.textContent = `${seed}: ${window.strings[`network.row.${row.status}`]}`;
-  // The node ID or the transport error is for an operator, so it stays collapsed.
-  const detail = row.peerId || row.reason;
-  if (detail) {
-    const more = document.createElement('details');
-    const label = document.createElement('summary');
-    const code = document.createElement('pre');
-    label.textContent = window.strings['network.details'];
-    code.textContent = detail;
-    more.append(label, code);
-    entry.append(more);
-  }
-  return entry;
-};
-
-// A row-level problem the user must correct outranks nodes that are merely down.
-const summary = (rows) => {
-  const has = (...codes) => rows.some((row) => codes.includes(row.status));
-  if (has('connected')) return 'network.connected';
-  if (has('invalidAddress', 'invalidPeerId', 'duplicate')) return 'network.invalidAddress';
-  if (has('wrongPeer', 'wrongNetwork')) return 'network.wrong';
-  return 'network.unreachable';
-};
-
-const check = async () => {
-  const rows = draft();
-  checkButton.disabled = true;
-  continueButton.disabled = true;
-  cancelButton.hidden = false;
-  seedRows.replaceChildren();
-  networkStatus('network.checking');
-  try {
-    const result = await invoke('check_connection', { draft: rows, waitMs: 15000 });
-    seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
-    continueButton.disabled = !result.some((row) => row.status === 'connected');
-    networkStatus(summary(result));
-  } catch (error) {
-    const [code, ...reason] = String(error).split(': ');
-    if (['empty', 'cancelled', 'invalidNetwork'].includes(code)) {
-      networkStatus(`network.${code}`, reason.join(': '));
-    } else {
-      networkStatus('network.failed', String(error));
-    }
-  } finally {
-    checkButton.disabled = false;
-    cancelButton.hidden = true;
-  }
-};
-
-network.addEventListener('submit', (event) => {
-  event.preventDefault();
-  window.connectionChecked = check();
-});
-// Edits invalidate the last success and are kept even if the app closes before a check.
-network.addEventListener('input', () => { continueButton.disabled = true; });
-network.addEventListener('change', () => invoke('save_network_draft', { draft: draft() })
-  .catch((error) => networkStatus('network.failed', String(error))));
-cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
-// First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
-const peerCode = document.getElementById('peer-id');
-const peerCard = peerCode.parentElement;
-const skipNetwork = document.getElementById('skip-network');
-const wizardStep = (on) => {
-  (on ? document.getElementById('wizard-peer') : peerCard).append(peerCode);
-  (on ? document.getElementById('wizard-form') : document.getElementById('network-area'))
-    .append(network);
-  network.classList.toggle('card', !on);
-  skipNetwork.hidden = !on;
-};
-const leaveWizard = () => {
-  if (wizardNetwork.hidden) return;
-  wizardStep(false);
-  show(identity, 'status.ready');
-};
-skipNetwork.addEventListener('click', leaveWizard);
-copyFrom(document.getElementById('copy-peer-id'), peerCode);
-
-continueButton.addEventListener('click', () => {
-  continueButton.disabled = true;
-  window.connectionActivated = invoke('activate_connection')
-    .then(() => {
-      networkStatus('network.active');
-      // A node that waited for a network starts on it now.
-      invoke('apply_node').catch(() => {});
-      leaveWizard();
-    })
-    .catch((error) => networkStatus('network.failed', String(error)));
-});
 
 // The store and search node the app runs while open (ADR 0030); Windows builds have no node
 // commands, so the form stays hidden there.
@@ -886,6 +765,7 @@ async function render(state) {
     text.lastChild.className = 'sub';
     sidebarIdentity.replaceChildren(avatar, text);
     await showNetwork();
+    window.connectionShown = connectAtLaunch();
     await showProfile();
     resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.

@@ -3,7 +3,7 @@
 
 Read-only. Per top-level <section> it lists every control with its id,
 data-i18n key, English and Russian text and default hidden/disabled state,
-then the lines of app.js that assign `.hidden` or `.disabled` to that
+then the lines of the page scripts that assign `.hidden` or `.disabled` to that
 control. Output is deterministic:
 
     python3 -B tools/scripts/ui-inventory.py
@@ -19,7 +19,8 @@ UI = ROOT / "clients/desktop/ui"
 VOID = {"input", "meta", "br", "hr", "img", "link"}
 CONTROLS = {"button", "input", "select", "textarea", "fieldset", "form",
             "details", "output", "option"}
-SHOWN = 8  # app.js condition lines listed per control
+SCRIPTS = ("app.js", "network.js")
+SHOWN = 8  # script condition lines listed per control
 
 
 class Page(HTMLParser):
@@ -80,8 +81,8 @@ def cell(text):
     return (text or "").replace("|", "\\|").replace("\n", " ") or "-"
 
 
-def conditions(js):
-    """Map element id -> [(line, code)] of `.hidden`/`.disabled` sets."""
+def conditions(name, js):
+    """Map element id -> [(file:line, code)] of `.hidden`/`.disabled` sets."""
     names = dict(re.findall(
         r"const (\w+) = document\.getElementById\('([^']+)'\)", js))
     # ponytail: line regex only; loops (`for (const each of ...)
@@ -95,7 +96,7 @@ def conditions(js):
             match = re.match(r"getElementById\('([^']+)'\)", target)
             ident = match.group(1) if match else names.get(target)
             if ident:
-                found.setdefault(ident, []).append((number, line.strip()))
+                found.setdefault(ident, []).append((f"{name}:{number}", line.strip()))
     return found
 
 
@@ -106,7 +107,11 @@ def main():
     ru = json.loads((UI / "i18n/ru.json").read_text(encoding="utf-8"))
     page = Page()
     page.feed((UI / "index.html").read_text(encoding="utf-8"))
-    cond = conditions((UI / "app.js").read_text(encoding="utf-8"))
+    cond = {}
+    for name in SCRIPTS:
+        js = (UI / name).read_text(encoding="utf-8")
+        for ident, items in conditions(name, js).items():
+            cond.setdefault(ident, []).extend(items)
     screens = []
     for row in page.rows:
         if row["screen"] not in screens:
@@ -114,7 +119,7 @@ def main():
         row["key"] = row["key"] or page.labels.get(row["id"]) or (
             row["label"] or {}).get("key")
     print("# Desktop UI inventory\n")
-    print("Source: clients/desktop/ui/index.html, app.js, i18n/en.json, "
+    print("Source: clients/desktop/ui/index.html, app.js, network.js, i18n/en.json, "
           "i18n/ru.json.\n")
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
@@ -129,11 +134,11 @@ def main():
                   f"{r['hidden']} | {r['disabled']} |")
         lines = [(r["id"], cond[r["id"]]) for r in rows if r["id"] in cond]
         if lines:
-            print("\nConditions in app.js:\n")
+            print("\nConditions in the scripts:\n")
         for ident, items in lines:
             for number, code in items[:SHOWN]:
                 code = code.replace('`', chr(39))[:90]
-                print(f"- `{ident}` app.js:{number}: `{code}`")
+                print(f"- `{ident}` {number}: `{code}`")
             if len(items) > SHOWN:
                 print(f"- `{ident}` +{len(items) - SHOWN} more")
         print()

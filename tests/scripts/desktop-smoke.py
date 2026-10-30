@@ -323,7 +323,7 @@ def smoke(executable, flows=True):
             raise RuntimeError("reopening a profile replaced the identity")
 
     def connect(profile):
-        """A loopback dyappd connects the form; Continue activates it."""
+        """A loopback dyappd answers the check, which activates the list."""
         node, storage = Path(executable).with_name("dyappd"), Path(profile)
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -369,6 +369,9 @@ def smoke(executable, flows=True):
                              profile)
             if connected != peer_id:
                 raise RuntimeError("connecting replaced the identity")
+            # The next launch dials the active network on its own.
+            case("network-launch", [*file, "--ui-test-step=launch:connected"],
+                 profile)
             slot = (storage / "active-profile").read_text().strip()
             if case("node", [*file, "--ui-test-step=node"], profile,
                     timeout=180) != peer_id:
@@ -386,6 +389,15 @@ def smoke(executable, flows=True):
                 raise RuntimeError("failed Settings check changed identity")
             if active.read_bytes() != active_before:
                 raise RuntimeError("Settings check changed active network")
+            # A cancelled check keeps the previous network and its status.
+            with socket.socket() as silent:
+                silent.bind(("127.0.0.1", 0))
+                silent.listen()
+                quiet = "127.0.0.1:%d" % silent.getsockname()[1]
+                case("network-cancel-active",
+                     [*file, f"--ui-test-step=cancel:{quiet}"], profile)
+            if active.read_bytes() != active_before:
+                raise RuntimeError("a cancelled check changed active network")
             published = case("profile-publish-retry",
                              [*file, "--ui-test-step=profile-publish-retry"],
                              profile, timeout=180)
@@ -413,7 +425,7 @@ def smoke(executable, flows=True):
             server.wait(timeout=30)
         slot = (storage / "active-profile").read_text().strip()
         if not (storage / "profiles" / slot / "network").is_file():
-            raise RuntimeError("Continue did not activate the checked draft")
+            raise RuntimeError("the connected check did not activate")
 
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:

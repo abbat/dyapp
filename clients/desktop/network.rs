@@ -118,6 +118,16 @@ pub fn cancel(state: &NetworkState) {
     }
 }
 
+/// Dials the active settings of `dir` as the app opens; `true` when a node of the network
+/// answered, `false` when none did or nothing is active. Never touches the saved files.
+pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
+    let Some(active) = network::load(dir, Settings::Active).map_err(|e| e.to_string())? else {
+        return Ok(false);
+    };
+    let rows = seeds::check(&active, wait).await.unwrap_or_default();
+    Ok(rows.iter().any(|row| matches!(row, Row::Connected(_))))
+}
+
 /// Makes the last draft of `dir` that reached a node the active configuration; `notChecked`
 /// when no check of this folder did.
 pub fn activate(state: &NetworkState, dir: &Path) -> Result<Draft, String> {
@@ -187,6 +197,21 @@ mod tests {
         );
         assert_eq!(activate(&state, &dir), Ok(other.clone()));
         assert_eq!(load(&dir, "active"), Ok(Some(other)));
+    }
+
+    #[tokio::test]
+    async fn launch_connect_is_offline_without_an_answering_active_network() {
+        let dir = temp_dir("launch");
+        let wait = Duration::from_secs(2);
+        assert_eq!(connect(&dir, wait).await, Ok(false));
+        let closed = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap();
+        let down = draft(&[&closed.to_string()], "");
+        network::save(&dir, Settings::Active, &down.clone().into()).unwrap();
+        assert_eq!(connect(&dir, wait).await, Ok(false));
+        assert_eq!(load(&dir, "draft"), Ok(None));
     }
 
     #[tokio::test]

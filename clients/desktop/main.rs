@@ -307,6 +307,16 @@ fn cancel_connection_check(checks: tauri::State<'_, NetworkState>) {
     network::cancel(&checks);
 }
 
+/// Connects to the active network as the app opens; `true` when a node of it answered.
+#[tauri::command]
+async fn connect_network(
+    state: tauri::State<'_, IdentityState>,
+    wait_ms: u32,
+) -> Result<bool, String> {
+    let dir = identity_dir(&state)?;
+    network::connect(&dir, Duration::from_millis(wait_ms.into())).await
+}
+
 #[tauri::command]
 async fn activate_connection(
     state: tauri::State<'_, IdentityState>,
@@ -733,6 +743,7 @@ fn main() {
             check_connection,
             cancel_connection_check,
             activate_connection,
+            connect_network,
             profile_scales,
             place_countries,
             place_name,
