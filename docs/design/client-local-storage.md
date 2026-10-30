@@ -73,15 +73,17 @@ Each profile database owns its settings and pass history; neither is published t
 `search_publish` holds the search publish window: the last time search nodes accepted the profile,
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
-the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)).
+the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)); a held
+tombstone is sent at once. `publish::hide` publishes a tombstone, holds it for search and sets
+`profile_hidden` (a one-byte flag; absent means shown), and the next `publish::publish` clears it.
 `search::publish_due` sends it to the given search nodes; a `STALE` reply counts as accepted, and
 with no node accepting, the longest `RATE_LIMITED` wait holds it. The Linux desktop shows the
 minutes left (`Store::search_profile_minutes_left`) and sends a due profile while it runs and on
 start. `search_heartbeat` (format 1)
 holds the big-endian Unix second at which the next heartbeat is due: a random second of the UTC
 day after a node last accepted one, so app opens do not set the time. `search::beat_due` sends
-one with that day's proof of work only once it is due, and a `RATE_LIMITED` reply (two already
-that day) counts as accepted.
+one with that day's proof of work only once it is due and the profile is not hidden, and a
+`RATE_LIMITED` reply (two already that day) counts as accepted.
 
 Like/unlike/view event ordering and match derivation belong to the
 [interaction state](private-interactions.md); a match is derived from durable events rather than a

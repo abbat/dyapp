@@ -316,6 +316,7 @@ async fn fetch(
 /// profile listed. `bits` is the
 /// nodes' `NodeInfo.min_heartbeat_pow`. Returns whether a node took it; `RATE_LIMITED` means it
 /// has two for today. On `NOT_FOUND` a node lacks this version, which the next publish fixes.
+/// A hidden profile ([`Store::profile_hidden`]) sends none.
 pub async fn beat_due(
     store: &Store,
     identity: &Identity,
@@ -324,7 +325,7 @@ pub async fn beat_due(
     nodes: &mut [Node],
     now: u64,
 ) -> Result<bool, store::Error> {
-    if !store.search_heartbeat_due(now)? {
+    if store.profile_hidden()? || !store.search_heartbeat_due(now)? {
         return Ok(false);
     }
     let Ok(day) = u32::try_from(now / 86_400) else {

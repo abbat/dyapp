@@ -66,18 +66,54 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 /// Publish `draft` (version: the last one published) to `node` at the next version and read it
 /// back. Succeeds only when the signed readback equals the published profile, which is then
 /// saved as the draft and held for search ([`Store::hold_search_profile`]); on failure the draft
-/// is unchanged and the publish may be retried.
+/// is unchanged and the publish may be retried. A hidden profile is shown again.
 pub async fn publish(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    let peer_id = identity.peer_id();
-    let mut profile = Profile {
+    let next = Profile {
         version: draft.version + 1,
         ..draft.clone()
     };
+    let profile = send(node, identity, next).await?;
+    store.save_profile_draft(&profile)?;
+    store.hold_search_profile(&profile.sign(identity))?;
+    store.set_profile_hidden(false)?;
+    Ok(profile)
+}
+
+/// Hide the profile from search: publish a tombstone after `draft` to `node` and read it back,
+/// then hold it for search, where it is sent at once ([`crate::search::publish_due`]), and stop
+/// heartbeats ([`Store::profile_hidden`]). Returns the draft with the tombstone's version, saved,
+/// so [`publish`] shows the profile again. On failure nothing changes: for identity removal this
+/// means no node took the tombstone, and the owner may retry or remove anyway.
+pub async fn hide(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+) -> Result<Profile, Failure> {
+    let next = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
+    let tombstone = send(node, identity, next).await?;
+    let draft = Profile {
+        version: tombstone.version,
+        ..draft.clone()
+    };
+    store.save_profile_draft(&draft)?;
+    store.hold_search_profile(&tombstone.sign(identity))?;
+    store.set_profile_hidden(true)?;
+    Ok(draft)
+}
+
+// Publish `profile` to `node` and read it back; a newer version held there moves it past that.
+async fn send(
+    node: &mut Node,
+    identity: &Identity,
+    mut profile: Profile,
+) -> Result<Profile, Error> {
+    let peer_id = identity.peer_id();
     match node.publish_profile(profile.sign(identity)).await {
         Ok(()) => {}
         // A lost reply to this same publish, or a newer version from another device.
@@ -88,13 +124,11 @@ pub async fn publish(
                 node.publish_profile(profile.sign(identity)).await?;
             }
         }
-        Err(error) => return Err(error.into()),
+        Err(error) => return Err(error),
     }
     if node.get_profile(&peer_id).await?.profile != profile {
-        return Err(Error::Reply("readback differs from the published profile").into());
+        return Err(Error::Reply("readback differs from the published profile"));
     }
-    store.save_profile_draft(&profile)?;
-    store.hold_search_profile(&profile.sign(identity))?;
     Ok(profile)
 }
 
@@ -111,7 +145,7 @@ pub enum Failure {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, publish, work, Block, Failure};
+    use super::{check, hide, publish, work, Block, Failure};
     use crate::store::{tests::temp_db_path, Store};
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
@@ -296,6 +330,38 @@ mod tests {
             publish(&again, &mut node, &alice, &preview).await.unwrap(),
             published
         );
+    }
+
+    #[tokio::test]
+    async fn hide_publishes_a_tombstone_sent_to_search_at_once_and_publish_shows_again() {
+        let alice = Identity::generate();
+        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let (mut node, held) = profile_node(Vec::new()).await;
+        let shown = draft(None, None, None);
+        let shown = publish(&store, &mut node, &alice, &shown).await.unwrap();
+        store
+            .search_profile_sent(&store.due_search_profile(1_000).unwrap().unwrap(), 1_000)
+            .unwrap();
+        // A failed hide, as for identity removal with no node taking it, changes nothing.
+        let (mut refusing, _) = profile_node(vec![Status::Denied]).await;
+        assert!(hide(&store, &mut refusing, &alice, &shown).await.is_err());
+        assert!(!store.profile_hidden().unwrap());
+        assert_eq!(store.profile_draft().unwrap(), Some(shown.clone()));
+        let hidden = hide(&store, &mut node, &alice, &shown).await.unwrap();
+        assert_eq!((hidden.version, hidden.gender), (2, shown.gender));
+        assert_eq!(store.profile_draft().unwrap(), Some(hidden.clone()));
+        assert!(store.profile_hidden().unwrap());
+        let tombstone = held.lock().unwrap().clone().unwrap();
+        assert_eq!(
+            dyapp_profile::verify(&tombstone).unwrap().profile,
+            Profile::tombstone(2, shown.pow_nonce, shown.pow_bits)
+        );
+        // Within the 10 minutes after the last send.
+        assert_eq!(store.due_search_profile(1_001).unwrap(), Some(tombstone));
+        let again = publish(&store, &mut node, &alice, &hidden).await.unwrap();
+        assert_eq!((again.version, again.gender), (3, shown.gender));
+        assert!(!store.profile_hidden().unwrap());
+        assert_eq!(store.due_search_profile(1_001).unwrap(), None);
     }
 
     #[tokio::test]

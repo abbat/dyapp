@@ -177,11 +177,30 @@ impl Store {
 
     /// Whether this profile sends optional view signals; absent means off.
     pub fn send_profile_views(&self) -> Result<bool, Error> {
+        self.setting_flag("send_profile_views")
+    }
+
+    /// Persist this profile's choice to send optional view signals.
+    pub fn set_send_profile_views(&self, enabled: bool) -> Result<(), Error> {
+        self.set_setting_flag("send_profile_views", enabled)
+    }
+
+    /// Whether the owner hid the profile from search with a tombstone; absent means shown.
+    pub fn profile_hidden(&self) -> Result<bool, Error> {
+        self.setting_flag("profile_hidden")
+    }
+
+    /// Persist whether the profile is hidden from search.
+    pub fn set_profile_hidden(&self, hidden: bool) -> Result<(), Error> {
+        self.set_setting_flag("profile_hidden", hidden)
+    }
+
+    fn setting_flag(&self, key: &str) -> Result<bool, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db
             .query_row(
                 "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
-                ["send_profile_views"],
+                [key],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
@@ -193,12 +212,11 @@ impl Store {
         }
     }
 
-    /// Persist this profile's choice to send optional view signals.
-    pub fn set_send_profile_views(&self, enabled: bool) -> Result<(), Error> {
+    fn set_setting_flag(&self, key: &str, enabled: bool) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
              ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
-            params!["send_profile_views", [u8::from(enabled)]],
+            params![key, [u8::from(enabled)]],
         )?;
         Ok(())
     }

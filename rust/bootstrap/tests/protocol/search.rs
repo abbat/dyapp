@@ -16,6 +16,7 @@ async fn start_search(seed: Option<&Multiaddr>) -> Multiaddr {
         c.limits.requests_per_second = 1_000;
         c.limits.bytes_per_second = 1 << 20;
         c.search.min_profile_pow_bits = 2;
+        c.search.min_heartbeat_pow_bits = 2;
     })
     .await
 }
@@ -285,4 +286,69 @@ async fn a_client_finds_and_queries_search_nodes() {
     .await;
     assert!(results.profiles.is_empty());
     assert!(results.failures.is_empty(), "{:?}", results.failures);
+}
+
+// Profiles born in 1990 that `node` finds.
+async fn hits(node: &mut dyapp_client::Node) -> usize {
+    let year = proto::Condition {
+        field: dyapp_p2p_net::search_results::BIRTH_AGE,
+        op: proto::Op::Range.into(),
+        ints: vec![19_900_000, 19_901_231],
+        strings: vec![],
+    };
+    node.search_query(vec![year], 0).await.unwrap().hits.len()
+}
+
+#[tokio::test]
+async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
+    use dyapp_client::{publish, search};
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let a = start_search(None).await;
+    // A lone node that never saw the tombstone, so it takes the unhidden version at once.
+    let b = start_search(None).await;
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let connect = |address| dyapp_client::Node::connect(address, protocols.clone());
+    let mut node = connect(a.clone()).await.unwrap();
+    let mut nodes = vec![connect(a).await.unwrap()];
+    let alice = Identity::generate();
+    let store = dyapp_client::store::Store::open(&super::chat::store_path("hide"), &alice).unwrap();
+    let mut draft = Profile {
+        birth_year: Some(1990),
+        ..Profile::default()
+    };
+    assert!(publish::work(&mut draft, &alice.public_key(), 2, u64::MAX));
+    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let shown = publish::publish(&store, &mut node, &alice, &draft);
+    let shown = shown.await.unwrap();
+    assert!(search::publish_due(&store, &mut nodes, now).await.unwrap());
+    assert_eq!(hits(&mut nodes[0]).await, 1);
+
+    let hidden = publish::hide(&store, &mut node, &alice, &shown);
+    let hidden = hidden.await.unwrap();
+    // Within the 10 minutes, on the client and on the node.
+    let due = search::publish_due(&store, &mut nodes, now + 1);
+    assert!(due.await.unwrap());
+    assert_eq!(hits(&mut nodes[0]).await, 0);
+    let beat = search::beat_due(&store, &alice, hidden.version, 2, &mut nodes, now);
+    assert!(!beat.await.unwrap());
+
+    let again = publish::publish(&store, &mut node, &alice, &hidden);
+    let again = again.await.unwrap();
+    nodes.push(connect(b).await.unwrap());
+    // The version after a tombstone waits out the window, then A still refuses it and B takes it.
+    let early = search::publish_due(&store, &mut nodes, now + 600);
+    assert!(!early.await.unwrap());
+    let due = search::publish_due(&store, &mut nodes, now + 601);
+    assert!(due.await.unwrap());
+    assert_eq!(hits(&mut nodes[0]).await, 0);
+    assert_eq!(hits(&mut nodes[1]).await, 1);
+    let beat = search::beat_due(&store, &alice, again.version, 2, &mut nodes, now);
+    assert!(beat.await.unwrap());
+
+    // Identity removal with no search node reachable: the offline outcome, the tombstone held.
+    let removed = publish::hide(&store, &mut node, &alice, &again);
+    removed.await.unwrap();
+    let offline = search::publish_due(&store, &mut [], now + 1202);
+    assert!(!offline.await.unwrap());
+    assert!(store.due_search_profile(now + 1202).unwrap().is_some());
 }
