@@ -61,22 +61,11 @@ class ProfilePublishTests {
         compose.onNodeWithTag("profile-prepare-publish").assertIsNotEnabled()
     }
 
-    private fun activateLocalNode() {
-        compose.onNodeWithTag("network-draft-open").performScrollTo().performClick()
-        compose.onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
-        compose.onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
-        compose.checkNetwork(retryUnreachable = true)
-        compose.waitForText("network-check-status", R.string.network_connected)
-        compose.onNodeWithTag("network-continue").performScrollTo().performClick()
-        compose.waitForText("network-check-status", R.string.network_active)
-        compose.onNodeWithTag("network-back").performScrollTo().performClick()
-    }
-
     @Test
     fun publishThroughTheLocalNodeShowsTheSignedReadback() {
         compose.skipNetworkEntry()
         try {
-            activateLocalNode()
+            compose.activateLocalNode()
             compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
             compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextClearance()
             compose.onNodeWithTag("profile-birth-year").performTextInput("1990")

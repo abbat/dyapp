@@ -21,7 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 /** What a start screen button opens. */
-internal enum class StartTarget { REMOVE, PROFILE, NETWORK, SETTINGS, LOCK }
+internal enum class StartTarget { REMOVE, PROFILE, SEARCH, NETWORK, SETTINGS, LOCK }
 
 /**
  * Shows the editor opened from the start screen, or the network draft while no network is
@@ -36,6 +36,7 @@ internal fun showReadyEditor(slots: Slots, opened: Opened.Ready?, editor: StartT
     if (opened == null || editor == null && !automatic) return false
     when {
         editor == StartTarget.PROFILE -> ProfileDraftScreen(opened, close)
+        editor == StartTarget.SEARCH -> SearchScreen(opened, close)
         networkNeeded == null -> Text(stringResource(R.string.network_loading))
         else -> NetworkDraftScreen(opened) {
             close()
@@ -61,7 +62,7 @@ internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit
     }
 }
 
-// Remove, switch, network, settings and lock settings, as far as the opened state allows.
+// Remove, switch, search, network, settings and lock settings, as far as the opened state allows.
 @Composable
 private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
     if (opened != null && removable(opened)) {
@@ -75,6 +76,9 @@ private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (St
         }
     }
     if (opened is Opened.Ready) {
+        OutlinedButton(onClick = { open(StartTarget.SEARCH) }, Modifier.testTag("search-open")) {
+            Text(stringResource(R.string.search_title))
+        }
         OutlinedButton(onClick = { open(StartTarget.NETWORK) }, Modifier.testTag("network-draft-open")) {
             Text(stringResource(R.string.network_title))
         }

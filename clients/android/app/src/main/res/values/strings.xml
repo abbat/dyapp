@@ -48,6 +48,25 @@
     <string name="settings_network_active">Active network: %1$s</string>
     <string name="settings_network_public">public</string>
     <string name="settings_network_none">No active network yet.</string>
+    <string name="search_title">Find people</string>
+    <string name="search_sample">Results are a sample, not a complete list. Profile fields are what each person states about themselves.</string>
+    <string name="search_run">Search</string>
+    <string name="search_retry">Retry</string>
+    <string name="search_again">Load another sample</string>
+    <string name="search_idle">Search for a sample of published profiles.</string>
+    <string name="search_loading">Searching…</string>
+    <string name="search_results">Verified profiles in this sample: %1$d</string>
+    <string name="search_empty">This sample contained no verified matches. That does not mean none exist.</string>
+    <string name="search_partial">Some nodes did not answer fully, so this sample may miss matches. Verified profiles shown: %1$d</string>
+    <string name="search_not_connected">No active network node answered. Check the connection, then retry.</string>
+    <string name="search_failed">Search failed. Retry when ready.</string>
+    <string name="search_peer">Peer ID: %1$s</string>
+    <string name="search_failure_no_nodes">No search node was found on the network.</string>
+    <string name="search_failure_unavailable">A search node could not be reached or would not serve the search.</string>
+    <string name="search_failure_timeout">A search node did not answer in time.</string>
+    <string name="search_failure_rate_limited">A search node is busy. Seconds to wait: %1$s</string>
+    <string name="search_failure_puzzle">A search node asked for proof of work the app does not solve.</string>
+    <string name="search_failure_invalid">A search node sent a malformed or forged reply; it was dropped.</string>
     <string name="network_title">Network connection</string>
     <string name="network_seeds">Bootstrap nodes, one host:port per line</string>
     <string name="network_name">Network name (blank = public)</string>

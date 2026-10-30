@@ -52,6 +52,18 @@ internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false) {
     }
 }
 
+/** From the start screen, activates the local node as this identity's network and returns. */
+internal fun ComposeTestRule.activateLocalNode() {
+    onNodeWithTag("network-draft-open").performScrollTo().performClick()
+    onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
+    onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
+    checkNetwork(retryUnreachable = true)
+    waitForText("network-check-status", R.string.network_connected)
+    onNodeWithTag("network-continue").performScrollTo().performClick()
+    waitForText("network-check-status", R.string.network_active)
+    onNodeWithTag("network-back").performScrollTo().performClick()
+}
+
 // Other tests expect no active network, so activated settings never outlive their test.
 internal fun forgetNetworks() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext

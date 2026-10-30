@@ -59,14 +59,13 @@ private fun birthRows(saved: Map<String, Int>) = listOf(BIRTH_YEAR to R.string.p
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
-/** The public rows of [draft] under [title], with the possible age and the disclosures. */
+/** The public rows of [draft]: scales, place, birth parts and the possible age. */
 @Composable
-internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, context: Context, title: Int) {
+internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
     val birth = birthRows(saved)
-    Text(stringResource(title))
     if (fields.isEmpty() && places.isEmpty() && birth.isEmpty()) Text(stringResource(R.string.profile_preview_empty))
     for ((scale, choice) in fields) {
         Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
@@ -79,8 +78,15 @@ internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, con
     for ((name, value) in birth) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
+}
+
+/** The public rows of [draft] under [title], with the disclosures. */
+@Composable
+internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, context: Context, title: Int) {
+    Text(stringResource(title))
+    ProfileRows(draft, scales, context)
     Text(stringResource(R.string.profile_public_disclosure), Modifier.testTag("profile-public-disclosure"))
-    if (BIRTH_KEYS.all { it in saved }) {
+    if (BIRTH_KEYS.all { it in draft.values }) {
         Text(stringResource(R.string.profile_full_date_disclosure), Modifier.testTag("profile-full-date"))
     }
 }
