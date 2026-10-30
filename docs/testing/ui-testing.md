@@ -110,6 +110,9 @@ On Linux the tray cases run `fake-tray.py`, a StatusNotifierItem host on the ses
 the tray menu by position: without a host the tray settings are off; the host's Quit exits the app;
 close-to-tray hides the window until the host's Open, and `tray.json` keeps the setting across a
 relaunch; a host that exits brings the hidden window back.
+On Windows `windows-tray.py` opens the notification-area menu through tray-icon's hidden window
+and picks Open or Quit with the keyboard; it runs the quit, close and relaunch cases, since the
+notification area is always there.
 The English, Russian and pseudo-language runs check Settings actions, the active identity's
 localized storage kind, and the failed network status in the selected catalogue.
 It also checks that a profile with no selected fields previews an unknown age, no full-date warning,
@@ -139,7 +142,7 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 24 instrumented (`AppUITests.kt` ×5, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×2, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 46 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 35 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eleven that need dyappd and the five Linux tray cases (30) | same |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eleven that need dyappd and the two tray cases without or losing a host (33) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 
@@ -395,9 +398,9 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 - Product-level UI flows (onboarding, profiles, matching, messaging) have no tests yet.
 - Desktop window and tray behaviour
   ([state table](../design/v0.0.1-client-screens.md#desktop-window-and-tray)) needs a real
-  session: in Docker the tray host is `fake-tray.py`, which clicks the menu over D-Bus, so real
-  panels, display changes and the macOS Dock are checked by
-  hand on each OS.
+  session: in Docker the tray host is `fake-tray.py`, which clicks the menu over D-Bus, and on
+  Windows `windows-tray.py` posts the icon's messages instead of clicking the taskbar, so real
+  panels, display changes and the macOS Dock are checked by hand on each OS.
 
 ## Troubleshooting
 

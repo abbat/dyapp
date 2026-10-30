@@ -427,10 +427,13 @@ def smoke(executable, flows=True):
 
     @contextlib.contextmanager
     def fake_tray(mode, profile):
-        """A tray host on the session bus for one case (fake-tray.py)."""
+        """A tray host on the session bus (fake-tray.py), or a click driver
+        for the notification area on Windows (windows-tray.py), for one case."""
         (Path(profile) / "hidden").unlink(missing_ok=True)
+        driver = [sys.executable, "windows-tray.py"] if os.name == "nt" \
+            else ["/usr/bin/python3", "fake-tray.py"]
         host = subprocess.Popen(  # pylint: disable=consider-using-with
-            ["/usr/bin/python3", str(Path(__file__).with_name("fake-tray.py")),
+            [driver[0], str(Path(__file__).with_name(driver[1])),
              mode, str(profile)], stdout=subprocess.PIPE, text=True)
         try:
             if host.stdout.readline().strip() != "ready":
@@ -443,10 +446,12 @@ def smoke(executable, flows=True):
     def tray(profile):
         """Without a host the tray settings are off; with one, Quit exits,
         close-to-tray hides the window until Open, the setting survives a
-        relaunch, and a host that goes away brings the window back."""
+        relaunch, and a host that goes away brings the window back. Windows
+        always has a notification area, so it has no none or vanish case."""
         file = ["--ui-test-file"]
-        case("tray-none", [*file, "--ui-test-step=tray:none"], profile,
-             peer=False)
+        if os.name == "posix":
+            case("tray-none", [*file, "--ui-test-step=tray:none"], profile,
+                 peer=False)
         with fake_tray("quit", profile):
             case("tray-quit", [*file, "--ui-test-step=tray:quit"], profile,
                  peer=False)
@@ -459,9 +464,10 @@ def smoke(executable, flows=True):
         with fake_tray("open", profile):
             case("tray-relaunch", [*file, "--ui-test-step=tray:persisted"],
                  profile, peer=False)
-        with fake_tray("vanish", profile):
-            case("tray-vanish", [*file, "--ui-test-step=tray:vanish"],
-                 profile, peer=False)
+        if os.name == "posix":
+            with fake_tray("vanish", profile):
+                case("tray-vanish", [*file, "--ui-test-step=tray:vanish"],
+                     profile, peer=False)
 
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         russian = ["--ui-test-file", "--ui-test-ru", language_step]
@@ -477,7 +483,7 @@ def smoke(executable, flows=True):
             window(profile)
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             single(profile)
-    if flows and os.name == "posix":
+    if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             tray(profile)
     (reports / "desktop-ui-results.json").write_text(
