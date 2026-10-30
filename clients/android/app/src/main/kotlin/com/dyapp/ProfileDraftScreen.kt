@@ -82,7 +82,6 @@ private fun ProfileDraftForm(
     saved: ProfileDraft,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
     val lang = placeLang()
@@ -95,7 +94,7 @@ private fun ProfileDraftForm(
     ) {
         Text(stringResource(R.string.profile_title))
         for (scale in scales) {
-            ScalePicker(scale, values[scale.key] ?: 0, { values[scale.key] = it }, context)
+            ScalePicker(scale, values[scale.key] ?: 0, R.string.profile_unset) { values[scale.key] = it }
         }
         PlacePicker(place)
         BirthDateFields(birth)
@@ -147,21 +146,23 @@ private fun BirthDateFields(birth: BirthInputs) {
         modifier = Modifier.testTag("profile-birth-day"))
 }
 
+/** Picks one of the scale's choices or [none], shown with that label. */
 @Composable
-private fun ScalePicker(scale: ProfileScale, selected: Int, onSelect: (Int) -> Unit, context: Context) {
+internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect: (Int) -> Unit) {
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     Text(label(context, "field.${scale.key}"))
     OutlinedButton(onClick = { expanded = true }, modifier = Modifier.testTag("profile-${scale.key}")) {
         val chosen = scale.choices.firstOrNull { it.code.toInt() == selected }
         val title = if (chosen == null) {
-            stringResource(R.string.profile_unset)
+            stringResource(none)
         } else {
             label(context, "value.${scale.key}.${chosen.key}")
         }
         Text(title)
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.profile_unset)) },
+        DropdownMenuItem(text = { Text(stringResource(none)) },
             onClick = { onSelect(0); expanded = false })
         for (choice in scale.choices) {
             DropdownMenuItem(text = { Text(label(context, "value.${scale.key}.${choice.key}")) },

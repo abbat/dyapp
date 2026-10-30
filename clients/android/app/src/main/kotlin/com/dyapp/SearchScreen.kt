@@ -42,8 +42,11 @@ private sealed interface SearchState {
     data class Failed(val text: Int) : SearchState
 }
 
-private fun searchError(error: Throwable) =
-    if ("notConnected" in error.toString()) R.string.search_not_connected else R.string.search_failed
+private fun searchError(error: Throwable) = when {
+    "notConnected" in error.toString() -> R.string.search_not_connected
+    "invalid search age" in error.toString() -> R.string.search_age_invalid
+    else -> R.string.search_failed
+}
 
 @Composable
 private fun failureText(failure: ProfileSearchFailure) = when (failure) {
@@ -81,21 +84,29 @@ private fun SearchResults(result: ProfileSearchResult, scales: List<ProfileScale
     }
 }
 
-// One unfiltered sample off the UI thread.
-private suspend fun sample(opened: Opened.Ready, searcher: Result<ProfileSearcher>): SearchState {
+// One sample off the UI thread with the shown filters; the offered fields then pick the filters.
+private suspend fun sample(
+    opened: Opened.Ready,
+    searcher: Result<ProfileSearcher>,
+    filters: SearchFilters,
+): SearchState {
+    val conditions = runCatching { filters.conditions() }
     val result = withContext(Dispatchers.IO) {
         runCatching {
+            val query = conditions.getOrThrow()
             RustBridge.withKey(opened) { _, key ->
-                searcher.getOrThrow().search(key, emptyList(), SearchEmployer.Any, 0u)
+                searcher.getOrThrow().search(key, query, SearchEmployer.Any, 0u)
             }
         }
     }
+    result.onSuccess { filters.offered = it.offered }
     return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it)) })
 }
 
 /**
- * Verified sample search over the active network; the nodes pick the sample, and only profiles the
- * shared core verified are listed. Retry or another sample runs the same query again.
+ * Verified sample search over the active network; the nodes pick the sample, filters appear for the
+ * fields they offer, and only profiles the shared core verified are listed. Retry or another sample
+ * runs the same query again.
  */
 @Composable
 internal fun SearchScreen(opened: Opened.Ready, onBack: () -> Unit) {
@@ -104,10 +115,11 @@ internal fun SearchScreen(opened: Opened.Ready, onBack: () -> Unit) {
     val searcher = remember(opened.slot.id) { runCatching { ProfileSearcher(opened.slot.dir.absolutePath) } }
     DisposableEffect(searcher) { onDispose { searcher.getOrNull()?.close() } }
     var state by remember(opened.slot.id) { mutableStateOf<SearchState>(SearchState.Idle) }
+    val filters = remember(opened.slot.id) { SearchFilters(scales) }
     val scope = rememberCoroutineScope()
     val run: () -> Unit = {
         state = SearchState.Loading
-        scope.launch { state = sample(opened, searcher) }
+        scope.launch { state = sample(opened, searcher, filters) }
     }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -115,6 +127,7 @@ internal fun SearchScreen(opened: Opened.Ready, onBack: () -> Unit) {
     ) {
         Text(stringResource(R.string.search_title), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.search_sample))
+        SearchFilterFields(filters)
         SearchActions(state, run)
         Text(statusText(state), Modifier.testTag("search-status"))
         (state as? SearchState.Done)?.let { SearchResults(it.result, scales) }

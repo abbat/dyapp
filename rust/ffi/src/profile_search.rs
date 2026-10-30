@@ -2,13 +2,14 @@
 
 use crate::profile_draft::database;
 use crate::profile_network::{active_network, connect};
-use crate::profile_publish::POW_BITS;
+use crate::profile_publish::{today, POW_BITS};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
 use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::store::Store;
+use dyapp_p2p_net::search_results::Filter;
 use dyapp_p2p_net::{proto, Protocols};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -58,6 +59,27 @@ impl From<SearchCondition> for proto::Condition {
             strings: condition.strings,
         }
     }
+}
+
+/// The birth-date condition for an inclusive age range in years on today's date; the lower bound
+/// is raised to 18, and a range no birth date fits fails with `invalid search age`.
+#[uniffi::export]
+pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreError> {
+    let filter = Filter {
+        age: Some((min, max)),
+        ..Filter::default()
+    };
+    let condition = filter
+        .conditions(today()?)
+        .ok()
+        .and_then(|conditions| conditions.into_iter().next())
+        .ok_or_else(|| CoreError::Failed("invalid search age".into()))?;
+    Ok(SearchCondition {
+        field: condition.field,
+        op: SearchOp::Range,
+        ints: condition.ints,
+        strings: condition.strings,
+    })
 }
 
 /// Which companies verified results may have; applied only on this device, so no node learns it.
@@ -258,6 +280,20 @@ mod tests {
         network::save(&dir, Settings::Active, &network).unwrap();
         // A retry is a new call on the same searcher.
         assert_eq!(search().unwrap_err().to_string(), "notConnected");
+    }
+
+    #[test]
+    fn an_age_range_becomes_one_birth_range_condition() {
+        let condition = search_age_condition(10, 30).unwrap();
+        assert_eq!(condition.field, dyapp_p2p_net::search_results::BIRTH_AGE);
+        assert_eq!(condition.op, SearchOp::Range);
+        // The lower bound is raised to 18, so the range is shorter than 21 years.
+        assert!(condition.ints[0] < condition.ints[1]);
+        assert!(condition.ints[1] - condition.ints[0] < 14 * 10_000);
+        assert_eq!(
+            search_age_condition(30, 20).unwrap_err().to_string(),
+            "invalid search age"
+        );
     }
 
     #[test]

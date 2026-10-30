@@ -54,8 +54,9 @@ internal class PlaceInputs(country: String, place: Int?, text: String) {
     }
 }
 
+/** Country, then with [places] a place of it; [none] labels no country. */
 @Composable
-internal fun PlacePicker(inputs: PlaceInputs) {
+internal fun PlacePicker(inputs: PlaceInputs, places: Boolean = true, none: Int = R.string.profile_unset) {
     val locale = LocalConfiguration.current.locales[0]
     val countries = remember(locale) {
         placeCountries().map { it to countryName(it, locale) }.sortedBy { it.second }
@@ -63,16 +64,17 @@ internal fun PlacePicker(inputs: PlaceInputs) {
     var expanded by remember { mutableStateOf(false) }
     Text(stringResource(R.string.profile_country))
     OutlinedButton(onClick = { expanded = true }, modifier = Modifier.testTag("profile-country")) {
-        Text(countries.firstOrNull { it.first == inputs.country }?.second ?: stringResource(R.string.profile_unset))
+        Text(countries.firstOrNull { it.first == inputs.country }?.second ?: stringResource(none))
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.profile_unset)) },
+        DropdownMenuItem(text = { Text(stringResource(none)) },
             onClick = { inputs.pickCountry(""); expanded = false }, modifier = Modifier.testTag("country-none"))
         for ((code, name) in countries) {
             DropdownMenuItem(text = { Text(name) }, onClick = { inputs.pickCountry(code); expanded = false },
                 modifier = Modifier.testTag("country-$code"))
         }
     }
+    if (!places) return
     // A focused field can repeat its last text after a country change; only a real edit drops the pick.
     OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
         label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),

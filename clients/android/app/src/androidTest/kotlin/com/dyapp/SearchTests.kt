@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
@@ -50,16 +52,43 @@ class SearchTests {
             compose.activateLocalNode()
             click("search-open")
             click("run-search")
-            val status = searched()
-            val count = compose.onAllNodes(hasTestTag("search-result")).fetchSemanticsNodes().size
-            val expected = listOf(string(R.string.search_empty),
-                compose.activity.getString(R.string.search_results, count),
-                compose.activity.getString(R.string.search_partial, count))
-            val failures = compose.texts("search-failure")
-            check(status in expected) { "status $status, failures $failures" }
-            // The local node serves the search role by default.
-            check(string(R.string.search_failure_no_nodes) !in failures) { "failures $failures" }
+            checkLocalSample()
             compose.onNode(hasTestTag("search-again") and hasText(string(R.string.search_again))).assertExists()
+        } finally {
+            forgetNetworks()
+        }
+    }
+
+    // Checks the local node answered with a sample or a coverage result, not a missing-node failure.
+    private fun checkLocalSample() {
+        val status = searched()
+        val count = compose.onAllNodes(hasTestTag("search-result")).fetchSemanticsNodes().size
+        val expected = listOf(string(R.string.search_empty),
+            compose.activity.getString(R.string.search_results, count),
+            compose.activity.getString(R.string.search_partial, count))
+        val failures = compose.texts("search-failure")
+        check(status in expected) { "status $status, failures $failures" }
+        // The local node serves the search role by default.
+        check(string(R.string.search_failure_no_nodes) !in failures) { "failures $failures" }
+    }
+
+    @Test
+    fun offeredFiltersCheckTheAgeAndNarrowTheSample() {
+        compose.skipNetworkEntry()
+        try {
+            compose.activateLocalNode()
+            click("search-open")
+            click("run-search")
+            checkLocalSample()
+            compose.onNodeWithTag("search-age-min").performScrollTo().performTextInput("30")
+            compose.onNodeWithTag("search-age-max").performScrollTo().performTextInput("20")
+            click("run-search")
+            check(searched() == string(R.string.search_age_invalid)) { "status ${compose.texts("search-status")}" }
+            compose.onNodeWithTag("search-age-max").performScrollTo().performTextReplacement("60")
+            click("profile-country")
+            click("country-DE")
+            click("run-search")
+            checkLocalSample()
         } finally {
             forgetNetworks()
         }
