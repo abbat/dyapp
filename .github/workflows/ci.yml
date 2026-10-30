@@ -149,7 +149,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: smoke
         shell: pwsh
-        run: python tests/scripts/desktop-smoke.py build/debug/dyapp-windows.exe
+        run: |
+          python tests/scripts/check-windows-icon.py build/debug/dyapp-windows.exe clients/windows/icons/icon.ico
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/scripts/desktop-smoke.py build/debug/dyapp-windows.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

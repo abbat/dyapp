@@ -112,7 +112,10 @@ close-to-tray hides the window until the host's Open, and `tray.json` keeps the 
 relaunch; a host that exits brings the hidden window back.
 On Windows `windows-tray.py` opens the notification-area menu through tray-icon's hidden window
 and picks Open or Quit with the keyboard; it runs the quit, close and relaunch cases, since the
-notification area is always there.
+notification area is always there. Before Quit it checks that the window has its small and large
+taskbar icons. Before the smoke, `check-windows-icon.py` compares the 16, 32 and 256 px images of
+the executable's icon group with `clients/windows/icons/icon.ico`: on the debug build in CI and on
+the `dyapp.exe` unpacked from the portable ZIP in the release and nightly size workflows.
 The English, Russian and pseudo-language runs check Settings actions, the active identity's
 localized storage kind, and the failed network status in the selected catalogue.
 It also checks that a profile with no selected fields previews an unknown age, no full-date warning,
