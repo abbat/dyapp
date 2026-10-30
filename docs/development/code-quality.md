@@ -323,7 +323,7 @@ databases baked into the dev image. In the CI `core / build` step `deny` it fetc
   of `hax-lib` reached only through openmls -> hpke-rs -> libcrux, no upgrade yet), and
   RUSTSEC-2026-0330 and RUSTSEC-2026-0331 (a panic on a short hybrid seed or key in
   `libcrux-kem` 0.0.9, pinned by hpke-rs 0.7, which openmls needs; only hybrid KEMs are hit and
-  dyapp accepts ciphersuite 0x0001 only). `cargo audit` in `security.yml` ignores the same two
+  dyapp accepts ciphersuite 0x0001 only). `cargo audit` in `security.yml` ignores the same
   vulnerabilities through `.cargo/audit.toml`, and the Scorecard Vulnerabilities check ignores all of
   these through `osv-scanner.toml`.
 - **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.
@@ -334,6 +334,21 @@ databases baked into the dev image. In the CI `core / build` step `deny` it fetc
 
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
+
+### Advisory ignores
+
+Every advisory ignore has a review date at most 90 days ahead, so no acceptance is forgotten:
+
+- `deny.toml`: the reason ends in `review by YYYY-MM-DD (issue #N)`;
+- each `osv-scanner.toml`: the entry sets `ignoreUntil = YYYY-MM-DD`, after which OSV-Scanner
+  reports the vulnerability again;
+- `.cargo/audit.toml` has no reasons, so it ignores exactly the `deny.toml` ids.
+
+`tests/scripts/check-advisory-ignores.py` checks this in `make quality`, but never fails on a passed
+date, so time alone cannot turn a commit red. The scheduled `security.yml` run adds `--expiry`: a
+date that has passed or is less than 14 days away fails the job `review-dates`, and nightly-health
+opens a tracked issue. To clear it, review the ignore: drop it if the fix landed, or record the
+current blocker and move the date.
 
 ### Dependency age
 

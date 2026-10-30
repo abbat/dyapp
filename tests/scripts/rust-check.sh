@@ -32,6 +32,7 @@ step() {
             step android-lint
             check adr python3 -B tests/scripts/check-adr.py --raw
             check dependency-age python3 -B tests/scripts/check-dependency-age.py --raw
+            check advisory-ignores python3 -B tests/scripts/check-advisory-ignores.py --raw
             check triggers python3 -B tests/scripts/triggers.py --raw
             check docs-sync python3 -B tests/scripts/docs-sync.py --raw
             check actionlint actionlint

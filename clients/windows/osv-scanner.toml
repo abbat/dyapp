@@ -5,10 +5,12 @@
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0429"
 reason = "glib 0.18 is in Tauri's Linux-only GTK 3 dependency graph and is not compiled on Windows (Dependabot alert dismissed as not used)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"
 reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of the gtk-rs crates under Tauri"
+ignoreUntil = 2026-11-21
 
 # The seed check links dyapp-client, so the workspace exceptions in ../../osv-scanner.toml apply here
 # for the same reasons.
@@ -16,26 +18,32 @@ reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0173"
 reason = "proc-macro-error2 is unmaintained, no fix: a compile-time proc macro via openmls -> hpke-rs -> libcrux -> hax-lib (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0330"
 reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0331"
 reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
+ignoreUntil = 2026-11-24
 
 [[IgnoredVulns]]
 id = "GHSA-qwgh-2vcv-g2f7"
 reason = "block-buffer 0.10.4 via RustCrypto digest 0.10 users (no 0.10 fix): it keeps the cursor in a separate pos field written after compress returns, so a caught panic cannot corrupt it; only the inline cursor of 0.11 and 0.12.0 is affected"
+ignoreUntil = 2026-11-21
 
 # zbus 6 merges these crates; tauri-plugin-single-instance 2.5 uses zbus 5 on Linux only, so the lock
 # lists it but Windows builds never compile it.
@@ -43,11 +51,14 @@ reason = "block-buffer 0.10.4 via RustCrypto digest 0.10 users (no 0.10 fix): it
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0370"
 reason = "zvariant is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0371"
 reason = "zbus_names is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0372"
 reason = "zvariant_derive is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-11-21

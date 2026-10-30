@@ -49,3 +49,15 @@ jobs:
           name: sbom
           path: sbom.json
           if-no-files-found: error
+
+  # Scheduled only: a passed or near review date fails here, and nightly-health turns that into a
+  # tracked issue. make quality checks the same dates without expiry.
+  review-dates:
+    name: review-dates
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -B tests/scripts/check-advisory-ignores.py --raw --expiry

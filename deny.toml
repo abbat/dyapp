@@ -10,20 +10,20 @@ ignore = [
     # paste is unmaintained (no fix): a compile-time proc-macro pulled in by
     # libp2p-quic/tcp -> if-watch -> netlink-packet-core. Drop when if-watch
     # moves off it.
-    { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro via if-watch, no upgrade" },
+    { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro via if-watch, no upgrade; review by 2026-11-21 (issue #22)" },
     # basic-toml is archived (no fix): parses askama templates at compile time for
     # uniffi's binding generator. Drop when askama moves to `toml`.
-    { id = "RUSTSEC-2026-0374", reason = "unmaintained build-time parser via uniffi -> askama, no upgrade" },
+    { id = "RUSTSEC-2026-0374", reason = "unmaintained build-time parser via uniffi -> askama, no upgrade; review by 2026-11-21 (issue #22)" },
     # proc-macro-error2 is unmaintained (no fix): a compile-time proc-macro of hax-lib,
     # the verification annotations of libcrux (openmls -> hpke-rs). Drop when hax-lib-macros
     # moves off it.
-    { id = "RUSTSEC-2026-0173", reason = "unmaintained proc-macro via openmls -> hpke-rs -> libcrux -> hax-lib, no upgrade" },
+    { id = "RUSTSEC-2026-0173", reason = "unmaintained proc-macro via openmls -> hpke-rs -> libcrux -> hax-lib, no upgrade; review by 2026-11-21 (issue #22)" },
     # libcrux-kem 0.0.9 panics on a short hybrid seed or key (fixed in 0.0.10): hpke-rs-libcrux
     # 0.7 pins it and openmls_rust_crypto 0.6 needs hpke-rs 0.7. Only the hybrid KEMs are hit;
     # dyapp accepts ciphersuite 0x0001 (DHKEM X25519) only. Keep in sync with
     # .cargo/audit.toml and osv-scanner.toml; drop both when openmls moves to hpke-rs 0.8.
-    { id = "RUSTSEC-2026-0330", reason = "hybrid KEM panic in libcrux-kem pinned by hpke-rs 0.7; suite 0x0001 only" },
-    { id = "RUSTSEC-2026-0331", reason = "hybrid KEM panic in libcrux-kem pinned by hpke-rs 0.7; suite 0x0001 only" },
+    { id = "RUSTSEC-2026-0330", reason = "hybrid KEM panic in libcrux-kem pinned by hpke-rs 0.7; suite 0x0001 only; review by 2026-11-21 (issue #22)" },
+    { id = "RUSTSEC-2026-0331", reason = "hybrid KEM panic in libcrux-kem pinned by hpke-rs 0.7; suite 0x0001 only; review by 2026-11-21 (issue #22)" },
     # Temporary risk acceptance: MLS suite 0x0001 uses X25519/Ed25519, while the
     # vulnerable crypto-bigint 0.5.5 enters through unconditional P-curve deps.
     # Reachability is not proven absent. Review by 2026-11-24: GH issue #25.

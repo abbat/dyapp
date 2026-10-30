@@ -6,31 +6,39 @@
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0253"
 reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0374"
 reason = "basic-toml is archived, no fix: a build-time parser of askama templates via uniffi (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0173"
 reason = "proc-macro-error2 is unmaintained, no fix: a compile-time proc macro via openmls -> hpke-rs -> libcrux -> hax-lib (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0330"
 reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0331"
 reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-11-21
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
+ignoreUntil = 2026-11-24
 
 [[IgnoredVulns]]
 id = "GHSA-qwgh-2vcv-g2f7"
 reason = "block-buffer 0.10.4 via RustCrypto digest 0.10 users (no 0.10 fix): it keeps the cursor in a separate pos field written after compress returns, so a caught panic cannot corrupt it; only the inline cursor of 0.11 and 0.12.0 is affected"
+ignoreUntil = 2026-11-21
