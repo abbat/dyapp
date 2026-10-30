@@ -1477,7 +1477,7 @@ dependencies = [
  "keyring-core",
  "serde",
  "serde_json",
- "sysinfo",
+ "sysinfo 0.39.6",
  "tauri",
  "tauri-build",
  "tauri-plugin-single-instance",
@@ -3777,7 +3777,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-swarm",
  "memory-stats",
- "sysinfo",
+ "sysinfo 0.38.4",
  "tracing",
 ]
 
@@ -6559,6 +6559,18 @@ dependencies = [
  "libc",
  "memchr",
  "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.39.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2071df9448915b71c4fe6d25deaf1c22f12bd234f01540b77312bb8e41361e6"
+dependencies = [
+ "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
  "windows",
