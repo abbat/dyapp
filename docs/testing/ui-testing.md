@@ -97,7 +97,9 @@ and a copy of the same ID in another slot counts as no collision. On first ident
 also opens Settings to verify the active identity's full Peer ID, its short form and key backend,
 creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
-verify the surviving identity and Settings inventory.
+verify the surviving identity and Settings inventory. That relaunch also checks the Storage card:
+the message store path sits in the shown identity folder and has a size, no size reads as a zero,
+and the node and free-space rows show on Linux and are hidden on Windows.
 The window cases move the window, quit with Ctrl+Q, check `window.json`, relaunch to the same
 bounds, then relaunch with an off-screen saved position and expect the window centred on the
 primary display. The single-instance case hides the window and launches the app again: the second

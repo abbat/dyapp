@@ -299,6 +299,29 @@ const checkUsage = async (limit) => {
     throw new Error(`Storage card shows the node store wrong: ${text('usage-node')}`);
   }
 };
+// Settings → Storage on every platform: the store sits in the identity folder and has a size; a
+// row the app cannot fill is hidden, and no size reads as a made-up zero.
+const checkStorageCard = async () => {
+  await openArea('settings');
+  await window.usageShown;
+  const text = (id) => document.getElementById(id).textContent;
+  const shown = (id) => !document.getElementById(id).hidden;
+  const dir = text('usage-identity-dir');
+  const sep = dir.includes('\\') ? '\\' : '/';
+  const path = text('usage-messages-path');
+  // Windows has no node and no free-space call yet.
+  const windows = navigator.userAgent.includes('Windows');
+  const sizes = ['usage-messages', 'usage-node', 'usage-free'];
+  if (!/^(\/|[A-Za-z]:\\)/.test(dir) || !path.startsWith(`${dir}${sep}`)
+    || !path.endsWith(`${sep}client.db`)
+    || text('usage-messages') === window.strings['usage.unavailable']
+    || shown('usage-node-row') === windows || shown('usage-free-row') === windows
+    || sizes.some((id) => /^0\s/.test(text(id)))) {
+    throw new Error(`Storage card wrong: ${dir} ${path} ${sizes.map(text).join(' | ')}`);
+  }
+  await shot('storage');
+  await openArea('profile-area');
+};
 // The node starts on the loopback network, then stops; bad limits never reach the app.
 const checkNode = async () => {
   const { strings } = window;
@@ -698,6 +721,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'settings-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
+      await checkStorageCard();
     } else if (step === 'settings-language') {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode);
