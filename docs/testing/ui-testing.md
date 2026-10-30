@@ -85,8 +85,8 @@ persists. The later Settings matrix covers removal and error states. A DEBUG-onl
 launch argument seeds an invalid draft after explicit identity creation so the tests can check
 the visible read error and disabled Save action; release builds ignore this argument.
 They also check that a malformed bootstrap address receives an ordered row outcome after Check
-and remains available on Retry. Rust's connection-check test covers interrupting a silent node;
-the native cancel path belongs to the later Apple failure matrix.
+and remains available on Retry. Rust's connection-check test and a desktop smoke case interrupt a silent node;
+the Apple cancel path belongs to the later Apple failure matrix.
 The same native UI cases verify that Continue stays disabled after an invalid row; a shared
 unit test verifies that calling Activate then leaves the active settings absent.
 The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
@@ -141,12 +141,17 @@ Profile and comes back, checks that draft rows and failed row statuses survive n
 the active network file byte for byte before and after a failed check. A deterministic
 Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race the ordinary
 11-bit puzzle.
+Without a node, both platforms check the empty list, a closed port next to an invalid row with
+Continue disabled, a relaunch that keeps the draft unactivated, navigation that keeps the draft
+and failed rows, and Cancel on a seed that accepts but never answers. dyappd builds only for
+Linux, so on Windows the connected, wrong-pin, wrong-network and wizard-connect paths are an
+accepted gap: they run the same `clients/desktop` code and are verified on Linux only.
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 31 instrumented (`AppUITests.kt` ×5, `IdentitySettingsTests.kt` ×2, `SearchTests.kt` ×4, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×3, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 46 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 35 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eleven that need dyappd and the two tray cases without or losing a host (33) | same |
+| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 48 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 37 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eleven that need dyappd and the two tray cases without or losing a host (35) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 

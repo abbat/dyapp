@@ -206,6 +206,26 @@ const checkNetwork = async () => {
     throw new Error('continue enabled without a connected node');
   }
 };
+// A seed that accepts and never answers keeps the check running until Cancel stops it.
+const cancelNetwork = async (seed) => {
+  if (document.getElementById('wizard-network').hidden) await openArea('network-area');
+  document.getElementById('seeds').value = seed;
+  document.getElementById('check-connection').click();
+  const cancel = document.getElementById('cancel-check');
+  if (cancel.hidden) throw new Error('Cancel not offered while checking');
+  // Repeated, because a Cancel that lands before the check starts stops nothing.
+  let settled = false;
+  window.connectionChecked.finally(() => { settled = true; });
+  while (!settled) {
+    cancel.click();
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+  }
+  if (document.getElementById('network-status').textContent
+    !== window.strings['network.cancelled']) throw new Error('check not cancelled');
+  if (!cancel.hidden || !document.getElementById('continue-connection').disabled) {
+    throw new Error('cancelled check left Cancel shown or Continue enabled');
+  }
+};
 // The live node under a wrong pin or another network name, then down: Continue stays off.
 const checkWrongNetwork = async (seed) => {
   const name = document.getElementById('network-name');
@@ -711,6 +731,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step.startsWith('connect:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await connectNetwork(step.slice('connect:'.length));
+    } else if (step.startsWith('cancel:')) {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await cancelNetwork(step.slice('cancel:'.length));
     } else if (step.startsWith('wrong:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkWrongNetwork(step.slice('wrong:'.length));

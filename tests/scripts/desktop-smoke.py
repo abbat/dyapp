@@ -293,6 +293,21 @@ def smoke(executable, flows=True):
         if case("network-restart", [*file, "--ui-test-step=network-restart"],
                 profile) != peer_id:
             raise RuntimeError("the network step replaced the identity")
+        # Leaving the Network area keeps the draft and the failed rows.
+        if case("network-settings-draft",
+                [*file, "--ui-test-step=network-settings-failure"],
+                profile) != peer_id:
+            raise RuntimeError("the Settings check replaced the identity")
+        # The kernel completes the handshake of a listener that never
+        # accepts, so the dial waits until Cancel.
+        with socket.socket() as silent:
+            silent.bind(("127.0.0.1", 0))
+            silent.listen()
+            seed = "127.0.0.1:%d" % silent.getsockname()[1]
+            case("network-cancel", [*file, f"--ui-test-step=cancel:{seed}"],
+                 profile)
+        if (folder / "network").exists():
+            raise RuntimeError("a failed check activated the draft")
 
     def profile_draft(profile):
         """A nonempty public draft and its preview survive an app restart."""
