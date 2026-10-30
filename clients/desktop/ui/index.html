@@ -10,6 +10,8 @@
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
     <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
     <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
@@ -170,20 +172,10 @@
         </form>
       </section>
       <section id="search-area" hidden>
+        <div id="search-main">
         <h1 data-i18n="search.title"></h1>
         <p class="muted" data-i18n="search.sample"></p>
         <form id="search" class="card" novalidate>
-          <div class="grid">
-            <div class="field"><label for="search-employer" data-i18n="search.employer"></label>
-              <select id="search-employer">
-                <option value="any" data-i18n="search.employer.any"></option>
-                <option value="same" data-i18n="search.employer.same"></option>
-                <option value="exclude" data-i18n="search.employer.exclude"></option>
-              </select></div>
-            <div class="field"><label for="search-company" data-i18n="search.company"></label>
-              <input id="search-company" type="text" spellcheck="false"></div>
-          </div>
-          <p class="caption" data-i18n="search.employerNotice"></p>
           <div id="search-filters" class="grid" hidden>
             <div id="search-age" class="contents" hidden>
               <div class="field"><label for="search-age-min" data-i18n="search.ageMin"></label>
@@ -202,19 +194,75 @@
                 spellcheck="false">
               <datalist id="search-places"></datalist>
             </div>
-            <div id="search-scales" class="contents"></div>
           </div>
+          <details id="search-more">
+            <summary data-i18n="search.more"></summary>
+            <div class="grid">
+              <div class="field"><label for="search-employer" data-i18n="search.employer"></label>
+                <select id="search-employer">
+                  <option value="any" data-i18n="search.employer.any"></option>
+                  <option value="same" data-i18n="search.employer.same"></option>
+                  <option value="exclude" data-i18n="search.employer.exclude"></option>
+                </select></div>
+              <div class="field"><label for="search-company" data-i18n="search.company"></label>
+                <input id="search-company" type="text" spellcheck="false"></div>
+              <div id="search-scales" class="contents"></div>
+            </div>
+            <p class="caption" data-i18n="search.employerNotice"></p>
+          </details>
           <div class="actions">
-            <button id="search-open-network" class="btn" type="button" data-i18n="network.open"
-              hidden></button>
-            <button id="search-retry" class="btn" type="button" data-i18n="search.retry" hidden></button>
-            <button id="search-again" class="btn" type="button" data-i18n="search.again" hidden></button>
             <button id="run-search" class="btn primary" type="submit" data-i18n="search.run"></button>
           </div>
         </form>
-        <p id="search-status" class="muted" role="status"></p>
-        <ul id="search-failures" class="notice warn"></ul>
-        <ul id="search-results"></ul>
+        <p id="search-status" class="caption" role="status"></p>
+        <div id="search-loading" aria-busy="true" hidden>
+          <div class="skeleton"></div><div class="skeleton"></div>
+        </div>
+        <div id="search-empty" class="empty" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+          <h2 data-i18n="search.empty.title"></h2>
+          <p data-i18n="search.empty.text"></p>
+        </div>
+        <div id="search-error" class="notice error" role="alert" hidden>
+          <p id="search-error-text"></p>
+          <details><summary data-i18n="search.details"></summary>
+            <pre id="search-failures"></pre>
+            <button id="copy-search-details" class="btn quiet" type="button"
+              data-i18n="action.copy"></button></details>
+          <div class="actions">
+            <button id="search-open-network" class="btn" type="button" data-i18n="network.open"
+              hidden></button>
+            <button id="search-retry" class="btn" type="button" data-i18n="search.retry"></button>
+          </div>
+        </div>
+        <div id="search-results"></div>
+        <div class="actions">
+          <button id="search-again" class="btn" type="button" data-i18n="search.again" hidden></button>
+        </div>
+        </div>
+        <!-- A found profile opens inside Search, so the list and its scroll stay behind it. -->
+        <div id="profile-view" hidden>
+          <button id="view-back" class="btn quiet back" type="button"><svg class="icon"
+            aria-hidden="true"><use href="#i-back"/></svg><span data-i18n="view.back"></span></button>
+          <div id="view-photos" class="gallery"><div class="main avatar" aria-hidden="true"></div></div>
+          <h1 id="view-title"></h1>
+          <p id="view-summary" class="muted"></p>
+          <p class="caption"><span data-i18n="view.peer"></span> <code id="view-peer"></code>
+            <button id="copy-view-peer" class="btn quiet" type="button" data-i18n="action.copy"></button></p>
+          <div class="actions view-actions">
+            <button id="view-message" class="btn" type="button" data-i18n="view.message" disabled></button>
+            <button id="view-like" class="btn primary" type="button" aria-pressed="false" disabled><svg
+              class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span data-i18n="view.like"></span></button>
+          </div>
+          <p class="caption" data-i18n="view.soon"></p>
+          <div class="card">
+            <dl id="view-fields" class="facts"></dl>
+            <p id="view-claims" class="caption" data-i18n="view.claims"></p>
+          </div>
+          <!-- Block sits apart from Like so a slip does not hit it. -->
+          <div class="actions"><button id="view-block" class="btn quiet" type="button"
+            data-i18n="view.block"></button></div>
+        </div>
       </section>
       <section id="network-area" hidden>
         <h1 data-i18n="network.title"></h1>

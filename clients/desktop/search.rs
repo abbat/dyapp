@@ -219,6 +219,21 @@ pub async fn search(
     })
 }
 
+/// Blocks `peer_id` on this device: later searches drop it. Only a peer some search of this run
+/// returned can be blocked. Errors are `unknownPeer` or a storage message.
+pub fn block(
+    cache: &Mutex<Profiles>,
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+) -> Result<(), String> {
+    if cache.lock().map_err(|e| e.to_string())?.get(peer_id).is_none() {
+        return Err("unknownPeer".into());
+    }
+    let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    store.set_blocked(peer_id, true).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,6 +281,18 @@ mod tests {
         network::save(&dir, Settings::Active, &unreachable).unwrap();
         assert!(run(Vec::new()).await.is_err());
         assert!(run(Vec::new()).await.is_err());
+    }
+
+    #[test]
+    fn only_a_peer_a_search_returned_can_be_blocked() {
+        let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
+        let stranger = Identity::generate().peer_id().to_string();
+        assert_eq!(
+            block(&cache, &dir, &alice, &stranger),
+            Err("unknownPeer".into())
+        );
+        let store = Store::open(&dir.join("client.db"), &alice).unwrap();
+        assert!(store.blocked_peers().unwrap().is_empty());
     }
 
     #[test]

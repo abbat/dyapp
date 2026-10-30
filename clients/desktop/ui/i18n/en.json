@@ -254,5 +254,20 @@
   "search.failure.timeout": "A search node did not answer in time.",
   "search.failure.rateLimited": "A search node is busy. Seconds to wait:",
   "search.failure.puzzle": "A search node asked for proof of work the app does not solve.",
-  "search.failure.invalid": "A search node sent a malformed or forged reply; it was dropped."
+  "search.failure.invalid": "A search node sent a malformed or forged reply; it was dropped.",
+  "search.more": "More filters",
+  "search.details": "Details",
+  "search.empty.title": "Nobody matches yet",
+  "search.empty.text": "Widen the age range or drop the town, then search again.",
+  "search.error": "Search failed.",
+  "search.offline": "Search needs a connection, and no network node answered.",
+  "search.partialError": "Some search nodes did not answer fully.",
+  "search.blocked": "Blocked on this device. Searches no longer show this person.",
+  "view.back": "Back to results",
+  "view.peer": "Peer ID",
+  "view.like": "Like",
+  "view.message": "Message",
+  "view.soon": "Likes and messages come in a later version.",
+  "view.claims": "Written by the profile owner. Nobody checks these details.",
+  "view.block": "Block"
 }

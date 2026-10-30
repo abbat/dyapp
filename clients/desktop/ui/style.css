@@ -179,6 +179,8 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
   align-items: center; }
 .gallery { margin-bottom: var(--space-4); }
 .gallery .main { aspect-ratio: 4 / 3; max-height: 360px; border-radius: var(--radius); }
+/* Without photos the gallery shows the letters of the short ID. */
+.gallery .main.avatar { width: auto; height: auto; font-size: 3rem; }
 .gallery .thumbs { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
 .gallery .thumbs span { width: 56px; height: 56px; border-radius: var(--radius); }
 .gallery .thumbs [aria-current] { box-shadow: 0 0 0 2px var(--accent); }

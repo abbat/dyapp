@@ -324,7 +324,7 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `recovery-details`, `network-empty`,
   `network-failure`, `network-connected`, `profile-edit`, `publish-dialog`,
   `profile-publish-failed`, `profile-published`, `profile-hidden`, `search-not-connected`, `search-results`,
-  `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
+  `search-profile`, `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
   too quickly to capture.
 
 ### Desktop prototype screenshots

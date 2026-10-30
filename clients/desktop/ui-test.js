@@ -569,34 +569,47 @@ const checkStatus = async (traffic) => {
   document.body.style.width = width;
   if (overflows) throw new Error('status bar overflows at 400 px');
 };
-// Without a network the search asks to connect and offers the Network area; on the loopback node it
-// returns the sample, the published profile alone, with the node's filters and no failures.
-// The profile has no place, so filtering by Berlin finds nobody.
+// Without a network the search asks to connect, explains it with details and offers the Network
+// area; on the loopback node it returns the sample, the published profile alone, with the node's
+// filters and no failures. The card opens the profile and Back returns to the same list. The
+// profile has no place, so filtering by Berlin finds nobody.
+const shown = (id) => !document.getElementById(id).hidden;
+const searchFailures = () => document.getElementById('search-failures').textContent;
 const searchOnLoopback = async (connected) => {
   await checkStatus(false);
   await openArea('search-area');
   document.getElementById('run-search').click();
   await window.searchDone;
   const status = document.getElementById('search-status').textContent;
-  const retry = !document.getElementById('search-retry').hidden;
-  const network = !document.getElementById('search-open-network').hidden;
   if (!connected) {
-    if (status !== window.strings['search.notConnected'] || retry || !network) {
-      throw new Error(`search without a network: ${status}, retry ${retry}, network ${network}`);
+    if (status !== window.strings['search.notConnected'] || !shown('search-error')
+      || !shown('search-open-network') || searchFailures() !== 'notConnected') {
+      throw new Error(`search without a network: ${status}, details ${searchFailures()}`);
     }
     await shot('search-not-connected');
     return;
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
     .map((item) => item.dataset.peerId);
-  const failures = [...document.getElementById('search-failures').children]
-    .map((item) => item.textContent);
-  if (status !== `${window.strings['search.results']} 1` || retry || failures.length
-    || document.getElementById('search-filters').hidden
+  if (status !== `${window.strings['search.results']} 1` || shown('search-error')
+    || shown('search-empty') || !shown('search-again') || !shown('search-filters')
     || peers.join() !== document.getElementById('peer-id').textContent) {
-    throw new Error(`loopback search: ${status}, peers ${peers}, failures ${failures}`);
+    throw new Error(`loopback search: ${status}, peers ${peers}, failures ${searchFailures()}`);
   }
   await shot('search-results');
+  document.getElementById('result-1').click();
+  if (shown('search-main') || !shown('profile-view')
+    || document.activeElement.id !== 'view-back'
+    || !document.getElementById('view-title').textContent) {
+    throw new Error('the result card did not open the profile');
+  }
+  await shot('search-profile');
+  document.getElementById('view-back').click();
+  if (!shown('search-main') || shown('profile-view')
+    || document.activeElement.id !== 'result-1'
+    || document.querySelectorAll('#search-results [data-peer-id]').length !== 1) {
+    throw new Error('Back did not return to the same results');
+  }
   await checkStatus(true);
   await shot('statusbar');
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
@@ -604,24 +617,25 @@ const searchOnLoopback = async (connected) => {
   document.getElementById('run-search').click();
   await window.searchDone;
   const placed = document.getElementById('search-status').textContent;
-  if (placed !== window.strings['search.empty']) throw new Error(`place search: ${placed}`);
+  if (placed !== window.strings['search.empty'] || !shown('search-empty')) {
+    throw new Error(`place search: ${placed}`);
+  }
   await shot('search-empty');
   document.getElementById('search-country').value = '';
   document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
 };
 // The fixture forged the signature of the published profile in the node's index: the search drops
-// it and lists the forged reply instead of showing a person.
+// it and explains the forged reply under Details instead of showing a person.
 const searchForged = async () => {
   await openArea('search-area');
   document.getElementById('run-search').click();
   await window.searchDone;
-  const failures = [...document.getElementById('search-failures').children]
-    .map((item) => item.textContent);
-  if (document.querySelectorAll('#search-results [data-peer-id]').length
-    || !failures.includes(window.strings['search.failure.invalid'])) {
+  if (document.querySelectorAll('#search-results [data-peer-id]').length || !shown('search-error')
+    || !searchFailures().split('\n').includes(window.strings['search.failure.invalid'])) {
     throw new Error(`forged search: ${document.getElementById('search-status').textContent}, `
-      + `failures ${failures}`);
+      + `failures ${searchFailures()}`);
   }
+  document.querySelector('#search-error details').open = true;
   await shot('search-error');
 };
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
