@@ -170,7 +170,7 @@ def smoke(executable, flows=True):
     reports.mkdir(parents=True, exist_ok=True)
     results = []
 
-    def case(name, extra, profile, broken=False, peer=True, timeout=60):
+    def case(name, extra, profile, broken=False, peer=True, timeout=120):
         arguments = [executable, "--ui-test", *extra]
         if os.environ.get("DYAPP_SMOKE_RU") == "1":
             arguments.append("--ui-test-ru")

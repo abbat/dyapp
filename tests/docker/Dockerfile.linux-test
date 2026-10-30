@@ -1,6 +1,13 @@
 FROM dyapp:linux-base
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11 gnome-keyring imagemagick python3-gi \
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11 gnome-keyring imagemagick python3-gi curl \
     && rm -rf /var/lib/apt/lists/*
+# axe-core 4.14.0 from npm for the UI test's accessibility audit, the same checksum as
+# tools/scripts/ci-setup.sh.
+RUN curl -fsSL -o /tmp/axe.tgz https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz \
+    && echo '2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af  /tmp/axe.tgz' | sha256sum -c - \
+    && mkdir -p /opt/axe-core \
+    && tar -xzf /tmp/axe.tgz -C /opt/axe-core --strip-components=1 package/axe.min.js \
+    && rm /tmp/axe.tgz
 USER 1000:1000
 CMD ["bash", "/app/tests/scripts/linux-test.sh"]

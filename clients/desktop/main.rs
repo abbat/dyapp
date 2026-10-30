@@ -756,6 +756,13 @@ fn main() {
         dyapp_p2p_net::set_id_pow_bits(8);
     }
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
+    // axe-core for the UI test's accessibility audit; a set but unreadable path fails the run.
+    let axe = std::env::var_os("DYAPP_AXE")
+        .filter(|_| test_mode)
+        .map(|path| {
+            std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("axe-core {}: {e}", path.to_string_lossy()))
+        });
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)));
@@ -845,6 +852,9 @@ fn main() {
                     webview
                         .eval("document.querySelector('#profile-area h1').style.display = 'none'")
                         .expect("inject UI failure");
+                }
+                if let Some(axe) = &axe {
+                    webview.eval(axe.as_str()).expect("load axe-core");
                 }
                 webview
                     .eval(include_str!("ui-test.js"))

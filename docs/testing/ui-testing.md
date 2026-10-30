@@ -328,6 +328,15 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `profile-publish-failed`, `profile-published`, `profile-hidden`, `search-not-connected`, `search-results`,
   `search-profile`, `search-empty`, `search-error`, `remove-offline`. The in-progress network check and the publish puzzle finish
   too quickly to capture.
+- **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
+  (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the
+  test-mode app injects it before `ui-test.js`; a set but unreadable path fails the launch. Before
+  every screenshot checkpoint, with or without `DYAPP_UI_SHOTS`, `ui-test.js` runs axe with the
+  WCAG 2.0–2.2 A and AA tags in the light and the dark theme (labels and contrast included),
+  rejects a positive `tabindex` (tab order follows the DOM), focuses every visible control and
+  requires a focus ring (`box-shadow` or `outline`), and resizes the window to 440 px through
+  `ui_test_window` to reject horizontal overflow. Any finding fails the case with the rule, theme
+  and first element.
 
 ### Desktop prototype screenshots
 

@@ -27,5 +27,7 @@ cargo test --manifest-path "$manifest" --locked --no-run --message-format=json >
 cargo build --manifest-path "$root/Cargo.toml" --locked -p dyapp-bootstrap --bin dyappd
 mkdir -p /tmp/ai
 export DYAPP_XVFB_DIAGNOSTICS=1
+# The desktop smoke audits every screenshot point with axe-core (ci-setup.sh and the test image).
+export DYAPP_AXE=${DYAPP_AXE:-/opt/axe-core/axe.min.js}
 exec xvfb-run -a -e /dev/stderr -s '-screen 0 1280x1400x24' dbus-run-session -- \
     bash "$0" --session

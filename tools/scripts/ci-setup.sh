@@ -18,6 +18,16 @@ case "${1:?usage: ci-setup.sh rust|linux}" in
 esac
 sudo apt-get update -q
 sudo apt-get install -y -q --no-install-recommends "${packages[@]}"
+if [[ $1 == linux ]]; then
+    # axe-core 4.14.0 from npm for the UI test's accessibility audit, the same checksum as
+    # tests/docker/Dockerfile.linux-test.
+    tmp=$(mktemp -d)
+    curl -fsSL -o "$tmp/axe.tgz" https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz
+    echo '2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af  '"$tmp/axe.tgz" | sha256sum -c -
+    sudo mkdir -p /opt/axe-core
+    sudo tar -xzf "$tmp/axe.tgz" -C /opt/axe-core --strip-components=1 package/axe.min.js
+    rm -rf "$tmp"
+fi
 if [[ $1 == rust ]]; then
     # Official actionlint 1.7.12, the same image digest as tools/docker/Dockerfile.dev.
     container=$(docker create rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667)
