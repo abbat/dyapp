@@ -44,6 +44,9 @@
     <string name="settings_active">Активная</string>
     <string name="settings_key_store">Хранилище ключей Android</string>
     <string name="settings_switch">Переключиться на эту идентичность</string>
+    <string name="settings_network_active">Активная сеть: %1$s</string>
+    <string name="settings_network_public">публичная</string>
+    <string name="settings_network_none">Активной сети пока нет.</string>
     <string name="network_title">Подключение к сети</string>
     <string name="network_seeds">Узлы начальной загрузки, по одному host:port в строке</string>
     <string name="network_name">Имя сети (пусто — публичная)</string>

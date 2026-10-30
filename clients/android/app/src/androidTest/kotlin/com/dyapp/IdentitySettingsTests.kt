@@ -59,4 +59,16 @@ class IdentitySettingsTests {
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
         check(!PlatformKeyStore.exists(second.slot.alias)) { "The removed identity kept its key" }
     }
+
+    @Test
+    fun settingsShowTheNetworkAndReturnFromItsEditor() {
+        val peerId = compose.shownPeerId()
+        click("settings-open")
+        // Other tests leave no active network.
+        compose.waitForText("settings-network-status", R.string.settings_network_none)
+        click("settings-network")
+        compose.onNodeWithTag("network-peer-id").assertTextEquals(peerId)
+        click("network-back")
+        compose.onNodeWithTag("settings-back").assertExists()
+    }
 }

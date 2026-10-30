@@ -45,6 +45,9 @@
     <string name="settings_active">Active</string>
     <string name="settings_key_store">Android Keystore</string>
     <string name="settings_switch">Switch to this identity</string>
+    <string name="settings_network_active">Active network: %1$s</string>
+    <string name="settings_network_public">public</string>
+    <string name="settings_network_none">No active network yet.</string>
     <string name="network_title">Network connection</string>
     <string name="network_seeds">Bootstrap nodes, one host:port per line</string>
     <string name="network_name">Network name (blank = public)</string>
