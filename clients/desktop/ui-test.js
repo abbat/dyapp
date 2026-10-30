@@ -532,6 +532,13 @@ const checkStatus = async (traffic) => {
   if (!text('status-messages') || text('status-messages') === strings['statusbar.noMessages']) {
     throw new Error(`status bar messages: ${text('status-messages')}`);
   }
+  // At the window's minimum width the items wrap instead of running off the bar.
+  const bar = document.getElementById('statusbar');
+  const width = document.body.style.width;
+  document.body.style.width = '400px';
+  const overflows = bar.scrollWidth > bar.clientWidth;
+  document.body.style.width = width;
+  if (overflows) throw new Error('status bar overflows at 400 px');
 };
 // Without a network the search asks to connect and offers the Network area; on the loopback node it
 // returns the sample, the published profile alone, with the node's filters and no failures.
@@ -722,6 +729,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
       await checkStorageCard();
+      await checkStatus(false);
     } else if (step === 'settings-language') {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode);

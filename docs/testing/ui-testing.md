@@ -99,7 +99,9 @@ creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
 verify the surviving identity and Settings inventory. That relaunch also checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
-free space shows, and the node row shows on Linux and is hidden on Windows.
+free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
+shows no traffic before any network, the message store size, and wraps without overflow at the
+400 px minimum window width.
 The window cases move the window, quit with Ctrl+Q, check `window.json`, relaunch to the same
 bounds, then relaunch with an off-screen saved position and expect the window centred on the
 primary display. The single-instance case hides the window and launches the app again: the second
