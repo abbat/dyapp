@@ -45,6 +45,10 @@ class IdentitySettingsTests {
         check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows + 1)
         switchTo(first)
         check(active().peerId == first) { "Switch did not activate the chosen identity" }
+        // A relaunch keeps the identity chosen in Settings.
+        compose.activityRule.scenario.recreate()
+        check(compose.shownPeerId() == first) { "The identity chosen in Settings was lost on relaunch" }
+        click("settings-open")
         switchTo(second.peerId)
         check(active().peerId == second.peerId) { "Switch did not return to the new identity" }
         // Cancel returns to Settings with the identity intact.
