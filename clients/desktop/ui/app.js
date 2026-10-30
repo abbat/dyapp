@@ -8,7 +8,10 @@ window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russ
   .then(async ([pseudoLocale, testRussian]) => {
     const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
       .split(/[-_]/)[0].toLowerCase();
-    const language = !pseudoLocale && (testRussian || systemLanguage === 'ru') ? 'ru' : 'en';
+    // Settings → Language overrides the system unless a test or the pseudo-locale sets it.
+    const chosen = localStorage.getItem('language');
+    const wanted = chosen === 'en' || chosen === 'ru' ? chosen : systemLanguage;
+    const language = !pseudoLocale && (testRussian || wanted === 'ru') ? 'ru' : 'en';
     const response = await fetch(`i18n/${language}.json`);
     if (!response.ok) throw new Error('Translation catalogue unavailable');
     const catalogue = await response.json();
@@ -247,6 +250,88 @@ trayShow.addEventListener('change', changeTray);
 trayClose.addEventListener('change', changeTray);
 window.trayShown = window.stringsShown.then(() => setTray(null));
 
+// Settings → Appearance: kept by this app for every identity; a language change reloads the page.
+const applyTheme = (theme) => {
+  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+};
+applyTheme(localStorage.getItem('theme'));
+for (const radio of document.querySelectorAll('input[name="theme"]')) {
+  radio.checked = radio.value === (localStorage.getItem('theme') || 'system');
+  radio.addEventListener('change', () => {
+    localStorage.setItem('theme', radio.value);
+    applyTheme(radio.value);
+  });
+}
+const languageChoice = document.getElementById('language');
+languageChoice.value = localStorage.getItem('language') || 'system';
+languageChoice.addEventListener('change', () => {
+  localStorage.setItem('language', languageChoice.value);
+  window.location.reload();
+});
+
+// Settings → Privacy: stored per identity on this device, saved on every change.
+const privacyInputs = {
+  sendViews: 'send-views',
+  sendReadReceipts: 'send-read-receipts',
+  sendTyping: 'send-typing',
+  presenceMatches: 'presence-matches',
+  notifications: 'message-notifications',
+};
+const privacyError = document.getElementById('privacy-error');
+const showPrivacy = async () => {
+  try {
+    const privacy = await invoke('privacy_settings');
+    for (const [key, id] of Object.entries(privacyInputs)) {
+      document.getElementById(id).checked = privacy[key];
+    }
+    document.getElementById('presence-nobody').checked = !privacy.presenceMatches;
+    privacyError.hidden = true;
+  } catch (_) {
+    privacyError.hidden = false;
+  }
+};
+document.getElementById('privacy').addEventListener('change', () => {
+  const privacy = Object.fromEntries(Object.entries(privacyInputs)
+    .map(([key, id]) => [key, document.getElementById(id).checked]));
+  window.privacySaved = invoke('set_privacy', { privacy })
+    .then(() => { privacyError.hidden = true; }, () => { privacyError.hidden = false; });
+});
+
+// Settings → Blocked people: Unblock shows the peer in later searches again.
+const showBlocked = async () => {
+  const list = document.getElementById('blocked-list');
+  let peers = [];
+  try {
+    peers = await invoke('blocked_peers');
+    privacyError.hidden = true;
+  } catch (_) {
+    privacyError.hidden = false;
+  }
+  list.replaceChildren(...peers.map((peerId, index) => {
+    const row = document.createElement('tr');
+    const name = document.createElement('td');
+    name.className = 'who';
+    name.append(...who(row, peerId, null, ''));
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn';
+    button.id = `unblock-${index + 1}`;
+    button.textContent = window.strings['settings.unblock'];
+    button.addEventListener('click', () => {
+      button.disabled = true;
+      window.blockedShown = invoke('unblock_peer', { peerId })
+        .catch(() => { privacyError.hidden = false; })
+        .then(showBlocked);
+    });
+    const action = document.createElement('td');
+    action.append(button);
+    row.append(name, action);
+    return row;
+  }));
+  document.getElementById('blocked-none').hidden = peers.length > 0;
+};
+
 const showSettings = async () => {
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
@@ -257,6 +342,8 @@ const showSettings = async () => {
   window.nodeShown = showNode();
   window.usageShown = showUsage();
   window.trayShown = setTray(null);
+  window.privacyShown = showPrivacy();
+  window.blockedShown = showBlocked();
   try {
     const items = await invoke('list_identities');
     list.replaceChildren(...knowPeers(items).map(settingsIdentity));
@@ -955,6 +1042,11 @@ document.getElementById('retry')
   .addEventListener('click', () => act(invoke('identity_state')));
 
 // Second confirmation: Remove stays disabled until the checkbox is ticked.
+const removeAsk = document.getElementById('remove-ask');
+const removeOffline = document.getElementById('remove-offline');
+const removeRetry = document.getElementById('remove-retry');
+const removeAnyway = document.getElementById('remove-anyway');
+let removePublished = false;
 const showRemove = async () => {
   const items = await invoke('list_identities');
   const copies = current.peerId && items.some((item) => item.slot !== current.slot
@@ -971,6 +1063,12 @@ const showRemove = async () => {
     : window.strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
   // A missing key or another copy means nothing irreplaceable is lost.
   document.getElementById('remove-warning').hidden = !current.peerId || copies;
+  // A published profile is withdrawn from search before the key goes.
+  const view = current.status === 'ready' && await invoke('load_profile').catch(() => null);
+  removePublished = Boolean(view && view.published);
+  document.getElementById('remove-text').hidden = !removePublished;
+  removeAsk.hidden = false;
+  removeOffline.hidden = true;
   removeConfirm.checked = false;
   removeAction.disabled = true;
   removeDialog.hidden = false;
@@ -986,14 +1084,44 @@ for (const id of ['setup-cancel', 'picker-cancel']) {
     ? show(identity, 'status.ready') : show(sections[3], 'status.recovery')));
 }
 removeConfirm.addEventListener('change', () => { removeAction.disabled = !removeConfirm.checked; });
-removeAction.addEventListener('click', () => {
-  removeAction.disabled = true;
+const removeNow = () => {
   const removed = current;
   // Nothing is open after a removal until the backend reports the next state.
   current = null;
-  act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
+  return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
+};
+// The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
+const withdrawThenRemove = async () => {
+  if (removePublished) {
+    try {
+      await invoke('hide_profile');
+    } catch (_) {
+      removeAsk.hidden = true;
+      removeOffline.hidden = false;
+      removeRetry.disabled = false;
+      removeAnyway.disabled = false;
+      document.getElementById('remove-cancel-offline').focus();
+      return null;
+    }
+  }
+  return removeNow();
+};
+removeAction.addEventListener('click', () => {
+  removeAction.disabled = true;
+  window.removeDone = withdrawThenRemove();
 });
-document.getElementById('remove-cancel').addEventListener('click', () => removeDialog.close());
+removeRetry.addEventListener('click', () => {
+  removeRetry.disabled = true;
+  removeAnyway.disabled = true;
+  window.removeDone = withdrawThenRemove();
+});
+removeAnyway.addEventListener('click', () => {
+  removeAnyway.disabled = true;
+  window.removeDone = removeNow();
+});
+for (const id of ['remove-cancel', 'remove-cancel-offline']) {
+  document.getElementById(id).addEventListener('click', () => removeDialog.close());
+}
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
   .then(render)

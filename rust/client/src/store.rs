@@ -185,6 +185,26 @@ impl Store {
         self.set_setting_flag("send_profile_views", enabled)
     }
 
+    /// Whether this profile shows that it is typing; absent means on.
+    pub fn send_typing(&self) -> Result<bool, Error> {
+        Ok(!self.setting_flag("hide_typing")?)
+    }
+
+    /// Persist whether this profile shows that it is typing.
+    pub fn set_send_typing(&self, enabled: bool) -> Result<(), Error> {
+        self.set_setting_flag("hide_typing", !enabled)
+    }
+
+    /// Whether new messages and likes notify on this device; absent means on.
+    pub fn notifications(&self) -> Result<bool, Error> {
+        Ok(!self.setting_flag("mute_notifications")?)
+    }
+
+    /// Persist whether new messages and likes notify on this device.
+    pub fn set_notifications(&self, enabled: bool) -> Result<(), Error> {
+        self.set_setting_flag("mute_notifications", !enabled)
+    }
+
     /// Whether the owner hid the profile from search with a tombstone; absent means shown.
     pub fn profile_hidden(&self) -> Result<bool, Error> {
         self.setting_flag("profile_hidden")
@@ -596,14 +616,18 @@ pub(crate) mod tests {
         let peer = Identity::generate().peer_id();
         let store = Store::open(&path, &alice).unwrap();
         assert!(!store.send_profile_views().unwrap());
+        assert!(store.send_typing().unwrap() && store.notifications().unwrap());
         assert!(!store.passed(&peer).unwrap());
         store.set_send_profile_views(true).unwrap();
+        store.set_send_typing(false).unwrap();
+        store.set_notifications(false).unwrap();
         assert!(store.set_pass(&peer, true, Timestamp::new(10, 0)).unwrap());
         assert!(!store.set_pass(&peer, false, Timestamp::new(9, 0)).unwrap());
         drop(store);
 
         let store = Store::open(&path, &alice).unwrap();
         assert!(store.send_profile_views().unwrap());
+        assert!(!store.send_typing().unwrap() && !store.notifications().unwrap());
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
         assert!(!store.passed(&peer).unwrap());
@@ -613,6 +637,7 @@ pub(crate) mod tests {
         assert!(!store.send_profile_views().unwrap());
         let other = Store::open(&temp_db_path(), &bob).unwrap();
         assert!(!other.send_profile_views().unwrap());
+        assert!(other.send_typing().unwrap() && other.notifications().unwrap());
         assert!(!other.passed(&peer).unwrap());
     }
 

@@ -345,20 +345,25 @@ def smoke(executable, flows=True):
         subprocess.run([node, "keygen"], env=env, check=True,
                        stdout=subprocess.DEVNULL, timeout=600)
         log = storage / "node.log"
-        with log.open("w") as out:
-            server = subprocess.Popen([node], env=env, stdout=out,
-                                      stderr=subprocess.STDOUT)
-        try:
+
+        def start():
+            with log.open("a") as out:
+                started = subprocess.Popen([node], env=env, stdout=out,
+                                           stderr=subprocess.STDOUT)
             host, port = seed.split(":")
             for _ in range(60):
                 try:
                     socket.create_connection((host, int(port)), 1).close()
-                    break
+                    return started
                 except OSError:
                     time.sleep(1)
-            else:
-                raise RuntimeError(f"dyappd did not start:\n"
-                                   f"{log.read_text()[-4096:]}")
+            started.terminate()
+            raise RuntimeError(f"dyappd did not start:\n"
+                               f"{log.read_text()[-4096:]}")
+
+        log.write_text("")
+        server = start()
+        try:
             file = ["--ui-test-file"]
             peer_id = case("connect-create", file, profile)
             failed = case("profile-publish-no-network",
@@ -431,15 +436,26 @@ def smoke(executable, flows=True):
                 picked = (fresh / "active-profile").read_text().strip()
                 if not (fresh / "profiles" / picked / "network").is_file():
                     raise RuntimeError("the wizard did not activate a network")
+            # Removal sends the tombstone first: with no node it keeps the
+            # identity, with the node back it removes it.
+            server.terminate()
+            server.wait(timeout=30)
+            if case("remove-offline", [*file, "--ui-test-step=remove-offline"],
+                    profile, timeout=120) != peer_id:
+                raise RuntimeError("a failed withdrawal changed the identity")
+            if not folder.is_dir():
+                raise RuntimeError("a failed withdrawal removed the identity")
+            server = start()
+            if case("remove-tombstone",
+                    [*file, "--ui-test-step=remove-tombstone"], profile,
+                    timeout=120) == peer_id or folder.exists():
+                raise RuntimeError("the removed identity is still there")
         except RuntimeError as error:
             raise RuntimeError(f"{error}\ndyappd log:\n"
                                f"{log.read_text()[-8192:]}") from error
         finally:
             server.terminate()
             server.wait(timeout=30)
-        slot = (storage / "active-profile").read_text().strip()
-        if not (storage / "profiles" / slot / "network").is_file():
-            raise RuntimeError("the connected check did not activate")
 
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
@@ -476,6 +492,9 @@ def smoke(executable, flows=True):
     language_step = "--ui-test-step=settings-language"
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("settings-english", ["--ui-test-file", language_step], profile)
+        case("settings-privacy-restart",
+             ["--ui-test-file", "--ui-test-step=settings-privacy-restart"],
+             profile)
 
     @contextlib.contextmanager
     def fake_tray(mode, profile):

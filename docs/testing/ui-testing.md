@@ -303,13 +303,15 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   is also how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
   unit binaries with `run-cargo-unit-binaries.py`, then `desktop-smoke.py` launches
-  `build/debug/dyapp-linux` 42 times using isolated test profiles. The network cases check an
+  `build/debug/dyapp-linux` 45 times using isolated test profiles. The network cases check an
   empty list, a refused and a malformed seed row, and that the draft survives a restart unactivated.
   The loopback cases start `build/debug/dyappd` (built by the image, or by the script when
   missing), connect the form, activate the network, publish the profile and find it as the only search result. Then the script flips the
   signature byte of that record in the node's search index: the next search shows no person
   and lists the forged reply. Hide from search then leaves a tombstone on the node and the
-  hidden flag in the store. This
+  hidden flag in the store. With the node stopped, removing the identity offers Retry and Remove
+  anyway and Cancel keeps it; with the node restarted the tombstone goes first and the identity is
+  removed. Settings → Privacy starts at its defaults and keeps changes across a restart. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
   keeps 22 bits.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
@@ -324,7 +326,7 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `recovery-details`, `network-empty`,
   `network-failure`, `network-connected`, `profile-edit`, `publish-dialog`,
   `profile-publish-failed`, `profile-published`, `profile-hidden`, `search-not-connected`, `search-results`,
-  `search-profile`, `search-empty`, `search-error`. The in-progress network check and the publish puzzle finish
+  `search-profile`, `search-empty`, `search-error`, `remove-offline`. The in-progress network check and the publish puzzle finish
   too quickly to capture.
 
 ### Desktop prototype screenshots

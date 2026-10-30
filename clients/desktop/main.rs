@@ -19,6 +19,8 @@ mod network;
 #[cfg(unix)]
 #[path = "node.rs"]
 mod node;
+#[path = "privacy.rs"]
+mod privacy;
 #[path = "profile.rs"]
 mod profile;
 #[path = "search.rs"]
@@ -472,6 +474,37 @@ fn block_peer(
     search::block(&searching.0, &dir, &identity, &peer_id)
 }
 
+/// The open identity's privacy settings; see `privacy::load`.
+#[tauri::command]
+fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
+    let (identity, dir) = open_identity(&state)?;
+    privacy::load(&dir, &identity)
+}
+
+/// Stores the open identity's privacy settings; see `privacy::save`.
+#[tauri::command]
+fn set_privacy(
+    state: tauri::State<'_, IdentityState>,
+    privacy: privacy::Privacy,
+) -> Result<(), String> {
+    let (identity, dir) = open_identity(&state)?;
+    privacy::save(&dir, &identity, privacy)
+}
+
+/// Peers the open identity blocked on this device.
+#[tauri::command]
+fn blocked_peers(state: tauri::State<'_, IdentityState>) -> Result<Vec<String>, String> {
+    let (identity, dir) = open_identity(&state)?;
+    privacy::blocked(&dir, &identity)
+}
+
+/// Unblocks a peer on this device; see `privacy::unblock`.
+#[tauri::command]
+fn unblock_peer(state: tauri::State<'_, IdentityState>, peer_id: String) -> Result<(), String> {
+    let (identity, dir) = open_identity(&state)?;
+    privacy::unblock(&dir, &identity, &peer_id)
+}
+
 /// The open identity's node settings; see `node::load`.
 #[cfg(unix)]
 #[tauri::command]
@@ -780,6 +813,10 @@ fn main() {
             send_search_profile,
             search_profiles,
             block_peer,
+            privacy_settings,
+            set_privacy,
+            blocked_peers,
+            unblock_peer,
             #[cfg(unix)]
             load_node_settings,
             #[cfg(unix)]

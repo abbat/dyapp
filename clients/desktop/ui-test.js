@@ -297,6 +297,35 @@ const checkSettingsLanguage = async () => {
   }
   await openArea('profile-area');
 };
+// Settings → Privacy starts at the defaults, saves each change, and Appearance switches the theme.
+const privacyIds = ['send-views', 'send-read-receipts', 'send-typing', 'presence-matches',
+  'message-notifications'];
+const privacyState = () => privacyIds.map((id) => document.getElementById(id).checked).join();
+const checkPrivacy = async (restarted) => {
+  await openArea('settings');
+  await window.privacyShown;
+  await window.blockedShown;
+  const expected = restarted ? 'true,true,false,false,false' : 'false,false,true,true,true';
+  if (privacyState() !== expected || shown('privacy-error')
+    || document.getElementById('presence-nobody').checked !== restarted) {
+    throw new Error(`privacy settings ${privacyState()}, expected ${expected}`);
+  }
+  if (!shown('blocked-none') || document.getElementById('blocked-list').children.length) {
+    throw new Error('blocked list not empty');
+  }
+  if (restarted) return;
+  for (const id of ['send-views', 'send-read-receipts', 'send-typing', 'presence-nobody',
+    'message-notifications']) {
+    document.getElementById(id).click();
+    await window.privacySaved;
+  }
+  if (shown('privacy-error')) throw new Error('privacy settings not saved');
+  const root = document.documentElement;
+  document.getElementById('theme-dark').click();
+  if (root.dataset.theme !== 'dark') throw new Error('dark theme not applied');
+  document.getElementById('theme-system').click();
+  if ('theme' in root.dataset) throw new Error('system theme not restored');
+};
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
   document.getElementById('node-enabled').checked = enabled;
@@ -548,6 +577,43 @@ const checkSavedProfile = async () => {
 };
 // The status bar: traffic is unavailable until a search starts the client swarm, then counts the
 // reply; the message store always has a size once the identity is open.
+// Removal withdraws a published profile first. With the node stopped no node takes the tombstone:
+// Retry fails again and Cancel keeps the identity.
+const removeOffline = async () => {
+  await openArea('settings');
+  byId('settings-remove').click();
+  await waitFor('remove');
+  if (!shown('remove-text') || !shown('remove-ask') || shown('remove-offline')) {
+    throw new Error('removal does not say the profile is withdrawn first');
+  }
+  byId('remove-confirm').click();
+  byId('remove-action').click();
+  await window.removeDone;
+  if (!shown('remove-offline') || shown('remove-ask')
+    || document.activeElement.id !== 'remove-cancel-offline') {
+    throw new Error('no offline choice when the tombstone failed');
+  }
+  await shot('remove-offline');
+  byId('remove-retry').click();
+  await window.removeDone;
+  if (!shown('remove-offline') || byId('remove-retry').disabled) {
+    throw new Error('Retry did not offer the offline choice again');
+  }
+  byId('remove-cancel-offline').click();
+  if (byId('remove').open || !shown('settings')) throw new Error('Cancel did not keep Settings');
+};
+// With the node back the tombstone goes first, then the key; a new identity opens for the checks.
+const removeWithTombstone = async (mode) => {
+  await openArea('settings');
+  byId('settings-remove').click();
+  await waitFor('remove');
+  byId('remove-confirm').click();
+  byId('remove-action').click();
+  await window.removeDone;
+  if (shown('remove-offline')) throw new Error('removal stopped although a node answered');
+  await waitFor('setup');
+  await chooseStorage(mode);
+};
 const checkStatus = async (traffic) => {
   const { strings } = window;
   window.statusShown = showStatus();
@@ -789,6 +855,16 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chooseStorage(mode);
       await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
       await checkSettingsLanguage();
+      await checkPrivacy(false);
+    } else if (step === 'settings-privacy-restart') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await checkPrivacy(true);
+    } else if (step === 'remove-offline') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await removeOffline();
+    } else if (step === 'remove-tombstone') {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await removeWithTombstone(mode);
     } else if (step === 'profile-save') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await saveProfileForRestart();

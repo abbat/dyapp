@@ -302,7 +302,52 @@
             <button id="settings-switch" class="btn" type="button" data-i18n="identity.switch"></button>
             <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
           </div>
+          <p class="caption" data-i18n="backup.none"></p>
         </div>
+        <div id="blocked" class="card">
+          <h2 data-i18n="settings.blocked"></h2>
+          <table class="rows"><tbody id="blocked-list"></tbody></table>
+          <p id="blocked-none" class="muted" data-i18n="settings.blocked.none"></p>
+          <p class="caption" data-i18n="settings.blocked.hint"></p>
+        </div>
+        <div class="card">
+          <h2 data-i18n="settings.appearance"></h2>
+          <fieldset id="theme"><legend data-i18n="settings.theme"></legend>
+            <label class="choice"><input id="theme-system" type="radio" name="theme" value="system">
+              <span data-i18n="settings.theme.system"></span></label>
+            <label class="choice"><input id="theme-light" type="radio" name="theme" value="light">
+              <span data-i18n="settings.theme.light"></span></label>
+            <label class="choice"><input id="theme-dark" type="radio" name="theme" value="dark">
+              <span data-i18n="settings.theme.dark"></span></label>
+          </fieldset>
+          <div class="field"><label for="language" data-i18n="settings.language"></label>
+            <select id="language">
+              <option value="system" data-i18n="settings.language.system"></option>
+              <option value="en" data-i18n="settings.language.en"></option>
+              <option value="ru" data-i18n="settings.language.ru"></option>
+            </select></div>
+        </div>
+        <form id="privacy" class="card" novalidate>
+          <h2 data-i18n="settings.privacy"></h2>
+          <label class="choice"><input id="send-views" type="checkbox">
+            <span><span data-i18n="privacy.views"></span><br>
+              <span class="caption" data-i18n="privacy.views.hint"></span></span></label>
+          <label class="choice"><input id="send-read-receipts" type="checkbox">
+            <span><span data-i18n="privacy.receipts"></span><br>
+              <span class="caption" data-i18n="privacy.receipts.hint"></span></span></label>
+          <label class="choice"><input id="send-typing" type="checkbox">
+            <span data-i18n="privacy.typing"></span></label>
+          <fieldset id="presence-audience"><legend data-i18n="privacy.presence"></legend>
+            <label class="choice"><input id="presence-matches" type="radio" name="presence">
+              <span data-i18n="privacy.presence.matches"></span></label>
+            <label class="choice"><input id="presence-nobody" type="radio" name="presence">
+              <span data-i18n="privacy.presence.nobody"></span></label>
+          </fieldset>
+          <label class="choice"><input id="message-notifications" type="checkbox">
+            <span data-i18n="privacy.notifications"></span></label>
+          <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
+          <p class="caption" data-i18n="privacy.hint"></p>
+        </form>
         <div id="usage" class="card" hidden>
           <h2 data-i18n="usage.title"></h2>
           <table class="rows"><tbody>
@@ -354,12 +399,23 @@
     <p id="remove-path" class="caption" hidden><code></code></p>
     <p id="remove-copies"></p>
     <p id="remove-warning" class="notice warn" data-i18n="remove.warning"></p>
-    <label class="choice"><input id="remove-confirm" type="checkbox">
-      <span data-i18n="remove.confirm"></span></label>
-    <div class="actions">
-      <button id="remove-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
-      <button id="remove-action" class="btn danger" type="button" data-i18n="remove.action"
-        disabled></button>
+    <p id="remove-text" data-i18n="remove.text" hidden></p>
+    <div id="remove-ask">
+      <label class="choice"><input id="remove-confirm" type="checkbox">
+        <span data-i18n="remove.confirm"></span></label>
+      <div class="actions">
+        <button id="remove-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+        <button id="remove-action" class="btn danger" type="button" data-i18n="remove.action"
+          disabled></button>
+      </div>
+    </div>
+    <div id="remove-offline" hidden>
+      <p class="notice warn" role="alert" data-i18n="remove.offline"></p>
+      <div class="actions">
+        <button id="remove-cancel-offline" class="btn" type="button" data-i18n="remove.cancel"></button>
+        <button id="remove-retry" class="btn" type="button" data-i18n="recovery.retry"></button>
+        <button id="remove-anyway" class="btn danger" type="button" data-i18n="remove.anyway"></button>
+      </div>
     </div>
   </dialog>
   <dialog id="publish-dialog" class="modal" aria-labelledby="publish-title" hidden>
