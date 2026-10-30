@@ -213,6 +213,12 @@ mod tests {
                 store.hold_search_profile(&record).map_err(failed)?;
                 // The node serves no search, so the profile waits for a later publish.
                 send_held(&store, &mut node, &network).await?;
+                // A held profile is sent on the given network, so its name must be valid.
+                let invalid = Network {
+                    name: " city".into(),
+                    ..network.clone()
+                };
+                assert!(send_held(&store, &mut node, &invalid).await.is_err());
                 store.due_search_profile(u64::MAX).map_err(failed)
             })
         });
