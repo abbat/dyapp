@@ -5,7 +5,7 @@ quit: clicks Quit once the icon is there and the window has its small
 icon; open: clicks Open once the app writes hidden to the config dir.
 Each step goes to stderr, which the smoke log in the CI artifact keeps."""
 import ctypes
-from ctypes import wintypes
+import ctypes.wintypes as wintypes
 from pathlib import Path
 import sys
 import time

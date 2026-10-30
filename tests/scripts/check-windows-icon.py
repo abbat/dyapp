@@ -4,7 +4,7 @@ taskbar and the window take their icon from that group.
 
 Usage: check-windows-icon.py EXE ICO. Windows only."""
 import ctypes
-from ctypes import wintypes
+import ctypes.wintypes as wintypes
 from pathlib import Path
 import struct
 import sys
