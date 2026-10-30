@@ -14,12 +14,18 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
+import uniffi.dyapp.setTestNodeIdPowBits
 
 class SearchTests {
     val compose = createAndroidComposeRule<MainActivity>()
 
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(lockChoice(skipped = true)).around(compose)
+
+    // The emulator runner's node carries a cheap test ID; the default puzzle skips it.
+    init {
+        setTestNodeIdPowBits(8u)
+    }
 
     private fun string(id: Int) = compose.activity.getString(id)
 

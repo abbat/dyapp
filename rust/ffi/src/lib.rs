@@ -436,6 +436,13 @@ pub fn place_countries() -> Vec<String> {
         .collect()
 }
 
+/// Lowers the node-ID proof of work this process requires of nodes, for a test network whose
+/// nodes carry cheap IDs; nodes below the default are otherwise skipped.
+#[uniffi::export]
+pub fn set_test_node_id_pow_bits(bits: u32) {
+    dyapp_p2p_net::set_id_pow_bits(bits);
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}
