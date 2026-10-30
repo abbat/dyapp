@@ -1,0 +1,577 @@
+<!doctype html>
+<!-- Static Android prototype; not shipped. Pick a screen with #<screen>, the language with
+     ?lang=ru and the theme with ?theme=dark. Strings come from the desktop prototype plus
+     strings.js; nothing here talks to the app. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DYApp Android prototype</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Sample profile photos; the app has no photos yet. */
+:root { --sample-photo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23bcd3ea'/%3E%3Cstop offset='1' stop-color='%237f9fc4'/%3E%3C/linearGradient%3E%3Crect width='40' height='40' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='16' r='7' fill='%23e8b892'/%3E%3Cpath d='M6 40c2-9 8-13 14-13s12 4 14 13z' fill='%23395b7a'/%3E%3C/svg%3E"); }
+.p2 { filter: hue-rotate(150deg); }
+.p3 { filter: hue-rotate(260deg) saturate(1.3); }
+.p4 { filter: hue-rotate(60deg) brightness(0.9); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+  <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+</svg>
+
+<!-- First launch: the app lock choice comes before any identity exists. -->
+<main class="page" data-on="lock-setup">
+  <svg aria-hidden="true" class="icon"><use href="#i-lock"/></svg>
+  <h1 data-t="lock.title"></h1>
+  <p data-t="lock.body"></p>
+  <p class="caption" data-t="lock.recovery"></p>
+  <div class="grow"></div>
+  <div class="actions">
+    <button type="button" class="btn filled" id="lock-set" data-t="lock.set"></button>
+    <button type="button" class="btn" id="lock-biometric" data-t="lock.biometric"></button>
+    <button type="button" class="btn text" id="lock-skip" data-t="lock.skip"></button>
+  </div>
+</main>
+
+<!-- Unlock: every fresh start while a PIN is set; the device screen lock is always offered. -->
+<main class="page" data-on="lock-unlock">
+  <h1 data-t="lock.unlock.title"></h1>
+  <div class="field"><label for="pin-unlock" data-t="lock.pin"></label><input type="password" id="pin-unlock" inputmode="numeric" value="1234567"></div>
+  <p class="caption" id="lock-error" style="color:var(--error)" data-t="lock.wrong"></p>
+  <div class="grow"></div>
+  <div class="actions">
+    <button type="button" class="btn filled" id="lock-unlock" data-t="lock.unlock"></button>
+    <button type="button" class="btn text" id="lock-device" data-t="lock.device"></button>
+  </div>
+</main>
+
+<!-- Identity: Android keeps the key in its platform store, so there is no storage choice. -->
+<main class="page" data-on="wizard-identity">
+  <div class="steps" data-t="wizard.step1"></div>
+  <h1 data-t="wizard.identity.title"></h1>
+  <p data-t="wizard.identity.intro"></p>
+  <p class="caption" id="key-store" data-t="storage.android"></p>
+  <p class="caption" id="no-backup" data-t="backup.none"></p>
+  <div class="grow"></div>
+  <div class="actions"><button type="button" class="btn filled" id="create-identity" data-t="wizard.create"></button></div>
+</main>
+
+<main class="page" data-on="wizard-network">
+  <div class="steps" data-t="wizard.step2"></div>
+  <h1 data-t="wizard.network.title"></h1>
+  <p class="caption"><span data-t="identity.peer"></span>
+    <code id="peer-id">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
+  <div class="actions"><button type="button" class="btn text" id="copy-peer-id" data-t="action.copy"></button></div>
+  <div class="field"><label for="network-name" data-t="network.name"></label>
+    <input type="text" id="network-name" data-tp="network.name.public">
+    <p class="caption" data-t="network.name.hint"></p></div>
+  <div class="field"><label for="seeds" data-t="network.seeds"></label>
+    <textarea id="seeds">node1.example.org:33445
+[2001:db8::7]:33445</textarea>
+    <p class="caption" data-t="network.seeds.hint"></p></div>
+  <div class="grow"></div>
+  <div class="actions">
+    <button type="button" class="btn filled" id="check-connection" data-t="network.check"></button>
+    <button type="button" class="btn text" id="skip-network" data-t="wizard.skip"></button>
+  </div>
+</main>
+
+<!-- Identity picker: several identities and none chosen, or after a removal. -->
+<main class="page" data-on="picker">
+  <h1 data-t="picker.title"></h1>
+  <p class="muted" data-t="picker.intro"></p>
+  <div id="identities">
+    <button type="button" class="list-item" id="pick-1"><span class="avatar photo" aria-hidden="true"></span>
+      <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="storage.kind.system"></span></span></button>
+    <button type="button" class="list-item" id="pick-2"><span class="avatar" aria-hidden="true">7a</span>
+      <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span></button>
+  </div>
+  <div class="grow"></div>
+  <div class="actions"><button type="button" class="btn" id="add-identity" data-t="identity.add"></button></div>
+</main>
+
+<!-- Recovery: the chosen identity cannot be opened; nothing is created in its place. -->
+<main class="page" data-on="recovery">
+  <h1 data-t="recovery.title"></h1>
+  <div class="notice error" role="alert">
+    <p id="recovery-reason" data-t="recovery.reason"></p>
+    <details><summary data-t="details"></summary>
+      <pre id="recovery-details">storage.keystore.missing
+2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</pre>
+      <button type="button" class="btn text" id="copy-recovery-details" data-t="action.copy"></button></details>
+  </div>
+  <p class="caption"><span data-t="identity.peer"></span> <code id="recovery-peer">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
+  <div class="grow"></div>
+  <div class="actions">
+    <button type="button" class="btn filled" id="retry" data-t="action.retry"></button>
+    <button type="button" class="btn" id="switch-identity" data-t="identity.switch"></button>
+    <button type="button" class="btn text danger" id="remove-identity" data-t="recovery.remove"></button>
+  </div>
+</main>
+
+<!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
+     lock settings) bring their own back bar and hide the navigation bar. -->
+<div class="app" data-on="profile profile-hidden publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
+    <span class="title"><span data-on="profile profile-hidden publish-dialog publish-progress switcher" data-t="nav.profile"></span>
+      <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
+      <span data-on="chats" data-t="nav.chats"></span>
+      <span data-on="network network-checking network-error" data-t="nav.network"></span>
+      <span data-on="settings remove-dialog remove-offline" data-t="nav.settings"></span></span>
+    <!-- Connected means one compatible node answered; it opens Network. -->
+    <button type="button" class="status" id="connection-status">
+      <span class="dot" data-off="search-error network-checking"></span>
+      <span class="dot busy" data-on="network-checking"></span>
+      <span class="dot off" data-on="search-error"></span>
+      <span data-t="status.connected" data-off="search-error network-checking"></span>
+      <span data-t="status.checking" data-on="network-checking"></span>
+      <span data-t="status.offline" data-on="search-error"></span></button>
+    <button type="button" class="icon-btn" id="identity-switcher" aria-haspopup="dialog" data-ta="settings.identities">
+      <span class="avatar small photo" aria-hidden="true"></span></button>
+  </header>
+
+  <main class="content">
+    <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
+    <section id="profile" class="content" style="padding:0" data-on="profile profile-hidden publish-dialog publish-progress switcher">
+      <p class="muted" id="profile-status"><span data-off="profile-hidden" data-t="profile.status.published"></span>
+        <span data-on="profile-hidden" data-t="profile.status.hidden"></span></p>
+      <div class="card">
+        <div class="switch-row">
+          <label for="profile-hidden"><span data-t="profile.hide"></span><br>
+            <span class="caption" data-t="profile.hide.hint"></span></label>
+          <!-- biome-ignore lint/a11y/useAriaPropsForRole: a native checkbox exposes its checked state -->
+          <input type="checkbox" class="switch" id="profile-hidden" role="switch" data-checked="profile-hidden">
+        </div>
+      </div>
+      <div class="notice warn" id="profile-hidden-notice" data-on="profile-hidden" data-t="profile.hidden.notice"></div>
+      <div class="card">
+        <h2 data-t="profile.basics"></h2>
+        <div class="field"><label for="profile-gender" data-t="profile.gender"></label>
+          <select id="profile-gender"><option data-t="profile.gender.value"></option></select></div>
+        <div class="field"><label for="profile-goal" data-t="profile.goal"></label>
+          <select id="profile-goal"><option data-t="profile.goal.value"></option></select></div>
+        <h2 data-t="profile.birth"></h2>
+        <div class="row3">
+          <div class="field"><label for="birth-year" data-t="profile.birth.year"></label><input type="number" id="birth-year" value="1994"></div>
+          <div class="field"><label for="birth-month" data-t="profile.birth.month"></label><select id="birth-month"><option>—</option></select></div>
+          <div class="field"><label for="birth-day" data-t="profile.birth.day"></label><select id="birth-day"><option>—</option></select></div>
+        </div>
+        <p class="caption" id="profile-age" data-t="profile.age"></p>
+      </div>
+      <div class="card">
+        <h2 data-t="profile.place"></h2>
+        <div class="field"><label for="profile-country" data-t="profile.country"></label>
+          <select id="profile-country"><option data-t="profile.country.value"></option></select></div>
+        <div class="field"><label for="profile-place" data-t="profile.city"></label><input type="text" id="profile-place" data-tv="profile.city.value"></div>
+      </div>
+      <details class="card" id="profile-more"><summary data-t="profile.more"></summary></details>
+      <div class="actions">
+        <button type="button" class="btn" id="profile-save" data-t="profile.save"></button>
+        <button type="button" class="btn filled" id="profile-publish" data-t="profile.publish"></button>
+      </div>
+    </section>
+
+    <!-- Network: the name above the addresses, one Check and connect; a failure keeps the old one. -->
+    <section id="network" class="content" style="padding:0" data-on="network network-checking network-error">
+      <p class="muted" id="network-status" data-on="network" data-t="network.status.connected"></p>
+      <p class="muted" data-on="network-checking" data-t="network.status.checking"></p>
+      <div class="notice error" role="alert" id="network-error" data-on="network-error">
+        <p data-t="network.error"></p>
+        <details><summary data-t="details"></summary>
+          <pre id="network-error-details">unreachable
+node1.example.org:33445: timed out after 10 s
+[2001:db8::7]:33445: connection refused</pre>
+          <button type="button" class="btn text" id="copy-network-details" data-t="action.copy"></button></details>
+      </div>
+      <div class="card">
+        <div class="field"><label for="network-name-field" data-t="network.name"></label>
+          <input type="text" id="network-name-field" data-tp="network.name.public">
+          <p class="caption" data-t="network.name.hint"></p></div>
+        <div class="field"><label for="network-seeds" data-t="network.seeds"></label>
+          <textarea id="network-seeds">node1.example.org:33445
+[2001:db8::7]:33445</textarea>
+          <p class="caption" data-t="network.seeds.hint"></p></div>
+        <div id="seed-rows">
+          <div class="switch-row"><code>node1.example.org:33445</code>
+            <span class="caption" data-on="network" style="color:var(--ok)" data-t="row.ok"></span>
+            <span class="caption" data-on="network-checking" data-t="row.checking"></span>
+            <span class="caption" data-on="network-error" style="color:var(--error)" data-t="row.timeout"></span></div>
+          <div class="switch-row"><code>[2001:db8::7]:33445</code>
+            <span class="caption" data-on="network" style="color:var(--ok)" data-t="row.ok"></span>
+            <span class="caption" data-on="network-checking" data-t="row.checking"></span>
+            <span class="caption" data-on="network-error" style="color:var(--error)" data-t="row.refused"></span></div>
+        </div>
+        <div class="progress" data-on="network-checking" role="progressbar"></div>
+        <div class="actions">
+          <button type="button" class="btn" id="cancel-check" data-on="network-checking" data-t="action.cancel"></button>
+          <button type="button" class="btn filled" id="check-and-connect" data-t="network.check" data-disabled="network-checking"></button>
+        </div>
+      </div>
+      <p class="caption" data-t="network.keep"></p>
+    </section>
+
+    <!-- Search: filters, a verified sample, and its loading, empty and error states. -->
+    <section id="search" class="content" style="padding:0" data-on="search search-loading search-empty search-error">
+      <p class="muted" data-t="search.sample"></p>
+      <div class="card">
+        <div class="row2">
+          <div class="field"><label for="search-age-min" data-t="search.ageFrom"></label><input type="number" id="search-age-min" value="25"></div>
+          <div class="field"><label for="search-age-max" data-t="search.ageTo"></label><input type="number" id="search-age-max" value="35"></div>
+        </div>
+        <div class="field"><label for="search-country" data-t="profile.country"></label>
+          <select id="search-country"><option data-t="profile.country.value"></option></select></div>
+        <div class="field"><label for="search-place" data-t="profile.city"></label><input type="text" id="search-place"></div>
+        <details id="search-more"><summary data-t="search.more"></summary></details>
+        <div class="actions"><button type="button" class="btn filled" id="run-search" data-t="search.run" data-disabled="search-loading"></button></div>
+      </div>
+      <div id="search-results" data-on="search">
+        <p class="caption" id="search-status" data-t="search.found"></p>
+        <button type="button" class="list-item" id="result-1"><span class="avatar photo p2" aria-hidden="true"></span>
+          <span class="grow"><span><b data-t="view.name"></b> <code>@4d81c6</code></span><span class="caption" data-t="search.result1"></span></span></button>
+        <button type="button" class="list-item" id="result-2"><span class="avatar" aria-hidden="true">b8</span>
+          <span class="grow"><code>@b8e0f3</code><span class="caption" data-t="search.result2"></span></span></button>
+        <div class="actions"><button type="button" class="btn" id="search-again" data-t="search.again"></button></div>
+      </div>
+      <div data-on="search-loading" role="status" aria-busy="true" class="content" style="padding:0">
+        <p class="caption" data-t="search.loading"></p>
+        <div class="skeleton"></div><div class="skeleton"></div>
+        <div class="actions"><button type="button" class="btn" id="search-cancel" data-t="action.cancel"></button></div>
+      </div>
+      <div class="empty" data-on="search-empty">
+        <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg>
+        <h2 data-t="search.empty.title"></h2>
+        <p data-t="search.empty.text"></p>
+      </div>
+      <div class="notice error" role="alert" data-on="search-error">
+        <p data-t="search.error"></p>
+        <details><summary data-t="details"></summary>
+          <pre id="search-failures">notConnected
+search providers asked: 0 of 3</pre>
+          <button type="button" class="btn text" id="copy-search-details" data-t="action.copy"></button></details>
+        <div class="actions"><button type="button" class="btn" id="search-open-network" data-t="search.network"></button>
+          <button type="button" class="btn" id="search-retry" data-t="action.retry"></button></div>
+      </div>
+    </section>
+    <!-- Found profile: opened from a result; the full photos load now. -->
+    <section id="profile-view" class="content" style="padding:0" data-on="profile-view profile-view-match unlike-dialog">
+      <div class="backbar"><button type="button" class="icon-btn" id="view-back" data-ta="view.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button></div>
+      <div class="gallery" id="view-photos">
+        <div class="main photo p2" role="img" data-ta="view.photo"></div>
+        <div class="thumbs"><span class="photo p2" aria-current="true"></span><span class="photo p3"></span><span class="photo p4"></span></div>
+      </div>
+      <div class="content" style="padding-top:0">
+        <h1 data-t="view.name"></h1>
+        <p class="muted" data-t="search.result1"></p>
+        <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@4d81c6</code>
+          <button type="button" class="btn text" id="copy-view-peer" data-t="action.copy"></button></p>
+        <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
+        <div class="actions">
+          <button type="button" class="btn" id="view-message" data-on="profile-view" data-t="view.message"></button>
+          <button type="button" class="btn filled" id="view-like" data-on="profile-view" aria-pressed="false"><svg aria-hidden="true" class="icon"><use href="#i-heart"/></svg><span data-t="view.like"></span></button>
+          <button type="button" class="btn tonal" id="view-unlike" data-on="profile-view-match unlike-dialog" aria-pressed="true"><svg aria-hidden="true" class="icon fill"><use href="#i-heart"/></svg><span data-t="view.liked"></span></button>
+          <button type="button" class="btn filled" id="view-message-match" data-on="profile-view-match unlike-dialog" data-t="view.message"></button>
+        </div>
+        <p class="caption" data-on="profile-view" data-t="view.first.hint"></p>
+        <p class="caption" data-on="profile-view-match unlike-dialog" data-t="view.unlike.hint"></p>
+        <div class="card">
+          <dl class="facts" id="view-fields">
+            <dt data-t="profile.goal"></dt><dd data-t="profile.goal.value"></dd>
+            <dt data-t="view.kids"></dt><dd data-t="view.kids.value"></dd>
+            <dt data-t="view.interests"></dt><dd data-t="view.interests.value"></dd>
+            <dt data-t="view.languages"></dt><dd data-t="view.languages.value"></dd>
+          </dl>
+          <p class="caption" id="view-claims" data-t="view.claims"></p>
+        </div>
+        <!-- Block sits apart from Like so a slip does not hit it; Settings can undo it. -->
+        <div class="actions"><button type="button" class="btn text danger" id="view-block" data-t="view.block"></button></div>
+      </div>
+    </section>
+
+    <!-- Chats: likes, message requests and conversations of the active identity only. -->
+    <section id="chats" class="content" style="padding:0" data-on="chats">
+      <button type="button" class="list-item" id="chats-liked"><span class="avatar photo p3" aria-hidden="true"></span>
+        <span class="grow"><b data-t="chats.liked"></b><span class="caption" data-t="chats.liked.text"></span></span><span class="badge">2</span></button>
+      <button type="button" class="list-item" id="chats-requests"><span class="avatar photo p4" aria-hidden="true"></span>
+        <span class="grow"><b data-t="chats.requests"></b><span class="caption" data-t="chats.requests.text"></span></span><span class="badge">1</span></button>
+      <h2 data-t="chats.conversations"></h2>
+      <div id="chat-list">
+        <button type="button" class="list-item" id="chat-1"><span class="avatar photo p2" aria-hidden="true"></span>
+          <span class="grow"><b data-t="view.name"></b><span class="ellipsis caption" data-t="chat.m4"></span></span>
+          <span class="caption" style="text-align:end">14:32<br><span class="badge" data-ta="chats.unread">2</span></span></button>
+        <button type="button" class="list-item" id="chat-2"><span class="avatar photo p3" aria-hidden="true"></span>
+          <span class="grow"><code>@b8e0f3</code><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
+          <span class="caption" data-t="chats.yesterday"></span></button>
+      </div>
+      <p class="caption" data-t="chats.identity"></p>
+    </section>
+
+    <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
+    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
+      <div class="backbar">
+        <button type="button" class="icon-btn" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
+        <!-- The peer itself opens the profile. -->
+        <button type="button" class="list-item peer" id="chat-profile">
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog"></span>
+          <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
+          <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+            <span class="caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
+        <button type="button" class="icon-btn" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
+        <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
+          <button type="button" role="menuitem" id="chat-clear" data-t="chat.clear"></button>
+          <button type="button" role="menuitem" id="chat-block" data-t="view.block"></button>
+        </div>
+      </div>
+      <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
+      <div class="notice warn" id="chat-request-notice" data-on="chat-request"><span data-t="chat.request.notice"></span>
+        <div class="actions"><button type="button" class="btn" id="request-block" data-t="view.block"></button></div></div>
+      <div class="thread" id="chat-thread">
+        <span class="day caption" data-off="chat-cleared" data-t="chat.today"></span>
+        <p class="caption day" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
+        <!-- A long press on an own message offers Edit and Delete. -->
+        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu"><button type="button" class="btn text" data-t="chat.edit"></button><button type="button" class="btn text" id="msg-delete" data-t="chat.delete"></button></span></div>
+        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog delete-dialog" data-t="chat.typing"></span>
+        <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
+        <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
+      </div>
+      <p class="caption" style="padding:0 16px" data-on="chat-first" data-t="chat.first.wait"></p>
+      <div class="composer">
+        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
+        <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
+        <button type="button" class="btn filled" id="chat-send" data-t="chat.send" disabled></button>
+      </div>
+    </section>
+
+    <!-- Settings: identities, app lock, appearance, privacy, node. -->
+    <section id="settings" class="content" style="padding:0" data-on="settings remove-dialog remove-offline">
+      <div class="card" id="settings-identities">
+        <h2 data-t="settings.identities"></h2>
+        <div class="list-item"><span class="avatar photo" aria-hidden="true"></span>
+          <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="settings.active"></span></span>
+          <button type="button" class="btn" id="settings-remove" data-t="remove.open"></button></div>
+        <div class="list-item"><span class="avatar" aria-hidden="true">7a</span>
+          <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span>
+          <button type="button" class="btn" id="settings-remove-2" data-t="remove.open"></button></div>
+        <p class="caption" data-t="backup.none"></p>
+        <div class="actions"><button type="button" class="btn" id="settings-create" data-t="identity.add"></button></div>
+      </div>
+      <button type="button" class="card list-item" id="lock-settings">
+        <svg aria-hidden="true" class="icon"><use href="#i-lock"/></svg>
+        <span class="grow"><b data-t="lock.settings"></b><span class="caption" data-t="lock.mode.pin"></span></span></button>
+      <div class="card" id="blocked">
+        <h2 data-t="settings.blocked"></h2>
+        <div class="list-item"><span class="avatar" aria-hidden="true">5d</span><code class="grow">@5d2a91</code>
+          <button type="button" class="btn" id="unblock-1" data-t="settings.unblock"></button></div>
+        <p class="caption" data-t="settings.blocked.hint"></p>
+      </div>
+      <div class="card">
+        <h2 data-t="settings.appearance"></h2>
+        <fieldset id="theme"><legend data-t="settings.theme"></legend>
+          <label class="choice"><input type="radio" name="theme" id="theme-system" checked><span data-t="settings.theme.system"></span></label>
+          <label class="choice"><input type="radio" name="theme" id="theme-light"><span data-t="settings.theme.light"></span></label>
+          <label class="choice"><input type="radio" name="theme" id="theme-dark"><span data-t="settings.theme.dark"></span></label>
+        </fieldset>
+        <div class="field"><label for="language" data-t="settings.language"></label>
+          <select id="language"><option>English</option><option>Русский</option></select></div>
+      </div>
+      <div class="card" id="privacy">
+        <h2 data-t="settings.privacy"></h2>
+        <label class="choice"><input type="checkbox" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" id="send-typing" checked><span data-t="privacy.typing"></span></label>
+        <fieldset id="presence-audience"><legend data-t="privacy.presence"></legend>
+          <label class="choice"><input type="radio" name="presence" id="presence-matches" checked><span data-t="privacy.presence.matches"></span></label>
+          <label class="choice"><input type="radio" name="presence" id="presence-nobody"><span data-t="privacy.presence.nobody"></span></label>
+        </fieldset>
+        <label class="choice"><input type="checkbox" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
+        <p class="caption" data-t="privacy.hint"></p>
+      </div>
+      <div class="card" id="node">
+        <h2 data-t="settings.node"></h2>
+        <label class="choice"><input type="checkbox" id="node-enabled"><span data-t="settings.node.enable"></span></label>
+        <p class="caption" data-t="settings.node.hint"></p>
+      </div>
+      <p class="caption" data-t="settings.version"></p>
+    </section>
+
+    <!-- App lock: change or turn off the PIN; both ask for the current one. -->
+    <section class="content" style="padding:0" data-on="lock-settings">
+      <div class="backbar"><button type="button" class="icon-btn" id="lock-back" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
+        <span class="title" data-t="lock.settings"></span></div>
+      <div class="content" style="padding-top:0">
+        <p class="muted" data-t="lock.mode.pin"></p>
+        <p class="caption" data-t="lock.recovery"></p>
+        <div class="field"><label for="pin-current" data-t="lock.current"></label><input type="password" id="pin-current" inputmode="numeric"></div>
+        <div class="field"><label for="pin-set" data-t="lock.pin"></label><input type="password" id="pin-set" inputmode="numeric"></div>
+        <div class="field"><label for="pin-repeat" data-t="lock.pinRepeat"></label><input type="password" id="pin-repeat" inputmode="numeric"></div>
+        <div class="actions">
+          <button type="button" class="btn text danger" id="lock-turn-off" data-t="lock.turnOff"></button>
+          <button type="button" class="btn filled" id="lock-change" data-t="lock.change"></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
+    <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden publish-dialog publish-progress switcher">
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
+    <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-search"/></svg></span><span data-t="nav.search"></span></button>
+    <button type="button" class="nav-item" id="nav-chats" data-current="chats">
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-chat"/></svg></span><span data-t="nav.chats"></span>
+      <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
+    <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings remove-dialog remove-offline">
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
+  </nav>
+
+  <!-- Identity sheet: the avatar in the top bar opens it over the current screen. -->
+  <div class="scrim bottom" data-on="switcher">
+    <div class="sheet" id="identity-menu" role="dialog" aria-modal="true">
+      <h2 data-t="settings.identities"></h2>
+      <div class="list-item"><span class="avatar photo" aria-hidden="true"></span>
+        <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="settings.active"></span></span></div>
+      <button type="button" class="list-item" id="switch-to-2"><span class="avatar" aria-hidden="true">7a</span>
+        <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span></button>
+      <button type="button" class="list-item" id="add-identity-menu"><span class="avatar" aria-hidden="true"><svg aria-hidden="true" class="icon"><use href="#i-plus"/></svg></span>
+        <span class="grow" data-t="identity.add"></span></button>
+    </div>
+  </div>
+
+  <!-- Publish dialog: exact public fields, two fresh consents, then proof-of-work progress. -->
+  <div class="scrim" data-on="publish-dialog publish-progress">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="publish-title">
+      <h2 id="publish-title" data-t="publish.title"></h2>
+      <p class="muted" data-t="publish.intro"></p>
+      <dl class="facts" id="profile-public-fields">
+        <dt data-t="profile.gender"></dt><dd data-t="profile.gender.value"></dd>
+        <dt data-t="profile.goal"></dt><dd data-t="profile.goal.value"></dd>
+        <dt data-t="profile.birth"></dt><dd>1994</dd>
+        <dt data-t="profile.ageShort"></dt><dd data-t="profile.ageRange"></dd>
+        <dt data-t="profile.country"></dt><dd data-t="profile.country.value"></dd>
+        <dt data-t="profile.city"></dt><dd data-t="profile.city.value"></dd>
+      </dl>
+      <div data-on="publish-dialog">
+        <label class="choice"><input type="checkbox" id="profile-attested"><span data-t="publish.adult"></span></label>
+        <label class="choice"><input type="checkbox" id="profile-disclosure"><span data-t="publish.copies"></span></label>
+      </div>
+      <div data-on="publish-progress" role="status" class="content" style="padding:0">
+        <p data-t="publish.working"></p>
+        <div class="progress" role="progressbar"></div>
+        <p class="caption" data-t="publish.elapsed"></p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn text" id="profile-cancel" data-t="action.cancel"></button>
+        <button type="button" class="btn text" id="profile-publish-confirm" data-t="publish.confirm" disabled></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear chat dialog: local only, the peer keeps their copy. -->
+  <div class="scrim" data-on="chat-clear-dialog">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="clear-title">
+      <h2 id="clear-title" data-t="clear.title"></h2>
+      <p data-t="clear.text"></p>
+      <p class="caption" data-t="clear.later"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="chat-clear-cancel" data-t="action.cancel"></button>
+        <button type="button" class="btn text danger" id="chat-clear-confirm" data-t="clear.action"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unlike dialog: Liked takes the like back, which ends the match for both. -->
+  <div class="scrim" data-on="unlike-dialog">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="unlike-title">
+      <h2 id="unlike-title" data-t="unlike.title"></h2>
+      <p data-t="unlike.text"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="unlike-cancel" data-t="action.cancel"></button>
+        <button type="button" class="btn text danger" id="unlike-confirm" data-t="unlike.action"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete message dialog: best effort, the peer may keep a copy. -->
+  <div class="scrim" data-on="delete-dialog">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+      <h2 id="delete-title" data-t="delete.title"></h2>
+      <p data-t="delete.text"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="delete-cancel" data-t="action.cancel"></button>
+        <button type="button" class="btn text danger" id="delete-confirm" data-t="chat.delete"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove dialog: tick to confirm; the profile is withdrawn first. -->
+  <div class="scrim" data-on="remove-dialog remove-offline">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="remove-title">
+      <h2 id="remove-title" data-t="remove.title"></h2>
+      <div class="list-item"><span class="avatar photo" aria-hidden="true"></span>
+        <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="settings.active"></span></span></div>
+      <p class="caption"><code id="remove-peer">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
+      <p data-t="remove.text"></p>
+      <p data-t="remove.loses"></p>
+      <div data-on="remove-dialog">
+        <label class="choice"><input type="checkbox" id="remove-confirm"><span data-t="remove.confirm"></span></label>
+        <div class="actions">
+          <button type="button" class="btn text" id="remove-cancel" data-t="action.cancel"></button>
+          <button type="button" class="btn text danger" id="remove-action" data-t="remove.action" disabled></button>
+        </div>
+      </div>
+      <div data-on="remove-offline" class="content" style="padding:0">
+        <div class="notice warn" role="alert" data-t="remove.offline"></div>
+        <div class="actions">
+          <button type="button" class="btn text" id="remove-cancel-offline" data-t="action.cancel"></button>
+          <button type="button" class="btn text" id="remove-retry" data-t="action.retry"></button>
+          <button type="button" class="btn text danger" id="remove-anyway" data-t="remove.anyway"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../desktop/prototype/strings.js"></script>
+<script src="strings.js"></script>
+<script>
+// Show the screen named by the hash in the language and theme named by the query; nothing else.
+const query = new URLSearchParams(location.search);
+const screen = location.hash.slice(1) || 'profile';
+const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
+const t = STRINGS[lang];
+const has = (el, name) => el.dataset[name].split(' ').includes(screen);
+document.documentElement.lang = lang;
+document.documentElement.dataset.screen = screen;
+document.documentElement.dataset.theme = query.get('theme') === 'dark' ? 'dark' : 'light';
+for (const el of document.querySelectorAll('[data-on]')) el.hidden = !has(el, 'on');
+for (const el of document.querySelectorAll('[data-off]')) el.hidden = has(el, 'off');
+for (const el of document.querySelectorAll('[data-current]'))
+  if (has(el, 'current')) el.setAttribute('aria-current', 'page');
+for (const el of document.querySelectorAll('[data-disabled]')) el.disabled = has(el, 'disabled');
+for (const el of document.querySelectorAll('[data-checked]')) el.checked = has(el, 'checked');
+for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.dataset.t] ?? `?${el.dataset.t}`;
+for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
+for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
+for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
+document.title = `${t['app.name']} — ${screen}`;
+</script>
+</body>
+</html>

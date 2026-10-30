@@ -1,8 +1,9 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
-  // The desktop web UI and its static prototype; JSON data files are not linted.
+  // The desktop web UI, its static prototype and the Android one; JSON data files are not linted.
   "files": {
-    "includes": ["clients/desktop/**/*.js", "clients/desktop/**/*.html", "clients/desktop/**/*.css"]
+    "includes": ["clients/desktop/**/*.js", "clients/desktop/**/*.html", "clients/desktop/**/*.css",
+      "clients/android/prototype/*"]
   },
   // Lint only: the files keep their hand formatting.
   "formatter": { "enabled": false },

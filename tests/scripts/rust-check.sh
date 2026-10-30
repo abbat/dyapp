@@ -42,7 +42,7 @@ step() {
                 GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact .
             check typos typos
             check taplo taplo fmt --check
-            check biome biome lint --error-on-warnings --colors=off clients/desktop
+            check biome biome lint --error-on-warnings --colors=off clients/desktop clients/android/prototype
             check rumdl rumdl check --color never --no-cache .
             check hadolint hadolint --no-color tools/docker/Dockerfile.* tests/docker/Dockerfile.*
             check buf buf lint proto
