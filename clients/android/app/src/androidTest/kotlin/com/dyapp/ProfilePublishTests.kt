@@ -37,7 +37,7 @@ class ProfilePublishTests {
     @Test
     fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-profile").performClick()
         compose.onNodeWithTag("profile-prepare-publish").performScrollTo().assertIsNotEnabled()
         confirmBoth()
 
@@ -66,7 +66,7 @@ class ProfilePublishTests {
         compose.skipNetworkEntry()
         try {
             compose.activateLocalNode()
-            compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("nav-profile").performClick()
             compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextClearance()
             compose.onNodeWithTag("profile-birth-year").performTextInput("1990")
             compose.onNodeWithTag("profile-save").performScrollTo().performClick()

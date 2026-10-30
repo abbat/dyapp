@@ -6,6 +6,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -28,8 +31,24 @@ internal fun ComposeTestRule.skipNetworkEntry() {
     if (shown("network-back")) onNodeWithTag("network-back").performScrollTo().performClick()
 }
 
+/** Adds an identity from the switcher sheet in the top bar. */
+internal fun ComposeTestRule.addIdentity() {
+    onNodeWithTag("identity-switcher").performClick()
+    onNodeWithTag("add-identity-menu").performClick()
+}
+
+/** Switches to the identity shown as [label] in the switcher sheet. */
+internal fun ComposeTestRule.switchIdentity(label: String) {
+    onNodeWithTag("identity-switcher").performClick()
+    onNode(hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick()
+}
+
+/** The ready identity's Peer ID from the Profile section, past the first-run network wizard. */
 internal fun ComposeTestRule.shownPeerId(): String {
     skipNetworkEntry()
+    if (onAllNodesWithTag("nav-profile").fetchSemanticsNodes().isNotEmpty()) {
+        onNodeWithTag("nav-profile").performClick()
+    }
     return onNodeWithTag("peer-id").assertIsDisplayed()
         .fetchSemanticsNode()
         .config[SemanticsProperties.Text]
@@ -97,6 +116,7 @@ class AppLockUITests {
             compose.activityRule.scenario.recreate()
             enterPin("123456")
             compose.shownPeerId()
+            compose.onNodeWithTag("nav-settings").performClick()
             compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_pin))
             compose.onNodeWithTag("pin-current").performTextInput("654321")

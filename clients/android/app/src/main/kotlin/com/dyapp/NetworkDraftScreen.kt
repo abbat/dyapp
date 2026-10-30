@@ -93,7 +93,7 @@ private suspend fun saveDraft(opened: Opened.Ready, draft: NetworkSettings, stat
 
 /** Edit one ready identity's network draft; checking and activation are separate steps. */
 @Composable
-internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
+internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
     val state = remember(opened.slot.id) { NetworkDraftState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened.slot.id) { loadDraft(opened, state) }
@@ -127,7 +127,7 @@ private fun networkSettings(state: NetworkDraftState) = NetworkSettings(
 )
 
 @Composable
-private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: () -> Unit, actions: DraftActions) {
+private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (() -> Unit)?, actions: DraftActions) {
     val editable = state.status !in setOf(DraftStatus.LOADING, DraftStatus.SAVING, DraftStatus.READ_FAILED) &&
         state.checkStatus !in setOf(R.string.network_checking, R.string.network_activating)
     Column(
@@ -145,9 +145,12 @@ private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (
         NetworkCheckControls(state, editable, actions)
         Text(stringResource(networkStatusText(state.status)), Modifier.testTag("network-status"))
         NetworkCheckResults(state.checkStatus, state.checkRows)
-        OutlinedButton(onClick = onBack, enabled = state.checkStatus != R.string.network_activating,
-            modifier = Modifier.testTag("network-back")) {
-            Text(stringResource(R.string.profile_back))
+        // The first-run wizard skips with Back; the Network tab has none.
+        if (onBack != null) {
+            OutlinedButton(onClick = onBack, enabled = state.checkStatus != R.string.network_activating,
+                modifier = Modifier.testTag("network-back")) {
+                Text(stringResource(R.string.profile_back))
+            }
         }
     }
 }

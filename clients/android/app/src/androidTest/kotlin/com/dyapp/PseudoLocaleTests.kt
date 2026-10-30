@@ -9,9 +9,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.Locale
 import org.junit.Rule
@@ -42,9 +40,8 @@ class PseudoLocaleTests {
     @Test
     fun startScreenRendersRussianStrings() {
         val russian = render("ru")
-        val ready = russian.getString(R.string.status_ready)
-        check(ready == "\u0413\u043e\u0442\u043e\u0432\u043e") { "Russian translation missing: $ready" }
-        compose.onNodeWithText(russian.getString(R.string.app_name)).assertIsDisplayed()
+        val ready = russian.getString(R.string.nav_profile)
+        check(ready == "\u041f\u0440\u043e\u0444\u0438\u043b\u044c") { "Russian translation missing: $ready" }
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
     }
 
@@ -53,8 +50,8 @@ class PseudoLocaleTests {
         val russian = render("ru")
         val none = russian.getString(R.string.settings_network_none)
         check(none != base.getString(R.string.settings_network_none)) { "Russian translation missing: $none" }
-        compose.onNodeWithTag("settings-open").performScrollTo().performClick()
-        compose.onNodeWithText(russian.getString(R.string.settings_title)).assertIsDisplayed()
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("app-ready").assertTextEquals(russian.getString(R.string.nav_settings))
         compose.onNodeWithTag("settings-active").assertTextEquals(russian.getString(R.string.settings_active))
         compose.onNodeWithTag("settings-create").assertTextEquals(russian.getString(R.string.identity_add))
         // Other tests leave no active network.
@@ -64,9 +61,8 @@ class PseudoLocaleTests {
     @Test
     fun startScreenRendersPseudoLocalizedStrings() {
         val pseudo = render("en-XA")
-        val ready = pseudo.getString(R.string.status_ready)
-        check(ready != base.getString(R.string.status_ready)) { "en-XA not generated: $ready" }
-        compose.onNodeWithText(pseudo.getString(R.string.app_name)).assertIsDisplayed()
+        val ready = pseudo.getString(R.string.nav_profile)
+        check(ready != base.getString(R.string.nav_profile)) { "en-XA not generated: $ready" }
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
     }
 }

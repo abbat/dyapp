@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DYApp</string>
-    <string name="status_ready">Готово</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="nav_search">Поиск</string>
+    <string name="nav_network">Сеть</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="status_no_network">Нет сети</string>
     <string name="status_pick">Выберите идентичность</string>
     <string name="status_recovery">Эту идентичность не удалось открыть</string>
     <string name="status_error">Не удалось открыть хранилище ключа</string>

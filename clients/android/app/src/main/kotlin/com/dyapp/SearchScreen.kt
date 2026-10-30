@@ -109,7 +109,7 @@ private suspend fun sample(
  * runs the same query again.
  */
 @Composable
-internal fun SearchScreen(opened: Opened.Ready, onBack: () -> Unit) {
+internal fun SearchScreen(opened: Opened.Ready) {
     val scales = remember { profileScales() }
     // The searcher keeps verified versions for this screen, so a later sample never shows an older one.
     val searcher = remember(opened.slot.id) { runCatching { ProfileSearcher(opened.slot.dir.absolutePath) } }
@@ -131,9 +131,6 @@ internal fun SearchScreen(opened: Opened.Ready, onBack: () -> Unit) {
         SearchActions(state, run)
         Text(statusText(state), Modifier.testTag("search-status"))
         (state as? SearchState.Done)?.let { SearchResults(it.result, scales) }
-        OutlinedButton(onClick = onBack, Modifier.testTag("search-back")) {
-            Text(stringResource(R.string.profile_back))
-        }
     }
 }
 

@@ -38,13 +38,13 @@ class SearchTests {
     @Test
     fun searchWithoutAnActiveNetworkOffersRetry() {
         compose.skipNetworkEntry()
-        click("search-open")
+        compose.onNodeWithTag("nav-search").performClick()
         compose.onNodeWithTag("search-status").assertTextEquals(string(R.string.search_idle))
         click("run-search")
         check(searched() == string(R.string.search_not_connected)) { "status ${compose.texts("search-status")}" }
         compose.onNodeWithTag("search-again").assertTextEquals(string(R.string.search_retry))
-        click("search-back")
-        compose.onNodeWithTag("search-open").assertExists()
+        compose.onNodeWithTag("nav-profile").performClick()
+        compose.onNodeWithTag("peer-id").assertExists()
     }
 
     @Test
@@ -52,7 +52,7 @@ class SearchTests {
         compose.skipNetworkEntry()
         try {
             compose.activateLocalNode()
-            click("search-open")
+            compose.onNodeWithTag("nav-search").performClick()
             click("run-search")
             checkLocalSample()
             compose.onNode(hasTestTag("search-again") and hasText(string(R.string.search_again))).assertExists()
@@ -79,7 +79,7 @@ class SearchTests {
         compose.skipNetworkEntry()
         try {
             compose.activateLocalNode()
-            click("search-open")
+            compose.onNodeWithTag("nav-search").performClick()
             click("run-search")
             checkLocalSample()
             compose.onNodeWithTag("search-age-min").performScrollTo().performTextInput("30")
@@ -103,7 +103,7 @@ class SearchTests {
         compose.skipNetworkEntry()
         try {
             compose.activateLocalNode()
-            click("search-open")
+            compose.onNodeWithTag("nav-search").performClick()
             click("run-search")
             check(searched() == string(R.string.search_empty)) { "status ${compose.texts("search-status")}" }
             val failures = compose.texts("search-failure")

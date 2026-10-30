@@ -20,33 +20,25 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
-/** What a start screen button opens. */
+/** What a bottom bar item or button opens. */
 internal enum class StartTarget { REMOVE, PROFILE, SEARCH, NETWORK, SETTINGS, LOCK }
 
 /**
- * Shows the editor opened from the start screen, or the network draft while no network is
- * active; returns false when neither applies, so the caller shows the start screen.
+ * Shows the first-run network wizard while [opened] has no active network and no section was
+ * picked yet; returns false otherwise, so the caller shows the app shell. Back skips it.
  */
 @Composable
-internal fun showReadyEditor(opened: Opened.Ready?, editor: StartTarget?, close: () -> Unit): Boolean {
+internal fun showNetworkWizard(opened: Opened.Ready, section: StartTarget?): Boolean {
     val networkNeeded = rememberNetworkEntryNeeded(opened)
-    // Survives rotation, so Back keeps the draft closed for this session.
-    var networkDismissed by rememberSaveable(opened?.slot?.id) { mutableStateOf(false) }
-    val automatic = networkNeeded != false && !networkDismissed
-    if (opened == null || editor == null && !automatic) return false
-    when {
-        editor == StartTarget.PROFILE -> ProfileDraftScreen(opened, close)
-        editor == StartTarget.SEARCH -> SearchScreen(opened, close)
-        networkNeeded == null -> Text(stringResource(R.string.network_loading))
-        else -> NetworkDraftScreen(opened) {
-            close()
-            networkDismissed = true
-        }
-    }
+    // Survives rotation, so Back keeps the wizard closed for this session.
+    var networkDismissed by rememberSaveable(opened.slot.id) { mutableStateOf(false) }
+    if (section != null || networkNeeded == false || networkDismissed) return false
+    if (networkNeeded == null) Text(stringResource(R.string.network_loading))
+    else NetworkDraftScreen(opened) { networkDismissed = true }
     return true
 }
 
-/** The start screen column: status, identity details and the buttons that open other screens. */
+/** The start screen without a ready identity: status, the picker or recovery, and remove, switch and lock. */
 @Composable
 internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
     val opened = shown.opened
@@ -57,12 +49,12 @@ internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit
     ) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
         Text(stringResource(startStatus(opened)), modifier = Modifier.testTag(APP_READY_TAG))
-        IdentityDetails(shown, slots, act) { open(StartTarget.PROFILE) }
+        IdentityDetails(shown, slots, act)
         StartButtons(opened, act, open)
     }
 }
 
-// Remove, switch, search, network, settings and lock settings, as far as the opened state allows.
+// Remove, switch and lock settings, as far as the opened state allows.
 @Composable
 private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
     if (opened != null && removable(opened)) {
@@ -70,20 +62,9 @@ private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (St
             Text(stringResource(R.string.identity_remove))
         }
     }
-    if (opened is Opened.Ready || opened is Opened.Recovery) {
+    if (opened is Opened.Recovery) {
         OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
             Text(stringResource(R.string.identity_switch))
-        }
-    }
-    if (opened is Opened.Ready) {
-        OutlinedButton(onClick = { open(StartTarget.SEARCH) }, Modifier.testTag("search-open")) {
-            Text(stringResource(R.string.search_title))
-        }
-        OutlinedButton(onClick = { open(StartTarget.NETWORK) }, Modifier.testTag("network-draft-open")) {
-            Text(stringResource(R.string.network_title))
-        }
-        OutlinedButton(onClick = { open(StartTarget.SETTINGS) }, Modifier.testTag("settings-open")) {
-            Text(stringResource(R.string.settings_title))
         }
     }
     OutlinedButton(onClick = { open(StartTarget.LOCK) }, Modifier.testTag("lock-settings")) {
@@ -93,7 +74,6 @@ private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (St
 
 private fun startStatus(opened: Opened?) = when (opened) {
     null -> R.string.status_error
-    is Opened.Ready -> R.string.status_ready
     is Opened.Recovery -> R.string.status_recovery
     else -> R.string.status_pick
 }

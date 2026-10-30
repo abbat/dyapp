@@ -36,7 +36,7 @@ class IdentitySettingsTests {
     @Test
     fun createSwitchAndConfirmedRemoveChangeTheActiveIdentity() {
         val first = compose.shownPeerId()
-        click("settings-open")
+        compose.onNodeWithTag("nav-settings").performClick()
         val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
         click("settings-create")
         compose.waitForIdle()
@@ -48,14 +48,14 @@ class IdentitySettingsTests {
         // A relaunch keeps the identity chosen in Settings.
         compose.activityRule.scenario.recreate()
         check(compose.shownPeerId() == first) { "The identity chosen in Settings was lost on relaunch" }
-        click("settings-open")
+        compose.onNodeWithTag("nav-settings").performClick()
         switchTo(second.peerId)
         check(active().peerId == second.peerId) { "Switch did not return to the new identity" }
         // Cancel returns to Settings with the identity intact.
         click("settings-remove")
         compose.onNodeWithTag("remove-action").assertIsNotEnabled()
         click("remove-cancel")
-        compose.onNodeWithTag("settings-back").assertExists()
+        compose.onNodeWithTag("settings-create").assertExists()
         check(active().peerId == second.peerId) { "Cancel changed the active identity" }
         click("settings-remove")
         click("remove-confirm")
@@ -70,12 +70,14 @@ class IdentitySettingsTests {
     @Test
     fun settingsShowTheNetworkAndReturnFromItsEditor() {
         val peerId = compose.shownPeerId()
-        click("settings-open")
+        compose.onNodeWithTag("nav-settings").performClick()
         // Other tests leave no active network.
+        compose.waitForText("connection-status", R.string.status_no_network)
         compose.waitForText("settings-network-status", R.string.settings_network_none)
         click("settings-network")
         compose.onNodeWithTag("network-peer-id").assertTextEquals(peerId)
-        click("network-back")
-        compose.onNodeWithTag("settings-back").assertExists()
+        compose.onNodeWithTag("network-back").assertDoesNotExist()
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("settings-create").assertExists()
     }
 }

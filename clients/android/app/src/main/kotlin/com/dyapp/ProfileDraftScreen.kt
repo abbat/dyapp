@@ -42,19 +42,16 @@ internal fun label(context: Context, key: String): String {
  * Profile draft editor, preview and publication over `client.db`; Rust supplies the closed wire choices.
  */
 @Composable
-fun ProfileDraftScreen(opened: Opened.Ready, onBack: () -> Unit) {
+fun ProfileDraftScreen(opened: Opened.Ready) {
     val scales = remember { profileScales() }
     // ponytail: Keystore unwrap and SQLite on the main thread, as identity opening; move off it
     // with the client runtime.
     val loaded = remember(opened.slot.id) { runCatching { loadDraft(opened, scales) } }
     if (loaded.isFailure) {
-        Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text(stringResource(R.string.profile_read_failed))
-            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
-        }
+        Text(stringResource(R.string.profile_read_failed), Modifier.padding(24.dp))
         return
     }
-    ProfileDraftForm(opened, scales, loaded.getOrThrow(), onBack)
+    ProfileDraftForm(opened, scales, loaded.getOrThrow())
 }
 
 private class BirthInputs(saved: Map<String, Int>) {
@@ -80,7 +77,6 @@ private fun ProfileDraftForm(
     opened: Opened.Ready,
     scales: List<ProfileScale>,
     saved: ProfileDraft,
-    onBack: () -> Unit,
 ) {
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
@@ -99,7 +95,6 @@ private fun ProfileDraftForm(
         PlacePicker(place)
         BirthDateFields(birth)
         SaveAndPublish(opened, scales, inputs(values, birth, place)) { saveEdits(opened, values, birth, place) }
-        OutlinedButton(onClick = onBack) { Text(stringResource(R.string.profile_back)) }
     }
 }
 

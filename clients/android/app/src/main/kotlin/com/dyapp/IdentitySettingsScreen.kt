@@ -7,16 +7,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -29,7 +25,7 @@ import uniffi.dyapp.NetworkSettings
 /**
  * The active identity's Settings screen: the identity list and this identity's network. Create and
  * Switch change the active slot through [act]; Remove, offered only where [removable], opens the
- * confirmation screen and Back (a null target) closes Settings through [open].
+ * confirmation screen, and Network and Lock open their screens through [open].
  */
 @Composable
 internal fun IdentitySettingsScreen(
@@ -38,18 +34,14 @@ internal fun IdentitySettingsScreen(
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit
 ) {
-    // Back from the network editor returns here.
-    var network by rememberSaveable(active.slot.id) { mutableStateOf(false) }
-    if (network) return NetworkDraftScreen(active) { network = false }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineLarge)
         IdentityList(slots, active, act, open)
-        SettingsNetwork(active) { network = true }
-        OutlinedButton(onClick = { open(null) }, modifier = Modifier.testTag("settings-back")) {
-            Text(stringResource(R.string.profile_back))
+        SettingsNetwork(active) { open(StartTarget.NETWORK) }
+        OutlinedButton(onClick = { open(StartTarget.LOCK) }, Modifier.testTag("lock-settings")) {
+            Text(stringResource(R.string.lock_settings))
         }
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
@@ -30,7 +29,7 @@ class ProfileDraftTests {
     @Test
     fun previewShowsOnlyTheSavedDraftWithAgeAndWarnings() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-profile").performClick()
         val parts = listOf("profile-birth-year" to "2000", "profile-birth-month" to "1", "profile-birth-day" to "1")
         for ((tag, value) in parts) {
             compose.onNodeWithTag(tag).performScrollTo().performTextClearance()
@@ -59,7 +58,7 @@ class ProfileDraftTests {
     @Test
     fun multiWordScaleSurvivesReopeningTheEditor() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-profile").performClick()
         // Its Rust key has an underscore, which the client.db record maps by name.
         val scale = profileScales().first { it.key == "relationship_goal" }
         val choice = label("value.${scale.key}.${scale.choices.first().key}")
@@ -68,8 +67,8 @@ class ProfileDraftTests {
         compose.onNode(hasText(choice) and !hasTestTag("profile-${scale.key}")).performClick()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
-        compose.onNodeWithText(string(R.string.profile_back)).performScrollTo().performClick()
-        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-search").performClick()
+        compose.onNodeWithTag("nav-profile").performClick()
         compose.onNodeWithTag("profile-${scale.key}").performScrollTo().assertTextEquals(choice)
     }
 
@@ -80,7 +79,7 @@ class ProfileDraftTests {
     @Test
     fun placePickerSavesOnlyASuggestedPlace() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("profile-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-profile").performClick()
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-DE").performScrollTo().performClick()
         compose.onNodeWithTag("profile-place").performScrollTo().performTextInput("Nowhere")

@@ -192,12 +192,12 @@ private val reasons = mapOf(
 )
 
 @Composable
-private fun reasonText(reason: String) =
+internal fun reasonText(reason: String) =
     stringResource(reasons[reason] ?: R.string.recovery_unavailable)
 
 /**
- * The start screen: the active identity, the identity picker or a recovery state. `app-ready`
- * tags the status line UI tests wait for, `peer-id` the core's answer.
+ * The app shell for a ready identity, else the identity picker or a recovery state. `app-ready`
+ * tags the title or status line UI tests wait for, `peer-id` the core's answer.
  */
 @Composable
 fun MainScreen(onLockSettings: () -> Unit = {}) {
@@ -224,34 +224,20 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     val asked = removing
     when {
         asked != null -> RemoveScreen(slots, asked, act)
-        editor == StartTarget.SETTINGS && opened is Opened.Ready -> IdentitySettingsScreen(slots, opened, act, open)
-        !showReadyEditor(opened as? Opened.Ready, editor) { editor = null } -> StartColumn(shown, slots, act, open)
+        opened is Opened.Ready -> if (!showNetworkWizard(opened, editor)) {
+            AppShell(slots, opened, editor ?: StartTarget.PROFILE, act, open)
+        }
+        else -> StartColumn(shown, slots, act, open)
     }
 }
 
 @Composable
-internal fun IdentityDetails(
-    shown: Shown,
-    slots: Slots,
-    act: (() -> Opened) -> Unit,
-    onProfileEdit: () -> Unit
-) {
+internal fun IdentityDetails(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit) {
     when (val opened = shown.opened) {
         null -> { Text(stringResource(R.string.storage_error)) }
-        is Opened.Ready -> { ReadyIdentityDetails(opened, onProfileEdit) }
+        is Opened.Ready -> {}
         is Opened.Recovery -> { RecoveryIdentityDetails(opened, slots, act) }
         else -> { PickerIdentityDetails(shown.entries, slots, act) }
-    }
-}
-
-@Composable
-private fun ReadyIdentityDetails(opened: Opened.Ready, onProfileEdit: () -> Unit) {
-    Text(stringResource(R.string.storage_peer_id))
-    Text(opened.peerId, modifier = Modifier.testTag("peer-id"))
-    // The OS gives the app no chance to warn before these erase the key.
-    Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"))
-    OutlinedButton(onClick = onProfileEdit, Modifier.testTag("profile-edit")) {
-        Text(stringResource(R.string.profile_title))
     }
 }
 

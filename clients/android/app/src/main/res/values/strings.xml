@@ -2,7 +2,11 @@
 <!-- Practice D1: every visible string; plurals go in <plurals> with CLDR quantities. -->
 <resources>
     <string name="app_name">DYApp</string>
-    <string name="status_ready">Ready</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_network">Network</string>
+    <string name="nav_settings">Settings</string>
+    <string name="status_no_network">No network</string>
     <string name="status_pick">Choose an identity</string>
     <string name="status_recovery">This identity cannot be opened</string>
     <string name="status_error">Identity storage could not be opened</string>

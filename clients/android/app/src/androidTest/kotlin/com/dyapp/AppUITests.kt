@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -32,9 +33,8 @@ class AppUITests {
     @Test
     fun launchesAndRendersReady() {
         compose.skipNetworkEntry()
-        compose.onNodeWithText(string(R.string.app_name)).assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
-            .assertTextEquals(string(R.string.status_ready))
+            .assertTextEquals(string(R.string.nav_profile))
         // The peer ID comes from the Rust core through the UniFFI bindings.
         val peerId = compose.shownPeerId()
         check(Regex("[0-9a-f]{64}").matches(peerId)) { "Unexpected peer ID: $peerId" }
@@ -59,9 +59,9 @@ class AppUITests {
     fun recreationKeepsReadyScreenAndPeerId() {
         val before = compose.shownPeerId()
         compose.activityRule.scenario.recreate()
-        // A network draft closed with Back stays closed.
+        // A network wizard closed with Back stays closed.
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
-            .assertTextEquals(string(R.string.status_ready))
+            .assertTextEquals(string(R.string.nav_profile))
         // The new screen unwraps the stored key again, as a restarted app does.
         check(compose.shownPeerId() == before) { "Peer ID changed on recreation" }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -74,14 +74,14 @@ class AppUITests {
     @Test
     fun addSwitchAndRelaunchKeepTheChosenIdentity() {
         val first = compose.shownPeerId()
-        compose.onNodeWithTag("switch").performClick()
-        compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
-        compose.onNodeWithTag("add-identity").performScrollTo().performClick()
+        compose.addIdentity()
         val second = compose.shownPeerId()
         check(second != first) { "A new identity reused the Peer ID" }
-        compose.onNodeWithTag("switch").performClick()
-        compose.onNode(hasTestTag("identity") and hasText(second)).performScrollTo()
-        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        compose.onNodeWithTag("identity-switcher").performClick()
+        compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
+        compose.onNode(hasText(second) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
+        compose.onNodeWithTag("add-identity-menu").assertExists()
+        compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick()
         check(compose.shownPeerId() == first) { "Switching did not open the chosen identity" }
         // A relaunch reads the active pointer again.
         compose.activityRule.scenario.recreate()
@@ -91,12 +91,12 @@ class AppUITests {
     @Test
     fun removingTheActiveIdentityErasesItsKeyAndReturnsToThePicker() {
         val first = compose.shownPeerId()
-        compose.onNodeWithTag("switch").performClick()
-        compose.onNodeWithTag("add-identity").performScrollTo().performClick()
+        compose.addIdentity()
         val second = compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val alias = (RustBridge.slots(context).open() as Opened.Ready).slot.alias
-        compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("settings-remove").performScrollTo().performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.remove_title))
         compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()
         compose.onNodeWithTag("remove-warning").assertIsDisplayed()
@@ -123,9 +123,7 @@ class AppUITests {
             check(dir.mkdirs())
             File(dir, "state").writeText("pending\n")
             val incomplete = string(R.string.recovery_incomplete)
-            compose.onNodeWithTag("switch").performClick()
-            compose.onNode(hasTestTag("identity") and hasText(incomplete)).performScrollTo()
-                .performClick()
+            compose.switchIdentity(incomplete)
             compose.onNodeWithTag("recovery-reason").assertTextEquals(incomplete)
             compose.onNodeWithTag("retry").performClick()
             compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_recovery))
