@@ -9,6 +9,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
@@ -89,6 +91,24 @@ class SearchTests {
             click("country-DE")
             click("run-search")
             checkLocalSample()
+        } finally {
+            forgetNetworks()
+        }
+    }
+
+    // Run only by android-test-in-container.sh, after it flips the signature of every indexed record.
+    @Test
+    fun forgedResultsAreDroppedAndListed() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("forged") == "1")
+        compose.skipNetworkEntry()
+        try {
+            compose.activateLocalNode()
+            click("search-open")
+            click("run-search")
+            check(searched() == string(R.string.search_empty)) { "status ${compose.texts("search-status")}" }
+            val failures = compose.texts("search-failure")
+            check(compose.onAllNodes(hasTestTag("search-result")).fetchSemanticsNodes().isEmpty())
+            check(string(R.string.search_failure_invalid) in failures) { "failures $failures" }
         } finally {
             forgetNetworks()
         }

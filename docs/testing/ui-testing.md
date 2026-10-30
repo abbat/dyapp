@@ -144,7 +144,7 @@ Rust unit test cancels and resumes a 30-bit puzzle; the UI smoke does not race t
 
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
-| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 30 instrumented (`AppUITests.kt` ×5, `IdentitySettingsTests.kt` ×2, `SearchTests.kt` ×3, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×3, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
+| Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 31 instrumented (`AppUITests.kt` ×5, `IdentitySettingsTests.kt` ×2, `SearchTests.kt` ×4, `ProfileDraftTests.kt` ×3, `ProfilePublishTests.kt` ×2, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `PseudoLocaleTests.kt` ×3, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
 | Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 46 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 35 for the installed release client, which has no dyappd | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases except the eleven that need dyappd and the two tray cases without or losing a host (33) | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
@@ -257,9 +257,12 @@ Images build only at `prepare`; `run` uses `--pull never`, and test containers r
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
     (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `tests/docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
-    Before the emulator, it generates a low-cost test key under `/tmp` and starts that `dyappd` on
+    Before the emulator, it generates a low-cost test key and starts that `dyappd` on
     `127.0.0.1:33445`, advertised as `10.0.2.2:33445`, the guest's address for the container's
-    loopback; its logs go to `node/` on the reports volume.
+    loopback; its storage and logs go to `node/` on the reports volume. After the suite,
+    `forge-search-index.py` flips the signature of every indexed record there, and
+    `SearchTests#forgedResultsAreDroppedAndListed` runs alone with `-e forged 1` (otherwise
+    skipped): the search must list no profile and show the invalid-reply failure.
   - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it

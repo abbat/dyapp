@@ -37,8 +37,9 @@ case "${1:?suite required}" in
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
         # Loopback dyappd for the publish test; the guest reaches this container's 127.0.0.1 at 10.0.2.2.
         export DYAPPD_LISTEN='["127.0.0.1:33445"]' DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
-            DYAPPD_STORAGE_DIR=/tmp/ai/node DYAPPD_NETWORK_ID_POW_BITS=8
-        mkdir -p /reports/node
+            DYAPPD_STORAGE_DIR=/reports/node/storage DYAPPD_NETWORK_ID_POW_BITS=8
+        # The UI container forges this index after the suite, so it lives on the shared volume.
+        rm -rf /reports/node && mkdir -p /reports/node
         /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
         /app/build/debug/dyappd > /reports/node/node.log 2>&1 &
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
@@ -84,6 +85,13 @@ case "${1:?suite required}" in
             failed+=("$report_dir/instrumentation-$attempt.txt")
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
+        # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
+        python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
+        timeout 300 adb -s emulator-5554 shell am instrument -w -e forged 1 \
+            -e class com.dyapp.SearchTests#forgedResultsAreDroppedAndListed \
+            com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/forged.txt" || true
+        cat "$report_dir/forged.txt"
+        grep -q '^OK (1 test)' "$report_dir/forged.txt"
         timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"
         test -s "$report_dir/ready.png"
         ;;
