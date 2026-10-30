@@ -16,6 +16,7 @@ user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
 user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
                                 wintypes.LPARAM]
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.SendMessageW.restype = wintypes.LPARAM
 user32.SendMessageW.argtypes = user32.PostMessageW.argtypes
 user32.GetMenuItemCount.argtypes = [wintypes.HMENU]
@@ -31,6 +32,7 @@ user32.GetClassLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
 TRAY_CLASS, WM_USER_TRAYICON, MENU_CLASS = "tray_icon_app", 6002, "#32768"
 WM_KEYDOWN, WM_RBUTTONUP, VK_RETURN = 0x100, 0x205, 0x0D
 WM_GETICON, ICON_SMALL, GCLP_HICONSM = 0x7F, 0, -34
+OVERFLOW_CLASS, SW_SHOWNA = "NotifyIconOverflowWindow", 8
 # Undocumented but stable messages of the popup menu window.
 MN_GETHMENU, MN_SELECTITEM = 0x1E1, 0x1E5
 
@@ -96,6 +98,12 @@ while True:
         continue
     menu = user32.FindWindowW(MENU_CLASS, None)
     if not menu or not user32.IsWindowVisible(menu):
+        # tray-icon opens no menu for an icon hidden in the overflow area, as
+        # on the Windows Server 2022 runner, so the flyout is shown first.
+        overflow = user32.FindWindowW(OVERFLOW_CLASS, None)
+        if overflow and not user32.IsWindowVisible(overflow):
+            log("showing the overflow area")
+            user32.ShowWindow(overflow, SW_SHOWNA)
         # Clicks until stopped: a click before the menu is wired is lost.
         if state != "clicking":
             log_menu_needs(tray)
