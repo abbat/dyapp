@@ -1,8 +1,8 @@
 """Clicks the app's notification-area menu (Open, Quit) for the desktop smoke
 on Windows, as fake-tray.py does through a StatusNotifierItem host on Linux.
 
-quit: clicks Quit once the icon is there and the window has its taskbar
-icons; open: clicks Open once the app writes hidden to the config dir.
+quit: clicks Quit once the icon is there and the window has its small
+icon; open: clicks Open once the app writes hidden to the config dir.
 Each step goes to stderr, which the smoke log in the CI artifact keeps."""
 import ctypes
 from ctypes import wintypes
@@ -30,8 +30,7 @@ user32.GetClassLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
 # tray-icon's hidden window and its callback message; #32768 is a popup menu.
 TRAY_CLASS, WM_USER_TRAYICON, MENU_CLASS = "tray_icon_app", 6002, "#32768"
 WM_KEYDOWN, WM_RBUTTONUP, VK_RETURN = 0x100, 0x205, 0x0D
-WM_GETICON, ICON_SMALL, ICON_BIG = 0x7F, 0, 1
-GCLP_HICON, GCLP_HICONSM = -14, -34
+WM_GETICON, ICON_SMALL, GCLP_HICONSM = 0x7F, 0, -34
 # Undocumented but stable messages of the popup menu window.
 MN_GETHMENU, MN_SELECTITEM = 0x1E1, 0x1E5
 
@@ -41,19 +40,18 @@ def log(message):
 
 
 def shows_icons():
-    """Whether a visible window titled DYApp has a small and a big icon, set
-    on the window or else on its class, as the taskbar takes them."""
+    """Whether a visible window titled DYApp has a small icon, set on the
+    window or else on its class. Tauri sets no big one, so the taskbar takes
+    the executable's, which check-windows-icon.py checks."""
     window = None
     while window := user32.FindWindowExW(None, window, None, "DYApp"):
         name = ctypes.create_unicode_buffer(256)
         user32.GetClassNameW(window, name, 256)
-        own = [user32.SendMessageW(window, WM_GETICON, kind, 0)
-               for kind in (ICON_SMALL, ICON_BIG)]
-        icons = [icon or user32.GetClassLongPtrW(window, index)
-                 for icon, index in zip(own, (GCLP_HICONSM, GCLP_HICON))]
+        icon = user32.SendMessageW(window, WM_GETICON, ICON_SMALL, 0)
+        icon = icon or user32.GetClassLongPtrW(window, GCLP_HICONSM)
         visible = user32.IsWindowVisible(window)
-        log(f"window {name.value}: visible {visible}, icons {icons}")
-        if visible and all(icons):
+        log(f"window {name.value}: visible {visible}, small icon {icon}")
+        if visible and icon:
             return True
     return False
 
@@ -72,8 +70,8 @@ while True:
             state = now
         continue
     if mode == "quit" and not shows_icons():
-        # The taskbar shows the window's icons; without them, no Quit and
-        # the case times out with the windows logged above.
+        # Without the window's icon, no Quit: the case times out with the
+        # windows logged above.
         continue
     menu = user32.FindWindowW(MENU_CLASS, None)
     if not menu or not user32.IsWindowVisible(menu):
