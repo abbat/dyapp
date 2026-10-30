@@ -436,6 +436,17 @@ def smoke(executable, flows=True):
     if flows and Path(executable).with_name("dyappd").exists():
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             connect(profile)
+    elif flows:
+        # The no-network start of connect(), which needs no node.
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            peer_id = case("offline-create", ["--ui-test-file"], profile)
+            if case("profile-publish-no-network",
+                    ["--ui-test-file", "--ui-test-step=profile-publish-fail"],
+                    profile, timeout=180) != peer_id:
+                raise RuntimeError("failed publish replaced the identity")
+            case("search-no-network",
+                 ["--ui-test-file", "--ui-test-step=search-no-network"],
+                 profile)
     language_step = "--ui-test-step=settings-language"
     with tempfile.TemporaryDirectory(dir=reports) as profile:
         case("settings-english", ["--ui-test-file", language_step], profile)
