@@ -25,6 +25,7 @@
   "scorecard": {"fix":"docs/security/assurance.md#openssf-scorecard","format":"python"},
   "adr": {"fix":"docs/decisions/README.md#triggers","format":"python"},
   "dependency-age": {"fix":"docs/development/code-quality.md#dependency-age","format":"python"},
+  "advisory-ignores": {"fix":"docs/development/code-quality.md#advisory-ignores","format":"python"},
   "ci-results": {"fix":"docs/testing/README.md#required-status-checks","format":"lines","pattern":"^.+: error:"},
   "container-isolation": {"fix":"docs/testing/docker.md#container-isolation","format":"lines","details":true,"pattern":"^FAIL "},
   "android-build": {"fix":"docs/development/build.md#unsigned-android-release","format":"lines","nested":true,"pattern":"^.+: line [0-9]+:"},
