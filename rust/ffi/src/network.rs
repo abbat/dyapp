@@ -223,7 +223,7 @@ impl ConnectionCheck {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use dyapp_p2p_net::{build_configured_swarm, Mode, SwarmOptions};
     use libp2p::futures::StreamExt;
@@ -243,7 +243,7 @@ mod tests {
     }
 
     /// A public-network node on a background thread; returns its TCP port and peer ID.
-    fn node() -> (u16, String) {
+    pub(crate) fn node() -> (u16, String) {
         let (sender, receiver) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()

@@ -4,13 +4,13 @@ use crate::profile_draft::database;
 use crate::profile_publish::{block_at, today, POW_BITS};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
-use dyapp_client::publish;
 use dyapp_client::store::Store;
-use dyapp_client::Node;
+use dyapp_client::{publish, search, Node};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::{seed, Protocols};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
@@ -44,6 +44,25 @@ pub(crate) async fn connect(network: &Network) -> Result<Node, CoreError> {
         }
     }
     Err(error)
+}
+
+/// Search nodes the held profile goes to; they gossip it on.
+const SEARCH_NODES: usize = 2;
+
+/// Sends the profile the search window holds, once it has ended, to up to [`SEARCH_NODES`]
+/// search nodes `node` finds on `network`. Best effort: a profile no node took stays held.
+async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<(), CoreError> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(failed)?
+        .as_secs();
+    if store.due_search_profile(now).map_err(failed)?.is_none() {
+        return Ok(());
+    }
+    let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
+    let mut reached = search::connect_search_nodes(node, protocols, SEARCH_NODES).await;
+    let _ = search::publish_due(store, &mut reached.nodes, now).await;
+    Ok(())
 }
 
 /// Swift detached tasks run on 512 KiB stacks, too small for the network futures.
@@ -117,9 +136,11 @@ impl ProfilePublisher {
             let store = store;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                publish::publish(&store, &mut node, &key.identity, &draft)
+                let published = publish::publish(&store, &mut node, &key.identity, &draft)
                     .await
-                    .map_err(failed)
+                    .map_err(failed)?;
+                send_held(&store, &mut node, &network).await?;
+                Ok(published)
             })
         })?;
         Ok(ProfilePublished {
@@ -132,7 +153,6 @@ impl ProfilePublisher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn only_active_settings_can_supply_a_publisher_node() {
@@ -158,6 +178,45 @@ mod tests {
             "notConnected"
         );
         assert!(!dir.join("client.db").exists());
+    }
+
+    #[test]
+    fn a_held_profile_no_search_node_takes_stays_held() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-send-held-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = IdentityKey::generate();
+        let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();
+        let (port, peer) = crate::network::tests::node();
+        let network = Network {
+            seeds: vec![format!("127.0.0.1:{port}/{peer}")],
+            name: String::new(),
+        };
+        // An empty record would store as nothing held.
+        let record = dyapp_identity::SignedRecord {
+            signature: vec![1],
+            ..Default::default()
+        };
+        let held = on_network_stack(|| {
+            let store = store;
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                // Nothing held: nothing is sent.
+                send_held(&store, &mut node, &network).await?;
+                store.hold_search_profile(&record).map_err(failed)?;
+                // The node serves no search, so the profile waits for a later publish.
+                send_held(&store, &mut node, &network).await?;
+                store.due_search_profile(u64::MAX).map_err(failed)
+            })
+        });
+        assert_eq!(held.unwrap(), Some(record));
     }
 
     #[test]
