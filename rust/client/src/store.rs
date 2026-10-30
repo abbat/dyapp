@@ -478,6 +478,8 @@ CREATE TABLE `outbox` (
     `accepted_by` TEXT,
     `last_accepted_ms` INTEGER,
     `expires_at_ms` INTEGER,
+    -- The MLS group of a chat text, edit or delete, so Clear chat can cancel it; else NULL.
+    `chat_group` BLOB,
     PRIMARY KEY (`mailbox`, `envelope_id`)
 ) STRICT;
 CREATE TABLE `settings` (

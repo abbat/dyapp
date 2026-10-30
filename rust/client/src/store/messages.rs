@@ -8,6 +8,7 @@ use dyapp_identity::sha256;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use rusqlite::{params, OptionalExtension, Transaction};
 
+mod clear;
 #[cfg(test)]
 mod inbound_tests;
 mod operations;
@@ -44,6 +45,12 @@ CREATE TABLE `chat_operations` (
     `pending_text` BLOB CHECK (`pending_text` IS NULL OR length(`pending_text`) <= 65536),
     CHECK (`pending` = 1 OR `pending_text` IS NULL),
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
+) STRICT;
+CREATE TABLE `chat_cleared` (
+    `group_id` BLOB NOT NULL,
+    `author` TEXT NOT NULL,
+    `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
+    PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
 ";
 
@@ -123,6 +130,16 @@ impl Store {
             }
         }
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        for write in writes {
+            tx.execute(
+                "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![
+                    write.mailbox().as_slice(),
+                    write.id().as_slice(),
+                    sender.group
+                ],
+            )?;
+        }
         let changed = match body {
             Body::Text { text, .. } => Self::record_chat_text_tx(&tx, &key, text)?,
             Body::Edit { .. } | Body::Delete { .. } => {
@@ -169,6 +186,10 @@ impl Store {
             &digest,
             None,
             |tx| {
+                // A cleared message stays gone; its envelope is still recorded and ACKed.
+                if clear::is_cleared(tx, &key)? {
+                    return Ok(());
+                }
                 match body {
                     Body::Text { text, .. } => {
                         Self::record_chat_text_tx(tx, &key, text)?;

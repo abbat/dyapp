@@ -59,7 +59,7 @@ staging. Only a present own text in the same group can be targeted; deletion is 
 operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
 locally before delivery is pending on the peer until its receipt.
 
-## Clearing a conversation (planned)
+## Clearing a conversation
 
 **Clear chat** in the chat header menu deletes the whole conversation from this device only. In
 one transaction the Store removes every current text and placeholder of the group, the pending
@@ -69,7 +69,9 @@ operation. A text, edit or delete that later names a marked ID, by re-delivery, 
 envelope or device sync, is discarded and still ACKed, so a cleared message neither shows nor
 loads again. The marks hold no text and go when the conversation is deleted. A tag 1 text has no
 send time, so a message first received after the clear shows as new even if it was written
-earlier.
+earlier. Unsent outbox writes are found by the group each chat write is tagged with; a write a
+node already accepted stays, since only the recipient can drop it. `Store::clear_chat` and
+`Session::clear_chat` implement this; the chat screen is planned.
 
 The match, likes, block state and the chat row stay; the chat opens empty with a note. The peer
 and nodes are not told and keep their copies; to ask for removal, delete own messages first

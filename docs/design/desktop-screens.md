@@ -227,7 +227,7 @@ over a direct path.
 
 `chat-clear-dialog` confirms Clear chat: the messages are deleted from this computer only, the
 peer keeps theirs, cleared messages do not come back and unsent ones are cancelled
-([contract](message-edits-and-deletion.md#clearing-a-conversation-planned)). `chat-cleared`: the
+([contract](message-edits-and-deletion.md#clearing-a-conversation)). `chat-cleared`: the
 same chat, empty, with a note; the match and the chat row stay.
 
 | Control | ID | Notes |
