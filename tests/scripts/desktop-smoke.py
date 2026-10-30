@@ -428,7 +428,7 @@ def smoke(executable, flows=True):
     @contextlib.contextmanager
     def fake_tray(mode, profile):
         """A tray host on the session bus (fake-tray.py), or a click driver
-        for the notification area on Windows (windows-tray.py), for one case."""
+        for the Windows notification area (windows-tray.py), for one case."""
         (Path(profile) / "hidden").unlink(missing_ok=True)
         driver = [sys.executable, "windows-tray.py"] if os.name == "nt" \
             else ["/usr/bin/python3", "fake-tray.py"]

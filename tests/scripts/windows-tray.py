@@ -31,14 +31,14 @@ while True:
     if not tray or (mode != "quit" and not trigger.exists()):
         continue
     if mode == "quit":
-        # The taskbar shows the window's icons; without them the app never quits.
+        # The taskbar shows the window's icons; without them, no Quit.
         window = user32.FindWindowW(None, "DYApp")
         if not all(user32.SendMessageW(window, WM_GETICON, kind, 0)
                    for kind in (ICON_SMALL, ICON_BIG)):
             sys.exit("windows-tray: the DYApp window has no taskbar icon")
     menu = user32.FindWindowW(MENU_CLASS, None)
     if not menu or not user32.IsWindowVisible(menu):
-        # Clicks again until stopped: a click before the menu is wired up is lost.
+        # Clicks until stopped: a click before the menu is wired is lost.
         user32.PostMessageW(tray, WM_USER_TRAYICON, 0, WM_RBUTTONUP)
         continue
     for _ in range(1 if mode == "open" else 2):
