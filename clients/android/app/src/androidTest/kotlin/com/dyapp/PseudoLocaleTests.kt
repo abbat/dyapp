@@ -43,7 +43,7 @@ class PseudoLocaleTests {
     fun startScreenRendersRussianStrings() {
         val russian = render("ru")
         val ready = russian.getString(R.string.status_ready)
-        check(ready == "Готово") { "Russian translation missing: $ready" }
+        check(ready == "\u0413\u043e\u0442\u043e\u0432\u043e") { "Russian translation missing: $ready" }
         compose.onNodeWithText(russian.getString(R.string.app_name)).assertIsDisplayed()
         compose.onNodeWithTag("app-ready").assertIsDisplayed().assertTextEquals(ready)
     }

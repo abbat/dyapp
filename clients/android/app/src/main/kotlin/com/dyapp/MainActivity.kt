@@ -213,10 +213,6 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         // Settings stays open across Create, Switch and a cancelled removal, but not past a removal.
         if (shown.opened !is Opened.Ready) editor = null
     }
-    removing?.let {
-        RemoveScreen(slots, it, act)
-        return
-    }
     val opened = shown.opened
     val open: (StartTarget?) -> Unit = { target ->
         when (target) {
@@ -225,11 +221,12 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
             else -> editor = target
         }
     }
-    if (editor == StartTarget.SETTINGS && opened is Opened.Ready) {
-        return IdentitySettingsScreen(slots, opened, act, open)
+    val asked = removing
+    when {
+        asked != null -> RemoveScreen(slots, asked, act)
+        editor == StartTarget.SETTINGS && opened is Opened.Ready -> IdentitySettingsScreen(slots, opened, act, open)
+        !showReadyEditor(opened as? Opened.Ready, editor) { editor = null } -> StartColumn(shown, slots, act, open)
     }
-    if (showReadyEditor(slots, opened as? Opened.Ready, editor) { editor = null }) return
-    StartColumn(shown, slots, act, open)
 }
 
 @Composable

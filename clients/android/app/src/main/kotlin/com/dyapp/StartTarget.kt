@@ -28,7 +28,7 @@ internal enum class StartTarget { REMOVE, PROFILE, SEARCH, NETWORK, SETTINGS, LO
  * active; returns false when neither applies, so the caller shows the start screen.
  */
 @Composable
-internal fun showReadyEditor(slots: Slots, opened: Opened.Ready?, editor: StartTarget?, close: () -> Unit): Boolean {
+internal fun showReadyEditor(opened: Opened.Ready?, editor: StartTarget?, close: () -> Unit): Boolean {
     val networkNeeded = rememberNetworkEntryNeeded(opened)
     // Survives rotation, so Back keeps the draft closed for this session.
     var networkDismissed by rememberSaveable(opened?.slot?.id) { mutableStateOf(false) }
