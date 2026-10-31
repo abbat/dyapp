@@ -74,12 +74,29 @@ fn half(peer: &[u8; 32]) -> String {
 
 /// What this profile's QR code carries: a version, then its raw Peer ID and the contact's.
 pub fn qr_payload(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
-    [&[VERSION][..], &key_hash(mine), &key_hash(theirs)].concat()
+    qr_from_hashes(&key_hash(mine), &key_hash(theirs))
+}
+
+/// The same QR payload from canonical lowercase hexadecimal Peer IDs.
+pub fn qr_payload_for_peer_ids(mine: &str, theirs: &str) -> Option<Vec<u8>> {
+    Some(qr_from_hashes(
+        &parse_peer_id(mine)?,
+        &parse_peer_id(theirs)?,
+    ))
+}
+
+fn qr_from_hashes(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
+    [&[VERSION][..], mine, theirs].concat()
 }
 
 /// Whether a QR code scanned from the contact's screen names both keys the right way round.
 pub fn qr_matches(scanned: &[u8], mine: &[u8; 32], theirs: &[u8; 32]) -> bool {
     scanned == qr_payload(theirs, mine)
+}
+
+/// The same check for canonical lowercase hexadecimal Peer IDs.
+pub fn qr_matches_peer_ids(scanned: &[u8], mine: &str, theirs: &str) -> bool {
+    qr_payload_for_peer_ids(theirs, mine).is_some_and(|expected| scanned == expected)
 }
 
 #[cfg(test)]
@@ -123,5 +140,32 @@ mod tests {
         assert!(!qr_matches(&qr_payload(&alice, &bob), &alice, &bob));
         assert!(!qr_matches(&qr_payload(&carol, &alice), &alice, &bob));
         assert!(!qr_matches(&shown_by_bob[..64], &alice, &bob));
+        let alice_id = crate::peer_id(&alice);
+        let bob_id = crate::peer_id(&bob);
+        let carol_id = crate::peer_id(&carol);
+        assert_eq!(
+            qr_payload_for_peer_ids(&bob_id, &alice_id),
+            Some(shown_by_bob.clone())
+        );
+        assert!(qr_matches_peer_ids(&shown_by_bob, &alice_id, &bob_id));
+        assert!(!qr_matches_peer_ids(&shown_by_bob, &bob_id, &alice_id));
+        assert!(!qr_matches_peer_ids(&shown_by_bob, &alice_id, &carol_id));
+        assert!(!qr_matches_peer_ids(
+            &shown_by_bob[..64],
+            &alice_id,
+            &bob_id
+        ));
+        let mut unknown = shown_by_bob.clone();
+        unknown[0] = VERSION + 1;
+        assert!(!qr_matches_peer_ids(&unknown, &alice_id, &bob_id));
+        assert_eq!(
+            qr_payload_for_peer_ids(&bob_id.to_uppercase(), &alice_id),
+            None
+        );
+        assert!(!qr_matches_peer_ids(
+            &shown_by_bob,
+            &alice_id[..63],
+            &bob_id
+        ));
     }
 }
