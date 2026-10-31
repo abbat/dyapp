@@ -607,6 +607,9 @@ const hideProfileOnLoopback = async () => {
     || byId('profile-gender').value !== '1') {
     throw new Error('hidden profile not shown with its notice and draft');
   }
+  await openArea('search-area');
+  byId('run-search').click(); await window.searchDone;
+  if (!shown('search-empty') || document.querySelector('#search-results [data-peer-id]')) throw new Error('hidden profile remains in search');
 };
 const checkSavedProfile = async () => {
   if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'

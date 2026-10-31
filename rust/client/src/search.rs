@@ -778,6 +778,10 @@ mod tests {
         assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
         assert_eq!(beat.pow_bits, 2);
         assert_eq!(record.public_key, key.to_vec());
+        drop(asked);
+        store.set_profile_hidden(true).unwrap();
+        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, next + 86_400)).await);
+        assert_eq!(asked.lock().unwrap().len(), 3);
     }
 
     #[test]
