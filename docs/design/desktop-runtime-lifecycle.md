@@ -4,16 +4,15 @@ The Linux and Windows Tauri shell runs Store and network commands against a copi
 and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
 records the gap: identity-bound network, profile, search, privacy, chat, safety, node and usage
 commands now keep their admission lease through their work. The verified profile cache and
-seed-check cancellation flag are still process-wide. Each profile solve has its own cancellation
+seed-check cancellation handle are still process-wide. Each profile solve has its own cancellation
 token. Identity selection now closes admission, signals the current profile solve and seed check
 to cancel, drains held leases off the UI thread, opens the target slot before changing the
 persistent selection, and commits the new identity to one gate.
 Startup, creation and removal also use that gate. On a failed create or removal, the gate
 reopens the persisted selection or previous slot; it never silently opens another slot. If that
-slot cannot reopen, the gate admits no identity until the user retries or reloads. A profile solve
-that registers after the transition signal probes the gate and cancels itself. A seed check can
-still miss cancellation in that registration gap; its fix, cache clearing and UI callback guards
-remain planned.
+slot cannot reopen, the gate admits no identity until the user retries or reloads. Profile solves
+and seed checks that register after the transition signal probe the gate and cancel themselves.
+Cache clearing and UI callback guards remain planned.
 
 ## Required behavior
 

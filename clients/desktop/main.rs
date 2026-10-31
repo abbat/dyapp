@@ -351,7 +351,14 @@ async fn check_connection(
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
     let lease = state.lease()?;
     let dir = lease.active().1.clone();
-    network::check(&checks, dir, draft, Duration::from_millis(wait_ms.into())).await
+    network::check(
+        &checks,
+        dir,
+        draft,
+        Duration::from_millis(wait_ms.into()),
+        || lease.transitioning().map_err(|error| format!("{error:?}")),
+    )
+    .await
 }
 
 #[tauri::command]
