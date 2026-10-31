@@ -341,7 +341,10 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   rejects a positive `tabindex` (tab order follows the DOM), focuses every visible control and
   requires a focus ring (`box-shadow` or `outline`), and resizes the window to 440 px through
   `ui_test_window` to reject horizontal overflow. Any finding fails the case with the rule, theme
-  and first element.
+  and first element. The `target-size` rule in axe-core 4.14 is disabled by default even though
+  it has the WCAG 2.2 AA tag. A pilot enables it explicitly on the `ready` and `search-results`
+  checkpoints and checks that two deliberately undersized adjacent buttons are reported;
+  coverage of the other screens remains planned pending runtime and false-positive review.
 
 ### Desktop prototype screenshots
 
