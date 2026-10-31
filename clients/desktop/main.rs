@@ -15,6 +15,10 @@ use tauri::Manager;
 mod chats;
 #[path = "file_store.rs"]
 mod file_store;
+// The gate primitive is exercised before the Tauri command wiring lands.
+#[cfg(test)]
+#[path = "identity_gate.rs"]
+mod identity_gate;
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).

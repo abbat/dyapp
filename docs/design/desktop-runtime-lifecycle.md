@@ -4,7 +4,8 @@ The Linux and Windows Tauri shell currently runs Store and network commands agai
 identity and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
 records the gap: switching the selected slot does not wait for those commands, and the verified
 profile cache and cancellation flags are process-wide. This page specifies the planned boundary
-before the desktop chat adapter adds more long-lived work. The implementation below is planned.
+before the desktop chat adapter adds more long-lived work. The admission/drain primitive has
+unit tests; wiring it into Tauri commands and the remaining behavior below are planned.
 
 ## Required behavior
 
