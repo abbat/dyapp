@@ -332,9 +332,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `settings-storage`, `remove`, `remove-offline`, `recovery`, `recovery-details`,
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
   `publish-dialog`, `profile-publish-failed`, `profile-published`, `profile-hidden`,
-  `profile-unhidden-pending`, `search-not-connected`, `search-results`, `search-profile`,
-  `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where the test flow reaches
-  them). The in-progress network check and the publish puzzle finish
+  `profile-unhidden-pending`, `search-not-connected`, `chats-not-connected`, `search-results`,
+  `search-profile`, `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
+  the test flow reaches them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
   (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the
