@@ -604,12 +604,15 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     let (alice_path, bob_path) = (store_path("alice"), store_path("bob"));
     let (alice_key, bob_key) = ([1; 32], [2; 32]);
     let bob_owner = bob.identity.peer_id();
-    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
-        .await
-        .unwrap();
     Store::open(&bob_path, &bob.identity)
         .unwrap()
         .stage_outbound(&bob.device.seal(&bob_key).unwrap(), &[])
+        .unwrap();
+    // The KeyPackage's private key is in Bob's snapshot before the package is public.
+    Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key)
+        .unwrap()
+        .publish_key_packages(&mut bob.node, &bob.device_key, 1, &bob_key)
+        .await
         .unwrap();
     let mut profiles = Vec::new();
     for owner in [alice.identity.peer_id(), bob_owner.clone()] {

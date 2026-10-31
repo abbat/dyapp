@@ -7,7 +7,7 @@ use crate::scores::{self, Scores};
 use crate::store::messages::{CurrentMessage, MessageKey, VerifiedChatSender};
 use crate::store::{Conversation, InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
-use dyapp_identity::Identity;
+use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
@@ -97,6 +97,35 @@ impl Session {
     /// Where the chat with `peer_id` stands.
     pub fn conversation(&self, peer_id: &str) -> Result<crate::store::Conversation, Error> {
         Ok(self.store.conversation(peer_id)?)
+    }
+
+    /// This device's signed certificate, for the owner's profile device list.
+    pub fn certificate(&self) -> Result<SignedRecord, Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        Ok(device.certificate().clone())
+    }
+
+    /// Make `count` single-use KeyPackages, commit the snapshot holding their private keys, then
+    /// publish them through `node` under the mailbox key `device_key`. Publish after the profile
+    /// that lists this device; a failed publish leaves only unused keys sealed.
+    pub async fn publish_key_packages(
+        &mut self,
+        node: &mut Node,
+        device_key: &Identity,
+        count: usize,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let packages = (0..count)
+            .map(|_| device.key_package(false))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.store.stage_outbound(&device.seal(seal_key)?, &[])?;
+        let owner = self.store.owner_peer_id().to_owned();
+        for package in packages {
+            node.publish_key_package(device_key, &owner, package, false, 0)
+                .await?;
+        }
+        Ok(())
     }
 
     /// Block `contact` (hex Peer ID): record it, sign it no more tokens, and revoke those it holds
