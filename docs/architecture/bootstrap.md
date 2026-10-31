@@ -437,7 +437,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
   store nodes keep the ordinary profile and device directory for direct Peer ID lookup
   and KeyPackages. Final identity removal sends a tombstone to both services. Search
   withdrawal remains best effort and pending until a node accepts it; public fields at store
-  nodes remain fetchable by someone who knows the Peer ID.
+  nodes remain fetchable by someone who knows the Peer ID. A search node that never receives
+  the tombstone can keep listing the old profile, and a node that expires it can accept a later
+  signed version. A store node likewise stops rejecting later versions after its final
+  tombstone expires; clients that observed the final store tombstone retain local finality.
 - **Proof of work.** Store and search share `search.min_profile_pow_bits` (public default 11,
   at most 20), advertised by every store node in `info.min_profile_pow`. A private test network
   may explicitly set it to 0 on all nodes; changing `network.name` alone does not lower it.

@@ -253,6 +253,12 @@ fn signed_profile_versions_and_tombstone() {
         dyapp_profile::stored_version(&store.get_profile(&owner.peer_id()).unwrap().unwrap()),
         Ok(3)
     );
+    // Finality on a cooperating node lasts only while it retains the tombstone.
+    let cutoff = chrono::Utc::now().timestamp();
+    assert_eq!(store.expire_profiles(cutoff - 60).unwrap(), 0);
+    assert_eq!(store.expire_profiles(cutoff + 1).unwrap(), 1);
+    assert!(store.get_profile(&owner.peer_id()).unwrap().is_none());
+    store.put_profile(&profile(4).sign(&owner)).unwrap();
 }
 
 #[test]

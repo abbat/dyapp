@@ -148,6 +148,16 @@ its schema, content and cache behaviour. Until this live setup and smoke test
 succeed, clients must treat the proposed URL as unavailable. See
 [client updates](../design/client-updates.md) for the trust and rollback rules.
 
+### Search visibility during rollout
+
+Hide from search sends a signed tombstone to search nodes only, leaving direct profile and
+KeyPackage lookup available by known Peer ID. Older clients that send the same tombstone to
+profile storage interrupt direct lookup; update those clients before relying on Hide for
+continued messaging. Search nodes that never receive the withdrawal may keep listing the old
+profile. Cooperating nodes retain final-removal tombstones only until their configured profile
+TTL (30 days by default), so neither mixed-version rollout nor expiry guarantees permanent,
+network-wide removal. See [ADR 0036](../decisions/0036-search-visibility.md).
+
 Before acting on an abuse report, check its evidence and never apply a received deny list unread.
 Project maintainers never ask operators for node keys, recovery codes, backups, or node logs.
 Report vulnerabilities through the [security policy](../../.github/SECURITY.md).

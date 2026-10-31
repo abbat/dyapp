@@ -32,6 +32,27 @@ fn versions_limits_and_tombstones() {
 }
 
 #[test]
+fn search_tombstone_expires_with_its_version() {
+    let index = index();
+    let id = Identity::generate();
+    let (key, p1, r1) = signed(&id, profile(1));
+    let (_, tombstone, signed_tombstone) = signed(&id, Profile::tombstone(2, 0, 0));
+    assert_eq!(index.put(&key, &p1, &r1, 1_000, true).unwrap(), Put::Stored);
+    assert_eq!(
+        index
+            .put(&key, &tombstone, &signed_tombstone, 1_100, true)
+            .unwrap(),
+        Put::Stored
+    );
+    assert_eq!(index.versions(&[key]).unwrap(), vec![Some(2)]);
+    assert_eq!(index.expire(1_100).unwrap(), 0);
+    assert_eq!(index.expire(1_101).unwrap(), 1);
+    assert_eq!(index.versions(&[key]).unwrap(), vec![None]);
+    let (_, p3, r3) = signed(&id, profile(3));
+    assert_eq!(index.put(&key, &p3, &r3, 1_102, true).unwrap(), Put::Stored);
+}
+
+#[test]
 fn stored_pow_difficulty_handles_missing_and_corrupt_records() {
     let index = index();
     let owner = Identity::generate();
