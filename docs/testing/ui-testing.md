@@ -178,8 +178,10 @@ corrupted, reopen it and remove it through the remove screen; add another file i
 recovery after its key is corrupted and again after it is deleted (Details start collapsed,
 Copy copies the code and slot row) and remove it from recovery (each removal must delete only
 its slot folder and reopen the system identity); file create/restart, then
-reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair, which rejects an unlisted place, picks Berlin from the
-suggestions, checks it after the restart and clears it with the country;
+reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair,
+which rejects an unlisted place, checks that unsaved fields and its invalid state survive
+section navigation, picks Berlin from the suggestions, checks it after the restart and clears it
+with the country;
 then Russian, pseudo-locale and an
 injected rejection that hides the Profile heading. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print

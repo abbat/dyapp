@@ -483,6 +483,14 @@ const saveProfileForRestart = async () => {
   place.dispatchEvent(new Event('input', { bubbles: true }));
   await window.placesShown;
   if (place.checkValidity()) throw new Error('unlisted place accepted');
+  await openArea('network-area');
+  await openArea('profile-area');
+  if (document.getElementById('profile-gender').value !== '1'
+    || document.getElementById('birth-year').value !== '1990'
+    || document.getElementById('birth-month').value !== '2'
+    || place.value !== 'Nowhere' || place.checkValidity()) {
+    throw new Error('unsaved profile fields changed after section navigation');
+  }
   await pickPlace();
   const saved = waitForProfileStatus('profile.saved');
   document.getElementById('profile-save').click();

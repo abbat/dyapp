@@ -16,8 +16,9 @@ A saved profile draft is separate from a published profile. Save validates the f
 any entered place against its suggestions; invalid input stays in the form and is not written
 to the Store.
 Switching identities reloads that identity's saved draft. The current UI makes no promise to
-recover unsaved edits after a window reload, crash or process termination. The tests exercise a
-normal restart after Save and cancellation of the publish dialog; they do not inject process death.
+recover unsaved edits after a window reload, crash or process termination. The tests exercise
+unsaved field and invalid-place retention across section navigation, a normal restart after Save,
+and cancellation of the publish dialog; they do not inject process death.
 See the [Linux UI smoke](../testing/ui-testing.md#linux).
 
 ## Chat composer
