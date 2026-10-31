@@ -19,6 +19,8 @@ COPY rust rust
 COPY proto proto
 COPY clients clients
 # Only the crates: builds go to the mounted checkout (linux-test, deb).
+# Some crate archives keep 0640 files; the tests run as the host user.
 RUN cargo fetch --locked && \
-    cargo fetch --locked --manifest-path clients/linux/Cargo.toml
+    cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
+    chmod -R a+rX /usr/local/cargo/registry
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true

@@ -20,7 +20,7 @@ class Inventory(unittest.TestCase):
         self.assertEqual(out, run())
         self.assertIn("| create-identity | button | setup.create | "
                       "Create identity |", out)
-        self.assertIn("| continue-connection | button |", out)
+        self.assertIn("| check-connection | button |", out)
         self.assertIn("## #settings", out)
 
     def test_condition_heuristic(self):
@@ -29,8 +29,8 @@ class Inventory(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         js = "const a = document.getElementById('x-y');\na.hidden = true;\n"
-        self.assertEqual(module.conditions(js),
-                         {"x-y": [(2, "a.hidden = true;")]})
+        self.assertEqual(module.conditions("a.js", js),
+                         {"x-y": [("a.js:2", "a.hidden = true;")]})
 
 
 if __name__ == "__main__":

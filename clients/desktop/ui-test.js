@@ -762,6 +762,24 @@ const searchForged = async () => {
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
+    // Steps that run one check on the reopened identity.
+    const readySteps = {
+      network: checkNetwork,
+      node: checkNode,
+      'network-settings-failure': checkNetworkInSettings,
+      'settings-privacy-restart': () => checkPrivacy(true),
+      'remove-offline': removeOffline,
+      'remove-tombstone': () => removeWithTombstone(mode),
+      'profile-save': saveProfileForRestart,
+      'profile-restart': checkSavedProfile,
+      'profile-publish-fail': () => publishProfileOnLoopback(false, true),
+      'profile-publish-retry': () => publishProfileOnLoopback(true),
+      'search-forged': searchForged,
+      'profile-publish': () => publishProfileOnLoopback(),
+      'profile-hide': hideProfileOnLoopback,
+      'search-no-network': () => searchOnLoopback(false),
+      search: () => searchOnLoopback(true),
+    };
     if (step.startsWith('recovery:')) {
       // A localized reason first; the code and slot row only in collapsed Details, with Copy.
       const reason = step.slice('recovery:'.length);
@@ -869,9 +887,6 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
     } else if (step === 'remove') {
       await removeOpened(state, mode);
-    } else if (step === 'network') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkNetwork();
     } else if (step.startsWith('connect:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await connectNetwork(step.slice('connect:'.length));
@@ -894,12 +909,6 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
         !== window.strings['network.idle']) throw new Error('unchecked draft shown as active');
       await window.connectionShown;
       if (connection() !== 'offline') throw new Error(`no active network shows ${connection()}`);
-    } else if (step === 'node') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkNode();
-    } else if (step === 'network-settings-failure') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkNetworkInSettings();
     } else if (step === 'settings-restart') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
@@ -911,39 +920,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
       await checkSettingsLanguage();
       await checkPrivacy(false);
-    } else if (step === 'settings-privacy-restart') {
+    } else if (Object.hasOwn(readySteps, step)) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkPrivacy(true);
-    } else if (step === 'remove-offline') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await removeOffline();
-    } else if (step === 'remove-tombstone') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await removeWithTombstone(mode);
-    } else if (step === 'profile-save') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await saveProfileForRestart();
-    } else if (step === 'profile-restart') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkSavedProfile();
-    } else if (step === 'profile-publish-fail') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await publishProfileOnLoopback(false, true);
-    } else if (step === 'profile-publish-retry') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await publishProfileOnLoopback(true);
-    } else if (step === 'search-no-network' || step === 'search') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await searchOnLoopback(step === 'search');
-    } else if (step === 'search-forged') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await searchForged();
-    } else if (step === 'profile-publish') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await publishProfileOnLoopback();
-    } else if (step === 'profile-hide') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await hideProfileOnLoopback();
+      await readySteps[step]();
     } else if (existing && state.status !== 'ready') {
       throw new Error('identity not reopened');
     } else if (!existing) {

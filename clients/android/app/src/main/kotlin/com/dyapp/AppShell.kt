@@ -52,8 +52,9 @@ private val sections = listOf(
 )
 
 /**
- * The ready identity's frame: a top bar with the section title (`app-ready`), the active network
- * and the identity avatar, the [section] content and the bottom navigation bar. [open] switches
+ * The first-run network wizard while it applies, otherwise the ready identity's frame: a top bar
+ * with the section title (`app-ready`), the active network and the identity avatar, the [section]
+ * content and the bottom navigation bar. [open] switches
  * sections and opens the remove and lock screens; [act] changes the active identity.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,10 +63,11 @@ private val sections = listOf(
 internal fun AppShell(
     slots: Slots,
     opened: Opened.Ready,
-    section: StartTarget,
+    section: StartTarget?,
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit,
 ) {
+    if (showNetworkWizard(opened, section)) return
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
     Scaffold(

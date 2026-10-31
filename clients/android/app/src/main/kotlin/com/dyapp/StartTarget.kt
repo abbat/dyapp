@@ -33,8 +33,11 @@ internal fun showNetworkWizard(opened: Opened.Ready, section: StartTarget?): Boo
     // Survives rotation, so Back keeps the wizard closed for this session.
     var networkDismissed by rememberSaveable(opened.slot.id) { mutableStateOf(false) }
     if (section != null || networkNeeded == false || networkDismissed) return false
-    if (networkNeeded == null) Text(stringResource(R.string.network_loading))
-    else NetworkDraftScreen(opened) { networkDismissed = true }
+    if (networkNeeded == null) {
+        Text(stringResource(R.string.network_loading))
+    } else {
+        NetworkDraftScreen(opened) { networkDismissed = true }
+    }
     return true
 }
 

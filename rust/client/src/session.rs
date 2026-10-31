@@ -89,11 +89,6 @@ impl Session {
         Ok(self.store.chat_message(key)?)
     }
 
-    /// Clear the conversation in `group_id` on this device only; see [`crate::store::Store::clear_chat`].
-    pub fn clear_chat(&mut self, group_id: &[u8]) -> Result<usize, Error> {
-        Ok(self.store.clear_chat(group_id)?)
-    }
-
     /// The latest like state in both directions with `peer_id`.
     pub fn likes(&self, peer_id: &str) -> Result<crate::store::Likes, Error> {
         Ok(self.store.likes(peer_id)?)

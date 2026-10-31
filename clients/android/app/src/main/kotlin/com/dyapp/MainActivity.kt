@@ -224,9 +224,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     val asked = removing
     when {
         asked != null -> RemoveScreen(slots, asked, act)
-        opened is Opened.Ready -> if (!showNetworkWizard(opened, editor)) {
-            AppShell(slots, opened, editor ?: StartTarget.PROFILE, act, open)
-        }
+        opened is Opened.Ready -> AppShell(slots, opened, editor, act, open)
         else -> StartColumn(shown, slots, act, open)
     }
 }

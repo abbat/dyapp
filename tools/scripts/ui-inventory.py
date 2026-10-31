@@ -19,7 +19,7 @@ UI = ROOT / "clients/desktop/ui"
 VOID = {"input", "meta", "br", "hr", "img", "link"}
 CONTROLS = {"button", "input", "select", "textarea", "fieldset", "form",
             "details", "output", "option"}
-SCRIPTS = ("app.js", "network.js")
+SCRIPTS = ("app.js", "search.js", "network.js")
 SHOWN = 8  # script condition lines listed per control
 
 
@@ -120,8 +120,8 @@ def main():
         row["key"] = row["key"] or page.labels.get(row["id"]) or (
             row["label"] or {}).get("key")
     print("# Desktop UI inventory\n")
-    print("Source: clients/desktop/ui/index.html, app.js, network.js, "
-          "i18n/en.json, i18n/ru.json.\n")
+    print("Source: clients/desktop/ui/index.html, app.js, search.js, "
+          "network.js, i18n/en.json, i18n/ru.json.\n")
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
         print("| id | element | i18n key | English | Russian | hidden "
