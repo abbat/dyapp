@@ -3,8 +3,11 @@
 /// A stable release version, compared by numeric components.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Version {
+    /// Major numeric component.
     pub major: u32,
+    /// Minor numeric component.
     pub minor: u32,
+    /// Patch numeric component.
     pub patch: u32,
 }
 
@@ -44,14 +47,19 @@ fn component(value: &str) -> Option<u32> {
 /// Installation-wide interval selected in Settings.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Interval {
+    /// Check every six hours.
     SixHours,
+    /// Check every twelve hours.
     TwelveHours,
     #[default]
+    /// Check once per day.
     Day,
+    /// Check once per week.
     Week,
 }
 
 impl Interval {
+    /// Duration of this interval in seconds.
     pub const fn seconds(self) -> u64 {
         match self {
             Self::SixHours => 6 * 60 * 60,
@@ -69,17 +77,24 @@ const MAX_RETRY: u64 = 6 * 60 * 60;
 /// only after a validated 200 response or 304 with a validated cached feed.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CheckState {
+    /// Unix time of the last started request, if any.
     pub last_attempt: Option<u64>,
+    /// Unix time of the last validated response, if any.
     pub last_success: Option<u64>,
+    /// Failed checks since the last validated response.
     pub consecutive_failures: u32,
 }
 
 /// The event asking whether an update check should start.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Trigger {
+    /// App launch or return from suspension.
     LaunchOrResume,
+    /// Scheduled interval timer.
     Timer,
+    /// Network connectivity returned.
     NetworkRestored,
+    /// User explicitly requested a check.
     Manual,
 }
 
