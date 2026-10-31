@@ -162,6 +162,28 @@ mod tests {
         drop(transition);
     }
 
+    #[test]
+    fn solve_registered_after_transition_signal_cancels_itself() {
+        use crate::profile::ProfileState;
+        use std::sync::atomic::Ordering;
+
+        let gate = IdentityGate::new(Some("first"));
+        let solving = ProfileState::default();
+        let lease = gate.lease().unwrap();
+        let transition = gate.start_transition().unwrap();
+        solving.cancel(); // The transition signal precedes registration.
+        let token = solving.begin().unwrap();
+        assert!(!token.load(Ordering::Relaxed));
+        if lease.transitioning().unwrap() {
+            token.store(true, Ordering::Relaxed);
+        }
+        assert!(token.load(Ordering::Relaxed));
+        drop(lease);
+        transition.wait().unwrap();
+        transition.commit(Some("second")).unwrap();
+        assert!(!solving.begin().unwrap().load(Ordering::Relaxed));
+    }
+
     #[tokio::test]
     async fn cancelled_caller_cannot_release_a_running_blocking_workers_lease() {
         let state = IdentityState::new();

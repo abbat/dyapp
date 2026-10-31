@@ -4,7 +4,7 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::places;
@@ -30,9 +30,29 @@ const SEARCH_NODES: usize = 2;
 const KEY_PACKAGES: usize = 4;
 const SEAL_KEY_CONTEXT: &[u8] = b"dyapp device seal key v1";
 
-/// Stops a running [`solve`]; shared with the blocking thread that runs it.
+/// The current solve's token. Replacing or cancelling it never resets an older worker's token.
 #[derive(Default)]
-pub struct ProfileState(pub Arc<AtomicBool>);
+pub struct ProfileState(Mutex<Option<Arc<AtomicBool>>>);
+
+impl ProfileState {
+    /// Register a fresh solve and cancel the previous one, if it is still running.
+    pub fn begin(&self) -> Result<Arc<AtomicBool>, String> {
+        let token = Arc::new(AtomicBool::new(false));
+        let mut current = self.0.lock().map_err(|error| error.to_string())?;
+        if let Some(previous) = current.replace(Arc::clone(&token)) {
+            previous.store(true, Ordering::Relaxed);
+        }
+        Ok(token)
+    }
+
+    /// Signal the registered solve without changing a future solve's token.
+    pub fn cancel(&self) {
+        let mut current = self.0.lock().unwrap_or_else(|error| error.into_inner());
+        if let Some(token) = current.take() {
+            token.store(true, Ordering::Relaxed);
+        }
+    }
+}
 
 /// The editable public fields as the page sends and receives them.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -552,10 +572,7 @@ mod tests {
         };
         store.hold_search_profile(&signed(1)).unwrap();
         assert_eq!(load(&dir, &alice).unwrap().search_minutes, Some(0));
-        assert_eq!(
-            send_search(&dir, &alice).await,
-            Err("notConnected".into())
-        );
+        assert_eq!(send_search(&dir, &alice).await, Err("notConnected".into()));
         store
             .search_profile_sent(&signed(1), unix_now().unwrap())
             .unwrap();
@@ -585,10 +602,26 @@ mod tests {
     }
 
     #[test]
+    fn each_solve_has_a_distinct_cancellable_token() {
+        let state = ProfileState::default();
+        let first = state.begin().unwrap();
+        let second = state.begin().unwrap();
+        assert!(first.load(Ordering::Relaxed));
+        assert!(!second.load(Ordering::Relaxed));
+        state.cancel();
+        assert!(second.load(Ordering::Relaxed));
+        let third = state.begin().unwrap();
+        assert!(!third.load(Ordering::Relaxed));
+    }
+
+    #[test]
     fn the_legacy_seal_key_is_fixed_per_device_key() {
         let device = Identity::generate();
         assert_eq!(*legacy_seal_key(&device), *legacy_seal_key(&device));
-        assert_ne!(*legacy_seal_key(&device), *legacy_seal_key(&Identity::generate()));
+        assert_ne!(
+            *legacy_seal_key(&device),
+            *legacy_seal_key(&Identity::generate())
+        );
         assert_ne!(*legacy_seal_key(&device), *device.secret());
     }
 }

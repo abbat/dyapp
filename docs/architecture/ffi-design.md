@@ -28,17 +28,18 @@ Identity-bound network, profile, search, privacy, chat, safety, clipboard, node 
 commands hold a gate lease through their blocking, async or synchronous work. A blocking worker
 owns its lease if the outer command is cancelled. The client `Store` and `Session` are opened
 for a command and dropped when it returns; `chats::Sessions` serializes MLS operations with each
-other. The process also holds one `SearchState` profile cache and one profile-solve
-cancellation flag.
+other. The process also holds one `SearchState` profile cache and the current profile solve's
+per-attempt cancellation token.
 
 Identity selection closes admission, signals the current profile solve and seed check to cancel,
 and drains held leases off the UI thread, then stops the embedded node and opens the target slot
 before changing the persistent selection. Startup, creation and removal also commit through the
 gate. A failed creation or removal reopens the persisted selection or previous slot; it admits
-no identity if that slot cannot reopen. The shared profile cache is not cleared yet. A solve or
-check that registers after the transition signal can miss cancellation, so the drain still waits
-for it. The UI asks the node to apply the new identity after rendering it. Race-free
-cancellation, cache clearing and switch/removal tests are specified in the
+no identity if that slot cannot reopen. The shared profile cache is not cleared yet. A solve
+that registers after the transition signal probes the gate and cancels itself. A seed check can
+still miss cancellation in that gap, so the drain waits for it. The UI asks the node to apply the
+new identity after rendering it. Seed-check cancellation, cache clearing and switch/removal tests
+are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface

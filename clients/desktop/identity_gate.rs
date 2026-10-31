@@ -92,6 +92,12 @@ impl<T> Lease<T> {
     pub fn generation(&self) -> u64 {
         self.generation
     }
+
+    /// Whether a transition began since this lease was admitted.
+    pub fn transitioning(&self) -> Result<bool, GateError> {
+        let state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
+        Ok(state.transitioning || state.generation != self.generation)
+    }
 }
 
 impl<T> Drop for Lease<T> {
@@ -177,6 +183,7 @@ mod tests {
         let gate = IdentityGate::new(Some("alice"));
         let lease = gate.lease().unwrap();
         let transition = gate.start_transition().unwrap();
+        assert!(lease.transitioning().unwrap());
         assert_eq!(gate.lease().err(), Some(GateError::Transitioning));
         assert_eq!(
             gate.start_transition().err(),

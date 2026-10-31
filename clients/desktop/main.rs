@@ -140,9 +140,7 @@ async fn drain_identity(
     state: &IdentityState,
 ) -> Result<identity_gate::Transition<identity_runtime::ActiveIdentity>, String> {
     let transition = state.start_transition_with(|| {
-        app.state::<ProfileState>()
-            .0
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        app.state::<ProfileState>().cancel();
         network::cancel(&app.state::<NetworkState>());
     })?;
     IdentityState::drain(transition).await
@@ -449,8 +447,14 @@ async fn solve_profile(
 ) -> Result<(), String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
-    let cancel = Arc::clone(&solving.0);
-    cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+    let cancel = solving.begin()?;
+    // The transition may have signalled cancellation before this solve registered.
+    if lease
+        .transitioning()
+        .map_err(|error| format!("{error:?}"))?
+    {
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
         profile::solve(&cancel, &dir, &identity, attested, profile::POW_BITS)
@@ -461,7 +465,7 @@ async fn solve_profile(
 
 #[tauri::command]
 fn cancel_profile_solve(solving: tauri::State<'_, ProfileState>) {
-    solving.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    solving.cancel();
 }
 
 /// Publishes the solved draft and checks the readback; see `profile::publish`.
