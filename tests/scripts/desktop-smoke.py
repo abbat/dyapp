@@ -432,6 +432,20 @@ def smoke(executable, flows=True):
             case("profile-unhide", [*file, "--ui-test-step=profile-unhide"],
                  profile, timeout=180)
             check_profile_readback(node, seed, peer_id, env, storage)
+            # A separate client root keeps the first identity's removal flow intact while
+            # both published Peer IDs coexist on the same loopback node for interaction tests.
+            peer_root = Path(tempfile.mkdtemp(prefix="like-peer-", dir=reports))
+            other_peer = case("peer-create", file, peer_root)
+            if other_peer == peer_id:
+                raise RuntimeError("two client roots generated the same Peer ID")
+            if case("peer-connect", [*file, f"--ui-test-step=connect:{seed}"],
+                    peer_root) != other_peer:
+                raise RuntimeError("connecting the second client changed its Peer ID")
+            if case("peer-publish", [*file, "--ui-test-step=profile-publish"],
+                    peer_root, timeout=180) != other_peer:
+                raise RuntimeError("publishing the second client changed its Peer ID")
+            check_profile_readback(node, seed, other_peer, env, peer_root)
+            check_profile_readback(node, seed, peer_id, env, storage)
             # A first run that connects on the wizard's network step.
             with tempfile.TemporaryDirectory(dir=reports) as fresh:
                 case("wizard-connect",
