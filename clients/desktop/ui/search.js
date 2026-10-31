@@ -121,6 +121,9 @@ const openFound = (found, card) => {
   viewed = { found, card };
   if (!card.closest('#search-area')) showArea('search-area');
   viewStatus.textContent = '';
+  document.getElementById('view-safety-panel').hidden = true;
+  document.getElementById('view-safety-number').textContent = '';
+  document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
   showLikes({ ours: false, matched: false });
   invoke('peer_likes', { peerId: found.peerId })
     .then((likes) => { if (viewed?.found === found) showLikes(likes); }, () => {});
@@ -191,6 +194,26 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
+document.getElementById('view-safety').addEventListener('click', () => {
+  const { found } = viewed;
+  const button = document.getElementById('view-safety');
+  const panel = document.getElementById('view-safety-panel');
+  if (!panel.hidden) {
+    panel.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  button.disabled = true;
+  window.safetyDone = invoke('contact_safety_number', { peerId: found.peerId })
+    .then((number) => {
+      if (viewed?.found !== found) return;
+      document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
+      panel.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+    })
+    .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
+    .finally(() => { button.disabled = false; });
+});
 // The local block takes effect even if token revocation cannot reach a node.
 document.getElementById('view-block').addEventListener('click', async () => {
   const { found, card } = viewed;

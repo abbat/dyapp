@@ -252,6 +252,13 @@
           <p id="view-summary" class="muted"></p>
           <p class="caption"><span data-i18n="view.peer"></span> <code id="view-peer"></code>
             <button id="copy-view-peer" class="btn quiet" type="button" data-i18n="action.copy"></button></p>
+          <button id="view-safety" class="btn quiet" type="button" aria-expanded="false"
+            aria-controls="view-safety-panel" data-i18n="view.safety.action"></button>
+          <div id="view-safety-panel" class="card" hidden>
+            <p class="caption" data-i18n="view.safety.unverified"></p>
+            <p id="view-safety-number" class="safety-number"></p>
+            <p class="caption" data-i18n="view.safety.compare"></p>
+          </div>
           <p id="view-match" class="notice" data-i18n="view.match" hidden></p>
           <div class="actions view-actions">
             <button id="view-message" class="btn" type="button" data-i18n="view.message" disabled></button>

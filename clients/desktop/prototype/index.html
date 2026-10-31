@@ -109,7 +109,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -131,7 +131,7 @@
     </div>
     <button type="button" class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
       <svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
-    <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-match unlike-dialog">
+    <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-match unlike-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
     <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
@@ -285,7 +285,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Found profile: opened from a result; the full photos load now. -->
-    <section id="profile-view" data-on="profile-view profile-view-match unlike-dialog">
+    <section id="profile-view" data-on="profile-view profile-view-safety profile-view-match unlike-dialog">
       <button type="button" class="btn quiet back" id="view-back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg><span data-t="view.back"></span></button>
       <div class="gallery" id="view-photos">
         <div class="main photo p2" role="img" data-ta="view.photo"></div>
@@ -295,6 +295,12 @@ search providers asked: 0 of 3</pre>
       <p class="muted" data-t="search.result1"></p>
       <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@4d81c6</code>
         <button type="button" class="btn quiet" id="copy-view-peer" data-t="action.copy"></button></p>
+      <button type="button" class="btn quiet" id="view-safety" data-t="view.safety.action"></button>
+      <div id="view-safety-panel" class="card" data-on="profile-view-safety">
+        <p class="caption" data-t="view.safety.unverified"></p>
+        <p id="view-safety-number" class="safety-number">12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890</p>
+        <p class="caption" data-t="view.safety.compare"></p>
+      </div>
       <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
       <div class="actions view-actions">
         <button type="button" class="btn" id="view-message" data-on="profile-view" data-t="view.message"></button>

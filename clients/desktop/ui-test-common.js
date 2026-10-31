@@ -101,3 +101,15 @@ window.shot = async (name) => {
   await audit(name);
   await invokeTest('ui_test_shot', { name });
 };
+
+const checkSafetyNumber = async () => {
+  document.getElementById('view-safety').click();
+  await window.safetyDone;
+  const number = document.getElementById('view-safety-number').textContent;
+  if (document.getElementById('view-safety-panel').hidden
+    || !/^(\d{5} ){11}\d{5}$/.test(number)
+    || document.getElementById('view-safety').getAttribute('aria-expanded') !== 'true'
+    || !document.querySelector('#view-safety-panel [data-i18n="view.safety.unverified"]').textContent) {
+    throw new Error('the unverified safety number was not shown as 12 groups of five digits');
+  }
+};

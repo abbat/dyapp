@@ -31,6 +31,7 @@ mod privacy;
 mod profile;
 #[path = "search.rs"]
 mod search;
+mod safety;
 #[path = "slots.rs"]
 mod slots;
 #[path = "sealing.rs"]
@@ -899,6 +900,7 @@ fn main() {
             withdraw_profile,
             send_search_profile,
             search_profiles,
+            safety::contact_safety_number,
             chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,

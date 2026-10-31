@@ -175,12 +175,17 @@ node reply is best effort, not network-wide removal.
 | Photos | `view-photos` | Gallery with thumbnails under it |
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
+| Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs; still unverified |
 | Match notice | `view-match` | Match only |
 | Message | `view-message` | `view-message-match` after a match |
 | Like | `view-like` | `view-unlike` (Liked) after a match |
 | Fields | `view-fields` | Looking for, children, interests, languages |
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
 | Block | `view-block` | Quiet, under the fields |
+
+`profile-view-safety` is the expanded comparison panel. The number is derived from the two
+verified Peer IDs; comparing digits does not yet record a verified contact. QR scanning and the
+verified mark are planned.
 
 `unlike-dialog` confirms taking the like back.
 

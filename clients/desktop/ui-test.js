@@ -726,6 +726,7 @@ const searchOnLoopback = async (connected) => {
     throw new Error('the result card did not open the profile');
   }
   await shot('search-profile');
+  await checkSafetyNumber();
   document.getElementById('view-back').click();
   if (!shown('search-main') || shown('profile-view')
     || document.activeElement.id !== 'result-1'
