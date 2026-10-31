@@ -274,7 +274,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
     `forge-search-index.py` flips the signature of every indexed record there, and
     `SearchTests#forgedResultsAreDroppedAndListed` runs alone with `-e forged 1` (otherwise
     skipped): the search must list no profile and show the invalid-reply failure.
-  - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, runs
+  - `android-emulator-test` (`ui`) installs the prebuilt debug and androidTest APKs, disables the
+    on-screen keyboard (its opening moves the layout under a tap that follows typed text), runs
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it
     also captures `failure.png` and `window.txt`; `logcat.txt` is always captured.

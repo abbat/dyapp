@@ -60,6 +60,10 @@ score = 72.2
 "com.dyapp.ProfilePublishTests publishNeedsFreshConfirmationsAndReportsNoNetwork" = 2026-10-28
 # Android: the restarted network draft failed once; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-10-31
+# Android: the keyboard opened during a tap after typed text; the retry passed.
+"com.dyapp.ProfileDraftTests placePickerSavesOnlyASuggestedPlace" = 2026-10-31
+# macOS: the tap reached settings-create while the identity list was loading; the retry passed.
+"LaunchTests testSettingsCreatesAndSwitchesWithoutReplacingKeys()" = 2026-10-31
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).

@@ -57,7 +57,7 @@ extension LaunchTests {
         createIdentity(app)
         let first = shownPeerId(app)
         app.buttons["settings-open"].tap()
-        app.buttons["settings-create"].tap()
+        createAnotherIdentity(app)
         let peer = app.staticTexts["peer-id"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label != %@", first), object: peer
@@ -169,7 +169,7 @@ extension LaunchTests {
         createIdentity(app)
         let first = shownPeerId(app)
         app.buttons["settings-open"].tap()
-        app.buttons["settings-create"].tap()
+        createAnotherIdentity(app)
         let peer = app.staticTexts["peer-id"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label != %@", first), object: peer
@@ -411,6 +411,16 @@ extension LaunchTests {
         let create = app.buttons["identity-create"]
         XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
         if create.exists { create.tap() }
+    }
+
+    /// The button stays disabled until the identity list loads, and `tap()` does not wait for that.
+    private func createAnotherIdentity(_ app: XCUIApplication) {
+        let create = app.buttons["settings-create"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"), object: create
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        create.tap()
     }
 
     private func shownPeerId(_ app: XCUIApplication) -> String {

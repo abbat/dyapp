@@ -58,7 +58,7 @@ extension LaunchTests {
         createIdentity(app)
         let first = shownPeerId(app)
         app.buttons["settings-open"].tap()
-        app.buttons["settings-create"].tap()
+        createAnotherIdentity(app)
         let peer = app.staticTexts["peer-id"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@", first), object: peer
@@ -171,7 +171,7 @@ extension LaunchTests {
         createIdentity(app)
         let first = shownPeerId(app)
         app.buttons["settings-open"].tap()
-        app.buttons["settings-create"].tap()
+        createAnotherIdentity(app)
         let peer = app.staticTexts["peer-id"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@", first), object: peer
@@ -418,6 +418,16 @@ extension LaunchTests {
         if create.exists { create.tap() }
         // Settings appear only once the start screen has settled on its layout.
         XCTAssertTrue(app.buttons["settings-open"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// The button stays disabled until the identity list loads, and `tap()` does not wait for that.
+    private func createAnotherIdentity(_ app: XCUIApplication) {
+        let create = app.buttons["settings-create"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"), object: create
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        create.tap()
     }
 
     /// SwiftUI shows `.alert` on macOS as a window sheet whose title is a static text value.

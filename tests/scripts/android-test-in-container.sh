@@ -70,6 +70,9 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell settings put global hide_error_dialogs 1
         timeout 60 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
         timeout 60 adb -s emulator-5554 shell wm dismiss-keyguard
+        # The keyboard opening after typed text moves the layout under the next tap. Compose tests
+        # type through semantics, so they need no keyboard.
+        timeout 60 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
         # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
         timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
         # am instrument has no retries: rerun a failed suite twice; failures before a passing
