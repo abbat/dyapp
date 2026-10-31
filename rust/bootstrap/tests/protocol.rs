@@ -934,6 +934,8 @@ mod search;
 
 #[path = "protocol/chat.rs"]
 mod chat;
+#[path = "protocol/chat_ack_failure.rs"]
+mod chat_ack_failure;
 #[path = "protocol/chat_edits.rs"]
 mod chat_edits;
 #[path = "protocol/chat_pagination.rs"]
