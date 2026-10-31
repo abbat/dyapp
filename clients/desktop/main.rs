@@ -53,7 +53,9 @@ fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 // A key of `slot`'s storage mode: the file at `path` or the system slot `name`.
 fn load_key(slot: &Slot, path: &Path, name: &str) -> Result<Option<Identity>, String> {
     match slot.mode {
-        Some("system") => system_store::load_slot(name),
+        Some("system") => system_store::load_slot(name).inspect_err(|error| {
+            eprintln!("Secret Service identity load failed: {error}");
+        }),
         Some(_) => match fs::symlink_metadata(path) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
             _ => file_store::load(path).map(Some),

@@ -41,7 +41,8 @@ finds the default collection, checks that it is unlocked, then writes, reads and
 app-owned test item. Missing session bus, service, default collection and locked collection have
 distinct disabled reasons. The key is stored as 64 hex characters so text-only Secret Service
 implementations can accept it. KDE Wallet and WSL still need their own real-provider acceptance
-runs before support is claimed.
+runs before support is claimed. A failed Secret Service identity load is logged to stderr;
+the picker still shows that slot as unavailable for recovery.
 
 On Windows, it writes, reads and removes a separate app-owned probe credential through the
 same Credential Manager backend and checks `Local` persistence. Access denial disables the
