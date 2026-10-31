@@ -31,6 +31,7 @@ impl Session {
         let mut events = Vec::new();
         let mut seen = Vec::new();
         let mut receipts: Vec<(Vec<u8>, Vec<Vec<u8>>)> = Vec::new();
+        let mut pending = self.pending_groups()?;
         for envelope in envelopes {
             // Nodes only store 16-byte IDs; leave anything else alone.
             let Ok(id) = envelope.id.as_slice().try_into() else {
@@ -42,9 +43,18 @@ impl Session {
                 seen.push(key);
                 continue;
             }
+            // A join's token request may have been dropped while the chat was pending.
             if let Some(event) =
                 self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
             {
+                if let Event::Joined(group) = &event {
+                    if let Some(peer) = self.partner(group) {
+                        if self.store.conversation(&peer)? != Conversation::Open {
+                            pending.push(group.clone());
+                        }
+                    }
+                }
+                let opened = self.newly_opened_group(&event, &pending)?;
                 if let Some(group) = receipted_group(&event) {
                     match receipts.iter_mut().find(|(g, _)| g == group) {
                         Some((_, ids)) => ids.push(id.to_vec()),
@@ -52,6 +62,10 @@ impl Session {
                     }
                 }
                 events.extend(self.control(nodes, device_key, event, seal_key).await?);
+                if let Some(group) = opened {
+                    self.request_tokens(nodes, &group, seal_key).await?;
+                    pending.retain(|id| id != &group);
+                }
             }
         }
         let acks = self.acks(mailbox, seen)?;
@@ -83,6 +97,35 @@ impl Session {
             }
         }
         Ok(events)
+    }
+
+    fn pending_groups(&self) -> Result<Vec<Vec<u8>>, Error> {
+        let mut pending = Vec::new();
+        for group in &self.groups {
+            if let Some(peer) = self.partner(group.id()) {
+                if self.store.conversation(&peer)? != Conversation::Open {
+                    pending.push(group.id().to_vec());
+                }
+            }
+        }
+        Ok(pending)
+    }
+
+    fn newly_opened_group(
+        &self,
+        event: &Event,
+        pending: &[Vec<u8>],
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let Some(group) = receipted_group(event) else {
+            return Ok(None);
+        };
+        if !pending.iter().any(|id| id == group) {
+            return Ok(None);
+        }
+        let Some(peer) = self.partner(group) else {
+            return Ok(None);
+        };
+        Ok((self.store.conversation(&peer)? == Conversation::Open).then(|| group.clone()))
     }
 
     /// IDs to acknowledge at `mailbox`: the `seen` duplicates and every pending ACK there.

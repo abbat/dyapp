@@ -802,7 +802,8 @@ impl Session {
     }
 
     /// Ask every group's other devices for the write tokens this device is missing; the app calls
-    /// it once a day. A join and a contact's request ask by themselves.
+    /// it once a day once wired to the session adapter. A join, a newly opened chat, and a
+    /// contact's request ask by themselves.
     pub async fn refill(&mut self, nodes: &mut [Node], seal_key: &[u8; 32]) -> Result<(), Error> {
         let ids = self
             .groups

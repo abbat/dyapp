@@ -302,7 +302,7 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
         .unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
 
-    // Bob's ask on join is dropped with the chat unopened; after a match the refill asks again.
+    // Bob's ask on join is dropped with the chat unopened; opening the match asks again.
     let joined = receive(&mut bob_session, &mut bob, &profiles).await;
     assert_eq!(joined, [chat::Event::Joined(group.id().to_vec())]);
     alice_session
@@ -325,10 +325,6 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
         .unwrap();
     receive(&mut alice_session, &mut alice, &profiles).await;
     receive(&mut bob_session, &mut bob, &profiles).await;
-    alice_session
-        .refill(std::slice::from_mut(&mut alice.node), &SEAL)
-        .await
-        .unwrap();
     for _ in 0..3 {
         receive(&mut bob_session, &mut bob, &profiles).await;
         receive(&mut alice_session, &mut alice, &profiles).await;
