@@ -44,7 +44,7 @@ const audit = async (name) => {
       problems.push(`no focus ring ${element.id || element.tagName}`);
     }
   }
-  if (before && before.focus) before.focus(); else document.activeElement.blur();
+  if (before?.focus) before.focus(); else document.activeElement.blur();
   const [window0] = await invokeTest('ui_test_window', { set: null });
   await invokeTest('ui_test_window', {
     set: { ...window0, width: Math.round(440 * devicePixelRatio) },

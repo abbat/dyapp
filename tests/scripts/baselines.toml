@@ -58,6 +58,8 @@ score = 72.2
 "LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
 # Android: publishing without a network failed once; the retry passed.
 "com.dyapp.ProfilePublishTests publishNeedsFreshConfirmationsAndReportsNoNetwork" = 2026-10-28
+# Android: the restarted network draft failed once; the retry passed.
+"com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-10-31
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
