@@ -1,6 +1,7 @@
 //! Sending with a held write token, and the fallbacks when the node refuses it.
 use super::chat::{store_path, Person};
 use super::*;
+use dyapp_client::interactions::Kind;
 use dyapp_client::store::Store;
 use dyapp_client::tokens;
 
@@ -186,6 +187,15 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     drop(group);
     let bob_mailbox = bob.mailbox();
     let key = hold(&mut store, &bob.device_key, &bob_mailbox, today);
+    // A match opens the chat, so "two" below is no second request.
+    let (alice_peer, bob_peer) = (&profiles[0].peer_id, &profiles[1].peer_id);
+    for (sender, target) in [(alice_peer, bob_peer), (bob_peer, alice_peer)] {
+        let like = store
+            .draft_interaction(bob_peer, Kind::Like, 1_000)
+            .unwrap()
+            .unwrap();
+        store.apply_interaction(sender, target, &[1], like).unwrap();
+    }
     let mut session = Session::open(store, &SEAL).unwrap();
 
     session
@@ -254,7 +264,7 @@ async fn receive(
 }
 
 #[tokio::test]
-async fn two_sessions_trade_tokens_on_join_and_a_message_passes_a_full_pool() {
+async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_pool() {
     use dyapp_client::{chat, session::Session};
 
     // Default limits: require_write_tokens is on.
@@ -292,18 +302,37 @@ async fn two_sessions_trade_tokens_on_join_and_a_message_passes_a_full_pool() {
         .unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
 
-    // Bob joins and asks; Alice answers and asks back; Bob stores, answers; Alice stores.
+    // Bob's ask on join is dropped with the chat unopened; after a match the refill asks again.
     let joined = receive(&mut bob_session, &mut bob, &profiles).await;
     assert_eq!(joined, [chat::Event::Joined(group.id().to_vec())]);
-    assert!(receive(&mut alice_session, &mut alice, &profiles)
+    alice_session
+        .interact(
+            std::slice::from_mut(&mut alice.node),
+            group.id(),
+            Kind::Like,
+            &SEAL,
+        )
         .await
-        .is_empty());
-    assert!(receive(&mut bob_session, &mut bob, &profiles)
+        .unwrap();
+    bob_session
+        .interact(
+            std::slice::from_mut(&mut bob.node),
+            group.id(),
+            Kind::Like,
+            &SEAL,
+        )
         .await
-        .is_empty());
-    assert!(receive(&mut alice_session, &mut alice, &profiles)
+        .unwrap();
+    receive(&mut alice_session, &mut alice, &profiles).await;
+    receive(&mut bob_session, &mut bob, &profiles).await;
+    alice_session
+        .refill(std::slice::from_mut(&mut alice.node), &SEAL)
         .await
-        .is_empty());
+        .unwrap();
+    for _ in 0..3 {
+        receive(&mut bob_session, &mut bob, &profiles).await;
+        receive(&mut alice_session, &mut alice, &profiles).await;
+    }
 
     // A stranger fills Bob's tokenless pool; Alice's tokened message still reaches him.
     let mut stranger = Person::new(&address).await;
