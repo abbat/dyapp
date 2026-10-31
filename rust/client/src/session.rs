@@ -224,26 +224,13 @@ impl Session {
             .ok_or(Error::UnknownGroup)?;
         let staged = (|| {
             let deliveries = chat::message(group, device, body)?;
-            let today = (crate::now() / 86_400) as u32;
             let class = match body {
                 Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => {
                     EnvelopeClass::Signal
                 }
                 _ => EnvelopeClass::Message,
             };
-            let writes = deliveries
-                .into_iter()
-                .map(|delivery| {
-                    tokens::prepare(
-                        &self.store,
-                        &delivery.mailbox,
-                        delivery.mls,
-                        class,
-                        today,
-                        seal_key,
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+            let writes = prepare(&self.store, deliveries, class, seal_key)?;
             let sealed = device.seal(seal_key)?;
             if let Some((target, source_device, event)) = interaction {
                 self.store
@@ -337,24 +324,10 @@ impl Session {
         let body = Body::text_with_id(id, text.to_vec());
         let staged = (|| {
             let (mut group, welcome) = chat::create(device, packages, profiles)?;
-            let today = (crate::now() / 86_400) as u32;
-            let prepare = |deliveries: Vec<chat::Delivery>| {
-                deliveries
-                    .into_iter()
-                    .map(|delivery| {
-                        tokens::prepare(
-                            &self.store,
-                            &delivery.mailbox,
-                            delivery.mls,
-                            EnvelopeClass::Message,
-                            today,
-                            seal_key,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            };
-            let welcome = prepare(welcome)?;
-            let writes = prepare(chat::message(&mut group, device, &body)?)?;
+            let class = EnvelopeClass::Message;
+            let welcome = prepare(&self.store, welcome, class, seal_key)?;
+            let deliveries = chat::message(&mut group, device, &body)?;
+            let writes = prepare(&self.store, deliveries, class, seal_key)?;
             let sealed = device.seal(seal_key)?;
             self.store.stage_invite_text(
                 &group,
@@ -393,22 +366,109 @@ impl Session {
         let peer = self.peer_in(profiles)?;
         let packages = match self.pair_group(&peer) {
             Some(_) => Vec::new(),
-            None => {
-                let device = self.device.as_ref().ok_or(Error::Invalidated)?;
-                let key: [u8; 32] = device
-                    .device_key()?
-                    .try_into()
-                    .map_err(|_| crate::Error::Reply("bad device key"))?;
-                let own = crate::mailbox(&key);
-                scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-                    chat::key_packages(node, &own, profiles).await
-                })
-                .await?
-            }
+            None => self.key_packages(nodes, profiles).await?,
         };
         let (id, writes) = self.stage_text_to(profiles, &packages, text, seal_key)?;
         self.send_staged(nodes, writes, seal_key).await?;
         Ok(id)
+    }
+
+    /// Like, unlike or view the other owner in `profiles` in the pair's canonical group, as
+    /// [`Session::interact`] does. A like with no group yet first invites the peer: the Welcome
+    /// and the like are staged before either is sent. Without a group nothing else is sent.
+    pub async fn interact_with(
+        &mut self,
+        nodes: &mut [Node],
+        profiles: &[VerifiedProfile],
+        kind: Kind,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Interaction>, Error> {
+        let peer = self.peer_in(profiles)?;
+        if let Some(group_id) = self.pair_group(&peer) {
+            return self.interact(nodes, &group_id, kind, seal_key).await;
+        }
+        if kind != Kind::Like {
+            return Ok(None);
+        }
+        let packages = self.key_packages(nodes, profiles).await?;
+        let Some((event, writes)) = self.stage_first_like(profiles, &packages, seal_key)? else {
+            return Ok(None);
+        };
+        self.send_staged(nodes, writes, seal_key).await?;
+        Ok(Some(event))
+    }
+
+    /// Stage a Welcome to the other owner in `profiles` for a new pair group made from `packages`
+    /// ([`chat::key_packages`]), then a like in that group; returns the like and every write.
+    fn stage_first_like(
+        &mut self,
+        profiles: &[VerifiedProfile],
+        packages: &[(Vec<u8>, Vec<u8>)],
+        seal_key: &[u8; 32],
+    ) -> Result<Option<(Interaction, Vec<PreparedEnvelope>)>, Error> {
+        let (group_id, mut writes) = self.stage_invite(profiles, packages, seal_key)?;
+        let peer = self.partner(&group_id).ok_or(Error::UnknownGroup)?;
+        let wall_ms = crate::now() * 1000;
+        let Some(event) = self.store.draft_interaction(&peer, Kind::Like, wall_ms)? else {
+            return Ok(None);
+        };
+        writes.extend(self.stage_message(&group_id, &Body::Interaction(event), seal_key)?);
+        Ok(Some((event, writes)))
+    }
+
+    /// Stage a Welcome to the other owner in `profiles` for a new pair group made from
+    /// `packages`; returns the group ID and the Welcome writes.
+    fn stage_invite(
+        &mut self,
+        profiles: &[VerifiedProfile],
+        packages: &[(Vec<u8>, Vec<u8>)],
+        seal_key: &[u8; 32],
+    ) -> Result<(Vec<u8>, Vec<PreparedEnvelope>), Error> {
+        let peer = self.peer_in(profiles)?;
+        let peer = profiles
+            .iter()
+            .find(|profile| profile.peer_id == peer)
+            .ok_or(Error::UnknownGroup)?;
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let staged = (|| -> Result<_, Error> {
+            let (group, welcome) = chat::create(device, packages, profiles)?;
+            let welcome = prepare(&self.store, welcome, EnvelopeClass::Message, seal_key)?;
+            self.store
+                .stage_group(&group, peer, &device.seal(seal_key)?, &welcome)?;
+            Ok((group, welcome))
+        })();
+        match staged {
+            Ok((group, welcome)) => {
+                let id = group.id().to_vec();
+                self.groups.push(group);
+                Ok((id, welcome))
+            }
+            Err(error) => {
+                self.device = None;
+                self.groups.clear();
+                Err(error)
+            }
+        }
+    }
+
+    /// The peer's verified KeyPackages for a new pair group, from the first node that has them.
+    async fn key_packages(
+        &mut self,
+        nodes: &mut [Node],
+        profiles: &[VerifiedProfile],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let key: [u8; 32] = device
+            .device_key()?
+            .try_into()
+            .map_err(|_| crate::Error::Reply("bad device key"))?;
+        let own = crate::mailbox(&key);
+        Ok(
+            scores::first(&mut self.scores, nodes, Node::peer, async |node| {
+                chat::key_packages(node, &own, profiles).await
+            })
+            .await?,
+        )
     }
 
     /// The one owner in `profiles` other than this one.
@@ -1155,6 +1215,30 @@ fn receipted_group(event: &Event) -> Option<&Vec<u8>> {
         | Event::Commit(group) => Some(group),
         _ => None,
     }
+}
+
+/// Each delivery as a write of `class` to its mailbox, with a write token where one is held.
+fn prepare(
+    store: &Store,
+    deliveries: Vec<chat::Delivery>,
+    class: EnvelopeClass,
+    seal_key: &[u8; 32],
+) -> Result<Vec<PreparedEnvelope>, Error> {
+    let today = (crate::now() / 86_400) as u32;
+    let writes = deliveries
+        .into_iter()
+        .map(|delivery| {
+            tokens::prepare(
+                store,
+                &delivery.mailbox,
+                delivery.mls,
+                class,
+                today,
+                seal_key,
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(writes)
 }
 
 #[cfg(test)]

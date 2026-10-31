@@ -827,6 +827,42 @@ fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
 }
 
 #[test]
+fn a_first_like_invites_and_stages_the_like_with_the_welcome() {
+    let seal_key = [5; 32];
+    let path = temp_path();
+    let Invite {
+        session,
+        bob_id,
+        alice_id,
+        alice,
+        profiles,
+        ..
+    } = bob_invited(&path, &seal_key);
+    let mut session = session;
+    let alice_peer = alice_id.peer_id();
+    let alice_key: [u8; 32] = alice.device_key().unwrap().try_into().unwrap();
+    let packages = [(
+        crate::mailbox(&alice_key).to_vec(),
+        alice.key_package(false).unwrap(),
+    )];
+    let (_, writes) = session
+        .stage_first_like(&profiles, &packages, &seal_key)
+        .unwrap()
+        .unwrap();
+    // The Welcome and the like, both to Alice's device.
+    assert_eq!(writes.len(), 2);
+    assert!(session.likes(&alice_peer).unwrap().ours);
+    let group = session.pair_group(&alice_peer).unwrap();
+
+    // A restart keeps the group, the like and both staged writes.
+    drop(session);
+    let session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+    assert_eq!(session.pair_group(&alice_peer), Some(group));
+    assert!(session.likes(&alice_peer).unwrap().ours);
+    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
+}
+
+#[test]
 fn the_first_open_creates_the_device_and_later_opens_keep_it() {
     let (identity, device_key) = (Identity::generate(), Identity::generate());
     let path = crate::store::tests::temp_db_path();

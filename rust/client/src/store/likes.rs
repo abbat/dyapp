@@ -262,6 +262,24 @@ impl Store {
             theirs: liked(peer_id, &self.owner_peer_id)?,
         })
     }
+
+    /// The "Liked you" peers: each likes this profile, is not liked back and is not blocked, in
+    /// Peer ID order.
+    pub fn liked_by(&self) -> Result<Vec<String>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `theirs`.`sender` FROM `like_state` AS `theirs`
+             WHERE `theirs`.`target` = ?1 AND `theirs`.`liked` = 1
+             AND NOT EXISTS (SELECT 1 FROM `like_state` AS `ours` WHERE `ours`.`sender` = ?1
+                 AND `ours`.`target` = `theirs`.`sender` AND `ours`.`liked` = 1)
+             AND NOT EXISTS (SELECT 1 FROM `peers` WHERE `peers`.`peer_id` = `theirs`.`sender`
+                 AND `peers`.`blocked` = 1)
+             ORDER BY `theirs`.`sender`",
+        )?;
+        let peers = query
+            .query_map([&self.owner_peer_id], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        Ok(peers)
+    }
 }
 
 /// The last own or observed private interaction or chat operation HLC; absent means zero.
@@ -379,6 +397,28 @@ mod tests {
         assert!(store.likes(&b).unwrap().matched());
         assert!(!put(&mut store, &b, &a, b"b1", event(Kind::View, 8, 99)));
         assert!(store.likes(&b).unwrap().matched());
+    }
+
+    #[test]
+    fn liked_you_lists_unanswered_likes_of_unblocked_peers() {
+        let alice = Identity::generate();
+        let a = alice.peer_id();
+        let mut peers: Vec<_> = (0..3).map(|_| Identity::generate().peer_id()).collect();
+        peers.sort();
+        let [b, c, d] = &peers[..] else {
+            unreachable!()
+        };
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        for (id, peer) in (1..).zip(&peers) {
+            put(&mut store, peer, &a, b"p", event(Kind::Like, id, 10));
+        }
+        assert_eq!(store.liked_by().unwrap(), peers);
+        // A like back makes a match, a block hides, an unlike withdraws.
+        put(&mut store, &a, b, b"a", event(Kind::Like, 4, 11));
+        store.set_blocked(c, true).unwrap();
+        assert_eq!(store.liked_by().unwrap(), std::slice::from_ref(d));
+        put(&mut store, d, &a, b"p", event(Kind::Unlike, 5, 12));
+        assert!(store.liked_by().unwrap().is_empty());
     }
 
     #[test]
