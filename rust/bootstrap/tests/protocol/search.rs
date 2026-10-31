@@ -300,6 +300,40 @@ async fn hits(node: &mut dyapp_client::Node) -> usize {
 }
 
 #[tokio::test]
+async fn search_tombstone_keeps_the_direct_profile() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let address = start_search(None).await;
+    let mut node = dyapp_client::Node::connect(
+        address,
+        std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
+    )
+    .await
+    .unwrap();
+    let owner = Identity::generate();
+    let nonce = dyapp_profile::solve(&owner.public_key(), 2, 0, 100_000).unwrap();
+    let profile = Profile {
+        version: 1,
+        birth_year: Some(1990),
+        pow_nonce: nonce,
+        pow_bits: 2,
+        ..Profile::default()
+    };
+    let record = profile.sign(&owner);
+    node.publish_profile(record.clone()).await.unwrap();
+    node.search_publish(record).await.unwrap();
+    assert_eq!(hits(&mut node).await, 1);
+
+    node.search_publish(Profile::tombstone(2, nonce, 2).sign(&owner))
+        .await
+        .unwrap();
+    assert_eq!(hits(&mut node).await, 0);
+    assert_eq!(
+        node.get_profile(&owner.peer_id()).await.unwrap().profile,
+        profile
+    );
+}
+
+#[tokio::test]
 async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     use dyapp_client::{publish, search};
     dyapp_p2p_net::set_id_pow_bits(0);
