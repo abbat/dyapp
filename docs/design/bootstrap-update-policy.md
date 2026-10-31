@@ -1,9 +1,9 @@
 # Bootstrap node update policy: analysis before v0.0.1
 
 Status: analysis complete; [ADR 0023](../decisions/0023-bootstrap-node-update-policy.md)
-approves an opt-in unattended updater before v0.0.1. The
-[TUF update channel](../decisions/0024-bootstrap-update-channel.md) has a separate
-accepted decision. No updater is implemented or enabled yet.
+selects manual operator-controlled upgrades for v0.0.1. The former unattended
+policy and [TUF channel](../decisions/0024-bootstrap-update-channel.md) are
+historical proposals, not release gates. No unattended updater exists.
 
 ## Decision to make
 
@@ -13,12 +13,11 @@ gate. Independent operators own their hosts, keys and data. A node update can
 restart service, migrate persistent stores and change wire behavior; these
 costs must be considered separately from finding out that a release exists.
 
-**Analysis recommendation, superseded by the maintainer decision:** keep
-installation under explicit operator control for v0.0.1. This would preserve
-the current privilege and recovery boundaries but delay critical updates when
-operators do not act. The maintainer instead chose an opt-in unattended updater
-before v0.0.1, conditional on the safety gates below; the manual path remains
-in use until the implementation and review are complete.
+**Current decision:** keep installation under explicit operator control for
+v0.0.1. This preserves the current privilege and recovery boundaries but can
+delay critical updates when operators do not act. An earlier maintainer choice
+favored opt-in unattended installation conditional on the gates below; that
+choice was reversed in [ADR 0023](../decisions/0023-bootstrap-node-update-policy.md).
 
 ## Evidence and causal risks
 
@@ -44,7 +43,7 @@ next one. It can still be slow when a security release is urgent.
 
 | Policy | Pros | Cons and remaining risk |
 |---|---|---|
-| Manual rolling upgrade (analysis recommendation; not selected as sole v0.0.1 policy) | Uses the documented release/backup/rehearsal path; keeps node operator control and existing service privilege boundary; supports one-node-at-a-time checks. | Operators may miss or delay a security update; needs clear release communication and usable instructions. |
+| Manual rolling upgrade (selected for v0.0.1) | Uses the documented release/backup/rehearsal path; keeps node operator control and existing service privilege boundary; supports one-node-at-a-time checks. | Operators may miss or delay a security update; needs clear release communication and usable instructions. |
 | Notify only | Faster awareness with no install privilege; operator still verifies and schedules an upgrade. | Requires a trustworthy release signal and monitoring; notice alone does not ensure action. Keep it separate from client-update metadata until the server release signal is specified. |
 | Operator-approved staging/install helper | Can verify and prepare an exact artifact before approval, shortening maintenance time. | Still needs a privileged helper, exact approval UX, backup/health checks and a safe failure path; a UI click can be rushed. |
 | Package-manager-managed updates | APT handles repository metadata and package transactions; operators can use familiar pinning and maintenance policy. | Needs a signed APT repository not currently present; unattended APT has no awareness of replica trust windows or store migration and can restart nodes together. |
@@ -57,7 +56,7 @@ an artifact is secure](https://docs.github.com/en/actions/concepts/security/arti
 These sources support the narrower trust claims above; they do not establish
 that any update mode is automatically safe.
 
-## Gates before enabling unattended installation
+## Historical gates considered for unattended installation
 
 1. Define a publisher trust policy stronger than an HTTPS URL: pin repository,
    tag, digest, attestation identity and workflow; reject rollback, replaced
@@ -81,15 +80,14 @@ that any update mode is automatically safe.
    running or a clear operator-recoverable state; it must never erase stores.
 6. Show evidence from a multi-node rehearsal and a review of privilege,
    release-key custody and recovery by someone other than the implementer.
-   Only then enable the opt-in installer under ADR 0023. The v0.0.1 release
-   must meet these gates or obtain an explicit new policy decision.
+   These were prerequisites for the former opt-in proposal. The current
+   v0.0.1 policy in ADR 0023 does not ship an unattended installer.
 
 ## Decision and verification handoff
 
-The maintainer approved opt-in unattended installation before v0.0.1 in
-[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md). The trusted
-channel, installer, backup/recovery and rollout gates are implementation work,
-not established capabilities. Review the policy if their security or operational
-cost proves unacceptable; changing the release requirement needs a new explicit
-decision. Until the gates pass, the [manual procedure](../manuals/bootstrap.md#updates)
-is the observable baseline.
+The maintainer chose manual upgrades for v0.0.1 in
+[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md). The gates above
+explain why the former unattended proposal was not shipped; they are not
+v0.0.1 release requirements. The supported path is the
+[manual procedure](../manuals/bootstrap.md#updates). A future unattended policy
+needs a new explicit decision and independent review.

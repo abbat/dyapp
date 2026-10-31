@@ -725,13 +725,12 @@ restart them one at a time as in a [rolling upgrade](#updates).
 
 ### Updates
 
-[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) approves an
-operator opt-in unattended updater for v0.0.1, but no updater or trusted
-automatic package channel exists yet. Until its release, backup, rollout and
-recovery gates pass, upgrade manually with the procedure below. Do not enable
-an unattended package upgrade on this node as a substitute: it cannot account
-for the trust window or store migration. A node operator will have to opt in
-explicitly when the tested updater becomes available.
+[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) requires an
+operator-controlled manual upgrade for v0.0.1. No unattended bootstrap updater
+or automatic package channel is shipped. Do not enable unattended package
+upgrades for this node: they cannot account for the trust window or store
+migration. Follow the verification, backup, rolling upgrade and recovery steps
+below.
 
 Install the new package (`sudo apt install ./dyappd_<new>.deb`) or start the new image, one node
 at a time:
@@ -769,7 +768,7 @@ So never install the previous package alone over upgraded files. After a failed 
 1. `sudo systemctl stop dyappd`. The unit restarts a failing node every 5 seconds, and the
    restore cannot take `dyappd.lock` while a start is under way. A stopped unit stays stopped,
    and installing a package does not start it; do not retry the update until recovery is done.
-2. Restore the [verified snapshot](#verified-pre-update-snapshot-planned) taken before the update
+2. Restore the [verified snapshot](#verified-pre-update-snapshot) taken before the update
    with `restore-bootstrap.py`. Without one, restore the backup taken before the update
    ([First deployment](#first-deployment), step 4).
 3. Install the previous package (`sudo apt install ./dyappd_<previous>.deb`) and
@@ -919,7 +918,7 @@ node first.
 | `peers`, `anchors` | No: the peer cache, rebuilt from the network. |
 | `dyappd.lock` | No: the running node holds it so that a second node or an offline backup cannot use the directory at the same time. |
 
-### Verified pre-update snapshot (planned)
+### Verified pre-update snapshot
 
 The simple tar command below is a manual copy, not a verified recovery point.
 The repository's [offline snapshot writer](../../tools/scripts/backup-bootstrap.py)
@@ -927,7 +926,7 @@ now produces the file inventory and manifest for rehearsal. Stop the node
 before using it; it does not verify that the node is stopped or that the result
 can be restored. The [independent verifier](../../tools/scripts/verify-bootstrap-backup.py)
 checks the manifest, hashes and exact inventory, but does not probe SQLite or
-the key; the automatic update gate is still planned. The full process must make a
+the key. For a manual upgrade, use the full preflight below to make and probe a
 stopped-node snapshot in a new, private directory with `storage/`, `recovery/`
 and `manifest.jsonl`. From a repository checkout, after stopping the node, a
 rehearsal with a plain inline key is:
@@ -944,9 +943,9 @@ sudo python3 tools/scripts/probe-bootstrap-backup.py /root/dyappd-backup-v1 \
 For an external plain key or an `age`-encrypted key copy, choose `external`
 or `age` and add `--recovery-key <path>`; the writer copies that file without
 decrypting it. The destination must not exist and remains incomplete without
-`manifest.jsonl` if copying fails. Do not use the resulting snapshot as an
-unattended update gate until the separate updater enforces this preflight. The
-SQLite probe first
+`manifest.jsonl` if copying fails. Use the full preflight below before
+installing a new binary; the standalone writer and verifier alone do not prove
+recovery. The SQLite probe first
 verifies the manifest and inventory, refuses hot rollback journals, then copies
 DB/WAL files to a private temporary directory and runs `integrity_check(1)`
 there. It does not open the source snapshot with SQLite.
@@ -961,7 +960,7 @@ release. The preflight never opens or changes the source snapshot with SQLite.
 Both probes use `TMPDIR` for these copies; `--scratch <dir>` picks another directory.
 
 The [update preflight](../../tools/scripts/preflight-bootstrap-update.py) runs the whole
-sequence in one command and is what the planned updater will call:
+sequence in one command for the operator's manual upgrade:
 
 ```bash
 sudo python3 tools/scripts/preflight-bootstrap-update.py /var/lib/dyappd \
@@ -1009,7 +1008,7 @@ Include `media.db`, `deny.db` and every regular file under `data/` when present;
 record absence explicitly. Copy any existing `*.db-wal` or `*.db-journal` with
 its database: after an interrupted shutdown they can hold recovery state.
 `*.db-shm`, search indexes, locks and peer caches can be rebuilt. A hot
-rollback journal blocks automatic update until recovery is checked in an
+rollback journal blocks the upgrade until recovery is checked in an
 isolated copy. [SQLite's WAL guidance](https://www.sqlite.org/wal.html#the_wal_file)
 and [journal guidance](https://www.sqlite.org/howtocorrupt.html#_deleting_a_hot_journal)
 explain why the sidecars cannot be silently dropped.
@@ -1018,15 +1017,14 @@ For an inline key, include `storage/node.key`; for an external `storage.key`,
 include a private `recovery/node.key` copy. A systemd-sealed credential is
 bound to its host or TPM and is **not** portable recovery evidence: include an
 independently encrypted `recovery/node.key.age` copy and require the operator
-to provide its age identity to the restore probe, which decrypts only in scratch. Refuse an
-unattended update if that copy or decryption proof is unavailable. Preserve
-the node's configuration separately, especially its network name, ID proof of
-work difficulty, roles and external key setting.
+to provide its age identity to the restore probe, which decrypts only in
+scratch. Do not upgrade if that copy or decryption proof is unavailable.
+Preserve the node's configuration separately, especially its network name,
+ID proof-of-work difficulty, roles and external key setting.
 
 The preflight checks each SQLite database and asks `dyappd` to prove that the
-recovered key matches `node.id`. It never opens or replaces live storage. The
-unattended updater remains planned. Keep the pre-update snapshot
-until the new version is accepted. A
+recovered key matches `node.id`. It never opens or replaces live storage. Keep
+the pre-update snapshot until the new version is accepted. A
 restore discards writes made after the snapshot ([Rollback](#rollback)); do not
 roll an upgraded SQLite store back in place.
 

@@ -47,8 +47,8 @@ it are entry points that tools discover by path (see
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX
-- [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [accepted policy](decisions/0023-bootstrap-node-update-policy.md)
-- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): signing boundary, key custody and anti-rollback options; [accepted channel](decisions/0024-bootstrap-update-channel.md)
+- [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [manual upgrade policy](decisions/0023-bootstrap-node-update-policy.md)
+- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): historical TUF/key custody proposal; [rejected v0.0.1 channel](decisions/0024-bootstrap-update-channel.md)
 - [Linux Secret Service migration](design/linux-secret-service-migration.md): options and proposed ADR amendment for removing the zbus 5 advisory chain
 
 ### Development
