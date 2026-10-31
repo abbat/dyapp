@@ -2,6 +2,7 @@
 use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::chat::{self, Body};
+use dyapp_client::interactions::Kind;
 use dyapp_client::session::{Error, Session};
 use dyapp_client::store::Store;
 use std::slice::from_mut;
@@ -69,7 +70,17 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
-    // Bob joins; both trade tokens through the first node.
+    // Bob joins; a match opens the chat, so "two" below is no second request.
+    receive(&mut bob_session, &mut bob.node, &bob.device_key, &profiles).await;
+    alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    bob_session
+        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    // Both take the likes and trade tokens through the first node.
     for _ in 0..2 {
         receive(&mut bob_session, &mut bob.node, &bob.device_key, &profiles).await;
         receive(

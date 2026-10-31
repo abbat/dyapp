@@ -4,6 +4,7 @@ use super::*;
 use dyapp_client::chat::{self, Event};
 use dyapp_client::interactions::Kind;
 use dyapp_client::session::{Error, Session};
+use dyapp_client::store::messages::MessageKey;
 use dyapp_client::store::Store;
 use dyapp_p2p_net::proto::EnvelopeClass;
 use std::slice::from_mut;
@@ -24,6 +25,100 @@ async fn receive(
         )
         .await
         .unwrap()
+}
+
+/// `person`'s session over a fresh store holding their device.
+fn open(person: &Person, name: &str) -> Session {
+    let mut store = Store::open(&store_path(name), &person.identity).unwrap();
+    store
+        .stage_outbound(&person.device.seal(&SEAL).unwrap(), &[])
+        .unwrap();
+    Session::open(store, &SEAL).unwrap()
+}
+
+/// The ID of the group `events` joined.
+fn joined(events: &[Event]) -> Vec<u8> {
+    let id = events.iter().find_map(|event| match event {
+        Event::Joined(id) => Some(id.clone()),
+        _ => None,
+    });
+    id.unwrap()
+}
+
+#[tokio::test]
+async fn a_first_like_and_a_first_text_invite_a_found_peer() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+        config.limits.require_write_tokens = false;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let mut carol = Person::new(&address).await;
+    let (alice_owner, bob_owner) = (alice.identity.peer_id(), bob.identity.peer_id());
+    let carol_owner = carol.identity.peer_id();
+    let mut pair = Vec::new();
+    for owner in [&alice_owner, &bob_owner] {
+        pair.push(alice.node.get_profile(owner).await.unwrap());
+    }
+    let others = [
+        pair[0].clone(),
+        alice.node.get_profile(&carol_owner).await.unwrap(),
+    ];
+    let mut alice_session = open(&alice, "first-alice");
+    let mut bob_session = open(&bob, "first-bob");
+    let mut carol_session = open(&carol, "first-carol");
+    bob_session
+        .publish_key_packages(&mut bob.node, &bob.device_key, 1, &SEAL)
+        .await
+        .unwrap();
+    carol_session
+        .publish_key_packages(&mut carol.node, &carol.device_key, 1, &SEAL)
+        .await
+        .unwrap();
+
+    // Only a like invites: a view with no group sends nothing.
+    assert!(alice_session
+        .interact_with(from_mut(&mut alice.node), &pair, Kind::View, &SEAL)
+        .await
+        .unwrap()
+        .is_none());
+    assert!(receive(&mut bob_session, &mut bob, &pair).await.is_empty());
+
+    // The like carries its Welcome, and Bob's reply goes to the group it made.
+    alice_session
+        .interact_with(from_mut(&mut alice.node), &pair, Kind::Like, &SEAL)
+        .await
+        .unwrap()
+        .unwrap();
+    let group = joined(&receive(&mut bob_session, &mut bob, &pair).await);
+    assert!(bob_session.likes(&alice_owner).unwrap().theirs);
+    let id = bob_session
+        .send_text_to(from_mut(&mut bob.node), &pair, b"hi", &SEAL)
+        .await
+        .unwrap();
+    receive(&mut alice_session, &mut alice, &pair).await;
+    let reply = MessageKey {
+        group,
+        author: bob_owner,
+        id,
+    };
+    assert!(alice_session.chat_message(&reply).unwrap().is_some());
+
+    // A first text fetches the KeyPackage and carries its Welcome the same way.
+    let id = alice_session
+        .send_text_to(from_mut(&mut alice.node), &others, b"hello", &SEAL)
+        .await
+        .unwrap();
+    let group = joined(&receive(&mut carol_session, &mut carol, &others).await);
+    let text = MessageKey {
+        group,
+        author: alice_owner,
+        id,
+    };
+    assert!(carol_session.chat_message(&text).unwrap().is_some());
 }
 
 #[tokio::test]

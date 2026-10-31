@@ -3,6 +3,7 @@ use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::attachment;
 use dyapp_client::chat::{self, Body, Event};
+use dyapp_client::interactions::Kind;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use dyapp_client::Error;
@@ -98,6 +99,19 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
+    bob_session
+        .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)
+        .await
+        .unwrap();
+    // A match opens the chat: an attachment is no message request.
+    alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    bob_session
+        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
     bob_session
         .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)
         .await

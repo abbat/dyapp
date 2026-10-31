@@ -3,7 +3,7 @@ all_features = true
 # Session methods that need a live node are tested only by rust/bootstrap/tests/protocol, which
 # cargo-mutants does not run for dyapp-client mutants. Review by 2026-12-25: issue #26.
 exclude_re = [
-    "Session::(block|send_message|send_attachment|interact|send_body|retry_due|deliver|refill|request_tokens|control|receive)\\b",
+    "Session::(block|send_message|send_text_to|send_attachment|interact|interact_with|send_body|retry_due|deliver|refill|request_tokens|control|receive|key_packages|publish_key_packages)\\b",
     # `<=` only waits longer: the result is truncated to `max`. The guard matters only for a late
     # event of an earlier lookup, which a unit test cannot time.
     "replace < with <= in Node::providers",

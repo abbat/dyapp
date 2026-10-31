@@ -1,9 +1,11 @@
-use super::{Error, Session};
+use super::{prepare, Error, Session};
 use crate::chat::{self, Body, Event};
 use crate::store::messages::MessageKey;
 use crate::store::{InboxKey, InboxKind, Store};
-use dyapp_identity::Identity;
+use dyapp_identity::{Domain, Identity};
+use dyapp_messaging::hlc::Timestamp;
 use dyapp_messaging::mls::Device;
+use dyapp_p2p_net::proto::{self, EnvelopeClass};
 use dyapp_profile::Profile;
 use prost::Message as _;
 
@@ -845,10 +847,12 @@ fn a_first_like_invites_and_stages_the_like_with_the_welcome() {
         crate::mailbox(&alice_key).to_vec(),
         alice.key_package(false).unwrap(),
     )];
-    let (_, writes) = session
+    let before = crate::now() * 1000;
+    let (like, writes) = session
         .stage_first_like(&profiles, &packages, &seal_key)
         .unwrap()
         .unwrap();
+    assert!(Timestamp::from(like.hlc).wall_ms() >= before);
     // The Welcome and the like, both to Alice's device.
     assert_eq!(writes.len(), 2);
     assert!(session.likes(&alice_peer).unwrap().ours);
@@ -860,6 +864,32 @@ fn a_first_like_invites_and_stages_the_like_with_the_welcome() {
     assert_eq!(session.pair_group(&alice_peer), Some(group));
     assert!(session.likes(&alice_peer).unwrap().ours);
     assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
+}
+
+#[test]
+fn a_write_carries_the_token_of_today() {
+    let seal_key = [5; 32];
+    let mailbox = [7; 32];
+    let today = (crate::now() / 86_400) as u32;
+    let mut store = Store::open(&temp_path(), &Identity::generate()).unwrap();
+    let token = proto::WriteToken {
+        mailbox: mailbox.to_vec(),
+        token_key: store
+            .token_key(&mailbox, today, &seal_key)
+            .unwrap()
+            .to_vec(),
+        epoch: today,
+    };
+    let signed = Identity::generate().sign(Domain::WriteToken, token.encode_to_vec());
+    store
+        .set_write_token(&mailbox, today, &signed.encode_to_vec())
+        .unwrap();
+    let delivery = chat::Delivery {
+        mailbox: mailbox.to_vec(),
+        mls: vec![1],
+    };
+    let writes = prepare(&store, vec![delivery], EnvelopeClass::Message, &seal_key).unwrap();
+    assert_eq!(crate::tokens::epoch(&writes[0]), Some(today));
 }
 
 #[test]
