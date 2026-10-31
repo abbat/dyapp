@@ -1,5 +1,5 @@
 //! The desktop's active identity and transition admission.
-use crate::identity_gate::{GateError, IdentityGate, Transition};
+use crate::identity_gate::{GateError, IdentityGate, Lease, Transition};
 use crate::slots::{self, Opened};
 use dyapp_identity::Identity;
 use std::collections::HashMap;
@@ -14,6 +14,11 @@ pub(super) struct IdentityState(Arc<IdentityGate<ActiveIdentity>>);
 impl IdentityState {
     pub(super) fn new() -> Self {
         Self(IdentityGate::new(None))
+    }
+
+    /// Keep this value alive through the command and all of its awaited work.
+    pub(super) fn lease(&self) -> Result<Lease<ActiveIdentity>, String> {
+        self.0.lease().map_err(gate_error)
     }
 
     /// Closes admission before a command awaits the old slot's work.

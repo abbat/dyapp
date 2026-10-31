@@ -301,10 +301,15 @@ async fn load_network(
     state: tauri::State<'_, IdentityState>,
     file: String,
 ) -> Result<Option<Draft>, String> {
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || network::load(&dir, &file))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
+    // A cancelled command cannot stop its blocking worker; the worker owns the lease.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        network::load(&dir, &file)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -312,10 +317,14 @@ async fn save_network_draft(
     state: tauri::State<'_, IdentityState>,
     draft: Draft,
 ) -> Result<(), String> {
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || network::save_draft(&dir, draft))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        network::save_draft(&dir, draft)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Saves the draft and reports every seed row; see `network::check` for the errors.
@@ -326,7 +335,8 @@ async fn check_connection(
     draft: Draft,
     wait_ms: u32,
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
-    let dir = identity_dir(&state)?;
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
     network::check(&checks, dir, draft, Duration::from_millis(wait_ms.into())).await
 }
 
@@ -341,7 +351,8 @@ async fn connect_network(
     state: tauri::State<'_, IdentityState>,
     wait_ms: u32,
 ) -> Result<bool, String> {
-    let dir = identity_dir(&state)?;
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
     network::connect(&dir, Duration::from_millis(wait_ms.into())).await
 }
 
@@ -350,7 +361,8 @@ async fn activate_connection(
     state: tauri::State<'_, IdentityState>,
     checks: tauri::State<'_, NetworkState>,
 ) -> Result<Draft, String> {
-    let dir = identity_dir(&state)?;
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
     network::activate(&checks, &dir)
 }
 
