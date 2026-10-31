@@ -78,7 +78,9 @@ assert.equal(renderer.metrics().painted, 2);
 // Age samples retain only the latest 120 observations and counters remain scalar.
 const reused = frame(640, 360, 3);
 for (let sequence = 3; sequence < 128; sequence += 1) {
-  new DataView(reused).setUint32(8, sequence, true);
+  const header = new DataView(reused);
+  header.setUint32(8, sequence, true);
+  header.setBigUint64(12, BigInt(Date.now() - (sequence < 13 ? 900 : 0)) * 1000n, true);
   assert.equal(renderer.accept(reused), true);
   flush();
 }
@@ -89,5 +91,7 @@ assert.equal(metrics.produced, 1800);
 assert.equal(metrics.delivered, 136);
 assert.equal(metrics.painted, 127);
 assert.equal(metrics.ageSamples, 120);
-assert.ok(metrics.p50AgeMs >= 0 && metrics.p95AgeMs < 60000);
+assert.equal(metrics.ageObservations, 127);
+assert.ok(metrics.ageOver1000 >= 0 && metrics.ageOver1000 <= 10);
+assert.ok(metrics.p50AgeMs >= 0 && metrics.p95AgeMs >= 900 && metrics.p95AgeMs <= 1000);
 console.log('OK video frame renderer');

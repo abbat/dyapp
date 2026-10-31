@@ -29,12 +29,13 @@ and copies it per frame. Release builds do not register the command. A test-only
 consumer now validates the raw `ArrayBuffer`, exact dimensions and length, magic, safe timestamp
 and increasing sequence. It keeps one pending frame, paints on the next animation frame using one
 Canvas 2D context with `ImageData` and `putImageData`, and drops an older pending frame. It tracks
-scalar produced, delivered, painted, dropped and error counts plus the latest 120 frame ages and
-p50/p95 ages. Linux debug CI now connects the real raw channel to that consumer for four frames
-at each size, checks Canvas dimensions and pixel color, rejects malformed and oversized buffers,
-and prints bounded metrics. This Xvfb correctness smoke is not a performance measurement. Tauri
-documents that
-`Channel<Vec<u8>>` serializes bytes as a JSON array, so the benchmark uses the raw form
+scalar produced, delivered, painted, dropped and error counts. A fixed 5 ms histogram covers
+all painted frames for p50/p95 age; values at or above 1000 ms are capped and counted separately.
+The latest 120 ages are retained for bounded recent diagnostics. Linux debug CI connects the raw
+channel to that consumer for four frames at each size, checks Canvas dimensions and pixel color,
+rejects malformed and oversized buffers, and prints bounded metrics. This Xvfb correctness smoke
+is not a performance measurement. Tauri documents that `Channel<Vec<u8>>` serializes bytes as
+a JSON array, so the benchmark uses the raw form
 ([Tauri Channel API](https://docs.rs/tauri/latest/tauri/ipc/struct.Channel.html)).
 A bounded queue keeps at most one pending frame; when the renderer falls behind, it drops the
 older frame rather than growing memory or showing stale video. Frame payloads carry width,
@@ -77,5 +78,22 @@ benchmark does not prove real-call performance.
 | Encoded frames to WebView media element | Much smaller IPC payload if a supported decode path exists. | Codec/container/MSE support and buffering vary by installed WebKitGTK and GStreamer plugins. |
 | Native GTK/GStreamer surface | May reduce copies and give control over video timing. | Separate Linux integration and overlay/focus behavior; harder to share with Windows. |
 
-Next checkpoint: record measurements on a named Debian 12 host before choosing the production
-renderer.
+A real-host runner is prepared but has not been run. On a named Debian 12 graphical desktop,
+with the debug Linux app already built and the distro WebKitGTK installed, run:
+
+```sh
+python3 tests/scripts/video-benchmark.py --host DESKTOP-NAME --app build/debug/dyapp-linux
+```
+
+This runs 60 seconds each of idle, 360p30 and 720p30, outside Xvfb. It writes a bounded
+`build/video-benchmark/<UTC>-<host>/report.json` with frame metrics, half-second app and child
+process CPU/RSS samples, distro/package, CPU/GPU and display details, plus at most 64 KiB of
+output per case. CPU includes surviving descendants of the Tauri process; short-lived workers
+between samples can be undercounted, and summed RSS double-counts shared pages. The frame-age
+histogram has 5 ms resolution and caps ages above 1000 ms; Rust and JavaScript use the same host
+wall clock, but wall-clock adjustments and scheduling delay are not separated. Compare active
+CPU cores with idle and inspect the memory trend after warm-up. Do not treat this as a production
+call benchmark.
+
+Next checkpoint: run this on a named host and choose the production renderer from measured
+results.

@@ -763,6 +763,7 @@ const searchForged = async () => {
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
+    if (step.startsWith('video-bench:')) return videoBenchmark(step.slice('video-bench:'.length));
     if (step.startsWith('video:')) {
       const size = step.slice('video:'.length);
       if (!['360p', '720p'].includes(size)) throw new Error('invalid video smoke size');

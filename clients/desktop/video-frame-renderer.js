@@ -6,7 +6,12 @@ const createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) 
   const HEADER = 20;
   const SIZES = new Set(['640x360', '1280x720']);
   const MAX_SAMPLES = 120;
+  const AGE_BIN_MS = 5;
+  const AGE_BINS = 201; // Last bin includes ages of 1000 ms or more.
   const ages = [];
+  const ageHistogram = new Uint32Array(AGE_BINS);
+  let ageObservations = 0;
+  let ageOver1000 = 0;
   let pending = null;
   let scheduled = false;
   let lastSequence = -1;
@@ -35,6 +40,9 @@ const createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) 
       if (Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 60000) {
         if (ages.length === MAX_SAMPLES) ages.shift();
         ages.push(ageMs);
+        ageHistogram[Math.min(AGE_BINS - 1, Math.floor(ageMs / AGE_BIN_MS))] += 1;
+        ageObservations += 1;
+        if (ageMs >= 1000) ageOver1000 += 1;
       } else {
         reject('timestamp');
       }
@@ -73,10 +81,19 @@ const createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) 
       if (Number.isInteger(count) && count >= 0 && count <= 1800) counts.produced = count;
     },
     metrics() {
-      const sorted = [...ages].sort((a, b) => a - b);
-      const percentile = (p) => sorted.length ? sorted[Math.ceil(sorted.length * p) - 1] : null;
+      const percentile = (p) => {
+        if (!ageObservations) return null;
+        const target = Math.ceil(ageObservations * p);
+        let seen = 0;
+        for (let bin = 0; bin < AGE_BINS; bin += 1) {
+          seen += ageHistogram[bin];
+          if (seen >= target) return Math.min((bin + 1) * AGE_BIN_MS, 1000);
+        }
+        return null;
+      };
       return {
         ...counts, lastSequence, lastError, ageSamples: ages.length,
+        ageObservations, ageOver1000,
         p50AgeMs: percentile(0.5), p95AgeMs: percentile(0.95),
       };
     },

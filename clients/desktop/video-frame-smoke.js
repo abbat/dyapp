@@ -1,11 +1,10 @@
 // Linux debug smoke: actual binary Tauri Channel, Canvas 2D pixels, and bounded counters.
-const videoFrames = async (size) => {
+const videoFrames = async (size, count = 4) => {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', 'Synthetic video test frame');
   document.body.append(canvas);
   const renderer = createVideoFrameRenderer(canvas);
-  const count = 4;
   let received = 0;
   let channelError = '';
   let resolveFrames;
@@ -16,7 +15,7 @@ const videoFrames = async (size) => {
     received += 1;
     if (received === count) resolveFrames();
   };
-  const timeout = setTimeout(() => resolveFrames(), 15000);
+  const timeout = setTimeout(() => resolveFrames(), count === 4 ? 15000 : 90000);
   let produced;
   try {
     produced = await invokeTest('ui_test_video_frames', { size, count, onFrame: channel });
@@ -45,4 +44,15 @@ const videoFrames = async (size) => {
     || renderer.metrics().errors !== 2) throw new Error('malformed video frame accepted');
   canvas.remove();
   return metrics;
+};
+// A separate real-host benchmark step keeps the four-frame CI smoke quick.
+const videoBenchmark = async (size) => {
+  if (!['idle', '360p', '720p'].includes(size)) throw new Error('invalid video benchmark size');
+  const metrics = size === 'idle'
+    ? await new Promise((resolve) => setTimeout(() => resolve({ produced: 0, delivered: 0,
+      painted: 0, dropped: 0, errors: 0 }), 60000))
+    : await videoFrames(size, 1800);
+  return invokeTest('ui_test_result', {
+    passed: true, peerId: '', reason: `video:${size}:${JSON.stringify(metrics)}`,
+  });
 };
