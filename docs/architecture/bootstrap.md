@@ -15,7 +15,7 @@ runs as its own role, on by default, and signaling is planned.
 
 - **Replication**: acceptors replicate messages, profiles and media blobs up to 1 MiB to five DHT points, confirming two distinct holders. Nodes forward mailbox acks and repair mailboxes, profiles and media. Media up to 6 MiB uses Reed-Solomon above the operator's whole-copy threshold ([Replication and repair](#replication-and-repair), [Erasure coding](#erasure-coding-reed-solomon)).
 - **Mailboxes**: one per device, read and emptied only with the device key's signature; envelopes expire after a TTL (default 24h, deleted hourly; see [Privacy](../security/privacy.md#retention))
-- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins and deletion is a signed tombstone ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the [search role](#search)
+- **Profile storage**: public profiles signed by the owner's identity key; the highest version wins until a signed deletion tombstone, which a cooperating store node treats as final while retained ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); searched through the [search role](#search)
 - **Rate limiting**: per-peer token bucket on profile and mailbox requests (see [Rate Limiting](#rate-limiting))
 - **Encryption (target)**: clients end-to-end encrypt messages and media before upload; profiles are public and signed, not encrypted ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)); not implemented
 - **Network**: open, anyone may run a node, Kademlia DHT discovery ([ADR 0007](../decisions/0007-open-bootstrap-network.md), [P2P networking](p2p-networking.md)); storage is a cache with an operator-set retention TTL (default 30 days) and eviction by profile activity ([ADR 0009](../decisions/0009-message-delivery-and-storage.md))
@@ -926,8 +926,9 @@ optional birth year, month and day); every public field is optional by design
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`).
 
-Deletion publishes a tombstone with a higher version. The server keeps the tombstone
-so an older version cannot be re-imported; `get` returns it so peers learn of the deletion.
+Deletion publishes a tombstone with a higher version. While it is retained, a store node
+refuses every later profile version, and `get` returns the tombstone so peers learn of the
+deletion. Search-only Hide does not put this tombstone in profile storage.
 A profile, tombstone included, is deleted `limits.profile_ttl_days` (default 30) after its
 owner was last seen: a publish of a newer version or an identity-signed heartbeat whose time
 is within 10 minutes of the node clock and newer than the stored `last_seen`. Heartbeats advance

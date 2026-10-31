@@ -2,10 +2,12 @@ use super::*;
 
 #[tokio::test]
 async fn keypackage_publish_and_consume_over_tcp() {
+    dyapp_p2p_net::set_id_pow_bits(0);
     let address = start_config(|config| {
-        config.roles = vec![Role::Store];
+        config.roles = vec![Role::Store, Role::Search];
         config.limits.requests_per_second = 1000;
         config.limits.min_free_mb = 0;
+        config.search.min_profile_pow_bits = 0;
     })
     .await;
     let mut client = Client::connect(&address).await;
@@ -55,7 +57,27 @@ async fn keypackage_publish_and_consume_over_tcp() {
     assert_eq!(
         status(
             client
-                .profile(profile_request::Request::Publish(profile))
+                .profile(profile_request::Request::Publish(profile.clone()))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+    // Search-only withdrawal leaves the store's signed device directory intact.
+    let tombstone = Profile::tombstone(2, 0, 0).sign(&owner);
+    assert_eq!(
+        status(
+            client
+                .search(proto::search_request::Request::Publish(profile))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+    assert_eq!(
+        status(
+            client
+                .search(proto::search_request::Request::Publish(tombstone.clone()))
                 .await
                 .status
         ),
@@ -110,4 +132,33 @@ async fn keypackage_publish_and_consume_over_tcp() {
             Some(fallback.clone())
         );
     }
+    // Final withdrawal reaches profile storage; known-peer KeyPackage lookup now stops.
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::Publish(tombstone))
+                .await
+                .status
+        ),
+        Status::Ok
+    );
+    assert_eq!(
+        status(client.keypackage(fetch).await.status),
+        Status::NotFound
+    );
+    // A final profile-store tombstone cannot be revived while the node retains it.
+    let revived = Profile {
+        version: 3,
+        ..Default::default()
+    }
+    .sign(&owner);
+    assert_eq!(
+        status(
+            client
+                .profile(profile_request::Request::Publish(revived))
+                .await
+                .status
+        ),
+        Status::Invalid
+    );
 }

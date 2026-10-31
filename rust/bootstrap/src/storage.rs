@@ -275,7 +275,7 @@ impl BootstrapStore {
     }
 
     /// Verifies a signed profile and stores it if it is newer than the owner's stored version.
-    /// A tombstone replaces the profile and is kept so older versions cannot be re-imported.
+    /// A tombstone replaces the profile and prevents any later version while it is retained.
     pub fn put_profile(&self, record: &SignedRecord) -> Result<VerifiedProfile> {
         self.put_profile_seen(record, chrono::Utc::now().timestamp())
     }
@@ -290,9 +290,12 @@ impl BootstrapStore {
         // The connection lock serialises the read-compare-write of profile versions.
         let db = lock(&self.profiles)?;
         let current = Self::profile(&db, &verified.peer_id)?
-            .map(|stored| dyapp_profile::stored_version(&stored))
+            .map(|stored| dyapp_profile::verify(&stored))
             .transpose()?;
-        verified.check_newer(current)?;
+        verified.check_newer(current.as_ref().map(|stored| stored.profile.version))?;
+        if current.is_some_and(|stored| stored.profile.deleted) {
+            return Err(dyapp_profile::Error::Invalid("profile already deleted").into());
+        }
         db.execute(
             // REPLACE gives a new rowid, moving the owner to the end of the eviction order.
             "INSERT OR REPLACE INTO `profiles` (`peer_id`, `record`, `live`, `last_seen`) \

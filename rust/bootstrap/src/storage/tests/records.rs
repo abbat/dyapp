@@ -243,6 +243,16 @@ fn signed_profile_versions_and_tombstone() {
         .unwrap();
     assert!(store.list_profiles(0, 10).unwrap().is_empty());
     assert!(store.put_profile(&profile(2).sign(&owner)).is_err());
+    assert!(matches!(
+        store.put_profile(&profile(4).sign(&owner)),
+        Err(BootstrapError::Profile(dyapp_profile::Error::Invalid(
+            "profile already deleted"
+        )))
+    ));
+    assert_eq!(
+        dyapp_profile::stored_version(&store.get_profile(&owner.peer_id()).unwrap().unwrap()),
+        Ok(3)
+    );
 }
 
 #[test]
