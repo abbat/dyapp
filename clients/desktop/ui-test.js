@@ -464,7 +464,7 @@ const checkNode = async () => {
 const byId = (id) => document.getElementById(id);
 const publicFieldList = () => [...document.querySelectorAll('#profile-public-fields li')]
   .map((item) => item.textContent);
-const openPublishDialog = async () => {
+const openPublishForTest = async () => {
   byId('profile-publish').click();
   await waitFor('publish-dialog');
   if (byId('profile-attested').checked || byId('profile-disclosure').checked
@@ -486,7 +486,7 @@ const closePublishDialog = async () => {
 const checkEmptyProfilePreview = async () => {
   await shot('profile-edit');
   if (!byId('profile-hidden').disabled) throw new Error('Hide from search offered before a publish');
-  const fields = await openPublishDialog();
+  const fields = await openPublishForTest();
   await shot('publish-dialog');
   if (fields.join('|') !== window.strings['profile.empty']) throw new Error('unset fields appeared in preview');
   if (byId('profile-age').textContent !== window.strings['profile.ageUnknown']) {
@@ -501,7 +501,7 @@ const checkEmptyProfilePreview = async () => {
   if (byId('profile-status').textContent !== window.strings['profile.saved']) {
     throw new Error('Cancel lost the draft');
   }
-  await openPublishDialog();
+  await openPublishForTest();
   await closePublishDialog();
 };
 const waitForProfileStatus = (key, detail = '', ms = 10000) => new Promise((resolve, reject) => {
@@ -562,7 +562,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false) => {
     byId('birth-year').value = '1990';
     byId('birth-month').value = '2';
   }
-  const fields = await openPublishDialog();
+  const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
   consent('profile-disclosure');
   consent('profile-attested');
@@ -608,7 +608,7 @@ const checkSavedProfile = async () => {
   if (!place.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
     throw new Error(`picked place lost after restart: ${place}`);
   }
-  const placeFields = (await openPublishDialog()).filter((field) => field.startsWith(window.strings['profile.country'])
+  const placeFields = (await openPublishForTest()).filter((field) => field.startsWith(window.strings['profile.country'])
     || field.startsWith(window.strings['profile.place']));
   if (placeFields.join('|') !== [
     `${window.strings['profile.country']}: ${new Intl.DisplayNames([window.locale], { type: 'region' }).of('DE')}`,
@@ -623,7 +623,7 @@ const checkSavedProfile = async () => {
   const cleared = waitForProfileStatus('profile.saved');
   byId('profile-save').click();
   await cleared;
-  const fields = await openPublishDialog();
+  const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
   await closePublishDialog();
   if (!byId('profile-age').textContent.startsWith(`${window.strings['profile.age']}: `)) {
@@ -634,7 +634,7 @@ const checkSavedProfile = async () => {
 // reply; the message store always has a size once the identity is open.
 // Removal withdraws a published profile first. With the node stopped no node takes the tombstone:
 // Retry fails again and Cancel keeps the identity.
-const removeOffline = async () => {
+const removeOfflineIdentity = async () => {
   await openArea('settings');
   byId('settings-remove').click();
   await waitFor('remove');
@@ -768,7 +768,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       node: checkNode,
       'network-settings-failure': checkNetworkInSettings,
       'settings-privacy-restart': () => checkPrivacy(true),
-      'remove-offline': removeOffline,
+      'remove-offline': removeOfflineIdentity,
       'remove-tombstone': () => removeWithTombstone(mode),
       'profile-save': saveProfileForRestart,
       'profile-restart': checkSavedProfile,
