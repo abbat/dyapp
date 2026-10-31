@@ -4,7 +4,8 @@ This is the planned client contract for [private likes and views](../decisions/0
 The bootstrap signal class and quota, client plaintext codec, persisted like/unlike ledger,
 own-event clock and view-day records exist. `Session::interact` and `Session::receive` send and
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
-unlike, replay, offline retry and daily view. App UI and own-device event sync do not exist.
+unlike, replay, offline retry and daily view. Linux desktop has Search and Liked you controls;
+other app UI and own-device event sync remain planned.
 
 ## Wire contract
 
