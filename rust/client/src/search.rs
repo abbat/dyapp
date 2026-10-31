@@ -767,9 +767,9 @@ mod tests {
         // Due at a random second of the next day, so by its last second.
         let next = u64::from(day + 2) * 86_400 - 1;
         assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, next)).await);
-        let asked = asked.lock().unwrap();
-        assert_eq!(asked.len(), 3);
-        let Request::Heartbeat(record) = &asked[2] else {
+        let requests = asked.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        let Request::Heartbeat(record) = &requests[2] else {
             panic!("not a heartbeat");
         };
         let beat: proto::Heartbeat = prost::Message::decode(record.payload.as_slice()).unwrap();
@@ -778,7 +778,7 @@ mod tests {
         assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
         assert_eq!(beat.pow_bits, 2);
         assert_eq!(record.public_key, key.to_vec());
-        drop(asked);
+        drop(requests);
         store.set_profile_hidden(true).unwrap();
         assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, next + 86_400)).await);
         assert_eq!(asked.lock().unwrap().len(), 3);
