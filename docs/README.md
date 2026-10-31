@@ -27,6 +27,7 @@ it are entry points that tools discover by path (see
 - [FFI design](architecture/ffi-design.md)
 - [Protobuf schema](architecture/protobuf-schema.md)
 - [Platform integration](architecture/platform-integration.md)
+- [UI state retention](architecture/ui-state-contract.md): current Linux profile draft survival and planned chat draft contract
 
 ### Product and operator design
 

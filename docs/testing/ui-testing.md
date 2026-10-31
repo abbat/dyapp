@@ -316,7 +316,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   anyway and Cancel keeps it; with the node restarted the tombstone goes first and the identity is
   removed. Settings → Privacy starts at its defaults and keeps changes across a restart. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
-  keeps 22 bits.
+  keeps 22 bits. The profile test saves a valid draft and checks its fields after a normal app
+  restart; cancellation of the publish dialog keeps that saved draft. Unsaved crash recovery is
+  outside this test and is described in the [UI state contract](../architecture/ui-state-contract.md).
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs

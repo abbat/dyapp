@@ -3,17 +3,18 @@
 The Rust client keeps active MLS handles in memory and seals them to SQLite. This design gives each
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
-The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
-schema; before the first release a schema change edits version 1 in place, with no migration. It persists the
-per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
-chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
-stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
-retries. It also commits an own interaction event, its HLC, like/view state, sealed MLS snapshot
-and exact outbox writes in one transaction before network delivery.
+The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. The Linux desktop
+uses the Store for profile drafts, privacy settings, likes and inbound mailbox work; chat text
+screens remain planned. The Rust store foundation creates the identity-bound version-1 schema;
+before the first release a schema change edits version 1 in place, with no migration. It persists
+the per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger.
+The store can atomically stage a sealed MLS snapshot and exact signed outbox records,
+reopen due records and schedule retries. It also commits an own interaction event, its HLC,
+like/view state, sealed MLS snapshot and exact outbox writes in one transaction before network
+delivery.
 Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
-`Session::receive` uses them for one-to-one chat and sends delivery receipts; the app does not
-call the session yet.
+`Session::receive` uses them for one-to-one chat and sends delivery receipts. The Linux desktop
+calls it while polling the active identity's mailbox; the chat text UI remains planned.
 
 ## Ownership and location
 
