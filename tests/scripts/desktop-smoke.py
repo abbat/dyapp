@@ -346,6 +346,15 @@ def smoke(executable, flows=True):
                      profile)
         if saved != peer_id:
             raise RuntimeError("saving a profile replaced the identity")
+        # The app has exited; copy the whole slot into a fresh config, not just identity.key.
+        with tempfile.TemporaryDirectory(dir=reports) as restored:
+            slot = (Path(profile) / "active-profile").read_text().strip()
+            target = Path(restored) / "profiles"
+            target.mkdir()
+            shutil.copytree(Path(profile) / "profiles" / slot, target / slot)
+            if case("profile-backup-restore",
+                    [*file, "--ui-test-step=profile-restart"], restored) != peer_id:
+                raise RuntimeError("restored file slot changed Peer ID")
         reopened = case("profile-restart",
                         [*file, "--ui-test-step=profile-restart"], profile)
         if reopened != peer_id:
