@@ -32,14 +32,14 @@ jobs:
         persist-credentials: false
 
     - name: initialize
-      uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
       with:
         languages: ${{ matrix.language }}
         build-mode: none
         queries: security-and-quality
 
     - name: analyze
-      uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
       with:
         category: "/language:${{ matrix.language }}"
 
@@ -66,7 +66,7 @@ jobs:
     # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
     # (tests/scripts/rust-check.sh); here a finding must not stop the SARIF upload.
     - name: install cargo-deny
-      uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
       with:
         tool: cargo-deny@0.20.2
 
