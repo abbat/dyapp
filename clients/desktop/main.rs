@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use dyapp_identity::Identity;
@@ -399,10 +400,14 @@ fn search_places(
 /// The open identity's profile draft; see `profile::load`.
 #[tauri::command]
 async fn load_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
-    tauri::async_runtime::spawn_blocking(move || profile::load(&dir, &identity))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        profile::load(&dir, &identity)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -410,10 +415,14 @@ async fn save_profile(
     state: tauri::State<'_, IdentityState>,
     draft: profile::Draft,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
-    tauri::async_runtime::spawn_blocking(move || profile::save(&dir, &identity, draft))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        profile::save(&dir, &identity, draft)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Runs the profile proof of work until solved or cancelled; see `profile::solve`.
@@ -423,10 +432,12 @@ async fn solve_profile(
     solving: tauri::State<'_, ProfileState>,
     attested: bool,
 ) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     let cancel = Arc::clone(&solving.0);
     cancel.store(false, std::sync::atomic::Ordering::Relaxed);
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         profile::solve(&cancel, &dir, &identity, attested, profile::POW_BITS)
     })
     .await
@@ -446,11 +457,13 @@ async fn publish_profile(
     sessions: tauri::State<'_, chats::Sessions>,
     attested: bool,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     let root = config_dir(&app)?;
     let sessions = Arc::clone(&sessions.0);
     // The client store is not `Sync`, so the publish runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = device_key(&root, &dir, &identity)?;
         tauri::async_runtime::block_on(profile::publish(
@@ -469,9 +482,11 @@ async fn publish_profile(
 /// Hides the published profile from search with a tombstone; see `profile::hide`.
 #[tauri::command]
 async fn hide_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     // The client store is not `Sync`, as in `publish_profile`.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::hide(&dir, &identity))
     })
     .await
@@ -481,8 +496,10 @@ async fn hide_profile(state: tauri::State<'_, IdentityState>) -> Result<profile:
 /// Publishes final deletion to profile storage and search before removing an identity.
 #[tauri::command]
 async fn withdraw_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::withdraw(&dir, &identity))
     })
     .await
@@ -494,9 +511,11 @@ async fn withdraw_profile(state: tauri::State<'_, IdentityState>) -> Result<prof
 async fn send_search_profile(
     state: tauri::State<'_, IdentityState>,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     // The client store is not `Sync`, as in `publish_profile`.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::send_search(&dir, &identity))
     })
     .await
