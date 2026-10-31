@@ -131,19 +131,47 @@ pub(super) fn respond(
     Ok(result)
 }
 
-/// Temporary clone API for commands not yet holding their lease through their work.
-pub(super) fn open_identity(state: &IdentityState) -> Result<ActiveIdentity, String> {
-    let lease = state.0.lease().map_err(gate_error)?;
-    Ok(lease.active().clone())
-}
-
-pub(super) fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
-    open_identity(state).map(|(_, dir)| dir)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn cancelled_caller_cannot_release_a_running_blocking_workers_lease() {
+        let state = IdentityState::new();
+        state
+            .start_transition()
+            .unwrap()
+            .commit(Some((
+                Arc::new(Identity::generate()),
+                PathBuf::from("first"),
+            )))
+            .unwrap();
+        let lease = state.lease().unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let caller = tokio::spawn(async move {
+            tauri::async_runtime::spawn_blocking(move || {
+                let _lease = lease;
+                started_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            })
+            .await
+            .unwrap();
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        caller.abort();
+        let transition = state.start_transition().unwrap();
+        assert_eq!(transition.commit(None), Err(GateError::NotDrained));
+        release_tx.send(()).unwrap();
+        let transition = state.start_transition().unwrap();
+        IdentityState::drain(transition)
+            .await
+            .unwrap()
+            .commit(None)
+            .unwrap();
+    }
 
     #[tokio::test]
     async fn selection_waits_for_a_paused_lease_and_failed_selection_rolls_back() {
@@ -164,9 +192,9 @@ mod tests {
         transition
             .commit(Some((Arc::new(second), PathBuf::from("second"))))
             .unwrap();
-        assert_eq!(open_identity(&state).unwrap().1, PathBuf::from("second"));
+        assert_eq!(state.lease().unwrap().active().1, PathBuf::from("second"));
         let transition = state.start_transition().unwrap();
         drop(transition);
-        assert_eq!(open_identity(&state).unwrap().1, PathBuf::from("second"));
+        assert_eq!(state.lease().unwrap().active().1, PathBuf::from("second"));
     }
 }

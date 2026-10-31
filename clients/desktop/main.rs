@@ -19,13 +19,14 @@ mod file_store;
 #[path = "identity_gate.rs"]
 mod identity_gate;
 mod identity_runtime;
-use identity_runtime::{describe, identity_dir, respond, IdentityState};
+use identity_runtime::{describe, respond, IdentityState};
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).
 #[cfg(unix)]
 #[path = "node.rs"]
 mod node;
+mod node_usage_commands;
 #[path = "privacy.rs"]
 mod privacy;
 #[path = "profile.rs"]
@@ -576,71 +577,6 @@ fn unblock_peer(state: tauri::State<'_, IdentityState>, peer_id: String) -> Resu
     privacy::unblock(dir, identity, &peer_id)
 }
 
-/// The open identity's node settings; see `node::load`.
-#[cfg(unix)]
-#[tauri::command]
-async fn load_node_settings(
-    state: tauri::State<'_, IdentityState>,
-) -> Result<node::Settings, String> {
-    node::load(&identity_dir(&state)?)
-}
-
-/// Saves the node settings and restarts the node as they say; see `node::apply`.
-#[cfg(unix)]
-#[tauri::command]
-async fn save_node_settings(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-    settings: node::Settings,
-) -> Result<HashMap<&'static str, String>, String> {
-    let dir = identity_dir(&state)?;
-    node::save(&dir, &settings)?;
-    node::apply(&nodes, &dir).await
-}
-
-/// Starts or stops the node for the open identity, as on start or after a switch.
-#[cfg(unix)]
-#[tauri::command]
-async fn apply_node(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-) -> Result<HashMap<&'static str, String>, String> {
-    node::apply(&nodes, &identity_dir(&state)?).await
-}
-
-#[cfg(unix)]
-#[tauri::command]
-async fn node_status(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-) -> Result<HashMap<&'static str, String>, String> {
-    Ok(node::status(&nodes, &identity_dir(&state)?).await)
-}
-
-/// Settings → Storage for the open identity; see `usage::usage`.
-#[tauri::command]
-async fn storage_usage(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, IdentityState>,
-) -> Result<usage::Usage, String> {
-    let config = config_dir(&app).ok();
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || usage::usage(config.as_deref(), &dir))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// The status bar: client traffic since start and the open identity's message store bytes.
-#[tauri::command]
-fn status(state: tauri::State<'_, IdentityState>) -> usage::Status {
-    usage::Status {
-        traffic: dyapp_client::traffic(),
-        messages: identity_dir(&state)
-            .ok()
-            .and_then(|dir| usage::messages(&dir)),
-    }
-}
-
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -933,15 +869,15 @@ fn main() {
             blocked_peers,
             unblock_peer,
             #[cfg(unix)]
-            load_node_settings,
+            node_usage_commands::load_node_settings,
             #[cfg(unix)]
-            save_node_settings,
+            node_usage_commands::save_node_settings,
             #[cfg(unix)]
-            apply_node,
+            node_usage_commands::apply_node,
             #[cfg(unix)]
-            node_status,
-            storage_usage,
-            status,
+            node_usage_commands::node_status,
+            node_usage_commands::storage_usage,
+            node_usage_commands::status,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,

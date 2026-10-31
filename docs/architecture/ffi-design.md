@@ -24,22 +24,20 @@ are implemented in the Tauri shell, outside this UniFFI contract.
 ## Current desktop runtime ownership
 
 The Tauri shell stores the selected identity and slot directory in one admission gate.
-Network, profile, search, privacy and chat commands hold the gate lease through their blocking,
-async or synchronous work. Safety and clipboard commands hold a lease through QR, number and
-clipboard operations. Node and usage commands still copy their active identity path under a short
-lease before starting work. The client `Store` and `Session` are opened for a command and dropped
-when it returns; `chats::Sessions` serializes MLS operations
-with each other. The process also holds one `SearchState` profile cache and one profile-solve
+Identity-bound network, profile, search, privacy, chat, safety, clipboard, node and usage
+commands hold a gate lease through their blocking, async or synchronous work. A blocking worker
+owns its lease if the outer command is cancelled. The client `Store` and `Session` are opened
+for a command and dropped when it returns; `chats::Sessions` serializes MLS operations with each
+other. The process also holds one `SearchState` profile cache and one profile-solve
 cancellation flag.
 
 Identity selection closes admission and drains held leases off the UI thread, then stops the
 embedded node and opens the target slot before changing the persistent selection. Startup,
 creation and removal also commit through the gate. A failed creation or removal reopens the
-persisted selection or previous slot; it admits no identity if that slot cannot reopen. The short
-leases still allow already-running client commands to outlive a switch or removal; the shared
-cache is not cleared yet. The UI asks the node to apply the new identity after rendering it.
-Holding leases through full command work,
-cancellation and switch/removal race tests are specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
+persisted selection or previous slot; it admits no identity if that slot cannot reopen. The
+shared profile cache is not cleared yet. The UI asks the node to apply the new identity after
+rendering it. Per-identity cancellation, cache clearing and switch/removal race tests are
+specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
 
