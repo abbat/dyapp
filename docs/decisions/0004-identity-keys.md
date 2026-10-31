@@ -1,7 +1,7 @@
 # 0004. Long-lived Ed25519 identity key
 
 - **Status:** Accepted
-- **Date:** 2026-10-06
+- **Date:** 2026-10-31
 
 ## Context
 
@@ -20,11 +20,16 @@ from untrusted bootstrap nodes, so a man in the middle is possible.
 - **The identity key never changes**: a new key is a new Peer ID and a new contact. What changes
   is the device list in the profile, so every chat with the contact shows a new device, and a
   verified contact loses its verified mark until it is checked again.
-- **No private-key sync through any cloud or server.**
+- **No private-key sync through any cloud or server.** A user may manually make an offline copy
+  of a file-backed desktop identity folder. The app does not export keys from platform credential
+  stores or manage the security of that copy.
 - **A new device is linked from an existing device**: it receives keys and history from it and
   joins the user's MLS groups.
 
 ## Consequences
 
-- Losing every device loses the identity and history; there is no recovery service.
+- Without a usable offline copy, losing every device loses the identity and history; there is no
+  recovery service. A file-backed desktop copy can restore the key and local data present in
+  the copied folder. Copying app files does not recover keys stored in a platform credential
+  store.
 - Device linking and safety-number UI must be built on every platform.

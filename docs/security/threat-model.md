@@ -100,7 +100,7 @@ Class 1 in detail. Keys and rules: [Encryption & Security Status](encryption.md#
 | Frame nonce reuse under one key | Video frames | Critical × high with random nonces | Fixed in `rust/video/src/sframe.rs`: SFrame ([RFC 9605](https://www.rfc-editor.org/rfc/rfc9605)), a counter nonce per sender key, keys from the MLS exporter |
 | Attachment key or nonce reuse, a guessable release secret | Media blobs | High × medium | Fix: a fresh random key per attachment, counter nonces, a 32-byte release secret |
 | Weak or failed randomness | Key generation, nonces, secrets | Critical × low | Accept: only the OS generator (`getrandom`), which blocks until seeded and fails closed; a cloned VM relies on the kernel's VM generation ID (Linux 6.1 on Debian 12) |
-| Identity or device key read from disk or backups | Client storage | Critical × medium | Fix: wrapped by the platform keystore, excluded from backups and cloud sync |
+| Identity or device key read from disk or backups | Client storage | Critical × medium | Partial: platform credential storage and mobile backup exclusion protect managed keys; a manually copied desktop file-backed slot contains the raw identity key, and its protection is the user's responsibility |
 | Secret copies left in memory | `Identity::secret`, key generation, key file buffers | Medium × low | ⚠️ Partial: owned node-key serialization/loading and identity generation/export buffers use `Zeroizing` and are cleared on drop; caller copies and platform key wrapping remain separate work. Compiler/library/OS copies are not covered; swap and core dumps of a compromised OS are out of scope |
 | Node key read from disk or backups | `node.key` | Medium × medium | Accept: sealed by `systemd-creds` in the package ([cloud host](#cloud-host-access)), else created with mode 0600; startup checks the opened file and refuses group/other permission bits without changing them; backups made with `umask 077`. A copied key is not revocable: the operator wipes the node and runs keygen for a new peer ID, and others replace or deny the old one ([runbook](../manuals/bootstrap.md#node-key-compromise)) |
 | MLS state read from a stolen device | Client database | High × low | Accept: platform data protection (iOS file protection, Android credential-encrypted storage) and desktop disk encryption; flash may keep deleted epoch secrets |
@@ -351,9 +351,11 @@ users on that node only, and lists received from other nodes are stored, never a
 ### Client-side exposure
 
 Class 16 in detail. In place: app data is excluded from OS backups and device transfer, and the
-Android app exports only its launcher activity (the manifest is checked in CI). Keys are wrapped
-by the platform keystore, device-only and outside backups ([encryption](encryption.md)); the local
-database and MLS state rely on platform data protection.
+Android app exports only its launcher activity (the manifest is checked in CI). Mobile keys are
+wrapped by the platform keystore, device-only and outside OS backups
+([encryption](encryption.md)); the file-backed desktop identity key is raw in its slot and may be
+copied manually by the user. That copy can be stolen or reused, so the user must protect it.
+The local database and MLS state rely on platform data protection.
 A compromised OS, root and accessibility malware are out of scope.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
