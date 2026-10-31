@@ -6,8 +6,10 @@ records the gap: these commands release their admission lease before the work fi
 verified profile cache and cancellation flags are process-wide. Identity selection now closes
 admission, drains held leases off the UI thread, opens the target slot before changing the
 persistent selection, and commits the new identity to one gate. Startup, creation and removal
-also use that gate. Holding leases through command work and the remaining behavior below are
-planned.
+also use that gate. On a failed create or removal, the gate reopens the persisted selection, or
+the previous slot when no pointer exists; it never silently opens another slot. If that slot
+cannot reopen, the gate admits no identity until the user retries or reloads. Holding
+leases through command work and the remaining behavior below are planned.
 
 ## Required behavior
 

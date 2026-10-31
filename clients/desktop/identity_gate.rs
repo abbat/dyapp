@@ -97,7 +97,11 @@ impl<T> Lease<T> {
 impl<T> Drop for Lease<T> {
     fn drop(&mut self) {
         // A panicking worker must still release its lease so the next identity can open.
-        let mut state = self.gate.state.lock().unwrap_or_else(|error| error.into_inner());
+        let mut state = self
+            .gate
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         state.leases -= 1;
         if state.leases == 0 {
             self.gate.drained.notify_all();
@@ -112,11 +116,24 @@ pub struct Transition<T> {
 }
 
 impl<T> Transition<T> {
+    /// The previous selection, including during a transition, for failure reconciliation.
+    pub fn previous(&self) -> Result<Option<T>, GateError>
+    where
+        T: Clone,
+    {
+        let state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
+        Ok(state.active.clone())
+    }
+
     /// Waits for admitted work to finish; call this on a blocking thread.
     pub fn wait(&self) -> Result<(), GateError> {
         let mut state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
         while state.leases != 0 {
-            state = self.gate.drained.wait(state).map_err(|_| GateError::Poisoned)?;
+            state = self
+                .gate
+                .drained
+                .wait(state)
+                .map_err(|_| GateError::Poisoned)?;
         }
         Ok(())
     }
@@ -139,7 +156,11 @@ impl<T> Drop for Transition<T> {
     fn drop(&mut self) {
         if !self.committed {
             // An open or remove failure leaves the previous explicit selection available.
-            let mut state = self.gate.state.lock().unwrap_or_else(|error| error.into_inner());
+            let mut state = self
+                .gate
+                .state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             state.transitioning = false;
         }
     }
@@ -157,7 +178,10 @@ mod tests {
         let lease = gate.lease().unwrap();
         let transition = gate.start_transition().unwrap();
         assert_eq!(gate.lease().err(), Some(GateError::Transitioning));
-        assert_eq!(gate.start_transition().err(), Some(GateError::Transitioning));
+        assert_eq!(
+            gate.start_transition().err(),
+            Some(GateError::Transitioning)
+        );
         let (done_tx, done_rx) = mpsc::channel();
         std::thread::spawn(move || {
             transition.wait().unwrap();
@@ -175,6 +199,7 @@ mod tests {
     fn unsuccessful_transition_restores_admission_to_the_old_identity() {
         let gate = IdentityGate::new(Some("alice"));
         let transition = gate.start_transition().unwrap();
+        assert_eq!(transition.previous().unwrap(), Some("alice"));
         assert_eq!(gate.lease().err(), Some(GateError::Transitioning));
         drop(transition);
         assert_eq!(*gate.lease().unwrap().active(), "alice");

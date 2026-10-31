@@ -1,6 +1,6 @@
 //! The desktop's active identity and transition admission.
 use crate::identity_gate::{GateError, IdentityGate, Transition};
-use crate::slots::Opened;
+use crate::slots::{self, Opened};
 use dyapp_identity::Identity;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -31,6 +31,37 @@ impl IdentityState {
         })
         .await
         .map_err(|error| error.to_string())?
+    }
+
+    /// A failed slot mutation may have changed its key or active pointer. Reopen only the
+    /// persisted selection; never silently admit a different remaining identity.
+    pub(super) async fn reconcile(
+        root: PathBuf,
+        transition: Transition<ActiveIdentity>,
+    ) -> Result<(), String> {
+        let previous_dir = transition
+            .previous()
+            .map_err(gate_error)?
+            .map(|(_, dir)| dir);
+        let opened = tauri::async_runtime::spawn_blocking(move || {
+            let active_id = slots::active(&root);
+            let selected = slots::list(&root)?.into_iter().find(|slot| {
+                active_id.as_ref().map_or_else(
+                    || previous_dir.as_ref() == Some(&slot.dir),
+                    |id| id == &slot.id,
+                )
+            });
+            match selected {
+                Some(slot) => slots::open_slot(slot, &super::load),
+                None => Ok(Opened::Picker),
+            }
+        })
+        .await;
+        let opened = match opened {
+            Ok(Ok(opened)) => opened,
+            _ => Opened::Picker,
+        };
+        respond(opened, transition).map(|_| ())
     }
 }
 

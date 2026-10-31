@@ -238,7 +238,8 @@ async fn create_identity(
     #[cfg(unix)]
     node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
-    let (slot, identity) = tauri::async_runtime::spawn_blocking(move || {
+    let recover_dir = dir.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
             system_store::probe()
                 .map_err(|reason| format!("System storage unavailable: {:?}", reason))?;
@@ -246,8 +247,15 @@ async fn create_identity(
         slots::create(&dir, mode, &save, &load)
     })
     .await
-    .map_err(|e| e.to_string())??;
-    respond(Opened::Ready(slot, identity), transition)
+    .map_err(|error| error.to_string())
+    .and_then(|result| result);
+    match result {
+        Ok((slot, identity)) => respond(Opened::Ready(slot, identity), transition),
+        Err(error) => {
+            IdentityState::reconcile(recover_dir, transition).await?;
+            Err(error)
+        }
+    }
 }
 
 /// Removes a slot whose key yields the Peer ID the user confirmed, then shows the picker, or the
@@ -261,16 +269,25 @@ async fn remove_identity(
 ) -> Result<HashMap<&'static str, String>, String> {
     let transition = IdentityState::drain(state.start_transition()?).await?;
     let dir = config_dir(&app)?;
+    let recover_dir = dir.clone();
     // The slot's node must not hold its folder open while it is removed. A cfg on a command
     // argument does not reach Tauri's macro, so the state comes from the app handle.
     #[cfg(unix)]
     node::stop(&app.state::<node::NodeState>()).await;
-    let remaining = tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
         slots::list(&dir).map(|slots| slots.len())
     })
     .await
-    .map_err(|e| e.to_string())??;
+    .map_err(|error| error.to_string())
+    .and_then(|result| result);
+    let remaining = match result {
+        Ok(remaining) => remaining,
+        Err(error) => {
+            IdentityState::reconcile(recover_dir, transition).await?;
+            return Err(error);
+        }
+    };
     transition.commit(None).map_err(|e| format!("{e:?}"))?;
     if remaining == 0 {
         return storage_options().await;

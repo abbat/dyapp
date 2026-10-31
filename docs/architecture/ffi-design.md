@@ -32,9 +32,11 @@ cancellation flag.
 
 Identity selection closes admission and drains held leases off the UI thread, then stops the
 embedded node and opens the target slot before changing the persistent selection. Startup,
-creation and removal also commit through the gate. The short leases still allow already-running
-client commands to outlive a switch or removal; the shared cache is not cleared yet. The UI asks
-the node to apply the new identity after rendering it. Holding leases through full command work,
+creation and removal also commit through the gate. A failed creation or removal reopens the
+persisted selection or previous slot; it admits no identity if that slot cannot reopen. The short
+leases still allow already-running client commands to outlive a switch or removal; the shared
+cache is not cleared yet. The UI asks the node to apply the new identity after rendering it.
+Holding leases through full command work,
 cancellation and switch/removal race tests are specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
