@@ -529,10 +529,12 @@ async fn search_profiles(
     searching: tauri::State<'_, search::SearchState>,
     query: search::Query,
 ) -> Result<search::Results, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     let cache = Arc::clone(&searching.0);
     // The client store is not `Sync`, so the search runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(search::search(&cache, &dir, &identity, query))
     })
     .await
@@ -542,8 +544,9 @@ async fn search_profiles(
 /// The open identity's privacy settings; see `privacy::load`.
 #[tauri::command]
 fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::load(&dir, &identity)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::load(dir, identity)
 }
 
 /// Stores the open identity's privacy settings; see `privacy::save`.
@@ -552,22 +555,25 @@ fn set_privacy(
     state: tauri::State<'_, IdentityState>,
     privacy: privacy::Privacy,
 ) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::save(&dir, &identity, privacy)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::save(dir, identity, privacy)
 }
 
 /// Peers the open identity blocked on this device.
 #[tauri::command]
 fn blocked_peers(state: tauri::State<'_, IdentityState>) -> Result<Vec<String>, String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::blocked(&dir, &identity)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::blocked(dir, identity)
 }
 
 /// Unblocks a peer on this device; see `privacy::unblock`.
 #[tauri::command]
 fn unblock_peer(state: tauri::State<'_, IdentityState>, peer_id: String) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::unblock(&dir, &identity, &peer_id)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::unblock(dir, identity, &peer_id)
 }
 
 /// The open identity's node settings; see `node::load`.
