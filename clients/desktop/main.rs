@@ -608,6 +608,8 @@ fn ui_test_step() -> String {
 /// screenshot never fails the test.
 #[tauri::command]
 async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
+    // A trace of the screens reached, so a timed-out suite shows where it stopped.
+    eprintln!("ui-test screen {name}");
     let dir = match std::env::var_os("DYAPP_UI_SHOTS") {
         Some(dir) if std::env::args().any(|arg| arg == "--ui-test") => PathBuf::from(dir),
         _ => return Ok(()),
