@@ -226,12 +226,13 @@ A UI event is emitted only from a committed inbox row and carries the slot gener
 so a late result cannot render under another identity.
 
 The first implementation can make one mailbox fetch per pass. It is **not** complete
-backlog recovery: `Node::fetch_page` can request later pages, but `Session::receive`
-still calls the legacy first-page API and discards `more`. An unresolved first-page
-envelope can hide later mail even across repeated passes;
+backlog recovery: `Session::receive_page` now processes one bounded page through
+the durable inbox and ACK path, but the desktop still calls legacy
+`Session::receive`, which discards `more`. An unresolved first-page envelope can
+hide later mail even across repeated desktop passes;
 [the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
-must fix this before claiming eventual catch-up. Cross-replica union and reconciliation
-remain separate work.
+must wire continuation before claiming eventual catch-up. Cross-replica union
+and reconciliation remain separate work.
 
 | Owner | Benefit | Cost |
 |---|---|---|
@@ -252,12 +253,13 @@ that ignores the new field returns no next cursor. Legacy `Node::fetch` still
 returns that first page; `Node::fetch_page` reports a non-advancing reply if
 `more` is true, so the pagination caller cannot loop over page one.
 
-The Store now has one profile-bound cursor setting: `save_mailbox_cursor` records an
+The Store has one profile-bound cursor setting: `save_mailbox_cursor` records an
 opaque 1–64 byte cursor with the responding node's Peer ID, `mailbox_cursor_for`
 clears it on holder switch, and `clear_mailbox_cursor` resets to the head. Corrupt
-format, Peer ID or length fails safely. Session still needs to call these APIs
-after the page's per-envelope commits and ACK attempts. A crash before cursor save
-replays a page through inbox deduplication. A crash after save resumes after the
+format, Peer ID or length fails safely. `Session::receive_page` calls these APIs
+after the page's per-envelope commits, ACK and receipt attempts; it returns
+events and whether another page is due. A crash before cursor save replays a
+page through inbox deduplication. A crash after save resumes after the
 committed page. If the node changes, the client clears the cursor and starts from
 the head; sequence numbers have no meaning across holders. Use a small page (at most
 20 records per catch-up pass), and schedule another pass while `more` is true. Before

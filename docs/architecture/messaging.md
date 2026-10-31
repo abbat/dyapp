@@ -175,12 +175,14 @@ Mailbox fetch can now return a cursor after at most 100 records ordered by class
 insertion sequence. `Node::fetch_page` signs a fresh challenge with an explicit
 1–100 record limit and optional node-local cursor; it rejects a missing or unchanged
 next cursor when a node reports more. Legacy `Node::fetch` still returns its first
-page and `more` without requiring cursor support. `Session::receive` still ignores
-`more` and the cursor, so an unacknowledgeable Gap or unknown-owner record in a
-full first page can prevent later records from being seen. The
+page and `more` without requiring cursor support. `Session::receive_page` now
+processes at most 20 records through the existing per-envelope commit, ACK and
+receipt path, then saves the node-bound cursor or clears it at the end. Its
+caller must schedule another pass when `more` is true. The desktop still calls
+legacy `Session::receive`, so an unacknowledgeable Gap or unknown-owner record
+in a full first page can prevent later records from being seen. The
 [planned client pagination](../design/client-local-storage.md#planned-mailbox-pagination)
-adds durable progress and bounded passes. Session integration and an
-unresolved-first-page test remain planned.
+still needs desktop continuation and an unresolved-first-page test.
 Cross-replica union is separate work.
 
 **What exists vs planned:**

@@ -723,8 +723,8 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
 
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
-    let events = bob_session
-        .receive(
+    let (events, more) = bob_session
+        .receive_page(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
             &profiles,
@@ -732,6 +732,14 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         )
         .await
         .unwrap();
+    assert!(!more);
+    assert_eq!(
+        bob_session
+            .store()
+            .mailbox_cursor_for(bob.node.peer())
+            .unwrap(),
+        None
+    );
     assert!(matches!(events.as_slice(),
         [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
         if joined == &group_id && group == &group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
