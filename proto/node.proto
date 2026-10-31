@@ -329,6 +329,8 @@ message Fetch {
   uint32 limit = 2;
   // Push new envelopes over /dyapp/mailbox-push while this connection stays open.
   bool watch = 3;
+  // Opaque position returned by this same node; empty starts at the head.
+  bytes cursor = 4;
 }
 
 // Deletes envelopes from the signer's mailbox. The node forwards the signed ack verbatim as
@@ -366,6 +368,8 @@ message MailboxResponse {
   repeated bytes missing = 5;
   // TOO_LARGE: the checked envelope limit; 0 means not reported.
   uint64 max_bytes = 6;
+  // fetch: position of the last returned envelope, for the next request to this node.
+  bytes next_cursor = 7;
 }
 
 // ---- /dyapp/mailbox-push: client, opened by the node after a fetch with `watch` ----

@@ -240,11 +240,11 @@ remain separate work.
 
 ### Planned mailbox pagination
 
-Extend the owner-signed `Fetch` with an optional cursor and return the last emitted
-position in `MailboxResponse`. A cursor encodes a version, envelope class and local
-SQLite sequence number. The node validates its shape and selects records strictly
-after `(class, seq)` in its existing message-before-signal order. It sets `more`
-when another record follows the returned byte/record-limited page. The cursor is
+Bootstrap now accepts an optional cursor in the owner-signed `Fetch` and returns the
+last emitted position in `MailboxResponse`. A cursor encodes a version, envelope class
+and local SQLite sequence number. The node validates its shape and selects records
+strictly after `(class, seq)` in its existing message-before-signal order. It sets
+`more` when another record follows the returned byte/record-limited page. The cursor is
 only a position, not an ACK or authorization token; the signed fetch and fresh
 connection nonce remain mandatory. Old requests still fetch from the head. A node
 that ignores the new field returns no next cursor, which the client treats as a

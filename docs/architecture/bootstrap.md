@@ -131,10 +131,11 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/digest` | search | node to node: `(topic)` → the 256 bucket hashes of the topic, `(topic, bucket)` → the 256 sub-bucket hashes of one bucket; 32 B each, same guards as `/dyapp/inventory` |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
-Mailbox fetch currently returns the first page (at most 100 records) and a `more` flag.
-A planned cursor extension to the owner-signed `Fetch` and response will let a client
-pass an unresolved record while preserving message-before-signal order. The cursor is
-local to one holder; see the [client pagination contract](../design/client-local-storage.md#planned-mailbox-pagination).
+Mailbox fetch returns at most 100 records, a `more` flag and a cursor for the last
+record. The owner-signed `Fetch` accepts that cursor to continue past unresolved
+records while preserving message-before-signal order. An empty cursor keeps the old
+first-page behavior; malformed cursors return `INVALID`. The cursor is local to one
+holder. Client use is planned in the [pagination contract](../design/client-local-storage.md#planned-mailbox-pagination).
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
 heartbeats between search nodes only ([Search](#search)); the search role has its own Kademlia,

@@ -3,6 +3,24 @@
 use super::*;
 use crate::storage::Put;
 
+// The position is local to one holder. Version 1: class byte, then signed big-endian seq.
+fn decode_fetch_cursor(bytes: &[u8]) -> Option<Option<(i64, i64)>> {
+    if bytes.is_empty() {
+        return Some(None);
+    }
+    if bytes.len() != 10 || bytes[0] != 1 || bytes[1] > 1 {
+        return None;
+    }
+    let seq = i64::from_be_bytes(bytes[2..].try_into().ok()?);
+    (seq > 0).then_some(Some((i64::from(bytes[1]), seq)))
+}
+
+fn encode_fetch_cursor((class, seq): (i64, i64)) -> Vec<u8> {
+    let mut bytes = vec![1, class as u8];
+    bytes.extend_from_slice(&seq.to_be_bytes());
+    bytes
+}
+
 impl Service {
     /// `nonce` is the challenge issued on this libp2p connection: `challenge` sets it and the
     /// next `fetch` or `ack` takes it, valid or not, so a captured request cannot be replayed on
@@ -127,15 +145,21 @@ impl Service {
                 if self.listed(&mailbox) || self.closed(&mailbox)? {
                     return Ok(status(Status::Refused));
                 }
+                let Some(after) = decode_fetch_cursor(&fetch.cursor) else {
+                    return Ok(status(Status::Invalid));
+                };
                 let limit = match fetch.limit {
                     0 => MAX_FETCH,
                     limit => limit.min(MAX_FETCH),
                 };
                 // `watch` is kept by the node loop, which owns the connections.
-                let (envelopes, more) = self.store.fetch_envelopes(&mailbox, limit, FETCH_BYTES)?;
+                let (envelopes, more, next) =
+                    self.store
+                        .fetch_envelopes_after(&mailbox, after, limit, FETCH_BYTES)?;
                 Ok(MailboxResponse {
                     envelopes,
                     more,
+                    next_cursor: next.map(encode_fetch_cursor).unwrap_or_default(),
                     ..status(Status::Ok)
                 })
             }

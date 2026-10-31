@@ -216,33 +216,55 @@ impl BootstrapStore {
     }
 
     /// The envelopes of a mailbox, messages first, then signals, oldest first in each: at most
-    /// `limit`, and no more than `max_bytes` of records unless the first alone is larger. The flag says more are waiting.
+    /// `limit`, and no more than `max_bytes` of records unless the first alone is larger.
     pub fn fetch_envelopes(
         &self,
         mailbox: &[u8],
         limit: u32,
         max_bytes: u64,
     ) -> Result<(Vec<SignedRecord>, bool)> {
+        let (records, more, _) = self.fetch_envelopes_after(mailbox, None, limit, max_bytes)?;
+        Ok((records, more))
+    }
+
+    /// Fetch strictly after this holder's (class, sequence) position. The last returned
+    /// position survives deletion of its row; a cursor from another holder is meaningless.
+    pub fn fetch_envelopes_after(
+        &self,
+        mailbox: &[u8],
+        after: Option<(i64, i64)>,
+        limit: u32,
+        max_bytes: u64,
+    ) -> Result<(Vec<SignedRecord>, bool, Option<(i64, i64)>)> {
         let db = lock(&self.messages)?;
         let mut query = db
-            .prepare("SELECT `record` FROM `envelopes` WHERE `mailbox` = ? ORDER BY `class`, `seq` LIMIT ?")
+            .prepare(
+                "SELECT `record`, `class`, `seq` FROM `envelopes`
+                 WHERE `mailbox` = ?1 AND (`class`, `seq`) > (?2, ?3)
+                 ORDER BY `class`, `seq` LIMIT ?4",
+            )
             .map_err(storage_error)?;
-        let rows: Vec<Vec<u8>> = query
-            .query_map(params![mailbox, limit + 1], |row| row.get(0))
+        let (class, seq) = after.unwrap_or((-1, 0));
+        let rows: Vec<(Vec<u8>, i64, i64)> = query
+            .query_map(params![mailbox, class, seq, limit + 1], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         let total = rows.len();
         let mut bytes = 0;
         let mut records = Vec::new();
-        for row in rows.into_iter().take(limit as usize) {
+        let mut next = None;
+        for (row, class, seq) in rows.into_iter().take(limit as usize) {
             bytes += row.len() as u64;
             if bytes > max_bytes && !records.is_empty() {
                 break;
             }
             records.push(decode(row)?);
+            next = Some((class, seq));
         }
         let more = total > records.len();
-        Ok((records, more))
+        Ok((records, more, next))
     }
 
     /// The ids of the first `limit` envelopes of a mailbox in fetch order, without reading the
