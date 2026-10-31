@@ -54,6 +54,7 @@ pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, St
 /// a node or storage message.
 pub async fn like(
     cache: &Mutex<Profiles>,
+    root: &Path,
     dir: &Path,
     identity: &Identity,
     device_key: &Identity,
@@ -66,7 +67,7 @@ pub async fn like(
         .get(peer_id)
         .cloned()
         .ok_or("unknownPeer")?;
-    let store = open(dir, identity)?;
+    let mut store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     if own.version == 0 {
         return Err("unpublished".into());
@@ -76,7 +77,7 @@ pub async fn like(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = profile::connect(&active).await?;
-    let seal_key = profile::seal_key(device_key);
+    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     let kind = if liked { Kind::Like } else { Kind::Unlike };
@@ -127,11 +128,12 @@ pub async fn liked_you(
 /// events changed a chat. Errors are `notConnected` or a node or storage message.
 pub async fn receive(
     cache: &Mutex<Profiles>,
+    root: &Path,
     dir: &Path,
     identity: &Identity,
     device_key: &Identity,
 ) -> Result<usize, String> {
-    let store = open(dir, identity)?;
+    let mut store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     let own = match own.version {
         0 => None,
@@ -141,7 +143,7 @@ pub async fn receive(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = profile::connect(&active).await?;
-    let seal_key = profile::seal_key(device_key);
+    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     let mut changed = 0;
@@ -216,7 +218,7 @@ pub mod commands {
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir)?;
             tauri::async_runtime::block_on(super::like(
-                &cache, &dir, &identity, &device, &peer_id, liked,
+                &cache, &root, &dir, &identity, &device, &peer_id, liked,
             ))
         })
         .await
@@ -255,7 +257,7 @@ pub mod commands {
         tauri::async_runtime::spawn_blocking(move || {
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir)?;
-            tauri::async_runtime::block_on(super::receive(&cache, &dir, &identity, &device))
+            tauri::async_runtime::block_on(super::receive(&cache, &root, &dir, &identity, &device))
         })
         .await
         .map_err(|e| e.to_string())?

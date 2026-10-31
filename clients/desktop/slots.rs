@@ -11,8 +11,9 @@ use dyapp_identity::Identity;
 pub const LEGACY: &str = "legacy-primary";
 
 /// Files belonging to the slot that a confirmed removal may erase.
-const REMOVABLE: [&str; 15] = [
+const REMOVABLE: [&str; 16] = [
     "device.key",
+    "seal.key",
     "storage-mode",
     "state",
     "state.tmp",
@@ -70,6 +71,15 @@ impl Slot {
     /// The `system` mode's slot name for the device mailbox key.
     pub fn device_name(&self) -> String {
         format!("{}:device", self.system_name())
+    }
+
+    /// Independent secret that seals this slot's MLS Device snapshot.
+    pub fn seal_path(&self) -> PathBuf {
+        self.dir.join("seal.key")
+    }
+
+    pub fn seal_name(&self) -> String {
+        format!("{}:seal", self.system_name())
     }
 }
 

@@ -29,6 +29,9 @@ mod profile;
 mod search;
 #[path = "slots.rs"]
 mod slots;
+#[path = "sealing.rs"]
+mod sealing;
+use sealing::sealing_key;
 #[path = "system_store.rs"]
 mod system_store;
 #[path = "tray.rs"]
@@ -91,8 +94,9 @@ fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
     save_key(slot, &slot.key_path(), &slot.system_name(), identity)
 }
 
-// The device key goes first, so a failure leaves the identity key for a retry to confirm.
+// Device secrets go first, so a failure leaves the identity key for a retry to confirm.
 fn erase(slot: &Slot) -> Result<(), String> {
+    erase_key(slot, &slot.seal_path(), &slot.seal_name())?;
     erase_key(slot, &slot.device_path(), &slot.device_name())?;
     erase_key(slot, &slot.key_path(), &slot.system_name())
 }
@@ -447,6 +451,7 @@ async fn publish_profile(
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = device_key(&root, &dir)?;
         tauri::async_runtime::block_on(profile::publish(
+            &root,
             &dir,
             &identity,
             &device,

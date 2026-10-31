@@ -22,6 +22,31 @@ fn person() -> (Identity, Device, dyapp_profile::VerifiedProfile) {
 }
 
 #[test]
+fn mls_snapshot_reseals_without_losing_the_device() {
+    let owner = Identity::generate();
+    let device_key = Identity::generate();
+    let path = temp_path();
+    let old = [3; 32];
+    let new = [4; 32];
+    let store = Store::open(&path, &owner).unwrap();
+    let session = Session::open_or_create(store, &owner, &device_key, &old).unwrap();
+    let certificate = session.certificate().unwrap();
+    drop(session);
+
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert!(Session::seal_opens(&store, &old).unwrap());
+    assert!(!Session::seal_opens(&store, &new).unwrap());
+    assert!(Session::reseal(&mut store, &[9; 32], &new).is_err());
+    assert!(Session::seal_opens(&store, &old).unwrap());
+    Session::reseal(&mut store, &old, &new).unwrap();
+    assert!(Session::seal_opens(&store, &new).unwrap());
+    assert!(!Session::seal_opens(&store, &old).unwrap());
+    Session::reseal(&mut store, &old, &new).unwrap();
+    let reopened = Session::open(store, &new).unwrap();
+    assert_eq!(reopened.certificate().unwrap(), certificate);
+}
+
+#[test]
 fn message_is_staged_before_network_and_reopens_exact_bytes() {
     let (alice_id, alice, alice_profile) = person();
     let (_, bob, bob_profile) = person();

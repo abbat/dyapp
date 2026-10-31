@@ -324,13 +324,14 @@ pub async fn connect(network: &Network) -> Result<Node, String> {
 /// The profile lists this device, made on the first publish under `device_key`, and its
 /// KeyPackages follow, so peers can invite it to chats.
 pub async fn publish(
+    root: &Path,
     dir: &Path,
     identity: &Identity,
     device_key: &Identity,
     attested: bool,
     bits: u32,
 ) -> Result<View, String> {
-    let store = open(dir, identity)?;
+    let mut store = open(dir, identity)?;
     let mut draft = stored(&store)?;
     let today = today()?;
     publish::check(&draft, attested, today).map_err(blocked)?;
@@ -341,7 +342,7 @@ pub async fn publish(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let seal_key = seal_key(device_key);
+    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     publish::list_device(
@@ -361,8 +362,8 @@ pub async fn publish(
     view(&published, today, Some(session.store()))
 }
 
-/// The key that seals this device's MLS state in client.db, derived from its mailbox key.
-pub fn seal_key(device_key: &Identity) -> Zeroizing<[u8; 32]> {
+/// Legacy MLS seal derivation, used only to migrate existing desktop snapshots.
+pub fn legacy_seal_key(device_key: &Identity) -> Zeroizing<[u8; 32]> {
     let input = Zeroizing::new([SEAL_KEY_CONTEXT, &*device_key.secret()].concat());
     Zeroizing::new(sha256(&input))
 }
@@ -569,25 +570,25 @@ mod tests {
         let device = Identity::generate();
         save(&dir, &alice, woman(None)).unwrap();
         assert_eq!(
-            publish(&dir, &alice, &device, true, 4).await,
+            publish(&dir, &dir, &alice, &device, true, 4).await,
             Err("unsolved".into())
         );
         solve(&AtomicBool::new(false), &dir, &alice, true, 4).unwrap();
         assert_eq!(
-            publish(&dir, &alice, &device, false, 4).await,
+            publish(&dir, &dir, &alice, &device, false, 4).await,
             Err("blocked: notAttested".into())
         );
         assert_eq!(
-            publish(&dir, &alice, &device, true, 4).await,
+            publish(&dir, &dir, &alice, &device, true, 4).await,
             Err("notConnected".into())
         );
     }
 
     #[test]
-    fn the_seal_key_is_fixed_per_device_key() {
+    fn the_legacy_seal_key_is_fixed_per_device_key() {
         let device = Identity::generate();
-        assert_eq!(*seal_key(&device), *seal_key(&device));
-        assert_ne!(*seal_key(&device), *seal_key(&Identity::generate()));
-        assert_ne!(*seal_key(&device), *device.secret());
+        assert_eq!(*legacy_seal_key(&device), *legacy_seal_key(&device));
+        assert_ne!(*legacy_seal_key(&device), *legacy_seal_key(&Identity::generate()));
+        assert_ne!(*legacy_seal_key(&device), *device.secret());
     }
 }
