@@ -94,11 +94,11 @@ const summaryText = (found) => [genderText(found.draft), ageText(found.draft), f
   .filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until profiles carry photos; nothing marks a
 // self-declared claim as verified.
-const resultCard = (found, index) => {
+const resultCard = (found, id) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'list-button';
-  button.id = `result-${index + 1}`;
+  button.id = id;
   button.dataset.peerId = found.peerId;
   button.append(...who(button, found.peerId, '', summaryText(found)));
   button.addEventListener('click', () => openFound(found, button));
@@ -106,9 +106,24 @@ const resultCard = (found, index) => {
 };
 const searchMain = document.getElementById('search-main');
 const profileView = document.getElementById('profile-view');
+const withPlaces = (profiles) => Promise.all(profiles.map(async (profile) => ({
+  ...profile, place: await placeText(profile.draft.country, profile.draft.place),
+})));
+const viewStatus = document.getElementById('view-status');
+const showLikes = (likes) => {
+  document.getElementById('view-like').hidden = likes.ours;
+  document.getElementById('view-unlike').hidden = !likes.ours;
+  document.getElementById('view-match').hidden = !likes.matched;
+};
 let viewed = null;
+// A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card) => {
   viewed = { found, card };
+  if (!card.closest('#search-area')) showArea('search-area');
+  viewStatus.textContent = '';
+  showLikes({ ours: false, matched: false });
+  invoke('peer_likes', { peerId: found.peerId })
+    .then((likes) => { if (viewed?.found === found) showLikes(likes); }, () => {});
   const short = peerLabel(document.getElementById('view-peer'), found.peerId);
   document.getElementById('view-peer').textContent = short;
   document.getElementById('view-title').textContent = short;
@@ -132,7 +147,48 @@ const closeFound = () => {
   if (viewed?.card.isConnected) viewed.card.focus();
   viewed = null;
 };
-document.getElementById('view-back').addEventListener('click', closeFound);
+document.getElementById('view-back').addEventListener('click', () => {
+  const { card } = viewed;
+  closeFound();
+  const area = card.closest('section').id;
+  if (area === 'search-area' || !card.isConnected) return;
+  showArea(area);
+  card.focus();
+});
+// A like goes to the pair group on the active network; the first one invites the peer.
+const sendLike = async (liked) => {
+  const { found } = viewed;
+  const buttons = ['view-like', 'view-unlike'].map((id) => document.getElementById(id));
+  for (const button of buttons) button.disabled = true;
+  viewStatus.textContent = window.strings['view.sending'];
+  try {
+    showLikes(await invoke('like_peer', { peerId: found.peerId, liked }));
+    viewStatus.textContent = '';
+  } catch (error) {
+    const code = String(error);
+    viewStatus.textContent = window.strings[`view.like.${code}`]
+      ?? `${window.strings['view.like.failed']} ${code}`;
+    // A failed send can still be staged, so the stored state decides the button.
+    invoke('peer_likes', { peerId: found.peerId }).then(showLikes, () => {});
+  } finally {
+    for (const button of buttons) button.disabled = false;
+  }
+};
+document.getElementById('view-like').addEventListener('click', () => {
+  window.likeDone = sendLike(true);
+});
+const unlikeDialog = document.getElementById('unlike-dialog');
+document.getElementById('view-unlike').addEventListener('click', () => {
+  unlikeDialog.hidden = false;
+  unlikeDialog.showModal();
+  document.getElementById('unlike-cancel').focus();
+});
+unlikeDialog.addEventListener('close', () => { unlikeDialog.hidden = true; });
+document.getElementById('unlike-cancel').addEventListener('click', () => unlikeDialog.close());
+document.getElementById('unlike-confirm').addEventListener('click', () => {
+  unlikeDialog.close();
+  window.likeDone = sendLike(false);
+});
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
 // Blocking is local: the card goes, and later searches drop the peer.
@@ -181,10 +237,8 @@ const runSearch = async () => {
     const result = await invoke('search_profiles', { query });
     knownPeers = [...new Set([...knownPeers, ...result.profiles.map((found) => found.peerId)])];
     showSearchFilters(result.offered);
-    const found = await Promise.all(result.profiles.map(async (profile) => ({
-      ...profile, place: await placeText(profile.draft.country, profile.draft.place),
-    })));
-    searchResults.replaceChildren(...found.map(resultCard));
+    const found = await withPlaces(result.profiles);
+    searchResults.replaceChildren(...found.map((item, index) => resultCard(item, `result-${index + 1}`)));
     const count = String(found.length);
     if (result.partial || result.failures.length) {
       searchMessage('search.partial', count);
@@ -214,7 +268,32 @@ searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
   window.searchDone = runSearch();
 });
-for (const id of ['profile-open-network', 'search-open-network']) {
+// Liked you: peers whose like this profile has not answered, fetched again on each visit.
+const likedButton = document.getElementById('chats-liked');
+const likedList = document.getElementById('chats-liked-list');
+const chatsMessage = (key, detail = '') =>
+  statusMessage(document.getElementById('chats-status'), 'chats-open-network', key, detail);
+const showChats = async () => {
+  chatsMessage('chats.loading');
+  try {
+    const found = await withPlaces(await invoke('liked_you'));
+    knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
+    likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
+    document.getElementById('chats-liked-count').textContent = String(found.length);
+    if (found.length) chatsMessage('chats.count', String(found.length));
+    else chatsMessage('chats.none');
+  } catch (error) {
+    const code = String(error);
+    if (code === 'notConnected') chatsMessage('chats.notConnected');
+    else chatsMessage('chats.failed', code);
+  }
+};
+likedButton.addEventListener('click', () => {
+  const open = likedButton.getAttribute('aria-expanded') !== 'true';
+  likedButton.setAttribute('aria-expanded', String(open));
+  likedList.hidden = !open;
+});
+for (const id of ['profile-open-network', 'search-open-network', 'chats-open-network']) {
   document.getElementById(id).addEventListener('click', () => showArea('network-area'));
 }
 for (const button of [searchRetry, searchAgain]) {

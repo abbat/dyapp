@@ -11,6 +11,8 @@ use slots::{Opened, Slot};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
+#[path = "chats.rs"]
+mod chats;
 #[path = "file_store.rs"]
 mod file_store;
 #[path = "network.rs"]
@@ -505,6 +507,55 @@ fn block_peer(
     search::block(&searching.0, &dir, &identity, &peer_id)
 }
 
+/// The like state with a peer; see `chats::likes`.
+#[tauri::command]
+fn peer_likes(
+    state: tauri::State<'_, IdentityState>,
+    peer_id: String,
+) -> Result<chats::Likes, String> {
+    let (identity, dir) = open_identity(&state)?;
+    chats::likes(&dir, &identity, &peer_id)
+}
+
+/// Likes a found peer or takes the like back; see `chats::like`.
+#[tauri::command]
+async fn like_peer(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+    searching: tauri::State<'_, search::SearchState>,
+    peer_id: String,
+    liked: bool,
+) -> Result<chats::Likes, String> {
+    let (identity, dir) = open_identity(&state)?;
+    let root = config_dir(&app)?;
+    let cache = Arc::clone(&searching.0);
+    // The client store is not `Sync`, as in `publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        let device = device_key(&root, &dir)?;
+        tauri::async_runtime::block_on(chats::like(
+            &cache, &dir, &identity, &device, &peer_id, liked,
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The peers whose like is unanswered; see `chats::liked_you`.
+#[tauri::command]
+async fn liked_you(
+    state: tauri::State<'_, IdentityState>,
+    searching: tauri::State<'_, search::SearchState>,
+) -> Result<Vec<search::Found>, String> {
+    let (identity, dir) = open_identity(&state)?;
+    let cache = Arc::clone(&searching.0);
+    // The client store is not `Sync`, as in `publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(chats::liked_you(&cache, &dir, &identity))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The open identity's privacy settings; see `privacy::load`.
 #[tauri::command]
 fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
@@ -853,6 +904,9 @@ fn main() {
             send_search_profile,
             search_profiles,
             block_peer,
+            peer_likes,
+            like_peer,
+            liked_you,
             privacy_settings,
             set_privacy,
             blocked_peers,

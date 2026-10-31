@@ -378,6 +378,7 @@ const showArea = (area) => {
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
   if (area === 'settings') showSettings();
+  if (area === 'chats-area') window.chatsDone = showChats();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {
   button.addEventListener('click', () => showArea(button.dataset.area));

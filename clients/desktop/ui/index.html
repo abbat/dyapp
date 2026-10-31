@@ -11,6 +11,7 @@
     <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
     <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
@@ -101,6 +102,8 @@
         data-i18n-label="nav.profile"><svg class="icon" aria-hidden="true"><use href="#i-profile"/></svg><span class="label" data-i18n="nav.profile"></span></button>
       <button id="nav-search" class="nav" type="button" data-area="search-area"
         data-i18n-label="nav.search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="label" data-i18n="nav.search"></span></button>
+      <button id="nav-chats" class="nav" type="button" data-area="chats-area"
+        data-i18n-label="nav.chats"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg><span class="label" data-i18n="nav.chats"></span></button>
       <button id="nav-network" class="nav" type="button" data-area="network-area"
         data-i18n-label="nav.network"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg><span class="label" data-i18n="nav.network"></span></button>
       <div class="spacer"></div>
@@ -249,11 +252,16 @@
           <p id="view-summary" class="muted"></p>
           <p class="caption"><span data-i18n="view.peer"></span> <code id="view-peer"></code>
             <button id="copy-view-peer" class="btn quiet" type="button" data-i18n="action.copy"></button></p>
+          <p id="view-match" class="notice" data-i18n="view.match" hidden></p>
           <div class="actions view-actions">
             <button id="view-message" class="btn" type="button" data-i18n="view.message" disabled></button>
-            <button id="view-like" class="btn primary" type="button" aria-pressed="false" disabled><svg
+            <button id="view-like" class="btn primary" type="button" aria-pressed="false"><svg
               class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span data-i18n="view.like"></span></button>
+            <!-- Pressing Liked asks before the like is taken back. -->
+            <button id="view-unlike" class="btn liked" type="button" aria-pressed="true" hidden><svg
+              class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span data-i18n="view.liked"></span></button>
           </div>
+          <p id="view-status" class="caption" role="status"></p>
           <p class="caption" data-i18n="view.soon"></p>
           <div class="card">
             <dl id="view-fields" class="facts"></dl>
@@ -263,6 +271,20 @@
           <div class="actions"><button id="view-block" class="btn quiet" type="button"
             data-i18n="view.block"></button></div>
         </div>
+      </section>
+      <!-- Liked you lists received likes; a card opens the found profile in Search. -->
+      <section id="chats-area" hidden>
+        <h1 data-i18n="nav.chats"></h1>
+        <p id="chats-status" class="muted" role="status"></p>
+        <div class="actions">
+          <button id="chats-open-network" class="btn" type="button" data-i18n="network.open"
+            hidden></button>
+        </div>
+        <button id="chats-liked" class="list-button" type="button" aria-expanded="false"
+          aria-controls="chats-liked-list"><span class="grow"><b data-i18n="chats.liked"></b><br><span
+          class="caption" data-i18n="chats.liked.text"></span></span><span id="chats-liked-count"
+          class="badge"></span></button>
+        <div id="chats-liked-list" hidden></div>
       </section>
       <section id="network-area" hidden>
         <h1 data-i18n="network.title"></h1>
@@ -416,6 +438,14 @@
         <button id="remove-retry" class="btn" type="button" data-i18n="recovery.retry"></button>
         <button id="remove-anyway" class="btn danger" type="button" data-i18n="remove.anyway"></button>
       </div>
+    </div>
+  </dialog>
+  <dialog id="unlike-dialog" class="modal" aria-labelledby="unlike-title" hidden>
+    <h2 id="unlike-title" data-i18n="unlike.title"></h2>
+    <p data-i18n="unlike.text"></p>
+    <div class="actions">
+      <button id="unlike-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="unlike-confirm" class="btn danger" type="button" data-i18n="unlike.action"></button>
     </div>
   </dialog>
   <dialog id="publish-dialog" class="modal" aria-labelledby="publish-title" hidden>

@@ -12,7 +12,7 @@ use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::search_results::Filter;
 use dyapp_p2p_net::{proto, Protocols};
-use dyapp_profile::CivilDate;
+use dyapp_profile::{CivilDate, VerifiedProfile};
 
 use crate::profile::{self, Draft};
 
@@ -143,6 +143,16 @@ pub struct Found {
     pub version: u64,
 }
 
+impl From<&VerifiedProfile> for Found {
+    fn from(found: &VerifiedProfile) -> Self {
+        Self {
+            peer_id: found.peer_id.clone(),
+            draft: Draft::from(&found.profile),
+            version: found.profile.version,
+        }
+    }
+}
+
 /// One search over the active network's search nodes.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -199,11 +209,7 @@ pub async fn search(
         .profiles
         .into_iter()
         .map(|found| {
-            let shown = Found {
-                peer_id: found.peer_id.clone(),
-                draft: Draft::from(&found.profile),
-                version: found.profile.version,
-            };
+            let shown = Found::from(&found);
             // An older or equal version is already cached.
             let _ = cache.accept(found);
             shown
