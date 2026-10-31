@@ -117,18 +117,19 @@ impl Session {
         Ok(true)
     }
 
-    /// Rewrap the durable MLS snapshot after the new secret was persisted. A retry after a crash
-    /// accepts an already-rewrapped snapshot; a legacy snapshot is opened with `old` first.
+    /// Rewrap the MLS snapshot and held write-token keys after the new secret was persisted.
+    /// A retry also repairs tokens left under the old key by an earlier migration.
     pub fn reseal(store: &mut Store, old: &[u8; 32], new: &[u8; 32]) -> Result<(), Error> {
-        let Some(sealed) = store.sealed_device()? else {
-            return Ok(());
+        let replacement = match store.sealed_device()? {
+            Some(sealed) if Device::open(&sealed, new).is_ok() => None,
+            Some(sealed) => {
+                let device = Device::open(&sealed, old)?;
+                store.load_groups(&device)?;
+                Some(device.seal(new)?)
+            }
+            None => None,
         };
-        if Device::open(&sealed, new).is_ok() {
-            return Ok(());
-        }
-        let device = Device::open(&sealed, old)?;
-        store.load_groups(&device)?;
-        store.stage_outbound(&device.seal(new)?, &[])?;
+        store.reseal_snapshot_and_tokens(replacement.as_deref(), old, new)?;
         Ok(())
     }
 
