@@ -23,18 +23,19 @@ are implemented in the Tauri shell, outside this UniFFI contract.
 
 ## Current desktop runtime ownership
 
-The Tauri shell stores the selected identity and slot directory in `IdentityState`.
-Commands such as `publish_profile`, `search_profiles` and `receive_mail` copy those values
-before starting blocking work. The client `Store` and `Session` are opened for a command and
-dropped when it returns; `chats::Sessions` serializes MLS operations with each other. The
-process also holds one `SearchState` profile cache and one profile-solve cancellation flag.
+The Tauri shell stores the selected identity and slot directory in one admission gate.
+Commands such as `publish_profile`, `search_profiles` and `receive_mail` currently copy those
+values under a short lease before starting blocking work. The client `Store` and `Session` are
+opened for a command and dropped when it returns; `chats::Sessions` serializes MLS operations
+with each other. The process also holds one `SearchState` profile cache and one profile-solve
+cancellation flag.
 
-`select_identity` changes the selected slot without waiting for those in-flight commands or
-clearing the shared profile cache. `remove_identity` waits for the embedded node to stop, but
-does not drain client commands before removing a slot. The UI asks the node to apply the new
-identity after rendering it. These are current boundaries, not a guarantee that old network
-work has stopped when another identity appears. The planned per-identity lifecycle and its
-switch/removal race tests are specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
+Identity selection closes admission and drains held leases off the UI thread, then stops the
+embedded node and opens the target slot before changing the persistent selection. Startup,
+creation and removal also commit through the gate. The short leases still allow already-running
+client commands to outlive a switch or removal; the shared cache is not cleared yet. The UI asks
+the node to apply the new identity after rendering it. Holding leases through full command work,
+cancellation and switch/removal race tests are specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
 

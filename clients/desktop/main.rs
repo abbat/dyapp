@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use dyapp_identity::Identity;
@@ -16,9 +15,10 @@ mod chats;
 mod clipboard;
 #[path = "file_store.rs"]
 mod file_store;
-#[cfg(test)]
 #[path = "identity_gate.rs"]
 mod identity_gate;
+mod identity_runtime;
+use identity_runtime::{describe, identity_dir, open_identity, respond, IdentityState};
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).
@@ -29,13 +29,13 @@ mod node;
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
-#[path = "search.rs"]
-mod search;
 mod safety;
-#[path = "slots.rs"]
-mod slots;
 #[path = "sealing.rs"]
 mod sealing;
+#[path = "search.rs"]
+mod search;
+#[path = "slots.rs"]
+mod slots;
 use sealing::sealing_key;
 #[path = "system_store.rs"]
 mod system_store;
@@ -47,9 +47,6 @@ mod usage;
 mod video_frames;
 #[path = "window.rs"]
 mod window;
-
-/// The open identity and its slot folder.
-struct IdentityState(Mutex<Option<(Arc<Identity>, PathBuf)>>);
 
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if std::env::args().any(|arg| arg == "--ui-test") {
@@ -135,65 +132,23 @@ fn device_key(root: &Path, dir: &Path, identity: &Identity) -> Result<Identity, 
     )
 }
 
-fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str, String> {
-    let mut result = HashMap::from([
-        ("status", "ready".into()),
-        ("mode", mode.to_owned()),
-        ("peerId", peer_id),
-    ]);
-    if mode == "file" {
-        result.insert("keyPath", dir.join("identity.key").display().to_string());
-    }
-    result
-}
-
-/// The page's view of an opened slot and the identity it unlocked, if any.
-fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<(Identity, PathBuf)>) {
-    let mut result = HashMap::new();
-    match opened {
-        Opened::Ready(slot, identity) => {
-            result = ready_result(slot.mode.unwrap_or_default(), identity.peer_id(), &slot.dir);
-            result.insert("slot", slot.id);
-            return (result, Some((identity, slot.dir)));
-        }
-        Opened::Setup => {
-            result.insert("status", "setup".into());
-        }
-        Opened::Picker => {
-            result.insert("status", "picker".into());
-        }
-        Opened::Recovery(slot, reason, peer_id) => {
-            result.insert("status", "recovery".into());
-            result.insert("reason", reason.into());
-            result.insert("slot", slot.id);
-            result.extend(slot.mode.map(|mode| ("mode", mode.into())));
-            result.extend(peer_id.map(|peer_id| ("peerId", peer_id)));
-        }
-    }
-    (result, None)
-}
-
-/// Makes `opened` the current identity; a picker or recovery state leaves none open.
-fn respond(opened: Opened, state: &IdentityState) -> Result<HashMap<&'static str, String>, String> {
-    let (result, identity) = describe(opened);
-    *state.0.lock().map_err(|e| e.to_string())? =
-        identity.map(|(identity, dir)| (Arc::new(identity), dir));
-    Ok(result)
-}
-
 #[tauri::command]
 async fn identity_state(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = IdentityState::drain(state.start_transition()?).await?;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
         .await
         .map_err(|e| e.to_string())??;
-    if let Opened::Setup = opened {
-        return storage_options().await;
+    let setup = matches!(opened, Opened::Setup);
+    let result = respond(opened, transition)?;
+    if setup {
+        storage_options().await
+    } else {
+        Ok(result)
     }
-    respond(opened, &state)
 }
 
 /// The storage choice for a new identity.
@@ -249,18 +204,23 @@ async fn select_identity(
     state: tauri::State<'_, IdentityState>,
     slot: String,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = IdentityState::drain(state.start_transition()?).await?;
+    #[cfg(unix)]
+    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || {
         let slot = slots::list(&dir)?
             .into_iter()
             .find(|listed| listed.id == slot)
             .ok_or("Unknown identity")?;
-        slots::set_active(&dir, &slot.id)?;
-        slots::open_slot(slot, &load)
+        let id = slot.id.clone();
+        let opened = slots::open_slot(slot, &load)?;
+        slots::set_active(&dir, &id)?;
+        Ok::<_, String>(opened)
     })
     .await
     .map_err(|e| e.to_string())??;
-    respond(opened, &state)
+    respond(opened, transition)
 }
 
 #[tauri::command]
@@ -274,6 +234,9 @@ async fn create_identity(
         "file" => "file",
         _ => return Err("Unknown identity storage mode".into()),
     };
+    let transition = IdentityState::drain(state.start_transition()?).await?;
+    #[cfg(unix)]
+    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
     let (slot, identity) = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
@@ -284,10 +247,7 @@ async fn create_identity(
     })
     .await
     .map_err(|e| e.to_string())??;
-    let mut response = ready_result(mode, identity.peer_id(), &slot.dir);
-    response.insert("slot", slot.id);
-    *state.0.lock().map_err(|e| e.to_string())? = Some((Arc::new(identity), slot.dir));
-    Ok(response)
+    respond(Opened::Ready(slot, identity), transition)
 }
 
 /// Removes a slot whose key yields the Peer ID the user confirmed, then shows the picker, or the
@@ -299,6 +259,7 @@ async fn remove_identity(
     slot: String,
     peer_id: Option<String>,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = IdentityState::drain(state.start_transition()?).await?;
     let dir = config_dir(&app)?;
     // The slot's node must not hold its folder open while it is removed. A cfg on a command
     // argument does not reach Tauri's macro, so the state comes from the app handle.
@@ -310,20 +271,11 @@ async fn remove_identity(
     })
     .await
     .map_err(|e| e.to_string())??;
-    *state.0.lock().map_err(|e| e.to_string())? = None;
+    transition.commit(None).map_err(|e| format!("{e:?}"))?;
     if remaining == 0 {
         return storage_options().await;
     }
     Ok(describe(Opened::Picker).0)
-}
-
-fn open_identity(state: &IdentityState) -> Result<(Arc<Identity>, PathBuf), String> {
-    let open = state.0.lock().map_err(|e| e.to_string())?;
-    open.clone().ok_or_else(|| "No identity is open".into())
-}
-
-fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
-    open_identity(state).map(|(_, dir)| dir)
 }
 
 /// The open identity's `draft` or `active` bootstrap settings, `null` when never saved.
@@ -629,7 +581,9 @@ async fn storage_usage(
 fn status(state: tauri::State<'_, IdentityState>) -> usage::Status {
     usage::Status {
         traffic: dyapp_client::traffic(),
-        messages: identity_dir(&state).ok().and_then(|dir| usage::messages(&dir)),
+        messages: identity_dir(&state)
+            .ok()
+            .and_then(|dir| usage::messages(&dir)),
     }
 }
 
@@ -816,7 +770,12 @@ async fn ui_test_window(
         .primary_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("no display")?;
-    let rect = |x, y, width, height| window::Rect { x, y, width, height };
+    let rect = |x, y, width, height| window::Rect {
+        x,
+        y,
+        width,
+        height,
+    };
     Ok([
         rect(position.x, position.y, size.width, size.height),
         rect(
@@ -845,13 +804,15 @@ fn main() {
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)));
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            tray::show(app)
+        }));
     #[cfg(unix)]
     let builder = builder
         .on_permission_request(safety::camera_permission)
         .manage(node::NodeState::default());
     builder
-        .manage(IdentityState(Mutex::new(None)))
+        .manage(IdentityState::new())
         .manage(NetworkState::default())
         .manage(ProfileState::default())
         .manage(search::SearchState::default())

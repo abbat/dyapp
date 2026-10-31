@@ -1,11 +1,13 @@
 # Desktop identity runtime lifecycle
 
-The Linux and Windows Tauri shell currently runs Store and network commands against a copied
-identity and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
-records the gap: switching the selected slot does not wait for those commands, and the verified
-profile cache and cancellation flags are process-wide. This page specifies the planned boundary
-before the desktop chat adapter adds more long-lived work. The admission/drain primitive has
-unit tests; wiring it into Tauri commands and the remaining behavior below are planned.
+The Linux and Windows Tauri shell runs Store and network commands against a copied identity
+and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
+records the gap: these commands release their admission lease before the work finishes, and the
+verified profile cache and cancellation flags are process-wide. Identity selection now closes
+admission, drains held leases off the UI thread, opens the target slot before changing the
+persistent selection, and commits the new identity to one gate. Startup, creation and removal
+also use that gate. Holding leases through command work and the remaining behavior below are
+planned.
 
 ## Required behavior
 
