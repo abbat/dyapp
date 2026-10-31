@@ -260,6 +260,7 @@ impl Store {
             |tx| {
                 // A cleared message stays gone; its envelope is still recorded and ACKed.
                 if clear::is_cleared(tx, &key)? {
+                    shown = false;
                     return Ok(());
                 }
                 shown = match body {

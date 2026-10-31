@@ -128,7 +128,7 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     let current = session.chat_message(&own).unwrap().unwrap();
     assert!(current.edited && current.deleted && current.text.is_none());
     drop(session);
-    let session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
+    let mut session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
     assert!(session.chat_message(&own).unwrap().unwrap().deleted);
     let due = session.due_outbound(0).unwrap();
     for exact in [
@@ -139,6 +139,9 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     ] {
         assert!(due.iter().any(|write| write.as_bytes() == exact.as_bytes()));
     }
+    assert_eq!(session.clear_chat(&group_id).unwrap(), 2);
+    assert!(session.chat_message(&own).unwrap().is_none());
+    assert!(session.due_outbound(0).unwrap().is_empty());
 }
 
 fn temp_path() -> std::path::PathBuf {

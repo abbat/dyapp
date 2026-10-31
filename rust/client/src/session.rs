@@ -99,6 +99,12 @@ impl Session {
         &self.store
     }
 
+    /// Clear one conversation from this device, retaining marks against later redelivery.
+    /// No message is sent to peers or nodes; the chat row and relationship state remain.
+    pub fn clear_chat(&mut self, group_id: &[u8]) -> Result<usize, Error> {
+        Ok(self.store.clear_chat(group_id)?)
+    }
+
     /// The scores of the nodes this session used.
     pub fn scores(&self) -> &Scores {
         &self.scores

@@ -150,7 +150,7 @@ mod tests {
             hlc: Timestamp::new(300, 0).into(),
         };
         for (n, body) in [(4, text(1)), (5, edit), (6, delete), (7, text(8))] {
-            assert!(store
+            assert!(!store
                 .stage_chat_inbound(b"mls", &inbox(n), from(&cleared, &peer), &body, 1_000)
                 .unwrap());
         }

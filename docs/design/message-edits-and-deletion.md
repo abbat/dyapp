@@ -66,8 +66,9 @@ one transaction the Store removes every current text and placeholder of the grou
 operations claimed for it and the unsent outbox entries, and keeps a key-only mark
 `(group, author, message ID)` for each removed message and each target of a removed pending
 operation. A text, edit or delete that later names a marked ID, by re-delivery, a delayed
-envelope or device sync, is discarded and still ACKed, so a cleared message neither shows nor
-loads again. The marks hold no text and go when the conversation is deleted. A tag 1 text has no
+envelope or device sync, is discarded and still ACKed without a new-message event, so a cleared
+message neither shows nor loads again. The marks hold no text and go when the conversation is
+deleted. A tag 1 text has no
 send time, so a message first received after the clear shows as new even if it was written
 earlier. Unsent outbox writes are found by the group each chat write is tagged with; a write a
 node already accepted stays, since only the recipient can drop it. `Store::clear_chat` and
