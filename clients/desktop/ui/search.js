@@ -191,17 +191,20 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
-// Blocking is local: the card goes, and later searches drop the peer.
+// The local block takes effect even if token revocation cannot reach a node.
 document.getElementById('view-block').addEventListener('click', async () => {
   const { found, card } = viewed;
+  let result;
   try {
-    await invoke('block_peer', { peerId: found.peerId });
+    result = await invoke('block_peer', { peerId: found.peerId });
   } catch (error) {
     return searchMessage('search.failed', String(error));
   }
+  const wasLiked = Boolean(card.closest('#chats-liked-list'));
   card.remove();
+  if (wasLiked) document.getElementById('chats-liked-count').textContent = String(likedList.children.length);
   closeFound();
-  return searchMessage('search.blocked');
+  return searchMessage(`search.blocked.${result.revocation}`);
 });
 const searchError = document.getElementById('search-error');
 const showSearchError = (key, details) => {

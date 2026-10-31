@@ -322,6 +322,28 @@ const checkPrivacy = async (restarted) => {
   if (root.dataset.theme !== 'dark') throw new Error('dark theme not applied');
   document.getElementById('theme-system').click();
   if ('theme' in root.dataset) throw new Error('system theme not restored');
+  const blockedPeer = 'f'.repeat(64);
+  const blocked = await invokeTest('block_peer', { peerId: blockedPeer });
+  if (blocked.revocation !== 'notNeeded') throw new Error(`unexpected block state: ${blocked.revocation}`);
+  await openArea('profile-area');
+  await openArea('settings');
+  await window.blockedShown;
+  const retry = document.getElementById('retry-revocation-1');
+  if (!retry || !document.getElementById('unblock-1')
+    || document.getElementById('blocked-revoke-status').textContent) {
+    throw new Error('blocked peer has no retry and unblock actions');
+  }
+  retry.click();
+  await window.revocationRetried;
+  if (document.getElementById('blocked-revoke-status').textContent
+    !== window.strings['settings.blocked.notNeeded']) {
+    throw new Error('retry did not report token revocation state');
+  }
+  document.getElementById('unblock-1').click();
+  await window.blockedShown;
+  if (!shown('blocked-none') || document.getElementById('blocked-list').children.length) {
+    throw new Error('unblock did not clear the blocked list');
+  }
 };
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {

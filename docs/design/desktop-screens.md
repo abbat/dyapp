@@ -161,12 +161,13 @@ only thumbnails; the full photos load here. Field values are claims of the owner
 nothing is shown as verified. Before a match the hint says one message can be sent until a reply.
 `profile-view-match`: a mutual like adds the match notice, Like becomes Liked (aria-pressed), and
 pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the match for both.
-Block is local, hides the peer from search and chats, sits apart from Like as a quiet button under
-the fields, and is undone in Settings. The desktop command now persists the local block before
-trying to revoke issued write tokens through one node. Its result says whether revocation was
-unneeded, still pending, or confirmed by that node. The Search and Settings UI still need to
-show pending or unknown network status and a Retry action. A successful node reply is best
-effort, not network-wide removal.
+Block hides the peer from local search and chats, sits apart from Like as a quiet button under
+the fields, and is undone in Settings. It also removes the peer from the Liked you list. The
+desktop command persists the local block before trying to revoke issued write tokens through one
+node. Search reports whether revocation was unneeded, still pending, or confirmed by that node.
+Settings offers Retry token revocation for each blocked peer. After reopening, the network
+status is unknown because the acknowledgement is not stored; Retry is available. A successful
+node reply is best effort, not network-wide removal.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -262,6 +263,7 @@ sending off never stops receiving.
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
+| Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |
 | Theme | `theme-system`, `theme-light`, `theme-dark` | System by default |
 | Language | `language` | |

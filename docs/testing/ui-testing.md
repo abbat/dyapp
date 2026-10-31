@@ -89,7 +89,10 @@ and remains available on Retry. Rust's connection-check test and a desktop smoke
 the Apple cancel path belongs to the later Apple failure matrix.
 The same native UI cases verify that Continue stays disabled after an invalid row; a shared
 unit test verifies that calling Activate then leaves the active settings absent.
-The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
+The shared Linux/Windows desktop smoke blocks a known Peer ID in Settings, checks that Retry
+reports the token revocation state, then unblocks it and checks that the list clears. The native
+search and Liked you blocking flow remains for later UI coverage. The shared Linux/Windows
+desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. Its final check also runs the short Peer ID
 rule on fixed IDs: "@" and the last 6 characters, one more for each tail another known ID shares,

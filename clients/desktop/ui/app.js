@@ -308,6 +308,7 @@ const showBlocked = async () => {
   } catch (_) {
     privacyError.hidden = false;
   }
+  document.getElementById('blocked-revoke-status').textContent = '';
   list.replaceChildren(...peers.map((peerId, index) => {
     const row = document.createElement('tr');
     const name = document.createElement('td');
@@ -324,8 +325,30 @@ const showBlocked = async () => {
         .catch(() => { privacyError.hidden = false; })
         .then(showBlocked);
     });
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn';
+    retry.id = `retry-revocation-${index + 1}`;
+    retry.textContent = window.strings['settings.blocked.retry'];
+    retry.addEventListener('click', () => {
+      window.revocationRetried = (async () => {
+        retry.disabled = true;
+        const status = document.getElementById('blocked-revoke-status');
+        try {
+          const result = await invoke('block_peer', { peerId });
+          status.textContent = window.strings[`settings.blocked.${result.revocation}`];
+        } catch (error) {
+          status.textContent = `${window.strings['settings.blocked.failed']} ${String(error)}`;
+        } finally {
+          retry.disabled = false;
+        }
+      })();
+    });
     const action = document.createElement('td');
-    action.append(button);
+    const buttons = document.createElement('div');
+    buttons.className = 'actions';
+    buttons.append(retry, button);
+    action.append(buttons);
     row.append(name, action);
     return row;
   }));
