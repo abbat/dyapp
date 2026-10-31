@@ -38,6 +38,9 @@ impl Store {
         if target == self.owner_peer_id {
             return Err(Error::InteractionConflict);
         }
+        if self.blocked(target)? {
+            return Err(Error::BlockedPeer);
+        }
         if kind == Kind::View && !self.send_profile_views()? {
             return Ok(None);
         }
@@ -69,6 +72,9 @@ impl Store {
             || (event.kind == Kind::View && !self.send_profile_views()?)
         {
             return Err(Error::InteractionConflict);
+        }
+        if self.blocked(target)? {
+            return Err(Error::BlockedPeer);
         }
         let tx = self.db.transaction()?;
         let hlc = Timestamp::from(event.hlc);
@@ -602,6 +608,37 @@ mod tests {
             own(&mut store, &b, Kind::Like, 2_000).unwrap().hlc,
             hlc(61_000, 2)
         );
+    }
+
+    #[test]
+    fn blocked_peer_cannot_receive_new_interactions_or_outbox_writes() {
+        let alice = Identity::generate();
+        let bob = Identity::generate().peer_id();
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let draft = store
+            .draft_interaction(&bob, Kind::Like, 1_000)
+            .unwrap()
+            .unwrap();
+        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+        store.set_blocked(&bob, true).unwrap();
+        for kind in [Kind::Like, Kind::Unlike, Kind::View] {
+            assert!(matches!(
+                store.draft_interaction(&bob, kind, 1_000),
+                Err(Error::BlockedPeer)
+            ));
+        }
+        assert!(matches!(
+            store.stage_interaction(&bob, b"device", draft, b"sealed", &[write]),
+            Err(Error::BlockedPeer)
+        ));
+        assert_eq!(store.likes(&bob).unwrap(), Likes::default());
+        assert!(store.due_outbound(0).unwrap().is_empty());
+        assert!(store.sealed_device().unwrap().is_none());
+        store.set_blocked(&bob, false).unwrap();
+        assert!(store
+            .draft_interaction(&bob, Kind::Like, 1_000)
+            .unwrap()
+            .is_some());
     }
 
     #[test]

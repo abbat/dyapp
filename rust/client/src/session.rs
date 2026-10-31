@@ -418,6 +418,9 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Option<Interaction>, Error> {
         let peer = self.peer_in(profiles)?;
+        if self.store.blocked(&peer)? {
+            return Err(crate::store::Error::BlockedPeer.into());
+        }
         if let Some(group_id) = self.pair_group(&peer) {
             return self.interact(nodes, &group_id, kind, seal_key).await;
         }

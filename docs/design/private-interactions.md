@@ -93,9 +93,12 @@ an unnecessary preference signal.
 The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
 and `Session::receive` connect the codec, store and short-padded signal delivery; the protocol
 test covers match, unlike, replayed put, offline retry and daily view. Concurrent own devices
-(fixture 5) wait for device sync, and no app shows a like yet. `Session::interact` now commits the
-local event, sealed MLS state and encrypted outbox together before sending; offline retry after a
-restart reuses the exact staged signal.
+(fixture 5) wait for device sync; the Linux desktop Search and Liked you views show likes.
+`Session::interact` commits the local event, sealed MLS state and encrypted outbox together
+before sending; offline retry after a restart reuses the exact staged signal. A local block refuses new outgoing like, unlike and view
+signals at draft and commit time, before any outbox write. A prior delivered like is not erased by
+blocking; the user must undo it before blocking or unblock to send an unlike. This is local
+moderation, not remote erasure.
 
 `rust/client::store::Store::apply_interaction` covers the local state part of
 fixtures 2–5. It takes the sender and target identities, the sender device ID and a decoded
