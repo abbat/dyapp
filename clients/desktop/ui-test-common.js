@@ -1,6 +1,6 @@
 // Runs in the actual Tauri webview after the bundled page loads.
 const invokeTest = window.__TAURI__.core.invoke;
-const fail = (error) => invokeTest('ui_test_result', {
+window.fail = (error) => invokeTest('ui_test_result', {
   passed: false, peerId: '', reason: String(error),
 });
 const frames = () => new Promise((resolve) => {
@@ -62,7 +62,7 @@ const audit = async (name) => {
   if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
 };
 // Audits the current screen, then saves its screenshots when the run asks for them.
-const shot = async (name) => {
+window.shot = async (name) => {
   await audit(name);
   await invokeTest('ui_test_shot', { name }).catch(() => {});
 };

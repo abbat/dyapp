@@ -45,6 +45,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         .encode_to_vec(),
     );
     // Rejected without the profile, and answered at once rather than replicated.
+    eprintln!("keypackage test: reject before profile");
     assert_eq!(
         status(
             client
@@ -54,6 +55,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         ),
         Status::Denied
     );
+    eprintln!("keypackage test: publish profile");
     assert_eq!(
         status(
             client
@@ -64,6 +66,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         Status::Ok
     );
     // Search-only withdrawal leaves the store's signed device directory intact.
+    eprintln!("keypackage test: publish search profile");
     let tombstone = Profile::tombstone(2, 0, 0).sign(&owner);
     assert_eq!(
         status(
@@ -74,6 +77,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         ),
         Status::Ok
     );
+    eprintln!("keypackage test: publish search tombstone");
     assert_eq!(
         status(
             client
@@ -83,6 +87,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         ),
         Status::Ok
     );
+    eprintln!("keypackage test: publish key package while hidden");
     assert_eq!(
         status(
             client
@@ -133,6 +138,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         );
     }
     // Final withdrawal reaches profile storage; known-peer KeyPackage lookup now stops.
+    eprintln!("keypackage test: publish final profile tombstone");
     assert_eq!(
         status(
             client
@@ -147,6 +153,7 @@ async fn keypackage_publish_and_consume_over_tcp() {
         Status::NotFound
     );
     // A final profile-store tombstone cannot be revived while the node retains it.
+    eprintln!("keypackage test: reject revival");
     let revived = Profile {
         version: 3,
         ..Default::default()
