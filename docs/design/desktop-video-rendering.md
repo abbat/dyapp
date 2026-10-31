@@ -1,7 +1,8 @@
 # Desktop video frame rendering spike
 
-> **Status:** a synthetic Linux debug-build source exists; the Canvas consumer and measurements
-> are planned. No platform app renders call media yet. No latency or CPU result has been measured.
+> **Status:** a synthetic Linux debug-build source and test-only Canvas consumer exist; the
+> native channel smoke and host measurements are planned. No platform app renders call media yet.
+> No latency or CPU result has been measured.
 
 [The video core](../architecture/video.md#what-exists-today) has offer/answer and connection
 state, but no capture, media track or decoded-frame callback. Linux and Windows desktop apps do
@@ -24,10 +25,13 @@ The Linux debug build now has a `ui_test_video_frames` command, guarded at runti
 worker, and uses Tauri's binary `Channel<InvokeResponseBody>::Raw`. Each frame has a 20-byte
 little-endian header: `DVF1`, width and height as `u16`, sequence as `u32`, and Unix send time
 in microseconds as `u64`, followed by packed RGBA bytes. The source reuses one pixel template
-and copies it per frame. Release builds do not register the command. The next checkpoint will
-receive the bytes in JavaScript as `ArrayBuffer` and paint one persistent Canvas 2D surface
-with `ImageData` and `putImageData`. Tauri documents that `Channel<Vec<u8>>` serializes bytes
-as a JSON array, so the benchmark uses the raw form
+and copies it per frame. Release builds do not register the command. A test-only JavaScript
+consumer now validates the raw `ArrayBuffer`, exact dimensions and length, magic, safe timestamp
+and increasing sequence. It keeps one pending frame, paints on the next animation frame using one
+Canvas 2D context with `ImageData` and `putImageData`, and drops an older pending frame. It tracks
+scalar produced, delivered, painted, dropped and error counts plus the latest 120 frame ages and
+p50/p95 ages. The native channel hookup is the next checkpoint. Tauri documents that
+`Channel<Vec<u8>>` serializes bytes as a JSON array, so the benchmark uses the raw form
 ([Tauri Channel API](https://docs.rs/tauri/latest/tauri/ipc/struct.Channel.html)).
 A bounded queue keeps at most one pending frame; when the renderer falls behind, it drops the
 older frame rather than growing memory or showing stale video. Frame payloads carry width,
@@ -70,5 +74,6 @@ benchmark does not prove real-call performance.
 | Encoded frames to WebView media element | Much smaller IPC payload if a supported decode path exists. | Codec/container/MSE support and buffering vary by installed WebKitGTK and GStreamer plugins. |
 | Native GTK/GStreamer surface | May reduce copies and give control over video timing. | Separate Linux integration and overlay/focus behavior; harder to share with Windows. |
 
-Next checkpoint: add the Canvas consumer, bounded metrics and Linux UI smoke for this source;
-then record measurements on a named Debian 12 host before choosing the production renderer.
+Next checkpoint: wire the raw channel into the Linux native UI smoke and check both sizes and
+metrics; then record measurements on a named Debian 12 host before choosing the production
+renderer.
