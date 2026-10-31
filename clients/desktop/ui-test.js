@@ -33,6 +33,7 @@ const audit = async (name) => {
     }
   }
   const before = document.activeElement;
+  const [scrollLeft, scrollTop] = [window.scrollX, window.scrollY];
   const focusable = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
   for (const element of document.querySelectorAll(focusable)) {
     if (element.disabled || !visible(element)) continue;
@@ -50,9 +51,14 @@ const audit = async (name) => {
   });
   await frames();
   const overflow = root.scrollWidth - root.clientWidth;
+  const wide = [...document.querySelectorAll('body *')]
+    .filter((element) => element.scrollWidth > element.clientWidth + 1 && visible(element))
+    .slice(-3).map((element) => element.id || element.className || element.tagName);
   await invokeTest('ui_test_window', { set: window0 });
   await frames();
-  if (overflow > 0) problems.push(`overflow ${overflow}px at 440`);
+  // Focusing and the narrow window scroll the page; the checks after the audit expect it as it was.
+  window.scrollTo(scrollLeft, scrollTop);
+  if (overflow > 0) problems.push(`overflow ${overflow}px at 440: ${wide}`);
   if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
 };
 // Audits the current screen, then saves its screenshots when the run asks for them.
@@ -144,7 +150,11 @@ const checkCopy = async (id, source) => {
 const pickReady = async (mode) => {
   const pick = document.querySelector(
     `#identities button[data-status="ready"][data-mode="${mode}"]`);
-  if (!pick) throw new Error('no ready identity in the picker');
+  if (!pick) {
+    const shown = [...document.querySelectorAll('#identities button')]
+      .map((button) => `${button.dataset.status}/${button.dataset.mode}`);
+    throw new Error(`no ready ${mode} identity in the picker: ${shown}`);
+  }
   await shot('picker');
   pick.click();
   await waitFor('identity');
@@ -975,6 +985,11 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
         && document.getElementById('remove-identity').hidden,
     };
     const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+    if (!checks.onTop) {
+      const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      failed.push(`covered by ${top?.id || top?.className || top?.tagName} at ${Math.round(rect.x)}`
+        + ` ${Math.round(rect.y)} in ${innerWidth}x${innerHeight} scroll ${scrollY}`);
+    }
     return invokeTest('ui_test_result', {
       passed: failed.length === 0, peerId, reason: failed.join(','),
     });

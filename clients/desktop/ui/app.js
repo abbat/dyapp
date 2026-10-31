@@ -375,6 +375,8 @@ const showArea = (area) => {
     else button.removeAttribute('aria-current');
   }
   setMenu(false);
+  // The page scrolls as a whole, so a new area would open at the old area's offset.
+  window.scrollTo(0, 0);
   if (area === 'settings') showSettings();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {

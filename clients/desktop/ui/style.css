@@ -27,7 +27,8 @@
   --ok: #1e7a3c;
   --warn: #8a5a00;
   --warn-soft: #fbefd4;
-  --focus: 0 0 0 3px #1f5fbf66;
+  --focus-color: #1f5fbf66;
+  --focus: 0 0 0 3px var(--focus-color);
   color-scheme: light;
 }
 
@@ -90,7 +91,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: var(--surface); }
 .btn.quiet { border-color: transparent; background: transparent; color: var(--accent); }
 .btn:disabled { opacity: 0.5; cursor: default; }
+/* WebKit drops box-shadow on native selects, radios and checkboxes, so they get an outline. */
 :focus-visible, .focus { outline: none; box-shadow: var(--focus); }
+:is(select, input[type="radio"], input[type="checkbox"]):focus { outline: 3px solid var(--focus-color); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end;
   margin-top: var(--space-4); }
 .actions .start { margin-right: auto; }
@@ -138,6 +141,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .notice pre, #seed-rows pre { margin: 0 0 var(--space-2); white-space: pre-wrap;
   overflow-wrap: anywhere; font-family: var(--mono); font-size: 0.8125rem; }
 #seed-rows details > summary { margin-bottom: var(--space-1); }
+#node-status { overflow-wrap: anywhere; }
 .empty { text-align: center; padding: var(--space-6) var(--space-4); color: var(--muted); }
 .empty svg.icon { width: 40px; height: 40px; margin-bottom: var(--space-2); }
 .skeleton { height: 72px; border-radius: var(--radius); margin-bottom: var(--space-3);
