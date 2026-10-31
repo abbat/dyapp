@@ -195,6 +195,9 @@ impl Session {
         let keys = self
             .store
             .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
+        if keys.is_empty() {
+            return Ok(());
+        }
         scores::first(&mut self.scores, nodes, Node::peer, async |node| {
             node.revoke_tokens(device_key, &keys).await
         })

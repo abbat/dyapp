@@ -162,7 +162,11 @@ nothing is shown as verified. Before a match the hint says one message can be se
 `profile-view-match`: a mutual like adds the match notice, Like becomes Liked (aria-pressed), and
 pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the match for both.
 Block is local, hides the peer from search and chats, sits apart from Like as a quiet button under
-the fields, and is undone in Settings.
+the fields, and is undone in Settings. The desktop command now persists the local block before
+trying to revoke issued write tokens through one node. Its result says whether revocation was
+unneeded, still pending, or confirmed by that node. The Search and Settings UI still need to
+show pending or unknown network status and a Retry action. A successful node reply is best
+effort, not network-wide removal.
 
 | Control | ID | Notes |
 | --- | --- | --- |

@@ -46,10 +46,15 @@ default to `limits.require_write_tokens`, so a contact's tokened write passes a 
 tokenless pool a stranger has filled.
 `tokens::revoke` marks every key a device issued to a contact revoked and sends its node a
 device-signed `revoke`, 64 keys at a time, so that contact's later writes fall back to the pool.
-`Session::block` records a local block (store `peers` table), sends that revoke through the
-first node by score and signs the contact no more tokens; a failed revoke keeps the block and can
-be repeated. `Session::unblock` clears the flag only: revoked keys stay revoked, and the contact
-gets tokens again for the days it asks anew.
+`Session::block` records a local block (store `peers` table) and signs the contact no more
+tokens. If no live token keys were issued, it needs no node. Otherwise it sends a revoke through
+the first node by score; a failed revoke keeps the block and can be repeated. The desktop
+`block_peer` command accepts a well-formed Peer ID even if it was not in the current search
+results, returns `notNeeded`, `pending`, or `confirmed` for this attempt, and never rolls back
+the local block after a network failure. `confirmed` means one node accepted, not that every
+replica did. The UI still needs a visible Retry control for pending or unknown network status.
+`Session::unblock` clears the flag only: revoked keys stay revoked, and the contact gets tokens
+again for the days it asks anew.
 On receive, a blocked owner's Welcome is refused, and its messages advance MLS state and are
 acknowledged but get no history, receipt or token answer; its likes and views are dropped too.
 `search::search` takes `Store::blocked_peers` and neither fetches nor returns their profiles.
@@ -108,7 +113,7 @@ so a failed put retries the same event even after restart;
 future and skips one from another own device until device sync exists. `Session::likes` reads the
 match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the
 signal class.
-No app shows a like yet.
+The Linux desktop Search and Liked you views show likes; other platform UI remains planned.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.

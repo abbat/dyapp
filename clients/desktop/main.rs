@@ -538,17 +538,6 @@ async fn search_profiles(
     .map_err(|e| e.to_string())?
 }
 
-/// Blocks a found peer on this device; see `search::block`.
-#[tauri::command]
-fn block_peer(
-    state: tauri::State<'_, IdentityState>,
-    searching: tauri::State<'_, search::SearchState>,
-    peer_id: String,
-) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    search::block(&searching.0, &dir, &identity, &peer_id)
-}
-
 /// The open identity's privacy settings; see `privacy::load`.
 #[tauri::command]
 fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
@@ -904,7 +893,7 @@ fn main() {
             withdraw_profile,
             send_search_profile,
             search_profiles,
-            block_peer,
+            chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,
             chats::commands::liked_you,
