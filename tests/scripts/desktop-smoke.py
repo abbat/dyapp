@@ -140,7 +140,8 @@ def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
         raise RuntimeError(f"published profile readback failed: {result}")
     payload = signed_profile_payload(result["record"])
     if (payload == draft[0]) == hidden:
-        raise RuntimeError("node readback has wrong hidden or published version")
+        raise RuntimeError(
+            "node readback has wrong hidden or published version")
     return payload
 
 
@@ -161,7 +162,10 @@ def forge_search_signature(node_storage):
 
 
 def video_smoke(case, reports):
-    """Linux-only raw Tauri channel and Canvas smoke, separate from account flows."""
+    """Linux-only raw Tauri channel and Canvas smoke.
+
+    Runs separately from account flows.
+    """
     for size in ("360p", "720p"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             case(f"video-{size}", [f"--ui-test-step=video:{size}"],
@@ -197,8 +201,9 @@ def smoke(executable, flows=True):
         print(process.stderr, end="", file=sys.stderr)
         result = {"case": name, "exit": process.returncode, "passed": True}
         if name.startswith("video-"):
-            metrics = re.search(r"^UI_SMOKE_METRICS:video:(?:360p|720p):(\{[^\n]{1,500}\})$",
-                                process.stdout, re.M)
+            metrics = re.search(
+                r"^UI_SMOKE_METRICS:video:(?:360p|720p):(\{[^\n]{1,500}\})$",
+                process.stdout, re.M)
             if not metrics:
                 raise RuntimeError(f"{name} did not report bounded metrics")
             result["metrics"] = json.loads(metrics[1])
@@ -432,7 +437,8 @@ def smoke(executable, flows=True):
                              profile, timeout=180)
             if published != peer_id:
                 raise RuntimeError("publishing replaced the identity")
-            visible_payload = check_profile_readback(node, seed, peer_id, env, storage)
+            visible_payload = check_profile_readback(
+                node, seed, peer_id, env, storage)
             case("search", [*file, "--ui-test-step=search"], profile,
                  timeout=180)
             forge_search_signature(storage / "node")
@@ -446,18 +452,22 @@ def smoke(executable, flows=True):
             case("profile-unhide", [*file, "--ui-test-step=profile-unhide"],
                  profile, timeout=180)
             check_profile_readback(node, seed, peer_id, env, storage)
-            # A separate client root keeps the first identity's removal flow intact while
-            # both published Peer IDs coexist on the same loopback node for interaction tests.
-            peer_root = Path(tempfile.mkdtemp(prefix="like-peer-", dir=reports))
+            # Keep the first identity's removal flow intact while both
+            # published Peer IDs coexist on the loopback node.
+            peer_root = Path(tempfile.mkdtemp(
+                prefix="like-peer-", dir=reports))
             other_peer = case("peer-create", file, peer_root)
             if other_peer == peer_id:
-                raise RuntimeError("two client roots generated the same Peer ID")
+                raise RuntimeError(
+                    "two client roots generated the same Peer ID")
             if case("peer-connect", [*file, f"--ui-test-step=connect:{seed}"],
                     peer_root) != other_peer:
-                raise RuntimeError("connecting the second client changed its Peer ID")
+                raise RuntimeError(
+                    "connecting the second client changed its Peer ID")
             if case("peer-publish", [*file, "--ui-test-step=profile-publish"],
                     peer_root, timeout=180) != other_peer:
-                raise RuntimeError("publishing the second client changed its Peer ID")
+                raise RuntimeError(
+                    "publishing the second client changed its Peer ID")
             check_profile_readback(node, seed, other_peer, env, peer_root)
             check_profile_readback(node, seed, peer_id, env, storage)
             # A first run that connects on the wizard's network step.
@@ -489,7 +499,8 @@ def smoke(executable, flows=True):
             server.terminate()
             server.wait(timeout=30)
 
-    if flows and sys.platform.startswith("linux") and os.environ.get("DYAPP_VIDEO_SMOKE") == "1":
+    if (flows and sys.platform.startswith("linux")
+            and os.environ.get("DYAPP_VIDEO_SMOKE") == "1"):
         video_smoke(case, reports)
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
