@@ -5,8 +5,8 @@ It combines the existing like/unlike ledger ([private interactions](private-inte
 MLS chats ([messaging](../architecture/messaging.md)) and the desktop screens
 ([Found profile and Chats](desktop-screens.md#chats)). Likes, matches, texts, the
 store's conversation state (`Store::conversation`), the request's text-only rule and the
-canonical pair group (`Session::send_text_to`) work in the Rust client today; the FFI and app UI
-below do not exist yet.
+canonical pair group (`Session::send_text_to`) work in the Rust client today, and the FFI exports
+them as `ChatSession`; the app UI below does not exist yet.
 
 ## State of a pair
 

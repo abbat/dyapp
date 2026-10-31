@@ -94,6 +94,11 @@ impl Session {
         Ok(self.store.likes(peer_id)?)
     }
 
+    /// Where the chat with `peer_id` stands.
+    pub fn conversation(&self, peer_id: &str) -> Result<crate::store::Conversation, Error> {
+        Ok(self.store.conversation(peer_id)?)
+    }
+
     /// Block `contact` (hex Peer ID): record it, sign it no more tokens, and revoke those it holds
     /// through the first node that answers. The block stays if the revoke fails; call again to
     /// repeat it.

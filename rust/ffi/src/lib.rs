@@ -1,6 +1,5 @@
-//! Native exports: identity keys, MLS encryption, photo previews and the bootstrap seed check; the
-//! message queue, profiles and video are prototypes with explicit stubs, and chat delivery
-//! (`dyapp-client`) is not exported yet.
+//! Native exports: identity keys, MLS encryption, pair chats, photo previews and the bootstrap
+//! seed check; the message queue, profiles and video are prototypes with explicit stubs.
 
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;
@@ -10,6 +9,8 @@ use zeroize::Zeroizing;
 
 #[cfg(target_os = "android")]
 mod android;
+mod chats;
+pub use chats::{ChatSession, ChatState};
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod network;

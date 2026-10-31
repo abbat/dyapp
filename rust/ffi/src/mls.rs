@@ -18,7 +18,7 @@ impl From<mls::Error> for CoreError {
     }
 }
 
-fn verified(profiles: &[Vec<u8>]) -> Result<Vec<VerifiedProfile>, CoreError> {
+pub(crate) fn verified(profiles: &[Vec<u8>]) -> Result<Vec<VerifiedProfile>, CoreError> {
     profiles
         .iter()
         .map(|bytes| {
@@ -37,7 +37,7 @@ fn poisoned<T>(_: T) -> CoreError {
 #[derive(uniffi::Object)]
 pub struct MlsDevice {
     device: Device,
-    state_key: Zeroizing<[u8; 32]>,
+    pub(crate) state_key: Zeroizing<[u8; 32]>,
 }
 
 #[uniffi::export]

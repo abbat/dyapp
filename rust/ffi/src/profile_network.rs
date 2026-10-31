@@ -69,7 +69,7 @@ async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<
 const NETWORK_STACK: usize = 16 << 20;
 
 /// Run blocking network work on its own thread with a stack the futures fit in.
-fn on_network_stack<T: Send>(
+pub(crate) fn on_network_stack<T: Send>(
     work: impl FnOnce() -> Result<T, CoreError> + Send,
 ) -> Result<T, CoreError> {
     std::thread::scope(|scope| {
