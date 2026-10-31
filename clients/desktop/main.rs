@@ -13,6 +13,7 @@ use tauri::Manager;
 
 #[path = "chats.rs"]
 mod chats;
+mod clipboard;
 #[path = "file_store.rs"]
 mod file_store;
 #[cfg(test)]
@@ -843,6 +844,7 @@ fn main() {
         });
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)));
     #[cfg(unix)]
     let builder = builder
@@ -904,6 +906,8 @@ fn main() {
             safety::contact_safety_number,
             safety::contact_safety_qr,
             safety::scan_contact_qr,
+            clipboard::copy_safety_number,
+            clipboard::clear_safety_clipboard,
             chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,

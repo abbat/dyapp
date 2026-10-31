@@ -138,6 +138,16 @@ buttons wrap cleanly at narrow widths, while the QR, instruction and adjacent
 profile actions remain visible. No open H1–H10 finding. The prototype does not
 exercise a physical camera; native CI and real-device checks are separate.
 
+### Safety-number copy layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-copy-review-20261031/`. The copy action stays adjacent
+to the grouped number, the QR and scan controls remain readable, and the
+neighbouring profile actions remain visible. No open H1–H10 finding. Clipboard
+expiry is covered by a separate behavioral test, not by these static images.
+
 ### Accepted exceptions
 
 None.

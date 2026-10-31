@@ -229,6 +229,23 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
+document.getElementById('copy-safety-number').addEventListener('click', () => {
+  const button = document.getElementById('copy-safety-number');
+  const source = document.getElementById('view-safety-number');
+  const peerId = viewed?.found.peerId;
+  const token = ++clipboardCopyToken;
+  window.safetyCopied = invoke('copy_safety_number', { peerId }).then((copy) => {
+    button.textContent = window.strings['action.copied'];
+    setTimeout(() => { button.textContent = window.strings['view.safety.copy']; }, 2000);
+    setTimeout(() => {
+      window.safetyClearDone = token === clipboardCopyToken
+        ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
+        : Promise.resolve(false);
+    }, 60000);
+  }, () => {
+    window.getSelection().selectAllChildren(source);
+  });
+});
 const drawContactQr = ({ size, modules }) => {
   if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
     throw new Error('invalid contact QR matrix');

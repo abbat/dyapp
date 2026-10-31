@@ -275,6 +275,7 @@
   "view.safety.failed": "Не удалось показать номер безопасности.",
   "view.safety.qr": "QR-код для сверки этого контакта",
   "view.safety.image": "Сканировать PNG или JPEG с QR-кодом собеседника",
+  "view.safety.copy": "Копировать номер безопасности",
   "view.safety.camera.start": "Сканировать камерой",
   "view.safety.camera.stop": "Остановить камеру",
   "view.safety.camera.starting": "Запуск камеры…",

@@ -176,6 +176,7 @@ node reply is best effort, not network-wide removal.
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
 | Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs; still unverified |
+| Copy safety number | `copy-safety-number` | Copies grouped digits; attempts to clear after 60 seconds only while unchanged |
 | Match notice | `view-match` | Match only |
 | Message | `view-message` | `view-message-match` after a match |
 | Like | `view-like` | `view-unlike` (Liked) after a match |
@@ -191,6 +192,9 @@ contact. Both scan paths reject foreign codes with a localized result; image
 import also rejects malformed and multiple codes. The camera stops on exit and
 reports denial or an unavailable device. A real Debian 12 camera check and the
 verified mark are pending ([capture notes](desktop-camera-capture.md)).
+The copy button does not change verification state. Its native clipboard hint
+and timed cleanup are best effort
+([privacy limits](../security/privacy.md#safety-number-clipboard)).
 
 `unlike-dialog` confirms taking the like back.
 

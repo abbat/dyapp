@@ -159,4 +159,34 @@ globalThis.checkSafetyNumber = async () => {
     if (mediaDescriptor) Object.defineProperty(navigator, 'mediaDevices', mediaDescriptor);
     else delete navigator.mediaDevices;
   }
+  const originalTimeout = globalThis.setTimeout;
+  const expiries = [];
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay === 60000) { expiries.push(callback); return 0; }
+    return originalTimeout(callback, delay, ...args);
+  };
+  try {
+    const copy = document.getElementById('copy-safety-number');
+    copy.click();
+    await window.safetyCopied;
+    if (copy.textContent !== window.strings['action.copied'] || expiries.length !== 1) {
+      throw new Error('safety copy was not scheduled');
+    }
+    expiries.shift()();
+    if (await window.safetyClearDone !== true) throw new Error('safety copy did not expire');
+    copy.click();
+    await window.safetyCopied;
+    const other = await invoke('copy_safety_number', { peerId: '00'.repeat(32) });
+    if (other === number) throw new Error('second safety number was not different');
+    expiries.shift()();
+    if (await window.safetyClearDone !== false) throw new Error('expiry erased a later clipboard value');
+    copy.click();
+    await window.safetyCopied;
+    document.getElementById('copy-view-peer').click();
+    await window.copied;
+    expiries.shift()();
+    if (await window.safetyClearDone !== false) throw new Error('safety expiry erased an ordinary Peer ID copy');
+  } finally {
+    globalThis.setTimeout = originalTimeout;
+  }
 };

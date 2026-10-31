@@ -275,6 +275,7 @@
   "view.safety.failed": "Could not show the safety number.",
   "view.safety.qr": "QR code for comparing this contact",
   "view.safety.image": "Scan a PNG or JPEG of their QR code",
+  "view.safety.copy": "Copy safety number",
   "view.safety.camera.start": "Scan with camera",
   "view.safety.camera.stop": "Stop camera",
   "view.safety.camera.starting": "Starting camera…",

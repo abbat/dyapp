@@ -6,6 +6,7 @@ rust-version = "1.99"
 
 [dependencies]
 tauri = { version = "=2.12.3", features = ["tray-icon"] }
+tauri-plugin-clipboard-manager = "=2.5.0"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-client = { path = "../../rust/client" }
 dyapp-identity = { path = "../../rust/identity" }

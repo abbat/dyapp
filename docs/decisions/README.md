@@ -73,5 +73,6 @@ fails only the push that carries it.
 | [0034](0034-desktop-tray-and-single-instance.md) | Desktop tray and single instance |
 | [0035](0035-windows-free-disk-space.md) | Windows free disk space |
 | [0036](0036-search-visibility.md) | Search visibility is separate from profile deletion |
+| [0039](0039-sensitive-safety-clipboard.md) | Sensitive safety-number clipboard on desktop |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.
