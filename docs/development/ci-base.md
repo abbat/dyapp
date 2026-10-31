@@ -84,6 +84,14 @@ IPA by 41% and `dyappd` by 7.7%. Most of the mobile and macOS growth came when t
 libp2p swarm (SQLite, OpenMLS, libp2p, then relay and hole punching); the macOS ZIP carries
 two architectures, so it grows twice as fast. The APK also packaged an unstripped core and two
 unused `libif_watch-*.so` copies: the release build now strips the core and excludes them.
+The native Ubuntu, Windows, Android, IPA and macOS ZIP budgets were last recorded from
+`47c17300`, in the
+[2026-10-31 reproducible run](https://github.com/abbat/dyapp/actions/runs/41191897049) and
+[release-sizes run](https://github.com/abbat/dyapp/actions/runs/41191895390), with 10% headroom
+above each measured size, so routine growth does not fail the nightly gate; the 5% tolerance
+applies on top. Against the old budgets the Windows EXE grew by 235.6% since its 2026-10-20
+baseline, as it began to link the client core and libp2p; Linux by 18.4%, the IPA by 8.2%, the
+ZIP by 7.8% and `dyappd` by 0.2%, while the APK fell by 15.3% and the AAB by 4.1%.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as

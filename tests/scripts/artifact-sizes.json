@@ -10,45 +10,45 @@
     "revision": "c241f69fd0a93028efead153b1d85701bd2ff2d6"
   },
   "dyappd-ubuntu24-x86_64-release": {
-    "bytes": 21532616,
+    "bytes": 23723419,
     "environment": "ubuntu-24.04; rustc 1.99.0; x86_64; reproducible release runner",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40477943040"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
   },
   "linux-ubuntu24-x86_64-release": {
-    "bytes": 44221264,
+    "bytes": 57598429,
     "environment": "ubuntu-24.04; rustc 1.99.0; x86_64; reproducible release runner",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40477943040"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
   },
   "windows-2022-x86_64-release": {
-    "bytes": 8625152,
+    "bytes": 31841076,
     "environment": "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE",
-    "revision": "fd8c98b454a252fb5eefa1b18c395737bdfd4e94",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/39409459725"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   },
   "ios-macos15-arm64-release-unsigned-ipa": {
-    "bytes": 8649183,
+    "bytes": 10294138,
     "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; iOS device arm64 Release; unsigned IPA",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40484057583"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   },
   "android-apk-release-unsigned": {
-    "bytes": 77173845,
+    "bytes": 71867816,
     "environment": "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned APK",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40484057583"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   },
   "android-aab-release-unsigned": {
-    "bytes": 28592294,
+    "bytes": 30160837,
     "environment": "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned AAB",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40484057583"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   },
   "macos-macos15-universal-release-unsigned-zip": {
-    "bytes": 18612556,
+    "bytes": 22067678,
     "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; universal arm64/x86_64 Release; unsigned ZIP",
-    "revision": "6d705f8b249df0c10e31f993eb13f4b4162084fb",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/40484057583"
+    "revision": "47c17300df5146e5b16673615efad2c64da83315",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   }
 }
