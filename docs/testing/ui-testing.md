@@ -462,9 +462,9 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 ## Troubleshooting
 
-Linux unit/smoke stages, the standalone desktop smoke CLI and Windows Cargo
-checks use mapped concise output. Native Linux/Windows CI archives full logs
-from `build/platform-check-output`; JSON unit manifests and desktop result
+Linux unit/smoke stages, the standalone desktop smoke CLI, the Ubuntu release-tarball
+smoke and Windows Cargo checks use mapped concise output. Native Linux/Windows CI archives full
+logs from `build/platform-check-output`; JSON unit manifests and desktop result
 files keep their existing roles. If the Linux test binary fails to compile, the script prints up
 to eight compiler errors from its JSON manifest into the mapped failure output. Desktop failures
 include only the failed app invocation output, so the expected `--break-ui` rejection is not
