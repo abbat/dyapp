@@ -20,15 +20,16 @@ calls it while polling the active identity's mailbox; the chat text UI remains p
 
 The app supplies an absolute database path to the Rust store; the store never guesses an OS
 directory or creates an identity key. On desktop, a new identity's database belongs under
-`<app-config>/profiles/<slot>/client.sqlite3`; the virtual legacy identity uses
-`<app-config>/client.sqlite3` without moving its key. Mobile apps supply a private per-profile
+`<app-config>/profiles/<slot>/client.db`; the virtual legacy identity uses
+`<app-config>/client.db` without moving its key. Mobile apps supply a private per-profile
 path in their own app data directory. The random local slot is a filesystem name, never a network
 identifier. A database records the Peer ID derived from its selected identity key on first open
 and refuses a different key thereafter. A separate database per profile avoids accidental
 cross-profile joins and keeps local deletion scoped to the selected slot. The intended lifecycle
 serializes writers per slot and drains old network work before switching. The current Tauri shell
 serializes MLS commands but does not yet quiesce all in-flight commands on a switch or removal;
-see the [desktop runtime audit](../architecture/ffi-design.md#current-desktop-runtime-ownership).
+see the [desktop runtime audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
+and [planned lifecycle](desktop-runtime-lifecycle.md).
 Read-only multi-instance access is a later decision.
 
 The identity key and the 32-byte MLS sealing key stay in the platform key backend, not SQLite.

@@ -34,7 +34,7 @@ clearing the shared profile cache. `remove_identity` waits for the embedded node
 does not drain client commands before removing a slot. The UI asks the node to apply the new
 identity after rendering it. These are current boundaries, not a guarantee that old network
 work has stopped when another identity appears. The planned per-identity lifecycle and its
-switch/removal race tests are tracked with the [storage contract](../design/client-local-storage.md#ownership-and-location).
+switch/removal race tests are specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
 

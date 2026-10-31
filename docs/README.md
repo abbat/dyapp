@@ -32,6 +32,7 @@ it are entry points that tools discover by path (see
 ### Product and operator design
 
 - [Client local storage](design/client-local-storage.md): per-profile SQLite ownership, migrations, crash-safe mailbox work and planned search visibility; [storage ADR](decisions/0025-client-local-sqlite-storage.md), [visibility ADR](decisions/0036-search-visibility.md)
+- [Desktop runtime lifecycle](design/desktop-runtime-lifecycle.md): planned identity switch/removal gate, cancellation and cache isolation
 - [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [Likes, matches and chats](design/chats-and-matches.md): planned per-pair state, message requests, one group per pair and own-device cases
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
