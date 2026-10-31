@@ -914,7 +914,11 @@ fn main() {
                     webview.eval(axe.as_str()).expect("load axe-core");
                 }
                 webview
-                    .eval(include_str!("ui-test.js"))
+                    .eval(format!(
+                        "{}\n{}",
+                        include_str!("ui-test-common.js"),
+                        include_str!("ui-test.js")
+                    ))
                     .expect("start UI test");
             }
         })

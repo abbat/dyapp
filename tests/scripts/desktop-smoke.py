@@ -115,7 +115,7 @@ def signed_profile_payload(record_hex):
 def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
     """Node's signed profile payload must equal the published local draft.
 
-    Hidden, the node holds a tombstone instead and the store keeps the flag.
+    Hidden, the node retains the ordinary record and the local draft advances.
     """
     slot = (storage / "active-profile").read_text().strip()
     database = storage / "profiles" / slot / "client.db"
@@ -138,11 +138,10 @@ def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
     result = json.loads(readback.stdout)
     if result.get("status") != "STATUS_OK" or not result.get("record"):
         raise RuntimeError(f"published profile readback failed: {result}")
-    if (signed_profile_payload(result["record"]) == draft[0]) == hidden:
-        what = "differs from UI draft"
-        if hidden:
-            what = "still shows the hidden draft"
-        raise RuntimeError(f"node signed readback {what}")
+    payload = signed_profile_payload(result["record"])
+    if (payload == draft[0]) == hidden:
+        raise RuntimeError("node readback has wrong hidden or published version")
+    return payload
 
 
 def forge_search_signature(node_storage):
@@ -419,7 +418,7 @@ def smoke(executable, flows=True):
                              profile, timeout=180)
             if published != peer_id:
                 raise RuntimeError("publishing replaced the identity")
-            check_profile_readback(node, seed, peer_id, env, storage)
+            visible_payload = check_profile_readback(node, seed, peer_id, env, storage)
             case("search", [*file, "--ui-test-step=search"], profile,
                  timeout=180)
             forge_search_signature(storage / "node")
@@ -427,8 +426,12 @@ def smoke(executable, flows=True):
                  profile, timeout=180)
             case("profile-hide", [*file, "--ui-test-step=profile-hide"],
                  profile, timeout=120)
-            check_profile_readback(node, seed, peer_id, env, storage,
-                                   hidden=True)
+            if check_profile_readback(node, seed, peer_id, env, storage,
+                                      hidden=True) != visible_payload:
+                raise RuntimeError("Hide changed the direct profile record")
+            case("profile-unhide", [*file, "--ui-test-step=profile-unhide"],
+                 profile, timeout=180)
+            check_profile_readback(node, seed, peer_id, env, storage)
             # A first run that connects on the wizard's network step.
             with tempfile.TemporaryDirectory(dir=reports) as fresh:
                 case("wizard-connect",
