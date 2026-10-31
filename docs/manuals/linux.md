@@ -135,6 +135,8 @@ make deb      # → build/deb/dyapp_<version>_<arch>.deb and dyapp-<version>-<ma
 
 Both are built in Debian 12, so they run on Debian 12 and newer systems with glibc 2.36 or later.
 `make deb` installs each on a clean Debian 12 and opens and closes the window under Xvfb.
+The release workflow also extracts and launches the built tarball on Ubuntu 24.04 before
+publishing a tag.
 
 The tagged release workflow is configured to publish both Linux client files with
 `SHA256SUMS` and build provenance. The v0.0.1 downloads are not available until that
@@ -155,7 +157,7 @@ English. Remove it with `sudo apt remove dyapp`.
 ## Install from the tarball
 
 The tarball holds `dyapp`, `dyapp.desktop`, `dyapp.png` and `LICENSE`. Install the libraries first
-(Debian and Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`), then:
+(Debian and Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libayatana-appindicator3-1`), then:
 
 ```sh
 tar -xzf dyapp-<version>-<machine>-linux-gnu.tar.gz

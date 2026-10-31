@@ -5,7 +5,8 @@ set -euo pipefail
 trap 'printf "client-deb-test failed at line %s\n" "$LINENO" >&2' ERR
 if [[ ${1:-} == --session ]]; then
     printf 'dyapp-ci-test-keyring' | gnome-keyring-daemon --unlock --components=secrets >/dev/null
-    exec python3 /tests/scripts/desktop-smoke.py "$2"
+    script_dir=$(cd "$(dirname "$0")" && pwd)
+    exec python3 "$script_dir/desktop-smoke.py" "$2"
 fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq

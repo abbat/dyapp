@@ -71,9 +71,56 @@ jobs:
             build/dyappd-image.tar.gz
           if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-client-release
+          path: |
+            build/release/dyapp_*.deb
+            build/release/dyapp-*-linux-gnu.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: release-check-output
+          path: build/release-check-output/
+          if-no-files-found: ignore
+
+  linux-ubuntu:
+    name: release - linux Ubuntu 24.04
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: linux-client-release
+          path: build/linux-client-release
+      - name: Install runtime libraries for the Ubuntu smoke
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            libwebkit2gtk-4.1-0 libayatana-appindicator3-1 \
+            xvfb xauth dbus-x11 gnome-keyring python3 python3-gi
+      - name: Extract and launch the release tarball
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' clients/linux/Cargo.toml | head -n 1)
+          archive="build/linux-client-release/dyapp-${version}-x86_64-linux-gnu.tar.gz"
+          test -f "$archive"
+          mkdir -p "$RUNNER_TEMP/linux-client"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/linux-client"
+          binary="$RUNNER_TEMP/linux-client/dyapp-${version}-x86_64-linux-gnu/dyapp"
+          test -x "$binary"
+          python3 tools/scripts/run-check.py --log-dir build/release-check-output \
+            linux-ubuntu-smoke -- env DYAPP_SMOKE_FIXTURE=1 DYAPP_XVFB_DIAGNOSTICS=1 \
+            RUNNER_TEMP="$RUNNER_TEMP/linux-smoke" \
+            xvfb-run -a -s '-screen 0 1024x768x24' dbus-run-session -- \
+            bash tests/scripts/client-deb-test.sh --session "$binary"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-linux-ubuntu-check-output
           path: build/release-check-output/
           if-no-files-found: ignore
 
@@ -190,7 +237,7 @@ jobs:
 
   publish:
     name: release - publish
-    needs: [build, windows, android-sign]
+    needs: [build, linux-ubuntu, windows, android-sign]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 30

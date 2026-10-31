@@ -112,7 +112,7 @@ so until the first tag, build from a tagged commit with `make deb`.
 |----------|-------|
 | Debian 12 package `dyappd_X.Y.Z_amd64.deb` | GitHub Releases of `abbat/dyapp` |
 | Linux desktop package `dyapp_X.Y.Z_amd64.deb` | Same GitHub Release, after package-install and UI smoke tests |
-| Linux desktop tarball `dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz` | Same release, after extract-and-launch smoke on Debian 12 |
+| Linux desktop tarball `dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz` | Same release, after extract-and-launch smoke on Debian 12 and Ubuntu 24.04 |
 | Windows portable ZIP `dyapp-X.Y.Z-x86_64-windows.zip` | Same release, after native Windows UI smoke |
 | Tarball `dyappd-X.Y.Z-x86_64-linux-gnu.tar.gz` | GitHub Releases |
 | SPDX SBOM `dyappd-X.Y.Z.spdx.json` and `SHA256SUMS` | GitHub Releases |

@@ -120,6 +120,7 @@ make deb      # → build/deb/dyapp_<version>_<arch>.deb и dyapp-<version>-<mac
 
 Оба собираются в Debian 12, поэтому работают в Debian 12 и более новых системах с glibc 2.36 и
 выше. `make deb` устанавливает каждый в чистый Debian 12 и открывает и закрывает окно под Xvfb.
+Перед публикацией тега release workflow также распаковывает и запускает готовый архив в Ubuntu 24.04.
 
 При выпуске тега workflow добавляет оба файла Linux-клиента в релиз вместе с
 `SHA256SUMS` и подтверждением происхождения сборки. Файлы v0.0.1 появятся после
@@ -140,7 +141,7 @@ AppStream (`/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml`). Назва
 ## Установка из архива
 
 В архиве `dyapp`, `dyapp.desktop`, `dyapp.png` и `LICENSE`. Сначала поставьте библиотеки (Debian и
-Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`), затем:
+Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libayatana-appindicator3-1`), затем:
 
 ```sh
 tar -xzf dyapp-<version>-<machine>-linux-gnu.tar.gz
