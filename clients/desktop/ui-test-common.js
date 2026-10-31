@@ -64,5 +64,5 @@ const audit = async (name) => {
 // Audits the current screen, then saves its screenshots when the run asks for them.
 window.shot = async (name) => {
   await audit(name);
-  await invokeTest('ui_test_shot', { name }).catch(() => {});
+  await invokeTest('ui_test_shot', { name });
 };

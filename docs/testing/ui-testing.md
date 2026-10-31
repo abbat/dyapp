@@ -324,12 +324,14 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
   `--ui-test-ru`) for the `-ru` files, so the screenshots roughly double the desktop smoke time.
-  Without `DYAPP_UI_SHOTS` the command does nothing. A failed screenshot only logs to stderr.
-  States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `remove`, `recovery`,
-  `recovery-details`, `network-empty`,
-  `network-failure`, `network-connected`, `profile-edit`, `publish-dialog`,
-  `profile-publish-failed`, `profile-published`, `profile-hidden`, `search-not-connected`, `search-results`,
-  `search-profile`, `search-empty`, `search-error`, `remove-offline`. The in-progress network check and the publish puzzle finish
+  Without `DYAPP_UI_SHOTS` the command does nothing. A failed or empty screenshot fails the UI case.
+  States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `storage`,
+  `settings-storage`, `remove`, `remove-offline`, `recovery`, `recovery-details`,
+  `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
+  `publish-dialog`, `profile-publish-failed`, `profile-published`, `profile-hidden`,
+  `profile-unhidden-pending`, `search-not-connected`, `search-results`, `search-profile`,
+  `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where the test flow reaches
+  them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
   (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the

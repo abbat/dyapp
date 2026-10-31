@@ -673,8 +673,8 @@ fn ui_test_step() -> String {
 }
 
 /// UI test only, with `DYAPP_UI_SHOTS=<dir>`: saves the screen as `<dir>/<name>-<lang>-<width>.png`
-/// at a narrow and a wide window, then restores the size. An existing file is kept, and a failed
-/// screenshot never fails the test.
+/// at a narrow and a wide window, then restores the size. An existing file is kept; a failed or
+/// empty screenshot fails the test when capture is enabled.
 #[tauri::command]
 async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
     // A trace of the screens reached, so a timed-out suite shows where it stopped.
@@ -688,9 +688,14 @@ async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String>
     }
     let lang = if ui_test_russian() { "ru" } else { "en" };
     let original = window.inner_size().map_err(|e| e.to_string())?;
+    let mut failure = None;
     for width in [440u32, 1280] {
         let file = dir.join(format!("{name}-{lang}-{width}.png"));
         if file.exists() {
+            if !file.metadata().is_ok_and(|metadata| metadata.len() > 0) {
+                failure = Some(format!("screenshot {} is empty", file.display()));
+                break;
+            }
             continue;
         }
         let _ = window.set_position(tauri::LogicalPosition::new(0, 0));
@@ -702,12 +707,15 @@ async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String>
             .args(["-window", "root", "-crop", &crop, "+repage"])
             .arg(&file)
             .status();
-        if !shot.map(|s| s.success()).unwrap_or(false) {
-            eprintln!("screenshot {} failed", file.display());
+        if !shot.map(|s| s.success()).unwrap_or(false)
+            || !file.metadata().is_ok_and(|metadata| metadata.len() > 0)
+        {
+            failure = Some(format!("screenshot {} failed or is empty", file.display()));
+            break;
         }
     }
     let _ = window.set_size(original);
-    Ok(())
+    failure.map_or(Ok(()), Err)
 }
 
 #[tauri::command]
