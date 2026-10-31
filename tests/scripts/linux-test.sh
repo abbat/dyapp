@@ -22,7 +22,10 @@ shift
 manifest="$root/clients/linux/Cargo.toml"
 units="$root/build/unit-build.json"
 cargo build --manifest-path "$manifest" --locked
-cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"
+if ! cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"; then
+    python3 -B "$root/tests/scripts/cargo-errors.py" "$units" >&2
+    exit 1
+fi
 # The desktop smoke checks the connection form against a loopback dyappd.
 cargo build --manifest-path "$root/Cargo.toml" --locked -p dyapp-bootstrap --bin dyappd
 mkdir -p /tmp/ai
