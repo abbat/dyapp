@@ -276,6 +276,8 @@ const chatsMessage = (key, detail = '') =>
 const showChats = async () => {
   chatsMessage('chats.loading');
   try {
+    // A like that arrived since the last poll should be in the list.
+    await invoke('receive_mail').catch(() => 0);
     const found = await withPlaces(await invoke('liked_you'));
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
     likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
@@ -288,6 +290,11 @@ const showChats = async () => {
     else chatsMessage('chats.failed', code);
   }
 };
+// The mailbox is polled in the background; failures stay quiet, the next poll retries.
+setInterval(async () => {
+  const changed = await invoke('receive_mail').catch(() => 0);
+  if (changed && !document.getElementById('chats-area').hidden) window.chatsDone = showChats();
+}, 60000);
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));
