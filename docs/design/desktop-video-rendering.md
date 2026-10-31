@@ -1,7 +1,7 @@
 # Desktop video frame rendering spike
 
-> **Status:** benchmark plan. No platform app renders call media yet. No latency or CPU result
-> has been measured.
+> **Status:** a synthetic Linux debug-build source exists; the Canvas consumer and measurements
+> are planned. No platform app renders call media yet. No latency or CPU result has been measured.
 
 [The video core](../architecture/video.md#what-exists-today) has offer/answer and connection
 state, but no capture, media track or decoded-frame callback. Linux and Windows desktop apps do
@@ -19,10 +19,15 @@ previous experimental backend while a replacement is developed
 ([WebKitGTK release notes](https://webkitgtk.org/2026/09/16/webkitgtk-2.54-highlights.html)).
 No rendering choice should depend on WebView WebRTC being present.
 
-The first experiment sends synthetic RGBA frames through Tauri's binary
-`Channel<InvokeResponseBody>::Raw` to JavaScript as `ArrayBuffer`, then paints one persistent
-Canvas 2D surface with `ImageData` and `putImageData`. Tauri documents that `Channel<Vec<u8>>`
-serializes bytes as a JSON array, so the benchmark must use the raw form
+The Linux debug build now has a `ui_test_video_frames` command, guarded at runtime by
+`--ui-test`. It accepts `360p` or `720p` and 1–1800 frames, sends at 30 fps from a blocking
+worker, and uses Tauri's binary `Channel<InvokeResponseBody>::Raw`. Each frame has a 20-byte
+little-endian header: `DVF1`, width and height as `u16`, sequence as `u32`, and Unix send time
+in microseconds as `u64`, followed by packed RGBA bytes. The source reuses one pixel template
+and copies it per frame. Release builds do not register the command. The next checkpoint will
+receive the bytes in JavaScript as `ArrayBuffer` and paint one persistent Canvas 2D surface
+with `ImageData` and `putImageData`. Tauri documents that `Channel<Vec<u8>>` serializes bytes
+as a JSON array, so the benchmark uses the raw form
 ([Tauri Channel API](https://docs.rs/tauri/latest/tauri/ipc/struct.Channel.html)).
 A bounded queue keeps at most one pending frame; when the renderer falls behind, it drops the
 older frame rather than growing memory or showing stale video. Frame payloads carry width,
@@ -65,5 +70,5 @@ benchmark does not prove real-call performance.
 | Encoded frames to WebView media element | Much smaller IPC payload if a supported decode path exists. | Codec/container/MSE support and buffering vary by installed WebKitGTK and GStreamer plugins. |
 | Native GTK/GStreamer surface | May reduce copies and give control over video timing. | Separate Linux integration and overlay/focus behavior; harder to share with Windows. |
 
-Next checkpoint: implement the synthetic raw-frame harness behind a test-only command, then
-record measurements on a named Debian 12 host before choosing the production renderer.
+Next checkpoint: add the Canvas consumer, bounded metrics and Linux UI smoke for this source;
+then record measurements on a named Debian 12 host before choosing the production renderer.

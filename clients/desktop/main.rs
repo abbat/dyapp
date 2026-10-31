@@ -42,6 +42,8 @@ mod system_store;
 mod tray;
 #[path = "usage.rs"]
 mod usage;
+#[cfg(all(target_os = "linux", debug_assertions))]
+mod video_frames;
 #[path = "window.rs"]
 mod window;
 
@@ -667,8 +669,7 @@ fn ui_test_existing() -> bool {
     std::env::args().any(|arg| arg == "--ui-test-existing")
 }
 
-/// The extra flow a UI test drives: `add`, `pick`, `recovery`, `remove`, `network`,
-/// `network-restart` or `connect:<seed>`.
+/// UI test flow: add, pick, recovery, remove, network, network-restart, or connect:<seed>.
 #[tauri::command]
 fn ui_test_step() -> String {
     std::env::args()
@@ -676,9 +677,8 @@ fn ui_test_step() -> String {
         .unwrap_or_default()
 }
 
-/// UI test only, with `DYAPP_UI_SHOTS=<dir>`: saves the screen as `<dir>/<name>-<lang>-<width>.png`
-/// at a narrow and a wide window, then restores the size. An existing file is kept; a failed or
-/// empty screenshot fails the test when capture is enabled.
+/// UI test screenshot at narrow and wide widths, then restores size. Existing files are kept;
+/// failed or empty captures fail the test when `DYAPP_UI_SHOTS=<dir>` is set.
 #[tauri::command]
 async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
     // A trace of the screens reached, so a timed-out suite shows where it stopped.
@@ -932,6 +932,8 @@ fn main() {
             ui_test_window,
             ui_test_hide,
             ui_test_result,
+            #[cfg(all(target_os = "linux", debug_assertions))]
+            video_frames::ui_test_video_frames,
             set_tray,
             quit
         ])
