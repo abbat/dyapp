@@ -1,5 +1,6 @@
 FROM dyapp:linux-base
 USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth dbus-x11 gnome-keyring imagemagick python3-gi curl \
     && rm -rf /var/lib/apt/lists/*
 # axe-core 4.14.0 from npm for the UI test's accessibility audit, the same checksum as

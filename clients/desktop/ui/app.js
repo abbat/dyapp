@@ -378,7 +378,7 @@ const showArea = (area) => {
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
   if (area === 'settings') showSettings();
-  if (area === 'chats-area') window.chatsDone = showChats();
+  if (area === 'chats-area') window.chatsDone = window.showChats();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {
   button.addEventListener('click', () => showArea(button.dataset.area));
@@ -457,7 +457,7 @@ const birthValue = (part) => {
   return value === '' ? null : Number(value);
 };
 const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
-const placeText = (country, id) => (id ? invoke('place_name', {
+window.placeText = (country, id) => (id ? invoke('place_name', {
   country, id: Number(id), lang: window.locale,
 }).then((place) => (place ? placeLabel(place) : id)) : Promise.resolve(''));
 const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
@@ -769,7 +769,7 @@ async function render(state) {
     await window.showNetwork();
     window.connectionShown = connectAtLaunch();
     await showProfile();
-    resetSearch();
+    window.resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
     showArea('profile-area');
@@ -847,7 +847,7 @@ const showRemove = async () => {
   document.getElementById('remove-warning').hidden = !current.peerId || copies;
   // A published profile is withdrawn from search before the key goes.
   const view = current.status === 'ready' && await invoke('load_profile').catch(() => null);
-  removePublished = Boolean(view && view.published);
+  removePublished = Boolean(view?.published);
   document.getElementById('remove-text').hidden = !removePublished;
   removeAsk.hidden = false;
   removeOffline.hidden = true;

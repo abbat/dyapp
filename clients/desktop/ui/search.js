@@ -107,7 +107,7 @@ const resultCard = (found, id) => {
 const searchMain = document.getElementById('search-main');
 const profileView = document.getElementById('profile-view');
 const withPlaces = (profiles) => Promise.all(profiles.map(async (profile) => ({
-  ...profile, place: await placeText(profile.draft.country, profile.draft.place),
+  ...profile, place: await window.placeText(profile.draft.country, profile.draft.place),
 })));
 const viewStatus = document.getElementById('view-status');
 const showLikes = (likes) => {
@@ -256,7 +256,7 @@ const runSearch = async () => {
     setSearchBusy(false);
   }
 };
-const resetSearch = () => {
+window.resetSearch = () => {
   searchForm.reset();
   searchPlace.set(null);
   showSearchFilters([]);
@@ -273,7 +273,7 @@ const likedButton = document.getElementById('chats-liked');
 const likedList = document.getElementById('chats-liked-list');
 const chatsMessage = (key, detail = '') =>
   statusMessage(document.getElementById('chats-status'), 'chats-open-network', key, detail);
-const showChats = async () => {
+window.showChats = async () => {
   chatsMessage('chats.loading');
   try {
     // A like that arrived since the last poll should be in the list.
@@ -293,7 +293,7 @@ const showChats = async () => {
 // The mailbox is polled in the background; failures stay quiet, the next poll retries.
 setInterval(async () => {
   const changed = await invoke('receive_mail').catch(() => 0);
-  if (changed && !document.getElementById('chats-area').hidden) window.chatsDone = showChats();
+  if (changed && !document.getElementById('chats-area').hidden) window.chatsDone = window.showChats();
 }, 60000);
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';

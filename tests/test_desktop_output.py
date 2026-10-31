@@ -42,7 +42,7 @@ class DesktopOutput(unittest.TestCase):
                     self.assertEqual(result.stdout, "OK desktop-smoke\n")
                     data = json.loads(
                         (reports / "desktop-ui-results.json").read_text())
-                    self.assertEqual(len(data), 8)
+                    self.assertEqual(len(data), 9)
                     self.assertTrue(all(case["passed"] for case in data))
                 else:
                     self.assertEqual(result.returncode, 1)
@@ -140,12 +140,10 @@ class DesktopOutput(unittest.TestCase):
             (scripts / "linux-test.sh").write_text(
                 (ROOT / "tests/scripts/linux-test.sh").read_text())
             (scripts / "run-cargo-unit-binaries.py").write_text("")
-            target = root / "build"
-            target.mkdir(parents=True)
-            (target / "unit-build.json").write_text("")
-            (target / "debug").mkdir()
-            (target / "debug/dyappd").write_text("")
-            (target / "debug/dyappd").chmod(0o755)
+            (root / "build").mkdir()
+            cargo = root / "cargo"
+            cargo.write_text("#!/bin/sh\n")
+            cargo.chmod(0o755)
             xvfb = root / "xvfb-run"
             xvfb.write_text(
                 "#!/bin/sh\n"

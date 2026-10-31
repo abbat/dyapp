@@ -1,10 +1,11 @@
-"""ui-test.js is evaluated in the app page, so it must not redeclare app globals."""
+"""ui-test.js is evaluated in the app page: it must not redeclare globals."""
 from pathlib import Path
 import re
 import unittest
 
 UI = Path(__file__).resolve().parents[1] / "clients/desktop"
-TOP = re.compile(r"^(?:const|let|class|function\*?|async function) ([\w$]+)", re.M)
+TOP = re.compile(
+    r"^(?:const|let|class|function\*?|async function) ([\w$]+)", re.M)
 
 
 class GlobalsTest(unittest.TestCase):
@@ -12,7 +13,7 @@ class GlobalsTest(unittest.TestCase):
         app = {name for path in (UI / "ui").glob("*.js")
                for name in TOP.findall(path.read_text())}
         suite = set(TOP.findall((UI / "ui-test.js").read_text()))
-        # A clash is a SyntaxError on eval: the suite never starts and times out.
+        # A clash is a SyntaxError on eval: the suite never starts.
         self.assertEqual(sorted(app & suite), [])
 
 
