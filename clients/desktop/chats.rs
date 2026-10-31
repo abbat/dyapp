@@ -285,12 +285,12 @@ mod tests {
         let stranger = Identity::generate().peer_id().to_string();
         let device = Identity::generate();
         assert_eq!(
-            like(&cache, &dir, &alice, &device, &stranger, true).await,
+            like(&cache, &dir, &dir, &alice, &device, &stranger, true).await,
             Err("unknownPeer".into())
         );
         assert_eq!(liked_you(&cache, &dir, &alice).await, Ok(Vec::new()));
         assert_eq!(
-            receive(&cache, &dir, &alice, &device).await,
+            receive(&cache, &dir, &dir, &alice, &device).await,
             Err("notConnected".into())
         );
         assert_eq!(

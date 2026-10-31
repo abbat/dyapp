@@ -47,6 +47,8 @@ pulls anything).
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
+`make msrv` covers only the root Cargo workspace; it does not compile the separate
+`clients/linux` and `clients/windows` test binaries. Their native CI jobs cover those crates.
 UI test services run source baked into their Docker images, not the current checkout. After editing
 Android UI or JVM tests, `make ui-test-android` alone may test stale code. Rebuild
 `android-unit-test` (subject to the no-install rule) or run the existing image with the changed
