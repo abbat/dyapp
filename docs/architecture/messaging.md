@@ -164,6 +164,19 @@ specifies that a storage error invalidates the current in-memory MLS session, an
 must process one envelope per transaction before UI display or ACK; `Session::receive` is that
 adapter, and the desktop mailbox poll calls it.
 
+### Catch-up checkpoints
+
+The [planned catch-up runtime](../design/client-local-storage.md#planned-catch-up-runtime)
+will own due outbox sends, mailbox fetches and ACK retries for the active slot. The
+desktop currently fetches on Chats visits and a 60-second UI timer; it does not call
+`Session::retry_due`. The runtime job and active-slot lease wiring are pending.
+
+Mailbox fetch currently returns the first 100 records ordered by class and insertion
+sequence. `Session::receive` ignores the returned `more` flag. An unacknowledgeable
+Gap or unknown-owner record in a full first page can prevent later records from being
+seen. A separate checkpoint tracks cursor or equivalent forward progress and an
+integration test with an unresolved first-page record. Cross-replica union is still planned.
+
 **What exists vs planned:**
 
 - Durable outbox and retries: `rust/client` `Session`; no background worker yet

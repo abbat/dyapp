@@ -203,6 +203,41 @@ reopen the last snapshot, and prove the unsent/outstanding envelope can be proce
 duplicate display or premature ACK. They must also restart after a committed send, retry exact
 signed bytes, and restart after a committed receive before ACK.
 
+### Planned catch-up runtime
+
+The platform runtime owns one catch-up job per active identity slot, sharing that slot's
+`Session` lock with foreground chat commands. On desktop the job must hold the
+[active-slot lease](desktop-runtime-lifecycle.md) through its blocking worker and network
+calls. The WebView only requests an immediate pass and renders committed events; its timer
+cannot own delivery because hidden views may be suspended. Mobile runtimes use the same
+foreground contract when the app opens or resumes; OS background opportunities are
+best-effort and are not a delivery guarantee.
+
+Start a pass after the slot opens, when connectivity returns, when the app resumes or Chats
+opens, and when a due outbox deadline arrives. A pass calls `retry_due`, then
+`receive` and pending ACK handling for the active device; it schedules the next due
+outbox write and a bounded mailbox check (the desktop currently polls every 60 seconds).
+Keep only one pass per slot. A network failure schedules another pass with a bounded,
+jittered delay; the durable outbox keeps its own per-envelope backoff, so restarting the
+app may check connectivity immediately without rewriting send deadlines. Use the
+client's existing 15-second per-request timeout and cap each pass's work so switching
+can drain it. Never abort after an MLS mutation before its Store transaction settles.
+A UI event is emitted only from a committed inbox row and carries the slot generation,
+so a late result cannot render under another identity.
+
+The first implementation can make one mailbox fetch per pass. It is **not** complete
+backlog recovery: the node returns only the first 100 records and `Session::receive`
+currently discards `more`. An unresolved first-page envelope can hide later mail even
+across repeated passes; [the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
+must fix this before claiming eventual catch-up. Cross-replica union and reconciliation
+remain separate work.
+
+| Owner | Benefit | Cost |
+|---|---|---|
+| Platform runtime job (chosen) | Runs while the desktop WebView is hidden and shares the active-slot lease and Session lock. | Requires wake scheduling and lifecycle wiring on each platform. |
+| WebView timer | Reuses the existing Chats poll. | Suspension and slot switching can delay or misroute work. |
+| Always-running service | Can attempt delivery while the app is closed. | Adds platform permissions, battery cost and lifecycle complexity without a portable guarantee. |
+
 ## Implementation checkpoints
 
 1. Confirm the storage ADR and implement profile-bound open, schema migration and failure tests.
