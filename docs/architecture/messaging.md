@@ -172,11 +172,15 @@ desktop currently fetches on Chats visits and a 60-second UI timer; it does not 
 `Session::retry_due`. The runtime job and active-slot lease wiring are pending.
 
 Mailbox fetch can now return a cursor after at most 100 records ordered by class and
-insertion sequence. `Session::receive` still ignores `more` and the cursor, so an
-unacknowledgeable Gap or unknown-owner record in a full first page can prevent later
-records from being seen. The [planned client pagination](../design/client-local-storage.md#planned-mailbox-pagination)
-uses that node-local cursor, durable progress and bounded passes. Client integration
-and an unresolved-first-page test remain planned.
+insertion sequence. `Node::fetch_page` signs a fresh challenge with an explicit
+1–100 record limit and optional node-local cursor; it rejects a missing or unchanged
+next cursor when a node reports more. Legacy `Node::fetch` still returns its first
+page and `more` without requiring cursor support. `Session::receive` still ignores
+`more` and the cursor, so an unacknowledgeable Gap or unknown-owner record in a
+full first page can prevent later records from being seen. The
+[planned client pagination](../design/client-local-storage.md#planned-mailbox-pagination)
+adds durable progress and bounded passes. Session integration and an
+unresolved-first-page test remain planned.
 Cross-replica union is separate work.
 
 **What exists vs planned:**

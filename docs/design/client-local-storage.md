@@ -226,9 +226,10 @@ A UI event is emitted only from a committed inbox row and carries the slot gener
 so a late result cannot render under another identity.
 
 The first implementation can make one mailbox fetch per pass. It is **not** complete
-backlog recovery: the node returns only the first 100 records and `Session::receive`
-currently discards `more`. An unresolved first-page envelope can hide later mail even
-across repeated passes; [the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
+backlog recovery: `Node::fetch_page` can request later pages, but `Session::receive`
+still calls the legacy first-page API and discards `more`. An unresolved first-page
+envelope can hide later mail even across repeated passes;
+[the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
 must fix this before claiming eventual catch-up. Cross-replica union and reconciliation
 remain separate work.
 
@@ -247,8 +248,9 @@ strictly after `(class, seq)` in its existing message-before-signal order. It se
 `more` when another record follows the returned byte/record-limited page. The cursor is
 only a position, not an ACK or authorization token; the signed fetch and fresh
 connection nonce remain mandatory. Old requests still fetch from the head. A node
-that ignores the new field returns no next cursor, which the client treats as a
-bounded old-node response rather than looping over page one.
+that ignores the new field returns no next cursor. Legacy `Node::fetch` still
+returns that first page; `Node::fetch_page` reports a non-advancing reply if
+`more` is true, so the pagination caller cannot loop over page one.
 
 The client binds the opaque cursor to the responding node's Peer ID and persists it
 after the page's per-envelope commits and ACK attempts. A crash before cursor save

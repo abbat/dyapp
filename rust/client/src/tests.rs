@@ -148,6 +148,122 @@ async fn node_put_and_prepared_retry_reach_the_mailbox() {
 }
 
 #[tokio::test]
+async fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors() {
+    use dyapp_identity::{Domain, Identity};
+
+    let mut server =
+        build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+    server
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+            break address;
+        }
+    };
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let copy = Arc::clone(&seen);
+    let first = prepare_put(&[7; 32], vec![1]).unwrap().record;
+    let second = prepare_put(&[7; 32], vec![2]).unwrap().record;
+    let task = tokio::spawn(async move {
+        let mut challenges = 0u8;
+        loop {
+            if let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
+                message:
+                    RequestMessage::Request {
+                        request, channel, ..
+                    },
+                ..
+            })) = server.select_next_some().await
+            {
+                let response = match request.request.unwrap() {
+                    proto::mailbox_request::Request::Challenge(_) => {
+                        challenges += 1;
+                        proto::MailboxResponse {
+                            status: proto::Status::Ok.into(),
+                            nonce: vec![challenges; 32],
+                            ..Default::default()
+                        }
+                    }
+                    proto::mailbox_request::Request::Fetch(record) => {
+                        record.verify(Domain::MailboxFetch).unwrap();
+                        let fetch = proto::Fetch::decode(record.payload.as_slice()).unwrap();
+                        assert_eq!(fetch.nonce, vec![challenges; 32]);
+                        copy.lock().unwrap().push(fetch.clone());
+                        let (envelopes, more, next_cursor) = match fetch.cursor.as_slice() {
+                            [] if fetch.limit == 2 => (vec![first.clone()], true, vec![1; 10]),
+                            [1, ..] => (vec![second.clone()], false, Vec::new()),
+                            [2, ..] => (Vec::new(), true, Vec::new()),
+                            [3, ..] => (Vec::new(), true, vec![3; 10]),
+                            [] => (Vec::new(), true, Vec::new()),
+                            _ => panic!("unexpected cursor"),
+                        };
+                        proto::MailboxResponse {
+                            status: proto::Status::Ok.into(),
+                            envelopes,
+                            more,
+                            next_cursor,
+                            ..Default::default()
+                        }
+                    }
+                    _ => panic!("unexpected mailbox request"),
+                };
+                server
+                    .behaviour_mut()
+                    .mailbox
+                    .send_response(channel, response)
+                    .unwrap();
+            }
+        }
+    });
+    let mut node = Node::connect(address, Arc::new(Protocols::public()))
+        .await
+        .unwrap();
+    let device = Identity::generate();
+    assert!(matches!(
+        node.fetch_page(&device, None, 0).await,
+        Err(Error::Input(_))
+    ));
+    assert!(matches!(
+        node.fetch_page(&device, None, 101).await,
+        Err(Error::Input(_))
+    ));
+    assert!(matches!(
+        node.fetch_page(&device, Some(&[]), 2).await,
+        Err(Error::Input(_))
+    ));
+
+    let first_page = node.fetch_page(&device, None, 2).await.unwrap();
+    assert_eq!(first_page.envelopes[0].ciphertext, [1]);
+    assert!(first_page.more);
+    assert_eq!(first_page.next_cursor.as_deref(), Some(&[1; 10][..]));
+    let second_page = node
+        .fetch_page(&device, first_page.next_cursor.as_deref(), 2)
+        .await
+        .unwrap();
+    assert_eq!(second_page.envelopes[0].ciphertext, [2]);
+    assert!(!second_page.more);
+    assert!(matches!(
+        node.fetch_page(&device, Some(&[2; 10]), 2).await,
+        Err(Error::Reply("mailbox cursor did not advance"))
+    ));
+    assert!(matches!(
+        node.fetch_page(&device, Some(&[3; 10]), 2).await,
+        Err(Error::Reply("mailbox cursor did not advance"))
+    ));
+    // Existing callers still get the first-page result from an old node.
+    let (envelopes, more) = node.fetch(&device).await.unwrap();
+    assert!(envelopes.is_empty() && more);
+    assert!(!task.is_finished());
+    task.abort();
+    let requests = seen.lock().unwrap();
+    assert_eq!(requests.len(), 5);
+    assert_eq!(requests[0].limit, 2);
+    assert_eq!(requests[1].cursor, vec![1; 10]);
+    assert_eq!(requests[4].limit, 0);
+}
+
+#[tokio::test]
 async fn providers_are_dialed_for_their_addresses() {
     use libp2p::kad::{self, store::RecordStore};
     dyapp_p2p_net::set_id_pow_bits(0);
