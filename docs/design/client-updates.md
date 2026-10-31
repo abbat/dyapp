@@ -3,6 +3,10 @@
 Status: client checks and live Pages verification are pending.
 No client currently checks for updates. The tagged release workflow packages
 `dyappd`, Linux and Windows clients, and stages a verified client update feed.
+The shared Rust client core now provides strict stable-version parsing and pure
+check-cadence rules in `rust/client/src/updates.rs`. It has no network or storage
+side effects. Platform apps still need to persist check state, run timers,
+coalesce requests and fetch a live verified feed before enabling controls.
 
 ## Goal and boundary
 
@@ -169,6 +173,11 @@ hours while the app is runnable; also try on network restoration, respecting a
 minimum unless a request is already in flight. Do not spin on invalid metadata
 or rate-limit responses. Persist wall-clock timestamps and clamp future times
 after clock changes; use a monotonic clock for timers during one process run.
+The shared `check_due` rule treats persisted future timestamps as invalid and
+allows one immediate check after a clock rollback. Its caller must record that
+attempt to avoid repeated checks. Timer jitter comes from a local stable seed:
+the timer threshold is in the final 1/24 of the selected interval (23–24 hours
+for the default); launch and resume use the full interval.
 
 Use one HTTPS `GET` to the fixed feed path. Send no Peer ID, account token,
 profile, bootstrap list, network name or per-installation identifier, including

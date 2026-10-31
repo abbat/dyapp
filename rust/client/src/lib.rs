@@ -17,6 +17,7 @@ pub mod seeds;
 pub mod session;
 pub mod store;
 pub mod tokens;
+pub mod updates;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
