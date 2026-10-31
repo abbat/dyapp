@@ -37,9 +37,9 @@ class Adr(unittest.TestCase):
         self.assertEqual(CHECK.triggers(
             "rust/x/src/db.rs", "", "", "+let size = 1;\n"), [])
 
-    def test_repository_commits_since_adoption_name_their_adr(self):
+    def test_unpushed_commits_name_their_adr(self):
         shas = subprocess.check_output(
-            CHECK.GIT + ["rev-list", "--no-merges", CHECK.BASE + "..HEAD"],
+            CHECK.GIT + ["rev-list", "--no-merges", CHECK.base() + "..HEAD"],
             cwd=ROOT, text=True).split()
         self.assertEqual(
             [error for sha in shas for error in CHECK.commit_errors(sha)], [])

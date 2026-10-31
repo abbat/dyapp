@@ -35,6 +35,7 @@ jobs:
         env:
           # Empty for workflow_dispatch: docs-sync.py then uses origin/main.
           DOCS_SYNC_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ADR_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash tests/scripts/rust-check.sh quality
       - name: raw check logs
         if: always()
