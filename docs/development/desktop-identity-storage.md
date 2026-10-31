@@ -88,6 +88,7 @@ profile form does not create `client.db` before the first draft save.
 | Profile draft database | `<app-config>/profiles/<slot>/client.db`; the virtual legacy slot uses root `client.db`. The broader client store is [planned](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |
+| Device key | The random device mailbox key, made by the first profile publish and kept in the slot's mode: `<slot dir>/device.key`, or the system key's slot name plus `:device` (`profile:<slot>:device`, legacy `primary:device`). It also derives the key that seals the MLS state in `client.db`; removal erases it before the identity key. |
 | Active selection | `<app-config>/active-profile` contains the slot UUID or `legacy-primary`. |
 | Legacy key | Root `identity.key` plus `identity-storage`, or existing Linux slot `primary` / Windows user `primary`; virtual slot `legacy-primary`. |
 

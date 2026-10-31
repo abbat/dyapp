@@ -48,34 +48,61 @@ fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map_err(|e| e.to_string())
 }
 
-fn load(slot: &Slot) -> Result<Option<Identity>, String> {
+// A key of `slot`'s storage mode: the file at `path` or the system slot `name`.
+fn load_key(slot: &Slot, path: &Path, name: &str) -> Result<Option<Identity>, String> {
     match slot.mode {
-        Some("system") => system_store::load_slot(&slot.system_name()),
-        Some(_) => match fs::symlink_metadata(slot.key_path()) {
+        Some("system") => system_store::load_slot(name),
+        Some(_) => match fs::symlink_metadata(path) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            _ => file_store::load(&slot.key_path()).map(Some),
+            _ => file_store::load(path).map(Some),
         },
         None => Err("Unknown identity storage mode".into()),
     }
 }
 
-fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
+fn save_key(slot: &Slot, path: &Path, name: &str, key: &Identity) -> Result<(), String> {
     match slot.mode {
-        Some("system") => system_store::save_slot(&slot.system_name(), identity),
-        Some(_) => file_store::save(&slot.key_path(), identity),
+        Some("system") => system_store::save_slot(name, key),
+        Some(_) => file_store::save(path, key),
         None => Err("Unknown identity storage mode".into()),
     }
 }
 
-fn erase(slot: &Slot) -> Result<(), String> {
+fn erase_key(slot: &Slot, path: &Path, name: &str) -> Result<(), String> {
     match slot.mode {
-        Some("system") => system_store::delete_slot(&slot.system_name()),
-        Some(_) => match fs::remove_file(slot.key_path()) {
+        Some("system") => system_store::delete_slot(name),
+        Some(_) => match fs::remove_file(path) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
             result => result.map_err(|e| e.to_string()),
         },
         None => Err("Unknown identity storage mode".into()),
     }
+}
+
+fn load(slot: &Slot) -> Result<Option<Identity>, String> {
+    load_key(slot, &slot.key_path(), &slot.system_name())
+}
+
+fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
+    save_key(slot, &slot.key_path(), &slot.system_name(), identity)
+}
+
+// The device key goes first, so a failure leaves the identity key for a retry to confirm.
+fn erase(slot: &Slot) -> Result<(), String> {
+    erase_key(slot, &slot.device_path(), &slot.device_name())?;
+    erase_key(slot, &slot.key_path(), &slot.system_name())
+}
+
+/// The open identity's device mailbox key, made on first use; see `slots::device_key`.
+fn device_key(root: &Path, dir: &Path) -> Result<Identity, String> {
+    slots::device_key(
+        root,
+        dir,
+        &|slot: &Slot| load_key(slot, &slot.device_path(), &slot.device_name()),
+        &|slot: &Slot, key: &Identity| {
+            save_key(slot, &slot.device_path(), &slot.device_name(), key)
+        },
+    )
 }
 
 fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str, String> {
@@ -403,15 +430,19 @@ fn cancel_profile_solve(solving: tauri::State<'_, ProfileState>) {
 /// Publishes the solved draft and checks the readback; see `profile::publish`.
 #[tauri::command]
 async fn publish_profile(
+    app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
     attested: bool,
 ) -> Result<profile::View, String> {
     let (identity, dir) = open_identity(&state)?;
+    let root = config_dir(&app)?;
     // The client store is not `Sync`, so the publish runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
+        let device = device_key(&root, &dir)?;
         tauri::async_runtime::block_on(profile::publish(
             &dir,
             &identity,
+            &device,
             attested,
             profile::POW_BITS,
         ))

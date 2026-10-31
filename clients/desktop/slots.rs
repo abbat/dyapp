@@ -11,7 +11,8 @@ use dyapp_identity::Identity;
 pub const LEGACY: &str = "legacy-primary";
 
 /// Files belonging to the slot that a confirmed removal may erase.
-const REMOVABLE: [&str; 14] = [
+const REMOVABLE: [&str; 15] = [
+    "device.key",
     "storage-mode",
     "state",
     "state.tmp",
@@ -59,6 +60,16 @@ impl Slot {
         } else {
             format!("profile:{}", self.id)
         }
+    }
+
+    /// Where the `file` mode keeps this computer's device mailbox key; see [`device_key`].
+    pub fn device_path(&self) -> PathBuf {
+        self.dir.join("device.key")
+    }
+
+    /// The `system` mode's slot name for the device mailbox key.
+    pub fn device_name(&self) -> String {
+        format!("{}:device", self.system_name())
     }
 }
 
@@ -367,6 +378,31 @@ pub fn create(
     Ok((slot, identity))
 }
 
+/// The device mailbox key of the ready slot in `dir`, made on first use. It is random and kept
+/// beside the identity key, so a copy of the identity on another computer becomes a new device.
+/// The slot lock keeps two callers from making two keys.
+pub fn device_key(
+    root: &Path,
+    dir: &Path,
+    load: Load<'_>,
+    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
+) -> Result<Identity, String> {
+    let _lock = lock(root)?;
+    let slot = list(root)?
+        .into_iter()
+        .find(|slot| slot.dir == dir && slot.state == State::Ready)
+        .ok_or("Unknown identity")?;
+    if let Some(key) = load(&slot)? {
+        return Ok(key);
+    }
+    let key = Identity::generate();
+    save(&slot, &key)?;
+    match load(&slot)? {
+        Some(saved) if saved.public_key() == key.public_key() => Ok(key),
+        _ => Err("Saved device key does not reopen".into()),
+    }
+}
+
 /// Removes slot `id`. A key that still exists must yield `peer_id`, the Peer ID the user
 /// confirmed. The slot is marked `deleting` before `erase` and its files go only once `load`
 /// confirms the key is absent, so any failure keeps a slot that a retry can finish. The legacy
@@ -551,6 +587,40 @@ mod tests {
         set_state(&mut pending, State::Deleting).unwrap();
         assert_eq!(state(&only), format!("deleting {} {peer:?}", pending.id));
         fs::remove_dir_all(only).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_device_key_is_made_once_per_ready_slot() {
+        use std::cell::RefCell;
+        use std::collections::HashMap;
+        let root = temp_root();
+        let keys = RefCell::new(HashMap::new());
+        let save = |name: String, key: &Identity| {
+            keys.borrow_mut().insert(name, *key.secret());
+            Ok::<_, String>(())
+        };
+        let load =
+            |name: String| Ok::<_, String>(keys.borrow().get(&name).map(Identity::from_secret));
+        let (slot, alice) = create(
+            &root,
+            "system",
+            &|slot: &Slot, key: &Identity| save(slot.system_name(), key),
+            &|slot: &Slot| load(slot.system_name()),
+        )
+        .unwrap();
+        let load_device = |slot: &Slot| load(slot.device_name());
+        let save_device = |slot: &Slot, key: &Identity| save(slot.device_name(), key);
+        let device = device_key(&root, &slot.dir, &load_device, &save_device).unwrap();
+        assert_ne!(device.public_key(), alice.public_key());
+        let again = device_key(&root, &slot.dir, &load_device, &save_device).unwrap();
+        assert_eq!(again.public_key(), device.public_key());
+        // A save that does not reopen and a folder that is no ready slot are refused.
+        keys.borrow_mut().remove(&slot.device_name());
+        let lost = |_: &Slot, _: &Identity| Ok::<_, String>(());
+        assert!(device_key(&root, &slot.dir, &load_device, &lost).is_err());
+        let pending = reserve(&root, "file").unwrap();
+        assert!(device_key(&root, &pending.dir, &load_device, &save_device).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 

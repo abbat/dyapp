@@ -5,6 +5,7 @@ use crate::store::{InboxKey, InboxKind, Store};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
 use dyapp_profile::Profile;
+use prost::Message as _;
 
 fn person() -> (Identity, Device, dyapp_profile::VerifiedProfile) {
     let identity = Identity::generate();
@@ -823,4 +824,30 @@ fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
     };
     assert!(session.chat_message(&sent).unwrap().is_some());
     assert_eq!(session.store.known_groups().unwrap().len(), 2);
+}
+
+#[test]
+fn the_first_open_creates_the_device_and_later_opens_keep_it() {
+    let (identity, device_key) = (Identity::generate(), Identity::generate());
+    let path = crate::store::tests::temp_db_path();
+    let seal_key = [5; 32];
+    let first = Session::open_or_create(
+        Store::open(&path, &identity).unwrap(),
+        &identity,
+        &device_key,
+        &seal_key,
+    )
+    .unwrap()
+    .certificate()
+    .unwrap();
+    let again = Session::open_or_create(
+        Store::open(&path, &identity).unwrap(),
+        &identity,
+        &Identity::generate(),
+        &seal_key,
+    )
+    .unwrap();
+    assert_eq!(again.certificate().unwrap(), first);
+    let listed = dyapp_profile::DeviceCertificate::decode(first.payload.as_slice()).unwrap();
+    assert_eq!(listed.device_key, device_key.public_key().to_vec());
 }

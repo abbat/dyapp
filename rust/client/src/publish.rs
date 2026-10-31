@@ -6,9 +6,10 @@
 
 use crate::store::{self, Store};
 use crate::{Error, Node};
-use dyapp_identity::Identity;
+use dyapp_identity::{key_hash, Identity, SignedRecord};
 use dyapp_p2p_net::proto::Status;
-use dyapp_profile::{CivilDate, Profile};
+use dyapp_profile::{CivilDate, DeviceCertificate, Profile};
+use prost::Message as _;
 
 /// Why a draft cannot be published yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -41,6 +42,19 @@ pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Bl
         return Err(Block::Underage);
     }
     Ok(())
+}
+
+/// List `certificate` among `draft`'s devices once, in the mailbox order a profile requires.
+pub fn list_device(draft: &mut Profile, certificate: SignedRecord) {
+    if !draft.devices.contains(&certificate) {
+        draft.devices.push(certificate);
+        draft.devices.sort_by_key(|signed| {
+            let device_key = DeviceCertificate::decode(signed.payload.as_slice())
+                .ok()?
+                .device_key;
+            Some(key_hash(&device_key.try_into().ok()?))
+        });
+    }
 }
 
 /// Try up to `tries` more nonces for a profile proof of work of `bits` for `key`, the owner's
@@ -145,7 +159,7 @@ pub enum Failure {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, hide, publish, work, Block, Failure};
+    use super::{check, hide, list_device, publish, work, Block, Failure};
     use crate::store::{tests::temp_db_path, Store};
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
@@ -382,5 +396,27 @@ mod tests {
             (published.version, published.gender),
             (6, dyapp_profile::Gender::Woman.code())
         );
+    }
+
+    #[test]
+    fn listed_devices_stay_sorted_and_unique() {
+        let alice = Identity::generate();
+        let mut draft = Profile {
+            version: 1,
+            ..Profile::default()
+        };
+        let certificates: Vec<_> = (0..3)
+            .map(|_| {
+                dyapp_messaging::mls::Device::new(&alice, Identity::generate().public_key(), 1)
+                    .unwrap()
+                    .certificate()
+                    .clone()
+            })
+            .collect();
+        for certificate in certificates.iter().chain(&certificates) {
+            list_device(&mut draft, certificate.clone());
+        }
+        assert_eq!(draft.devices.len(), 3);
+        assert!(dyapp_profile::verify(&draft.sign(&alice)).is_ok());
     }
 }

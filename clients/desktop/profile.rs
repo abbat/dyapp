@@ -10,12 +10,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use dyapp_client::places;
 use dyapp_client::publish::{self, Block};
 use dyapp_client::search;
+use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
-use dyapp_identity::Identity;
+use dyapp_identity::{sha256, Identity};
 use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{CivilDate, Profile};
+use zeroize::Zeroizing;
 
 /// Profile proof of work a publish computes: the default search-node minimum, until clients
 /// take it from node hints.
@@ -24,6 +26,9 @@ pub const POW_BITS: u32 = 11;
 const STEP: u64 = 8;
 /// Search nodes a publish sends the profile to; they gossip it on.
 const SEARCH_NODES: usize = 2;
+/// Single-use KeyPackages each publish puts on the network for peers' first texts.
+const KEY_PACKAGES: usize = 4;
+const SEAL_KEY_CONTEXT: &[u8] = b"dyapp device seal key v1";
 
 /// Stops a running [`solve`]; shared with the blocking thread that runs it.
 #[derive(Default)]
@@ -316,14 +321,17 @@ pub async fn connect(network: &Network) -> Result<Node, String> {
 /// Publishes the solved draft to the active network and checks the signed readback; see
 /// `publish::publish`. Errors are `blocked: <code>`, `unsolved`, `notConnected` (no active
 /// network or no answering node) or a node or storage message; each leaves the draft as it was.
+/// The profile lists this device, made on the first publish under `device_key`, and its
+/// KeyPackages follow, so peers can invite it to chats.
 pub async fn publish(
     dir: &Path,
     identity: &Identity,
+    device_key: &Identity,
     attested: bool,
     bits: u32,
 ) -> Result<View, String> {
     let store = open(dir, identity)?;
-    let draft = stored(&store)?;
+    let mut draft = stored(&store)?;
     let today = today()?;
     publish::check(&draft, attested, today).map_err(blocked)?;
     if draft.pow_bits < bits {
@@ -333,11 +341,30 @@ pub async fn publish(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let published = publish::publish(&store, &mut node, identity, &draft)
+    let seal_key = seal_key(device_key);
+    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
+        .map_err(|e| e.to_string())?;
+    publish::list_device(
+        &mut draft,
+        session.certificate().map_err(|e| e.to_string())?,
+    );
+    let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
-    send_held(&store, &mut node, &active).await?;
-    view(&published, today, Some(&store))
+    // shortcut: a fixed batch per publish with no refill as peers use them, until the receive
+    // loop refills KeyPackages.
+    session
+        .publish_key_packages(&mut node, device_key, KEY_PACKAGES, &seal_key)
+        .await
+        .map_err(|e| e.to_string())?;
+    send_held(session.store(), &mut node, &active).await?;
+    view(&published, today, Some(session.store()))
+}
+
+/// The key that seals this device's MLS state in client.db, derived from its mailbox key.
+pub fn seal_key(device_key: &Identity) -> Zeroizing<[u8; 32]> {
+    let input = Zeroizing::new([SEAL_KEY_CONTEXT, &*device_key.secret()].concat());
+    Zeroizing::new(sha256(&input))
 }
 
 /// Hides the published profile from search with a tombstone on the active network; the draft
@@ -525,16 +552,28 @@ mod tests {
     #[tokio::test]
     async fn publishing_needs_a_solved_puzzle_and_an_active_network() {
         let (dir, alice) = (temp_dir(), Identity::generate());
+        let device = Identity::generate();
         save(&dir, &alice, woman(None)).unwrap();
-        assert_eq!(publish(&dir, &alice, true, 4).await, Err("unsolved".into()));
+        assert_eq!(
+            publish(&dir, &alice, &device, true, 4).await,
+            Err("unsolved".into())
+        );
         solve(&AtomicBool::new(false), &dir, &alice, true, 4).unwrap();
         assert_eq!(
-            publish(&dir, &alice, false, 4).await,
+            publish(&dir, &alice, &device, false, 4).await,
             Err("blocked: notAttested".into())
         );
         assert_eq!(
-            publish(&dir, &alice, true, 4).await,
+            publish(&dir, &alice, &device, true, 4).await,
             Err("notConnected".into())
         );
+    }
+
+    #[test]
+    fn the_seal_key_is_fixed_per_device_key() {
+        let device = Identity::generate();
+        assert_eq!(*seal_key(&device), *seal_key(&device));
+        assert_ne!(*seal_key(&device), *seal_key(&Identity::generate()));
+        assert_ne!(*seal_key(&device), *device.secret());
     }
 }

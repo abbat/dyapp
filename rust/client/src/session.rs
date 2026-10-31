@@ -79,6 +79,26 @@ impl Session {
         })
     }
 
+    /// Open the last committed snapshot or, on the first open, certify a new device for
+    /// `identity` with the mailbox key `device_key` and commit its snapshot first.
+    pub fn open_or_create(
+        mut store: Store,
+        identity: &Identity,
+        device_key: &Identity,
+        seal_key: &[u8; 32],
+    ) -> Result<Self, Error> {
+        if store.sealed_device()?.is_none() {
+            let device = Device::new(identity, device_key.public_key(), 1)?;
+            store.stage_outbound(&device.seal(seal_key)?, &[])?;
+        }
+        Self::open(store, seal_key)
+    }
+
+    /// The profile's store, for the calls outside chats such as the profile publish.
+    pub fn store(&self) -> &Store {
+        &self.store
+    }
+
     /// The scores of the nodes this session used.
     pub fn scores(&self) -> &Scores {
         &self.scores
