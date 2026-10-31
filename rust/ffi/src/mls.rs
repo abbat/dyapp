@@ -53,7 +53,7 @@ impl MlsDevice {
         Ok(Arc::new(Self {
             device: Device::new(
                 &identity.identity,
-                *device_key.identity.secret(),
+                device_key.identity.public_key(),
                 generation,
             )?,
             state_key: Zeroizing::new(Device::state_key()?),
