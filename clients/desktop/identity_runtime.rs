@@ -26,6 +26,16 @@ impl IdentityState {
         self.0.start_transition().map_err(gate_error)
     }
 
+    /// Close admission before signalling cancellation to admitted work.
+    pub(super) fn start_transition_with(
+        &self,
+        cancel: impl FnOnce(),
+    ) -> Result<Transition<ActiveIdentity>, String> {
+        let transition = self.start_transition()?;
+        cancel();
+        Ok(transition)
+    }
+
     /// Wait without blocking Tauri's async executor. Dropping a failed transition reopens admission.
     pub(super) async fn drain(
         transition: Transition<ActiveIdentity>,
@@ -134,8 +144,23 @@ pub(super) fn respond(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn transition_signals_cancellation_only_after_closing_admission() {
+        let state = IdentityState::new();
+        let transition = state
+            .start_transition_with(|| {
+                assert!(matches!(state.0.lease(), Err(GateError::Transitioning)));
+            })
+            .unwrap();
+        let called = Cell::new(false);
+        assert!(state.start_transition_with(|| called.set(true)).is_err());
+        assert!(!called.get());
+        drop(transition);
+    }
 
     #[tokio::test]
     async fn cancelled_caller_cannot_release_a_running_blocking_workers_lease() {

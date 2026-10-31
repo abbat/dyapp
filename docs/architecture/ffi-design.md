@@ -31,13 +31,15 @@ for a command and dropped when it returns; `chats::Sessions` serializes MLS oper
 other. The process also holds one `SearchState` profile cache and one profile-solve
 cancellation flag.
 
-Identity selection closes admission and drains held leases off the UI thread, then stops the
-embedded node and opens the target slot before changing the persistent selection. Startup,
-creation and removal also commit through the gate. A failed creation or removal reopens the
-persisted selection or previous slot; it admits no identity if that slot cannot reopen. The
-shared profile cache is not cleared yet. The UI asks the node to apply the new identity after
-rendering it. Per-identity cancellation, cache clearing and switch/removal race tests are
-specified in the [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
+Identity selection closes admission, signals the current profile solve and seed check to cancel,
+and drains held leases off the UI thread, then stops the embedded node and opens the target slot
+before changing the persistent selection. Startup, creation and removal also commit through the
+gate. A failed creation or removal reopens the persisted selection or previous slot; it admits
+no identity if that slot cannot reopen. The shared profile cache is not cleared yet. A solve or
+check that registers after the transition signal can miss cancellation, so the drain still waits
+for it. The UI asks the node to apply the new identity after rendering it. Race-free
+cancellation, cache clearing and switch/removal tests are specified in the
+[desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
 

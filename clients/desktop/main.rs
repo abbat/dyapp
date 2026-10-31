@@ -134,12 +134,26 @@ fn device_key(root: &Path, dir: &Path, identity: &Identity) -> Result<Identity, 
     )
 }
 
+/// Stop admitted long-running work after closing admission, then wait off the UI thread.
+async fn drain_identity(
+    app: &tauri::AppHandle,
+    state: &IdentityState,
+) -> Result<identity_gate::Transition<identity_runtime::ActiveIdentity>, String> {
+    let transition = state.start_transition_with(|| {
+        app.state::<ProfileState>()
+            .0
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        network::cancel(&app.state::<NetworkState>());
+    })?;
+    IdentityState::drain(transition).await
+}
+
 #[tauri::command]
 async fn identity_state(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let transition = IdentityState::drain(state.start_transition()?).await?;
+    let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
         .await
@@ -206,7 +220,7 @@ async fn select_identity(
     state: tauri::State<'_, IdentityState>,
     slot: String,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let transition = IdentityState::drain(state.start_transition()?).await?;
+    let transition = drain_identity(&app, &state).await?;
     #[cfg(unix)]
     node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
@@ -236,7 +250,7 @@ async fn create_identity(
         "file" => "file",
         _ => return Err("Unknown identity storage mode".into()),
     };
-    let transition = IdentityState::drain(state.start_transition()?).await?;
+    let transition = drain_identity(&app, &state).await?;
     #[cfg(unix)]
     node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
@@ -269,7 +283,7 @@ async fn remove_identity(
     slot: String,
     peer_id: Option<String>,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let transition = IdentityState::drain(state.start_transition()?).await?;
+    let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
     let recover_dir = dir.clone();
     // The slot's node must not hold its folder open while it is removed. A cfg on a command
