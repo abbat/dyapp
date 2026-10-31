@@ -470,6 +470,17 @@ async fn hide_profile(state: tauri::State<'_, IdentityState>) -> Result<profile:
     .map_err(|e| e.to_string())?
 }
 
+/// Publishes final deletion to profile storage and search before removing an identity.
+#[tauri::command]
+async fn withdraw_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
+    let (identity, dir) = open_identity(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(profile::withdraw(&dir, &identity))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Sends the held profile once its search window has ended; see `profile::send_search`.
 #[tauri::command]
 async fn send_search_profile(
@@ -858,6 +869,7 @@ fn main() {
             cancel_profile_solve,
             publish_profile,
             hide_profile,
+            withdraw_profile,
             send_search_profile,
             search_profiles,
             block_peer,

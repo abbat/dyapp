@@ -518,7 +518,10 @@ const profileMessage = (key, detail = '') => statusMessage(profileStatus, 'profi
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = document.getElementById('profile-search-wait');
 let searchWaitTimer;
-const sendSearchProfile = () => invoke('send_search_profile').then(showSearchWait, () => {});
+const sendSearchProfile = () => invoke('send_search_profile').then((view) => {
+  showSearchWait(view);
+  showHidden(view);
+}, () => {});
 const showSearchWait = (view) => {
   clearTimeout(searchWaitTimer);
   const minutes = view.searchMinutes;
@@ -527,7 +530,7 @@ const showSearchWait = (view) => {
   searchWait.textContent = minutes
     ? window.strings['profile.searchIn'].replace('{minutes}', String(minutes))
     : window.strings['profile.searchPending'];
-  if (minutes) searchWaitTimer = setTimeout(sendSearchProfile, minutes * 60_000);
+  searchWaitTimer = setTimeout(sendSearchProfile, (minutes || 1) * 60_000);
 };
 const showProfile = async () => {
   const [scales, view, countries] = await Promise.all(
@@ -588,7 +591,8 @@ const showHidden = (view) => {
   profileHidden.disabled = !profilePublished;
   profileHidden.checked = view.hidden;
   document.getElementById('profile-hidden-notice').hidden = !view.hidden;
-  if (view.hidden) profileMessage('profile.status.hidden');
+  if (view.hidden) profileMessage(view.searchMinutes == null
+    ? 'profile.status.hidden' : 'profile.status.hidePending');
   else profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
     view.published ? String(view.published) : '');
 };
@@ -743,7 +747,9 @@ profileHidden.addEventListener('change', async () => {
   }
   setProfileBusy(true);
   try {
-    showHidden(await invoke('hide_profile'));
+    const view = await invoke('hide_profile');
+    showSearchWait(view);
+    showHidden(view);
   } catch (error) {
     profileHidden.checked = false;
     profileFailure(error);
@@ -876,7 +882,7 @@ const removeNow = () => {
 const withdrawThenRemove = async () => {
   if (removePublished) {
     try {
-      await invoke('hide_profile');
+      await invoke('withdraw_profile');
     } catch (_) {
       removeAsk.hidden = true;
       removeOffline.hidden = false;

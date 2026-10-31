@@ -357,8 +357,7 @@ async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     assert!(search::publish_due(&store, &mut nodes, now).await.unwrap());
     assert_eq!(hits(&mut nodes[0]).await, 1);
 
-    let hidden = publish::hide(&store, &mut node, &alice, &shown);
-    let hidden = hidden.await.unwrap();
+    let hidden = publish::hide(&store, &alice, &shown).unwrap();
     // Within the 10 minutes, on the client and on the node.
     let due = search::publish_due(&store, &mut nodes, now + 1);
     assert!(due.await.unwrap());
@@ -380,7 +379,7 @@ async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     assert!(beat.await.unwrap());
 
     // Identity removal with no search node reachable: the offline outcome, the tombstone held.
-    let removed = publish::hide(&store, &mut node, &alice, &again);
+    let removed = publish::withdraw(&store, &mut node, &alice, &again);
     removed.await.unwrap();
     let offline = search::publish_due(&store, &mut [], now + 1202);
     assert!(!offline.await.unwrap());

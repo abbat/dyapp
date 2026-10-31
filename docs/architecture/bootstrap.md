@@ -433,11 +433,11 @@ fetch reveal device count and contact interest to store nodes; no private direct
   it, sends it when the window ends (or on the next app start if the app was closed) and tells
   the user "changes appear in search in N min". A tombstone is sent at once, and no
   heartbeat goes out while the profile is hidden. The profile in the store DHT is updated at
-  once, without this limit. Planned: Hide will send the signed tombstone to search only;
-  store nodes will keep the ordinary profile and device directory for direct Peer ID lookup
-  and KeyPackages. Final identity removal will send a tombstone to both services. Search
-  withdrawal remains best effort, and public fields at store nodes remain fetchable by
-  someone who knows the Peer ID.
+  once, without this limit. Hide sends the signed tombstone to search only;
+  store nodes keep the ordinary profile and device directory for direct Peer ID lookup
+  and KeyPackages. Final identity removal sends a tombstone to both services. Search
+  withdrawal remains best effort and pending until a node accepts it; public fields at store
+  nodes remain fetchable by someone who knows the Peer ID.
 - **Proof of work.** Store and search share `search.min_profile_pow_bits` (public default 11,
   at most 20), advertised by every store node in `info.min_profile_pow`. A private test network
   may explicitly set it to 0 on all nodes; changing `network.name` alone does not lower it.

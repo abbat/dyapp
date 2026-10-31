@@ -367,8 +367,8 @@ pub fn seal_key(device_key: &Identity) -> Zeroizing<[u8; 32]> {
     Zeroizing::new(sha256(&input))
 }
 
-/// Hides the published profile from search with a tombstone on the active network; the draft
-/// stays and the next [`publish`] shows it again.
+/// Hides the profile from search, keeping direct profile and KeyPackage lookup available.
+/// The signed search tombstone remains pending until a search node accepts it.
 pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
     let store = open(dir, identity)?;
     let draft = stored(&store)?;
@@ -376,11 +376,25 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let hidden = publish::hide(&store, &mut node, identity, &draft)
+    let hidden = publish::hide(&store, identity, &draft).map_err(|e| e.to_string())?;
+    send_held(&store, &mut node, &active).await?;
+    view(&hidden, today()?, Some(&store))
+}
+
+/// Publishes a final tombstone to profile storage before identity removal and holds it for search.
+/// With no responding profile node, the caller offers Retry or Remove anyway.
+pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {
+    let store = open(dir, identity)?;
+    let draft = stored(&store)?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = connect(&active).await?;
+    let removed = publish::withdraw(&store, &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
     send_held(&store, &mut node, &active).await?;
-    view(&hidden, today()?, Some(&store))
+    view(&removed, today()?, Some(&store))
 }
 
 /// Sends the published profile the search window holds once the window has ended, to up to

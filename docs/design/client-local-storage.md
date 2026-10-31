@@ -75,19 +75,18 @@ Each profile database owns its settings and pass history; neither is published t
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
 the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)); a held
-tombstone is sent at once. `publish::hide` publishes a tombstone, holds it for search and sets
-`profile_hidden` (a one-byte flag; absent means shown), and the next `publish::publish` clears it.
-This currently sends the same tombstone to profile storage, which also makes the device
-list and KeyPackages unavailable. The planned correction sends a signed tombstone only to
-search nodes for Hide, keeping the last ordinary signed profile at store nodes so someone
-with the Peer ID can still start a chat. The hidden draft advances to the tombstone version;
-unhide publishes a still-higher ordinary version to both services. Identity removal instead
+tombstone is sent at once. `publish::hide` signs a search-only tombstone, holds it for search
+and sets `profile_hidden` (a one-byte flag; absent means shown), and the next
+`publish::publish` clears it. The last ordinary signed profile stays at store nodes, so someone
+with the Peer ID can still find the device list and KeyPackages and start a chat. The hidden
+draft advances to the tombstone version; unhide publishes a still-higher ordinary version to
+both services. Identity removal instead
 publishes a final tombstone to profile storage and search. A client that observed that final
 profile-store tombstone refuses later versions; nodes retain tombstones for their configured
 TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent
 network-wide ban. Public fields remain fetchable by known Peer ID while merely hidden.
 
-Planned signed-record sequence for one identity (each record is owner-signed):
+Signed-record sequence for one identity (each record is owner-signed):
 
 | Action | Profile store | Search index | Local state |
 |---|---|---|---|

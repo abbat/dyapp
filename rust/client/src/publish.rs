@@ -98,12 +98,25 @@ pub async fn publish(
     Ok(profile)
 }
 
-/// Hide the profile from search: publish a tombstone after `draft` to `node` and read it back,
-/// then hold it for search, where it is sent at once ([`crate::search::publish_due`]), and stop
-/// heartbeats ([`Store::profile_hidden`]). Returns the draft with the tombstone's version, saved,
-/// so [`publish`] shows the profile again. On failure nothing changes: for identity removal this
-/// means no node took the tombstone, and the owner may retry or remove anyway.
-pub async fn hide(
+/// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary
+/// profile and device directory at store nodes. The caller sends the held record and reports a
+/// pending withdrawal until a search node accepts it. The saved draft advances to that version.
+pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profile, Failure> {
+    let tombstone = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
+    let draft = Profile {
+        version: tombstone.version,
+        ..draft.clone()
+    };
+    store.save_profile_draft(&draft)?;
+    store.hold_search_profile(&tombstone.sign(identity))?;
+    store.set_profile_hidden(true)?;
+    Ok(draft)
+}
+
+/// Withdraw an identity before local removal: publish a final tombstone to profile storage,
+/// read it back, then hold it for search. No local key is removed here; the caller decides
+/// whether to retry a failed node request or remove anyway.
+pub async fn withdraw(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
@@ -159,7 +172,7 @@ pub enum Failure {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, hide, list_device, publish, work, Block, Failure};
+    use super::{check, hide, list_device, publish, withdraw, work, Block, Failure};
     use crate::store::{tests::temp_db_path, Store};
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
@@ -347,7 +360,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn hide_publishes_a_tombstone_sent_to_search_at_once_and_publish_shows_again() {
+    async fn hide_only_withdraws_search_and_publish_shows_again() {
         let alice = Identity::generate();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
@@ -356,26 +369,35 @@ mod tests {
         store
             .search_profile_sent(&store.due_search_profile(1_000).unwrap().unwrap(), 1_000)
             .unwrap();
-        // A failed hide, as for identity removal with no node taking it, changes nothing.
-        let (mut refusing, _) = profile_node(vec![Status::Denied]).await;
-        assert!(hide(&store, &mut refusing, &alice, &shown).await.is_err());
-        assert!(!store.profile_hidden().unwrap());
-        assert_eq!(store.profile_draft().unwrap(), Some(shown.clone()));
-        let hidden = hide(&store, &mut node, &alice, &shown).await.unwrap();
+        let hidden = hide(&store, &alice, &shown).unwrap();
         assert_eq!((hidden.version, hidden.gender), (2, shown.gender));
         assert_eq!(store.profile_draft().unwrap(), Some(hidden.clone()));
         assert!(store.profile_hidden().unwrap());
-        let tombstone = held.lock().unwrap().clone().unwrap();
+        let retained = held.lock().unwrap().clone().unwrap();
+        assert_eq!(dyapp_profile::verify(&retained).unwrap().profile, shown);
+        let tombstone = store.due_search_profile(1_001).unwrap().unwrap();
         assert_eq!(
             dyapp_profile::verify(&tombstone).unwrap().profile,
             Profile::tombstone(2, shown.pow_nonce, shown.pow_bits)
         );
-        // Within the 10 minutes after the last send.
-        assert_eq!(store.due_search_profile(1_001).unwrap(), Some(tombstone));
         let again = publish(&store, &mut node, &alice, &hidden).await.unwrap();
         assert_eq!((again.version, again.gender), (3, shown.gender));
         assert!(!store.profile_hidden().unwrap());
         assert_eq!(store.due_search_profile(1_001).unwrap(), None);
+        let (mut refusing, _) = profile_node(vec![Status::Denied]).await;
+        assert!(withdraw(&store, &mut refusing, &alice, &again)
+            .await
+            .is_err());
+        assert!(!store.profile_hidden().unwrap());
+        let removed = withdraw(&store, &mut node, &alice, &again).await.unwrap();
+        assert_eq!(removed.version, 4);
+        assert!(store.profile_hidden().unwrap());
+        assert!(
+            dyapp_profile::verify(&held.lock().unwrap().clone().unwrap())
+                .unwrap()
+                .profile
+                .deleted
+        );
     }
 
     #[tokio::test]

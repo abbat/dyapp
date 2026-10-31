@@ -152,6 +152,7 @@
   "profile.hideHint": "Take a break without losing your draft.",
   "profile.hiddenNotice": "Your profile is hidden. Turn the switch off to publish the saved draft again.",
   "profile.status.hidden": "Hidden from search. Your draft stays saved.",
+  "profile.status.hidePending": "Hiding from search is pending. Your draft stays saved.",
   "publish.title": "Publish this profile?",
   "publish.intro": "Exactly these fields become public:",
   "publish.working": "Preparing the publication. This takes about a minute.",
