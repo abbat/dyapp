@@ -285,6 +285,7 @@
   "chats.count": "People who liked you:",
   "chats.none": "Nobody has liked you yet.",
   "chats.notConnected": "No active network node answered. Check the connection, then retry.",
+  "chats.receiveFailed": "New messages could not be checked; this list may be outdated:",
   "chats.failed": "Liked you did not load:",
   "view.claims": "Written by the profile owner. Nobody checks these details.",
   "view.block": "Block",

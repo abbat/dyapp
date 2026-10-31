@@ -190,7 +190,10 @@ the fields, and is undone in Settings.
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
 learns nothing until a reply (read receipts are off by default). Conversations and requests show
 the peer's photo thumbnail (letters only without a photo), the public name or short Peer ID, the
-last message, its time and the unread count.
+last message, its time and the unread count. The current Linux **Liked you** screen shows
+an error when mailbox refresh fails instead of claiming an empty local list is current. Rows
+already rendered stay visible if the profile lookup also fails; background polling retries on
+the next interval. Conversation rows and message requests are planned.
 
 | Control | ID | Notes |
 | --- | --- | --- |

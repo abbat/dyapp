@@ -128,7 +128,8 @@ then compares the node's signed profile payload with the locally saved draft and
 post-publish UI readback fields, age range and full-date warning equal the reviewed preview. The
 same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
-and that search asks to connect with a retry. It then checks the node under a wrong pin, under
+and that search asks to connect with a retry. The disconnected Chats visit must also show a
+mailbox refresh error instead of claiming the empty Liked you list is current. It then checks the node under a wrong pin, under
 another network name and a closed port, each with Continue disabled and no active network; the
 next launch retries, connects and retries the publication. A fresh first run connects to the same node on the
 wizard's network step and must leave an active network. After it,

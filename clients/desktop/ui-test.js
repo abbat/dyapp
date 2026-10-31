@@ -673,6 +673,12 @@ const searchOnLoopback = async (connected) => {
       throw new Error(`search without a network: ${status}, details ${searchFailures()}`);
     }
     await shot('search-not-connected');
+    await openArea('chats-area');
+    await window.chatsDone;
+    if (document.getElementById('chats-status').textContent !== window.strings['chats.notConnected']) {
+      throw new Error('Chats showed a fresh empty list without a network');
+    }
+    await shot('chats-not-connected');
     return;
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]

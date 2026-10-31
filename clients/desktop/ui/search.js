@@ -276,13 +276,15 @@ const chatsMessage = (key, detail = '') =>
 window.showChats = async () => {
   chatsMessage('chats.loading');
   try {
-    // A like that arrived since the last poll should be in the list.
-    await invoke('receive_mail').catch(() => 0);
+    // A failed mailbox refresh must not make the local list look current.
+    const receiveError = await invoke('receive_mail').then(() => null, (error) => String(error));
     const found = await withPlaces(await invoke('liked_you'));
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
     likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
     document.getElementById('chats-liked-count').textContent = String(found.length);
-    if (found.length) chatsMessage('chats.count', String(found.length));
+    if (receiveError === 'notConnected') chatsMessage('chats.notConnected');
+    else if (receiveError) chatsMessage('chats.receiveFailed', receiveError);
+    else if (found.length) chatsMessage('chats.count', String(found.length));
     else chatsMessage('chats.none');
   } catch (error) {
     const code = String(error);
