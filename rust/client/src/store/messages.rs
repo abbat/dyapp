@@ -7,6 +7,7 @@ use crate::chat::{Body, MAX_TEXT_BYTES};
 use crate::PreparedEnvelope;
 use dyapp_identity::sha256;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
+use dyapp_messaging::mls::Group;
 use rusqlite::{params, OptionalExtension, Transaction};
 
 mod clear;
@@ -108,10 +109,76 @@ impl Store {
         body: &Body,
         wall_ms: u64,
     ) -> Result<(), Error> {
-        if sender.author != self.owner_peer_id
-            || sender.group.is_empty()
-            || sender.device.len() != 32
-        {
+        let tx = self.db.transaction()?;
+        Self::stage_chat_outbound_tx(
+            &tx,
+            &self.owner_peer_id,
+            sealed_device,
+            writes,
+            sender,
+            body,
+            wall_ms,
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Catalog a new pair group and commit its Welcome writes with the first text in it, so a
+    /// retry after a crash resends both with the same bytes.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the group, its Welcome and the text commit together"
+    )]
+    pub fn stage_invite_text(
+        &mut self,
+        group: &Group,
+        peer_id: &str,
+        sealed_device: &[u8],
+        welcome: &[PreparedEnvelope],
+        writes: &[PreparedEnvelope],
+        body: &Body,
+        device: &[u8],
+        wall_ms: u64,
+    ) -> Result<(), Error> {
+        if peer_id == self.owner_peer_id || !group.members()?.contains(&peer_id.to_owned()) {
+            return Err(Error::GroupConflict);
+        }
+        let sender = VerifiedChatSender {
+            group: group.id(),
+            author: &self.owner_peer_id,
+            device,
+        };
+        let tx = self.db.transaction()?;
+        Self::stage_outbound_tx(
+            &tx,
+            Some((group.id(), peer_id)),
+            sealed_device,
+            welcome,
+            true,
+        )?;
+        Self::stage_chat_outbound_tx(
+            &tx,
+            &self.owner_peer_id,
+            sealed_device,
+            writes,
+            sender,
+            body,
+            wall_ms,
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn stage_chat_outbound_tx(
+        tx: &Transaction<'_>,
+        owner: &str,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        wall_ms: u64,
+    ) -> Result<(), Error> {
+        if sender.author != owner || sender.group.is_empty() || sender.device.len() != 32 {
             return Err(Error::InboxConflict);
         }
         let id = match body {
@@ -124,23 +191,15 @@ impl Store {
             author: sender.author.to_owned(),
             id: *id,
         };
-        let tx = self.db.transaction()?;
         if let Body::Edit { hlc, .. } | Body::Delete { hlc, .. } = body {
-            if Timestamp::from(*hlc) <= load_hlc(&tx)? {
+            if Timestamp::from(*hlc) <= load_hlc(tx)? {
                 return Err(Error::InboxConflict);
             }
         }
         if let Body::Text { id, .. } = body {
-            conversations::on_text(
-                &tx,
-                &self.owner_peer_id,
-                sender.group,
-                sender.author,
-                *id,
-                true,
-            )?;
+            conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
         }
-        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
         for write in writes {
             tx.execute(
                 "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
@@ -152,9 +211,9 @@ impl Store {
             )?;
         }
         let changed = match body {
-            Body::Text { text, .. } => Self::record_chat_text_tx(&tx, &key, text)?,
+            Body::Text { text, .. } => Self::record_chat_text_tx(tx, &key, text)?,
             Body::Edit { .. } | Body::Delete { .. } => {
-                Self::apply_chat_operation_tx(&tx, &key, sender.device, body, wall_ms)?
+                Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }
             _ => unreachable!(),
         };
@@ -162,7 +221,6 @@ impl Store {
         if !changed {
             return Err(Error::InboxConflict);
         }
-        tx.commit()?;
         Ok(())
     }
 

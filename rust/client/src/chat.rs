@@ -445,23 +445,45 @@ pub async fn invite(
     own_mailbox: &[u8],
     profiles: &[VerifiedProfile],
 ) -> Result<(Group, Vec<Delivery>), Error> {
-    let mut mailboxes = Vec::new();
-    let mut packages = Vec::new();
+    let packages = key_packages(node, own_mailbox, profiles).await?;
+    create(device, &packages, profiles)
+}
+
+/// The mailbox and KeyPackage of every device in `profiles` except `own_mailbox`.
+pub async fn key_packages(
+    node: &mut Node,
+    own_mailbox: &[u8],
+    profiles: &[VerifiedProfile],
+) -> Result<Vec<(Vec<u8>, Vec<u8>)>, Error> {
+    let mut packages: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
     for owner in profiles {
         for certificate in &owner.profile.devices {
             let address = device_mailbox(certificate)?;
-            if address == own_mailbox || mailboxes.contains(&address) {
+            if address == own_mailbox || packages.iter().any(|(known, _)| *known == address) {
                 continue;
             }
-            packages.push(node.fetch_key_package(owner, &address).await?);
-            mailboxes.push(address);
+            let package = node.fetch_key_package(owner, &address).await?;
+            packages.push((address, package));
         }
     }
-    let (group, welcome) = device.create_group(&packages, profiles)?;
-    let deliveries = mailboxes
-        .into_iter()
-        .map(|mailbox| Delivery {
-            mailbox,
+    Ok(packages)
+}
+
+/// Starts a group with `packages` from [`key_packages`]; returns it with the Welcome for each.
+pub fn create(
+    device: &Device,
+    packages: &[(Vec<u8>, Vec<u8>)],
+    profiles: &[VerifiedProfile],
+) -> Result<(Group, Vec<Delivery>), Error> {
+    let keys: Vec<Vec<u8>> = packages
+        .iter()
+        .map(|(_, package)| package.clone())
+        .collect();
+    let (group, welcome) = device.create_group(&keys, profiles)?;
+    let deliveries = packages
+        .iter()
+        .map(|(mailbox, _)| Delivery {
+            mailbox: mailbox.clone(),
             mls: welcome.clone(),
         })
         .collect();

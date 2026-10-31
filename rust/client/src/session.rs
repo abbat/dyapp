@@ -261,6 +261,127 @@ impl Session {
         self.send_staged(nodes, writes, seal_key).await
     }
 
+    /// Stage a text to the one other owner in `profiles` (newest held, this owner's among them)
+    /// in the pair's canonical group: the joined one with the lowest ID, which both sides pick
+    /// once each holds every Welcome. With none yet, a group made from `packages`
+    /// ([`chat::key_packages`]) commits its Welcome with the text; the Welcome writes come first.
+    pub fn stage_text_to(
+        &mut self,
+        profiles: &[VerifiedProfile],
+        packages: &[(Vec<u8>, Vec<u8>)],
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
+        let peer = self.peer_in(profiles)?;
+        if let Some(group_id) = self.pair_group(&peer) {
+            return self.stage_text(&group_id, text, seal_key);
+        }
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let mut id = [0; 16];
+        getrandom::fill(&mut id)
+            .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
+        let body = Body::text_with_id(id, text.to_vec());
+        let staged = (|| {
+            let (mut group, welcome) = chat::create(device, packages, profiles)?;
+            let today = (crate::now() / 86_400) as u32;
+            let prepare = |deliveries: Vec<chat::Delivery>| {
+                deliveries
+                    .into_iter()
+                    .map(|delivery| {
+                        tokens::prepare(
+                            &self.store,
+                            &delivery.mailbox,
+                            delivery.mls,
+                            EnvelopeClass::Message,
+                            today,
+                            seal_key,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            };
+            let welcome = prepare(welcome)?;
+            let writes = prepare(chat::message(&mut group, device, &body)?)?;
+            let sealed = device.seal(seal_key)?;
+            self.store.stage_invite_text(
+                &group,
+                &peer,
+                &sealed,
+                &welcome,
+                &writes,
+                &body,
+                &device.device_key()?,
+                crate::now() * 1000,
+            )?;
+            Ok((group, [welcome, writes].concat()))
+        })();
+        match staged {
+            Ok((group, writes)) => {
+                self.groups.push(group);
+                Ok((id, writes))
+            }
+            Err(error) => {
+                self.device = None;
+                self.groups.clear();
+                Err(error)
+            }
+        }
+    }
+
+    /// Send a text to the other owner in `profiles` as [`Session::stage_text_to`] stages it,
+    /// fetching the KeyPackages only when the pair has no group yet.
+    pub async fn send_text_to(
+        &mut self,
+        nodes: &mut [Node],
+        profiles: &[VerifiedProfile],
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<[u8; 16], Error> {
+        let peer = self.peer_in(profiles)?;
+        let packages = match self.pair_group(&peer) {
+            Some(_) => Vec::new(),
+            None => {
+                let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+                let key: [u8; 32] = device
+                    .device_key()?
+                    .try_into()
+                    .map_err(|_| crate::Error::Reply("bad device key"))?;
+                let own = crate::mailbox(&key);
+                scores::first(&mut self.scores, nodes, Node::peer, async |node| {
+                    chat::key_packages(node, &own, profiles).await
+                })
+                .await?
+            }
+        };
+        let (id, writes) = self.stage_text_to(profiles, &packages, text, seal_key)?;
+        self.send_staged(nodes, writes, seal_key).await?;
+        Ok(id)
+    }
+
+    /// The one owner in `profiles` other than this one.
+    fn peer_in(&self, profiles: &[VerifiedProfile]) -> Result<String, Error> {
+        let mut others: Vec<&str> = profiles
+            .iter()
+            .map(|profile| profile.peer_id.as_str())
+            .filter(|peer| *peer != self.store.owner_peer_id())
+            .collect();
+        others.sort();
+        others.dedup();
+        match others[..] {
+            [peer] => Ok(peer.to_owned()),
+            _ => Err(Error::UnknownGroup),
+        }
+    }
+
+    /// The lowest ID among the joined groups with `peer` alone.
+    fn pair_group(&self, peer: &str) -> Option<Vec<u8>> {
+        self.groups
+            .iter()
+            .map(Group::id)
+            .filter(|id| self.partner(id).as_deref() == Some(peer))
+            .min()
+            .map(<[u8]>::to_vec)
+    }
+
     /// Stage an edit of this profile's current text and return its operation ID and exact writes.
     pub fn stage_edit(
         &mut self,

@@ -753,3 +753,74 @@ fn a_strangers_other_bodies_are_dropped_until_a_reply() {
         ));
     }
 }
+
+#[test]
+fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
+    let seal_key = [5; 32];
+    let path = temp_path();
+    let Invite {
+        session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&path, &seal_key);
+    let mut session = session;
+    let alice_peer = alice_id.peer_id();
+    let alice_key: [u8; 32] = alice.device_key().unwrap().try_into().unwrap();
+    let packages = [(
+        crate::mailbox(&alice_key).to_vec(),
+        alice.key_package(false).unwrap(),
+    )];
+    let (_, writes) = session
+        .stage_text_to(&profiles, &packages, b"hi", &seal_key)
+        .unwrap();
+    // The Welcome and the text, both to Alice's device, in one commit.
+    assert_eq!(writes.len(), 2);
+    assert!(writes
+        .iter()
+        .all(|w| w.mailbox() == &crate::mailbox(&alice_key)));
+    let own = session.pair_group(&alice_peer).unwrap();
+
+    // A restart retries the same staged bytes and reopens the new group.
+    drop(session);
+    let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+    let due: Vec<_> = session.due_outbound(i64::MAX).unwrap();
+    let bytes = |writes: &[crate::PreparedEnvelope]| {
+        let mut all: Vec<_> = writes.iter().map(|w| w.as_bytes().to_vec()).collect();
+        all.sort();
+        all
+    };
+    assert_eq!(bytes(&due), bytes(&writes));
+    assert_eq!(session.pair_group(&alice_peer), Some(own.clone()));
+
+    // Alice made a group at the same time and replies in it: both groups are kept.
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let reply = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([7; 16], b"yo".to_vec()),
+    )
+    .unwrap()[0]
+        .mls
+        .clone();
+    assert!(session
+        .stage_envelope(&key(2), &reply, &profiles, &seal_key)
+        .unwrap()
+        .is_some());
+    let lowest = own.clone().min(group.id().to_vec());
+    let (id, _) = session
+        .stage_text_to(&profiles, &[], b"again", &seal_key)
+        .unwrap();
+    let sent = MessageKey {
+        group: lowest,
+        author: bob_id.peer_id(),
+        id,
+    };
+    assert!(session.chat_message(&sent).unwrap().is_some());
+    assert_eq!(session.store.known_groups().unwrap().len(), 2);
+}
