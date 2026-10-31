@@ -185,8 +185,9 @@ node reply is best effort, not network-wide removal.
 
 `profile-view-safety` is the expanded comparison panel. The number and rendered QR are derived
 from the active identity and the verified contact Peer ID. The QR carries a version byte followed
-by both raw Peer IDs in shower/scanner order. Comparing digits or displaying the QR does not yet
-record a verified contact. QR scanning and the verified mark are planned.
+by both raw Peer IDs in shower/scanner order. Comparing digits, displaying the QR or importing a matching PNG/JPEG does not yet
+record a verified contact. Image import rejects malformed, foreign and multiple codes with a
+localized result; live camera scanning and the verified mark are planned.
 
 `unlike-dialog` confirms taking the like back.
 

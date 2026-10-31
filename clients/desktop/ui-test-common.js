@@ -120,4 +120,15 @@ globalThis.checkSafetyNumber = async () => {
     || !document.querySelector('#view-safety-panel [data-i18n="view.safety.unverified"]').textContent) {
     throw new Error('the unverified safety number was not shown as 12 groups of five digits');
   }
+  const scan = document.getElementById('view-safety-scan-status');
+  await globalThis.scanQrFile(new File(['not an image'], 'invalid.png', { type: 'image/png' }));
+  if (scan.textContent !== window.strings['view.safety.scan.loadFailed']) {
+    throw new Error('malformed PNG was not reported');
+  }
+  const png = await new Promise((resolve) => qr.toBlob(resolve, 'image/png'));
+  if (!png) throw new Error('could not make the QR fixture PNG');
+  await globalThis.scanQrFile(new File([png], 'same-direction.png', { type: 'image/png' }));
+  if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.foreign']) {
+    throw new Error('same-direction QR image was not rejected');
+  }
 };

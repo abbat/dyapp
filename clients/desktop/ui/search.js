@@ -116,9 +116,13 @@ const showLikes = (likes) => {
   document.getElementById('view-match').hidden = !likes.matched;
 };
 let viewed = null;
+let safetyScanToken = 0;
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card) => {
   viewed = { found, card };
+  safetyScanToken += 1;
+  document.getElementById('view-safety-image').value = '';
+  document.getElementById('view-safety-scan-status').hidden = true;
   if (!card.closest('#search-area')) showArea('search-area');
   viewStatus.textContent = '';
   document.getElementById('view-safety-panel').hidden = true;
@@ -148,6 +152,7 @@ const openFound = (found, card) => {
   document.getElementById('view-back').focus();
 };
 const closeFound = () => {
+  safetyScanToken += 1;
   profileView.hidden = true;
   searchMain.hidden = false;
   if (viewed?.card.isConnected) viewed.card.focus();
@@ -221,6 +226,7 @@ document.getElementById('view-safety').addEventListener('click', () => {
   const button = document.getElementById('view-safety');
   const panel = document.getElementById('view-safety-panel');
   if (!panel.hidden) {
+    safetyScanToken += 1;
     panel.hidden = true;
     button.setAttribute('aria-expanded', 'false');
     return;
@@ -238,6 +244,63 @@ document.getElementById('view-safety').addEventListener('click', () => {
   })
     .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
     .finally(() => { button.disabled = false; });
+});
+// The UI smoke passes a PNG made from the rendered canvas through this same file path.
+globalThis.scanQrFile = async (file) => {
+  const found = viewed?.found;
+  const panel = document.getElementById('view-safety-panel');
+  const token = ++safetyScanToken;
+  const current = () => token === safetyScanToken && viewed?.found === found && !panel.hidden;
+  const status = document.getElementById('view-safety-scan-status');
+  const report = (key) => {
+    if (!current()) return;
+    status.textContent = window.strings[`view.safety.scan.${key}`];
+    status.hidden = false;
+  };
+  if (!file || !found) return;
+  if (!['image/png', 'image/jpeg'].includes(file.type)) return report('unsupported');
+  if (file.size > 2 * 1024 * 1024) return report('tooLarge');
+  report('checking');
+  let bitmap;
+  try {
+    // A File source needs no blob: URL; the desktop CSP allows only self images.
+    bitmap = await createImageBitmap(file);
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16_000_000) {
+      return report('tooLarge');
+    }
+    const scale = Math.min(1, 768 / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    const rgba = context.getImageData(0, 0, width, height).data;
+    const pixels = new Array(width * height);
+    for (let i = 0; i < pixels.length; i += 1) {
+      const at = i * 4;
+      const luma = Math.round((rgba[at] * 299 + rgba[at + 1] * 587 + rgba[at + 2] * 114) / 1000);
+      pixels[i] = Math.round((luma * rgba[at + 3] + 255 * (255 - rgba[at + 3])) / 255);
+    }
+    const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+    report(result);
+  } catch (_) {
+    report(bitmap ? 'failed' : 'loadFailed');
+  } finally {
+    bitmap?.close();
+  }
+};
+document.getElementById('view-safety-select').addEventListener('click', () => {
+  document.getElementById('view-safety-image').click();
+});
+document.getElementById('view-safety-image').addEventListener('change', (event) => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  input.value = '';
+  if (file) window.scanQrDone = globalThis.scanQrFile(file);
 });
 // The local block takes effect even if token revocation cannot reach a node.
 document.getElementById('view-block').addEventListener('click', async () => {

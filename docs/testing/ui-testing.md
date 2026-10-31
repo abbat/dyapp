@@ -333,7 +333,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   and checks that the rendered QR canvas has a white quiet zone and black finder pattern. The
   QR payload comes from the active identity and selected contact. A Rust unit fixture renders
   that payload into grayscale pixels and checks the bounded decoder's match, reversed/foreign,
-  bad-version, blank-frame and multiple-code results. File and camera input remain planned.
+  bad-version, blank-frame and multiple-code results. The native UI test also feeds a PNG made
+  from its displayed QR through image import and rejects that same-direction code; it reports a
+  malformed PNG. Camera input remains planned.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs
@@ -347,7 +349,7 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
   `publish-dialog`, `profile-publish-failed`, `profile-published`, `profile-hidden`,
   `profile-unhidden-pending`, `search-not-connected`, `chats-not-connected`, `search-results`,
-  `search-profile`, `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
+  `search-profile`, `search-safety`, `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
   the test flow reaches them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`

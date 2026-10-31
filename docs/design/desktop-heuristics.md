@@ -117,6 +117,17 @@ visible without horizontal clipping. The neighbouring actions remain visible.
 No open H1–H10 finding. The stand-in is deliberately not scanable; the shipped
 canvas receives a real encoded matrix and needs the native UI check.
 
+### QR image import layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-import-review-final-20261031/`. The import button,
+number, QR, instruction, navigation and neighbouring actions remain visible
+without clipping. Increased the gap between the button and instruction after
+the first screenshot review. No open H1–H10 finding. The prototype uses a
+layout stand-in; native image import is checked by the UI smoke.
+
 ### Accepted exceptions
 
 None.

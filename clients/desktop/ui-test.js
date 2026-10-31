@@ -727,6 +727,7 @@ const searchOnLoopback = async (connected) => {
   }
   await shot('search-profile');
   await globalThis.checkSafetyNumber();
+  await shot('search-safety');
   document.getElementById('view-back').click();
   if (!shown('search-main') || shown('profile-view')
     || document.activeElement.id !== 'result-1'
