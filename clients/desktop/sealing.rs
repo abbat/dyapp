@@ -58,7 +58,7 @@ mod tests {
         ));
         std::fs::create_dir_all(&root).unwrap();
         let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
-        let device = device_key(&root, &slot.dir).unwrap();
+        let device = device_key(&root, &slot.dir, &owner).unwrap();
         let legacy = super::profile::legacy_seal_key(&device);
         let path = slot.dir.join("client.db");
         let store = Store::open(&path, &owner).unwrap();
@@ -79,6 +79,8 @@ mod tests {
         let mut other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
         Session::open_or_create(other_store, &other_owner, &device, &[8; 32]).unwrap();
         other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
+        assert!(device_key(&root, &other.dir, &other_owner).is_err());
+        assert!(!other.device_path().exists());
         assert!(sealing_key(&root, &other.dir, &mut other_store, &device).is_err());
         assert!(!other.seal_path().exists());
     }

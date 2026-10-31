@@ -102,7 +102,22 @@ fn erase(slot: &Slot) -> Result<(), String> {
 }
 
 /// The open identity's device mailbox key, made on first use; see `slots::device_key`.
-fn device_key(root: &Path, dir: &Path) -> Result<Identity, String> {
+fn device_key(root: &Path, dir: &Path, identity: &Identity) -> Result<Identity, String> {
+    let slot = slots::list(root)?
+        .into_iter()
+        .find(|slot| slot.dir == dir && slot.state == slots::State::Ready)
+        .ok_or("Unknown identity")?;
+    let database = dir.join("client.db");
+    if load_key(&slot, &slot.device_path(), &slot.device_name())?.is_none()
+        && database.exists()
+        && dyapp_client::store::Store::open(&database, identity)
+            .map_err(|e| e.to_string())?
+            .sealed_device()
+            .map_err(|e| e.to_string())?
+            .is_some()
+    {
+        return Err("Device key is missing; MLS state cannot be reset".into());
+    }
     slots::device_key(
         root,
         dir,
@@ -449,7 +464,7 @@ async fn publish_profile(
     // The client store is not `Sync`, so the publish runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
         let _session = sessions.lock().map_err(|e| e.to_string())?;
-        let device = device_key(&root, &dir)?;
+        let device = device_key(&root, &dir, &identity)?;
         tauri::async_runtime::block_on(profile::publish(
             &root,
             &dir,

@@ -216,7 +216,7 @@ pub mod commands {
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
             let _session = sessions.lock().map_err(|e| e.to_string())?;
-            let device = crate::device_key(&root, &dir)?;
+            let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::like(
                 &cache, &root, &dir, &identity, &device, &peer_id, liked,
             ))
@@ -256,7 +256,7 @@ pub mod commands {
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
             let _session = sessions.lock().map_err(|e| e.to_string())?;
-            let device = crate::device_key(&root, &dir)?;
+            let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::receive(&cache, &root, &dir, &identity, &device))
         })
         .await
