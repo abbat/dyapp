@@ -104,6 +104,26 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | A device-signed ACK on one connected node is forwarded and removes the same opaque envelope from cooperating replicas; a replica that misses forwarding can retain it until TTL | Network | `network_checks.py::acked_everywhere`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed` | exists |
 | When the recipient is offline, the node keeps the original and delete until reconnect and ACK; delete-before-original at the authenticated Store boundary keeps the placeholder and records ACK intent for the late original | Functional, unit | `protocol/chat_edits.rs::offline_recipient_acknowledges_original_and_delete_after_reconnect`, `store/messages/inbound_tests.rs::late_original_after_delete_keeps_placeholder_and_ack_intent` | exists |
 
+### Client recovery matrix
+
+| Failure or recovery point | Expected result | Evidence / next test | Status |
+|---|---|---|---|
+| Kill before local send transaction commits | No network put and no visible sent message; reopen the previous MLS snapshot | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after send commit but before node accepts | Restart sends the exact stored signed envelope ID and bytes; local projection stays once | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after node accepts but before receipt | The outbox remains; a due resend is idempotent at the node and stops only after receipt or expiry | `protocol/chat_edits.rs::two_sessions_converge_on_edit_and_terminal_delete`; add runtime restart wake case | core exists; runtime planned |
+| Kill before receive transaction commits | Do not ACK or display; refetch and process from reopened MLS state | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after receive commit but before ACK | Retry ACK; duplicate envelope neither advances MLS again nor appears twice | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Push disabled, app foregrounded after offline period | Runtime wakes, sends due outbox writes, fetches inbox and retries ACKs without relying on push | Add desktop runtime wake/restart test after active-slot gate | planned |
+| Unresolved Gap or unknown owner occupies first page | Keep that ID unacked while reaching a later valid envelope; no premature ACK | Add >100-envelope pagination and restart test | planned |
+| Four single-use KeyPackages consumed or expired | A new invite reports temporary unavailability; active owner replenishes stock before retry, without changing Peer ID | Add node stock/exhaustion and desktop recovery test after refill protocol choice | planned |
+| Package published after local seal but reply lost | Repeating the same signed publish does not make a consumed package available again; future stock replenishment remains bounded | Add publish retry and consume test | planned |
+| Profile no longer lists the device | Reject its package and invite until a verified current device list is available; do not silently trust stale state | `service/keypackages.rs` current-device check; add stale-profile recovery test | partial |
+
+The [KeyPackage recovery boundary](../design/client-local-storage.md#keypackage-recovery-boundary)
+separates package stock from the existing write-token refill. Platform background
+delivery remains opportunistic; the guaranteed retry point is the next foreground
+open or resume.
+
 The clock checks cover node replies. Client signing-time correction using a median from
 three distinct nodes remains planned.
 

@@ -238,6 +238,34 @@ remain separate work.
 | WebView timer | Reuses the existing Chats poll. | Suspension and slot switching can delay or misroute work. |
 | Always-running service | Can attempt delivery while the app is closed. | Adds platform permissions, battery cost and lifecycle complexity without a portable guarantee. |
 
+### KeyPackage recovery boundary
+
+A device needs an available KeyPackage on a node before a new peer can create its MLS
+group. The desktop currently publishes four single-use packages only when it publishes
+the profile. Bootstrap consumes one before replying to a fetch, per holder and
+allocation slot, and returns `NOT_FOUND` when stock is empty; it allows at most 20
+unconsumed ordinary packages per device. `Session::refill` requests *write tokens*
+from existing groups, not KeyPackages. The desktop's daily refill timer therefore
+does not restore exhausted KeyPackages.
+
+The target is to replenish a published device while it is active, without changing
+its identity or creating a second device. Keep enough stock for an offline peer to
+start a chat, and report temporary unavailability when stock or a fresh profile is
+missing. Publishing the profile must precede package publication. Generate and seal
+private package state before any node publish; a failed publish may leave unused
+sealed keys but must not leave a public package without its private key. Never use a
+newly generated package after a failed local transaction. A repeated node publish
+of the same signed package must not unconsume it.
+
+The client cannot infer a node's remaining stock from the current fetch API:
+fetching consumes a package. The refill mechanism (bounded inventory query or
+another explicit stock signal, possibly with a last-resort package) is a separate
+protocol checkpoint. A blind fixed batch on every foreground start can hit the
+20-package quota and grow private state; do not claim it as recovery. A stale device
+certificate requires a refreshed verified profile before an invite is retried.
+Package expiry is 30 days, so a device that remains offline longer can require
+fresh publication on return.
+
 ## Implementation checkpoints
 
 1. Confirm the storage ADR and implement profile-bound open, schema migration and failure tests.

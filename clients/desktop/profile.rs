@@ -352,8 +352,8 @@ pub async fn publish(
     let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
-    // shortcut: a fixed batch per publish with no refill as peers use them, until the receive
-    // loop refills KeyPackages.
+    // shortcut: a fixed batch per publish; the receive loop refills write tokens, not
+    // KeyPackages, so peers can exhaust this stock until a later profile publish.
     session
         .publish_key_packages(&mut node, device_key, KEY_PACKAGES, &seal_key)
         .await
