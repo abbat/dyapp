@@ -160,6 +160,14 @@ def forge_search_signature(node_storage):
                    (forged, key))
 
 
+def video_smoke(case, reports):
+    """Linux-only raw Tauri channel and Canvas smoke, separate from account flows."""
+    for size in ("360p", "720p"):
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            case(f"video-{size}", [f"--ui-test-step=video:{size}"],
+                 profile, peer=False)
+
+
 def smoke(executable, flows=True):
     """flows=False skips the stateful identity and network flows, which a
     stateless fixture app cannot pass; only tests of this script use it."""
@@ -187,8 +195,14 @@ def smoke(executable, flows=True):
                 f"{process.stdout}\n{process.stderr}")
         print(process.stdout, end="")
         print(process.stderr, end="", file=sys.stderr)
-        results.append({"case": name, "exit": process.returncode,
-                        "passed": True})
+        result = {"case": name, "exit": process.returncode, "passed": True}
+        if name.startswith("video-"):
+            metrics = re.search(r"^UI_SMOKE_METRICS:video:(?:360p|720p):(\{[^\n]{1,500}\})$",
+                                process.stdout, re.M)
+            if not metrics:
+                raise RuntimeError(f"{name} did not report bounded metrics")
+            result["metrics"] = json.loads(metrics[1])
+        results.append(result)
         return match.group(1) if match else None
 
     def remove(name, profile, slot, first):
@@ -475,6 +489,8 @@ def smoke(executable, flows=True):
             server.terminate()
             server.wait(timeout=30)
 
+    if flows and sys.platform.startswith("linux") and os.environ.get("DYAPP_VIDEO_SMOKE") == "1":
+        video_smoke(case, reports)
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             flags = ["--ui-test-file"] if mode == "file" else []

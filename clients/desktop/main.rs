@@ -724,6 +724,12 @@ fn ui_test_result(
     }
     let success = passed && window.is_visible().unwrap_or(false);
     if success {
+        if reason.starts_with("video:") {
+            println!(
+                "UI_SMOKE_METRICS:{}",
+                reason.chars().take(512).collect::<String>()
+            );
+        }
         println!("UI_SMOKE_PASS:{peer_id}");
     } else {
         let reason = reason.lines().next().unwrap_or("unknown");
@@ -938,8 +944,10 @@ fn main() {
                 }
                 webview
                     .eval(format!(
-                        "{}\n{}",
+                        "{}\n{}\n{}\n{}",
                         include_str!("ui-test-common.js"),
+                        include_str!("video-frame-renderer.js"),
+                        include_str!("video-frame-smoke.js"),
                         include_str!("ui-test.js")
                     ))
                     .expect("start UI test");

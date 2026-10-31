@@ -1,8 +1,8 @@
 # Desktop video frame rendering spike
 
 > **Status:** a synthetic Linux debug-build source and test-only Canvas consumer exist; the
-> native channel smoke and host measurements are planned. No platform app renders call media yet.
-> No latency or CPU result has been measured.
+> native Linux CI smoke is wired; real-host measurements are planned. No platform app renders call
+> media yet. No latency or CPU result has been measured.
 
 [The video core](../architecture/video.md#what-exists-today) has offer/answer and connection
 state, but no capture, media track or decoded-frame callback. Linux and Windows desktop apps do
@@ -30,7 +30,10 @@ consumer now validates the raw `ArrayBuffer`, exact dimensions and length, magic
 and increasing sequence. It keeps one pending frame, paints on the next animation frame using one
 Canvas 2D context with `ImageData` and `putImageData`, and drops an older pending frame. It tracks
 scalar produced, delivered, painted, dropped and error counts plus the latest 120 frame ages and
-p50/p95 ages. The native channel hookup is the next checkpoint. Tauri documents that
+p50/p95 ages. Linux debug CI now connects the real raw channel to that consumer for four frames
+at each size, checks Canvas dimensions and pixel color, rejects malformed and oversized buffers,
+and prints bounded metrics. This Xvfb correctness smoke is not a performance measurement. Tauri
+documents that
 `Channel<Vec<u8>>` serializes bytes as a JSON array, so the benchmark uses the raw form
 ([Tauri Channel API](https://docs.rs/tauri/latest/tauri/ipc/struct.Channel.html)).
 A bounded queue keeps at most one pending frame; when the renderer falls behind, it drops the
@@ -74,6 +77,5 @@ benchmark does not prove real-call performance.
 | Encoded frames to WebView media element | Much smaller IPC payload if a supported decode path exists. | Codec/container/MSE support and buffering vary by installed WebKitGTK and GStreamer plugins. |
 | Native GTK/GStreamer surface | May reduce copies and give control over video timing. | Separate Linux integration and overlay/focus behavior; harder to share with Windows. |
 
-Next checkpoint: wire the raw channel into the Linux native UI smoke and check both sizes and
-metrics; then record measurements on a named Debian 12 host before choosing the production
+Next checkpoint: record measurements on a named Debian 12 host before choosing the production
 renderer.

@@ -89,6 +89,10 @@ and remains available on Retry. Rust's connection-check test and a desktop smoke
 the Apple cancel path belongs to the later Apple failure matrix.
 The same native UI cases verify that Continue stays disabled after an invalid row; a shared
 unit test verifies that calling Activate then leaves the active settings absent.
+The Linux debug UI smoke injects the synthetic raw-frame Canvas consumer, receives four binary
+Tauri channel frames each at 360p and 720p, checks the final Canvas dimensions and RGBA pixel,
+rejects malformed and oversized buffers, and records bounded frame counts and ages in
+`desktop-ui-results.json`. Xvfb checks correctness only; it is not a performance benchmark.
 The shared Linux/Windows desktop smoke blocks a known Peer ID in Settings, checks that Retry
 reports the token revocation state, then unblocks it and checks that the list clears. The native
 search and Liked you blocking flow remains for later UI coverage. The shared Linux/Windows
