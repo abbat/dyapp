@@ -174,8 +174,10 @@ desktop currently fetches on Chats visits and a 60-second UI timer; it does not 
 Mailbox fetch currently returns the first 100 records ordered by class and insertion
 sequence. `Session::receive` ignores the returned `more` flag. An unacknowledgeable
 Gap or unknown-owner record in a full first page can prevent later records from being
-seen. A separate checkpoint tracks cursor or equivalent forward progress and an
-integration test with an unresolved first-page record. Cross-replica union is still planned.
+seen. The [planned mailbox pagination](../design/client-local-storage.md#planned-mailbox-pagination)
+uses a node-local cursor, durable client progress and bounded passes. Bootstrap and
+client implementation plus an unresolved-first-page integration test remain planned.
+Cross-replica union is separate work.
 
 **What exists vs planned:**
 

@@ -238,6 +238,32 @@ remain separate work.
 | WebView timer | Reuses the existing Chats poll. | Suspension and slot switching can delay or misroute work. |
 | Always-running service | Can attempt delivery while the app is closed. | Adds platform permissions, battery cost and lifecycle complexity without a portable guarantee. |
 
+### Planned mailbox pagination
+
+Extend the owner-signed `Fetch` with an optional cursor and return the last emitted
+position in `MailboxResponse`. A cursor encodes a version, envelope class and local
+SQLite sequence number. The node validates its shape and selects records strictly
+after `(class, seq)` in its existing message-before-signal order. It sets `more`
+when another record follows the returned byte/record-limited page. The cursor is
+only a position, not an ACK or authorization token; the signed fetch and fresh
+connection nonce remain mandatory. Old requests still fetch from the head. A node
+that ignores the new field returns no next cursor, which the client treats as a
+bounded old-node response rather than looping over page one.
+
+The client binds the opaque cursor to the responding node's Peer ID and persists it
+after the page's per-envelope commits and ACK attempts. A crash before cursor save
+replays a page through inbox deduplication. A crash after save resumes after the
+committed page. If the node changes, the client clears the cursor and starts from
+the head; sequence numbers have no meaning across holders. Use a small page (at most
+20 records per catch-up pass), and schedule another pass while `more` is true. Before
+starting each next envelope or page, check the active-slot transition flag; never
+interrupt an MLS/Store transaction. Once `more` is false, clear the cursor and
+start the next scheduled check from the head, which also finds inserts with reused
+or earlier sequence numbers. Deletion or eviction of the cursor row does not
+invalidate the strict `>` position query. A new message inserted behind the cursor
+is reached on a later head pass. A non-advancing or malformed cursor is an error,
+not a reason for an unbounded refetch loop.
+
 ### KeyPackage recovery boundary
 
 A device needs an available KeyPackage on a node before a new peer can create its MLS
