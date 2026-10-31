@@ -115,7 +115,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Kill after receive commit but before ACK | Retry ACK; duplicate envelope neither advances MLS again nor appears twice | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
 | Push disabled, app foregrounded after offline period | Runtime wakes, sends due outbox writes, fetches inbox and retries ACKs without relying on push | Add desktop runtime wake/restart test after active-slot gate | planned |
 | Unresolved Gap or unknown owner occupies first page | Keep that ID unacked while reaching a later valid envelope; no premature ACK | Add >100-envelope pagination and restart test | planned |
-| Four single-use KeyPackages consumed or expired | A new invite reports temporary unavailability; active owner replenishes stock before retry, without changing Peer ID | Add node stock/exhaustion and desktop recovery test after refill protocol choice | planned |
+| Four single-use KeyPackages consumed or expired | New invites use the published last-resort package; after its expiry an active owner rotates and republishes it before retry, without changing Peer ID | Add node stock/exhaustion and desktop recovery test | planned |
 | Package published after local seal but reply lost | Repeating the same signed publish does not make a consumed package available again; future stock replenishment remains bounded | Add publish retry and consume test | planned |
 | Profile no longer lists the device | Reject its package and invite until a verified current device list is available; do not silently trust stale state | `service/keypackages.rs` current-device check; add stale-profile recovery test | partial |
 

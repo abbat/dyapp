@@ -257,14 +257,31 @@ sealed keys but must not leave a public package without its private key. Never u
 newly generated package after a failed local transaction. A repeated node publish
 of the same signed package must not unconsume it.
 
-The client cannot infer a node's remaining stock from the current fetch API:
-fetching consumes a package. The refill mechanism (bounded inventory query or
-another explicit stock signal, possibly with a last-resort package) is a separate
-protocol checkpoint. A blind fixed batch on every foreground start can hit the
-20-package quota and grow private state; do not claim it as recovery. A stale device
-certificate requires a refreshed verified profile before an invite is retried.
-Package expiry is 30 days, so a device that remains offline longer can require
-fresh publication on return.
+The chosen availability floor is one MLS last-resort KeyPackage per device, published
+after the profile and initial single-use batch. Both the node and OpenMLS already support
+reusing it for multiple Welcomes. Rotate it before its 30-day expiry while the owner is
+active, and on the next foreground open after a longer offline period. Persist its
+monotonically increasing revision and exact signed publication alongside the sealed
+private MLS state before any network publish, then retry that publication after a lost
+reply or restart. Use the existing node replication path and wait for its successful
+publish response before treating the device as ready for new invitations.
+A profile that no longer lists the device must not republish its package.
+
+The current fetch API has no non-consuming stock count, so the client cannot know when
+ordinary stock is low. The last-resort package keeps new invitations possible after
+the four ordinary packages are consumed; it is not a claim that one-time package stock
+has been refilled. Reusing one KeyPackage increases exposure if its private material is
+compromised and means multiple Welcomes can target the same key. OpenMLS explicitly marks
+and supports this mode; rotate at least before expiry and whenever the device certificate
+changes. A blind fixed batch on every foreground start can hit the 20-package quota and
+grow private state. A stale device certificate requires a refreshed verified profile
+before an invite is retried.
+
+| Refill option | Benefit | Cost or limit |
+|---|---|---|
+| One rotating last-resort package (chosen) | Uses the existing wire format, node replication and OpenMLS reuse; works after ordinary stock is consumed. | One private key can serve multiple Welcomes until rotation or expiry; it needs a durable revision and retry record. |
+| Owner-authenticated stock inventory | Can top up ordinary packages to a low-water mark. | Adds a wire request, authorization and per-replica stock reconciliation; a count can change as peers consume packages. |
+| Blind ordinary batch on every resume | No new wire request. | Can hit the 20-package quota and accumulate unused sealed keys without knowing whether nodes received stock. |
 
 ## Implementation checkpoints
 
