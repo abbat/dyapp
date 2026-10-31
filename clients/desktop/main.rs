@@ -901,6 +901,7 @@ fn main() {
             send_search_profile,
             search_profiles,
             safety::contact_safety_number,
+            safety::contact_safety_qr,
             chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,

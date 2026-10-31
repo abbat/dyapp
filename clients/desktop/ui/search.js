@@ -123,6 +123,9 @@ const openFound = (found, card) => {
   viewStatus.textContent = '';
   document.getElementById('view-safety-panel').hidden = true;
   document.getElementById('view-safety-number').textContent = '';
+  const qr = document.getElementById('view-safety-qr');
+  qr.width = 0;
+  qr.height = 0;
   document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
   showLikes({ ours: false, matched: false });
   invoke('peer_likes', { peerId: found.peerId })
@@ -194,6 +197,25 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
+const drawContactQr = ({ size, modules }) => {
+  if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
+    throw new Error('invalid contact QR matrix');
+  }
+  const canvas = document.getElementById('view-safety-qr');
+  const scale = 6;
+  canvas.width = (size + 8) * scale;
+  canvas.height = canvas.width;
+  canvas.setAttribute('aria-label', window.strings['view.safety.qr']);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#000';
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (modules[y * size + x]) context.fillRect((x + 4) * scale, (y + 4) * scale, scale, scale);
+    }
+  }
+};
 document.getElementById('view-safety').addEventListener('click', () => {
   const { found } = viewed;
   const button = document.getElementById('view-safety');
@@ -204,13 +226,16 @@ document.getElementById('view-safety').addEventListener('click', () => {
     return;
   }
   button.disabled = true;
-  window.safetyDone = invoke('contact_safety_number', { peerId: found.peerId })
-    .then((number) => {
-      if (viewed?.found !== found) return;
-      document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
-      panel.hidden = false;
-      button.setAttribute('aria-expanded', 'true');
-    })
+  window.safetyDone = Promise.all([
+    invoke('contact_safety_number', { peerId: found.peerId }),
+    invoke('contact_safety_qr', { peerId: found.peerId }),
+  ]).then(([number, matrix]) => {
+    if (viewed?.found !== found) return;
+    drawContactQr(matrix);
+    document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
+    panel.hidden = false;
+    button.setAttribute('aria-expanded', 'true');
+  })
     .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
     .finally(() => { button.disabled = false; });
 });

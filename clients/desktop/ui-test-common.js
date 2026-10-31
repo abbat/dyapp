@@ -106,6 +106,14 @@ const checkSafetyNumber = async () => {
   document.getElementById('view-safety').click();
   await window.safetyDone;
   const number = document.getElementById('view-safety-number').textContent;
+  const qr = document.getElementById('view-safety-qr');
+  const pixels = qr.getContext('2d');
+  const quiet = pixels.getImageData(0, 0, 1, 1).data;
+  const finder = pixels.getImageData(24, 24, 1, 1).data;
+  if (qr.width < 174 || quiet[0] !== 255 || quiet[1] !== 255 || quiet[2] !== 255
+    || finder[0] !== 0 || finder[1] !== 0 || finder[2] !== 0) {
+    throw new Error('the contact QR lacks a quiet zone or finder pattern');
+  }
   if (document.getElementById('view-safety-panel').hidden
     || !/^(\d{5} ){11}\d{5}$/.test(number)
     || document.getElementById('view-safety').getAttribute('aria-expanded') !== 'true'

@@ -273,6 +273,7 @@
   "view.safety.unverified": "Not verified with this person",
   "view.safety.compare": "Compare all digits with this person in a trusted channel. Matching numbers alone do not mark the contact verified yet.",
   "view.safety.failed": "Could not show the safety number.",
+  "view.safety.qr": "QR code for comparing this contact",
   "view.like": "Like",
   "view.message": "Message",
   "view.soon": "Messages come in a later version.",

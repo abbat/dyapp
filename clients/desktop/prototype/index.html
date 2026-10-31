@@ -14,6 +14,11 @@
 .p2 { filter: hue-rotate(150deg); }
 .p3 { filter: hue-rotate(260deg) saturate(1.3); }
 .p4 { filter: hue-rotate(60deg) brightness(0.9); }
+/* Layout stand-in; the shipped app draws a real QR matrix from the Peer IDs. */
+.safety-qr-demo { width: 294px; height: 294px; background: white;
+  border: 24px solid white; box-sizing: border-box;
+  background-image: repeating-conic-gradient(#111 0 25%, #fff 0 50%);
+  background-size: 12px 12px; }
 </style>
 </head>
 <body>
@@ -299,6 +304,7 @@ search providers asked: 0 of 3</pre>
       <div id="view-safety-panel" class="card" data-on="profile-view-safety">
         <p class="caption" data-t="view.safety.unverified"></p>
         <p id="view-safety-number" class="safety-number">12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890</p>
+        <div class="safety-qr safety-qr-demo" aria-hidden="true"></div>
         <p class="caption" data-t="view.safety.compare"></p>
       </div>
       <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>

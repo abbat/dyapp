@@ -196,6 +196,8 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .view-actions { margin-top: 0; }
 .view-actions ~ .caption { margin-top: var(--space-3); }
 .safety-number { font: 600 1.1rem/1.7 var(--font); letter-spacing: 0.04em; overflow-wrap: anywhere; }
+.safety-qr { display: block; max-width: 100%; height: auto; margin: var(--space-4) auto;
+  image-rendering: pixelated; }
 .chat-head { display: flex; gap: var(--space-2); align-items: center; padding-bottom: var(--space-3);
   margin-bottom: var(--space-3); border-bottom: 1px solid var(--line); }
 .chat-head .sub { display: block; }

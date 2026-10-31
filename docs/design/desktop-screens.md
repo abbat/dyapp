@@ -183,9 +183,10 @@ node reply is best effort, not network-wide removal.
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
 | Block | `view-block` | Quiet, under the fields |
 
-`profile-view-safety` is the expanded comparison panel. The number is derived from the two
-verified Peer IDs; comparing digits does not yet record a verified contact. QR scanning and the
-verified mark are planned.
+`profile-view-safety` is the expanded comparison panel. The number and rendered QR are derived
+from the active identity and the verified contact Peer ID. The QR carries a version byte followed
+by both raw Peer IDs in shower/scanner order. Comparing digits or displaying the QR does not yet
+record a verified contact. QR scanning and the verified mark are planned.
 
 `unlike-dialog` confirms taking the like back.
 

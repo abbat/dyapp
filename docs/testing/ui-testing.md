@@ -329,6 +329,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   keeps 22 bits. The profile test saves a valid draft and checks its fields after a normal app
   restart; cancellation of the publish dialog keeps that saved draft. Unsaved crash recovery is
   outside this test and is described in the [UI state contract](../architecture/ui-state-contract.md).
+  The contact safety check opens a verified search result, asserts the grouped 60-digit number
+  and checks that the rendered QR canvas has a white quiet zone and black finder pattern. The
+  QR payload comes from the active identity and selected contact; image decoding is still planned.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs

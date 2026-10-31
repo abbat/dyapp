@@ -107,6 +107,16 @@ navigation are visible without clipping; the adjacent states keep their message
 and like actions. No open finding. This is a static layout review; interaction
 and real-device performance remain separate checks.
 
+### Contact QR layout review (2026-10-31)
+
+Reviewed the changed `profile-view-safety` panel and neighbouring `profile-view`
+and `profile-view-match` states in English and Russian at 440 and 1280 px; twelve
+WebKitGTK prototype screenshots are in `build/ux-research/safety-qr-review-20261031/`.
+The QR layout stand-in keeps the number, status, instruction and navigation
+visible without horizontal clipping. The neighbouring actions remain visible.
+No open H1–H10 finding. The stand-in is deliberately not scanable; the shipped
+canvas receives a real encoded matrix and needs the native UI check.
+
 ### Accepted exceptions
 
 None.
