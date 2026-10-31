@@ -136,7 +136,9 @@ make deb      # → build/deb/dyapp_<version>_<arch>.deb and dyapp-<version>-<ma
 Both are built in Debian 12, so they run on Debian 12 and newer systems with glibc 2.36 or later.
 `make deb` installs each on a clean Debian 12 and opens and closes the window under Xvfb.
 
-Published release downloads are planned.
+The tagged release workflow is configured to publish both Linux client files with
+`SHA256SUMS` and build provenance. The v0.0.1 downloads are not available until that
+tag is released.
 
 ## Install the package
 

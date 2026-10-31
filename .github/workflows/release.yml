@@ -56,7 +56,10 @@ jobs:
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
           mkdir -p build/release
           cp build/deb/dyappd_*.deb build/deb/dyappd-*.tar.gz build/release/
-          cp "build/deb/dyapp_${version}_amd64.deb" build/release/
+          test -f "build/deb/dyapp_${version}_amd64.deb"
+          test -f "build/deb/dyapp-${version}-x86_64-linux-gnu.tar.gz"
+          cp -f "build/deb/dyapp_${version}_amd64.deb" \
+            "build/deb/dyapp-${version}-x86_64-linux-gnu.tar.gz" build/release/
           cp build/dyappd.spdx.json "build/release/dyappd-$version.spdx.json"
           (cd build/release && sha256sum -- * > SHA256SUMS)
           docker save dyappd:latest | gzip -n > build/dyappd-image.tar.gz
