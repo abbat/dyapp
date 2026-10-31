@@ -148,9 +148,10 @@ backup or key export.
 slot beside the active one, system and file identities with switch and restart, a corrupt
 pointer, a missing file key, and removal of a ready file slot and of a slot whose key is missing
 (only that slot folder goes). It also copies a stopped file-backed slot with a saved profile draft
-into a fresh app config, then checks the Peer ID and draft after reopening. A locked provider,
-removal of a system-store key through the UI, duplicate restore and a files-only copy against an
-isolated system credential provider are not covered yet.
+into a fresh app config, then checks the Peer ID and draft after reopening. On Linux it also
+copies a system-backed slot's app files into a fresh home and Secret Service session and checks
+that missing-key recovery appears without a replacement identity. A locked provider, removal of
+a system-store key through the UI and duplicate restore are not covered yet.
 
 This layout favors directory discovery over a single registry: it survives interrupted
 registry writes and exposes incomplete slots, at the cost of visible local metadata and a

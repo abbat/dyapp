@@ -182,11 +182,13 @@ def smoke(executable, flows=True):
     reports.mkdir(parents=True, exist_ok=True)
     results = []
 
-    def case(name, extra, profile, broken=False, peer=True, timeout=120):
-        arguments = [executable, "--ui-test", *extra]
+    def case(name, extra, profile, broken=False, peer=True, timeout=120,
+             launcher=(), extra_env=None):
+        arguments = [*launcher, executable, "--ui-test", *extra]
         if os.environ.get("DYAPP_SMOKE_RU") == "1":
             arguments.append("--ui-test-ru")
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
+        env.update(extra_env or {})
         process = run(arguments, timeout=timeout, env=env)
         match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)
         found = match is not None and (match[1] is not None or not peer)
@@ -294,6 +296,27 @@ def smoke(executable, flows=True):
         case("missing-key", [*file, "--ui-test-step=recovery:missing"],
              profile, peer=False)
         remove("remove-missing", profile, added, first)
+
+    def system_files_only(profile):
+        """An app-file copy cannot recover a credential in a fresh provider."""
+        root = Path(profile)
+        slot = (root / "active-profile").read_text().strip()
+        with tempfile.TemporaryDirectory(dir=reports) as restored:
+            restored = Path(restored)
+            (restored / "profiles").mkdir()
+            shutil.copytree(root / "profiles" / slot,
+                            restored / "profiles" / slot)
+            home = restored / "home"
+            home.mkdir()
+            runtime = restored / "runtime"
+            runtime.mkdir(mode=0o700)
+            launcher = ["dbus-run-session", "--", "bash",
+                        str(Path(__file__).with_name("fresh-keyring.sh"))]
+            case("system-files-only", ["--ui-test-step=recovery:missing"],
+                 restored, peer=False, launcher=launcher,
+                 extra_env={"HOME": str(home), "XDG_DATA_HOME": str(home / "data"),
+                            "XDG_CONFIG_HOME": str(home / "config"),
+                            "XDG_RUNTIME_DIR": str(runtime)})
 
     def legacy(profile, peer_id):
         """Turn the file slot into a pre-slot root key and reopen it."""
@@ -521,6 +544,8 @@ def smoke(executable, flows=True):
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
             if flows:
+                if mode == "system" and sys.platform.startswith("linux"):
+                    system_files_only(profile)
                 (legacy if mode == "file" else mixed)(profile, peer_id)
     if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:
