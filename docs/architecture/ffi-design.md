@@ -21,6 +21,21 @@ The Android, iOS and macOS apps link the library. Linux and Windows call
 `dyapp-identity` directly; their [storage choice and capability checks](../development/desktop-identity-storage.md)
 are implemented in the Tauri shell, outside this UniFFI contract.
 
+## Current desktop runtime ownership
+
+The Tauri shell stores the selected identity and slot directory in `IdentityState`.
+Commands such as `publish_profile`, `search_profiles` and `receive_mail` copy those values
+before starting blocking work. The client `Store` and `Session` are opened for a command and
+dropped when it returns; `chats::Sessions` serializes MLS operations with each other. The
+process also holds one `SearchState` profile cache and one profile-solve cancellation flag.
+
+`select_identity` changes the selected slot without waiting for those in-flight commands or
+clearing the shared profile cache. `remove_identity` waits for the embedded node to stop, but
+does not drain client commands before removing a slot. The UI asks the node to apply the new
+identity after rendering it. These are current boundaries, not a guarantee that old network
+work has stopped when another identity appears. The planned per-identity lifecycle and its
+switch/removal race tests are tracked with the [storage contract](../design/client-local-storage.md#ownership-and-location).
+
 ## Exported surface
 
 Authored Rust exports now carry API documentation, including explicit stub behavior.
