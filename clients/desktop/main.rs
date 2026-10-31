@@ -15,7 +15,6 @@ use tauri::Manager;
 mod chats;
 #[path = "file_store.rs"]
 mod file_store;
-// The gate primitive is exercised before the Tauri command wiring lands.
 #[cfg(test)]
 #[path = "identity_gate.rs"]
 mod identity_gate;
@@ -902,6 +901,7 @@ fn main() {
             search_profiles,
             safety::contact_safety_number,
             safety::contact_safety_qr,
+            safety::scan_contact_qr,
             chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,
