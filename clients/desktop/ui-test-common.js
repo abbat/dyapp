@@ -131,4 +131,32 @@ globalThis.checkSafetyNumber = async () => {
   if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.foreign']) {
     throw new Error('same-direction QR image was not rejected');
   }
+  const camera = document.getElementById('view-safety-camera');
+  const mediaDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
+  const fakeMedia = (getUserMedia) => Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true, value: { getUserMedia },
+  });
+  try {
+    for (const [name, expected] of [['NotAllowedError', 'denied'], ['NotFoundError', 'unavailable']]) {
+      fakeMedia(async () => { const error = new Error(name); error.name = name; throw error; });
+      camera.click();
+      await window.cameraDone;
+      if (scan.textContent !== window.strings[`view.safety.camera.${expected}`]) {
+        throw new Error(`camera ${name} was not reported`);
+      }
+    }
+    let finishCapture;
+    let stopped = false;
+    fakeMedia(() => new Promise((resolve) => { finishCapture = resolve; }));
+    camera.click();
+    camera.click();
+    finishCapture({ getTracks: () => [{ stop: () => { stopped = true; } }] });
+    await window.cameraDone;
+    if (!stopped || scan.textContent !== window.strings['view.safety.camera.stopped']) {
+      throw new Error('cancelled camera capture was not stopped');
+    }
+  } finally {
+    if (mediaDescriptor) Object.defineProperty(navigator, 'mediaDevices', mediaDescriptor);
+    else delete navigator.mediaDevices;
+  }
 };

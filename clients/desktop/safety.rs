@@ -3,6 +3,19 @@
 use super::{open_identity, IdentityState};
 use qrcodegen::{QrCode, QrCodeEcc};
 
+#[cfg(unix)]
+pub fn camera_permission(
+    webview: tauri::Webview,
+    kind: tauri::webview::PermissionKind,
+) -> tauri::webview::PermissionResponse {
+    match kind {
+        tauri::webview::PermissionKind::Camera if webview.label() == "main" => {
+            tauri::webview::PermissionResponse::Allow
+        }
+        _ => tauri::webview::PermissionResponse::Default,
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct QrMatrix {
     size: i32,

@@ -335,7 +335,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   that payload into grayscale pixels and checks the bounded decoder's match, reversed/foreign,
   bad-version, blank-frame and multiple-code results. The native UI test also feeds a PNG made
   from its displayed QR through image import and rejects that same-direction code; it reports a
-  malformed PNG. Camera input remains planned.
+  malformed PNG. Fake media-device responses verify camera denial, no-device
+  status and cancellation of a pending capture without opening a real camera.
+  Real Debian 12 capture and two-client scanning remain pending.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs

@@ -1,19 +1,19 @@
 # Linux contact QR camera capture
 
-**Status: design; live capture is not implemented.** The
-PNG/JPEG import path and bounded QR validator already exist. A camera scan must
-reuse that validator and must never set a verified mark by itself.
+**Status: implemented, pending native CI and a real Debian 12 camera check.**
+The PNG/JPEG import and live camera paths share the bounded QR validator.
+Neither sets a verified mark by itself.
 
 ## Decision and evidence
 
-Use the WebView's `navigator.mediaDevices.getUserMedia({ video: true,
-audio: false })`, attach the stream to a `<video>` with `srcObject`, and sample
-into a 768 px grayscale canvas at a bounded rate. Add a Tauri permission
-handler that allows **Camera** for the app's `main` WebView only and leaves
-other permissions at their default. The capture control is explicit; closing
-the panel, changing contact or navigating away stops every track and discards
-pending scan results. Show separate localized permission-denied, no-device and
-unsupported-runtime outcomes. Keep the existing PNG/JPEG import available.
+The WebView calls `getUserMedia` with video only, attaches the stream to a
+`<video>` with `srcObject`, and samples at most once every 300 ms into a
+grayscale canvas of at most 768 px per side. The Tauri permission handler
+allows **Camera** for the app's `main` WebView only and leaves other permissions
+at their default. Capture starts explicitly; closing the panel, changing
+contact, navigating away or hiding the window stops every track and discards
+pending scan results. Permission denial, no device and unsupported runtime
+have separate localized messages. PNG/JPEG import remains available.
 
 Why permission handling is required: the [WebKitGTK user-media request](https://webkitgtk.org/reference/webkit2gtk/2.25.1/WebKitUserMediaPermissionRequest.html)
 is denied by default when unhandled. The pinned Tauri 2.12.3 includes the

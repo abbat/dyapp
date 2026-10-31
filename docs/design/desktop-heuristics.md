@@ -128,6 +128,16 @@ without clipping. Increased the gap between the button and instruction after
 the first screenshot review. No open H1–H10 finding. The prototype uses a
 layout stand-in; native image import is checked by the UI smoke.
 
+### Contact camera control layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-camera-review-20261031/`. The image and camera
+buttons wrap cleanly at narrow widths, while the QR, instruction and adjacent
+profile actions remain visible. No open H1–H10 finding. The prototype does not
+exercise a physical camera; native CI and real-device checks are separate.
+
 ### Accepted exceptions
 
 None.

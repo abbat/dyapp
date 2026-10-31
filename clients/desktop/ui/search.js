@@ -117,10 +117,37 @@ const showLikes = (likes) => {
 };
 let viewed = null;
 let safetyScanToken = 0;
+let cameraStream = null;
+let cameraTimer = null;
+let cameraPending = false;
+const showSafetyStatus = (key) => {
+  const status = document.getElementById('view-safety-scan-status');
+  status.textContent = window.strings[key];
+  status.hidden = false;
+};
+const stopSafetyCamera = () => {
+  safetyScanToken += 1;
+  clearTimeout(cameraTimer);
+  cameraTimer = null;
+  cameraPending = false;
+  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  const preview = document.getElementById('view-safety-preview');
+  preview.srcObject = null;
+  preview.hidden = true;
+  const button = document.getElementById('view-safety-camera');
+  button.textContent = window.strings['view.safety.camera.start'];
+};
+document.addEventListener('dyapp:area-change', (event) => {
+  if (event.detail !== 'search-area') stopSafetyCamera();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopSafetyCamera();
+});
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card) => {
+  stopSafetyCamera();
   viewed = { found, card };
-  safetyScanToken += 1;
   document.getElementById('view-safety-image').value = '';
   document.getElementById('view-safety-scan-status').hidden = true;
   if (!card.closest('#search-area')) showArea('search-area');
@@ -152,7 +179,7 @@ const openFound = (found, card) => {
   document.getElementById('view-back').focus();
 };
 const closeFound = () => {
-  safetyScanToken += 1;
+  stopSafetyCamera();
   profileView.hidden = true;
   searchMain.hidden = false;
   if (viewed?.card.isConnected) viewed.card.focus();
@@ -226,7 +253,7 @@ document.getElementById('view-safety').addEventListener('click', () => {
   const button = document.getElementById('view-safety');
   const panel = document.getElementById('view-safety-panel');
   if (!panel.hidden) {
-    safetyScanToken += 1;
+    stopSafetyCamera();
     panel.hidden = true;
     button.setAttribute('aria-expanded', 'false');
     return;
@@ -245,17 +272,25 @@ document.getElementById('view-safety').addEventListener('click', () => {
     .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
     .finally(() => { button.disabled = false; });
 });
+const grayscaleFrame = (context, width, height) => {
+  const rgba = context.getImageData(0, 0, width, height).data;
+  const pixels = new Array(width * height);
+  for (let i = 0; i < pixels.length; i += 1) {
+    const at = i * 4;
+    const luma = Math.round((rgba[at] * 299 + rgba[at + 1] * 587 + rgba[at + 2] * 114) / 1000);
+    pixels[i] = Math.round((luma * rgba[at + 3] + 255 * (255 - rgba[at + 3])) / 255);
+  }
+  return pixels;
+};
 // The UI smoke passes a PNG made from the rendered canvas through this same file path.
 globalThis.scanQrFile = async (file) => {
   const found = viewed?.found;
   const panel = document.getElementById('view-safety-panel');
   const token = ++safetyScanToken;
   const current = () => token === safetyScanToken && viewed?.found === found && !panel.hidden;
-  const status = document.getElementById('view-safety-scan-status');
   const report = (key) => {
     if (!current()) return;
-    status.textContent = window.strings[`view.safety.scan.${key}`];
-    status.hidden = false;
+    showSafetyStatus(`view.safety.scan.${key}`);
   };
   if (!file || !found) return;
   if (!['image/png', 'image/jpeg'].includes(file.type)) return report('unsupported');
@@ -278,13 +313,7 @@ globalThis.scanQrFile = async (file) => {
     context.fillStyle = '#fff';
     context.fillRect(0, 0, width, height);
     context.drawImage(bitmap, 0, 0, width, height);
-    const rgba = context.getImageData(0, 0, width, height).data;
-    const pixels = new Array(width * height);
-    for (let i = 0; i < pixels.length; i += 1) {
-      const at = i * 4;
-      const luma = Math.round((rgba[at] * 299 + rgba[at + 1] * 587 + rgba[at + 2] * 114) / 1000);
-      pixels[i] = Math.round((luma * rgba[at + 3] + 255 * (255 - rgba[at + 3])) / 255);
-    }
+    const pixels = grayscaleFrame(context, width, height);
     const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
     report(result);
   } catch (_) {
@@ -293,6 +322,88 @@ globalThis.scanQrFile = async (file) => {
     bitmap?.close();
   }
 };
+document.getElementById('view-safety-camera').addEventListener('click', () => {
+  if (cameraPending || cameraStream) {
+    stopSafetyCamera();
+    showSafetyStatus('view.safety.camera.stopped');
+    return;
+  }
+  const found = viewed?.found;
+  const panel = document.getElementById('view-safety-panel');
+  if (!found || panel.hidden) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showSafetyStatus('view.safety.camera.unsupported');
+    return;
+  }
+  const token = ++safetyScanToken;
+  const current = () => token === safetyScanToken && viewed?.found === found
+    && !panel.hidden && !document.getElementById('search-area').hidden && !document.hidden;
+  const button = document.getElementById('view-safety-camera');
+  const preview = document.getElementById('view-safety-preview');
+  cameraPending = true;
+  button.textContent = window.strings['view.safety.camera.stop'];
+  showSafetyStatus('view.safety.camera.starting');
+  window.cameraDone = (async () => {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+        video: { width: { ideal: 640 }, height: { ideal: 480 } } });
+      if (!current()) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      cameraStream = stream;
+      cameraPending = false;
+      preview.srcObject = stream;
+      preview.hidden = false;
+      await preview.play();
+      if (!current()) return;
+      showSafetyStatus('view.safety.camera.scanning');
+      const scan = async () => {
+        if (!current() || !cameraStream) return;
+        try {
+          if (preview.videoWidth && preview.videoHeight) {
+            const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
+            const width = Math.max(1, Math.round(preview.videoWidth * scale));
+            const height = Math.max(1, Math.round(preview.videoHeight * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            context.drawImage(preview, 0, 0, width, height);
+            const pixels = grayscaleFrame(context, width, height);
+            const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+            if (!current()) return;
+            if (result !== 'notFound' && result !== 'unreadable') {
+              stopSafetyCamera();
+              showSafetyStatus(`view.safety.scan.${result}`);
+              return;
+            }
+          }
+          if (cameraStream.getVideoTracks()[0]?.readyState === 'ended') {
+            stopSafetyCamera();
+            showSafetyStatus('view.safety.camera.unavailable');
+            return;
+          }
+          cameraTimer = setTimeout(scan, 300);
+        } catch (_) {
+          if (current()) {
+            stopSafetyCamera();
+            showSafetyStatus('view.safety.camera.failed');
+          }
+        }
+      };
+      cameraTimer = setTimeout(scan, 300);
+    } catch (error) {
+      if (!current()) return;
+      const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name) ? 'denied'
+        : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
+          ? 'unavailable' : 'failed';
+      stopSafetyCamera();
+      showSafetyStatus(`view.safety.camera.${kind}`);
+    }
+  })();
+});
 document.getElementById('view-safety-select').addEventListener('click', () => {
   document.getElementById('view-safety-image').click();
 });

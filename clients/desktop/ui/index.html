@@ -260,7 +260,10 @@
             <canvas id="view-safety-qr" class="safety-qr" role="img"></canvas>
             <div class="actions"><button id="view-safety-select" class="btn" type="button"
               data-i18n="view.safety.image"></button>
+              <button id="view-safety-camera" class="btn" type="button"
+                data-i18n="view.safety.camera.start"></button>
               <input id="view-safety-image" type="file" accept="image/png,image/jpeg" hidden></div>
+            <video id="view-safety-preview" class="safety-preview" autoplay muted playsinline hidden></video>
             <p id="view-safety-scan-status" class="notice" role="status" aria-live="polite" hidden></p>
             <p class="caption" data-i18n="view.safety.compare"></p>
           </div>

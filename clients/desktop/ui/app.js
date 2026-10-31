@@ -392,6 +392,7 @@ document.addEventListener('keydown', (event) => {
   if (event.ctrlKey && event.key.toLowerCase() === 'q') invoke('quit');
 });
 const showArea = (area) => {
+  document.dispatchEvent(new CustomEvent('dyapp:area-change', { detail: area }));
   for (const button of document.querySelectorAll('#sidebar [data-area]')) {
     document.getElementById(button.dataset.area).hidden = button.dataset.area !== area;
     if (button.dataset.area === area) button.setAttribute('aria-current', 'page');
