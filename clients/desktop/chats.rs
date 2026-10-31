@@ -307,10 +307,12 @@ pub mod commands {
         sessions: tauri::State<'_, super::Sessions>,
         peer_id: String,
     ) -> Result<super::BlockResult, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;
         let sessions = Arc::clone(&sessions.0);
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             let _session = sessions.lock().map_err(|error| error.to_string())?;
             tauri::async_runtime::block_on(super::block(&root, &dir, &identity, &peer_id))
         })
@@ -324,8 +326,9 @@ pub mod commands {
         state: tauri::State<'_, crate::IdentityState>,
         peer_id: String,
     ) -> Result<super::Likes, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
-        super::likes(&dir, &identity, &peer_id)
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::likes(dir, identity, &peer_id)
     }
 
     /// Likes a found peer or takes the like back; see `like`.
@@ -338,12 +341,14 @@ pub mod commands {
         peer_id: String,
         liked: bool,
     ) -> Result<super::Likes, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;
         let cache = Arc::clone(&searching.0);
         let sessions = Arc::clone(&sessions.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::like(
@@ -360,10 +365,12 @@ pub mod commands {
         state: tauri::State<'_, crate::IdentityState>,
         searching: tauri::State<'_, SearchState>,
     ) -> Result<Vec<Found>, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let cache = Arc::clone(&searching.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             tauri::async_runtime::block_on(super::liked_you(&cache, &dir, &identity))
         })
         .await
@@ -378,12 +385,14 @@ pub mod commands {
         searching: tauri::State<'_, SearchState>,
         sessions: tauri::State<'_, super::Sessions>,
     ) -> Result<usize, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;
         let cache = Arc::clone(&searching.0);
         let sessions = Arc::clone(&sessions.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::receive(&cache, &root, &dir, &identity, &device))

@@ -2,8 +2,8 @@
 
 The Linux and Windows Tauri shell runs Store and network commands against a copied identity
 and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
-records the gap: network, profile, search and privacy commands now keep their admission lease
-through their work, while chat, safety, node and usage commands release it early; the verified
+records the gap: network, profile, search, privacy and chat commands now keep their admission
+lease through their work, while safety, node and usage commands release it early; the verified
 profile cache and cancellation flags are process-wide. Identity selection now closes admission,
 drains held leases off the UI thread, opens the target slot before changing the persistent
 selection, and commits the new identity to one gate. Startup, creation and removal

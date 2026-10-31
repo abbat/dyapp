@@ -24,10 +24,10 @@ are implemented in the Tauri shell, outside this UniFFI contract.
 ## Current desktop runtime ownership
 
 The Tauri shell stores the selected identity and slot directory in one admission gate.
-Network, profile, search and privacy commands hold the gate lease through their blocking,
-async or synchronous work. Commands such as `receive_mail` still copy their values under a short
-lease before starting blocking work. The client `Store` and `Session` are opened for a command
-and dropped when it returns; `chats::Sessions` serializes MLS operations
+Network, profile, search, privacy and chat commands hold the gate lease through their blocking,
+async or synchronous work. Safety, node and usage commands still copy their active identity or
+path under a short lease before starting work. The client `Store` and `Session` are opened for a
+command and dropped when it returns; `chats::Sessions` serializes MLS operations
 with each other. The process also holds one `SearchState` profile cache and one profile-solve
 cancellation flag.
 
