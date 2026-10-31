@@ -27,8 +27,9 @@ keep likes, view history or matching preferences private, or enforce rules such 
 - **Online presence** is visible to whomever the user chooses; the setting is local and presence is
   sent only to the allowed peers. The planned [presence design](../design/presence.md) sends a
   coarse "active recently" signal to matches unless the user hides it.
-- **Messages to non-matches** are allowed with rate limiting and one pending message until the
-  recipient replies.
+- **Messages to non-matches** are allowed: one pending message until the recipient replies,
+  enforced by the recipient. A daily cap was dropped on 2026-10-31 because only the sender's own
+  client could check it; see [likes, matches and chats](../design/chats-and-matches.md).
 - **Multiple profiles are separate identities:** each has its own identity key
   ([ADR 0004](0004-identity-keys.md)), they are not linked to each other, and each has its own
   conversations.

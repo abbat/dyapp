@@ -32,7 +32,7 @@ Every chat plaintext starts with a one-byte body tag (`chat::Body`): `1` user te
 interaction; `3` and `4` are the write-token request and answer, and other tags are
 refused and acked without changing state. A tagged interaction is 27 bytes and fits the 256-byte
 short padding bucket. An introduction is a separate one-message chat payload, not a v1
-interaction event; its delivery policy belongs to chat design.
+interaction event; its rules are in [likes, matches and chats](chats-and-matches.md).
 The [size guard](../architecture/bootstrap.md#mailbox-envelope) measured 638 bytes for a short
 like and 894 bytes for up to 508 bytes of introduction plaintext if sent with the signal class,
 both including a signed write token. The sender checks the *encoded envelope* against the node's
