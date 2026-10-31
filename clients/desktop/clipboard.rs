@@ -1,6 +1,6 @@
 //! Sensitive safety-number clipboard operations shared by Linux and Windows.
 
-use super::{open_identity, IdentityState};
+use super::IdentityState;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 fn grouped_number(mine: &str, theirs: &str) -> Result<String, String> {
@@ -22,13 +22,12 @@ pub async fn copy_safety_number(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
 ) -> Result<String, String> {
-    let number = {
-        let (identity, _) = open_identity(&state)?;
-        grouped_number(&identity.peer_id(), &peer_id)?
-    };
+    let lease = state.lease()?;
+    let number = grouped_number(&lease.active().0.peer_id(), &peer_id)?;
     tauri::async_runtime::spawn_blocking({
         let number = number.clone();
         move || {
+            let _lease = lease;
             app.clipboard()
                 .write_secret(number)
                 .map_err(|e| e.to_string())

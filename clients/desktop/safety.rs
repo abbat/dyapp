@@ -1,6 +1,6 @@
 //! Contact safety-number command for a verified profile shown by the desktop client.
 
-use super::{open_identity, IdentityState};
+use super::IdentityState;
 use qrcodegen::{QrCode, QrCodeEcc};
 
 #[cfg(unix)]
@@ -41,8 +41,8 @@ pub fn contact_safety_qr(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
 ) -> Result<QrMatrix, String> {
-    let (identity, _) = open_identity(&state)?;
-    matrix_for_peer_ids(&identity.peer_id(), &peer_id)
+    let lease = state.lease()?;
+    matrix_for_peer_ids(&lease.active().0.peer_id(), &peer_id)
 }
 
 fn scan_frame(
@@ -99,8 +99,15 @@ pub fn scan_contact_qr(
     height: usize,
     pixels: Vec<u8>,
 ) -> Result<String, String> {
-    let (identity, _) = open_identity(&state)?;
-    scan_frame(width, height, &pixels, &identity.peer_id(), &peer_id).map(str::to_owned)
+    let lease = state.lease()?;
+    scan_frame(
+        width,
+        height,
+        &pixels,
+        &lease.active().0.peer_id(),
+        &peer_id,
+    )
+    .map(str::to_owned)
 }
 
 /// Computes a comparison number from this identity and the found profile's Peer ID.
@@ -109,8 +116,8 @@ pub fn contact_safety_number(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
 ) -> Result<String, String> {
-    let (identity, _) = open_identity(&state)?;
-    dyapp_identity::safety::safety_number_for_peer_ids(&identity.peer_id(), &peer_id)
+    let lease = state.lease()?;
+    dyapp_identity::safety::safety_number_for_peer_ids(&lease.active().0.peer_id(), &peer_id)
         .ok_or_else(|| "invalid Peer ID".to_owned())
 }
 

@@ -19,7 +19,7 @@ mod file_store;
 #[path = "identity_gate.rs"]
 mod identity_gate;
 mod identity_runtime;
-use identity_runtime::{describe, identity_dir, open_identity, respond, IdentityState};
+use identity_runtime::{describe, identity_dir, respond, IdentityState};
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).
