@@ -366,8 +366,10 @@ light `dyapp:prototype` image (Debian 12, WebKitGTK 4.1, Xvfb; no Rust build, al
 `prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
 for each screen of [Desktop screens](../design/desktop-screens.md) in English and Russian, at 440
 and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
-non-zero when any page fails to load or save. The prototype has no logic, so this checks layout
-and wording only; the maintainer reviews the files by eye.
+non-zero when any page fails to load or save. Pass `desktop` and optional screen names after the
+script path to capture only named states; use a fresh `/shots` mount under `build/` when preserving
+existing screenshots. The prototype has no logic, so this checks layout and wording only; the
+maintainer reviews the files by eye.
 
 ### Android prototype screenshots
 

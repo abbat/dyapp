@@ -97,6 +97,16 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 States with no finding: `picker`, `setup`, `wizard-network`, `recovery-details`, `ready`,
 `network-empty`, `profile-edit`, `profile-preview`, `profile-published`, `remove`.
 
+### Safety-number review (2026-10-31)
+
+Reviewed `profile-view-safety` and its `profile-view` and `profile-view-match`
+neighbours against H1–H10 in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in `build/ux-research/safety-review-20261031/`.
+The unverified status, all 60 digits, trusted-channel instruction and return
+navigation are visible without clipping; the adjacent states keep their message
+and like actions. No open finding. This is a static layout review; interaction
+and real-device performance remain separate checks.
+
 ### Accepted exceptions
 
 None.
