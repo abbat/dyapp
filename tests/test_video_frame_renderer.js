@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../clients/desktop/video-frame-renderer.js'), 'utf8');
-const makeRenderer = vm.runInNewContext(`${source}\ncreateVideoFrameRenderer`, {
+const makeRenderer = vm.runInNewContext(`${source}\nglobalThis.createVideoFrameRenderer`, {
   ArrayBuffer, DataView, Uint8ClampedArray, Set, Number, Date,
   ImageData: class {
     constructor(data, width, height) {

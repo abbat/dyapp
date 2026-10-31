@@ -1,6 +1,6 @@
 // Test-only DVF1 consumer. The producer lives in video_frames.rs; this file is injected
 // into Linux UI smoke, never loaded by the normal desktop page.
-const createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) => {
+globalThis.createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) => {
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) throw new Error('Canvas 2D unavailable');
   const HEADER = 20;

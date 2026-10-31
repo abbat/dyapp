@@ -4,7 +4,7 @@ const videoFrames = async (size, count = 4) => {
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', 'Synthetic video test frame');
   document.body.append(canvas);
-  const renderer = createVideoFrameRenderer(canvas);
+  const renderer = globalThis.createVideoFrameRenderer(canvas);
   let received = 0;
   let channelError = '';
   let resolveFrames;
@@ -46,7 +46,7 @@ const videoFrames = async (size, count = 4) => {
   return metrics;
 };
 // A separate real-host benchmark step keeps the four-frame CI smoke quick.
-const videoBenchmark = async (size) => {
+globalThis.videoBenchmark = async (size) => {
   if (!['idle', '360p', '720p'].includes(size)) throw new Error('invalid video benchmark size');
   const metrics = size === 'idle'
     ? await new Promise((resolve) => setTimeout(() => resolve({ produced: 0, delivered: 0,

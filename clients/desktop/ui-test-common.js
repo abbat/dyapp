@@ -102,7 +102,7 @@ window.shot = async (name) => {
   await invokeTest('ui_test_shot', { name });
 };
 
-const checkSafetyNumber = async () => {
+globalThis.checkSafetyNumber = async () => {
   document.getElementById('view-safety').click();
   await window.safetyDone;
   const number = document.getElementById('view-safety-number').textContent;
