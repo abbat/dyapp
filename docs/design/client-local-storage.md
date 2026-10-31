@@ -57,7 +57,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
 | `chat_cleared` | `(group ID, author Peer ID, message ID)` of each message Clear chat removed, no text | A text, edit or delete naming a mark is discarded and still ACKed; the mark outlives restarts. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it; which node accepted the latest copy and when; an optional expiry time; the chat group of a chat write | `(mailbox, envelope ID)` is unique; Clear chat drops unaccepted chat writes of its group; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
-| `settings` | Typed, versioned per-profile values such as view sending | Per profile; documented defaults for absent values. The planned app lock is app-wide and its PIN verifier belongs in platform-protected storage, not this table. |
+| `settings` | Typed, versioned per-profile values such as view sending and the bounded mailbox fetch cursor | Per profile; the cursor row binds an opaque 1–64 byte position to one node Peer ID and an empty value means start at the head. The planned app lock is app-wide and its PIN verifier belongs in platform-protected storage, not this table. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
 | `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload | `(sender, event ID)` is unique; a replay with other bytes is refused. |
 | `like_state` | Latest like or unlike per sender and target | Replaced only by a greater `(HLC, device, event ID)`. |
@@ -252,7 +252,10 @@ that ignores the new field returns no next cursor. Legacy `Node::fetch` still
 returns that first page; `Node::fetch_page` reports a non-advancing reply if
 `more` is true, so the pagination caller cannot loop over page one.
 
-The client binds the opaque cursor to the responding node's Peer ID and persists it
+The Store now has one profile-bound cursor setting: `save_mailbox_cursor` records an
+opaque 1–64 byte cursor with the responding node's Peer ID, `mailbox_cursor_for`
+clears it on holder switch, and `clear_mailbox_cursor` resets to the head. Corrupt
+format, Peer ID or length fails safely. Session still needs to call these APIs
 after the page's per-envelope commits and ACK attempts. A crash before cursor save
 replays a page through inbox deduplication. A crash after save resumes after the
 committed page. If the node changes, the client clears the cursor and starts from

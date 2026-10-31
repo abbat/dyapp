@@ -11,6 +11,7 @@ use std::path::Path;
 mod conversations;
 mod inbox;
 mod likes;
+mod mailbox_cursor;
 pub mod messages;
 mod outbox;
 mod peers;
