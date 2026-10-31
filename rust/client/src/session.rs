@@ -5,7 +5,7 @@ use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
 use crate::store::messages::{CurrentMessage, MessageKey, VerifiedChatSender};
-use crate::store::{InboxKey, InboxKind, Store};
+use crate::store::{Conversation, InboxKey, InboxKind, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::{Device, Group};
@@ -792,6 +792,25 @@ impl Session {
             }
             _ => false,
         };
+        // Until a reply or a match, a stranger's request is text only: its other bodies are
+        // acked and dropped like a blocked owner's, so no token request is answered.
+        let blocked = blocked
+            || match &event {
+                Event::Message {
+                    sender,
+                    body:
+                        Body::Attachment(_)
+                        | Body::Forwarded(_)
+                        | Body::Presence { .. }
+                        | Body::Read { .. }
+                        | Body::TokenRequest(_),
+                    ..
+                } if sender != self.store.owner_peer_id() => matches!(
+                    self.store.conversation(sender)?,
+                    Conversation::None | Conversation::RequestReceived(_)
+                ),
+                _ => false,
+            };
         // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
         // shortcut: another device of this owner sent it; it waits for device sync.
         if let Event::Interaction {

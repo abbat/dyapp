@@ -591,10 +591,10 @@ fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
     // Not a match yet: nothing is sent and a received presence is dropped.
     assert!(session.stage_presence(now, &seal_key).unwrap().is_empty());
     let early = presence(&mut group, now);
-    assert!(matches!(
-        session.stage_envelope(&key(2), &early, &profiles, &seal_key),
-        Ok(Some(Event::Message { .. }))
-    ));
+    assert!(session
+        .stage_envelope(&key(2), &early, &profiles, &seal_key)
+        .unwrap()
+        .is_none());
     assert!(!session.store.active_recently(&a, now).unwrap());
 
     for (sender, target, id) in [(&a, &b, 1), (&b, &a, 2)] {
@@ -664,6 +664,7 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
     session
         .stage_envelope(&key(2), &sent.unwrap()[0].mls, &profiles, &seal_key)
         .unwrap();
+    session.stage_text(&id, b"yes", &seal_key).unwrap();
 
     // Off by default; once on, one receipt per newly seen text.
     let receipts = |s: &mut Session| s.stage_read(&id, [1; 16], &seal_key).unwrap().len();
@@ -699,4 +700,56 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
         .unwrap();
     assert_eq!(session.store.read_up_to(&id, &a).unwrap(), Some([2; 16]));
     assert_eq!(session.acks([9; 32], vec![]).unwrap().len(), 4);
+}
+
+#[test]
+fn a_strangers_other_bodies_are_dropped_until_a_reply() {
+    let seal_key = [4; 32];
+    let Invite {
+        mut session,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+        ..
+    } = bob_invited(&temp_path(), &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let id = group.id().to_vec();
+    let mut send = |body: &Body| {
+        chat::message(&mut group, &alice, body).unwrap()[0]
+            .mls
+            .clone()
+    };
+    let hi = send(&Body::text_with_id([1; 16], b"hi".to_vec()));
+    let ask = Body::TokenRequest(chat::TokenRequest {
+        asks: vec![chat::TokenAsk {
+            mailbox: vec![1; 32],
+            epoch: 1,
+            token_key: vec![2; 32],
+        }],
+    });
+    let forward = Body::Forwarded(Box::new(Body::text_with_id([3; 16], b"fw".to_vec())));
+    let early = [send(&ask), send(&forward)];
+    let late = [send(&ask), send(&forward)];
+    assert!(session
+        .stage_envelope(&key(2), &hi, &profiles, &seal_key)
+        .unwrap()
+        .is_some());
+    // Before Bob replies: acked, and no event, so no token answer and no history.
+    for (n, bytes) in (3..).zip(&early) {
+        assert!(session
+            .stage_envelope(&key(n), bytes, &profiles, &seal_key)
+            .unwrap()
+            .is_none());
+        assert!(session.store.has_inbox(&key(n)).unwrap());
+    }
+    session.stage_text(&id, b"yes", &seal_key).unwrap();
+    for (n, bytes) in (5..).zip(&late) {
+        assert!(matches!(
+            session.stage_envelope(&key(n), bytes, &profiles, &seal_key),
+            Ok(Some(Event::Message { .. }))
+        ));
+    }
 }
