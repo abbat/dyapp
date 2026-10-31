@@ -77,6 +77,34 @@ signed profile not yet sent, if any. It is sent once 10 minutes have passed sinc
 the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)); a held
 tombstone is sent at once. `publish::hide` publishes a tombstone, holds it for search and sets
 `profile_hidden` (a one-byte flag; absent means shown), and the next `publish::publish` clears it.
+This currently sends the same tombstone to profile storage, which also makes the device
+list and KeyPackages unavailable. The planned correction sends a signed tombstone only to
+search nodes for Hide, keeping the last ordinary signed profile at store nodes so someone
+with the Peer ID can still start a chat. The hidden draft advances to the tombstone version;
+unhide publishes a still-higher ordinary version to both services. Identity removal instead
+publishes a final tombstone to profile storage and search. A client that observed that final
+profile-store tombstone refuses later versions; nodes retain tombstones for their configured
+TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent
+network-wide ban. Public fields remain fetchable by known Peer ID while merely hidden.
+
+Planned signed-record sequence for one identity (each record is owner-signed):
+
+| Action | Profile store | Search index | Local state |
+|---|---|---|---|
+| Visible at version `v` | Ordinary `v` with devices | Ordinary `v` | Shown |
+| Hide | Keep ordinary `v` | Tombstone `v+1` | Hidden, with a pending withdrawal until a search node accepts it |
+| Unhide | Ordinary `v+2` | Ordinary `v+2`, after the search rate window | Shown, with search publication pending until accepted |
+| Remove while visible | Final tombstone `v+1` | Tombstone `v+1` | Key erased only after acceptance or explicit Remove anyway |
+| Remove after Hide | Final tombstone `v+2` | Tombstone `v+2` | Key erased only after acceptance or explicit Remove anyway |
+
+The two signed states are distinguished by where the tombstone is published; no new Profile
+field is needed ([ADR 0036](../decisions/0036-search-visibility.md)). An ordinary profile after
+a **search-only** tombstone is allowed. A client that has seen a **profile-store** tombstone
+treats that identity as deleted and refuses later versions. Old or uncooperative nodes may
+still serve a profile after deletion; tombstones
+expire under the operator's configured TTL, so the UI promises withdrawal only on a
+best-effort basis. A failed search withdrawal must remain pending and retryable rather than
+claiming network disappearance.
 `search::publish_due` sends it to the given search nodes; a `STALE` reply counts as accepted, and
 with no node accepting, the longest `RATE_LIMITED` wait holds it. The Linux desktop shows the
 minutes left (`Store::search_profile_minutes_left`) and sends a due profile while it runs and on

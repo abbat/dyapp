@@ -72,5 +72,6 @@ fails only the push that carries it.
 | [0033](0033-desktop-navigation-shell.md) | Desktop navigation shell |
 | [0034](0034-desktop-tray-and-single-instance.md) | Desktop tray and single instance |
 | [0035](0035-windows-free-disk-space.md) | Windows free disk space |
+| [0036](0036-search-visibility.md) | Search visibility is separate from profile deletion |
 
 All listed ADRs are accepted.
