@@ -10,11 +10,45 @@ use dyapp_identity::Identity;
 use rusqlite::{params, OptionalExtension};
 
 const SEAL_AAD: &[u8] = b"dyapp/token-key/v1\0";
+const REFILL_KEY: &str = "token_refill_due";
+const REFILL_INTERVAL: u64 = 86_400;
 const NONCE_BYTES: usize = 12;
 /// A node accepts a token until one day after its epoch ends, so keep it that long.
 const KEEP_DAYS: u32 = 1;
 
 impl Store {
+    /// Whether the app should request missing write tokens at Unix second `now`.
+    pub fn token_refill_due(&self, now: u64) -> Result<bool, Error> {
+        let value: Option<(u32, Vec<u8>)> = self
+            .db
+            .query_row(
+                "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
+                [REFILL_KEY],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        let value = match value {
+            None => return Ok(true),
+            Some((1, value)) => value,
+            Some(_) => return Err(Error::InvalidSetting),
+        };
+        let due: [u8; 8] = value.try_into().map_err(|_| Error::InvalidSetting)?;
+        Ok(now >= u64::from_be_bytes(due))
+    }
+
+    /// Advance the next refill only after every group's request was sent or not needed.
+    pub fn token_refill_sent(&self, now: u64) -> Result<(), Error> {
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+            params![
+                REFILL_KEY,
+                now.saturating_add(REFILL_INTERVAL).to_be_bytes().to_vec()
+            ],
+        )?;
+        Ok(())
+    }
+
     /// The public token key for `mailbox` on `epoch`, generated and sealed on first use; a retry
     /// returns the same key.
     pub fn token_key(
@@ -322,6 +356,22 @@ mod tests {
     use super::super::{Error, Store};
     use crate::prepare_put;
     use dyapp_identity::Identity;
+
+    #[test]
+    fn refill_due_survives_restart_and_stays_due_after_failure() {
+        let path = temp_db_path();
+        let owner = Identity::generate();
+        let store = Store::open(&path, &owner).unwrap();
+        assert!(store.token_refill_due(100).unwrap());
+        // A failed request leaves the due time untouched for the next poll.
+        assert!(store.token_refill_due(160).unwrap());
+        store.token_refill_sent(160).unwrap();
+        drop(store);
+        let store = Store::open(&path, &owner).unwrap();
+        assert!(!store.token_refill_due(160).unwrap());
+        assert!(!store.token_refill_due(160 + 86_399).unwrap());
+        assert!(store.token_refill_due(160 + 86_400).unwrap());
+    }
 
     #[test]
     fn held_key_is_sealed_stable_and_bound_to_its_row() {

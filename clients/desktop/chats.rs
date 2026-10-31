@@ -3,6 +3,7 @@
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::chat::Event;
 use dyapp_client::interactions::Kind;
@@ -179,7 +180,35 @@ pub async fn receive(
             break;
         }
     }
+    refill_if_due(&mut session, &mut node, &seal_key).await?;
     Ok(changed)
+}
+
+async fn refill_if_due(
+    session: &mut Session,
+    node: &mut dyapp_client::Node,
+    seal_key: &[u8; 32],
+) -> Result<(), String> {
+    // The mailbox poll runs every minute. A failed refill stays due for the next poll.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs();
+    if session
+        .store()
+        .token_refill_due(now)
+        .map_err(|e| e.to_string())?
+        && session
+            .refill(std::slice::from_mut(node), seal_key)
+            .await
+            .is_ok()
+    {
+        session
+            .store()
+            .token_refill_sent(now)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// The page's commands for likes and the mailbox; each one that opens an MLS session holds
