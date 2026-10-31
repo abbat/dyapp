@@ -770,9 +770,11 @@ mod tests {
         {
             let requests = asked.lock().unwrap();
             assert_eq!(requests.len(), 3);
-            let Request::Heartbeat(record) = &requests[2] else {
-                panic!("not a heartbeat");
-            };
+            let mut heartbeat = None;
+            if let Request::Heartbeat(record) = &requests[2] {
+                heartbeat = Some(record);
+            }
+            let record = heartbeat.expect("not a heartbeat");
             let beat: proto::Heartbeat = prost::Message::decode(record.payload.as_slice()).unwrap();
             assert_eq!((beat.time, beat.version, beat.pow_day), (next, 3, day + 1));
             let key = alice.public_key();
