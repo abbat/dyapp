@@ -35,6 +35,7 @@ fn chat_projection_and_delivery_commit_atomically() {
         text: b"private original".to_vec(),
     };
     let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &key.group, &key.author);
 
     assert!(store
         .stage_chat_inbound(b"mls-1", &inbox(1), sender, &original, 1_000)
@@ -137,6 +138,7 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
         text: b"late private original".to_vec(),
     };
     let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &key.group, &key.author);
     assert!(store
         .stage_chat_inbound(b"mls-delete", &inbox(1), sender, &delete, 1_000)
         .unwrap());

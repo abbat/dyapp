@@ -8,6 +8,7 @@ use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
+mod conversations;
 mod inbox;
 mod likes;
 pub mod messages;
@@ -18,6 +19,7 @@ mod profile_draft;
 mod reads;
 mod search_publish;
 mod tokens;
+pub use conversations::Conversation;
 pub use likes::Likes;
 pub use peers::ContactName;
 
@@ -68,6 +70,9 @@ pub enum Error {
     /// An interaction reuses an event ID with other bytes, or does not involve this profile.
     #[error("client store interaction conflicts or names another profile")]
     InteractionConflict,
+    /// A second own text to a peer who has not answered the first; one request stays pending.
+    #[error("client store message request is still pending")]
+    RequestPending,
     /// A received timestamp is too far ahead of the local clock.
     #[error("client store interaction: {0}")]
     ClockSkew(#[from] dyapp_messaging::hlc::ClockSkew),
@@ -145,6 +150,7 @@ impl Store {
                 let tx = db.transaction()?;
                 for schema in [
                     SCHEMA,
+                    conversations::SCHEMA,
                     messages::SCHEMA,
                     peers::SCHEMA,
                     presence::SCHEMA,
@@ -550,6 +556,13 @@ pub(crate) mod tests {
     use prost::Message as _;
     use rusqlite::Connection;
     use std::path::PathBuf;
+
+    /// Catalog a test group without MLS state, as `stage_group` or a Welcome would.
+    pub(crate) fn catalog_group(store: &mut Store, group: &[u8], peer_id: &str) {
+        let tx = store.db.transaction().unwrap();
+        super::catalog(&tx, group, peer_id).unwrap();
+        tx.commit().unwrap();
+    }
 
     pub(crate) fn temp_db_path() -> PathBuf {
         let mut random = [0; 16];

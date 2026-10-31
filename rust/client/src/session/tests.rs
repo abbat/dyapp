@@ -40,6 +40,20 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     store
         .stage_group(&group, &bob_profile, &alice.seal(&seal_key).unwrap(), &[])
         .unwrap();
+    // A match opens the chat, so the second text is not a second pending request.
+    let alice_peer = alice_id.peer_id();
+    let like = store
+        .interact(
+            &bob_profile.peer_id,
+            crate::interactions::Kind::Like,
+            &[1],
+            1_000,
+        )
+        .unwrap()
+        .unwrap();
+    store
+        .apply_interaction(&bob_profile.peer_id, &alice_peer, &[2], like)
+        .unwrap();
     let mut session = Session::open(store, &seal_key).unwrap();
     let writes = session
         .stage_message(
@@ -255,13 +269,17 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         &Body::text_with_id([2; 16], b"again".to_vec()),
     )
     .unwrap();
-    let Some(Event::Message { body, .. }) = session
+    // A second text before Bob replies is a second pending request: acked, never shown.
+    assert!(session
         .stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key)
         .unwrap()
-    else {
-        panic!("expected the next message");
+        .is_none());
+    assert!(session.store.has_inbox(&key(3)).unwrap());
+    let dropped = MessageKey {
+        id: [2; 16],
+        ..message.clone()
     };
-    assert!(body == Body::text_with_id([2; 16], b"again".to_vec()));
+    assert!(session.store.chat_message(&dropped).unwrap().is_none());
 
     // A duplicate seen after its ACK is acknowledged again; another mailbox is not.
     for id in [1, 2, 3] {

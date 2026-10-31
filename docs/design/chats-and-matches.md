@@ -3,8 +3,9 @@
 This is the planned per-pair state machine for [ADR 0012](../decisions/0012-private-p2p-interactions.md).
 It combines the existing like/unlike ledger ([private interactions](private-interactions.md)),
 MLS chats ([messaging](../architecture/messaging.md)) and the desktop screens
-([Found profile and Chats](desktop-screens.md#chats)). Likes, matches and texts work in the Rust
-client today; the request rules, the per-pair group choice and the app UI below do not exist yet.
+([Found profile and Chats](desktop-screens.md#chats)). Likes, matches, texts and the
+store's conversation state (`Store::conversation`) work in the Rust client today; dropping a
+non-match's other bodies, the per-pair group choice and the app UI below do not exist yet.
 
 ## State of a pair
 

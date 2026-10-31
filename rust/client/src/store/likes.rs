@@ -237,6 +237,10 @@ impl Store {
                 event.event_id.as_slice()
             ],
         )?;
+        if changed != 0 && liked {
+            let peer = if sender == owner { target } else { sender };
+            super::conversations::on_like(tx, owner, peer)?;
+        }
         Ok(changed != 0)
     }
 

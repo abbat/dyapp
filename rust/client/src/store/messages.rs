@@ -1,5 +1,6 @@
 //! Current chat text projection. Inbox envelope IDs remain a separate transport dedupe key.
 
+use super::conversations;
 use super::likes::load_hlc;
 use super::{Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
@@ -129,6 +130,16 @@ impl Store {
                 return Err(Error::InboxConflict);
             }
         }
+        if let Body::Text { id, .. } = body {
+            conversations::on_text(
+                &tx,
+                &self.owner_peer_id,
+                sender.group,
+                sender.author,
+                *id,
+                true,
+            )?;
+        }
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
         for write in writes {
             tx.execute(
@@ -156,7 +167,8 @@ impl Store {
     }
 
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
-    /// The inbox retains only a body digest, never a second copy of chat text.
+    /// The inbox retains only a body digest, never a second copy of chat text. Returns false for
+    /// a duplicate envelope and for a body the request rules drop, which is still ACKed.
     pub fn stage_chat_inbound(
         &mut self,
         sealed_device: &[u8],
@@ -179,7 +191,9 @@ impl Store {
             id: *id,
         };
         let digest = sha256(&body.encode());
-        self.stage_inbound_with(
+        let owner = self.owner_peer_id.clone();
+        let mut shown = true;
+        let inserted = self.stage_inbound_with(
             sealed_device,
             inbox,
             InboxKind::Message,
@@ -188,6 +202,21 @@ impl Store {
             |tx| {
                 // A cleared message stays gone; its envelope is still recorded and ACKed.
                 if clear::is_cleared(tx, &key)? {
+                    return Ok(());
+                }
+                shown = match body {
+                    Body::Text { .. } => {
+                        conversations::on_text(tx, &owner, &key.group, &key.author, key.id, false)?
+                    }
+                    _ => conversations::allows_operation(
+                        tx,
+                        &owner,
+                        &key.group,
+                        &key.author,
+                        key.id,
+                    )?,
+                };
+                if !shown {
                     return Ok(());
                 }
                 match body {
@@ -201,7 +230,8 @@ impl Store {
                 }
                 Ok(())
             },
-        )
+        )?;
+        Ok(inserted && shown)
     }
 
     /// Read one logical message from this profile's current projection.

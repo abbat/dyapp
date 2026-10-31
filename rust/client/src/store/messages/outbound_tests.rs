@@ -32,6 +32,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     let write2 = prepare_put(&[7; 32], vec![2]).unwrap();
     let write3 = prepare_put(&[7; 32], vec![3]).unwrap();
     let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &group, &Identity::generate().peer_id());
 
     store
         .stage_chat_outbound(

@@ -84,6 +84,8 @@ mod tests {
             id: [id; 16],
         };
         let mut store = Store::open(&path, &owner).unwrap();
+        crate::store::tests::catalog_group(&mut store, &cleared, &peer);
+        crate::store::tests::catalog_group(&mut store, &other, &peer);
         store
             .stage_chat_inbound(b"mls", &inbox(1), from(&cleared, &peer), &text(1), 1_000)
             .unwrap();
@@ -98,7 +100,7 @@ mod tests {
         store
             .stage_chat_outbound(
                 b"mls",
-                &[sent.clone()],
+                std::slice::from_ref(&sent),
                 from(&cleared, &own),
                 &text(3),
                 1_000,

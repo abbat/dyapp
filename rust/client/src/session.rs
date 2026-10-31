@@ -852,7 +852,7 @@ impl Session {
                 let sealed = self.store.sealed_device()?.ok_or(Error::MissingSnapshot)?;
                 self.store
                     .stage_inbound(&sealed, key, InboxKind::Refused, b"", None)?;
-                self.recover(seal_key)
+                self.recover(seal_key).map(|()| true)
             })()
         } else {
             (|| {
@@ -874,14 +874,17 @@ impl Session {
                                 author: sender,
                                 device,
                             };
-                            self.store.stage_chat_inbound(
-                                &sealed,
-                                key,
-                                verified,
-                                body,
-                                crate::now() * 1000,
-                            )?;
-                            return Ok(());
+                            // A text the request rules drop is acked but not shown.
+                            return self
+                                .store
+                                .stage_chat_inbound(
+                                    &sealed,
+                                    key,
+                                    verified,
+                                    body,
+                                    crate::now() * 1000,
+                                )
+                                .map_err(Error::from);
                         }
                     }
                 }
@@ -918,14 +921,14 @@ impl Session {
                 };
                 self.store
                     .stage_inbound(&sealed, key, kind, &payload, joined)?;
-                Ok(())
+                Ok(true)
             })()
         };
         if staged.is_err() {
             self.device = None;
             self.groups.clear();
         }
-        staged.map(|()| (!blocked).then_some(event))
+        staged.map(|shown| (shown && !blocked).then_some(event))
     }
 
     /// The one other owner in a joined group.
