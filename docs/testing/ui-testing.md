@@ -117,7 +117,9 @@ editor. An old Save or Publish preview cannot unlock the newer form or open its 
 publish and hide results cannot change the newer progress, dialog or busy controls. It checks
 that an old profile search-wait timer, search-send response and elapsed timer do not affect the
 new editor. Late usage and status responses cannot repaint the new storage card or status bar,
-or rearm old polling. That relaunch also checks the Storage card:
+or rearm old polling. It pauses privacy loads and saves across identity changes and checks that
+old success or error responses cannot change the new toggles or error state. That relaunch also
+checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

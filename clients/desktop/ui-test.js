@@ -539,6 +539,61 @@ const checkStaleUsageStatus = async () => {
     throw new Error('old status changed new status bar or rearmed polling');
   }
 };
+// A privacy response from A must leave B's toggles and error state alone.
+const checkStalePrivacy = async () => {
+  const readyState = current;
+  await openArea('settings');
+  await window.privacyShown;
+  let finishLoad;
+  const oldLoad = showPrivacy(() => new Promise((resolve) => { finishLoad = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.privacyShown;
+  const newer = { sendViews: true, sendReadReceipts: true, sendTyping: false,
+    presenceMatches: false, notifications: false };
+  await showPrivacy(() => Promise.resolve(newer));
+  finishLoad({ sendViews: false, sendReadReceipts: false, sendTyping: true,
+    presenceMatches: true, notifications: true });
+  await oldLoad;
+  if (privacyState() !== 'true,true,false,false,false'
+    || !document.getElementById('presence-nobody').checked || shown('privacy-error')) {
+    throw new Error('old privacy load changed new settings');
+  }
+
+  let failLoad;
+  const oldFailure = showPrivacy(() => new Promise((_, reject) => { failLoad = reject; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.privacyShown;
+  failLoad(new Error('old load'));
+  await oldFailure;
+  if (shown('privacy-error')) throw new Error('old privacy load error changed new settings');
+
+  let finishSave;
+  const oldSave = savePrivacy(() => new Promise((resolve) => { finishSave = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.privacyShown;
+  privacyError.hidden = false;
+  finishSave();
+  await oldSave;
+  if (privacyError.hidden) throw new Error('old privacy save cleared new error');
+  await savePrivacy(() => Promise.resolve());
+  if (shown('privacy-error')) throw new Error('current privacy save did not clear error');
+
+  let failSave;
+  const oldSaveFailure = savePrivacy(() => new Promise((_, reject) => { failSave = reject; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.privacyShown;
+  failSave(new Error('old save'));
+  await oldSaveFailure;
+  if (shown('privacy-error')) throw new Error('old privacy save error changed new settings');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1313,6 +1368,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStalePublishAndHide();
       await checkStaleProfileTimers();
       await checkStaleUsageStatus();
+      await checkStalePrivacy();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

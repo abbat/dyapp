@@ -297,23 +297,31 @@ const privacyInputs = {
   notifications: 'message-notifications',
 };
 const privacyError = document.getElementById('privacy-error');
-const showPrivacy = async () => {
+const showPrivacy = async (call = invoke) => {
+  const generation = identityGeneration;
   try {
-    const privacy = await invoke('privacy_settings');
+    const privacy = await call('privacy_settings');
+    if (!identityCurrent(generation)) return;
     for (const [key, id] of Object.entries(privacyInputs)) {
       document.getElementById(id).checked = privacy[key];
     }
     document.getElementById('presence-nobody').checked = !privacy.presenceMatches;
     privacyError.hidden = true;
   } catch (_) {
-    privacyError.hidden = false;
+    if (identityCurrent(generation)) privacyError.hidden = false;
   }
 };
-document.getElementById('privacy').addEventListener('change', () => {
+const savePrivacy = (call = invoke) => {
+  const generation = identityGeneration;
   const privacy = Object.fromEntries(Object.entries(privacyInputs)
     .map(([key, id]) => [key, document.getElementById(id).checked]));
-  window.privacySaved = invoke('set_privacy', { privacy })
-    .then(() => { privacyError.hidden = true; }, () => { privacyError.hidden = false; });
+  return call('set_privacy', { privacy }).then(
+    () => { if (identityCurrent(generation)) privacyError.hidden = true; },
+    () => { if (identityCurrent(generation)) privacyError.hidden = false; },
+  );
+};
+document.getElementById('privacy').addEventListener('change', () => {
+  window.privacySaved = savePrivacy();
 });
 
 // Settings → Blocked people: Unblock shows the peer in later searches again.

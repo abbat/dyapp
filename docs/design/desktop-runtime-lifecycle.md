@@ -24,8 +24,9 @@ Search and Chats discard late responses after the generation changes; a mailbox 
 schedule a Chats refresh for another identity. Viewed-peer likes, block, safety-number, QR and
 camera, profile load/save, publish and hide callbacks also discard old completions. Profile
 search-wait, publish-elapsed, usage and traffic timers stop at an identity transition; late
-results do not repaint the new editor, storage card or status bar. Other async callback guards
-remain planned. Sensitive clipboard expiry still clears an old copied number when its timer
+results do not repaint the new editor, storage card or status bar. Privacy Settings load and
+save callbacks also ignore old completions, including errors. Other async callback guards remain
+planned. Sensitive clipboard expiry still clears an old copied number when its timer
 fires.
 
 ## Required behavior
