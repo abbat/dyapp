@@ -253,9 +253,11 @@ const showStatus = async (call = invoke) => {
 // Settings → Window: the tray icon and close-to-tray, usable only while a tray host is running.
 const trayShow = document.getElementById('tray-show');
 const trayClose = document.getElementById('tray-close');
-const setTray = async (prefs) => {
+const setTray = async (prefs, call = invoke) => {
+  const generation = identityGeneration;
   const labels = [window.strings['tray.open'], window.strings['tray.quit']];
-  const tray = await invoke('set_tray', { prefs, labels });
+  const tray = await call('set_tray', { prefs, labels });
+  if (!identityCurrent(generation)) return tray;
   trayShow.checked = tray.show;
   trayShow.disabled = !tray.available;
   trayClose.checked = tray.closeToTray;

@@ -778,6 +778,30 @@ const checkStaleNode = async () => {
   checkNew('old node save error changed new status');
   await showNode();
 };
+// A tray result from an old Settings view cannot replace the new controls.
+const checkStaleTray = async () => {
+  const readyState = current;
+  const show = document.getElementById('tray-show');
+  const close = document.getElementById('tray-close');
+  const note = document.getElementById('tray-note');
+  await openArea('settings');
+  await window.trayShown;
+  let finishOld;
+  const oldTray = setTray(null, () => new Promise((resolve) => { finishOld = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.trayShown;
+  await setTray(null, () => Promise.resolve({
+    available: true, show: true, closeToTray: true,
+  }));
+  finishOld({ available: false, show: false, closeToTray: false });
+  await oldTray;
+  if (!show.checked || show.disabled || !close.checked || close.disabled || !note.hidden) {
+    throw new Error('old tray result changed new Settings controls');
+  }
+  await setTray(null);
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1556,6 +1580,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleBlocked();
       await checkStaleSettingsInventory();
       await checkStaleNode();
+      await checkStaleTray();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

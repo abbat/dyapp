@@ -27,9 +27,9 @@ search-wait, publish-elapsed, usage and traffic timers stop at an identity trans
 results do not repaint the new editor, storage card or status bar. Privacy Settings load and
 save callbacks and blocked-peer list, unblock and revocation callbacks also ignore old
 completions, including errors. Settings identity inventory loads also ignore late results
-and errors. Node Settings load/save callbacks discard old status, form and busy updates. Other
-async callback guards remain planned. Sensitive clipboard
-expiry still clears an old copied number when its timer fires.
+and errors. Node Settings load/save callbacks discard old status, form and busy updates. Tray
+Settings responses also ignore old UI generations. Other async callback guards remain planned.
+Sensitive clipboard expiry still clears an old copied number when its timer fires.
 
 ## Required behavior
 
