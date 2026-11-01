@@ -1015,11 +1015,13 @@ const removeNow = () => {
   return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
 };
 // The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
-const withdrawThenRemove = async () => {
+const withdrawThenRemove = async (call = invoke, remove = removeNow) => {
+  const generation = identityGeneration;
   if (removePublished) {
     try {
-      await invoke('withdraw_profile');
+      await call('withdraw_profile');
     } catch (_) {
+      if (!identityCurrent(generation)) return null;
       removeAsk.hidden = true;
       removeOffline.hidden = false;
       removeRetry.disabled = false;
@@ -1028,7 +1030,8 @@ const withdrawThenRemove = async () => {
       return null;
     }
   }
-  return removeNow();
+  if (!identityCurrent(generation)) return null;
+  return remove();
 };
 removeAction.addEventListener('click', () => {
   removeAction.disabled = true;

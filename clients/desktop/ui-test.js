@@ -832,6 +832,48 @@ const checkStaleRemovePreparation = async () => {
   if (!removeDialog.open) throw new Error('current removal dialog did not open');
   removeDialog.close();
 };
+// An old withdrawal cannot remove the new identity or switch its dialog to Offline.
+const checkStaleWithdrawal = async () => {
+  const readyState = current;
+  let removed = 0;
+  const remove = () => { removed += 1; };
+  const switchAndSetDialog = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    removeAsk.hidden = false;
+    removeOffline.hidden = true;
+    removeRetry.disabled = true;
+    removeAnyway.disabled = true;
+  };
+  removePublished = true;
+  let finishOld;
+  const oldSuccess = withdrawThenRemove(() => new Promise((resolve) => { finishOld = resolve; }), remove);
+  await switchAndSetDialog();
+  finishOld();
+  await oldSuccess;
+  if (removed || removeAsk.hidden || !removeOffline.hidden) {
+    throw new Error('old withdrawal success removed new identity');
+  }
+
+  let failOld;
+  const oldFailure = withdrawThenRemove(() => new Promise((_, reject) => { failOld = reject; }), remove);
+  await switchAndSetDialog();
+  failOld(new Error('old withdrawal'));
+  await oldFailure;
+  if (removed || removeAsk.hidden || !removeOffline.hidden
+    || !removeRetry.disabled || !removeAnyway.disabled) {
+    throw new Error('old withdrawal failure changed new dialog');
+  }
+  await withdrawThenRemove(() => Promise.resolve(), remove);
+  if (removed !== 1) throw new Error('current withdrawal did not continue to removal');
+  await withdrawThenRemove(() => Promise.reject(new Error('offline')), remove);
+  if (!removeAsk.hidden || removeOffline.hidden || removeRetry.disabled || removeAnyway.disabled) {
+    throw new Error('current withdrawal failure did not show Offline');
+  }
+  removePublished = false;
+  removeAsk.hidden = false;
+  removeOffline.hidden = true;
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1612,6 +1654,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleNode();
       await checkStaleTray();
       await checkStaleRemovePreparation();
+      await checkStaleWithdrawal();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

@@ -123,8 +123,9 @@ loads, unblock and revocation callbacks cannot change the new list, status or co
 Settings identity inventory response cannot replace newer rows or show an old error. Paused node
 status, settings load and save responses cannot change the new node form or unlock its Save.
 A late tray result cannot replace the new window controls. Old removal inventory and profile
-responses cannot open a dialog after a switch. That relaunch also checks the Storage
-card:
+responses cannot open a dialog after a switch. An old withdrawal cannot remove the new identity
+or change its dialog to Offline; a current withdrawal still proceeds. That relaunch checks the
+Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the
