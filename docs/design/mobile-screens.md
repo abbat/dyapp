@@ -72,7 +72,10 @@ storage choice; `key-store` says so and `no-backup` says there is no backup. Not
 created before `create-identity`.
 
 `wizard-network`: step 2 of 2, may be skipped: `peer-id`, `copy-peer-id`, `network-name`,
-`seeds`, `skip-network`, `check-connection`, as on the desktop.
+`seeds`, `skip-network`, `check-connection`, as on the desktop. Beyond the prototype, Android
+checks and activates in two steps: a connected check replaces the primary action with Continue,
+which activates the network, and a second Continue leaves the wizard. It also keeps Save draft and
+a draft status line for leaving the settings unchecked.
 
 `picker`: several identities and none chosen, the list `identities` of `pick-1`, `pick-2` by
 short Peer ID, and `add-identity`.

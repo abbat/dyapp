@@ -167,6 +167,14 @@ least prominent action, in the error colour (H5). `lock-settings` is kept as a l
 beyond the prototype, since no other path reaches it while no identity opens (H3). No open
 H1–H10 finding.
 
+### Android network wizard layout review (2026-11-01)
+
+Read `wizard-network` in the Compose code against the prototype and H1–H10 in English and
+Russian; not yet seen on a device. One primary action shows at a time, and a finished activation
+now offers a way forward where the old screen left only Back (H3). `skip-network` stays available
+until activation (H3). The saved-draft line no longer promises a check that already exists (H1).
+No open H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

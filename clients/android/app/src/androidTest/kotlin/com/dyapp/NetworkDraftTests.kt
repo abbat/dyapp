@@ -3,7 +3,6 @@ package com.dyapp
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -136,7 +135,7 @@ class NetworkDraftTests {
                 "${seeds[1]}: ${string(R.string.network_row_unreachable)}",
                 "${seeds[2]}: ${string(R.string.network_row_wrong_peer)}",
             )
-            compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("network-continue").assertDoesNotExist()
             compose.onNodeWithTag("check-connection").assertTextEquals(string(R.string.network_retry))
 
             // The live node under another network name.
@@ -145,7 +144,7 @@ class NetworkDraftTests {
             compose.checkNetwork()
             compose.waitForText("network-check-status", R.string.network_wrong)
             expectRows("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")
-            compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("network-continue").assertDoesNotExist()
         } finally {
             forgetNetworks()
         }
@@ -159,12 +158,17 @@ class NetworkDraftTests {
             enter("10.0.2.2:1", "")
             compose.checkNetwork()
             compose.waitForText("network-check-status", R.string.network_unreachable)
-            compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("network-continue").assertDoesNotExist()
             enter(LOCAL_NODE, "")
             compose.checkNetwork(retryUnreachable = true)
             compose.waitForText("network-check-status", R.string.network_connected)
             compose.onNodeWithTag("network-continue").performScrollTo().assertIsEnabled().performClick()
             compose.waitForText("network-check-status", R.string.network_active)
+            compose.onNodeWithTag("skip-network").assertDoesNotExist()
+            compose.onNodeWithTag("network-done").performScrollTo().performClick()
+            compose.waitUntil(CHECK_WAIT_MS) {
+                compose.onAllNodesWithTag("app-ready").fetchSemanticsNodes().isNotEmpty()
+            }
 
             // With an active network a restart lands on Ready with the same identity key.
             compose.activityRule.scenario.recreate()
