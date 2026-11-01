@@ -107,10 +107,14 @@ private fun LockSettingsStatus(mode: LockMode, deviceSecure: Boolean, gated: Boo
 private fun LockSettingsActions(mode: LockMode, onSet: (() -> Unit)?, onOff: (() -> Unit)?, onBack: (() -> Unit)?) {
     // A null action shows its button disabled.
     val pinSet = mode == LockMode.PIN || mode == LockMode.RESET
-    SetPinButton(if (pinSet) R.string.lock_change else R.string.lock_set, onSet)
+    if (pinSet) {
+        SetPinButton("lock-change", R.string.lock_change, onSet)
+    } else {
+        SetPinButton("lock-set", R.string.lock_set, onSet)
+    }
     if (mode != LockMode.OFF) {
         val off = if (pinSet) R.string.lock_turn_off else R.string.lock_turn_off_biometric
-        OutlinedButton(onClick = { onOff?.invoke() }, Modifier.testTag("lock-off"), enabled = onOff != null) {
+        OutlinedButton(onClick = { onOff?.invoke() }, Modifier.testTag("lock-turn-off"), enabled = onOff != null) {
             Text(stringResource(off))
         }
     }

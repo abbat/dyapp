@@ -56,15 +56,15 @@ class SetupScreenTests {
     fun mismatchClearsInputAndMatchingPinEnrollsOnce() {
         val enrolled = mutableListOf<String>()
         compose.setContent { SetupScreen(DeviceLock(true), {}) { enrolled += it; true } }
-        compose.onNodeWithTag("pin-new").performTextInput("123456")
+        compose.onNodeWithTag("pin-set").performTextInput("123456")
         compose.onNodeWithTag("pin-repeat").performTextInput("123457")
-        compose.onNodeWithTag("pin-set").performClick()
-        compose.onNodeWithTag("pin-error").assertIsDisplayed()
+        compose.onNodeWithTag("lock-set").performClick()
+        compose.onNodeWithTag("lock-error").assertIsDisplayed()
         // Both fields were cleared, so Set PIN waits for new input.
-        compose.onNodeWithTag("pin-set").assertIsNotEnabled()
-        compose.onNodeWithTag("pin-new").performTextInput("12ab3456")
+        compose.onNodeWithTag("lock-set").assertIsNotEnabled()
+        compose.onNodeWithTag("pin-set").performTextInput("12ab3456")
         compose.onNodeWithTag("pin-repeat").performTextInput("123456")
-        compose.onNodeWithTag("pin-set").performClick()
+        compose.onNodeWithTag("lock-set").performClick()
         compose.waitUntil { enrolled.isNotEmpty() }
         check(enrolled == listOf("123456")) { "Unexpected enrollment: $enrolled" }
     }
@@ -73,7 +73,7 @@ class SetupScreenTests {
     fun withoutScreenLockThePinIsExplainedAndSkipStays() {
         compose.setContent { SetupScreen(DeviceLock(false), {}) { true } }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
-        compose.onNodeWithTag("pin-set").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-set").assertIsNotEnabled()
         compose.onNodeWithTag("lock-skip").assertIsEnabled()
     }
 
@@ -103,20 +103,20 @@ class LockSettingsScreenTests {
                 if (current == "123456") PinAttempt.UNLOCKED else PinAttempt.WRONG
             }) {}
         }
-        compose.onNodeWithTag("pin-new").performTextInput("111111")
+        compose.onNodeWithTag("pin-set").performTextInput("111111")
         compose.onNodeWithTag("pin-repeat").performTextInput("111111")
-        compose.onNodeWithTag("pin-set").assertIsNotEnabled()
-        compose.onNodeWithTag("lock-off").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-change").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-turn-off").assertIsNotEnabled()
         compose.onNodeWithTag("pin-current").performTextInput("654321")
-        compose.onNodeWithTag("pin-set").performClick()
+        compose.onNodeWithTag("lock-change").performClick()
         compose.waitUntil { calls.isNotEmpty() }
-        compose.onNodeWithTag("pin-error").assertIsDisplayed()
+        compose.onNodeWithTag("lock-error").assertIsDisplayed()
         compose.onNodeWithTag("pin-current").performTextInput("123456")
-        compose.onNodeWithTag("pin-new").performTextInput("111111")
+        compose.onNodeWithTag("pin-set").performTextInput("111111")
         compose.onNodeWithTag("pin-repeat").performTextInput("111111")
-        compose.onNodeWithTag("pin-set").performClick()
+        compose.onNodeWithTag("lock-change").performClick()
         compose.waitUntil { calls.size == 2 }
-        compose.onNodeWithTag("pin-error").assertDoesNotExist()
+        compose.onNodeWithTag("lock-error").assertDoesNotExist()
         check(calls == listOf("654321" to "111111", "123456" to "111111")) { "Unexpected calls: $calls" }
     }
 
@@ -131,7 +131,7 @@ class LockSettingsScreenTests {
         }
         compose.onNodeWithTag("lock-reset").assertIsDisplayed()
         compose.onNodeWithTag("pin-current").assertDoesNotExist()
-        compose.onNodeWithTag("lock-off").performClick()
+        compose.onNodeWithTag("lock-turn-off").performClick()
         compose.waitUntil { calls.isNotEmpty() }
         check(calls == listOf<Pair<String?, String?>>(null to null)) { "Unexpected calls: $calls" }
     }
@@ -141,11 +141,11 @@ class LockSettingsScreenTests {
         val gate: suspend (String?, String?) -> PinAttempt? = { _, _ -> PinAttempt.DEVICE_CREDENTIAL_REQUIRED }
         compose.setContent { LockSettingsScreen(LockMode.PIN, DeviceLock(false), gate) {} }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
-        compose.onNodeWithTag("pin-new").assertIsNotEnabled()
+        compose.onNodeWithTag("pin-set").assertIsNotEnabled()
         compose.onNodeWithTag("pin-current").performTextInput("654321")
-        compose.onNodeWithTag("lock-off").performClick()
+        compose.onNodeWithTag("lock-turn-off").performClick()
         compose.waitUntil { compose.onAllNodesWithTag("pin-device-credential").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("lock-off").assertIsNotEnabled()
+        compose.onNodeWithTag("lock-turn-off").assertIsNotEnabled()
         compose.onNodeWithTag("lock-back").assertIsEnabled()
     }
 }
