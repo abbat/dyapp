@@ -1,4 +1,4 @@
-use super::ready_result;
+use super::identity_runtime::ready_result;
 use std::path::Path;
 
 #[test]
