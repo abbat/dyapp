@@ -55,7 +55,7 @@ private val sections = listOf(
  * The first-run network wizard while it applies, otherwise the ready identity's frame: a top bar
  * with the section title (`app-ready`), the active network and the identity avatar, the [section]
  * content and the bottom navigation bar. [open] switches
- * sections and opens the remove and lock screens; [act] changes the active identity.
+ * sections and opens the lock screen; [act] changes the active identity.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +64,7 @@ internal fun AppShell(
     slots: Slots,
     opened: Opened.Ready,
     section: StartTarget?,
+    lockMode: LockMode,
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit,
 ) {
@@ -75,7 +76,7 @@ internal fun AppShell(
         bottomBar = { ShellNavigationBar(current, open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            SectionContent(slots, opened, current.target, act, open)
+            SectionContent(slots, opened, current.target, lockMode, act, open)
         }
     }
     if (switcher) {
@@ -122,13 +123,14 @@ private fun SectionContent(
     slots: Slots,
     opened: Opened.Ready,
     target: StartTarget,
+    lockMode: LockMode,
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit,
 ) {
     when (target) {
         StartTarget.SEARCH -> SearchScreen(opened) { open(StartTarget.NETWORK) }
         StartTarget.NETWORK -> NetworkDraftScreen(opened, null)
-        StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, act, open)
+        StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, lockMode, act) { open(StartTarget.LOCK) }
         else -> Column {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
                 Text(stringResource(R.string.storage_peer_id), style = MaterialTheme.typography.labelMedium)

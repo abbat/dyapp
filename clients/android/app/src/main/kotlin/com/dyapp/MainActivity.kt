@@ -79,8 +79,8 @@ class MainActivity : ComponentActivity() {
                         recovered = false
                     }
                     // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
-                    biometric -> MainScreen { verify(true) { settings = true } }
-                    else -> MainScreen { settings = true }
+                    biometric -> MainScreen(lockMode) { verify(true) { settings = true } }
+                    else -> MainScreen(lockMode) { settings = true }
                 }
             }
         }
@@ -188,7 +188,7 @@ internal fun reasonText(reason: String) =
  * tags the title or status line UI tests wait for, `peer-id` the core's answer.
  */
 @Composable
-fun MainScreen(onLockSettings: () -> Unit = {}) {
+internal fun MainScreen(lockMode: LockMode = LockMode.OFF, onLockSettings: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val slots = remember { RustBridge.slots(context) }
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
@@ -210,7 +210,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         }
     }
     when {
-        opened is Opened.Ready -> AppShell(slots, opened, editor, act, open)
+        opened is Opened.Ready -> AppShell(slots, opened, editor, lockMode, act, open)
         opened == Opened.Setup -> WizardIdentity { act(slots::create) }
         else -> StartColumn(shown, slots, act, open)
     }

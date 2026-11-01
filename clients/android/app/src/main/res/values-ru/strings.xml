@@ -53,7 +53,8 @@
     <string name="settings_identities">Идентичности на устройстве</string>
     <string name="settings_active">Активная</string>
     <string name="settings_key_store">Хранилище ключей Android</string>
-    <string name="settings_switch">Переключиться на эту идентичность</string>
+    <string name="settings_active_key">Активная · Хранилище ключей Android</string>
+    <string name="settings_version">Версия %1$s</string>
     <string name="settings_network_active">Активная сеть: %1$s</string>
     <string name="settings_network_public">публичная</string>
     <string name="settings_network_none">Активной сети пока нет.</string>
@@ -83,7 +84,6 @@
     <string name="search_failure_rate_limited">Узел поиска занят. Подождите, секунд: %1$s</string>
     <string name="search_failure_puzzle">Узел поиска запросил доказательство работы, которое приложение не решает.</string>
     <string name="search_failure_invalid">Узел поиска прислал искажённый или поддельный ответ; он отброшен.</string>
-    <string name="network_title">Подключение к сети</string>
     <string name="network_seeds">Адреса начальных узлов</string>
     <string name="network_seeds_hint">По одному в строке, хост:порт. Их даёт тот, кто ведёт сеть.</string>
     <string name="network_name">Имя сети</string>
@@ -138,7 +138,7 @@
     <string name="recovery_damaged">Её локальные файлы не читаются или были изменены.</string>
     <string name="recovery_unavailable">Её ключ сейчас не удаётся открыть.</string>
     <string name="recovery_retry">Повторить</string>
-    <string name="identity_remove">Удалить эту идентичность</string>
+    <string name="identity_remove">Удалить</string>
     <string name="remove_title">Удалить идентичность?</string>
     <string name="remove_last_copy">Это единственная копия ключа на этом устройстве.</string>
     <string name="remove_other_copy">Тот же ключ есть у другой идентичности на этом устройстве.</string>

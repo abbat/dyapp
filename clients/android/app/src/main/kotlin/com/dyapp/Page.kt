@@ -61,8 +61,8 @@ internal fun Caption(text: String, modifier: Modifier = Modifier) = Text(
 
 /** A group of fields on a scrolling screen. */
 @Composable
-internal fun FormCard(content: @Composable ColumnScope.() -> Unit) = Surface(
-    Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.surfaceContainer
+internal fun FormCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) = Surface(
+    modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.surfaceContainer
 ) {
     Column(Modifier.padding(16.dp), Arrangement.spacedBy(12.dp), content = content)
 }

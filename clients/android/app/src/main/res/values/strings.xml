@@ -54,7 +54,8 @@
     <string name="settings_identities">Identities on this device</string>
     <string name="settings_active">Active</string>
     <string name="settings_key_store">Android Keystore</string>
-    <string name="settings_switch">Switch to this identity</string>
+    <string name="settings_active_key">Active · Android Keystore</string>
+    <string name="settings_version">Version %1$s</string>
     <string name="settings_network_active">Active network: %1$s</string>
     <string name="settings_network_public">public</string>
     <string name="settings_network_none">No active network yet.</string>
@@ -84,7 +85,6 @@
     <string name="search_failure_rate_limited">A search node is busy. Seconds to wait: %1$s</string>
     <string name="search_failure_puzzle">A search node asked for proof of work the app does not solve.</string>
     <string name="search_failure_invalid">A search node sent a malformed or forged reply; it was dropped.</string>
-    <string name="network_title">Network connection</string>
     <string name="network_seeds">Bootstrap node addresses</string>
     <string name="network_seeds_hint">One per line, host:port. Ask the network operator for them.</string>
     <string name="network_name">Network name</string>
@@ -139,7 +139,7 @@
     <string name="recovery_damaged">Its local files are unreadable or were changed.</string>
     <string name="recovery_unavailable">Its key cannot be opened now.</string>
     <string name="recovery_retry">Retry</string>
-    <string name="identity_remove">Remove this identity</string>
+    <string name="identity_remove">Remove</string>
     <string name="remove_title">Remove this identity?</string>
     <string name="remove_last_copy">This is the only copy of this key on this device.</string>
     <string name="remove_other_copy">Another identity on this device holds the same key.</string>

@@ -29,11 +29,6 @@ class IdentitySettingsTests {
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performScrollTo().performClick()
 
-    private fun switchTo(peerId: String) = compose.onNode(
-        hasTestTag("settings-switch") and
-            hasAnyAncestor(hasTestTag("settings-identity") and hasAnyDescendant(hasText(peerId)))
-    ).performScrollTo().performClick()
-
     @Test
     fun createSwitchAndConfirmedRemoveChangeTheActiveIdentity() {
         val first = compose.shownPeerId()
@@ -44,13 +39,13 @@ class IdentitySettingsTests {
         val second = active()
         check(second.peerId != first) { "Create kept the previous identity active" }
         check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows + 1)
-        switchTo(first)
+        compose.switchIdentity(first)
         check(active().peerId == first) { "Switch did not activate the chosen identity" }
         // A relaunch keeps the identity chosen in Settings.
         compose.activityRule.scenario.recreate()
         check(compose.shownPeerId() == first) { "The identity chosen in Settings was lost on relaunch" }
         compose.onNodeWithTag("nav-settings").performClick()
-        switchTo(second.peerId)
+        compose.switchIdentity(second.peerId)
         check(active().peerId == second.peerId) { "Switch did not return to the new identity" }
         // Cancel returns to Settings with the identity intact.
         click("settings-remove")
@@ -69,13 +64,34 @@ class IdentitySettingsTests {
     }
 
     @Test
-    fun settingsShowTheNetworkAndReturnFromItsEditor() {
+    fun removingAnotherIdentityStaysInSettings() {
+        val first = compose.shownPeerId()
+        compose.onNodeWithTag("nav-settings").performClick()
+        val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
+        click("settings-create")
+        compose.waitForIdle()
+        val other = active()
+        compose.switchIdentity(first)
+        compose.onNode(
+            hasText(compose.activity.getString(R.string.identity_remove)) and hasAnyAncestor(
+                hasTestTag("settings-identity") and hasAnyDescendant(hasText(shortPeerId(other.peerId)))
+            )
+        ).performScrollTo().performClick()
+        click("remove-confirm")
+        compose.onNodeWithTag("remove-action").performClick()
+        compose.onNodeWithTag("settings-create").assertExists()
+        check(active().peerId == first) { "Removing another identity changed the active one" }
+        check(!PlatformKeyStore.exists(other.slot.alias)) { "The removed identity kept its key" }
+        check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows)
+    }
+
+    @Test
+    fun theConnectionChipOpensTheNetworkEditorAndSettingsReturn() {
         compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
         // Other tests leave no active network.
         compose.waitForText("connection-status", R.string.status_no_network)
-        compose.waitForText("settings-network-status", R.string.settings_network_none)
-        click("settings-network")
+        compose.onNodeWithTag("connection-status").performClick()
         compose.onNodeWithTag("network-seeds").assertExists()
         compose.onNodeWithTag("skip-network").assertDoesNotExist()
         compose.onNodeWithTag("nav-settings").performClick()

@@ -48,14 +48,14 @@ class PseudoLocaleTests {
     @Test
     fun settingsRenderRussianStrings() {
         val russian = render("ru")
-        val none = russian.getString(R.string.settings_network_none)
-        check(none != base.getString(R.string.settings_network_none)) { "Russian translation missing: $none" }
+        val none = russian.getString(R.string.status_no_network)
+        check(none != base.getString(R.string.status_no_network)) { "Russian translation missing: $none" }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(russian.getString(R.string.nav_settings))
-        compose.onNodeWithTag("settings-active").assertTextEquals(russian.getString(R.string.settings_active))
+        compose.onNodeWithTag("settings-active").assertTextEquals(russian.getString(R.string.settings_active_key))
         compose.onNodeWithTag("settings-create").assertTextEquals(russian.getString(R.string.identity_add))
         // Other tests leave no active network.
-        compose.waitUntil(CHECK_WAIT_MS) { compose.texts("settings-network-status") == listOf(none) }
+        compose.waitUntil(CHECK_WAIT_MS) { compose.texts("connection-status") == listOf(none) }
     }
 
     @Test
