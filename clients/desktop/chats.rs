@@ -832,6 +832,7 @@ mod tests {
             },
             original_hlc,
             unread: true,
+            forwarded: false,
             delivery: None,
         };
         assert_eq!(MessageView::from(message(None)).sent_at_ms, None);

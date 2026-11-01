@@ -204,6 +204,50 @@ fn chat_projection_and_delivery_commit_atomically() {
 }
 
 #[test]
+fn forwarded_text_keeps_its_marker_and_mls_author_after_restart() {
+    let path = crate::store::tests::temp_db_path();
+    let owner = Identity::generate();
+    let author = Identity::generate().peer_id();
+    let key = MessageKey {
+        group: vec![8],
+        author,
+        id: [9; 16],
+    };
+    let device = [5; 32];
+    let sender = VerifiedChatSender {
+        group: &key.group,
+        author: &key.author,
+        device: &device,
+    };
+    let text = Body::text_with_id(key.id, b"forwarded words".to_vec());
+    let forwarded = Body::Forwarded(Box::new(text.clone()));
+    let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &key.group, &key.author);
+    assert!(store
+        .stage_chat_inbound(b"mls", &inbox(1), sender, &forwarded, 1_000)
+        .unwrap());
+    let history = store.current_chat_messages(&key.author).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].key.author, key.author);
+    assert!(history[0].forwarded);
+    assert!(
+        store.chat_rows().unwrap()[0]
+            .last_message
+            .as_ref()
+            .unwrap()
+            .forwarded
+    );
+    assert!(matches!(
+        store.stage_chat_inbound(b"conflict", &inbox(2), sender, &text, 1_000),
+        Err(Error::InboxConflict)
+    ));
+    assert!(!store.has_inbox(&inbox(2)).unwrap());
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    assert!(store.current_chat_messages(&key.author).unwrap()[0].forwarded);
+}
+
+#[test]
 fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();

@@ -26,7 +26,7 @@ impl Store {
             "WITH `ranked` AS (
                 SELECT `g`.`peer_id`, `m`.`group_id`, `m`.`author`, `m`.`message_id`,
                        `m`.`text`, `m`.`edited`, `m`.`deleted`, `m`.`original_hlc`,
-                       `m`.`unread`, `m`.`delivery_state`, `m`.`arrival_order`,
+                       `m`.`unread`, `m`.`delivery_state`, `m`.`forwarded`, `m`.`arrival_order`,
                        ROW_NUMBER() OVER (
                            PARTITION BY `g`.`peer_id`
                            ORDER BY (`m`.`original_hlc` IS NOT NULL) DESC,
@@ -42,7 +42,7 @@ impl Store {
             SELECT `c`.`peer_id`, `c`.`state`, `c`.`request_id`,
                    `r`.`group_id`, `r`.`author`, `r`.`message_id`, `r`.`text`,
                    `r`.`edited`, `r`.`deleted`, `r`.`original_hlc`, `r`.`unread`,
-                   `r`.`delivery_state`, COALESCE(`r`.`unread_count`, 0)
+                   `r`.`delivery_state`, `r`.`forwarded`, COALESCE(`r`.`unread_count`, 0)
             FROM `conversations` AS `c`
             LEFT JOIN `ranked` AS `r`
               ON `c`.`peer_id` = `r`.`peer_id` AND `r`.`message_rank` = 1
@@ -67,7 +67,8 @@ impl Store {
                 row.get::<_, Option<i64>>(9)?,
                 row.get::<_, Option<i64>>(10)?,
                 row.get::<_, Option<i64>>(11)?,
-                row.get::<_, i64>(12)?,
+                row.get::<_, Option<i64>>(12)?,
+                row.get::<_, i64>(13)?,
             ))
         })?;
         let mut result = Vec::new();
@@ -85,6 +86,7 @@ impl Store {
                 time,
                 unread,
                 delivery,
+                forwarded,
                 count,
             ) = row?;
             let request_id = || -> Result<[u8; 16], Error> {
@@ -134,6 +136,7 @@ impl Store {
                     current,
                     original_hlc,
                     unread,
+                    forwarded: forwarded == Some(1),
                     delivery,
                 })
             } else {

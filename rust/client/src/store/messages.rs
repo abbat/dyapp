@@ -29,6 +29,7 @@ CREATE TABLE `chat_messages` (
     `original_digest` BLOB CHECK (`original_digest` IS NULL OR length(`original_digest`) = 32),
     `edited` INTEGER NOT NULL CHECK (`edited` IN (0, 1)),
     `deleted` INTEGER NOT NULL CHECK (`deleted` IN (0, 1)),
+    `forwarded` INTEGER NOT NULL DEFAULT 0 CHECK (`forwarded` IN (0, 1)),
     `last_hlc` INTEGER,
     `last_device` BLOB,
     `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
@@ -129,6 +130,8 @@ pub struct ChatMessage {
     pub original_hlc: Option<Timestamp>,
     /// Whether this device has not yet viewed the incoming text.
     pub unread: bool,
+    /// The MLS sender forwarded this text; no original author is asserted.
+    pub forwarded: bool,
     /// Absent for peer text or an own text received from another device.
     pub delivery: Option<DeliveryState>,
 }
@@ -313,7 +316,9 @@ impl Store {
             }
         }
         let changed = match body {
-            Body::Text { hlc, text, .. } => Self::record_chat_text_tx(tx, &key, text, *hlc, false)?,
+            Body::Text { hlc, text, .. } => {
+                Self::record_chat_text_tx(tx, &key, text, *hlc, false, false)?
+            }
             Body::Edit { .. } | Body::Delete { .. } => {
                 Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }
@@ -350,6 +355,10 @@ impl Store {
     ) -> Result<bool, Error> {
         let id = match body {
             Body::Text { id, .. } => id,
+            Body::Forwarded(inner) => match inner.as_ref() {
+                Body::Text { id, .. } => id,
+                _ => return Err(Error::InboxConflict),
+            },
             Body::Edit { target, .. } | Body::Delete { target, .. } => target,
             _ => return Err(Error::InboxConflict),
         };
@@ -378,7 +387,7 @@ impl Store {
                     return Ok(());
                 }
                 shown = match body {
-                    Body::Text { .. } => {
+                    Body::Text { .. } | Body::Forwarded(_) => {
                         conversations::on_text(tx, &owner, &key.group, &key.author, key.id, false)?
                     }
                     _ => conversations::allows_operation(
@@ -400,7 +409,19 @@ impl Store {
                                 .observe_at(Timestamp::from(*hlc), wall_ms)?;
                             save_hlc(tx, observed)?;
                         }
-                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread)?;
+                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread, false)?;
+                    }
+                    Body::Forwarded(inner) => {
+                        let Body::Text { hlc, text, .. } = inner.as_ref() else {
+                            return Err(Error::InboxConflict);
+                        };
+                        if let Some(hlc) = hlc {
+                            i64::try_from(*hlc).map_err(|_| Error::ClockRange)?;
+                            let observed = HybridClock::resume(load_hlc(tx)?)
+                                .observe_at(Timestamp::from(*hlc), wall_ms)?;
+                            save_hlc(tx, observed)?;
+                        }
+                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread, true)?;
                     }
                     Body::Edit { .. } | Body::Delete { .. } => {
                         Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?;
@@ -440,7 +461,7 @@ impl Store {
         let mut query = self.db.prepare(
             "SELECT `m`.`group_id`, `m`.`author`, `m`.`message_id`, `m`.`text`,
                     `m`.`edited`, `m`.`deleted`, `m`.`original_hlc`, `m`.`unread`,
-                    `m`.`delivery_state`
+                    `m`.`delivery_state`, `m`.`forwarded`
              FROM `chat_messages` AS `m`
              JOIN `conversation_groups` AS `g` ON `m`.`group_id` = `g`.`group_id`
              WHERE `g`.`peer_id` = ?1
@@ -459,10 +480,22 @@ impl Store {
                 row.get::<_, Option<i64>>(6)?,
                 row.get::<_, i64>(7)?,
                 row.get::<_, Option<i64>>(8)?,
+                row.get::<_, i64>(9)?,
             ))
         })?;
         rows.map(|row| {
-            let (group, author, id, text, edited, deleted, original_hlc, unread, delivery) = row?;
+            let (
+                group,
+                author,
+                id,
+                text,
+                edited,
+                deleted,
+                original_hlc,
+                unread,
+                delivery,
+                forwarded,
+            ) = row?;
             if author != self.owner_peer_id && author != peer_id {
                 return Err(Error::InboxConflict);
             }
@@ -489,6 +522,7 @@ impl Store {
                 current,
                 original_hlc,
                 unread,
+                forwarded: forwarded == 1,
                 delivery,
             })
         })
@@ -514,7 +548,7 @@ impl Store {
     /// logical key is a conflict. The caller has already verified the author through MLS.
     pub fn record_chat_text(&mut self, key: &MessageKey, text: &[u8]) -> Result<bool, Error> {
         let tx = self.db.transaction()?;
-        let changed = Self::record_chat_text_tx(&tx, key, text, None, false)?;
+        let changed = Self::record_chat_text_tx(&tx, key, text, None, false, false)?;
         tx.commit()?;
         Ok(changed)
     }
@@ -525,6 +559,7 @@ impl Store {
         text: &[u8],
         hlc: Option<u64>,
         unread: bool,
+        forwarded: bool,
     ) -> Result<bool, Error> {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(Error::InboxConflict);
@@ -534,34 +569,38 @@ impl Store {
             .transpose()
             .map_err(|_| Error::ClockRange)?;
         let digest = sha256(text);
-        let saved: Option<(Option<Vec<u8>>, Option<i64>)> = tx
+        let saved: Option<(Option<Vec<u8>>, Option<i64>, i64)> = tx
             .query_row(
-                "SELECT `original_digest`, `original_hlc` FROM `chat_messages`
+                "SELECT `original_digest`, `original_hlc`, `forwarded` FROM `chat_messages`
              WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![&key.group, &key.author, key.id.as_slice()],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
         match saved {
-            Some((Some(original_digest), saved_hlc)) => {
-                if original_digest != digest || saved_hlc != original_hlc {
+            Some((Some(original_digest), saved_hlc, saved_forwarded)) => {
+                if original_digest != digest
+                    || saved_hlc != original_hlc
+                    || saved_forwarded != i64::from(forwarded)
+                {
                     return Err(Error::InboxConflict);
                 }
                 // An original delivered after edit/delete must not replace the projection.
                 Ok(false)
             }
-            Some((None, Some(_))) => Err(Error::InboxConflict),
-            Some((None, None)) => {
+            Some((None, Some(_), _)) => Err(Error::InboxConflict),
+            Some((None, None, _)) => {
                 // A delete reached us before its original; record its digest and time.
                 tx.execute(
-                    "UPDATE `chat_messages` SET `original_digest` = ?4, `original_hlc` = ?5
-                     WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                    "UPDATE `chat_messages` SET `original_digest` = ?4, `original_hlc` = ?5,
+                         `forwarded` = ?6 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                     params![
                         &key.group,
                         &key.author,
                         key.id.as_slice(),
                         digest.as_slice(),
-                        original_hlc
+                        original_hlc,
+                        i64::from(forwarded)
                     ],
                 )?;
                 operations::resolve_pending(tx, key, true)?;
@@ -569,9 +608,9 @@ impl Store {
             }
             None => {
                 tx.execute(
-                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `original_hlc`, `unread`, `edited`, `deleted`)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0)",
-                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc, i64::from(unread)],
+                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `original_hlc`, `unread`, `edited`, `deleted`, `forwarded`)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8)",
+                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc, i64::from(unread), i64::from(forwarded)],
                 )?;
                 operations::resolve_pending(tx, key, false)?;
                 Ok(true)

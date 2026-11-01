@@ -331,7 +331,8 @@ impl Session {
                         if matches!(
                             body,
                             Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
-                        ) {
+                        ) || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
+                        {
                             let verified = VerifiedChatSender {
                                 group,
                                 author: sender,
