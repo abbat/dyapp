@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Asks before an identity's key and data leave this device: Remove stays disabled until the box is
- * ticked. A removal ends at the picker through [act], where a new identity is never made on its own.
+ * ticked. A removal ends at the picker through [act], where a new identity is never made on its own;
+ * Settings keeps the active identity open when the removed one is another.
  */
 @Composable
 internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> Unit, onDismiss: () -> Unit) {

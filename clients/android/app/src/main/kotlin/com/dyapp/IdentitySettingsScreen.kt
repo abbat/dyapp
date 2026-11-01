@@ -2,98 +2,130 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * The active identity's Settings screen: the identity list and this identity's network. Create and
- * Switch change the active slot through [act]; Remove, offered only where [removable], opens the
- * confirmation screen, and Network and Lock open their screens through [open].
+ * The Settings section: the identities on this device, the lock row with [lockMode] and the version.
+ * Add changes the active slot through [act]; Lock opens its screen through [onLock]. Switching and the
+ * network live in the identity menu, the connection chip and the Network tab.
  */
 @Composable
+@Suppress("LongParameterList") // The section needs the slots, the lock mode and both routes out.
 internal fun IdentitySettingsScreen(
     slots: Slots,
     active: Opened.Ready,
+    lockMode: LockMode,
     act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit
+    onLock: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
+        Arrangement.spacedBy(12.dp)
     ) {
-        IdentityList(slots, active, act, open)
-        SettingsNetwork(active) { open(StartTarget.NETWORK) }
-        OutlinedButton(onClick = { open(StartTarget.LOCK) }, Modifier.testTag("lock-settings")) {
-            Text(stringResource(R.string.lock_settings))
-        }
+        IdentityList(slots, active, act)
+        LockRow(lockMode, onLock)
+        Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))
     }
 }
 
 @Composable
-private fun IdentityList(
-    slots: Slots,
-    active: Opened.Ready,
-    act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit
-) {
-    val listed = remember(slots, active.slot.id) { RustBridge.show(slots) { Opened.Picker } }
-    Column(Modifier.testTag("settings-identities"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.settings_identities))
+private fun IdentityList(slots: Slots, active: Opened.Ready, act: (() -> Opened) -> Unit) {
+    // Closing the dialog reads the list again: removing another identity keeps the active slot.
+    var removing by remember { mutableStateOf<Opened?>(null) }
+    val listed = remember(slots, active.slot.id, removing) { RustBridge.show(slots) { Opened.Picker } }
+    FormCard(Modifier.testTag("settings-identities")) {
+        CardTitle(R.string.settings_identities)
         if (listed.opened == null) {
             Text(stringResource(R.string.storage_error))
         } else {
-            listed.entries.forEach { entry ->
-                IdentitySettingsRow(entry, active.slot.id) { id -> act { slots.setActive(id); slots.open() } }
+            listed.entries.forEachIndexed { index, entry ->
+                IdentitySettingsRow(entry, active.slot.id, index + 1) { removing = entry }
             }
         }
+        Caption(stringResource(R.string.backup_none))
         Button(onClick = { act(slots::create) }, Modifier.testTag("settings-create")) {
             Text(stringResource(R.string.identity_add))
         }
-        if (removable(active)) {
-            OutlinedButton(onClick = { open(StartTarget.REMOVE) }, Modifier.testTag("settings-remove")) {
+    }
+    removing?.let { target ->
+        // Only removing the active identity leaves Settings for the picker.
+        val stay = (target as? Opened.Ready)?.slot?.id != active.slot.id
+        RemoveDialog(slots, target, { action ->
+            removing = null
+            act { action().let { ended -> if (stay) slots.open() else ended } }
+        }) { removing = null }
+    }
+}
+
+@Composable
+private fun IdentitySettingsRow(entry: Opened, activeSlotId: String, number: Int, onRemove: () -> Unit) {
+    val (slot, peerId) = when (entry) {
+        is Opened.Ready -> entry.slot to entry.peerId
+        is Opened.Recovery -> entry.slot to entry.peerId
+        else -> return
+    }
+    val isActive = slot.id == activeSlotId
+    Row(
+        Modifier.fillMaxWidth().testTag("settings-identity"),
+        Arrangement.spacedBy(12.dp),
+        Alignment.CenterVertically
+    ) {
+        Avatar(peerId.orEmpty())
+        Column(Modifier.weight(1f)) {
+            peerId?.let { Text(shortPeerId(it), fontFamily = FontFamily.Monospace) }
+            when {
+                entry is Opened.Recovery -> Caption(reasonText(entry.reason))
+                isActive -> Caption(stringResource(R.string.settings_active_key), Modifier.testTag("settings-active"))
+                else -> Caption(stringResource(R.string.settings_key_store))
+            }
+        }
+        if (removable(entry)) {
+            val tag = if (isActive) "settings-remove" else "settings-remove-$number"
+            TextButton(onClick = onRemove, Modifier.testTag(tag)) {
                 Text(stringResource(R.string.identity_remove))
             }
         }
     }
 }
 
-// The active network of this identity; its editor checks a draft before it replaces it.
 @Composable
-private fun SettingsNetwork(active: Opened.Ready, onEdit: () -> Unit) {
-    Text(activeNetworkStatus(active), Modifier.testTag("settings-network-status"))
-    OutlinedButton(onClick = onEdit, Modifier.testTag("settings-network")) {
-        Text(stringResource(R.string.network_title))
-    }
-}
-
-@Composable
-private fun IdentitySettingsRow(entry: Opened, activeSlotId: String, switch: (String) -> Unit) {
-    val (slot, label) = when (entry) {
-        is Opened.Ready -> entry.slot to entry.peerId
-        is Opened.Recovery -> entry.slot to (entry.peerId ?: entry.slot.id)
-        else -> return
-    }
-    Column(Modifier.testTag("settings-identity")) {
-        Text(label)
-        Text(stringResource(R.string.settings_key_store))
-        if (entry is Opened.Recovery) Text(stringResource(R.string.status_recovery))
-        if (slot.id == activeSlotId) {
-            Text(stringResource(R.string.settings_active), Modifier.testTag("settings-active"))
-        } else {
-            OutlinedButton(onClick = { switch(slot.id) }, Modifier.testTag("settings-switch")) {
-                Text(stringResource(R.string.settings_switch))
-            }
+private fun LockRow(mode: LockMode, onClick: () -> Unit) = Surface(
+    onClick = onClick,
+    modifier = Modifier.fillMaxWidth().testTag("lock-settings"),
+    shape = RoundedCornerShape(12.dp),
+    color = MaterialTheme.colorScheme.surfaceContainer,
+) {
+    Row(Modifier.padding(16.dp), Arrangement.spacedBy(16.dp), Alignment.CenterVertically) {
+        Icon(painterResource(R.drawable.ic_lock), contentDescription = null)
+        Column {
+            Text(stringResource(R.string.lock_settings), fontWeight = FontWeight.Bold)
+            Caption(stringResource(lockModeText(mode)))
         }
     }
 }

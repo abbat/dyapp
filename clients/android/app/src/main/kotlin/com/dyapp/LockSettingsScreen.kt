@@ -89,14 +89,15 @@ fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, 
     }
 }
 
+internal fun lockModeText(mode: LockMode) = when (mode) {
+    LockMode.OFF -> R.string.lock_mode_off
+    LockMode.BIOMETRIC -> R.string.lock_mode_biometric
+    else -> R.string.lock_mode_pin
+}
+
 @Composable
 private fun LockSettingsStatus(mode: LockMode, deviceSecure: Boolean, gated: Boolean) {
-    val status = when (mode) {
-        LockMode.OFF -> R.string.lock_mode_off
-        LockMode.BIOMETRIC -> R.string.lock_mode_biometric
-        else -> R.string.lock_mode_pin
-    }
-    Text(stringResource(status), Modifier.testTag("lock-mode"))
+    Text(stringResource(lockModeText(mode)), Modifier.testTag("lock-mode"))
     if (mode == LockMode.RESET) Text(stringResource(R.string.lock_reset), Modifier.testTag("lock-reset"))
     if (!deviceSecure) NoScreenLockText()
     // Only the unlock screen offers the OS check; the app relocks within the idle limit.

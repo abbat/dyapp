@@ -115,7 +115,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
   `remove-action`, `remove-retry` and `remove-anyway`. Android has no profile withdrawal yet, so its
   dialog says that a published profile leaves search by itself within 30 days; `remove-offline` and
-  its Retry and Remove anyway are planned there.
+  its Retry and Remove anyway are planned there. Android Settings has the identity rows, the lock
+  row and the version; a block list, theme, language, privacy and node settings have no Android
+  feature yet and are planned. It switches identities only in the identity menu.
 
 The theme follows the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state.
