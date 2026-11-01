@@ -79,7 +79,7 @@ editInput.addEventListener('input', () => {
   updateEdit();
 });
 const openEdit = (message) => {
-  if (!activeChat || !activeChat.messages.includes(message)
+  if (!activeChat?.messages.includes(message)
     || message.author !== current.peerId || message.deleted) return;
   editTarget = { peerId: activeChat.peerId, groupId: message.groupId,
     messageId: message.id, text: message.text, generation: identityGeneration,
@@ -112,7 +112,7 @@ deleteDialog.addEventListener('cancel', (event) => {
 });
 deleteCancel.addEventListener('click', closeDelete);
 const openDelete = (message) => {
-  if (!activeChat || !activeChat.messages.includes(message)
+  if (!activeChat?.messages.includes(message)
     || message.author !== current.peerId || message.deleted) return;
   deleteTarget = { peerId: activeChat.peerId, groupId: message.groupId,
     messageId: message.id, generation: identityGeneration, request: chatOpenRequest };
@@ -145,7 +145,7 @@ forwardDialog.addEventListener('cancel', (event) => {
 });
 forwardCancel.addEventListener('click', closeForward);
 const openForward = (message) => {
-  if (!activeChat || !activeChat.messages.includes(message) || message.deleted || !message.text) return;
+  if (!activeChat?.messages.includes(message) || message.deleted || !message.text) return;
   forwardTarget = { sourcePeerId: activeChat.peerId, sourceGroupId: message.groupId,
     sourceAuthor: message.author, sourceMessageId: message.id, text: message.text,
     generation: identityGeneration, request: chatOpenRequest };

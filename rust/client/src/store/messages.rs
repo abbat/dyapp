@@ -117,8 +117,11 @@ pub struct CurrentMessage {
 /// Persisted status of the current own text or edit/delete operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeliveryState {
+    /// Awaiting acceptance by the recipient's mailbox node.
     Pending,
+    /// The mailbox node accepted the envelope.
     NodeAccepted,
+    /// The recipient device acknowledged the envelope.
     DeviceReceived,
 }
 
