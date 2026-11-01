@@ -1,6 +1,5 @@
 //! Durable MLS session. A failed local write discards advanced in-memory state.
 
-use crate::attachment::Attachment;
 use crate::chat::{self, Body, Event};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
@@ -282,6 +281,13 @@ impl Session {
                     .stage_read(group_id, peer, *up_to, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
+            } else if let Some(message) = body.attachment_message() {
+                self.store.stage_attachment_outbound(
+                    &sealed,
+                    &writes,
+                    message.hlc,
+                    crate::now() * 1000,
+                )?;
             } else if matches!(
                 body,
                 Body::Text { .. } | Body::Forwarded(_) | Body::Edit { .. } | Body::Delete { .. }
@@ -633,48 +639,6 @@ impl Session {
         Ok(operation)
     }
 
-    /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the
-    /// first of `nodes` that takes it, then send its [`Attachment`], with any preview, MIME type
-    /// and dimensions set, like a text. Nothing is staged when no node takes the blob.
-    pub async fn send_attachment(
-        &mut self,
-        nodes: &mut [Node],
-        identity: &Identity,
-        group_id: &[u8],
-        attachment: &Attachment,
-        blob: &[u8],
-        seal_key: &[u8; 32],
-    ) -> Result<(), Error> {
-        attachment.check()?;
-        let mut last = crate::Error::Request("no node".into());
-        let mut uploaded = false;
-        for node in nodes.iter_mut() {
-            let upload = async {
-                if !node.attach_media(identity, attachment).await?.is_empty() {
-                    node.put_media(&identity.peer_id(), blob.to_vec()).await?;
-                }
-                Ok(())
-            };
-            match upload.await {
-                Ok(()) => {
-                    uploaded = true;
-                    break;
-                }
-                Err(error) => last = error,
-            }
-        }
-        if !uploaded {
-            return Err(last.into());
-        }
-        self.send_body(
-            nodes,
-            group_id,
-            &Body::Attachment(attachment.clone()),
-            seal_key,
-        )
-        .await
-    }
-
     /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
     /// [`Store::draft_interaction`] creates it; `None` when no view is due. Like a text, a failed put stays
     /// in the outbox, and every retry carries the same event.
@@ -985,6 +949,7 @@ fn prepare(
     Ok(writes)
 }
 
+mod attachment;
 mod forward;
 mod receive;
 #[cfg(test)]

@@ -75,18 +75,23 @@ after the ID, with the same text limit. No client release existed on 2026-11-01,
 so tag-12 sending may start before v0.0.1 while tag-1 decoding remains.
 Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
 big-endian 8-byte HLC; edit adds at most 64 KiB of replacement text, while delete has no tail.
-The codec refuses short IDs, oversized text, trailing delete bytes and forwarded operations.
+Tag 6 now carries a required 16-byte message-scoped logical ID and sender HLC alongside the
+media descriptor. This lets repeated sends of one blob remain distinct and supplies an ordered
+history key; the attachment projection in app Chats is planned. The codec refuses short IDs,
+missing or out-of-range attachment HLCs, oversized text, trailing delete bytes and forwarded
+operations.
 The desktop `send_chat_text` command fetches a verified peer profile before sending, checks it
 against the newest profile held in the active network cache, and serializes the MLS Session with
 other desktop sends and mailbox receives. A delivery failure leaves the exact staged bytes in
 the outbox for retry.
 A forward wraps the tagged text or attachment and names no original author. Received forwarded
 text is stored with a durable marker and the MLS sender as author; Linux Chats shows the label.
-Outbound Session can stage a forwarded text with exact retryable writes in an existing open chat;
-the app send action remains planned. An attachment body carries the `Attachment` descriptor:
-the key, plaintext and blob SHA-256 and release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
-printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length
-is refused. A message carries at most 64 KiB of previews: each of `n` images gets
+Outbound Session and the Linux Forward picker stage a forwarded text with exact retryable writes
+in an existing open chat. An attachment body carries the `Attachment` descriptor:
+the key, plaintext and blob SHA-256 and release secret, 32 bytes each, the plaintext size, an
+optional JPEG preview of at most 24 KiB, a printable-ASCII MIME type of at most 64 bytes, and
+the claimed width and height; any other length is refused. A message carries at most 64 KiB of
+previews: each of `n` images gets
 `attachment::preview_budget(n)`, min(24 KiB, 64 KiB / n). `Session::send_attachment` uploads the
 sealed blob to the first node that takes it before it stages the message. One attachment is one
 blob, so its sealed size is capped by the node media limit of 6 MiB: there is no split into

@@ -364,8 +364,14 @@ fn attachments_round_trip_and_refuse_wrong_lengths() {
     attachment.preview = vec![0xff; MAX_PREVIEW_BYTES];
     attachment.mime = "image/jpeg".into();
     (attachment.width, attachment.height) = (4000, 3000);
-    let body = Body::Attachment(attachment);
-    assert!(Body::decode(&body.encode()).ok() == Some(body));
+    let body = Body::Attachment(AttachmentMessage {
+        id: [9; 16],
+        hlc: 123 << 16,
+        attachment,
+    });
+    assert!(Body::decode(&body.encode()).ok() == Some(body.clone()));
+    let forwarded = Body::Forwarded(Box::new(body));
+    assert!(Body::decode(&forwarded.encode()).ok() == Some(forwarded));
     let wire = |change: fn(&mut AttachmentWire)| {
         let mut wire = AttachmentWire {
             key: vec![1; 32],
@@ -377,6 +383,8 @@ fn attachments_round_trip_and_refuse_wrong_lengths() {
             mime: String::new(),
             width: 0,
             height: 0,
+            message_id: vec![9; 16],
+            hlc: Some(123 << 16),
         };
         change(&mut wire);
         Body::decode(&[&[6], wire.encode_to_vec().as_slice()].concat())
@@ -386,6 +394,10 @@ fn attachments_round_trip_and_refuse_wrong_lengths() {
     assert!(wire(|wire| wire.preview = vec![0; MAX_PREVIEW_BYTES + 1]).is_err());
     assert!(wire(|wire| wire.mime = "a".repeat(MAX_MIME_BYTES + 1)).is_err());
     assert!(wire(|wire| wire.mime = "image/jpeg\n".into()).is_err());
+    assert!(wire(|wire| wire.message_id.clear()).is_err());
+    assert!(wire(|wire| wire.message_id.pop().map(drop).unwrap()).is_err());
+    assert!(wire(|wire| wire.hlc = None).is_err());
+    assert!(wire(|wire| wire.hlc = Some(u64::MAX)).is_err());
     assert!(Body::decode(&[6, 0xff]).is_err());
 }
 

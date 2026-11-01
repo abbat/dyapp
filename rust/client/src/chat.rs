@@ -108,8 +108,8 @@ pub enum Body {
     TokenAnswer(TokenAnswer),
     /// A device received writes in its mailbox, tag 5.
     Receipt(Receipt),
-    /// An encrypted blob on `/dyapp/media` and what opens it, tag 6.
-    Attachment(Attachment),
+    /// An encrypted blob with a message-scoped logical ID and original HLC, tag 6.
+    Attachment(AttachmentMessage),
     /// A text or attachment the sender forwards, tag 7. It names no original author: the MLS
     /// sender is the only sender, so forwarded words never pass for another member's.
     Forwarded(Box<Body>),
@@ -146,6 +146,17 @@ pub enum Body {
     },
 }
 
+/// One send of a media descriptor; repeated sends of the same blob remain distinct messages.
+#[derive(Clone, PartialEq, Eq)]
+pub struct AttachmentMessage {
+    /// Logical ID shared across deliveries to recipient devices.
+    pub id: [u8; 16],
+    /// Authenticated sender HLC for local history ordering.
+    pub hlc: u64,
+    /// The media descriptor, reusable independently of this message.
+    pub attachment: Attachment,
+}
+
 // The wire form of an `Attachment`; previews and media types may take later tags.
 #[derive(Clone, PartialEq, Eq, prost::Message)]
 struct AttachmentWire {
@@ -167,10 +178,16 @@ struct AttachmentWire {
     width: u32,
     #[prost(uint32, tag = "9")]
     height: u32,
+    #[prost(bytes = "vec", tag = "10")]
+    message_id: Vec<u8>,
+    #[prost(uint64, optional, tag = "11")]
+    hlc: Option<u64>,
 }
 
 impl AttachmentWire {
-    fn open(self) -> Option<Attachment> {
+    fn open(self) -> Option<AttachmentMessage> {
+        let id = self.message_id.try_into().ok()?;
+        let hlc = self.hlc.filter(|value| i64::try_from(*value).is_ok())?;
         let attachment = Attachment {
             key: self.key.try_into().ok()?,
             plaintext_sha256: self.plaintext_sha256.try_into().ok()?,
@@ -183,7 +200,11 @@ impl AttachmentWire {
             height: self.height,
         };
         attachment.check().ok()?;
-        Some(attachment)
+        Some(AttachmentMessage {
+            id,
+            hlc,
+            attachment,
+        })
     }
 }
 
@@ -236,6 +257,18 @@ pub struct TokenAnswer {
 }
 
 impl Body {
+    /// Media message carried directly or inside a forward.
+    pub fn attachment_message(&self) -> Option<&AttachmentMessage> {
+        match self {
+            Self::Attachment(message) => Some(message),
+            Self::Forwarded(inner) => match inner.as_ref() {
+                Self::Attachment(message) => Some(message),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// Makes a text body with a caller-owned logical ID, shared by all device deliveries.
     pub fn text_with_id(id: [u8; 16], text: Vec<u8>) -> Self {
         Self::Text {
@@ -256,7 +289,8 @@ impl Body {
             Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
             Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
             Self::Receipt(receipt) => [&[5], receipt.encode_to_vec().as_slice()].concat(),
-            Self::Attachment(attachment) => {
+            Self::Attachment(message) => {
+                let attachment = &message.attachment;
                 let wire = AttachmentWire {
                     key: attachment.key.to_vec(),
                     plaintext_sha256: attachment.plaintext_sha256.to_vec(),
@@ -267,6 +301,8 @@ impl Body {
                     mime: attachment.mime.clone(),
                     width: attachment.width,
                     height: attachment.height,
+                    message_id: message.id.to_vec(),
+                    hlc: Some(message.hlc),
                 };
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }

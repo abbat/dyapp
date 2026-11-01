@@ -45,9 +45,9 @@ cannot tell it from a like, a view or presence. A wrong length fails closed and 
 acknowledged without changing state.
 
 Naming one ID, not a list, keeps the body fixed-size: the author orders their own messages, so
-"read up to this one" marks it and every earlier own message in that chat. Texts are the only
-bodies with a logical ID today; an attachment counts as read when a later text is read, and gets
-its own mark once attachments carry an ID.
+"read up to this one" marks it and every earlier own message in that chat. Texts and attachments
+carry logical IDs now, but the current read-mark projection tracks texts only. Extending read
+marks and peer-visible read status to attachment IDs remains planned.
 
 ### Sending
 

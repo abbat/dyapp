@@ -47,6 +47,11 @@ go into logs or migration diagnostics.
 SQLite databases use `user_version` 1 and one profile binding. There are no released clients or
 supported existing databases, so pre-release schema changes replace this schema without a
 migration. Existing development databases must be recreated or restored from a matching version.
+Attachment bodies now carry a message-scoped logical ID and HLC. They remain in the transport
+inbox until the planned attachment history projection stores descriptor metadata; a blob hash
+cannot key a chat message because the same photo may be sent twice. No migration is needed
+before the first app release.
+
 These are the logical tables. Exact SQL and indexes belong to the storage implementation and its ADR.
 
 | Table | Durable content | Key / invariant |

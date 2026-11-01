@@ -121,7 +121,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     let (mut sent, blob) = attachment::seal(&photo).unwrap();
     sent.preview = b"preview".to_vec();
     sent.mime = "image/jpeg".into();
-    alice_session
+    let sent_id = alice_session
         .send_attachment(
             from_mut(&mut alice.node),
             &alice.identity,
@@ -147,9 +147,11 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     else {
         panic!("expected one attachment, got {events:?}");
     };
-    assert_eq!(*received, sent);
+    assert_eq!(received.id, sent_id);
+    assert!(received.hlc > 0);
+    assert_eq!(received.attachment, sent);
     assert_eq!(
-        attachment::fetch(from_mut(&mut bob.node), received)
+        attachment::fetch(from_mut(&mut bob.node), &received.attachment)
             .await
             .unwrap(),
         photo

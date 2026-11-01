@@ -157,6 +157,33 @@ impl CurrentMessage {
 }
 
 impl Store {
+    /// Commit an attachment's sender clock with its exact outbox writes and sealed MLS state.
+    /// Its descriptor joins the current chat projection in the attachment history checkpoint.
+    pub fn stage_attachment_outbound(
+        &mut self,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+        hlc: u64,
+        wall_ms: u64,
+    ) -> Result<(), Error> {
+        let timestamp = Timestamp::from(hlc);
+        i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
+        if timestamp.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
+            return Err(Error::ClockSkew(ClockSkew {
+                remote_ms: timestamp.wall_ms(),
+                local_ms: wall_ms,
+            }));
+        }
+        let tx = self.db.transaction()?;
+        if timestamp <= load_hlc(&tx)? {
+            return Err(Error::InboxConflict);
+        }
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        save_hlc(&tx, timestamp)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Draft the original time for one text without changing durable state. The staged MLS
     /// body and the outbox commit must use this exact value.
     pub fn draft_chat_text(&self, wall_ms: u64) -> Result<u64, Error> {

@@ -247,6 +247,34 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
 }
 
 #[test]
+fn attachment_clock_and_exact_write_survive_restart() {
+    let path = crate::store::tests::temp_db_path();
+    let owner = Identity::generate();
+    let mut store = Store::open(&path, &owner).unwrap();
+    let write = prepare_put(&[7; 32], vec![1]).unwrap();
+    let hlc = store.draft_chat_text(1_000).unwrap();
+    store
+        .stage_attachment_outbound(b"mls-attachment", std::slice::from_ref(&write), hlc, 1_000)
+        .unwrap();
+    assert!(store.draft_chat_text(1_000).unwrap() > hlc);
+    assert_eq!(
+        store.due_outbound(0).unwrap()[0].as_bytes(),
+        write.as_bytes()
+    );
+    drop(store);
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert!(store.draft_chat_text(1_000).unwrap() > hlc);
+    assert!(matches!(
+        store.stage_attachment_outbound(b"mls-wrong", &[], hlc, 1_000),
+        Err(Error::InboxConflict)
+    ));
+    assert_eq!(
+        store.sealed_device().unwrap().as_deref(),
+        Some(&b"mls-attachment"[..])
+    );
+}
+
+#[test]
 fn received_operations_and_interactions_advance_chat_drafts_but_failure_does_not() {
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
