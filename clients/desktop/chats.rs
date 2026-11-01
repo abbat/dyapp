@@ -8,7 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use dyapp_client::chat::Event;
 use dyapp_client::interactions::Kind;
 use dyapp_client::session::Session;
-use dyapp_client::store::Store;
+use dyapp_client::store::messages::ChatMessage;
+use dyapp_client::store::{Conversation, Store};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
@@ -58,6 +59,117 @@ impl BlockResult {
 
 fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
+}
+
+/// Conversation states exposed to the desktop without the request's internal message ID.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChatState {
+    None,
+    RequestSent,
+    RequestReceived,
+    Open,
+}
+
+impl From<Conversation> for ChatState {
+    fn from(state: Conversation) -> Self {
+        match state {
+            Conversation::None => Self::None,
+            Conversation::RequestSent(_) => Self::RequestSent,
+            Conversation::RequestReceived(_) => Self::RequestReceived,
+            Conversation::Open => Self::Open,
+        }
+    }
+}
+
+/// Current text or deletion marker, in the Store's pair-wide order.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageView {
+    pub group_id: Vec<u8>,
+    pub author: String,
+    pub id: [u8; 16],
+    pub text: Option<String>,
+    pub edited: bool,
+    pub deleted: bool,
+    pub unread: bool,
+    /// Original wall time for timed text; legacy tag-1 text has no timestamp.
+    pub sent_at_ms: Option<u64>,
+}
+
+impl From<ChatMessage> for MessageView {
+    fn from(message: ChatMessage) -> Self {
+        Self {
+            group_id: message.key.group,
+            author: message.key.author,
+            id: message.key.id,
+            text: message
+                .current
+                .text
+                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()),
+            edited: message.current.edited,
+            deleted: message.current.deleted,
+            unread: message.unread,
+            sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
+        }
+    }
+}
+
+/// One Chats list row from this identity's local Store.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatRowView {
+    pub peer_id: String,
+    pub state: ChatState,
+    pub last_message: Option<MessageView>,
+    pub unread_count: usize,
+}
+
+/// One peer's current conversation, including an empty chat after Clear chat.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatHistoryView {
+    pub state: ChatState,
+    pub messages: Vec<MessageView>,
+}
+
+pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, String> {
+    let store = open(dir, identity)?;
+    let mut rows = Vec::new();
+    for row in store.chat_rows().map_err(|e| e.to_string())? {
+        if store.blocked(&row.peer_id).map_err(|e| e.to_string())? {
+            continue;
+        }
+        rows.push(ChatRowView {
+            peer_id: row.peer_id,
+            state: row.state.into(),
+            last_message: row.last_message.map(Into::into),
+            unread_count: row.unread_count,
+        });
+    }
+    Ok(rows)
+}
+
+pub fn chat_history(
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+) -> Result<ChatHistoryView, String> {
+    let store = open(dir, identity)?;
+    if store.blocked(peer_id).map_err(|e| e.to_string())? {
+        return Err("blocked".into());
+    }
+    let messages = store
+        .current_chat_messages(peer_id)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let state = store
+        .conversation(peer_id)
+        .map_err(|e| e.to_string())?
+        .into();
+    Ok(ChatHistoryView { state, messages })
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
@@ -119,7 +231,10 @@ pub async fn block(
         Ok(session) => session,
         Err(error) => return Ok(BlockResult::pending(error)),
     };
-    match session.block(std::slice::from_mut(&mut node), &device, peer_id).await {
+    match session
+        .block(std::slice::from_mut(&mut node), &device, peer_id)
+        .await
+    {
         Ok(()) => Ok(BlockResult {
             revocation: Revocation::Confirmed,
             detail: None,
@@ -329,6 +444,27 @@ pub mod commands {
         .map_err(|error| error.to_string())?
     }
 
+    /// Current Chats rows for the active identity, including empty conversations.
+    #[tauri::command]
+    pub(crate) fn chat_rows(
+        state: tauri::State<'_, crate::IdentityState>,
+    ) -> Result<Vec<super::ChatRowView>, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::chat_rows(dir, identity)
+    }
+
+    /// Ordered current messages for one peer of the active identity.
+    #[tauri::command]
+    pub(crate) fn chat_history(
+        state: tauri::State<'_, crate::IdentityState>,
+        peer_id: String,
+    ) -> Result<super::ChatHistoryView, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::chat_history(dir, identity, &peer_id)
+    }
+
     /// The like state with a peer; see `likes`.
     #[tauri::command]
     pub(crate) fn peer_likes(
@@ -428,7 +564,11 @@ mod tests {
 
     #[tokio::test]
     async fn block_without_issued_tokens_needs_no_network() {
-        let (dir, owner, peer) = (temp_dir(), Identity::generate(), Identity::generate().peer_id());
+        let (dir, owner, peer) = (
+            temp_dir(),
+            Identity::generate(),
+            Identity::generate().peer_id(),
+        );
         assert_eq!(
             block(&dir, &dir, &owner, &peer).await,
             Ok(BlockResult {
@@ -441,11 +581,21 @@ mod tests {
 
     #[tokio::test]
     async fn offline_revocation_remains_retryable_without_undoing_the_block() {
-        let (dir, owner, peer) = (temp_dir(), Identity::generate(), Identity::generate().peer_id());
+        let (dir, owner, peer) = (
+            temp_dir(),
+            Identity::generate(),
+            Identity::generate().peer_id(),
+        );
         let store = open(&dir, &owner).unwrap();
-        let today = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() / 86_400;
+        let today = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            / 86_400;
         let key = [7; 32];
-        store.record_issued(&peer, &[1; 32], &key, today as u32).unwrap();
+        store
+            .record_issued(&peer, &[1; 32], &key, today as u32)
+            .unwrap();
         for _ in 0..2 {
             let result = block(&dir, &dir, &owner, &peer).await.unwrap();
             assert_eq!(result.revocation, Revocation::Pending);
@@ -478,5 +628,71 @@ mod tests {
                 matched: false
             })
         );
+    }
+
+    #[test]
+    fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
+        use dyapp_client::interactions::Interaction;
+        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
+        let alice_id = alice.peer_id();
+        let bob_id = bob.peer_id();
+        let mut store = open(&dir, &alice).unwrap();
+        for (sender, target, device, event_id, wall_ms) in [
+            (&alice_id, &bob_id, [1; 32], [1; 16], 1_000),
+            (&bob_id, &alice_id, [2; 32], [2; 16], 2_000),
+        ] {
+            store
+                .apply_interaction(
+                    sender,
+                    target,
+                    &device,
+                    Interaction {
+                        kind: Kind::Like,
+                        event_id,
+                        hlc: wall_ms << 16,
+                    },
+                )
+                .unwrap();
+        }
+        drop(store);
+        assert_eq!(chat_rows(&dir, &alice).unwrap().len(), 1);
+        let row = &chat_rows(&dir, &alice).unwrap()[0];
+        assert_eq!(row.peer_id, bob_id);
+        assert_eq!(row.state, ChatState::Open);
+        assert_eq!(row.last_message, None);
+        assert_eq!(row.unread_count, 0);
+        assert!(chat_history(&dir, &alice, &bob_id)
+            .unwrap()
+            .messages
+            .is_empty());
+        assert!(chat_rows(&dir, &bob).is_err());
+        let store = open(&dir, &alice).unwrap();
+        store.set_blocked(&bob_id, true).unwrap();
+        assert!(chat_rows(&dir, &alice).unwrap().is_empty());
+        assert_eq!(chat_history(&dir, &alice, &bob_id), Err("blocked".into()));
+    }
+
+    #[test]
+    fn message_view_keeps_legacy_time_absent_and_uses_safe_wall_time() {
+        use dyapp_client::store::messages::{CurrentMessage, MessageKey};
+        let message = |original_hlc| ChatMessage {
+            key: MessageKey {
+                group: vec![1],
+                author: "peer".into(),
+                id: [2; 16],
+            },
+            current: CurrentMessage {
+                text: Some(b"hello".to_vec()),
+                edited: false,
+                deleted: false,
+            },
+            original_hlc,
+            unread: true,
+        };
+        assert_eq!(MessageView::from(message(None)).sent_at_ms, None);
+        let timed = MessageView::from(message(Some((1_700_000_000_000u64 << 16).into())));
+        assert_eq!(timed.sent_at_ms, Some(1_700_000_000_000));
+        assert_eq!(timed.text.as_deref(), Some("hello"));
+        assert!(timed.unread);
     }
 }

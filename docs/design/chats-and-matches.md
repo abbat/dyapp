@@ -83,7 +83,13 @@ have no sent time and use a non-reused local arrival ordinal as a fallback befor
 `Store::current_chat_messages` exposes that order across every group of one pair, including the
 current edit or deletion marker. `Store::chat_rows` supplies pair state, the latest current
 message and its optional original time, and the device-local unread count; empty conversations
-remain after Clear chat. Desktop wiring is still planned.
+remain after Clear chat. The desktop now exposes read-only `chat_rows` and `chat_history` Tauri
+commands for the active identity. `chat_rows` returns `peerId`, `state`, `lastMessage` and
+`unreadCount`; `chat_history(peerId)` returns `state` and ordered `messages`. A message includes
+opaque group and logical IDs, current text or a deletion marker, local unread and optional
+`sentAtMs`. The commands hide blocked peers, return original wall time in JavaScript-safe
+milliseconds, and leave legacy text time absent. The Chats UI and send, read and clear commands
+remain planned.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,

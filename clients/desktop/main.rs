@@ -903,6 +903,8 @@ fn main() {
             chats::commands::like_peer,
             chats::commands::liked_you,
             chats::commands::receive_mail,
+            chats::commands::chat_rows,
+            chats::commands::chat_history,
             privacy_settings,
             set_privacy,
             blocked_peers,
