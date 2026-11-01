@@ -1,16 +1,10 @@
 package com.dyapp
 
 import android.content.Context
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import uniffi.dyapp.ProfileScale
@@ -30,18 +24,6 @@ internal fun possibleAgeOnUtcToday(saved: Map<String, Int>): String? {
         youngest == oldest -> "$youngest"
         else -> "$youngest-$oldest"
     }
-}
-
-@Composable
-internal fun PreviewSection(read: () -> ProfileDraft, scales: List<ProfileScale>, saves: Int) {
-    // Reads the saved draft, so unsaved edits never appear; each save hides a stale preview.
-    var preview by remember(saves) { mutableStateOf<Result<ProfileDraft>?>(null) }
-    OutlinedButton(onClick = { preview = runCatching(read) },
-        modifier = Modifier.testTag("profile-preview")) {
-        Text(stringResource(R.string.profile_preview))
-    }
-    preview?.fold({ ProfilePreview(it, scales, LocalContext.current, R.string.profile_preview_title) },
-        { Text(stringResource(R.string.profile_read_failed)) })
 }
 
 private fun placeRows(draft: ProfileDraft, locale: Locale, lang: String) = listOfNotNull(

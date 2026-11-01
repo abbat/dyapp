@@ -92,7 +92,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `profile-more`), `profile-save` and `profile-publish`. `publish-dialog` and
   `publish-progress` show `profile-public-fields`, `profile-attested`, `profile-disclosure`,
   `profile-cancel` and `profile-publish-confirm`. Android has no `profile-hidden` switch yet
-  (planned): its Rust bridge has no hide call.
+  (planned): its Rust bridge has no hide call. Its progress state shows the saved proof nonce
+  instead of the elapsed time, and the signed readback appears on the form after the dialog closes.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.
 - Search, `search`, `search-loading`, `search-empty` and `search-error`: `search-age-min`,

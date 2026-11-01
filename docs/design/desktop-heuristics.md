@@ -183,6 +183,17 @@ where the key lives and that it has no backup before the one action that creates
 failed creation falls to the existing storage error instead of looping (H9). No open H1–H10
 finding.
 
+### Android profile and publish dialog review (2026-11-01)
+
+Read `profile` and `publish-dialog` in the Compose code against the prototype and H1–H10 in English
+and Russian; not yet seen on a device, native rendering is left to the CI Android job. The form now
+groups fields into cards and folds the other scales under `profile-more` (H8). Publish opens a
+dialog that lists exactly the saved public fields before asking for the two confirmations (H1, H5),
+and an unsaved edit disables it with a stated reason (H5, H9). A failure keeps the dialog open with
+its retry label and asks for the confirmations again (H9). While running, only the proof can be
+cancelled and the dialog cannot be dismissed, so an attempt never continues unseen (H3). No open
+H1–H10 finding.
+
 ### Accepted exceptions
 
 None.
