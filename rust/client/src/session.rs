@@ -12,8 +12,8 @@ use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
 
-/// A received non-projected message kept in the inbox (for example, an attachment or forward).
-/// Text, edit and delete use the current chat projection instead.
+/// A received non-projected message kept in the inbox (for example, an attachment).
+/// Text, forwarded text, edit and delete use the current chat projection instead.
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct StoredMessage {
     /// The group ID.
@@ -39,6 +39,9 @@ pub enum Error {
     /// The requested conversation is absent from the catalog.
     #[error("unknown MLS conversation")]
     UnknownGroup,
+    /// A forward needs an existing open conversation.
+    #[error("conversation must be open to forward")]
+    ConversationNotOpen,
     /// An edit or delete target is absent or already deleted from this sender's current chat.
     #[error("message is absent or already deleted")]
     UnknownMessage,
@@ -281,7 +284,7 @@ impl Session {
                 self.store.stage_receipt(&sealed, &writes)?;
             } else if matches!(
                 body,
-                Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
+                Body::Text { .. } | Body::Forwarded(_) | Body::Edit { .. } | Body::Delete { .. }
             ) {
                 let author = self.store.owner_peer_id().to_owned();
                 let source_device = device.device_key()?;
@@ -982,6 +985,7 @@ fn prepare(
     Ok(writes)
 }
 
+mod forward;
 mod receive;
 #[cfg(test)]
 mod tests;

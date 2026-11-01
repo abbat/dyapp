@@ -113,6 +113,22 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         Some(&b"mls-1"[..])
     );
     assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+    let invalid_forward = Body::Forwarded(Box::new(Body::Delete {
+        target: key.id,
+        operation: [8; 16],
+        hlc: text_hlc,
+    }));
+    assert!(matches!(
+        store.stage_chat_outbound(
+            b"mls-invalid-forward",
+            std::slice::from_ref(&write2),
+            sender,
+            &invalid_forward,
+            1_000
+        ),
+        Err(Error::InboxConflict)
+    ));
+    assert_eq!(store.due_outbound(0).unwrap().len(), 1);
     let next_hlc = store.draft_chat_text(1_000).unwrap();
     let conflicting_later = Body::Text {
         id: key.id,

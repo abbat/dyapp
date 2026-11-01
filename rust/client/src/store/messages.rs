@@ -258,6 +258,10 @@ impl Store {
         }
         let (id, generation) = match body {
             Body::Text { id, .. } => (id, id),
+            Body::Forwarded(inner) => match inner.as_ref() {
+                Body::Text { id, .. } => (id, id),
+                _ => return Err(Error::InboxConflict),
+            },
             Body::Edit {
                 target, operation, ..
             }
@@ -278,6 +282,10 @@ impl Store {
         }
         let timed_text = match body {
             Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+            Body::Forwarded(inner) => match inner.as_ref() {
+                Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+                _ => None,
+            },
             _ => None,
         };
         if let Some(hlc) = timed_text {
@@ -292,7 +300,7 @@ impl Store {
             }
             i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
         }
-        if let Body::Text { id, .. } = body {
+        if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
             conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
         }
         Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
@@ -319,6 +327,12 @@ impl Store {
             Body::Text { hlc, text, .. } => {
                 Self::record_chat_text_tx(tx, &key, text, *hlc, false, false)?
             }
+            Body::Forwarded(inner) => match inner.as_ref() {
+                Body::Text { hlc, text, .. } => {
+                    Self::record_chat_text_tx(tx, &key, text, *hlc, false, true)?
+                }
+                _ => unreachable!(),
+            },
             Body::Edit { .. } | Body::Delete { .. } => {
                 Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }

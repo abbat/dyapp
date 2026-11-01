@@ -80,9 +80,11 @@ The desktop `send_chat_text` command fetches a verified peer profile before send
 against the newest profile held in the active network cache, and serializes the MLS Session with
 other desktop sends and mailbox receives. A delivery failure leaves the exact staged bytes in
 the outbox for retry.
-A forward wraps the tagged text or attachment and names no original author. Received forwarded text is stored with a durable marker and the MLS sender as author; the app label and send action are planned. An
-attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
-release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
+A forward wraps the tagged text or attachment and names no original author. Received forwarded
+text is stored with a durable marker and the MLS sender as author; Linux Chats shows the label.
+Outbound Session can stage a forwarded text with exact retryable writes in an existing open chat;
+the app send action remains planned. An attachment body carries the `Attachment` descriptor:
+the key, plaintext and blob SHA-256 and release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a
 printable-ASCII MIME type of at most 64 bytes and the claimed width and height; any other length
 is refused. A message carries at most 64 KiB of previews: each of `n` images gets
 `attachment::preview_budget(n)`, min(24 KiB, 64 KiB / n). `Session::send_attachment` uploads the

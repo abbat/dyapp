@@ -50,10 +50,25 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
         .unwrap();
     assert_ne!(offline_id, [1; 16]);
     assert_eq!(offline_writes.len(), 1);
+    let (forward_id, forward_writes) = session
+        .stage_forwarded_text(&group_id, b"forwarded words", &seal_key)
+        .unwrap();
+    assert_ne!(forward_id, offline_id);
+    assert_eq!(forward_writes.len(), 1);
     let sent = session
         .store
         .current_chat_messages(&bob_profile.peer_id)
         .unwrap();
+    let forwarded = sent
+        .iter()
+        .find(|message| message.key.id == forward_id)
+        .unwrap();
+    assert!(forwarded.forwarded);
+    assert!(forwarded.original_hlc.is_some());
+    assert_eq!(
+        forwarded.current.text.as_deref(),
+        Some(&b"forwarded words"[..])
+    );
     let original_hlc = sent
         .iter()
         .find(|message| message.key.id == offline_id)
@@ -84,8 +99,17 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     assert!(due
         .iter()
         .any(|write| write.as_bytes() == offline_writes[0].as_bytes()));
+    assert!(due
+        .iter()
+        .any(|write| write.as_bytes() == forward_writes[0].as_bytes()));
     drop(session);
     let mut session = Session::open(Store::open(&path, &alice_id).unwrap(), &seal_key).unwrap();
+    assert!(session
+        .store
+        .current_chat_messages(&bob_profile.peer_id)
+        .unwrap()
+        .iter()
+        .any(|message| message.key.id == forward_id && message.forwarded));
     assert_eq!(
         session.chat_message(&own).unwrap().unwrap().text.as_deref(),
         Some(&b"offline"[..])
