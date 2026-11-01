@@ -213,7 +213,7 @@ impl Store {
             )?;
         }
         let changed = match body {
-            Body::Text { hlc, text, .. } => Self::record_chat_text_tx(tx, &key, text, *hlc)?,
+            Body::Text { hlc, text, .. } => Self::record_chat_text_tx(tx, &key, text, *hlc, false)?,
             Body::Edit { .. } | Body::Delete { .. } => {
                 Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }
@@ -252,6 +252,7 @@ impl Store {
         };
         let digest = sha256(&body.encode());
         let owner = self.owner_peer_id.clone();
+        let unread = key.author != owner;
         let mut shown = true;
         let inserted = self.stage_inbound_with(
             sealed_device,
@@ -288,7 +289,7 @@ impl Store {
                                 .observe_at(Timestamp::from(*hlc), wall_ms)?;
                             save_hlc(tx, observed)?;
                         }
-                        Self::record_chat_text_tx(tx, &key, text, *hlc)?;
+                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread)?;
                     }
                     Body::Edit { .. } | Body::Delete { .. } => {
                         Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?;
@@ -299,6 +300,23 @@ impl Store {
             },
         )?;
         Ok(inserted && shown)
+    }
+
+    /// Mark all current incoming texts from one peer read across that pair's MLS groups.
+    /// This is device-local and does not send a peer-visible read receipt.
+    pub fn mark_chat_read(&mut self, peer_id: &str) -> Result<usize, Error> {
+        if peer_id.is_empty() || peer_id == self.owner_peer_id {
+            return Err(Error::InboxConflict);
+        }
+        let tx = self.db.transaction()?;
+        let changed = tx.execute(
+            "UPDATE `chat_messages` SET `unread` = 0
+             WHERE `unread` = 1 AND `author` = ?1
+               AND `group_id` IN (SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1)",
+            [peer_id],
+        )?;
+        tx.commit()?;
+        Ok(changed)
     }
 
     /// Read one logical message from this profile's current projection.
@@ -332,7 +350,7 @@ impl Store {
     /// logical key is a conflict. The caller has already verified the author through MLS.
     pub fn record_chat_text(&mut self, key: &MessageKey, text: &[u8]) -> Result<bool, Error> {
         let tx = self.db.transaction()?;
-        let changed = Self::record_chat_text_tx(&tx, key, text, None)?;
+        let changed = Self::record_chat_text_tx(&tx, key, text, None, false)?;
         tx.commit()?;
         Ok(changed)
     }
@@ -342,6 +360,7 @@ impl Store {
         key: &MessageKey,
         text: &[u8],
         hlc: Option<u64>,
+        unread: bool,
     ) -> Result<bool, Error> {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(Error::InboxConflict);
@@ -386,9 +405,9 @@ impl Store {
             }
             None => {
                 tx.execute(
-                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `original_hlc`, `edited`, `deleted`)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0)",
-                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc],
+                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `original_hlc`, `unread`, `edited`, `deleted`)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0)",
+                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc, i64::from(unread)],
                 )?;
                 operations::resolve_pending(tx, key, false)?;
                 Ok(true)

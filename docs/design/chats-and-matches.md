@@ -74,6 +74,12 @@ for the pair. Both sides reach the same choice once each has every Welcome. A me
 sent to another group is still shown, so nothing is lost. A group that also contains a third
 identity is refused, as today.
 
+The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
+deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,
+clearing the current unread rows across all pair groups atomically. A later delivery starts unread
+even if its original HLC is older than a message already viewed. This local flag does not depend
+on the optional peer-visible read-receipt setting. The Chats UI still needs to call this API.
+
 The first own text to a peer with no group runs `chat::invite` with the peer's verified
 KeyPackages, then stages the text in the same epoch; the Welcome and the text share one outbox
 commit. Retries reuse the staged bytes, as for every chat write.

@@ -9,6 +9,19 @@ fn inbox(id: u8) -> InboxKey {
     }
 }
 
+fn unread(store: &Store, peer_id: &str) -> i64 {
+    store
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM `chat_messages` AS `m`
+             JOIN `conversation_groups` AS `g` ON `m`.`group_id` = `g`.`group_id`
+             WHERE `g`.`peer_id` = ?1 AND `m`.`unread` = 1",
+            [peer_id],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
 #[test]
 fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
     let path = crate::store::tests::temp_db_path();
@@ -266,4 +279,119 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
         )
         .unwrap();
     assert_eq!(saved, sha256(&original.encode()));
+}
+
+#[test]
+fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart() {
+    let path = crate::store::tests::temp_db_path();
+    let owner = Identity::generate();
+    let own = owner.peer_id();
+    let peer = Identity::generate().peer_id();
+    let other = Identity::generate().peer_id();
+    let (group_a, group_b, group_other, device) = ([3], [4], [5], [6; 32]);
+    let from = |group, author| VerifiedChatSender {
+        group,
+        author,
+        device: &device,
+    };
+    let text = |id, time| Body::Text {
+        id: [id; 16],
+        hlc: Some(Timestamp::new(time, 0).into()),
+        text: vec![id],
+    };
+    let mut store = Store::open(&path, &owner).unwrap();
+    for (group, author) in [
+        (&group_a[..], &peer),
+        (&group_b[..], &peer),
+        (&group_other[..], &other),
+    ] {
+        crate::store::tests::catalog_group(&mut store, group, author);
+    }
+    assert!(!store.send_read_receipts().unwrap());
+    store
+        .stage_chat_inbound(
+            b"mls",
+            &inbox(1),
+            from(&group_a, &peer),
+            &text(1, 200),
+            1_000,
+        )
+        .unwrap();
+    assert_eq!(unread(&store, &peer), 1);
+    assert_eq!(store.mark_chat_read(&peer).unwrap(), 1);
+    // An own text from another device opens the request without making it unread.
+    store
+        .stage_chat_inbound(
+            b"mls",
+            &inbox(2),
+            from(&group_a, &own),
+            &text(2, 210),
+            1_000,
+        )
+        .unwrap();
+    store
+        .stage_chat_inbound(
+            b"mls",
+            &inbox(3),
+            from(&group_b, &peer),
+            &text(3, 100),
+            1_000,
+        )
+        .unwrap();
+    store
+        .stage_chat_inbound(
+            b"mls",
+            &inbox(4),
+            from(&group_other, &other),
+            &text(4, 50),
+            1_000,
+        )
+        .unwrap();
+    assert_eq!((unread(&store, &peer), unread(&store, &other)), (1, 1));
+
+    let edit = Body::Edit {
+        target: [3; 16],
+        operation: [7; 16],
+        hlc: Timestamp::new(300, 0).into(),
+        text: b"edited".to_vec(),
+    };
+    let delete = Body::Delete {
+        target: [1; 16],
+        operation: [8; 16],
+        hlc: Timestamp::new(400, 0).into(),
+    };
+    store
+        .stage_chat_inbound(b"mls", &inbox(5), from(&group_b, &peer), &edit, 1_000)
+        .unwrap();
+    store
+        .stage_chat_inbound(b"mls", &inbox(6), from(&group_a, &peer), &delete, 1_000)
+        .unwrap();
+    assert_eq!(unread(&store, &peer), 1);
+    store.set_send_read_receipts(true).unwrap();
+    assert_eq!(store.mark_chat_read(&peer).unwrap(), 1);
+    assert_eq!(store.mark_chat_read(&peer).unwrap(), 0);
+    assert!(store.send_read_receipts().unwrap());
+    assert_eq!(unread(&store, &other), 1);
+    // A late original with an older HLC still starts unread after a prior mark-on-view.
+    store
+        .stage_chat_inbound(
+            b"mls",
+            &inbox(7),
+            from(&group_b, &peer),
+            &text(9, 80),
+            1_000,
+        )
+        .unwrap();
+    assert_eq!(unread(&store, &peer), 1);
+    assert_eq!(store.clear_chat(&group_b).unwrap(), 2);
+    assert_eq!(unread(&store, &peer), 0);
+    drop(store);
+
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert_eq!((unread(&store, &peer), unread(&store, &other)), (0, 1));
+    assert_eq!(store.mark_chat_read(&other).unwrap(), 1);
+    assert!(matches!(
+        Store::open(&path, &Identity::generate()),
+        Err(Error::WrongIdentity)
+    ));
 }
