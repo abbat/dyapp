@@ -61,15 +61,18 @@ impl SearchState {
         Ok(())
     }
 
-    /// Save the checked network and clear profiles at one cache boundary.
+    /// Save the checked network and clear profiles if it changed, at one cache boundary.
     pub fn activate_network(
         &self,
         checks: &crate::network::NetworkState,
         dir: &Path,
     ) -> Result<crate::network::Draft, String> {
         let mut cache = self.0.lock().map_err(|e| e.to_string())?;
+        let previous = network::load(dir, Settings::Active).map_err(|e| e.to_string())?;
         let draft = crate::network::activate(checks, dir)?;
-        cache.clear();
+        if previous != Some(draft.clone().into()) {
+            cache.clear();
+        }
         Ok(draft)
     }
 }
@@ -383,7 +386,7 @@ mod tests {
         assert!(state.0.lock().unwrap().accept_if_current(0, current));
         checks.remember_connected(0, dir.clone(), second.clone()).unwrap();
         assert_eq!(state.activate_network(&checks, &dir).unwrap().name, "second");
-        assert_eq!(network::load(&dir, Settings::Active).unwrap(), Some(second));
+        assert_eq!(network::load(&dir, Settings::Active).unwrap(), Some(second.clone()));
         assert!(state.0.lock().unwrap().snapshot().1.all().is_empty());
         resume_tx.send(()).unwrap();
         assert!(!worker.await.unwrap());
@@ -394,6 +397,15 @@ mod tests {
             .unwrap()
             .accept_if_current(new_epoch, verified(&Identity::generate())));
         assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
+        // Re-activating the same settings consumes the check but keeps valid profiles.
+        let epoch = state.0.lock().unwrap().epoch();
+        checks
+            .remember_connected(checks.check_epoch().unwrap(), dir.clone(), second)
+            .unwrap();
+        state.activate_network(&checks, &dir).unwrap();
+        let cached = state.0.lock().unwrap();
+        assert_eq!(cached.epoch(), epoch);
+        assert_eq!(cached.snapshot().1.all().len(), 1);
     }
 
     #[test]
