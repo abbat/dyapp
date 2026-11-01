@@ -1301,6 +1301,13 @@ const checkSettingsLanguage = async () => {
 const privacyIds = ['send-views', 'send-read-receipts', 'send-typing', 'presence-matches',
   'message-notifications'];
 const privacyState = () => privacyIds.map((id) => document.getElementById(id).checked).join();
+const expectPrivacy = async (expected) => {
+  await openArea('settings');
+  await window.privacyShown;
+  if (privacyState() !== expected || shown('privacy-error')) {
+    throw new Error(`privacy settings ${privacyState()}, expected ${expected}`);
+  }
+};
 const checkPrivacy = async (restarted) => {
   await openArea('settings');
   await window.privacyShown;
@@ -1893,10 +1900,18 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chooseStorage(mode);
       const addedPeer = document.getElementById('peer-id').textContent;
       await checkSettingsInventory(addedPeer, mode);
+      await expectPrivacy('false,false,true,true,true');
+      document.getElementById('send-views').click();
+      await window.privacySaved;
       await switchFromSettings(state.mode);
       await checkSettingsInventory(state.peerId, state.mode);
+      await expectPrivacy('false,false,true,true,true');
       await switchFromSettings(mode);
       await checkSettingsInventory(addedPeer, mode);
+      await expectPrivacy('true,false,true,true,true');
+      document.getElementById('send-views').click();
+      await window.privacySaved;
+      await openArea('profile-area');
       await checkStaleRender();
       await checkStaleSearchAndChats();
       await checkStalePeerActions();

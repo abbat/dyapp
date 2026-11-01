@@ -103,8 +103,9 @@ rule on fixed IDs: "@" and the last 6 characters, one more for each tail another
 and a copy of the same ID in another slot counts as no collision. On first identity creation, desktop smoke
 also opens Settings to verify the active identity's full Peer ID, its short form and key backend,
 creates another identity there,
-switches between both identities, checks that Cancel receives focus in the removal dialog,
-cancels removal once, then confirms removal and relaunches to
+switches between both identities, verifies that a changed privacy toggle stays with its own
+identity, checks that Cancel receives focus in the removal dialog, cancels removal once, then
+confirms removal and relaunches to
 verify the surviving identity and Settings inventory. In the add-identity case, it also pauses an
 old identity response, shows the newer picker, resumes the old response, and checks the picker
 remains visible before returning to Ready. It then pauses old Search and Chats requests,
