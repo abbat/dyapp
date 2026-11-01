@@ -365,6 +365,37 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
 }
 
 #[test]
+fn a_message_from_an_owner_not_yet_fetched_waits_and_opens_with_the_profile() {
+    let seal_key = [7; 32];
+    let Invite {
+        mut session,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+        ..
+    } = bob_invited(&temp_path(), &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let hi = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"hi".to_vec()),
+    )
+    .unwrap();
+    assert!(matches!(
+        session.stage_envelope(&key(2), &hi[0].mls, &[], &seal_key),
+        Ok(Some(Event::UnknownOwner(_)))
+    ));
+    assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1)]);
+    assert!(matches!(
+        session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key),
+        Ok(Some(Event::Message { .. }))
+    ));
+}
+
+#[test]
 fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     let path = temp_path();
     let seal_key = [6; 32];
