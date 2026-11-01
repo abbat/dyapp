@@ -139,12 +139,13 @@
     <string name="recovery_unavailable">Её ключ сейчас не удаётся открыть.</string>
     <string name="recovery_retry">Повторить</string>
     <string name="identity_remove">Удалить эту идентичность</string>
-    <string name="remove_title">Удаление идентичности</string>
+    <string name="remove_title">Удалить идентичность?</string>
     <string name="remove_last_copy">Это единственная копия ключа на этом устройстве.</string>
     <string name="remove_other_copy">Тот же ключ есть у другой идентичности на этом устройстве.</string>
-    <string name="remove_warning">Удаление стирает ключ с этого устройства. Без резервной копии ключа этот идентификатор узла не восстановить.</string>
-    <string name="remove_confirm">Я понимаю, что без резервной копии это не отменить</string>
-    <string name="remove_action">Удалить</string>
+    <string name="remove_warning">Ключ удаляется с этого устройства, и без резервной копии этот идентификатор узла не восстановить. Опубликованный профиль сам исчезнет из поиска в течение 30 дней.</string>
+    <string name="remove_loses">Вместе с ней с этого устройства удаляются её чаты, взаимные симпатии и отметки. Другие идентичности остаются.</string>
+    <string name="remove_confirm">Я понимаю, что этот ключ нельзя восстановить</string>
+    <string name="remove_action">Удалить идентичность</string>
     <string name="remove_cancel">Отмена</string>
     <string name="profile_basics">О себе</string>
     <string name="profile_birth">Дата рождения</string>
