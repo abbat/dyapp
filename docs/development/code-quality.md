@@ -358,7 +358,8 @@ A hijacked crate is usually found and yanked within days, so no crates.io versio
 `make quality` and reads each version's `pubtime` from the registry index cache: the dev image
 and the CI `fetch` step run `cargo fetch` for every lockfile. A version missing from the cache
 fails; rebuild the dev image. A version recorded before crates.io kept `pubtime` counts as old.
-Dependabot waits the same 14 days (`cooldown` in `.github/dependabot.yml`).
+Dependabot is configured for the same 14-day wait (`cooldown` in `.github/dependabot.yml`).
+Check release dates in grouped PRs before merging: a group may still contain a newer release.
 
 To take a younger version, for example a security fix, add `(crate, version): (date, reason)` to
 `EXCEPTIONS` in the script. The `ctutils 0.4.4` exception, added on 2026-10-23 for
