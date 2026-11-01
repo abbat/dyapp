@@ -217,7 +217,9 @@ private fun ConnectionStatus(opened: Opened.Ready, section: StartTarget, onClick
         label = { Text(name?.ifEmpty { public } ?: stringResource(R.string.status_no_network)) })
 }
 
-internal fun shortPeerId(peerId: String) = "@" + peerId.takeLast(6)
+private const val SHORT_PEER_ID = 6
+
+internal fun shortPeerId(peerId: String) = "@" + peerId.takeLast(SHORT_PEER_ID)
 
 // No photo yet: the first two Peer ID characters on a tonal circle.
 @Composable

@@ -102,11 +102,7 @@ private fun IdentitySettingsRow(entry: Opened, activeSlotId: String, number: Int
         Avatar(peerId.orEmpty())
         Column(Modifier.weight(1f)) {
             peerId?.let { Text(shortPeerId(it), fontFamily = FontFamily.Monospace) }
-            when {
-                entry is Opened.Recovery -> Caption(reasonText(entry.reason))
-                isActive -> Caption(stringResource(R.string.settings_active_key), Modifier.testTag("settings-active"))
-                else -> Caption(stringResource(R.string.settings_key_store))
-            }
+            IdentityStatus(entry, isActive)
         }
         if (removable(entry)) {
             val tag = if (isActive) "settings-remove" else "settings-remove-$number"
@@ -115,6 +111,13 @@ private fun IdentitySettingsRow(entry: Opened, activeSlotId: String, number: Int
             }
         }
     }
+}
+
+@Composable
+private fun IdentityStatus(entry: Opened, isActive: Boolean) = when {
+    entry is Opened.Recovery -> Caption(reasonText(entry.reason))
+    isActive -> Caption(stringResource(R.string.settings_active_key), Modifier.testTag("settings-active"))
+    else -> Caption(stringResource(R.string.settings_key_store))
 }
 
 @Composable

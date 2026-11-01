@@ -50,16 +50,19 @@ fun SetupScreen(device: DeviceLock, onSkip: () -> Unit, onEnroll: suspend (Strin
             }
         }
     }
-    Page(actions = {
-        SetPinButton("lock-set", R.string.lock_set, submit.takeIf { editable && pin.isNotEmpty() })
-        BiometricOption(device, !busy)
-        TextButton(onClick = onSkip, Modifier.fillMaxWidth().testTag("lock-skip"), enabled = !busy) {
-            Text(stringResource(R.string.lock_skip))
-        }
-    }) {
+    Page(actions = { SetupActions(device, busy, submit.takeIf { editable && pin.isNotEmpty() }, onSkip) }) {
         SetupIntro(device.secure)
         NewPinFields(pinState, repeatState, R.string.lock_pin, editable)
         error?.let { ErrorText(it) }
+    }
+}
+
+@Composable
+private fun SetupActions(device: DeviceLock, busy: Boolean, onSet: (() -> Unit)?, onSkip: () -> Unit) {
+    SetPinButton("lock-set", R.string.lock_set, onSet)
+    BiometricOption(device, !busy)
+    TextButton(onClick = onSkip, Modifier.fillMaxWidth().testTag("lock-skip"), enabled = !busy) {
+        Text(stringResource(R.string.lock_skip))
     }
 }
 
@@ -121,7 +124,7 @@ fun BiometricUnlockScreen(deviceSecure: Boolean, onUnlock: () -> Unit) = Page(ac
 @Composable
 private fun UnlockButton(onUnlock: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onUnlock?.invoke() }, Modifier.fillMaxWidth().testTag("lock-unlock"), enabled = onUnlock != null) {
+    Button({ onUnlock?.invoke() }, Modifier.fillMaxWidth().testTag("lock-unlock"), onUnlock != null) {
         Text(stringResource(R.string.lock_unlock))
     }
 }

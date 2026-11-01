@@ -56,6 +56,25 @@ class MainActivity : ComponentActivity() {
     private val verify = { biometric: Boolean, then: () -> Unit ->
         confirmDeviceCredential(biometric) { checked = then; refreshLock() }
     }
+    private val skipLock = {
+        // A failed write only means the choice is offered again next launch.
+        runCatching { store.skip() }
+        lock = StoredLock.OFF
+    }
+    private val leaveSettings = {
+        settings = false
+        recovered = false
+        returnTo = StartTarget.SETTINGS
+    }
+    private val attempt: suspend (String) -> PinAttempt? = { pin ->
+        val result = withContext(Dispatchers.Default) { runCatching { store.attempt(pin) }.getOrNull() }
+        withContext(Dispatchers.Main.immediate) {
+            // A PIN checked while the app went to the background does not unlock it.
+            if (result == PinAttempt.UNLOCKED && !appLock.snapshotObscured) appLock.onUnlocked()
+            refreshLock()
+        }
+        result
+    }
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.inChosenLanguage())
@@ -77,19 +96,11 @@ class MainActivity : ComponentActivity() {
                 val biometric = lock == StoredLock.BIOMETRIC
                 when {
                     locked && biometric -> BiometricUnlockScreen(device.secure) { verify(true) {} }
-                    locked -> UnlockScreen(device.secure, ::attempt) {
+                    locked -> UnlockScreen(device.secure, attempt) {
                         verify(false) { recovered = true; settings = true }
                     }
-                    lock == StoredLock.NEW -> SetupScreen(device, {
-                        // A failed write only means the choice is offered again next launch.
-                        runCatching { store.skip() }
-                        lock = StoredLock.OFF
-                    }) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(lockMode, device, ::setPin) {
-                        settings = false
-                        recovered = false
-                        returnTo = StartTarget.SETTINGS
-                    }
+                    lock == StoredLock.NEW -> SetupScreen(device, skipLock) { setPin(null, it) == PinAttempt.UNLOCKED }
+                    settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
                     // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
                     biometric -> MainScreen(lockMode, returnTo) { verify(true) { settings = true } }
                     else -> MainScreen(lockMode, returnTo) { settings = true }
@@ -130,16 +141,6 @@ class MainActivity : ComponentActivity() {
         appLock.onInteraction()
         refreshLock()
         return if (!wasLocked && locked) true else super.dispatchKeyEvent(event)
-    }
-
-    private suspend fun attempt(pin: String): PinAttempt? {
-        val result = withContext(Dispatchers.Default) { runCatching { store.attempt(pin) }.getOrNull() }
-        withContext(Dispatchers.Main.immediate) {
-            // A PIN checked while the app went to the background does not unlock it.
-            if (result == PinAttempt.UNLOCKED && !appLock.snapshotObscured) appLock.onUnlocked()
-            refreshLock()
-        }
-        return result
     }
 
     private suspend fun setPin(current: String?, newPin: String?, biometric: Boolean = false): PinAttempt? {

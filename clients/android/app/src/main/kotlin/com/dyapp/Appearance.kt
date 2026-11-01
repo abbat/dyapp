@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -87,11 +87,12 @@ private fun Activity.pickLanguage(language: LanguageChoice) {
 /** The Settings card with the theme and the language; both apply to the whole app. */
 @Composable
 internal fun AppearanceCard() {
-    val activity = LocalContext.current as Activity
+    // The view keeps the activity even where a test overrides LocalContext.
+    val activity = LocalView.current.context as Activity
     val language = activity.savedLanguage()
     FormCard {
         CardTitle(R.string.settings_appearance)
-        Column(Modifier.selectableGroup().testTag("theme")) {
+        Column(Modifier.selectableGroup().testTag(THEME)) {
             Text(stringResource(R.string.settings_theme))
             ThemeChoice.values().forEach { choice ->
                 ChoiceRow("theme-${choice.name.lowercase()}", choice.label, choice == chosenTheme.value) {
@@ -100,7 +101,7 @@ internal fun AppearanceCard() {
                 }
             }
         }
-        Column(Modifier.selectableGroup().testTag("language")) {
+        Column(Modifier.selectableGroup().testTag(LANGUAGE)) {
             Text(stringResource(R.string.settings_language))
             LanguageChoice.values().forEach { choice ->
                 ChoiceRow("language-${choice.name.lowercase()}", choice.label, choice == language) {

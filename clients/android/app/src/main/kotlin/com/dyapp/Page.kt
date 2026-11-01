@@ -74,6 +74,7 @@ internal fun CardTitle(id: Int) = Text(
 
 /** A failure on its screen: the reason, with the technical [details] to copy behind a toggle. */
 @Composable
+@Suppress("LongParameterList") // Every screen tags its own status, details and copy button.
 internal fun ErrorNotice(text: String, textTag: String, details: String, detailsTag: String, copyTag: String) = Surface(
     Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.errorContainer
 ) {

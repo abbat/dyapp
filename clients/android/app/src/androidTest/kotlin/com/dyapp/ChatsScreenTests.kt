@@ -116,6 +116,7 @@ class ChatsScreenTests {
         lists.likedProfiles = Result.failure(IllegalStateException("notConnected"))
         show(liked = listOf("peer-a"))
         compose.onNodeWithTag("chats-liked-status").assertTextEquals(string(R.string.search_not_connected))
+        compose.onNodeWithText(string(R.string.details)).performClick()
         compose.onNodeWithTag("copy-chats-liked-details").assertExists()
     }
 }

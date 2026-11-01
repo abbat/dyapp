@@ -62,12 +62,7 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
         is Opened.Recovery -> target.slot to target.peerId
         else -> return
     }
-    val copies = remember(slot.id) {
-        peerId != null && runCatching {
-            slots.list().filter { it.id != slot.id }.map { openSlot(it, slots::load) }
-                .any { it is Opened.Ready && it.peerId == peerId }
-        }.getOrDefault(false)
-    }
+    val copies = remember(slot.id) { hasOtherCopy(slots, slot.id, peerId) }
     // Only an open key can sign the withdrawal; an unreadable version counts as never published.
     val published = remember(slot.id) { (target as? Opened.Ready)?.takeIf { loadVisibility(it).version > 0uL } }
     val state = remember(slot.id) { RemoveState() }
@@ -86,16 +81,24 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
             }
         },
         confirmButton = { RemoveActions(state, proceed, remove) },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                Modifier.testTag(if (state.offline) "remove-cancel-offline" else "remove-cancel"),
-                enabled = !state.busy,
-            ) {
-                Text(stringResource(R.string.remove_cancel))
-            }
-        },
+        dismissButton = { RemoveCancel(state, onDismiss) },
     )
+}
+
+private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null && runCatching {
+    slots.list().filter { it.id != slotId }.map { openSlot(it, slots::load) }
+        .any { it is Opened.Ready && it.peerId == peerId }
+}.getOrDefault(false)
+
+@Composable
+private fun RemoveCancel(state: RemoveState, onDismiss: () -> Unit) {
+    TextButton(
+        onClick = onDismiss,
+        Modifier.testTag(if (state.offline) "remove-cancel-offline" else "remove-cancel"),
+        enabled = !state.busy,
+    ) {
+        Text(stringResource(R.string.remove_cancel))
+    }
 }
 
 @Composable

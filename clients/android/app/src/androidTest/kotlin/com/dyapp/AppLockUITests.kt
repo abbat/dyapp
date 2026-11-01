@@ -116,6 +116,16 @@ class AppLockUITests {
         }
     }
 
+    private fun bothBacksLeaveLockSettings() {
+        compose.onNodeWithTag("lock-back").performClick()
+        compose.onNodeWithTag("settings-identities").assertExists()
+        compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
+        // Waits for the screen, whose BackHandler would otherwise miss the press and finish the activity.
+        compose.onNodeWithTag("lock-back").assertExists()
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("settings-identities").assertExists()
+    }
+
     @Test
     fun settingsTurnOffThePinOnlyBehindTheCurrentOneAndKeepTheIdentity() {
         val before = compose.shownPeerId()
@@ -136,11 +146,7 @@ class AppLockUITests {
             compose.waitUntil(timeoutMillis = 60_000) { store.mode() == StoredLock.OFF }
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_off))
             check(!secure()) { "Turning the lock off kept FLAG_SECURE" }
-            compose.onNodeWithTag("lock-back").performClick()
-            compose.onNodeWithTag("settings-identities").assertExists()
-            compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
-            compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-            compose.onNodeWithTag("settings-identities").assertExists()
+            bothBacksLeaveLockSettings()
             check(compose.shownPeerId() == before) { "Turning the lock off changed the identity" }
         } finally {
             runCatching { store.resetAfterDeviceCredential(null) }

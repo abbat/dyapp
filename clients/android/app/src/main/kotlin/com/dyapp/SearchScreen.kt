@@ -2,7 +2,6 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -74,11 +72,13 @@ private fun failureText(failure: ProfileSearchFailure) = when (failure) {
     is ProfileSearchFailure.Invalid -> stringResource(R.string.search_failure_invalid)
 }
 
-private val STATUS = Modifier.testTag("search-status")
+private const val STATUS_TAG = "search-status"
+private const val FAILURES_TAG = "search-failures"
+private val STATUS = Modifier.testTag(STATUS_TAG)
 
 @Composable
 private fun SearchFailures(result: ProfileSearchResult) {
-    Column(Modifier.testTag("search-failures")) {
+    Column(Modifier.testTag(FAILURES_TAG)) {
         for (failure in result.failures) Caption(failureText(failure))
     }
 }
@@ -97,7 +97,7 @@ private fun SearchLoading(cancel: () -> Unit) {
 
 @Composable
 private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {
-    ErrorNotice(stringResource(failed.text), "search-status", failed.details, "search-failures", "copy-search-details")
+    ErrorNotice(stringResource(failed.text), STATUS_TAG, failed.details, FAILURES_TAG, "copy-search-details")
     // An age no birth date fits needs the fields fixed, not a connection or the same query again.
     if (failed.text != R.string.search_age_invalid) {
         OutlinedButton(onClick = openNetwork, modifier = Modifier.fillMaxWidth().testTag("search-open-network")) {
@@ -120,31 +120,6 @@ private fun SearchEmpty(result: ProfileSearchResult) {
         }, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Caption(stringResource(R.string.search_empty_text))
         SearchFailures(result)
-    }
-}
-
-// One verified profile: the short Peer ID, its possible age and country; the page has the rest.
-@Composable
-internal fun SearchResultRow(found: FoundProfile, tag: String, open: () -> Unit) {
-    val draft = found.draft.draft()
-    val locale = LocalConfiguration.current.locales[0]
-    val summary = listOfNotNull(
-        possibleAgeOnUtcToday(draft.values),
-        draft.country.takeIf { it.isNotEmpty() }?.let { countryName(it, locale) },
-    ).joinToString(", ").ifEmpty { stringResource(R.string.profile_preview_empty) }
-    Surface(
-        onClick = open,
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Row(Modifier.padding(12.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-            Avatar(found.peerId)
-            Column {
-                Text(shortPeerId(found.peerId), style = MaterialTheme.typography.titleSmall)
-                Caption(summary)
-            }
-        }
     }
 }
 
