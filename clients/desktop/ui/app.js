@@ -397,27 +397,33 @@ const showBlocked = async (call = invoke) => {
   document.getElementById('blocked-none').hidden = peers.length > 0;
 };
 
-const showSettings = async () => {
+const showSettingsIdentities = async (call = invoke) => {
+  const generation = identityGeneration;
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
   // Remove waits under the error until a row for the open identity takes it.
   error.after(settingsRemove);
   list.replaceChildren();
   error.hidden = true;
+  try {
+    const items = await call('list_identities');
+    if (!identityCurrent(generation)) return;
+    list.replaceChildren(...knowPeers(items).map(settingsIdentity));
+    error.hidden = true;
+  } catch (_) {
+    if (!identityCurrent(generation)) return;
+    list.replaceChildren();
+    error.textContent = window.strings['storage.error'];
+    error.hidden = false;
+  }
+};
+const showSettings = () => {
   window.nodeShown = showNode();
   window.usageShown = showUsage();
   window.trayShown = setTray(null);
   window.privacyShown = showPrivacy();
   window.blockedShown = showBlocked();
-  try {
-    const items = await invoke('list_identities');
-    list.replaceChildren(...knowPeers(items).map(settingsIdentity));
-    error.hidden = true;
-  } catch (_) {
-    list.replaceChildren();
-    error.textContent = window.strings['storage.error'];
-    error.hidden = false;
-  }
+  return showSettingsIdentities();
 };
 
 // The shell: one area at a time; below 640 px the sidebar slides in over a scrim.

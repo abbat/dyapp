@@ -672,6 +672,38 @@ const checkStaleBlocked = async () => {
   await oldRetryFailure;
   checkNewList('old revocation error changed new settings');
 };
+// An old inventory load must not replace the newer identity's Settings rows or error.
+const checkStaleSettingsInventory = async () => {
+  const readyState = current;
+  const list = document.getElementById('settings-identities');
+  const error = document.getElementById('settings-error');
+  const switchAndLoad = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await openArea('settings');
+    const items = await invokeTest('list_identities');
+    await showSettingsIdentities(() => Promise.resolve(items));
+    return [...list.children].map((row) => row.dataset.peerId).join();
+  };
+  await openArea('settings');
+  let finishLoad;
+  const oldLoad = showSettingsIdentities(() => new Promise((resolve) => { finishLoad = resolve; }));
+  const rows = await switchAndLoad();
+  if (!rows) throw new Error('new Settings inventory is empty');
+  finishLoad([]);
+  await oldLoad;
+  if ([...list.children].map((row) => row.dataset.peerId).join() !== rows || !error.hidden) {
+    throw new Error('old inventory load changed new settings');
+  }
+
+  let failLoad;
+  const oldFailure = showSettingsIdentities(() => new Promise((_, reject) => { failLoad = reject; }));
+  const newerRows = await switchAndLoad();
+  failLoad(new Error('old inventory'));
+  await oldFailure;
+  if ([...list.children].map((row) => row.dataset.peerId).join() !== newerRows
+    || !error.hidden) throw new Error('old inventory error changed new settings');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1448,6 +1480,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleUsageStatus();
       await checkStalePrivacy();
       await checkStaleBlocked();
+      await checkStaleSettingsInventory();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
