@@ -72,7 +72,8 @@ keeps every such group's MLS state and shows their texts as one chat ordered by 
 messages only to the **canonical group**: the one with the lowest group ID among those it holds
 for the pair. Both sides reach the same choice once each has every Welcome. A message already
 sent to another group is still shown, so nothing is lost. A group that also contains a third
-identity is refused, as today.
+identity is refused, as today. Timed texts use their original HLC for ordering. Legacy tag-1 texts
+have no sent time and use a non-reused local arrival ordinal as a fallback before timed texts.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,

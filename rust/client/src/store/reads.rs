@@ -1,7 +1,7 @@
 //! Read receipts in one-to-one chats: the local opt-in setting, the latest peer text receipted
 //! and the latest own text the peer has read ([read receipts](../../../docs/design/read-receipts.md)).
-//! Order is `chat_messages` rowid order: texts are never removed, and own texts are recorded
-//! when they are sent.
+//! Receipt order uses `chat_messages` rowid, now a non-reused local arrival ordinal. Clear chat
+//! may remove the marked text; the next text then starts a new receipt sequence for that group.
 
 use super::{Error, Store};
 use crate::PreparedEnvelope;

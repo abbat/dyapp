@@ -19,6 +19,7 @@ mod outbound_tests;
 
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
+    `arrival_order` INTEGER PRIMARY KEY AUTOINCREMENT,
     `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),
     `author` TEXT NOT NULL CHECK (length(`author`) > 0),
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
@@ -35,7 +36,7 @@ CREATE TABLE `chat_messages` (
         OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),
     CHECK ((`deleted` = 0 AND `text` IS NOT NULL AND `original_digest` IS NOT NULL)
         OR (`deleted` = 1 AND `text` IS NULL)),
-    PRIMARY KEY (`group_id`, `author`, `message_id`)
+    UNIQUE (`group_id`, `author`, `message_id`)
 ) STRICT;
 CREATE TABLE `chat_operations` (
     `group_id` BLOB NOT NULL,
@@ -454,5 +455,39 @@ mod tests {
         let message = store.chat_message(&key).unwrap().unwrap();
         assert_eq!(message.text.as_deref(), Some(&b"hello"[..]));
         assert!(!message.edited && !message.deleted);
+    }
+
+    #[test]
+    fn legacy_arrival_order_is_not_reused_after_clear_and_restart() {
+        let path = crate::store::tests::temp_db_path();
+        let owner = Identity::generate();
+        let key = |id| MessageKey {
+            group: vec![3],
+            author: owner.peer_id(),
+            id: [id; 16],
+        };
+        let mut store = Store::open(&path, &owner).unwrap();
+        assert!(store.record_chat_text(&key(1), b"first").unwrap());
+        assert!(store.record_chat_text(&key(2), b"second").unwrap());
+        let before: (i64, i64, Option<i64>) = store.db.query_row(
+            "SELECT `rowid`, `arrival_order`, `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&[2u8; 16][..]],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).unwrap();
+        assert_eq!(before.0, before.1);
+        assert_eq!(before.2, None);
+        assert_eq!(store.clear_chat(&[3]).unwrap(), 2);
+        drop(store);
+
+        let mut store = Store::open(&path, &owner).unwrap();
+        assert!(store.record_chat_text(&key(3), b"third").unwrap());
+        let after: (i64, Option<i64>) = store.db.query_row(
+            "SELECT `arrival_order`, `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&[3u8; 16][..]],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        assert!(after.0 > before.1);
+        assert_eq!(after.1, None);
+        assert!(!store.record_chat_text(&key(3), b"third").unwrap());
     }
 }
