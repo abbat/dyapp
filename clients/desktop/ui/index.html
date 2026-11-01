@@ -507,6 +507,18 @@
       <button id="chat-delete-confirm" class="btn danger" type="button" data-i18n="chats.delete"></button>
     </div>
   </dialog>
+  <dialog id="chat-forward-dialog" class="modal" aria-labelledby="chat-forward-title" hidden>
+    <h2 id="chat-forward-title" data-i18n="chats.forwardTitle"></h2>
+    <form id="chat-forward-form">
+      <label for="chat-forward-peer" data-i18n="chats.forwardTo"></label>
+      <select id="chat-forward-peer"></select>
+      <p id="chat-forward-error" class="notice error" role="alert" hidden></p>
+      <div class="actions">
+        <button id="chat-forward-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+        <button id="chat-forward-confirm" class="btn primary" type="submit" data-i18n="chats.forward"></button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="chat-clear-dialog" class="modal" aria-labelledby="chat-clear-title" hidden>
     <h2 id="chat-clear-title" data-i18n="chats.clearTitle"></h2>
     <p data-i18n="chats.clearWarning"></p>

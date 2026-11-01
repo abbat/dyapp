@@ -122,6 +122,49 @@ const openDelete = (message) => {
   deleteDialog.showModal();
   deleteCancel.focus();
 };
+const forwardDialog = document.getElementById('chat-forward-dialog');
+const forwardSelect = document.getElementById('chat-forward-peer');
+const forwardError = document.getElementById('chat-forward-error');
+const forwardCancel = document.getElementById('chat-forward-cancel');
+const forwardConfirm = document.getElementById('chat-forward-confirm');
+let forwardTarget = null;
+let forwardBusy = false;
+const closeForward = () => {
+  if (forwardDialog.open) forwardDialog.close();
+  forwardDialog.hidden = true;
+  forwardTarget = null;
+  forwardBusy = false;
+  forwardCancel.disabled = false;
+  forwardConfirm.disabled = false;
+  forwardSelect.disabled = false;
+  forwardSelect.replaceChildren();
+};
+forwardDialog.addEventListener('close', () => { if (!forwardDialog.open) closeForward(); });
+forwardDialog.addEventListener('cancel', (event) => {
+  if (forwardBusy) event.preventDefault();
+});
+forwardCancel.addEventListener('click', closeForward);
+const openForward = (message) => {
+  if (!activeChat || !activeChat.messages.includes(message) || message.deleted || !message.text) return;
+  forwardTarget = { sourcePeerId: activeChat.peerId, sourceGroupId: message.groupId,
+    sourceAuthor: message.author, sourceMessageId: message.id, text: message.text,
+    generation: identityGeneration, request: chatOpenRequest };
+  const targets = visibleChatRows.filter((row) => row.state === 'open'
+    && row.peerId !== activeChat.peerId);
+  forwardSelect.replaceChildren(...targets.map((row) => {
+    const option = document.createElement('option');
+    option.value = row.peerId;
+    option.textContent = shortPeerId(row.peerId, knownPeers);
+    return option;
+  }));
+  forwardConfirm.disabled = !targets.length;
+  forwardError.hidden = !!targets.length;
+  forwardError.textContent = targets.length ? '' : window.strings['chats.forwardNoTargets'];
+  forwardDialog.hidden = false;
+  forwardDialog.showModal();
+  if (targets.length) forwardSelect.focus();
+  else forwardCancel.focus();
+};
 const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
   clearDialog.hidden = true;
@@ -196,6 +239,7 @@ const closeChat = () => {
   closeClear();
   closeEdit();
   closeDelete();
+  closeForward();
   activeChat = null;
   chatSending = false;
   chatBlocking = false;
@@ -273,6 +317,14 @@ const openChat = async (peerId, call = invoke) => {
         remove.textContent = window.strings['chats.delete'];
         remove.addEventListener('click', () => openDelete(message));
         item.append(document.createTextNode(' '), edit, document.createTextNode(' '), remove);
+      }
+      if (!message.deleted && message.text) {
+        const forward = document.createElement('button');
+        forward.type = 'button';
+        forward.className = 'btn quiet';
+        forward.textContent = window.strings['chats.forward'];
+        forward.addEventListener('click', () => openForward(message));
+        item.append(document.createTextNode(' '), forward);
       }
       const time = chatTime(message);
       if (time) {
@@ -497,6 +549,54 @@ const deleteChatText = async (call = invoke) => {
   }
 };
 deleteConfirm.addEventListener('click', () => { window.chatDeleted = deleteChatText(); });
+const forwardChatText = async (call = invoke) => {
+  const source = forwardTarget;
+  const targetPeerId = forwardSelect.value;
+  if (!source || forwardBusy || forwardConfirm.disabled || !targetPeerId) return;
+  const currentForward = () => forwardTarget === source && identityCurrent(source.generation)
+    && source.request === chatOpenRequest && activeChat?.peerId === source.sourcePeerId;
+  forwardBusy = true;
+  forwardCancel.disabled = true;
+  forwardConfirm.disabled = true;
+  forwardSelect.disabled = true;
+  const before = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
+  if (!currentForward()) return;
+  const oldIds = new Set(before?.messages.map((message) =>
+    JSON.stringify([message.groupId, message.id])) || []);
+  let result = 'forwardSent';
+  let errorText = '';
+  try {
+    await call('forward_chat_text', { sourcePeerId: source.sourcePeerId,
+      sourceGroupId: source.sourceGroupId, sourceAuthor: source.sourceAuthor,
+      sourceMessageId: source.sourceMessageId, targetPeerId });
+  } catch (error) {
+    errorText = String(error);
+    const after = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
+    if (!currentForward()) return;
+    result = before && after?.messages.some((message) => message.author === current.peerId
+      && message.forwarded && !message.deleted && message.text === source.text
+      && !oldIds.has(JSON.stringify([message.groupId, message.id]))) ? 'forwardQueued' : 'failed';
+  }
+  if (!currentForward()) return;
+  forwardBusy = false;
+  if (result === 'failed') {
+    forwardCancel.disabled = false;
+    forwardConfirm.disabled = false;
+    forwardSelect.disabled = false;
+    forwardError.textContent = `${window.strings['chats.forwardFailed']} ${errorText}`;
+    forwardError.hidden = false;
+    return;
+  }
+  closeForward();
+  await openChat(targetPeerId, call);
+  if (identityCurrent(source.generation) && activeChat?.peerId === targetPeerId) {
+    chatComposeStatus.textContent = window.strings[`chats.${result}`];
+  }
+};
+document.getElementById('chat-forward-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  window.chatForwarded = forwardChatText();
+});
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatsRequest;

@@ -276,9 +276,11 @@ const checkChatEdit = async () => {
   };
   await openChat(peer, call);
   const editButtons = chatMessages.querySelectorAll('button');
-  if (editButtons.length !== 2 || editButtons[0].textContent !== window.strings['chats.edit']
-    || editButtons[1].textContent !== window.strings['chats.delete']) {
-    throw new Error('message action visible for peer or deleted text');
+  if (editButtons.length !== 4 || editButtons[0].textContent !== window.strings['chats.edit']
+    || editButtons[1].textContent !== window.strings['chats.delete']
+    || editButtons[2].textContent !== window.strings['chats.forward']
+    || editButtons[3].textContent !== window.strings['chats.forward']) {
+    throw new Error('Edit/Delete visible outside own live text or Forward missing');
   }
   editButtons[0].click();
   if (!editDialog.open || editInput.value !== 'original' || !editSave.disabled) {
@@ -355,8 +357,8 @@ const checkChatDelete = async () => {
   await openChat(peer, call);
   const deleteButton = () => Array.from(chatMessages.querySelectorAll('button'))
     .find((button) => button.textContent === window.strings['chats.delete']);
-  if (!deleteButton() || chatMessages.querySelectorAll('button').length !== 2) {
-    throw new Error('Delete action visible for peer text');
+  if (!deleteButton() || chatMessages.querySelectorAll('button').length !== 4) {
+    throw new Error('Delete action visible for peer text or Forward missing');
   }
   deleteButton().click();
   if (!deleteDialog.open || !deleteDialog.textContent.includes(window.strings['chats.deleteWarning'])) {
@@ -481,7 +483,97 @@ const checkChatForwarded = async () => {
   }
   document.getElementById('chat-back').click();
 };
+const checkChatForwardAction = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const sourcePeer = '4'.repeat(64);
+  const targetPeer = '5'.repeat(64);
+  const requestPeer = '6'.repeat(64);
+  const source = { author: sourcePeer, groupId: [3], id: [7], text: 'share this',
+    forwarded: false, deleted: false, edited: false, sentAtMs: null };
+  const rows = [
+    { peerId: sourcePeer, state: 'open', lastMessage: source, unreadCount: 0 },
+    { peerId: targetPeer, state: 'open', lastMessage: null, unreadCount: 0 },
+    { peerId: requestPeer, state: 'requestReceived', lastMessage: null, unreadCount: 0 },
+  ];
+  let targetMessages = [];
+  let sendError = null;
+  let sentArgs;
+  const call = (command, args) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open',
+      messages: args.peerId === sourcePeer ? [source] : targetMessages });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    if (command === 'forward_chat_text') {
+      sentArgs = args;
+      if (sendError !== 'diskFailed') {
+        targetMessages = [{ ...source, author: current.peerId, groupId: [8], id: [9],
+          forwarded: true, delivery: 'pending' }];
+      }
+      return sendError ? Promise.reject(sendError) : Promise.resolve([9]);
+    }
+    throw new Error(`unexpected Forward command: ${command}`);
+  };
+  renderChatRows(rows);
+  await openChat(sourcePeer, call);
+  const forwardButton = () => Array.from(chatMessages.querySelectorAll('button'))
+    .find((button) => button.textContent === window.strings['chats.forward']);
+  forwardButton().click();
+  if (!forwardDialog.open || forwardSelect.options.length !== 1
+    || forwardSelect.value !== targetPeer) throw new Error('Forward picker included a request or source');
+  forwardCancel.click();
+  if (forwardDialog.open || sentArgs) throw new Error('Forward cancel staged a message');
+  forwardButton().click();
+  sendError = 'diskFailed';
+  await forwardChatText(call);
+  if (!forwardDialog.open || !forwardError.textContent.includes('diskFailed')) {
+    throw new Error('unstaged Forward closed the target picker');
+  }
+  sendError = null;
+  await forwardChatText(call);
+  if (!sentArgs || sentArgs.sourcePeerId !== sourcePeer || sentArgs.sourceAuthor !== sourcePeer
+    || JSON.stringify(sentArgs.sourceGroupId) !== JSON.stringify(source.groupId)
+    || JSON.stringify(sentArgs.sourceMessageId) !== JSON.stringify(source.id)
+    || sentArgs.targetPeerId !== targetPeer || forwardDialog.open
+    || activeChat?.peerId !== targetPeer
+    || chatComposeStatus.textContent !== window.strings['chats.forwardSent']) {
+    throw new Error('Forward action did not send the selected source to the open target');
+  }
+  await openChat(sourcePeer, call);
+  targetMessages = [];
+  sendError = 'nodeFailed';
+  forwardButton().click();
+  await forwardChatText(call);
+  if (forwardDialog.open || activeChat?.peerId !== targetPeer
+    || chatComposeStatus.textContent !== window.strings['chats.forwardQueued']) {
+    throw new Error('staged Forward was reported as unstaged failure');
+  }
+  await openChat(sourcePeer, call);
+  renderChatRows([rows[0]]);
+  forwardButton().click();
+  if (!forwardDialog.open || !forwardConfirm.disabled
+    || !forwardError.textContent.includes(window.strings['chats.forwardNoTargets'])) {
+    throw new Error('Forward picker did not reject an absent target');
+  }
+  document.getElementById('chat-back').click();
+  if (forwardDialog.open) throw new Error('Forward dialog survived chat navigation');
+  renderChatRows(rows);
+  await openChat(sourcePeer, call);
+  forwardButton().click();
+  let finishForward;
+  let commandStarted;
+  const started = new Promise((resolve) => { commandStarted = resolve; });
+  const late = forwardChatText((command, args) => command === 'forward_chat_text'
+    ? new Promise((resolve) => { finishForward = resolve; commandStarted(); }) : call(command, args));
+  await started;
+  const readyState = current;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishForward([10]);
+  await late;
+  if (forwardDialog.open || !chatDetail.hidden) throw new Error('old Forward painted new identity');
+};
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
-  checkChatDelete, checkChatDelivery, checkChatForwarded,
+  checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction,
 });

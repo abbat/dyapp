@@ -130,7 +130,9 @@ and checks the device-received label after reopening. Store tests cover persiste
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
 and leaves ordinary text unmarked; the Linux smoke runs in English and Russian. Rust tests cover
-source group/author/ID and deleted-state checks before the desktop forward command can send.
+source group/author/ID and deleted-state checks before the desktop forward command can send. The
+Forward action smoke checks target filtering, Cancel, an unstaged error, queued delivery and a
+late result after switching identity.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

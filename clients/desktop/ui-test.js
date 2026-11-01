@@ -569,6 +569,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chatChecks.checkChatDelete();
       await chatChecks.checkChatDelivery();
       await chatChecks.checkChatForwarded();
+      await chatChecks.checkChatForwardAction();
       await identityChecks.checkStalePeerActions();
       await identityChecks.checkStaleSafety();
       await identityChecks.checkStaleProfileLoad();
