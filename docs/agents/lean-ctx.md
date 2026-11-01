@@ -33,7 +33,9 @@ CLI flags.
 | Edit a file | `ctx_read` `mode="anchored"` → `ctx_patch` | `replace_all` leaves mode 0600; `chmod 644` after |
 | Output shown as `[Archived:ID]` | `ctx_expand` | `{"id": "<ID>", "search": "error"}` |
 
-`/abs` stands for the absolute path of your checkout; paths must be absolute.
+`/abs` stands for the absolute path of your checkout; paths must be absolute. In a git worktree
+lean-ctx keeps the main checkout as its project root, so pass the worktree's absolute paths and
+`cwd`: a relative path reads and edits the main checkout instead.
 
 `ctx_patch` `replace_unique` (`path`, `old_text`, `new_text`) needs no prior anchored read, and
 an `ops` array applies several such edits across files in one call, each with a diff. It fails if

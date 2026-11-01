@@ -37,9 +37,7 @@ internal fun checkFailure(error: Throwable): Int = when (error) {
 @Composable
 internal fun NetworkCheckResults(status: Int?, rows: List<Pair<String, SeedRow>>) {
     if (status != null) Text(stringResource(status), Modifier.testTag("network-check-status"))
-    Column {
-        rows.forEach { (seed, row) ->
-            Text(seed + ": " + stringResource(rowStatus(row)), Modifier.testTag("network-row"))
-        }
+    Column(Modifier.testTag("seed-rows")) {
+        rows.forEach { (seed, row) -> Text(seed + ": " + stringResource(rowStatus(row))) }
     }
 }

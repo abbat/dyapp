@@ -250,14 +250,14 @@ private fun RecoveryIdentityDetails(opened: Opened.Recovery, slots: Slots, act: 
 
 @Composable
 private fun PickerIdentityDetails(entries: List<Opened>, slots: Slots, act: (() -> Opened) -> Unit) {
-    for (entry in entries) {
+    for ((index, entry) in entries.withIndex()) {
         val (slot, label) = when (entry) {
             is Opened.Ready -> entry.slot to entry.peerId
             is Opened.Recovery -> entry.slot to reasonText(entry.reason)
             else -> continue
         }
         val select = { slots.setActive(slot.id); slots.open() }
-        OutlinedButton(onClick = { act(select) }, Modifier.testTag("identity")) {
+        OutlinedButton(onClick = { act(select) }, Modifier.testTag("pick-${index + 1}")) {
             Text(label)
         }
     }
