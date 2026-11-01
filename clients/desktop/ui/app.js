@@ -325,13 +325,43 @@ document.getElementById('privacy').addEventListener('change', () => {
 });
 
 // Settings → Blocked people: Unblock shows the peer in later searches again.
-const showBlocked = async () => {
+const unblockPeer = async (peerId, button, call = invoke) => {
+  const generation = identityGeneration;
+  button.disabled = true;
+  try {
+    await call('unblock_peer', { peerId });
+  } catch (_) {
+    if (identityCurrent(generation)) privacyError.hidden = false;
+  }
+  if (identityCurrent(generation)) await showBlocked();
+};
+const retryRevocation = async (peerId, retry, call = invoke) => {
+  const generation = identityGeneration;
+  retry.disabled = true;
+  const status = document.getElementById('blocked-revoke-status');
+  try {
+    const result = await call('block_peer', { peerId });
+    if (identityCurrent(generation)) {
+      status.textContent = window.strings[`settings.blocked.${result.revocation}`];
+    }
+  } catch (error) {
+    if (identityCurrent(generation)) {
+      status.textContent = `${window.strings['settings.blocked.failed']} ${String(error)}`;
+    }
+  } finally {
+    if (identityCurrent(generation)) retry.disabled = false;
+  }
+};
+const showBlocked = async (call = invoke) => {
+  const generation = identityGeneration;
   const list = document.getElementById('blocked-list');
   let peers = [];
   try {
-    peers = await invoke('blocked_peers');
+    peers = await call('blocked_peers');
+    if (!identityCurrent(generation)) return;
     privacyError.hidden = true;
   } catch (_) {
+    if (!identityCurrent(generation)) return;
     privacyError.hidden = false;
   }
   document.getElementById('blocked-revoke-status').textContent = '';
@@ -346,10 +376,7 @@ const showBlocked = async () => {
     button.id = `unblock-${index + 1}`;
     button.textContent = window.strings['settings.unblock'];
     button.addEventListener('click', () => {
-      button.disabled = true;
-      window.blockedShown = invoke('unblock_peer', { peerId })
-        .catch(() => { privacyError.hidden = false; })
-        .then(showBlocked);
+      window.blockedShown = unblockPeer(peerId, button);
     });
     const retry = document.createElement('button');
     retry.type = 'button';
@@ -357,18 +384,7 @@ const showBlocked = async () => {
     retry.id = `retry-revocation-${index + 1}`;
     retry.textContent = window.strings['settings.blocked.retry'];
     retry.addEventListener('click', () => {
-      window.revocationRetried = (async () => {
-        retry.disabled = true;
-        const status = document.getElementById('blocked-revoke-status');
-        try {
-          const result = await invoke('block_peer', { peerId });
-          status.textContent = window.strings[`settings.blocked.${result.revocation}`];
-        } catch (error) {
-          status.textContent = `${window.strings['settings.blocked.failed']} ${String(error)}`;
-        } finally {
-          retry.disabled = false;
-        }
-      })();
+      window.revocationRetried = retryRevocation(peerId, retry);
     });
     const action = document.createElement('td');
     const buttons = document.createElement('div');

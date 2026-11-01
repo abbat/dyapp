@@ -594,6 +594,84 @@ const checkStalePrivacy = async () => {
   await oldSaveFailure;
   if (shown('privacy-error')) throw new Error('old privacy save error changed new settings');
 };
+// Blocked-peer loads and actions from A must not repaint B's list or status.
+const checkStaleBlocked = async () => {
+  const readyState = current;
+  const oldPeer = 'a'.repeat(64);
+  const newPeer = 'b'.repeat(64);
+  const status = document.getElementById('blocked-revoke-status');
+  const list = document.getElementById('blocked-list');
+  const switchToNewList = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await openArea('settings');
+    await window.blockedShown;
+    await showBlocked(() => Promise.resolve([newPeer]));
+    status.textContent = 'new identity';
+  };
+  const checkNewList = (message) => {
+    if (list.children.length !== 1 || !list.textContent.includes(newPeer.slice(-6))
+      || status.textContent !== 'new identity'
+      || document.getElementById('unblock-1').disabled
+      || document.getElementById('retry-revocation-1').disabled) throw new Error(message);
+  };
+  await openArea('settings');
+  await window.blockedShown;
+  let finishLoad;
+  const oldLoad = showBlocked(() => new Promise((resolve) => { finishLoad = resolve; }));
+  await switchToNewList();
+  finishLoad([oldPeer]);
+  await oldLoad;
+  checkNewList('old blocked list changed new settings');
+
+  let failLoad;
+  const oldFailure = showBlocked(() => new Promise((_, reject) => { failLoad = reject; }));
+  await switchToNewList();
+  failLoad(new Error('old list'));
+  await oldFailure;
+  checkNewList('old blocked list error changed new settings');
+  if (shown('privacy-error')) throw new Error('old blocked list error changed privacy error');
+
+  await showBlocked(() => Promise.resolve([oldPeer]));
+  const oldUnblockButton = document.getElementById('unblock-1');
+  let finishUnblock;
+  const oldUnblock = unblockPeer(oldPeer, oldUnblockButton,
+    () => new Promise((resolve) => { finishUnblock = resolve; }));
+  await switchToNewList();
+  finishUnblock();
+  await oldUnblock;
+  checkNewList('old unblock reloaded new list');
+
+  await showBlocked(() => Promise.resolve([oldPeer]));
+  let failUnblock;
+  const oldUnblockFailure = unblockPeer(oldPeer, document.getElementById('unblock-1'),
+    () => new Promise((_, reject) => { failUnblock = reject; }));
+  await switchToNewList();
+  failUnblock(new Error('old unblock'));
+  await oldUnblockFailure;
+  checkNewList('old unblock error reloaded new list');
+  if (shown('privacy-error')) throw new Error('old unblock error changed privacy error');
+
+  await showBlocked(() => Promise.resolve([oldPeer]));
+  const oldRetryButton = document.getElementById('retry-revocation-1');
+  let finishRetry;
+  const oldRetry = retryRevocation(oldPeer, oldRetryButton,
+    () => new Promise((resolve) => { finishRetry = resolve; }));
+  await switchToNewList();
+  finishRetry({ revocation: 'notNeeded' });
+  await oldRetry;
+  checkNewList('old revocation retry changed new settings');
+
+  await showBlocked(() => Promise.resolve([oldPeer]));
+  let failRetry;
+  const oldRetryFailure = retryRevocation(oldPeer,
+    document.getElementById('retry-revocation-1'),
+    () => new Promise((_, reject) => { failRetry = reject; }));
+  await switchToNewList();
+  failRetry(new Error('old retry'));
+  await oldRetryFailure;
+  checkNewList('old revocation error changed new settings');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1369,6 +1447,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleProfileTimers();
       await checkStaleUsageStatus();
       await checkStalePrivacy();
+      await checkStaleBlocked();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
