@@ -30,8 +30,7 @@ impl Store {
             let mut query =
                 tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;
             let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
-            let groups = rows.collect::<Result<Vec<_>, _>>()?;
-            groups
+            rows.collect::<Result<Vec<_>, _>>()?
         };
         let mut removed = 0;
         for group in groups {

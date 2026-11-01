@@ -16,8 +16,11 @@ use dyapp_profile::VerifiedProfile;
 use crate::profile;
 use crate::search::{self, Found, ProfileCache};
 
+#[path = "chats/forward.rs"]
 pub(crate) mod forward;
+#[path = "chats/operations.rs"]
 pub(crate) mod operations;
+#[path = "chats/view.rs"]
 mod view;
 pub use view::{ChatHistoryView, ChatRowView, ChatState, MessageView};
 

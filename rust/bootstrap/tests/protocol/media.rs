@@ -176,7 +176,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         photo
     );
     bob.node
-        .release_media(&received.release_secret)
+        .release_media(&received.attachment.release_secret)
         .await
         .unwrap();
 }
