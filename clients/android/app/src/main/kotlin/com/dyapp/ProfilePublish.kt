@@ -44,7 +44,7 @@ import uniffi.dyapp.ProfileWorkStep
 import uniffi.dyapp.profilePublishBlock
 
 // The localized text for a failed publication, by the stable Rust error text.
-private fun publishError(error: Throwable): Int {
+internal fun publishError(error: Throwable): Int {
     val message = error.toString()
     return when {
         "blocked: underage" in message -> R.string.profile_publish_error_underage
@@ -136,7 +136,7 @@ private suspend fun solveProof(opened: Opened.Ready, state: PublishState, attest
 }
 
 // Proves and publishes the saved draft; each attempt clears both confirmations, and success closes the dialog.
-private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState) {
+private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState, visibility: VisibilityState) {
     val attested = state.adult
     state.adult = false
     state.public = false
@@ -155,6 +155,7 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState)
         result.fold({
             state.published = it
             state.open = false
+            visibility.shown(it.version)
         }, { state.failure = publishError(it) to R.string.profile_retry_publish })
     } finally {
         state.publishing = false
@@ -182,15 +183,22 @@ private fun Confirmation(checked: KMutableProperty0<Boolean>, text: Int, tag: St
  * which clears the confirmations and cancels a running attempt.
  */
 @Composable
+@Suppress("LongParameterList") // The form's state and its save button, all from one caller.
 internal fun PublishSection(
     opened: Opened.Ready,
     scales: List<ProfileScale>,
+    visibility: VisibilityState,
     unsaved: Boolean,
-    read: () -> ProfileDraft,
     save: @Composable RowScope.() -> Unit,
 ) {
     val state = remember { PublishState() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(visibility.publishAsked) {
+        if (visibility.publishAsked) {
+            visibility.publishAsked = false
+            state.open = true
+        }
+    }
     LaunchedEffect(state.adult, unsaved) {
         if (unsaved) return@LaunchedEffect
         val attested = state.adult
@@ -210,7 +218,11 @@ internal fun PublishSection(
         Text(stringResource(R.string.profile_save_changes_before_publish),
             Modifier.testTag("profile-publish-eligibility"))
     }
-    if (state.open) PublishDialog(state, scales, read) { scope.launch { prepareAndPublish(opened, state) } }
+    if (state.open) {
+        PublishDialog(state, scales, { loadDraft(opened, scales) }) {
+            scope.launch { prepareAndPublish(opened, state, visibility) }
+        }
+    }
     state.published?.let { published ->
         Text(stringResource(R.string.profile_published_version, "${published.version}"),
             Modifier.testTag("profile-published-readback"))

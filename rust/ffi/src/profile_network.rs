@@ -25,6 +25,40 @@ pub struct ProfilePublished {
     pub version: u64,
 }
 
+/// Whether a profile was published and is hidden from search now.
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct ProfileVisibility {
+    /// The last used version; zero until the first publication.
+    pub version: u64,
+    /// Hidden from search until the next publication.
+    pub hidden: bool,
+}
+
+/// Read this identity's visibility; absence does not create a database.
+#[uniffi::export]
+pub fn profile_visibility(
+    dir: String,
+    key: Arc<IdentityKey>,
+) -> Result<ProfileVisibility, CoreError> {
+    let path = database(&dir)?.join("client.db");
+    match std::fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(ProfileVisibility {
+                version: 0,
+                hidden: false,
+            });
+        }
+        Err(error) => return Err(failed(error)),
+        Ok(_) => {}
+    }
+    let store = Store::open(&path, &key.identity).map_err(failed)?;
+    let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
+    Ok(ProfileVisibility {
+        version: draft.version,
+        hidden: store.profile_hidden().map_err(failed)?,
+    })
+}
+
 pub(crate) fn active_network(dir: &Path) -> Result<Network, CoreError> {
     network::load(dir, Settings::Active)
         .map_err(failed)?
@@ -148,6 +182,29 @@ impl ProfilePublisher {
             version: published.version,
         })
     }
+
+    /// Hide the profile from search with a signed tombstone, sent once the search window has
+    /// ended; the next publication shows it again. Without a node nothing changes.
+    pub fn hide(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
+        let _serial = self.serial.lock().map_err(failed)?;
+        let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
+        let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
+        let network = active_network(&self.dir)?;
+        let hidden = on_network_stack(|| {
+            // The connection is Send but not Sync, so it moves to the network thread.
+            let store = store;
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                let hidden = publish::hide(&store, &key.identity, &draft).map_err(failed)?;
+                send_held(&store, &mut node, &network).await?;
+                Ok(hidden)
+            })
+        })?;
+        Ok(ProfileVisibility {
+            version: hidden.version,
+            hidden: true,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -223,6 +280,57 @@ mod tests {
             })
         });
         assert_eq!(held.unwrap(), Some(record));
+    }
+
+    #[test]
+    fn hide_needs_a_node_and_keeps_the_draft_fields() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-hide-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.to_str().unwrap().to_owned();
+        let key = IdentityKey::generate();
+        let shown = ProfileVisibility {
+            version: 0,
+            hidden: false,
+        };
+        assert_eq!(
+            profile_visibility(path.clone(), key.clone()).unwrap(),
+            shown
+        );
+        assert!(!dir.join("client.db").exists());
+        let draft = PublicProfileDraft {
+            gender: 1,
+            ..Default::default()
+        };
+        crate::save_profile_draft(path.clone(), key.clone(), draft.clone()).unwrap();
+        let publisher = ProfilePublisher::new(path.clone()).unwrap();
+        assert_eq!(
+            publisher.hide(key.clone()).unwrap_err().to_string(),
+            "notConnected"
+        );
+        assert_eq!(
+            profile_visibility(path.clone(), key.clone()).unwrap(),
+            shown
+        );
+        let (port, peer) = crate::network::tests::node();
+        let network = Network {
+            seeds: vec![format!("127.0.0.1:{port}/{peer}")],
+            name: String::new(),
+        };
+        network::save(&dir, Settings::Active, &network).unwrap();
+        let hidden = ProfileVisibility {
+            version: 1,
+            hidden: true,
+        };
+        assert_eq!(publisher.hide(key.clone()).unwrap(), hidden);
+        assert_eq!(
+            profile_visibility(path.clone(), key.clone()).unwrap(),
+            hidden
+        );
+        assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(draft));
     }
 
     #[test]
