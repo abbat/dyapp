@@ -1,8 +1,10 @@
 package com.dyapp
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 
@@ -34,41 +37,38 @@ fun SetupScreen(device: DeviceLock, onSkip: () -> Unit, onEnroll: suspend (Strin
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
     val editable = device.secure && !busy
-    LockColumn {
+    val submit: () -> Unit = {
+        val chosen = pin
+        error = pinRejection(chosen, repeatState.value)
+        pin = ""
+        repeatState.value = ""
+        if (error == null) {
+            busy = true
+            scope.launch {
+                if (!onEnroll(chosen)) error = R.string.lock_failed
+                busy = false
+            }
+        }
+    }
+    Page(actions = {
+        SetPinButton("lock-set", R.string.lock_set, submit.takeIf { editable && pin.isNotEmpty() })
+        BiometricOption(device, !busy)
+        TextButton(onClick = onSkip, Modifier.fillMaxWidth().testTag("lock-skip"), enabled = !busy) {
+            Text(stringResource(R.string.lock_skip))
+        }
+    }) {
         SetupIntro(device.secure)
         NewPinFields(pinState, repeatState, R.string.lock_pin, editable)
         error?.let { ErrorText(it) }
-        val submit: () -> Unit = {
-            val chosen = pin
-            error = pinRejection(chosen, repeatState.value)
-            pin = ""
-            repeatState.value = ""
-            if (error == null) {
-                busy = true
-                scope.launch {
-                    if (!onEnroll(chosen)) error = R.string.lock_failed
-                    busy = false
-                }
-            }
-        }
-        SetupActions(submit.takeIf { editable && pin.isNotEmpty() }, onSkip.takeIf { !busy })
-        BiometricOption(device, !busy)
     }
 }
 
 @Composable
 private fun SetupIntro(deviceSecure: Boolean) {
-    Text(stringResource(R.string.lock_setup_title), Modifier.testTag("lock-setup"))
+    Icon(painterResource(R.drawable.ic_lock), contentDescription = null)
+    PageTitle(R.string.lock_setup_title, Modifier.testTag("lock-setup"))
     Text(stringResource(R.string.lock_setup_body))
-    if (!deviceSecure) NoScreenLockText()
-}
-
-@Composable
-private fun SetupActions(onSet: (() -> Unit)?, onSkip: (() -> Unit)?) {
-    SetPinButton("lock-set", R.string.lock_set, onSet)
-    OutlinedButton(onClick = { onSkip?.invoke() }, Modifier.testTag("lock-skip"), enabled = onSkip != null) {
-        Text(stringResource(R.string.lock_skip))
-    }
+    if (deviceSecure) Caption(R.string.lock_recovery) else NoScreenLockText()
 }
 
 /**
@@ -83,26 +83,28 @@ fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttemp
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
     var gated by remember { mutableStateOf(false) }
-    LockColumn {
-        Text(stringResource(R.string.app_locked), Modifier.testTag(LOCKED_TAG))
-        DeviceCredentialButton(deviceSecure, R.string.lock_use_device_credential, onDeviceCredential)
+    val submit: () -> Unit = {
+        val entered = pinState.value.also { pinState.value = "" }
+        busy = true
+        scope.launch {
+            val result = onAttempt(entered)
+            gated = result == PinAttempt.DEVICE_CREDENTIAL_REQUIRED
+            error = attemptError(result)
+            busy = false
+        }
+    }
+    Page(actions = {
+        if (!gated) UnlockButton(submit.takeIf { !busy && pinState.value.length >= PIN_MIN })
+        // Once gated, the device screen lock is the only way in.
+        DeviceCredentialButton(deviceSecure, R.string.lock_use_device_credential, gated, onDeviceCredential)
+    }) {
+        PageTitle(R.string.lock_unlock_title, Modifier.testTag(LOCKED_TAG))
         if (gated) {
             DeviceCredentialText()
-            return@LockColumn
+        } else {
+            PinField(pinState, R.string.lock_pin, "pin-unlock", !busy)
+            error?.let { ErrorText(it) }
         }
-        PinField(pinState, R.string.lock_pin, "pin-unlock", !busy)
-        error?.let { ErrorText(it) }
-        val submit: () -> Unit = {
-            val entered = pinState.value.also { pinState.value = "" }
-            busy = true
-            scope.launch {
-                val result = onAttempt(entered)
-                gated = result == PinAttempt.DEVICE_CREDENTIAL_REQUIRED
-                error = attemptError(result)
-                busy = false
-            }
-        }
-        UnlockButton(submit.takeIf { !busy && pinState.value.length >= PIN_MIN })
     }
 }
 
@@ -110,15 +112,16 @@ private const val LOCKED_TAG = "app-locked"
 
 /** The locked surface in biometric mode: [onUnlock] opens BiometricPrompt with the OS credential fallback. */
 @Composable
-fun BiometricUnlockScreen(deviceSecure: Boolean, onUnlock: () -> Unit) = LockColumn {
-    Text(stringResource(R.string.app_locked), Modifier.testTag(LOCKED_TAG))
-    DeviceCredentialButton(deviceSecure, R.string.lock_use_biometric, onUnlock)
+fun BiometricUnlockScreen(deviceSecure: Boolean, onUnlock: () -> Unit) = Page(actions = {
+    DeviceCredentialButton(deviceSecure, R.string.lock_use_biometric, primary = true, onUnlock)
+}) {
+    PageTitle(R.string.app_locked, Modifier.testTag(LOCKED_TAG))
 }
 
 @Composable
 private fun UnlockButton(onUnlock: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onUnlock?.invoke() }, Modifier.testTag("lock-unlock"), enabled = onUnlock != null) {
+    Button(onClick = { onUnlock?.invoke() }, Modifier.fillMaxWidth().testTag("lock-unlock"), enabled = onUnlock != null) {
         Text(stringResource(R.string.lock_unlock))
     }
 }

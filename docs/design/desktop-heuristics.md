@@ -148,6 +148,16 @@ to the grouped number, the QR and scan controls remain readable, and the
 neighbouring profile actions remain visible. No open H1–H10 finding. Clipboard
 expiry is covered by a separate behavioral test, not by these static images.
 
+### Android lock screen layout review (2026-11-01)
+
+Read `lock-setup` and `lock-unlock` in the Compose code against the prototype and H1–H10 in
+English and Russian; not yet seen on a device, native rendering is left to the CI Android job.
+The whole page scrolls, so at large text every action stays reachable (H3, H7). Two choices
+keep the state visible: without a device screen lock `lock-unavailable` replaces the recovery
+caption, which would promise what the device cannot do (H1, H5), and once too many wrong PINs
+gate the field `lock-device` becomes the filled primary action, since it is the only way in
+(H3, H9). No open H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

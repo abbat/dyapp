@@ -13,6 +13,8 @@
     <string name="app_locked">App is locked</string>
     <string name="lock_setup_title">Protect the app</string>
     <string name="lock_setup_body">A PIN of 6 to 64 digits hides your identities and chats until you enter it.</string>
+    <string name="lock_recovery">The device screen lock recovers a forgotten PIN.</string>
+    <string name="lock_unlock_title">Enter your PIN</string>
     <string name="lock_no_screen_lock">Set a screen lock in the device settings to use a PIN.</string>
     <string name="lock_pin">PIN</string>
     <string name="lock_pin_repeat">Repeat the PIN</string>

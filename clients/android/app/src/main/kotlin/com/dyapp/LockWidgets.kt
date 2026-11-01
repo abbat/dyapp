@@ -4,14 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,7 +44,7 @@ internal fun PinField(state: MutableState<String>, label: Int, tag: String, enab
     OutlinedTextField(
         value = state.value,
         onValueChange = { input -> state.value = input.filter { it in '0'..'9' }.take(PIN_MAX) },
-        modifier = Modifier.testTag(tag),
+        modifier = Modifier.fillMaxWidth().testTag(tag),
         enabled = enabled,
         label = { Text(stringResource(label)) },
         visualTransformation = PasswordVisualTransformation(),
@@ -51,7 +54,10 @@ internal fun PinField(state: MutableState<String>, label: Int, tag: String, enab
 }
 
 @Composable
-internal fun ErrorText(id: Int) = Text(stringResource(id), Modifier.testTag("lock-error"))
+internal fun ErrorText(id: Int) = Text(
+    stringResource(id), Modifier.testTag("lock-error"),
+    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall
+)
 
 @Composable
 internal fun NoScreenLockText() =
@@ -93,7 +99,7 @@ internal fun BiometricOption(device: DeviceLock, enabled: Boolean) {
     when (device.biometrics) {
         Biometrics.READY -> OutlinedButton(
             onClick = { scope.launch { device.onBiometric() } },
-            Modifier.testTag("lock-biometric"),
+            Modifier.fillMaxWidth().testTag("lock-biometric"),
             enabled = enabled && device.secure
         ) { Text(stringResource(R.string.lock_use_biometric)) }
         Biometrics.NOT_ENROLLED ->
@@ -104,9 +110,12 @@ internal fun BiometricOption(device: DeviceLock, enabled: Boolean) {
 
 /** The OS screen lock is the recovery method; without one, say how to restore it. */
 @Composable
-internal fun DeviceCredentialButton(deviceSecure: Boolean, label: Int, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, Modifier.testTag("lock-device"), enabled = deviceSecure) {
-        Text(stringResource(label))
+internal fun DeviceCredentialButton(deviceSecure: Boolean, label: Int, primary: Boolean, onClick: () -> Unit) {
+    val modifier = Modifier.fillMaxWidth().testTag("lock-device")
+    if (primary) {
+        Button(onClick = onClick, modifier, enabled = deviceSecure) { Text(stringResource(label)) }
+    } else {
+        TextButton(onClick = onClick, modifier, enabled = deviceSecure) { Text(stringResource(label)) }
     }
     if (!deviceSecure) {
         Text(stringResource(R.string.lock_recovery_unavailable), Modifier.testTag("lock-recovery-unavailable"))
@@ -122,7 +131,7 @@ internal fun NewPinFields(pin: MutableState<String>, repeat: MutableState<String
 @Composable
 internal fun SetPinButton(tag: String, label: Int, onSet: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onSet?.invoke() }, Modifier.testTag(tag), enabled = onSet != null) {
+    Button(onClick = { onSet?.invoke() }, Modifier.fillMaxWidth().testTag(tag), enabled = onSet != null) {
         Text(stringResource(label))
     }
 }
