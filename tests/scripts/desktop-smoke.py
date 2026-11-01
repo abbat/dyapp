@@ -314,7 +314,8 @@ def smoke(executable, flows=True):
                         str(Path(__file__).with_name("fresh-keyring.sh"))]
             case("system-files-only", ["--ui-test-step=recovery:missing"],
                  restored, peer=False, launcher=launcher,
-                 extra_env={"HOME": str(home), "XDG_DATA_HOME": str(home / "data"),
+                 extra_env={"HOME": str(home),
+                            "XDG_DATA_HOME": str(home / "data"),
                             "XDG_CONFIG_HOME": str(home / "config"),
                             "XDG_RUNTIME_DIR": str(runtime)})
 
@@ -369,14 +370,16 @@ def smoke(executable, flows=True):
                      profile)
         if saved != peer_id:
             raise RuntimeError("saving a profile replaced the identity")
-        # The app has exited; copy the whole slot into a fresh config, not just identity.key.
+        # The app has exited; copy the whole slot into a fresh config.
         with tempfile.TemporaryDirectory(dir=reports) as restored:
             slot = (Path(profile) / "active-profile").read_text().strip()
             target = Path(restored) / "profiles"
             target.mkdir()
             shutil.copytree(Path(profile) / "profiles" / slot, target / slot)
-            if case("profile-backup-restore",
-                    [*file, "--ui-test-step=profile-restart"], restored) != peer_id:
+            restored_peer = case(
+                "profile-backup-restore",
+                [*file, "--ui-test-step=profile-restart"], restored)
+            if restored_peer != peer_id:
                 raise RuntimeError("restored file slot changed Peer ID")
         reopened = case("profile-restart",
                         [*file, "--ui-test-step=profile-restart"], profile)
@@ -531,8 +534,8 @@ def smoke(executable, flows=True):
             server.terminate()
             server.wait(timeout=30)
 
-    if (flows and sys.platform.startswith("linux")
-            and os.environ.get("DYAPP_VIDEO_SMOKE") == "1"):
+    if (flows and sys.platform.startswith("linux") and
+            os.environ.get("DYAPP_VIDEO_SMOKE") == "1"):
         video_smoke(case, reports)
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:

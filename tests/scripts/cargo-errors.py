@@ -17,11 +17,12 @@ def main(path: Path) -> None:
         except json.JSONDecodeError:
             continue
         message = event.get("message", {})
-        if (event.get("reason") != "compiler-message"
-                or message.get("level") != "error"):
+        if event.get("reason") != "compiler-message":
             continue
-        print((message.get("rendered") or message.get("message")
-               or "compiler error")[:8192], file=sys.stderr)
+        if message.get("level") != "error":
+            continue
+        rendered = message.get("rendered") or message.get("message")
+        print((rendered or "compiler error")[:8192], file=sys.stderr)
         shown += 1
         if shown == 8:
             break

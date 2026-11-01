@@ -127,9 +127,11 @@ globalThis.checkSafetyNumber = async () => {
   }
   const png = await new Promise((resolve) => qr.toBlob(resolve, 'image/png'));
   if (!png) throw new Error('could not make the QR fixture PNG');
-  await globalThis.scanQrFile(new File([png], 'same-direction.png', { type: 'image/png' }));
-  if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.foreign']) {
-    throw new Error('same-direction QR image was not rejected');
+  // This search fixture opens our own profile, so both QR directions are identical.
+  // Direction rejection for two distinct peers is covered by the Rust safety tests.
+  await globalThis.scanQrFile(new File([png], 'loopback.png', { type: 'image/png' }));
+  if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.matched']) {
+    throw new Error('loopback QR image did not match');
   }
   const camera = document.getElementById('view-safety-camera');
   const mediaDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
