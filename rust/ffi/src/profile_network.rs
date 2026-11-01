@@ -205,6 +205,32 @@ impl ProfilePublisher {
             hidden: true,
         })
     }
+
+    /// Withdraw the profile with a signed tombstone before the identity is removed; a stored
+    /// node takes it now and search nodes when the search window has ended. Without a node
+    /// nothing changes, and the caller offers Retry or Remove anyway.
+    pub fn withdraw(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
+        let _serial = self.serial.lock().map_err(failed)?;
+        let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
+        let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
+        let network = active_network(&self.dir)?;
+        let removed = on_network_stack(|| {
+            // The connection is Send but not Sync, so it moves to the network thread.
+            let store = store;
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                let removed = publish::withdraw(&store, &mut node, &key.identity, &draft)
+                    .await
+                    .map_err(failed)?;
+                send_held(&store, &mut node, &network).await?;
+                Ok(removed)
+            })
+        })?;
+        Ok(ProfileVisibility {
+            version: removed.version,
+            hidden: true,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -331,6 +357,30 @@ mod tests {
             hidden
         );
         assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(draft));
+    }
+
+    #[test]
+    fn withdraw_without_a_node_changes_nothing() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-withdraw-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.to_str().unwrap().to_owned();
+        let key = IdentityKey::generate();
+        let publisher = ProfilePublisher::new(path.clone()).unwrap();
+        assert_eq!(
+            publisher.withdraw(key.clone()).unwrap_err().to_string(),
+            "notConnected"
+        );
+        assert_eq!(
+            profile_visibility(path, key).unwrap(),
+            ProfileVisibility {
+                version: 0,
+                hidden: false,
+            }
+        );
     }
 
     #[test]
