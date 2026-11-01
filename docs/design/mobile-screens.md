@@ -102,7 +102,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
 - Search, `search`, `search-loading`, `search-empty` and `search-error`: `search-age-min`,
   `search-age-max`, `search-country`, `search-place`, `search-more`, `run-search`,
   `search-results` with `result-1` and `result-2`, `search-again`, `search-cancel`,
-  `search-failures`, `search-open-network`, `search-retry`.
+  `search-failures`, `search-open-network`, `search-retry`. Android shows filters only for the
+  fields the nodes offered, so a first sample comes before them; a result lists its full verified
+  fields, as there is no profile page to open yet; Cancel abandons the answer while the node call
+  runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
+  date fits; the intro also says that profile fields are self-stated, which the prototype omits.
 - Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`.
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` and `language`,

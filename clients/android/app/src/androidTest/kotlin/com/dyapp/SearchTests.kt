@@ -2,7 +2,6 @@ package com.dyapp
 
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -27,10 +26,9 @@ class SearchTests {
 
     // Waits until the search ends with one of the result texts or a failure text.
     private fun searched(): String {
-        val loading = string(R.string.search_loading)
+        val waiting = listOf(string(R.string.search_loading), string(R.string.search_idle))
         compose.waitUntil(SEARCH_WAIT_MS) {
-            compose.onAllNodes(hasTestTag("search-again")).fetchSemanticsNodes().isNotEmpty() &&
-                compose.texts("search-status") != listOf(loading)
+            compose.texts("search-status").singleOrNull()?.let { it !in waiting } == true
         }
         return compose.texts("search-status").single().orEmpty()
     }
@@ -42,7 +40,9 @@ class SearchTests {
         compose.onNodeWithTag("search-status").assertTextEquals(string(R.string.search_idle))
         click("run-search")
         check(searched() == string(R.string.search_not_connected)) { "status ${compose.texts("search-status")}" }
-        compose.onNodeWithTag("search-again").assertTextEquals(string(R.string.search_retry))
+        compose.onNodeWithTag("search-retry").assertTextEquals(string(R.string.search_retry))
+        click("search-open-network")
+        compose.onNodeWithTag("network-seeds").assertExists()
         compose.onNodeWithTag("nav-profile").performClick()
         compose.onNodeWithTag("peer-id").assertExists()
     }
@@ -55,7 +55,13 @@ class SearchTests {
             compose.onNodeWithTag("nav-search").performClick()
             click("run-search")
             checkLocalSample()
-            compose.onNode(hasTestTag("search-again") and hasText(string(R.string.search_again))).assertExists()
+            // The empty state points at the filters instead of offering another sample.
+            val again = compose.onNodeWithTag("search-again")
+            if (compose.onAllNodes(hasTestTag("result-1")).fetchSemanticsNodes().isEmpty()) {
+                again.assertDoesNotExist()
+            } else {
+                again.assertTextEquals(string(R.string.search_again))
+            }
         } finally {
             forgetNetworks()
         }
