@@ -111,7 +111,8 @@ starts current requests after returning to Ready, and checks that late old resul
 change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
 refresh after the identity changes. The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
-safety panel, camera capture and sensitive copy across a switch; the old copy still schedules
+safety panel, camera capture and sensitive copy across a switch; an already active camera stream
+stops synchronously when the switch begins. The old copy still schedules
 its expiry. Paused profile load, place-name lookup and save results cannot repaint the newer
 editor. An old Save or Publish preview cannot unlock the newer form or open its dialog; old
 publish and hide results cannot change the newer progress, dialog or busy controls. It checks

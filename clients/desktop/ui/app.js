@@ -105,6 +105,7 @@ let identityGeneration = 0;
 const identityCurrent = (generation) => generation === identityGeneration;
 const act = async (pending, fresh = false) => {
   const generation = ++identityGeneration;
+  document.dispatchEvent(new Event('dyapp:identity-change'));
   clearTimeout(searchWaitTimer);
   clearInterval(elapsedTimer);
   clearTimeout(usageTimer);

@@ -301,6 +301,17 @@ const checkStaleSafety = async () => {
   }
   await act(Promise.resolve(readyState));
   await reopen();
+  let activeStopped = false;
+  cameraStream = { getTracks: () => [{ stop: () => { activeStopped = true; } }] };
+  const leaving = act(Promise.resolve({ status: 'picker' }));
+  if (!activeStopped || cameraStream !== null || cameraPending
+    || document.getElementById('view-safety-camera').textContent
+      !== window.strings['view.safety.camera.start']) {
+    throw new Error('active camera stream survived identity transition');
+  }
+  await leaving;
+  await act(Promise.resolve(readyState));
+  await reopen();
   const copyButton = document.getElementById('copy-safety-number');
   const copyLabel = copyButton.textContent;
   const originalTimeout = globalThis.setTimeout;

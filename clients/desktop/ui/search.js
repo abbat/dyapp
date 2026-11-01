@@ -138,6 +138,7 @@ const stopSafetyCamera = () => {
   const button = document.getElementById('view-safety-camera');
   button.textContent = window.strings['view.safety.camera.start'];
 };
+document.addEventListener('dyapp:identity-change', stopSafetyCamera);
 document.addEventListener('dyapp:area-change', (event) => {
   if (event.detail !== 'search-area') stopSafetyCamera();
 });
