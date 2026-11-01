@@ -16,14 +16,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import uniffi.dyapp.ProfilePublisher
+
+/** How far a removal got; a running withdrawal cannot be dismissed. */
+private class RemoveState {
+    var confirmed by mutableStateOf(false)
+    var busy by mutableStateOf(false)
+    var offline by mutableStateOf(false)
+
+    /** The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway. */
+    suspend fun withdrawThen(opened: Opened.Ready, remove: () -> Unit) {
+        busy = true
+        val result = withContext(Dispatchers.IO) {
+            runCatching { RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.withdraw(key) } } }
+        }
+        busy = false
+        if (result.isSuccess) remove() else offline = true
+    }
+}
 
 /**
  * Asks before an identity's key and data leave this device: Remove stays disabled until the box is
@@ -43,35 +68,30 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
                 .any { it is Opened.Ready && it.peerId == peerId }
         }.getOrDefault(false)
     }
-    var confirmed by remember(slot.id) { mutableStateOf(false) }
+    // Only an open key can sign the withdrawal; an unreadable version counts as never published.
+    val published = remember(slot.id) { (target as? Opened.Ready)?.takeIf { loadVisibility(it).version > 0uL } }
+    val state = remember(slot.id) { RemoveState() }
+    val scope = rememberCoroutineScope()
+    val remove: () -> Unit = { act { slots.remove(slot.id, peerId); Opened.Picker } }
+    val proceed: () -> Unit = {
+        if (published == null) remove() else scope.launch { state.withdrawThen(published, remove) }
+    }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!state.busy) onDismiss() },
         title = { Text(stringResource(R.string.remove_title), Modifier.testTag("remove-title")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                RemoveSummary(target, peerId, copies)
-                Row(
-                    Modifier.toggleable(confirmed, role = Role.Checkbox) { confirmed = it }.testTag("remove-confirm"),
-                    Arrangement.spacedBy(8.dp),
-                    Alignment.CenterVertically
-                ) {
-                    Checkbox(confirmed, onCheckedChange = null)
-                    Text(stringResource(R.string.remove_confirm))
-                }
+                RemoveSummary(target, peerId, copies, published != null)
+                RemoveChoice(state)
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { act { slots.remove(slot.id, peerId); Opened.Picker } },
-                Modifier.testTag("remove-action"),
-                enabled = confirmed,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text(stringResource(R.string.remove_action))
-            }
-        },
+        confirmButton = { RemoveActions(state, proceed, remove) },
         dismissButton = {
-            TextButton(onClick = onDismiss, Modifier.testTag("remove-cancel")) {
+            TextButton(
+                onClick = onDismiss,
+                Modifier.testTag(if (state.offline) "remove-cancel-offline" else "remove-cancel"),
+                enabled = !state.busy,
+            ) {
                 Text(stringResource(R.string.remove_cancel))
             }
         },
@@ -79,7 +99,46 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
 }
 
 @Composable
-private fun RemoveSummary(target: Opened, peerId: String?, copies: Boolean) {
+private fun RemoveChoice(state: RemoveState) {
+    if (state.offline) {
+        Text(stringResource(R.string.remove_offline), Modifier.testTag("remove-offline")
+            .semantics { liveRegion = LiveRegionMode.Polite })
+    } else {
+        Row(
+            Modifier.toggleable(state.confirmed, role = Role.Checkbox) { state.confirmed = it }
+                .testTag("remove-confirm"),
+            Arrangement.spacedBy(8.dp),
+            Alignment.CenterVertically
+        ) {
+            Checkbox(state.confirmed, onCheckedChange = null)
+            Text(stringResource(R.string.remove_confirm))
+        }
+    }
+}
+
+@Composable
+private fun RemoveActions(state: RemoveState, proceed: () -> Unit, remove: () -> Unit) {
+    val danger = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    if (state.offline) {
+        // Stacked: three text buttons do not fit one row of the narrowest dialog.
+        Column(horizontalAlignment = Alignment.End) {
+            TextButton(proceed, Modifier.testTag("remove-retry"), enabled = !state.busy) {
+                Text(stringResource(R.string.remove_retry))
+            }
+            TextButton(remove, Modifier.testTag("remove-anyway"), enabled = !state.busy, colors = danger) {
+                Text(stringResource(R.string.remove_anyway))
+            }
+        }
+    } else {
+        val ready = state.confirmed && !state.busy
+        TextButton(proceed, Modifier.testTag("remove-action"), enabled = ready, colors = danger) {
+            Text(stringResource(R.string.remove_action))
+        }
+    }
+}
+
+@Composable
+private fun RemoveSummary(target: Opened, peerId: String?, copies: Boolean, withdraws: Boolean) {
     if (peerId == null) {
         Text(reasonText((target as Opened.Recovery).reason))
     } else {
@@ -97,5 +156,6 @@ private fun RemoveSummary(target: Opened, peerId: String?, copies: Boolean) {
     if (peerId != null && !copies) {
         Text(stringResource(R.string.remove_warning), Modifier.testTag("remove-warning"))
     }
+    if (withdraws) Text(stringResource(R.string.remove_withdraws))
     Text(stringResource(R.string.remove_loses))
 }

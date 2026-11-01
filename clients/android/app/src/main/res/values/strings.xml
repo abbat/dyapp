@@ -151,7 +151,11 @@
     <string name="remove_title">Remove this identity?</string>
     <string name="remove_last_copy">This is the only copy of this key on this device.</string>
     <string name="remove_other_copy">Another identity on this device holds the same key.</string>
-    <string name="remove_warning">The key is deleted from this device, and without a backup this Peer ID cannot be restored. A published profile disappears from search by itself within 30 days.</string>
+    <string name="remove_warning">The key is deleted from this device, and without a backup this Peer ID cannot be restored.</string>
+    <string name="remove_withdraws">Its profile is withdrawn from search first.</string>
+    <string name="remove_offline">No node accepted the withdrawal. The profile disappears from search by itself within 30 days.</string>
+    <string name="remove_retry">Retry</string>
+    <string name="remove_anyway">Remove anyway</string>
     <string name="remove_loses">Its chats, matches and likes on this device are deleted with it. Other identities stay.</string>
     <string name="remove_confirm">I understand this key cannot be recovered</string>
     <string name="remove_action">Remove identity</string>

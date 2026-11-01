@@ -150,7 +150,11 @@
     <string name="remove_title">Удалить личность?</string>
     <string name="remove_last_copy">Это единственная копия ключа на этом устройстве.</string>
     <string name="remove_other_copy">Тот же ключ есть у другой личности на этом устройстве.</string>
-    <string name="remove_warning">Ключ удаляется с этого устройства, и без резервной копии этот идентификатор узла не восстановить. Опубликованный профиль сам исчезнет из поиска в течение 30 дней.</string>
+    <string name="remove_warning">Ключ удаляется с этого устройства, и без резервной копии этот идентификатор узла не восстановить.</string>
+    <string name="remove_withdraws">Сначала её профиль снимается с поиска.</string>
+    <string name="remove_offline">Ни один узел не принял снятие профиля. Профиль сам исчезнет из поиска в течение 30 дней.</string>
+    <string name="remove_retry">Повторить</string>
+    <string name="remove_anyway">Всё равно удалить</string>
     <string name="remove_loses">Вместе с ней с этого устройства удаляются её чаты, взаимные симпатии и отметки. Другие личности остаются.</string>
     <string name="remove_confirm">Я понимаю, что этот ключ нельзя восстановить</string>
     <string name="remove_action">Удалить личность</string>

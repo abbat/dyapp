@@ -117,9 +117,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`) and `node` (`node-enabled`). `remove-dialog` and `remove-offline`
   confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
-  `remove-action`, `remove-retry` and `remove-anyway`. Android has no profile withdrawal yet, so its
-  dialog says that a published profile leaves search by itself within 30 days; `remove-offline` and
-  its Retry and Remove anyway are planned there. Android Settings has the identity rows, the lock
+  `remove-action`, `remove-cancel-offline`, `remove-retry` and `remove-anyway`. A published profile
+  is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
+  offers Retry, Remove anyway and Cancel. A key that does not open cannot sign a withdrawal, so
+  removing that identity skips it. Android Settings has the identity rows, the lock
   row, the theme and language, and the version; a block list, privacy and node settings have no
   Android feature yet and are planned. It switches identities only in the identity menu.
 
