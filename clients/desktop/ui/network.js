@@ -29,13 +29,17 @@ const showConnection = (state, name) => {
 };
 connectionStatus.addEventListener('click', () => showArea('network-area'));
 // Dials the saved active network as the identity opens; nothing active means Offline.
-const connectAtLaunch = async () => {
+const connectAtLaunch = async (call = invoke) => {
+  const generation = identityGeneration;
   const run = ++connectionRun;
-  const active = await invoke('load_network', { file: 'active' }).catch(() => null);
+  const active = await call('load_network', { file: 'active' }).catch(() => null);
+  if (!identityCurrent(generation) || run !== connectionRun) return;
   if (!active) { showConnection('offline'); return; }
   showConnection('connecting', active.name);
-  const answered = await invoke('connect_network', { waitMs: 15000 }).catch(() => false);
-  if (run === connectionRun) showConnection(answered ? 'connected' : 'offline');
+  const answered = await call('connect_network', { waitMs: 15000 }).catch(() => false);
+  if (identityCurrent(generation) && run === connectionRun) {
+    showConnection(answered ? 'connected' : 'offline');
+  }
 };
 const networkStatus = (key, detail) => {
   const text = window.strings[key];

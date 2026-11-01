@@ -874,6 +874,46 @@ const checkStaleWithdrawal = async () => {
   removeAsk.hidden = false;
   removeOffline.hidden = true;
 };
+// An old launch connection cannot repaint the new shell or start another dial.
+const checkStaleLaunchConnection = async () => {
+  const readyState = current;
+  const currentConnection = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await window.connectionShown;
+    await connectAtLaunch((command) => Promise.resolve(command === 'load_network'
+      ? { name: 'new network' } : true));
+  };
+  const checkCurrent = (message) => {
+    if (connectionStatus.dataset.state !== 'connected'
+      || document.getElementById('connection-network').textContent !== 'new network') {
+      throw new Error(message);
+    }
+  };
+  let finishActive;
+  let oldDials = 0;
+  const oldActive = connectAtLaunch((command) => {
+    if (command === 'load_network') return new Promise((resolve) => { finishActive = resolve; });
+    oldDials += 1;
+    return Promise.resolve(true);
+  });
+  await currentConnection();
+  finishActive({ name: 'old network' });
+  await oldActive;
+  checkCurrent('old active network changed new connection');
+  if (oldDials) throw new Error('old active network started a new dial');
+
+  let finishDial;
+  const oldDial = connectAtLaunch((command) => command === 'load_network'
+    ? Promise.resolve({ name: 'old network' })
+    : new Promise((resolve) => { finishDial = resolve; }));
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishDial) throw new Error('old connection dial did not start');
+  await currentConnection();
+  finishDial(false);
+  await oldDial;
+  checkCurrent('old dial changed new connection');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1655,6 +1695,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleTray();
       await checkStaleRemovePreparation();
       await checkStaleWithdrawal();
+      await checkStaleLaunchConnection();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
