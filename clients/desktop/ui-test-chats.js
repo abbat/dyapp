@@ -454,7 +454,34 @@ const checkChatDelivery = async () => {
   }
   document.getElementById('chat-back').click();
 };
+const checkChatForwarded = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '7'.repeat(64);
+  const forwarded = { author: peer, groupId: [1], id: [1], text: 'shared words',
+    forwarded: true, edited: false, deleted: false, sentAtMs: null };
+  const ordinary = { ...forwarded, id: [2], text: 'own words', forwarded: false };
+  renderChatRows([{ peerId: peer, state: 'open', lastMessage: forwarded, unreadCount: 0 }]);
+  const preview = document.querySelector('#chat-list button .caption');
+  if (!preview?.textContent.startsWith(`${window.strings['chats.forwarded']} · shared words`)) {
+    throw new Error('forwarded label missing from chat list preview');
+  }
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [forwarded, ordinary] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([]);
+    throw new Error(`unexpected forwarded command: ${command}`);
+  });
+  const messages = chatMessages.querySelectorAll('p');
+  if (messages.length !== 2
+    || !messages[0].textContent.includes(window.strings['chats.forwarded'])
+    || messages[1].textContent.includes(window.strings['chats.forwarded'])
+    || !messages[0].textContent.startsWith(shortPeerId(peer, knownPeers))) {
+    throw new Error('forwarded history marker or verified MLS sender was lost');
+  }
+  document.getElementById('chat-back').click();
+};
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
-  checkChatDelete, checkChatDelivery,
+  checkChatDelete, checkChatDelivery, checkChatForwarded,
 });

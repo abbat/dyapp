@@ -227,8 +227,10 @@ warns that the peer, nodes, other devices and backups may keep copies. The local
 terminal placeholder after deletion, including when network delivery remains pending. Own
 messages show a persisted pending, accepted-by-node or received-by-one-device label; node
 acceptance does not imply peer delivery, and none of these labels claims the message was read.
-The open chat refreshes after the minute mailbox poll, including receipt-only changes. Clear chat
-asks for confirmation, deletes this computer's history, keeps the conversation row and shows a local-only note. Block
+Received forwarded text has a Forwarded label in history and the Chats list preview; the author
+shown is the verified MLS sender. A forwarding action remains planned. The open chat refreshes
+after the minute mailbox poll, including receipt-only changes. Clear chat asks for confirmation,
+deletes this computer's history, keeps the conversation row and shows a local-only note. Block
 is available from a request or open chat: it hides the peer locally at once and reports whether
 network token revocation is pending. The Rust desktop commands expose history, send text, Clear
 chat and mark read for the active identity.

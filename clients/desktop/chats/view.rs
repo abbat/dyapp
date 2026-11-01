@@ -54,6 +54,7 @@ pub struct MessageView {
     pub edited: bool,
     pub deleted: bool,
     pub unread: bool,
+    pub forwarded: bool,
     pub delivery: Option<DeliveryView>,
     /// Original wall time for timed text; legacy tag-1 text has no timestamp.
     pub sent_at_ms: Option<u64>,
@@ -72,6 +73,7 @@ impl From<ChatMessage> for MessageView {
             edited: message.current.edited,
             deleted: message.current.deleted,
             unread: message.unread,
+            forwarded: message.forwarded,
             delivery: message.delivery.map(Into::into),
             sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
         }

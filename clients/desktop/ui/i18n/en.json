@@ -352,6 +352,7 @@
   "chats.editTitle": "Edit message",
   "chats.saveEdit": "Save edit",
   "chats.edited": "Edited",
+  "chats.forwarded": "Forwarded",
   "chats.editFailed": "Could not edit message:",
   "chats.editQueued": "Edit saved on this computer; network delivery is pending.",
   "chats.editSent": "Edit sent to the network node.",

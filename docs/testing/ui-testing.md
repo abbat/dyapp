@@ -127,7 +127,9 @@ Delete smoke checks the best-effort warning, Cancel, own-message placeholder, re
 an unstaged error, pending delivery after staging and a stale identity result. The delivery
 smoke renders only own status, refreshes node acceptance during a mailbox poll with no new text,
 and checks the device-received label after reopening. Store tests cover persistence across restart
-and ignore receipts for a superseded message generation.
+and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
+localized Forwarded label in the list and history, keeps the verified MLS sender as author,
+and leaves ordinary text unmarked; the Linux smoke runs in English and Russian.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

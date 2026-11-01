@@ -148,7 +148,8 @@ const chatTime = (message) => message?.sentAtMs == null ? '' :
   new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'short', timeStyle: 'short' })
     .format(new Date(message.sentAtMs));
 const chatPreview = (message) => !message ? window.strings['chats.noMessages']
-  : message.deleted ? window.strings['chats.deleted'] : message.text || '';
+  : message.deleted ? window.strings['chats.deleted']
+    : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${message.text || ''}`;
 const chatRow = (row) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -239,8 +240,15 @@ const openChat = async (peerId, call = invoke) => {
       label.textContent = message.author === current.peerId ?
         window.strings['chats.you'] : shortPeerId(peerId, knownPeers);
       const body = document.createElement('span');
-      body.textContent = chatPreview(message);
-      item.append(label, document.createTextNode(': '), body);
+      body.textContent = message.deleted ? window.strings['chats.deleted'] : message.text || '';
+      item.append(label, document.createTextNode(': '));
+      if (message.forwarded && !message.deleted) {
+        const forwarded = document.createElement('span');
+        forwarded.className = 'caption';
+        forwarded.textContent = `${window.strings['chats.forwarded']} · `;
+        item.append(forwarded);
+      }
+      item.append(body);
       if (message.author === current.peerId && message.delivery) {
         const delivery = document.createElement('span');
         delivery.className = 'caption';
