@@ -90,6 +90,7 @@ class NetworkDraftTests {
 
     // The automatic form of an identity without an active network; the unlock takes seconds.
     private fun formPeerId(): String {
+        compose.passIdentityStep()
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("skip-network").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("app-ready").assertDoesNotExist()
         compose.waitForText("network-status", R.string.network_draft_only)

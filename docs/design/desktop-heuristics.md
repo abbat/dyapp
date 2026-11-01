@@ -175,6 +175,14 @@ now offers a way forward where the old screen left only Back (H3). `skip-network
 until activation (H3). The saved-draft line no longer promises a check that already exists (H1).
 No open H1–H10 finding.
 
+### Android identity step review (2026-11-01)
+
+Read `wizard-identity` in the Compose code against the prototype and H1–H10 in English and
+Russian; not yet seen on a device. The old flow created a key without asking; the step now states
+where the key lives and that it has no backup before the one action that creates it (H1, H5). A
+failed creation falls to the existing storage error instead of looping (H9). No open H1–H10
+finding.
+
 ### Accepted exceptions
 
 None.

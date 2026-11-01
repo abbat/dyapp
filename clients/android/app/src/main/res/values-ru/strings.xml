@@ -86,6 +86,12 @@
     <string name="network_name">Имя сети</string>
     <string name="network_name_hint">Оставьте пустым для общей сети.</string>
     <string name="network_name_public">Общая сеть</string>
+    <string name="wizard_step1">Шаг 1 из 2</string>
+    <string name="wizard_identity_title">Создайте личность</string>
+    <string name="wizard_identity_intro">Личность — это ключ на этом устройстве. Ни у кого больше нет его копии.</string>
+    <string name="wizard_create">Создать личность</string>
+    <string name="storage_android">Ключ хранится в хранилище ключей Android на этом устройстве.</string>
+    <string name="backup_none">В этой версии нет резервной копии ключа. Если ключ потерян, личность не вернуть.</string>
     <string name="wizard_step2">Шаг 2 из 2</string>
     <string name="wizard_network_title">Подключитесь к сети</string>
     <string name="wizard_skip">Пропустить</string>

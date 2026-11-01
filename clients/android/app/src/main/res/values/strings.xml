@@ -87,6 +87,12 @@
     <string name="network_name">Network name</string>
     <string name="network_name_hint">Leave empty for the public network.</string>
     <string name="network_name_public">Public network</string>
+    <string name="wizard_step1">Step 1 of 2</string>
+    <string name="wizard_identity_title">Create your identity</string>
+    <string name="wizard_identity_intro">Your identity is a key on this device. Nobody else holds a copy.</string>
+    <string name="wizard_create">Create identity</string>
+    <string name="storage_android">The key is kept in Android Keystore on this device.</string>
+    <string name="backup_none">This version has no key backup. If the key is lost, this identity is gone.</string>
     <string name="wizard_step2">Step 2 of 2</string>
     <string name="wizard_network_title">Join a network</string>
     <string name="wizard_skip">Skip for now</string>
