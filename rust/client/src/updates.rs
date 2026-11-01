@@ -113,15 +113,15 @@ pub fn check_due(
     }
     // A wall-clock rollback invalidates persisted future timestamps. Retry once now so a
     // far-future value cannot suppress checks for days or weeks.
-    if state.last_attempt.map_or(false, |at| at > now)
-        || state.last_success.map_or(false, |at| at > now)
+    if state.last_attempt.is_some_and(|at| at > now)
+        || state.last_success.is_some_and(|at| at > now)
     {
         return true;
     }
     if trigger == Trigger::NetworkRestored {
         return state
             .last_attempt
-            .map_or(true, |at| now.saturating_sub(at) >= MIN_RETRY);
+            .is_none_or(|at| now.saturating_sub(at) >= MIN_RETRY);
     }
     if state.consecutive_failures > 0 {
         let retry = MIN_RETRY
@@ -129,7 +129,7 @@ pub fn check_due(
             .min(MAX_RETRY);
         return state
             .last_attempt
-            .map_or(true, |at| now.saturating_sub(at) >= retry);
+            .is_none_or(|at| now.saturating_sub(at) >= retry);
     }
     let success = match state.last_success {
         Some(success) => success,

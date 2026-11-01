@@ -17,6 +17,8 @@ mod keypackages;
 mod revocations;
 pub use revocations::MAX_REVOKED;
 
+type EnvelopePage = (Vec<SignedRecord>, bool, Option<(i64, i64)>);
+
 /// One SQLite file per data type in the storage directory.
 // ponytail: one connection per store behind a mutex; a reader pool if reads contend.
 pub struct BootstrapStore {
@@ -235,7 +237,7 @@ impl BootstrapStore {
         after: Option<(i64, i64)>,
         limit: u32,
         max_bytes: u64,
-    ) -> Result<(Vec<SignedRecord>, bool, Option<(i64, i64)>)> {
+    ) -> Result<EnvelopePage> {
         let db = lock(&self.messages)?;
         let mut query = db
             .prepare(

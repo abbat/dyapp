@@ -32,7 +32,7 @@ fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
         return None;
     }
     let mut peer = [0u8; 32];
-    for (index, pair) in bytes.chunks_exact(2).enumerate() {
+    for (index, pair) in bytes.as_chunks::<2>().0.iter().enumerate() {
         peer[index] =
             (pair[0] as char).to_digit(16)? as u8 * 16 + (pair[1] as char).to_digit(16)? as u8;
     }
