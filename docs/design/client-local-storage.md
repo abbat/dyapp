@@ -5,8 +5,8 @@ local identity durable chats, preferences and pending delivery while preserving 
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. The Linux desktop
 uses the Store for profile drafts, privacy settings, likes and inbound mailbox work; chat text
-screens remain planned. The Rust store foundation creates the identity-bound version-1 schema;
-before the first release a schema change edits version 1 in place, with no migration. It persists
+screens remain planned. The Rust store foundation creates the identity-bound version-1 schema. Before the first release,
+schema changes edit version 1 in place, without migration. It persists
 the per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger.
 The store can atomically stage a sealed MLS snapshot and exact signed outbox records,
 reopen due records and schedule retries. It also commits an own interaction event, its HLC,
@@ -44,9 +44,10 @@ go into logs or migration diagnostics.
 
 ## Versioned records
 
-Fresh SQLite databases use `user_version` 2 and one profile binding; existing version-1 databases
-migrate in place. These are the logical tables. Exact SQL and indexes belong to the storage
-implementation and its ADR.
+SQLite databases use `user_version` 1 and one profile binding. There are no released clients or
+supported existing databases, so pre-release schema changes replace this schema without a
+migration. Existing development databases must be recreated or restored from a matching version.
+These are the logical tables. Exact SQL and indexes belong to the storage implementation and its ADR.
 
 | Table | Durable content | Key / invariant |
 | --- | --- | --- |
@@ -54,7 +55,7 @@ implementation and its ADR.
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
 | `conversation_groups` | Group ID and verified peer association | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
-| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Version 2 adds nullable original HLC and a local unread flag (currently defaulting to read; unread updates follow separately). Migration keeps legacy original time NULL and read. A received tag-12 original records its HLC, including after an edit/delete placeholder; conflicting time for the same logical ID is refused. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. Chat operations and private interactions share one persisted HLC; rejected operations roll back clock changes. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. The Store also provides `stage_chat_outbound` to commit an own text/edit/delete projection with exact outbox writes and sealed MLS state before network delivery; Session stages sends through this path. |
+| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | The initial schema includes nullable original HLC and a local unread flag (currently defaulting to read; unread updates follow separately). Legacy tag-1 text has no original time. A received tag-12 original records its HLC, including after an edit/delete placeholder; conflicting time for the same logical ID is refused. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. Chat operations and private interactions share one persisted HLC; rejected operations roll back clock changes. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. The Store also provides `stage_chat_outbound` to commit an own text/edit/delete projection with exact outbox writes and sealed MLS state before network delivery; Session stages sends through this path. |
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
 | `chat_cleared` | `(group ID, author Peer ID, message ID)` of each message Clear chat removed, no text | A text, edit or delete naming a mark is discarded and still ACKed; the mark outlives restarts. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it; which node accepted the latest copy and when; an optional expiry time; the chat group of a chat write | `(mailbox, envelope ID)` is unique; Clear chat drops unaccepted chat writes of its group; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
@@ -123,15 +124,13 @@ Like/unlike/view event ordering and match derivation belong to the
 separately authoritative boolean. Chat history and outgoing work share this store so a failed
 network attempt does not discard the user's message.
 
-Opening verifies the bound identity and the schema version. For version 1, it checks the Peer ID
-binding before a transactional change to version 2; failure rolls back both new columns and the
-version number. Future schema changes must use monotonic steps with integrity checks. A future
-version, invalid binding or corrupt database fails closed with a recoverable error; it never
-silently creates an empty replacement at that path. Before a destructive migration, the app
-must offer a consistent backup. Copying a live WAL database file alone is not a consistent
-backup: an app-provided export must use SQLite's backup mechanism or stop and checkpoint the store first. Restoring an old
-snapshot must not silently roll MLS state back over a newer one; the app must require explicit
-recovery and re-establish sessions before sending.
+Opening verifies the bound identity and schema version. A different version, invalid binding
+or corrupt database fails closed; it never silently creates an empty replacement at that path.
+Pre-release schema changes do not migrate development databases. Once a released client needs a
+schema change, decide its compatibility and backup policy then. Copying a live WAL database file
+alone is not a consistent backup: stop and checkpoint the store first, or use SQLite's backup
+mechanism. Restoring an old snapshot must not silently roll MLS state back over a newer one; the
+app must require explicit recovery and re-establish sessions before sending.
 
 ## Crash and network ordering
 
@@ -319,7 +318,7 @@ before an invite is retried.
 
 ## Implementation checkpoints
 
-1. Confirm the storage ADR and implement profile-bound open, schema migration and failure tests.
+1. Confirm the storage ADR and implement profile-bound open, the initial schema and failure tests.
 2. Persist MLS state, inbox deduplication and exact outbound bytes in one transaction; test
    crashes immediately before and after commit, send and ack.
 3. Add per-profile settings and pass history with restart/default tests. Add interaction events,
@@ -328,7 +327,7 @@ before an invite is retried.
    and Android first; other platforms follow before release.
 
 SQLite was chosen because the node already uses `rusqlite`, transactions cover the MLS/queue
-boundary, and the client needs indexed history and migrations. Independent JSON files would avoid
+boundary, and the client needs indexed history with room for future released-schema migrations. Independent JSON files would avoid
 a client SQLite dependency but make atomic state-plus-outbox updates and crash recovery harder.
 Encrypting the whole database would add a key lifecycle and recovery dependency; the current
 threat decision instead relies on platform protection and desktop disk encryption. The identity

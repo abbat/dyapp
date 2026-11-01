@@ -58,13 +58,6 @@ CREATE TABLE `chat_cleared` (
 ) STRICT;
 ";
 
-pub(super) const MIGRATE_V2: &str = "
-ALTER TABLE `chat_messages` ADD COLUMN `original_hlc` INTEGER
-    CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0);
-ALTER TABLE `chat_messages` ADD COLUMN `unread` INTEGER NOT NULL DEFAULT 0
-    CHECK (`unread` IN (0, 1));
-";
-
 /// One logical message, shared by recipient devices and independent of envelope IDs.
 #[derive(Clone, PartialEq, Eq)]
 pub struct MessageKey {

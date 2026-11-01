@@ -15,7 +15,7 @@ stable order or unread count from these rows.
 
 - New text messages use chat body tag 12: the tag byte, 16-byte logical ID,
   eight-byte big-endian packed HLC, then up to 64 KiB of text. Tag 1 remains
-  readable during migration. A sender advances its durable HLC before staging
+  readable during the wire rollout. A sender advances its durable HLC before staging
   the MLS body; a receiver rejects a remote clock more than 60 seconds ahead,
   as in ADR 0010. Tag 12 must not be sent until every supported app can decode
   it: an older client may acknowledge and discard an unknown tag. The rollout
@@ -35,15 +35,16 @@ stable order or unread count from these rows.
   existing key-only cleared marks against replay, so unread becomes zero while
   the conversation state and empty chat row stay. Read state is per device and
   is not sent to peers.
-- A new store schema migration adds nullable original HLC and an unread flag to
-  current messages. Old rows start read and without a timestamp; neither value is
-  fabricated from a SQLite row ID or a later edit's HLC.
+- Before the first release, the store's initial schema includes nullable original
+  HLC and an unread flag. No database migration is needed because no released client
+  or supported pre-existing database exists. Old tag-1 bodies have no original time;
+  neither time nor unread state is fabricated from a SQLite row ID or a later edit's HLC.
 
 ## Alternatives and trade-offs
 
 | Approach | Pros | Cons |
 |---|---|---|
-| New text tag and original HLC (chosen) | Satisfies ADR 0010 and keeps old text readable; time and order travel with the authenticated MLS body. | Wire and storage migration; rollout must update all supported clients before tag 12 is sent, or old clients may acknowledge and discard it. |
+| New text tag and original HLC (chosen) | Satisfies ADR 0010 and keeps old text readable; time and order travel with the authenticated MLS body. | Wire rollout must update all supported clients before tag 12 is sent, or old clients may acknowledge and discard it. Pre-release development databases need recreation after the schema change. |
 | Local receive time only | No wire change. | Offline delivery or another device gives the wrong sent time and a different order. |
 | SQLite row ID as message time/order | No migration. | It is neither a time nor a stable cross-device order and may be reused after deletion. |
 | Per-chat last-seen HLC for unread | Small state. | A late offline message with an older HLC would silently count as already read. |

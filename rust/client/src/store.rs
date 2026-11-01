@@ -24,7 +24,7 @@ pub use conversations::Conversation;
 pub use likes::Likes;
 pub use peers::ContactName;
 
-const VERSION: i64 = 2;
+const VERSION: i64 = 1;
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -89,7 +89,7 @@ pub enum Error {
     /// The system random source failed.
     #[error("client store could not read the system random source")]
     Random,
-    /// SQLite refused the database or a migration.
+    /// SQLite refused the database.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),
 }
@@ -166,20 +166,6 @@ impl Store {
                     "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
                     params![identity.peer_id()],
                 )?;
-                tx.commit()?;
-            }
-            1 => {
-                let bound: String = db.query_row(
-                    "SELECT `peer_id` FROM `profile_binding` WHERE `slot` = 1",
-                    [],
-                    |row| row.get(0),
-                )?;
-                if bound != identity.peer_id() {
-                    return Err(Error::WrongIdentity);
-                }
-                let tx = db.transaction()?;
-                tx.execute_batch(messages::MIGRATE_V2)?;
-                tx.pragma_update(None, "user_version", VERSION)?;
                 tx.commit()?;
             }
             VERSION => {}
@@ -559,7 +545,7 @@ CREATE TABLE `issued_tokens` (
     PRIMARY KEY (`mailbox`, `token_key`, `epoch`)
 ) STRICT;
 CREATE INDEX `issued_tokens_contact` ON `issued_tokens` (`contact`);
-PRAGMA user_version = 2;
+PRAGMA user_version = 1;
 ";
 
 #[cfg(test)]
@@ -602,92 +588,6 @@ pub(crate) mod tests {
             Store::open(&path, &bob),
             Err(Error::WrongIdentity)
         ));
-        drop(Store::open(&path, &alice).unwrap());
-    }
-
-    #[test]
-    fn migrates_v1_chat_rows_only_for_the_bound_identity() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        let bob = Identity::generate();
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(
-            &super::SCHEMA.replace("PRAGMA user_version = 2;", "PRAGMA user_version = 1;"),
-        )
-        .unwrap();
-        let v1_messages = super::messages::SCHEMA
-            .replace("    `original_hlc` INTEGER CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0),\n", "")
-            .replace("    `unread` INTEGER NOT NULL DEFAULT 0 CHECK (`unread` IN (0, 1)),\n", "");
-        db.execute_batch(&v1_messages).unwrap();
-        for schema in [
-            super::conversations::SCHEMA,
-            super::peers::SCHEMA,
-            super::presence::SCHEMA,
-            super::reads::SCHEMA,
-        ] {
-            db.execute_batch(schema).unwrap();
-        }
-        db.execute(
-            "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
-            [&alice.peer_id()],
-        )
-        .unwrap();
-        db.execute(
-            "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`) VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
-            rusqlite::params![&[3u8][..], bob.peer_id(), &[4u8; 16][..], &b"hello"[..], dyapp_identity::sha256(b"hello").as_slice()],
-        )
-        .unwrap();
-        db.execute(
-            "INSERT INTO `chat_operations` (`group_id`, `author`, `operation_id`, `target_id`, `device`, `digest`, `hlc`, `pending`) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 0)",
-            rusqlite::params![&[3u8][..], bob.peer_id(), &[6u8; 16][..], &[4u8; 16][..], &[7u8; 32][..], &[8u8; 32][..]],
-        )
-        .unwrap();
-        db.execute(
-            "INSERT INTO `chat_cleared` (`group_id`, `author`, `message_id`) VALUES (?1, ?2, ?3)",
-            rusqlite::params![&[3u8][..], bob.peer_id(), &[5u8; 16][..]],
-        )
-        .unwrap();
-        drop(db);
-
-        assert!(matches!(
-            Store::open(&path, &bob),
-            Err(Error::WrongIdentity)
-        ));
-        let db = Connection::open(&path).unwrap();
-        let version: i64 = db
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, 1);
-        assert!(db
-            .prepare("SELECT `original_hlc` FROM `chat_messages`")
-            .is_err());
-        drop(db);
-
-        let store = Store::open(&path, &alice).unwrap();
-        let version: i64 = store
-            .db
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, VERSION);
-        let row: (Vec<u8>, Option<i64>, i64) = store.db.query_row(
-            "SELECT `text`, `original_hlc`, `unread` FROM `chat_messages` WHERE `message_id` = ?1",
-            [&[4u8; 16][..]],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        ).unwrap();
-        assert_eq!(row, (b"hello".to_vec(), None, 0));
-        let marks: i64 = store
-            .db
-            .query_row("SELECT COUNT(*) FROM `chat_cleared`", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(marks, 1);
-        let operations: i64 = store
-            .db
-            .query_row("SELECT COUNT(*) FROM `chat_operations`", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(operations, 1);
-        drop(store);
         drop(Store::open(&path, &alice).unwrap());
     }
 

@@ -130,6 +130,10 @@ capture per port across restarts. Raw failure evidence includes node-port header
   scheduled workflow, opened by `nightly-health.yml`, and is worked before regular tasks. It
   closes itself after the next green scheduled run.
 - Use lean-ctx when it is installed: [lean-ctx.md](lean-ctx.md).
+- Until the first client release, there are no supported existing client databases. Change the
+  initial client SQLite schema in place; do not add migrations for development-only databases.
+  An old development database may need recreation, while Store must still reject unsupported
+  versions and identity mismatches. Revisit compatibility when a client is released.
 - Commit and push only when the user has authorised it (for the session or in their
   instructions). End commits with the Co-Authored-By line for your model (see AGENTS.md).
 - Before pushing or merging, run the local [A6 delivery gate](quorum.md#a6-delivery-gate)
