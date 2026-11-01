@@ -66,7 +66,7 @@ private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (St
         }
     }
     if (opened is Opened.Recovery) {
-        OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch")) {
+        OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch-identity")) {
             Text(stringResource(R.string.identity_switch))
         }
     }

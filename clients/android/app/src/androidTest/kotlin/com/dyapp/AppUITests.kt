@@ -104,9 +104,9 @@ class AppUITests {
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
         compose.onNodeWithTag("remove-action").performScrollTo().performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
-        compose.onNode(hasTestTag("identity") and hasText(second)).assertDoesNotExist()
+        compose.onNodeWithText(second).assertDoesNotExist()
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
-        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        compose.onNodeWithText(first).performScrollTo().performClick()
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 

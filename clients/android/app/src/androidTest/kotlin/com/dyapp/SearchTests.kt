@@ -64,11 +64,12 @@ class SearchTests {
     // Checks the local node answered with a sample or a coverage result, not a missing-node failure.
     private fun checkLocalSample() {
         val status = searched()
-        val count = compose.onAllNodes(hasTestTag("search-result")).fetchSemanticsNodes().size
+        val count = generateSequence(1) { it + 1 }
+            .takeWhile { compose.onAllNodes(hasTestTag("result-$it")).fetchSemanticsNodes().isNotEmpty() }.count()
         val expected = listOf(string(R.string.search_empty),
             compose.activity.getString(R.string.search_results, count),
             compose.activity.getString(R.string.search_partial, count))
-        val failures = compose.texts("search-failure")
+        val failures = compose.textsIn("search-failures")
         check(status in expected) { "status $status, failures $failures" }
         // The local node serves the search role by default.
         check(string(R.string.search_failure_no_nodes) !in failures) { "failures $failures" }
@@ -106,8 +107,8 @@ class SearchTests {
             compose.onNodeWithTag("nav-search").performClick()
             click("run-search")
             check(searched() == string(R.string.search_empty)) { "status ${compose.texts("search-status")}" }
-            val failures = compose.texts("search-failure")
-            check(compose.onAllNodes(hasTestTag("search-result")).fetchSemanticsNodes().isEmpty())
+            val failures = compose.textsIn("search-failures")
+            compose.onNodeWithTag("result-1").assertDoesNotExist()
             check(string(R.string.search_failure_invalid) in failures) { "failures $failures" }
         } finally {
             forgetNetworks()

@@ -74,10 +74,12 @@ private fun statusText(state: SearchState) = when (state) {
 // Typed failures, then each verified profile by Peer ID with its public fields.
 @Composable
 private fun SearchResults(result: ProfileSearchResult, scales: List<ProfileScale>) {
-    for (failure in result.failures) Text(failureText(failure), Modifier.testTag("search-failure"))
+    Column(Modifier.testTag("search-failures")) {
+        for (failure in result.failures) Text(failureText(failure))
+    }
     val context = LocalContext.current
-    for (found in result.profiles) {
-        Column(Modifier.testTag("search-result")) {
+    for ((index, found) in result.profiles.withIndex()) {
+        Column(Modifier.testTag("result-${index + 1}")) {
             Text(stringResource(R.string.search_peer, found.peerId), style = MaterialTheme.typography.titleSmall)
             ProfileRows(found.draft.draft(), scales, context)
         }

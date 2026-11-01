@@ -130,25 +130,27 @@ private fun networkSettings(state: NetworkDraftState) = NetworkSettings(
 private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (() -> Unit)?, actions: DraftActions) {
     val editable = state.status !in setOf(DraftStatus.LOADING, DraftStatus.SAVING, DraftStatus.READ_FAILED) &&
         state.checkStatus !in setOf(R.string.network_checking, R.string.network_activating)
+    // The first-run wizard and the Network tab share this form but not their control IDs.
+    val wizard = onBack != null
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(stringResource(R.string.network_title))
         Text(stringResource(R.string.storage_peer_id))
-        Text(peerId, Modifier.testTag("network-peer-id"))
+        Text(peerId, Modifier.testTag(if (wizard) "peer-id" else "network-peer-id"))
         Text(stringResource(R.string.storage_os_loss))
-        NetworkDraftFields(state, editable)
+        NetworkDraftFields(state, editable, wizard)
         Button(onClick = actions.save, enabled = editable, modifier = Modifier.testTag("network-save")) {
             Text(stringResource(R.string.network_save))
         }
-        NetworkCheckControls(state, editable, actions)
+        NetworkCheckControls(state, editable, wizard, actions)
         Text(stringResource(networkStatusText(state.status)), Modifier.testTag("network-status"))
         NetworkCheckResults(state.checkStatus, state.checkRows)
         // The first-run wizard skips with Back; the Network tab has none.
         if (onBack != null) {
             OutlinedButton(onClick = onBack, enabled = state.checkStatus != R.string.network_activating,
-                modifier = Modifier.testTag("network-back")) {
+                modifier = Modifier.testTag("skip-network")) {
                 Text(stringResource(R.string.profile_back))
             }
         }
@@ -156,14 +158,14 @@ private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (
 }
 
 @Composable
-private fun NetworkCheckControls(state: NetworkDraftState, editable: Boolean, actions: DraftActions) {
+private fun NetworkCheckControls(state: NetworkDraftState, editable: Boolean, wizard: Boolean, actions: DraftActions) {
     val checked = state.checkStatus
     Button(onClick = actions.check, enabled = editable && state.checker != null,
-        modifier = Modifier.testTag("network-check")) {
+        modifier = Modifier.testTag(if (wizard) "check-connection" else "check-and-connect")) {
         Text(stringResource(if (checked == null) R.string.network_check else R.string.network_retry))
     }
     if (checked == R.string.network_checking) {
-        OutlinedButton(onClick = actions.cancel, modifier = Modifier.testTag("network-cancel")) {
+        OutlinedButton(onClick = actions.cancel, modifier = Modifier.testTag("cancel-check")) {
             Text(stringResource(R.string.network_cancel))
         }
     }
@@ -174,13 +176,13 @@ private fun NetworkCheckControls(state: NetworkDraftState, editable: Boolean, ac
 }
 
 @Composable
-private fun NetworkDraftFields(state: NetworkDraftState, editable: Boolean) {
+private fun NetworkDraftFields(state: NetworkDraftState, editable: Boolean, wizard: Boolean) {
     OutlinedTextField(state.seeds, { state.editSeeds(it); state.status = DraftStatus.EDITING }, enabled = editable,
         label = { Text(stringResource(R.string.network_seeds)) },
-        modifier = Modifier.testTag("network-seeds"))
+        modifier = Modifier.testTag(if (wizard) "seeds" else "network-seeds"))
     OutlinedTextField(state.name, { state.editName(it); state.status = DraftStatus.EDITING }, enabled = editable,
         label = { Text(stringResource(R.string.network_name)) },
-        modifier = Modifier.testTag("network-name"))
+        modifier = Modifier.testTag(if (wizard) "network-name" else "network-name-field"))
 }
 
 private fun networkStatusText(status: DraftStatus): Int = when (status) {

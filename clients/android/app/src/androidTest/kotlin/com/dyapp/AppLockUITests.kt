@@ -27,8 +27,8 @@ import org.junit.Test
  */
 internal fun ComposeTestRule.skipNetworkEntry() {
     val shown = { tag: String -> onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-    waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("network-back") }
-    if (shown("network-back")) onNodeWithTag("network-back").performScrollTo().performClick()
+    waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("skip-network") }
+    if (shown("skip-network")) onNodeWithTag("skip-network").performScrollTo().performClick()
 }
 
 /** Adds an identity from the switcher sheet in the top bar. */
@@ -91,7 +91,7 @@ class AppLockUITests {
             check(secure()) { "A configured lock left the snapshot visible" }
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             compose.onNodeWithTag("recovery-peer").assertDoesNotExist()
-            compose.onNodeWithTag("identity").assertDoesNotExist()
+            compose.onNodeWithTag("pick-1").assertDoesNotExist()
             // The emulator has no screen lock, so recovery is explained instead of offered.
             if (!compose.activity.getSystemService(KeyguardManager::class.java).isDeviceSecure) {
                 compose.onNodeWithTag("lock-device").assertIsNotEnabled()

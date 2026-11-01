@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
@@ -63,7 +64,7 @@ class IdentitySettingsTests {
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
         check(!PlatformKeyStore.exists(second.slot.alias)) { "The removed identity kept its key" }
         // Later tests start from the active identity, not the picker.
-        compose.onNode(hasTestTag("identity") and hasText(first)).performScrollTo().performClick()
+        compose.onNodeWithText(first).performScrollTo().performClick()
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
@@ -76,7 +77,7 @@ class IdentitySettingsTests {
         compose.waitForText("settings-network-status", R.string.settings_network_none)
         click("settings-network")
         compose.onNodeWithTag("network-peer-id").assertTextEquals(peerId)
-        compose.onNodeWithTag("network-back").assertDoesNotExist()
+        compose.onNodeWithTag("skip-network").assertDoesNotExist()
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("settings-create").assertExists()
     }

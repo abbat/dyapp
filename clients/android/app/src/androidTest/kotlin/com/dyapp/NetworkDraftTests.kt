@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
@@ -31,21 +32,25 @@ private fun text(id: Int) = InstrumentationRegistry.getInstrumentation().targetC
 internal fun ComposeTestRule.texts(tag: String) = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
     .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
 
+/** The text of each node inside the [tag] container. */
+internal fun ComposeTestRule.textsIn(tag: String) = onAllNodes(hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
+    .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
+
 // A timeout names what the tag and the network check rows showed instead.
 internal fun ComposeTestRule.waitForText(tag: String, id: Int) = runCatching {
     waitUntil(CHECK_WAIT_MS) { onAllNodes(hasTestTag(tag) and hasText(text(id))).fetchSemanticsNodes().isNotEmpty() }
-}.onFailure { throw AssertionError("$tag shows ${texts(tag)}, rows ${texts("network-row")}", it) }
+}.onFailure { throw AssertionError("$tag shows ${texts(tag)}, rows ${textsIn("seed-rows")}", it) }
 
 private fun ComposeTestRule.checkShows(vararg ids: Int) = ids.any { id ->
     onAllNodes(hasTestTag("network-check-status") and hasText(text(id))).fetchSemanticsNodes().isNotEmpty()
 }
 
 /** Runs the check until a result shows; with [retryUnreachable], retries as a user would. */
-internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false) {
+internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false, button: String = "check-connection") {
     // The first dial of a cold, software-emulated app can outlast the 5 s check.
     repeat(if (retryUnreachable) CHECK_TRIES else 1) {
         if (checkShows(R.string.network_connected)) return@repeat
-        onNodeWithTag("network-check").performScrollTo().performClick()
+        onNodeWithTag(button).performScrollTo().performClick()
         waitUntil(CHECK_WAIT_MS) {
             checkShows(R.string.network_connected, R.string.network_unreachable, R.string.network_check_failed,
                 R.string.network_invalid_address, R.string.network_wrong)
@@ -60,7 +65,7 @@ internal fun ComposeTestRule.activateLocalNode() {
     onNodeWithTag("nav-network").performClick()
     onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
     onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
-    checkNetwork(retryUnreachable = true)
+    checkNetwork(retryUnreachable = true, button = "check-and-connect")
     waitForText("network-check-status", R.string.network_connected)
     onNodeWithTag("network-continue").performScrollTo().performClick()
     waitForText("network-check-status", R.string.network_active)
@@ -86,15 +91,15 @@ class NetworkDraftTests {
 
     // The automatic form of an identity without an active network; the unlock takes seconds.
     private fun formPeerId(): String {
-        compose.waitUntil(60_000) { compose.onAllNodesWithTag("network-back").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(60_000) { compose.onAllNodesWithTag("skip-network").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("app-ready").assertDoesNotExist()
         compose.waitForText("network-status", R.string.network_draft_only)
-        return compose.texts("network-peer-id").single().orEmpty()
+        return compose.texts("peer-id").single().orEmpty()
     }
 
     private fun enter(seeds: String, name: String) {
-        compose.onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
-        compose.onNodeWithTag("network-seeds").performTextInput(seeds)
+        compose.onNodeWithTag("seeds").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("seeds").performTextInput(seeds)
         compose.onNodeWithTag("network-name").performScrollTo().performTextClearance()
         if (name.isNotEmpty()) compose.onNodeWithTag("network-name").performTextInput(name)
     }
@@ -103,12 +108,12 @@ class NetworkDraftTests {
     private fun reopensDraft(peerId: String, seeds: String, name: String) {
         compose.activityRule.scenario.recreate()
         check(formPeerId() == peerId) { "Peer ID changed on restart" }
-        compose.onNode(hasTestTag("network-seeds") and hasText(seeds)).assertExists()
+        compose.onNode(hasTestTag("seeds") and hasText(seeds)).assertExists()
         compose.onNode(hasTestTag("network-name") and hasText(name)).assertExists()
     }
 
     private fun expectRows(vararg expected: String) {
-        val rows = compose.texts("network-row")
+        val rows = compose.textsIn("seed-rows")
         check(rows == expected.toList()) { "Unexpected rows $rows" }
     }
 
@@ -132,11 +137,11 @@ class NetworkDraftTests {
                 "${seeds[2]}: ${string(R.string.network_row_wrong_peer)}",
             )
             compose.onNodeWithTag("network-continue").performScrollTo().assertIsNotEnabled()
-            compose.onNodeWithTag("network-check").assertTextEquals(string(R.string.network_retry))
+            compose.onNodeWithTag("check-connection").assertTextEquals(string(R.string.network_retry))
 
             // The live node under another network name.
             enter(LOCAL_NODE, "city")
-            compose.onNodeWithTag("network-check").assertTextEquals(string(R.string.network_check))
+            compose.onNodeWithTag("check-connection").assertTextEquals(string(R.string.network_check))
             compose.checkNetwork()
             compose.waitForText("network-check-status", R.string.network_wrong)
             expectRows("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")
@@ -164,7 +169,7 @@ class NetworkDraftTests {
             // With an active network a restart lands on Ready with the same identity key.
             compose.activityRule.scenario.recreate()
             compose.waitUntil(60_000) { compose.onAllNodesWithTag("app-ready").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("network-back").assertDoesNotExist()
+            compose.onNodeWithTag("skip-network").assertDoesNotExist()
             check(compose.shownPeerId() == peerId) { "Peer ID changed after activation" }
         } finally {
             forgetNetworks()
