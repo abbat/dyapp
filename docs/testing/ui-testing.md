@@ -126,7 +126,8 @@ A late tray result cannot replace the new window controls. Old removal inventory
 responses cannot open a dialog after a switch. An old withdrawal cannot remove the new identity
 or change its dialog to Offline; a current withdrawal still proceeds. An old launch network
 load cannot start a dial or repaint the newer connection status; a late old dial cannot repaint
-it either. That relaunch checks the Storage card:
+it either. Old active or draft network file loads and a late draft-save error cannot change the
+new network form or status. That relaunch checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

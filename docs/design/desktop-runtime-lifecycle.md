@@ -30,7 +30,8 @@ completions, including errors. Settings identity inventory loads also ignore lat
 and errors. Node Settings load/save callbacks discard old status, form and busy updates. Tray
 Settings responses, removal-dialog preparation and withdrawal before removal also ignore old
 UI generations. Launch connection status and follow-up dial also check the generation and
-connection-run token. Other async callback guards remain planned.
+connection-run token. Network form loads and draft-save errors ignore old generations as well.
+Other async callback guards remain planned.
 Sensitive clipboard expiry still clears an old copied number when its timer fires.
 
 ## Required behavior

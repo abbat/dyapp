@@ -51,17 +51,20 @@ const draft = () => ({
 });
 
 // Fills the form from the draft, else the active settings; a damaged file is shown, not reset.
-const showNetwork = async () => {
+const showNetwork = async (call = invoke) => {
+  const generation = identityGeneration;
   seedRows.replaceChildren();
   networkError.hidden = true;
   try {
-    const active = await invoke('load_network', { file: 'active' });
-    const saved = await invoke('load_network', { file: 'draft' }) || active;
+    const active = await call('load_network', { file: 'active' });
+    if (!identityCurrent(generation)) return;
+    const saved = await call('load_network', { file: 'draft' }) || active;
+    if (!identityCurrent(generation)) return;
     seeds.value = saved ? saved.seeds.join('\n') : '';
     networkName.value = saved ? saved.name : '';
     networkStatus(active ? 'network.active' : 'network.idle');
   } catch (error) {
-    networkStatus('network.failed', String(error));
+    if (identityCurrent(generation)) networkStatus('network.failed', String(error));
   }
 };
 window.showNetwork = showNetwork;
@@ -151,8 +154,14 @@ network.addEventListener('submit', (event) => {
   window.connectionChecked = check();
 });
 // Edits are kept even if the app closes before a check.
-network.addEventListener('change', () => invoke('save_network_draft', { draft: draft() })
-  .catch((error) => networkStatus('network.failed', String(error))));
+const saveNetworkDraft = (call = invoke) => {
+  const generation = identityGeneration;
+  return call('save_network_draft', { draft: draft() })
+    .catch((error) => {
+      if (identityCurrent(generation)) networkStatus('network.failed', String(error));
+    });
+};
+network.addEventListener('change', () => { saveNetworkDraft(); });
 cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 // First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
 const peerCode = document.getElementById('peer-id');

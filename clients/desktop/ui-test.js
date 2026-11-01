@@ -914,6 +914,52 @@ const checkStaleLaunchConnection = async () => {
   await oldDial;
   checkCurrent('old dial changed new connection');
 };
+// Old network loads and draft-save errors must leave the new form intact.
+const checkStaleNetworkForm = async () => {
+  const readyState = current;
+  const switchAndShow = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await showNetwork((_, args) => Promise.resolve(args.file === 'active'
+      ? { seeds: ['new-active'], name: 'new' }
+      : { seeds: ['new-draft'], name: 'new draft' }));
+  };
+  const checkNew = (message) => {
+    if (seeds.value !== 'new-draft' || networkName.value !== 'new draft'
+      || document.getElementById('network-status').textContent
+        !== window.strings['network.active']) throw new Error(message);
+  };
+  let finishActive;
+  let oldDraftCalls = 0;
+  const oldActive = showNetwork((_, args) => {
+    if (args.file === 'active') return new Promise((resolve) => { finishActive = resolve; });
+    oldDraftCalls += 1;
+    return Promise.resolve(null);
+  });
+  await switchAndShow();
+  finishActive({ seeds: ['old'], name: 'old' });
+  await oldActive;
+  checkNew('old active load changed new network form');
+  if (oldDraftCalls) throw new Error('old active load continued to draft');
+
+  let finishDraft;
+  const oldDraft = showNetwork((_, args) => args.file === 'active'
+    ? Promise.resolve({ seeds: ['old'], name: 'old' })
+    : new Promise((resolve) => { finishDraft = resolve; }));
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishDraft) throw new Error('old draft load did not start');
+  await switchAndShow();
+  finishDraft({ seeds: ['old-draft'], name: 'old draft' });
+  await oldDraft;
+  checkNew('old draft load changed new network form');
+
+  let failSave;
+  const oldSave = saveNetworkDraft(() => new Promise((_, reject) => { failSave = reject; }));
+  await switchAndShow();
+  failSave(new Error('old draft save'));
+  await oldSave;
+  checkNew('old draft-save error changed new network status');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1696,6 +1742,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleRemovePreparation();
       await checkStaleWithdrawal();
       await checkStaleLaunchConnection();
+      await checkStaleNetworkForm();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
