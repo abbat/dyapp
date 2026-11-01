@@ -80,9 +80,9 @@ const reasonText = (reason) => window.strings[`recovery.${reason}`]
 
 // Copies `text()`, by default the text of `source`; where the webview refuses, shows it in
 // `source` and selects it for Ctrl+C instead.
-let clipboardCopyToken = 0;
+window.clipboardCopyToken = 0;
 const copyFrom = (button, source, text = () => source.textContent) => button.addEventListener('click', () => {
-  clipboardCopyToken += 1;
+  window.clipboardCopyToken += 1;
   const value = text();
   window.copied = Promise.resolve(value).then((copy) => navigator.clipboard.writeText(copy)).then(() => {
     button.textContent = window.strings['action.copied'];

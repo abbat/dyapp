@@ -130,7 +130,7 @@ const stopSafetyCamera = () => {
   clearTimeout(cameraTimer);
   cameraTimer = null;
   cameraPending = false;
-  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream?.getTracks().forEach((track) => { track.stop(); });
   cameraStream = null;
   const preview = document.getElementById('view-safety-preview');
   preview.srcObject = null;
@@ -233,12 +233,12 @@ document.getElementById('copy-safety-number').addEventListener('click', () => {
   const button = document.getElementById('copy-safety-number');
   const source = document.getElementById('view-safety-number');
   const peerId = viewed?.found.peerId;
-  const token = ++clipboardCopyToken;
+  const token = ++window.clipboardCopyToken;
   window.safetyCopied = invoke('copy_safety_number', { peerId }).then((copy) => {
     button.textContent = window.strings['action.copied'];
     setTimeout(() => { button.textContent = window.strings['view.safety.copy']; }, 2000);
     setTimeout(() => {
-      window.safetyClearDone = token === clipboardCopyToken
+      window.safetyClearDone = token === window.clipboardCopyToken
         ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
         : Promise.resolve(false);
     }, 60000);
@@ -366,7 +366,7 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: false,
         video: { width: { ideal: 640 }, height: { ideal: 480 } } });
       if (!current()) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach((track) => { track.stop(); });
         return;
       }
       cameraStream = stream;

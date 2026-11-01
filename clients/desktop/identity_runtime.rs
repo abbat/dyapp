@@ -196,7 +196,7 @@ mod tests {
             )))
             .unwrap();
         let lease = state.lease().unwrap();
-        let (started_tx, started_rx) = mpsc::channel();
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
         let (release_tx, release_rx) = mpsc::channel();
         let caller = tokio::spawn(async move {
             tauri::async_runtime::spawn_blocking(move || {
@@ -207,7 +207,10 @@ mod tests {
             .await
             .unwrap();
         });
-        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), started_rx)
+            .await
+            .unwrap()
+            .unwrap();
         caller.abort();
         let transition = state.start_transition().unwrap();
         assert_eq!(transition.commit(None), Err(GateError::NotDrained));

@@ -647,7 +647,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         config.roles = vec![Role::Store, Role::Media];
         config.network.storage_trust_minutes = 0;
         config.limits.min_free_mb = 0;
-        let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
+        let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
         service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
         let mut swarm = node::swarm_with_protocols(
             Keypair::generate_ed25519(),

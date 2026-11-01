@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn qr_matrix_binds_both_ordered_peer_ids() {
-        let alice = "11".repeat(32);
+        let alice = "aa".repeat(32);
         let bob = "22".repeat(32);
         let carol = "33".repeat(32);
         let shown = matrix_for_peer_ids(&alice, &bob).unwrap();
