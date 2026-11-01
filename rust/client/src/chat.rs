@@ -681,7 +681,11 @@ pub(crate) fn apply(
     if mls::epoch_of(bytes)?.is_some_and(|(epoch, _)| epoch > group.epoch()) {
         return Ok(Some(Event::Gap(id)));
     }
-    Ok(Some(match group.process(device, bytes, profiles)? {
+    let received = match group.process(device, bytes, profiles) {
+        Err(mls::Error::UnknownOwner(owner)) => return Ok(Some(Event::UnknownOwner(owner))),
+        received => received?,
+    };
+    Ok(Some(match received {
         Received::Message {
             sender,
             device,

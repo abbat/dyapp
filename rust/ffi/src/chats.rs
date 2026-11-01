@@ -474,6 +474,7 @@ mod tests {
         assert_eq!(send(&peer, ""), "invalidText");
         assert_eq!(send(&peer, &"x".repeat(MAX_TEXT_BYTES + 1)), "invalidText");
         assert_eq!(send(&peer, "hi"), "unpublished");
+        assert_eq!(send(&peer, &"x".repeat(MAX_TEXT_BYTES)), "unpublished");
         assert_eq!(
             chats.likes(peer.clone()).unwrap(),
             ChatLikes {

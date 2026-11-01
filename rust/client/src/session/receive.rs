@@ -215,7 +215,12 @@ impl Session {
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
         let mut event = match chat::apply(device, &mut self.groups, bytes, profiles) {
             Ok(None) => return Ok(None),
-            Ok(Some(event @ (Event::Gap(_) | Event::UnknownOwner(_)))) => return Ok(Some(event)),
+            Ok(Some(event @ Event::Gap(_))) => return Ok(Some(event)),
+            // Decrypting spent the message's secret in memory; the retry with the profile needs it.
+            Ok(Some(event @ Event::UnknownOwner(_))) => {
+                self.recover(seal_key)?;
+                return Ok(Some(event));
+            }
             Ok(Some(event)) => event,
             Err(error) => Event::Refused(error.to_string()),
         };
