@@ -123,7 +123,14 @@ private fun SearchEmpty(result: ProfileSearchResult) {
 
 // Typed failures, then each verified profile by Peer ID with its public fields.
 @Composable
-private fun SearchFound(result: ProfileSearchResult, scales: List<ProfileScale>, run: () -> Unit) {
+@Suppress("LongParameterList") // The own Peer ID hides the action no chat can follow.
+private fun SearchFound(
+    result: ProfileSearchResult,
+    scales: List<ProfileScale>,
+    me: String,
+    run: () -> Unit,
+    openChat: (String) -> Unit,
+) {
     val context = LocalContext.current
     val count = result.profiles.size
     Column(Modifier.testTag("search-results"), Arrangement.spacedBy(12.dp)) {
@@ -136,6 +143,12 @@ private fun SearchFound(result: ProfileSearchResult, scales: List<ProfileScale>,
                     Text(stringResource(R.string.search_peer, found.peerId),
                         style = MaterialTheme.typography.titleSmall)
                     ProfileRows(found.draft.draft(), scales, context)
+                    if (found.peerId != me) {
+                        OutlinedButton(onClick = { openChat(found.peerId) },
+                            modifier = Modifier.fillMaxWidth().testTag("view-message")) {
+                            Text(stringResource(R.string.view_message))
+                        }
+                    }
                 }
             }
         }
@@ -170,7 +183,7 @@ private suspend fun sample(
  * runs the same query again. Cancel abandons the answer; the blocking call itself runs to its end.
  */
 @Composable
-internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit) {
+internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit, openChat: (String) -> Unit) {
     val scales = remember { profileScales() }
     // The searcher keeps verified versions for this screen, so a later sample never shows an older one.
     val searcher = remember(opened.slot.id) { runCatching { ProfileSearcher(opened.slot.dir.absolutePath) } }
@@ -204,7 +217,7 @@ internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit) {
             }
             is SearchState.Failed -> SearchFailed(shown, run, openNetwork)
             is SearchState.Done -> shown.result.let {
-                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, scales, run)
+                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, scales, opened.peerId, run, openChat)
             }
         }
     }
