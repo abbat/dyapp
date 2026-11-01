@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 /** What a bottom bar item or button opens. */
-internal enum class StartTarget { REMOVE, PROFILE, SEARCH, NETWORK, SETTINGS, LOCK }
+internal enum class StartTarget { REMOVE, PROFILE, SEARCH, CHATS, NETWORK, SETTINGS, LOCK }
 
 /** First-run step 1: explains the key and creates nothing until [onCreate]. */
 @Composable

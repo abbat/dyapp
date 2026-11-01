@@ -3,8 +3,16 @@
     <string name="app_name">DYApp</string>
     <string name="nav_profile">Профиль</string>
     <string name="nav_search">Поиск</string>
+    <string name="nav_chats">Чаты</string>
     <string name="nav_network">Сеть</string>
     <string name="nav_settings">Настройки</string>
+    <string name="chats_empty">Пока нет переписок.</string>
+    <string name="chats_identity">Показаны только чаты этой личности.</string>
+    <string name="chats_request">Запрос на переписку</string>
+    <string name="chats_no_messages">Пока нет сообщений.</string>
+    <string name="chats_deleted">Сообщение удалено</string>
+    <string name="chats_forwarded">Переслано · %1$s</string>
+    <string name="chats_unread">Непрочитанных сообщений: %1$s</string>
     <string name="status_no_network">Нет сети</string>
     <string name="status_pick">Выберите личность</string>
     <string name="status_recovery">Не удаётся открыть личность</string>

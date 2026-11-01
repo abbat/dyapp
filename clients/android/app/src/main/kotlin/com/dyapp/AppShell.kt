@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +48,7 @@ private class Section(val target: StartTarget, val tag: String, val label: Int, 
 private val sections = listOf(
     Section(StartTarget.PROFILE, "nav-profile", R.string.nav_profile, R.drawable.ic_nav_profile),
     Section(StartTarget.SEARCH, "nav-search", R.string.nav_search, R.drawable.ic_nav_search),
+    Section(StartTarget.CHATS, "nav-chats", R.string.nav_chats, R.drawable.ic_nav_chats),
     Section(StartTarget.NETWORK, "nav-network", R.string.nav_network, R.drawable.ic_nav_network),
     Section(StartTarget.SETTINGS, "nav-settings", R.string.nav_settings, R.drawable.ic_nav_settings),
 )
@@ -71,12 +73,17 @@ internal fun AppShell(
     if (showNetworkWizard(opened, section)) return
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
+    val chats = rememberChatRows(opened)
     Scaffold(
         topBar = { ShellTopBar(opened, current, open) { switcher = true } },
-        bottomBar = { ShellNavigationBar(current, open) },
+        bottomBar = { ShellNavigationBar(current, chatsBadge(chats), open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            SectionContent(slots, opened, current.target, lockMode, act, open)
+            if (current.target == StartTarget.CHATS) {
+                ChatsScreen(chats)
+            } else {
+                SectionContent(slots, opened, current.target, lockMode, act, open)
+            }
         }
     }
     if (switcher) {
@@ -103,13 +110,21 @@ private fun ShellTopBar(opened: Opened.Ready, current: Section, open: (StartTarg
 }
 
 @Composable
-private fun ShellNavigationBar(current: Section, open: (StartTarget?) -> Unit) {
+private fun ShellNavigationBar(current: Section, chatsBadge: ULong, open: (StartTarget?) -> Unit) {
     NavigationBar {
         for (item in sections) {
             NavigationBarItem(
                 selected = item === current,
                 onClick = { open(item.target) },
-                icon = { Icon(painterResource(item.icon), contentDescription = null) },
+                icon = {
+                    BadgedBox(badge = {
+                        if (item.target == StartTarget.CHATS && chatsBadge > 0uL) {
+                            UnreadBadge(chatsBadge, Modifier.testTag("chats-unread"))
+                        }
+                    }) {
+                        Icon(painterResource(item.icon), contentDescription = null)
+                    }
+                },
                 label = { Text(stringResource(item.label)) },
                 modifier = Modifier.testTag(item.tag),
             )
