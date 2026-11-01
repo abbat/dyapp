@@ -64,6 +64,8 @@ score = 72.2
 "com.dyapp.ProfileDraftTests placePickerSavesOnlyASuggestedPlace" = 2026-10-31
 # macOS: the tap reached settings-create while the identity list was loading; the retry passed.
 "LaunchTests testSettingsCreatesAndSwitchesWithoutReplacingKeys()" = 2026-10-31
+# Bootstrap: media inventory budget assertion passed only on retry; investigate the traffic window.
+"dyapp-bootstrap node::tests::media_inventory_requires_near_trusted_peers_and_budget" = 2026-11-01
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
