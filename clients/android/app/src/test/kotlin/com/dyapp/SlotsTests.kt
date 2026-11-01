@@ -117,6 +117,8 @@ class SlotsTests {
         File(second.slot.dir, "profile-draft.json").writeText("{}")
         File(second.slot.dir, "client.db").writeText("draft")
         File(second.slot.dir, "client.db-wal").writeText("wal")
+        second.slot.deviceKeyFile.writeText("device")
+        second.slot.chatStateKeyFile.writeText("state")
         slots.remove(id, second.peerId)
         assertTrue(slots.list().none { it.id == id })
         assertNull(slots.active())

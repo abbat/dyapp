@@ -82,6 +82,7 @@ opened anyway: Keystore keys never leave the device.
 | Lifecycle | `profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | Wrapped key | `profiles/<slot>/identity.key`: 12-byte IV, then ciphertext and tag. |
 | Wrapping key | Keystore alias `dyapp-identity-wrap:<slot>`, AES-256-GCM, no user authentication. |
+| Chat keys | `profiles/<slot>/device.key` (device mailbox key) and `chat-state.key` (MLS state key), wrapped by the same alias, made on the first publish or chat use. Rust refuses a replaced one, so a lost key never resets MLS state; both go with the slot. |
 | Network settings | `profiles/<slot>/network-draft` and `network`, as on desktop; the legacy slot keeps them at the root. |
 | Active selection | `active-profile` contains the slot UUID or `legacy-primary`. |
 | Legacy key | Root `identity.key` wrapped by alias `dyapp-identity-wrap`; virtual slot `legacy-primary`. |

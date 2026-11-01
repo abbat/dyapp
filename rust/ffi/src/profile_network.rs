@@ -8,6 +8,7 @@ use dyapp_client::store::Store;
 use dyapp_client::{publish, search, Node};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::{seed, Protocols};
+use dyapp_profile::Profile;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -85,7 +86,11 @@ const SEARCH_NODES: usize = 2;
 
 /// Sends the profile the search window holds, once it has ended, to up to [`SEARCH_NODES`]
 /// search nodes `node` finds on `network`. Best effort: a profile no node took stays held.
-async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<(), CoreError> {
+pub(crate) async fn send_held(
+    store: &Store,
+    node: &mut Node,
+    network: &Network,
+) -> Result<(), CoreError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(failed)?
@@ -114,6 +119,18 @@ pub(crate) fn on_network_stack<T: Send>(
             .join()
             .map_err(|_| CoreError::Failed("panicked".into()))?
     })
+}
+
+/// The saved draft, once the publish gate at today's date and its proof allow publishing it.
+pub(crate) fn publishable_draft(store: &Store, attested: bool) -> Result<Profile, CoreError> {
+    let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
+    if let Some(reason) = block_at(&draft, attested, today()?) {
+        return Err(CoreError::Failed(format!("blocked: {reason}")));
+    }
+    if draft.pow_bits < POW_BITS {
+        return Err(CoreError::Failed("unsolved".into()));
+    }
+    Ok(draft)
 }
 
 /// Per-identity publisher network session; its calls block and run off the UI thread.
@@ -157,13 +174,7 @@ impl ProfilePublisher {
     ) -> Result<ProfilePublished, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
-        let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
-        if let Some(reason) = block_at(&draft, attested, today()?) {
-            return Err(CoreError::Failed(format!("blocked: {reason}")));
-        }
-        if draft.pow_bits < POW_BITS {
-            return Err(CoreError::Failed("unsolved".into()));
-        }
+        let draft = publishable_draft(&store, attested)?;
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             // The connection is Send but not Sync, so it moves to the network thread.

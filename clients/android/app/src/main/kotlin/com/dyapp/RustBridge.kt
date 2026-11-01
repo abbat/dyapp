@@ -2,10 +2,12 @@ package com.dyapp
 
 import android.content.Context
 import android.util.Log
+import uniffi.dyapp.ChatSession
 import uniffi.dyapp.ConnectionCheck
 import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkFile
 import uniffi.dyapp.NetworkSettings
+import uniffi.dyapp.newChatStateKey
 import uniffi.dyapp.loadNetwork as ffiLoadNetwork
 import uniffi.dyapp.saveNetworkDraft as ffiSaveNetworkDraft
 
@@ -43,6 +45,25 @@ object RustBridge {
             check(key.peerId() == opened.peerId) { "The identity key changed" }
             action(slot.dir.absolutePath, key)
         }
+    }
+
+    /** Runs [action] on this ready slot's chats off the UI thread; see [chatKeys]. */
+    fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = withKey(opened) { dir, key ->
+        val store = PlatformKeyStore(opened.slot.alias)
+        val (deviceKey, stateKey) = chatKeys(opened.slot, store)
+        IdentityKey.unwrap(store, deviceKey).use { device ->
+            ChatSession.open(dir, key, device, store, stateKey).use(action)
+        }
+    }
+
+    /** The slot's wrapped device and state keys, made once; Rust refuses a replaced one. */
+    @Synchronized
+    private fun chatKeys(slot: Slot, store: PlatformKeyStore): Pair<ByteArray, ByteArray> {
+        if (!slot.deviceKeyFile.exists()) {
+            writeAtomic(slot.deviceKeyFile, IdentityKey.generate().use { it.wrap(store) })
+        }
+        if (!slot.chatStateKeyFile.exists()) writeAtomic(slot.chatStateKeyFile, newChatStateKey(store))
+        return slot.deviceKeyFile.readBytes() to slot.chatStateKeyFile.readBytes()
     }
 
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
