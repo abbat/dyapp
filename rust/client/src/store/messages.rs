@@ -396,7 +396,7 @@ impl Store {
     }
 
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
-    /// The inbox retains only a body digest, never a second copy of chat text. Returns false for
+    /// The inbox retains only a body digest, never a second copy of chat content. Returns false for
     /// a duplicate envelope and for a body the request rules drop, which is still ACKed.
     pub fn stage_chat_inbound(
         &mut self,
@@ -408,8 +408,10 @@ impl Store {
     ) -> Result<bool, Error> {
         let id = match body {
             Body::Text { id, .. } => id,
+            Body::Attachment(message) => &message.id,
             Body::Forwarded(inner) => match inner.as_ref() {
                 Body::Text { id, .. } => id,
+                Body::Attachment(message) => &message.id,
                 _ => return Err(Error::InboxConflict),
             },
             Body::Edit { target, .. } | Body::Delete { target, .. } => target,
@@ -439,19 +441,36 @@ impl Store {
                     shown = false;
                     return Ok(());
                 }
-                shown = match body {
-                    Body::Text { .. } | Body::Forwarded(_) => {
-                        conversations::on_text(tx, &owner, &key.group, &key.author, key.id, false)?
+                shown = if body.attachment_message().is_some() {
+                    conversations::on_attachment(tx, &owner, &key.group, &key.author, key.id)?
+                } else {
+                    match body {
+                        Body::Text { .. } | Body::Forwarded(_) => conversations::on_text(
+                            tx,
+                            &owner,
+                            &key.group,
+                            &key.author,
+                            key.id,
+                            false,
+                        )?,
+                        _ => conversations::allows_operation(
+                            tx,
+                            &owner,
+                            &key.group,
+                            &key.author,
+                            key.id,
+                        )?,
                     }
-                    _ => conversations::allows_operation(
-                        tx,
-                        &owner,
-                        &key.group,
-                        &key.author,
-                        key.id,
-                    )?,
                 };
                 if !shown {
+                    return Ok(());
+                }
+                if let Some(message) = body.attachment_message() {
+                    i64::try_from(message.hlc).map_err(|_| Error::ClockRange)?;
+                    let observed = HybridClock::resume(load_hlc(tx)?)
+                        .observe_at(Timestamp::from(message.hlc), wall_ms)?;
+                    save_hlc(tx, observed)?;
+                    shown = Self::record_chat_attachment_tx(tx, &owner, sender, body, unread)?;
                     return Ok(());
                 }
                 match body {

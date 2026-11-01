@@ -1,6 +1,94 @@
 use super::{Body, Error, InboxKey, MessageKey, Store, VerifiedChatSender};
+use crate::attachment::Attachment;
+use crate::chat::AttachmentMessage;
 use dyapp_identity::{sha256, Identity};
 use dyapp_messaging::hlc::Timestamp;
+
+fn photo(id: u8, time: u64) -> Body {
+    Body::Attachment(AttachmentMessage {
+        id: [id; 16],
+        hlc: Timestamp::new(time, 0).into(),
+        attachment: Attachment {
+            key: [3; 32],
+            plaintext_sha256: [4; 32],
+            blob_sha256: [5; 32],
+            release_secret: [6; 32],
+            size: 12,
+            preview: vec![7],
+            mime: "image/jpeg".into(),
+            width: 20,
+            height: 10,
+        },
+    })
+}
+
+#[test]
+fn inbound_photo_projects_once_with_snapshot_and_digest() {
+    let path = crate::store::tests::temp_db_path();
+    let owner = Identity::generate();
+    let peer = Identity::generate().peer_id();
+    let group = [9];
+    let device = [8; 32];
+    let sender = VerifiedChatSender {
+        group: &group,
+        author: &peer,
+        device: &device,
+    };
+    let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &group, &peer);
+    let first = photo(1, 100);
+    // An attachment cannot start a stranger's message request.
+    assert!(!store
+        .stage_chat_inbound(b"mls-1", &inbox(1), sender, &first, 1_000)
+        .unwrap());
+    assert!(store.current_chat_attachments(&peer).unwrap().is_empty());
+    assert!(store.has_inbox(&inbox(1)).unwrap());
+    let request = Body::text_with_id([2; 16], b"hello".to_vec());
+    assert!(store
+        .stage_chat_inbound(b"mls-2", &inbox(2), sender, &request, 1_000)
+        .unwrap());
+    let reply = Body::text_with_id([3; 16], b"yes".to_vec());
+    let owner_id = owner.peer_id();
+    let own = VerifiedChatSender {
+        group: &group,
+        author: &owner_id,
+        device: &device,
+    };
+    assert!(store
+        .stage_chat_inbound(b"mls-3", &inbox(3), own, &reply, 1_000)
+        .unwrap());
+
+    assert!(matches!(
+        store.stage_chat_inbound(b"future", &inbox(4), sender, &photo(4, 61_001), 1_000),
+        Err(Error::ClockSkew(_))
+    ));
+    assert!(!store.has_inbox(&inbox(4)).unwrap());
+    assert_eq!(store.sealed_device().unwrap().unwrap(), b"mls-3");
+    assert!(store
+        .stage_chat_inbound(b"mls-4", &inbox(4), sender, &first, 1_000)
+        .unwrap());
+    assert!(!store
+        .stage_chat_inbound(b"mls-4", &inbox(5), sender, &first, 1_000)
+        .unwrap());
+    assert_eq!(store.current_chat_attachments(&peer).unwrap().len(), 1);
+    assert_eq!(store.sealed_device().unwrap().unwrap(), b"mls-4");
+    let digest: Vec<u8> = store
+        .db
+        .query_row(
+            "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
+            [inbox(4).id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(digest, sha256(&first.encode()));
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    let history = store.current_chat_attachments(&peer).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].key.id, [1; 16]);
+    assert!(history[0].unread);
+    assert_eq!(store.pending_acks().unwrap().len(), 5);
+}
 
 fn inbox(id: u8) -> InboxKey {
     InboxKey {

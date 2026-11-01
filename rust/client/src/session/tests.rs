@@ -74,6 +74,87 @@ fn bob_invited(path: &std::path::Path, seal_key: &[u8; 32]) -> Invite {
 }
 
 #[test]
+fn attachment_request_is_dropped_then_forwarded_photo_survives_restart() {
+    let path = temp_path();
+    let seal_key = [5; 32];
+    let Invite {
+        mut session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&path, &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let photo = Body::Attachment(crate::chat::AttachmentMessage {
+        id: [3; 16],
+        hlc: Timestamp::new(1_000, 0).into(),
+        attachment: crate::attachment::Attachment {
+            key: [1; 32],
+            plaintext_sha256: [2; 32],
+            blob_sha256: [3; 32],
+            release_secret: [4; 32],
+            size: 12,
+            preview: vec![5],
+            mime: "image/jpeg".into(),
+            width: 20,
+            height: 10,
+        },
+    });
+    let before = chat::message(&mut group, &alice, &photo).unwrap();
+    assert!(session
+        .stage_envelope(&key(2), &before[0].mls, &profiles, &seal_key)
+        .unwrap()
+        .is_none());
+    assert!(session
+        .store
+        .current_chat_attachments(&alice_id.peer_id())
+        .unwrap()
+        .is_empty());
+
+    let request = chat::message(
+        &mut group,
+        &alice,
+        &Body::text_with_id([1; 16], b"hello".to_vec()),
+    )
+    .unwrap();
+    assert!(session
+        .stage_envelope(&key(3), &request[0].mls, &profiles, &seal_key)
+        .unwrap()
+        .is_some());
+    session.stage_text(group.id(), b"reply", &seal_key).unwrap();
+    let forward = Body::Forwarded(Box::new(photo));
+    let after = chat::message(&mut group, &alice, &forward).unwrap();
+    assert!(session
+        .stage_envelope(&key(4), &after[0].mls, &profiles, &seal_key)
+        .unwrap()
+        .is_some());
+    let payload: Vec<u8> = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row(
+            "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
+            [key(4).id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(payload, dyapp_identity::sha256(&forward.encode()));
+    drop(session);
+
+    let session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+    let history = session
+        .store
+        .current_chat_attachments(&alice_id.peer_id())
+        .unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].key.id, [3; 16]);
+    assert!(history[0].forwarded && history[0].unread);
+    assert!(session.store.has_inbox(&key(4)).unwrap());
+}
+
+#[test]
 fn received_envelopes_commit_before_ack_and_survive_restart() {
     let path = temp_path();
     let seal_key = [5; 32];

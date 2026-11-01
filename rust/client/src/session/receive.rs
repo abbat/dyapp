@@ -328,10 +328,12 @@ impl Session {
                         body,
                     } = &event
                     {
-                        if matches!(
-                            body,
-                            Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
-                        ) || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
+                        if body.attachment_message().is_some()
+                            || matches!(
+                                body,
+                                Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
+                            )
+                            || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
                         {
                             let verified = VerifiedChatSender {
                                 group,

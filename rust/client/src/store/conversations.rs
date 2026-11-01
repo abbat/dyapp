@@ -134,6 +134,30 @@ pub(super) fn on_text(
     Ok(true)
 }
 
+/// Attachments can answer a pending text request or continue an open/matched chat, but cannot
+/// create the initial request. The caller has verified the MLS author and group.
+pub(super) fn on_attachment(
+    tx: &Transaction<'_>,
+    owner: &str,
+    group: &[u8],
+    author: &str,
+    id: [u8; 16],
+) -> Result<bool, Error> {
+    let peer = group_peer(tx, owner, group, author)?;
+    let own = author == owner;
+    let allowed = matched(tx, owner, &peer)?
+        || match load(tx, &peer)? {
+            Conversation::Open => true,
+            Conversation::RequestSent(_) => !own,
+            Conversation::RequestReceived(_) => own,
+            Conversation::None => false,
+        };
+    if !allowed {
+        return Ok(false);
+    }
+    on_text(tx, owner, group, author, id, false)
+}
+
 /// Whether a peer's edit or delete of `target` applies: while a request is pending only the
 /// pending text may change.
 pub(super) fn allows_operation(
