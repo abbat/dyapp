@@ -11,17 +11,15 @@ dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
 
 The Android client follows this prototype, and its test tags are the IDs below. Still planned:
-the Chats section with its tab (`nav-chats`, `chats-unread`) and both detail screens, found
-profile and chat. The sections below note every other difference from the prototype. `make quality`
-checks that every ID and state in backticks on this page is an id or a data-on state in the
-prototype. The prototype wording is a draft; the shipped strings stay in
+both detail screens, found profile and chat, and the Chats tabs. The sections below note every
+other difference from the prototype. `make quality` checks that every ID and state in backticks on
+this page is an id or a data-on state in the prototype. The prototype wording is a draft; the shipped strings stay in
 `clients/android/app/src/main/res`.
 
 ## Layout
 
-Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar, four on
-Android until Chats ships; each has a top app bar with its title, the connection status and the
-identity avatar. Detail
+Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar; each has
+a top app bar with its title, the connection status and the identity avatar. Detail
 screens (a found profile, a chat, the app lock settings) replace both bars with a back bar.
 Dialogs are Material dialogs over a scrim; the identity switcher is a bottom sheet.
 
@@ -29,7 +27,7 @@ Dialogs are Material dialogs over a scrim; the identity switcher is a bottom she
 | --- | --- | --- |
 | Profile | `nav-profile` | Bottom bar; the start section |
 | Search | `nav-search` | |
-| Chats | `nav-chats` | Unread badge `chats-unread` |
+| Chats | `nav-chats` | Badge `chats-unread`: unread messages plus message requests, a request counting once |
 | Network | `nav-network` | |
 | Settings | `nav-settings` | |
 | Connection status | `connection-status` | Top bar chip; opens Network |
@@ -110,7 +108,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   fields, as there is no profile page to open yet; Cancel abandons the answer while the node call
   runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
-- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`.
+- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. Android
+  has no `chats-liked` and `chats-requests` yet, so requests sit in `chat-list` with a marker; a row
+  shows the short Peer ID rather than a name and does not open yet. The app receives the mailbox
+  every minute while it is in the foreground, on every section; failures stay quiet.
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),

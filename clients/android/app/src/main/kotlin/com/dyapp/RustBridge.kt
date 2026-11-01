@@ -47,12 +47,20 @@ object RustBridge {
         }
     }
 
-    /** Runs [action] on this ready slot's chats off the UI thread; see [chatKeys]. */
-    fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = withKey(opened) { dir, key ->
-        val store = PlatformKeyStore(opened.slot.alias)
-        val (deviceKey, stateKey) = chatKeys(opened.slot, store)
-        IdentityKey.unwrap(store, deviceKey).use { device ->
-            ChatSession.open(dir, key, device, store, stateKey).use(action)
+    // Not this object's monitor: show() runs on the UI thread and must not wait for a network receive.
+    private val chatsLock = Any()
+
+    /**
+     * Runs [action] on this ready slot's chats off the UI thread; see [chatKeys]. One session at a
+     * time: two would advance the same saved MLS state and the later one would drop the other's commit.
+     */
+    fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = synchronized(chatsLock) {
+        withKey(opened) { dir, key ->
+            val store = PlatformKeyStore(opened.slot.alias)
+            val (deviceKey, stateKey) = chatKeys(opened.slot, store)
+            IdentityKey.unwrap(store, deviceKey).use { device ->
+                ChatSession.open(dir, key, device, store, stateKey).use(action)
+            }
         }
     }
 
