@@ -1,5 +1,48 @@
 use super::identity_runtime::ready_result;
+use super::{drain_and_clear, search, IdentityState, NetworkState};
+use dyapp_identity::Identity;
+use dyapp_profile::Profile;
 use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+#[tokio::test]
+async fn identity_transition_clears_profiles_only_after_old_work_drains() {
+    let state = IdentityState::new();
+    state
+        .start_transition()
+        .unwrap()
+        .commit(Some((
+            Arc::new(Identity::generate()),
+            PathBuf::from("first"),
+        )))
+        .unwrap();
+    let lease = state.lease().unwrap();
+    let owner = Identity::generate();
+    let verified = dyapp_profile::verify(
+        &Profile {
+            version: 1,
+            ..Profile::default()
+        }
+        .sign(&owner),
+    )
+    .unwrap();
+    let searching = Arc::new(search::SearchState::default());
+    searching.0.lock().unwrap().accept(verified).unwrap();
+    let checks = Arc::new(NetworkState::default());
+    let transition = state.start_transition().unwrap();
+    let worker = {
+        let searching = Arc::clone(&searching);
+        let checks = Arc::clone(&checks);
+        tokio::spawn(async move { drain_and_clear(transition, &searching, &checks).await })
+    };
+    tokio::task::yield_now().await;
+    assert!(!worker.is_finished());
+    assert_eq!(searching.0.lock().unwrap().all().len(), 1);
+    drop(lease);
+    worker.await.unwrap().unwrap().commit(None).unwrap();
+    assert!(searching.0.lock().unwrap().all().is_empty());
+}
 
 #[test]
 fn backup_path_is_only_returned_for_file_storage() {

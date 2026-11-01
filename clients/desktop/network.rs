@@ -20,6 +20,14 @@ pub struct NetworkState {
     checked: Mutex<Option<(PathBuf, Network)>>,
 }
 
+impl NetworkState {
+    /// A successful check is valid only for the active identity generation.
+    pub fn clear_checked(&self) -> Result<(), String> {
+        *self.checked.lock().map_err(|e| e.to_string())? = None;
+        Ok(())
+    }
+}
+
 /// Seed rows and network name as the page sends and receives them.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Draft {
@@ -209,6 +217,8 @@ mod tests {
         );
         assert_eq!(activate(&state, &dir), Ok(other.clone()));
         assert_eq!(load(&dir, "active"), Ok(Some(other)));
+        state.clear_checked().unwrap();
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
     }
 
     #[tokio::test]

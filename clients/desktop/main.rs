@@ -143,7 +143,20 @@ async fn drain_identity(
         app.state::<ProfileState>().cancel();
         network::cancel(&app.state::<NetworkState>());
     })?;
-    IdentityState::drain(transition).await
+    let searching = app.state::<search::SearchState>();
+    let checks = app.state::<NetworkState>();
+    drain_and_clear(transition, &searching, &checks).await
+}
+
+async fn drain_and_clear(
+    transition: identity_gate::Transition<identity_runtime::ActiveIdentity>,
+    searching: &search::SearchState,
+    checks: &NetworkState,
+) -> Result<identity_gate::Transition<identity_runtime::ActiveIdentity>, String> {
+    let transition = IdentityState::drain(transition).await?;
+    searching.clear()?;
+    checks.clear_checked()?;
+    Ok(transition)
 }
 
 #[tauri::command]

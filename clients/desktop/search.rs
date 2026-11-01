@@ -23,6 +23,14 @@ const SEARCH_NODES: usize = 3;
 #[derive(Default)]
 pub struct SearchState(pub Arc<Mutex<Profiles>>);
 
+impl SearchState {
+    /// Discard verified profiles held for the previous active context.
+    pub fn clear(&self) -> Result<(), String> {
+        *self.0.lock().map_err(|e| e.to_string())? = Profiles::default();
+        Ok(())
+    }
+}
+
 /// One filter as the page sends it; `op` is `eq`, `in` or `range`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
 pub struct Condition {
@@ -229,7 +237,9 @@ pub async fn search(
 /// not come from this run's search cache (for example it may have sent a like).
 pub fn block(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
     if peer_id.len() != 64
-        || !peer_id.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        || !peer_id
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
         || peer_id == identity.peer_id()
     {
         return Err("invalidPeer".into());
@@ -292,7 +302,10 @@ mod tests {
         let (dir, alice) = (temp_dir(), Identity::generate());
         let peer = Identity::generate().peer_id();
         assert_eq!(block(&dir, &alice, "bad"), Err("invalidPeer".into()));
-        assert_eq!(block(&dir, &alice, &alice.peer_id()), Err("invalidPeer".into()));
+        assert_eq!(
+            block(&dir, &alice, &alice.peer_id()),
+            Err("invalidPeer".into())
+        );
         assert!(block(&dir, &alice, &peer).is_ok());
         let store = Store::open(&dir.join("client.db"), &alice).unwrap();
         assert!(store.blocked(&peer).unwrap());
