@@ -1,6 +1,6 @@
 //! Durable media descriptors; encrypted blob bytes remain on the media node.
 
-use super::{Body, Error, MessageKey, Store, VerifiedChatSender};
+use super::{Body, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::chat::AttachmentMessage;
 use rusqlite::{params, OptionalExtension, Transaction};
 
@@ -15,6 +15,8 @@ pub struct ChatAttachment {
     pub unread: bool,
     /// The sender forwarded this attachment; no original author is asserted.
     pub forwarded: bool,
+    /// Absent for peer media or an own attachment received from another device.
+    pub delivery: Option<DeliveryState>,
 }
 
 pub(super) fn exists(tx: &Transaction<'_>, key: &MessageKey) -> Result<bool, Error> {
@@ -120,7 +122,8 @@ impl Store {
         }
         let mut query = self.db.prepare(
             "SELECT `a`.`group_id`, `a`.`author`, `a`.`message_id`, `a`.`original_hlc`,
-                    `a`.`descriptor`, `a`.`unread`, `a`.`forwarded`
+                    `a`.`descriptor`, `a`.`unread`, `a`.`forwarded`,
+                    `a`.`delivery_state`, `a`.`delivery_generation`
              FROM `chat_attachments` AS `a`
              JOIN `conversation_groups` AS `g` ON `a`.`group_id` = `g`.`group_id`
              WHERE `g`.`peer_id` = ?1
@@ -135,10 +138,13 @@ impl Store {
                 row.get::<_, Vec<u8>>(4)?,
                 row.get::<_, i64>(5)?,
                 row.get::<_, i64>(6)?,
+                row.get::<_, Option<i64>>(7)?,
+                row.get::<_, Option<Vec<u8>>>(8)?,
             ))
         })?;
         rows.map(|row| {
-            let (group, author, id, hlc, descriptor, unread, forwarded) = row?;
+            let (group, author, id, hlc, descriptor, unread, forwarded, delivery, generation) =
+                row?;
             if (author != self.owner_peer_id && author != peer_id)
                 || !matches!(unread, 0 | 1)
                 || !matches!(forwarded, 0 | 1)
@@ -148,6 +154,15 @@ impl Store {
             }
             let id = id.try_into().map_err(|_| Error::InboxConflict)?;
             let hlc = u64::try_from(hlc).map_err(|_| Error::InboxConflict)?;
+            let delivery = DeliveryState::from_stored(delivery)?;
+            if generation
+                .as_deref()
+                .is_some_and(|generation| generation != id.as_slice())
+                || generation.is_some() != delivery.is_some()
+                || (author != self.owner_peer_id && delivery.is_some())
+            {
+                return Err(Error::InboxConflict);
+            }
             let body = Body::decode(&descriptor).map_err(|_| Error::InboxConflict)?;
             let message = body.attachment_message().ok_or(Error::InboxConflict)?;
             if message.id != id
@@ -162,6 +177,7 @@ impl Store {
                 message: message.clone(),
                 unread: unread == 1,
                 forwarded: forwarded == 1,
+                delivery,
             })
         })
         .collect()

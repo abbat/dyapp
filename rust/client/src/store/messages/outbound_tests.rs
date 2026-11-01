@@ -1,4 +1,6 @@
 use super::{Body, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
+use crate::attachment::Attachment;
+use crate::chat::AttachmentMessage;
 use crate::{prepare_put, PreparedEnvelope};
 use dyapp_identity::Identity;
 use rusqlite::params;
@@ -247,27 +249,110 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
 }
 
 #[test]
-fn attachment_clock_and_exact_write_survive_restart() {
+fn attachment_descriptor_clock_and_delivery_survive_restart() {
     let path = crate::store::tests::temp_db_path();
     let owner = Identity::generate();
+    let author = owner.peer_id();
+    let peer = Identity::generate().peer_id();
+    let group = [3];
+    let device = [4; 32];
+    let sender = VerifiedChatSender {
+        group: &group,
+        author: &author,
+        device: &device,
+    };
     let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &group, &peer);
     let write = prepare_put(&[7; 32], vec![1]).unwrap();
     let hlc = store.draft_chat_text(1_000).unwrap();
+    let body = Body::Attachment(AttachmentMessage {
+        id: [5; 16],
+        hlc,
+        attachment: Attachment {
+            key: [1; 32],
+            plaintext_sha256: [2; 32],
+            blob_sha256: [3; 32],
+            release_secret: [4; 32],
+            size: 12,
+            preview: vec![5],
+            mime: "image/jpeg".into(),
+            width: 20,
+            height: 10,
+        },
+    });
+    assert!(matches!(
+        store.stage_chat_outbound(
+            b"no-request",
+            std::slice::from_ref(&write),
+            sender,
+            &body,
+            1_000
+        ),
+        Err(Error::RequestPending)
+    ));
+    assert!(store.due_outbound(0).unwrap().is_empty());
     store
-        .stage_attachment_outbound(b"mls-attachment", std::slice::from_ref(&write), hlc, 1_000)
+        .db
+        .execute(
+            "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?1, 3, NULL)",
+            [&peer],
+        )
+        .unwrap();
+    store
+        .stage_chat_outbound(
+            b"mls-attachment",
+            std::slice::from_ref(&write),
+            sender,
+            &body,
+            1_000,
+        )
         .unwrap();
     assert!(store.draft_chat_text(1_000).unwrap() > hlc);
+    let history = store.current_chat_attachments(&peer).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].key.id, [5; 16]);
+    assert_eq!(history[0].delivery, Some(DeliveryState::Pending));
+    let link: (Vec<u8>, Vec<u8>) = store
+        .db
+        .query_row(
+            "SELECT `chat_message_id`, `chat_generation_id` FROM `outbox` WHERE `envelope_id` = ?1",
+            [write.id().as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(link, (vec![5; 16], vec![5; 16]));
     assert_eq!(
         store.due_outbound(0).unwrap()[0].as_bytes(),
         write.as_bytes()
     );
-    drop(store);
-    let mut store = Store::open(&path, &owner).unwrap();
-    assert!(store.draft_chat_text(1_000).unwrap() > hlc);
+    let next_hlc = store.draft_chat_text(1_000).unwrap();
+    let conflict = Body::Attachment(AttachmentMessage {
+        id: [5; 16],
+        hlc: next_hlc,
+        attachment: body.attachment_message().unwrap().attachment.clone(),
+    });
     assert!(matches!(
-        store.stage_attachment_outbound(b"mls-wrong", &[], hlc, 1_000),
+        store.stage_chat_outbound(b"mls-wrong", &[], sender, &conflict, 1_000),
         Err(Error::InboxConflict)
     ));
+    assert_eq!(store.draft_chat_text(1_000).unwrap(), next_hlc);
+    store.accepted(&write, 2_000, "node").unwrap();
+    assert_eq!(
+        store.current_chat_attachments(&peer).unwrap()[0].delivery,
+        Some(DeliveryState::NodeAccepted)
+    );
+    store.receipted(write.mailbox(), &[*write.id()]).unwrap();
+    assert_eq!(
+        store.current_chat_attachments(&peer).unwrap()[0].delivery,
+        Some(DeliveryState::DeviceReceived)
+    );
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    assert!(store.draft_chat_text(1_000).unwrap() > hlc);
+    assert_eq!(
+        store.current_chat_attachments(&peer).unwrap()[0].delivery,
+        Some(DeliveryState::DeviceReceived)
+    );
     assert_eq!(
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-attachment"[..])

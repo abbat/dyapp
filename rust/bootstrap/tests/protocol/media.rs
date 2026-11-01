@@ -117,6 +117,15 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         .await
         .unwrap();
 
+    alice_session
+        .receive(
+            from_mut(&mut alice.node),
+            &alice.device_key,
+            &profiles,
+            &SEAL,
+        )
+        .await
+        .unwrap();
     let photo = b"a photo only bob may see".repeat(4096);
     let (mut sent, blob) = attachment::seal(&photo).unwrap();
     sent.preview = b"preview".to_vec();
@@ -132,6 +141,16 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         )
         .await
         .unwrap();
+    let own = alice_session
+        .store()
+        .current_chat_attachments(&bob_owner)
+        .unwrap();
+    assert_eq!(own.len(), 1);
+    assert_eq!(own[0].key.id, sent_id);
+    assert_eq!(
+        own[0].delivery,
+        Some(dyapp_client::store::messages::DeliveryState::NodeAccepted)
+    );
     let blob = bob.node.get_media(&sent.blob_sha256).await.unwrap();
     assert!(!blob.windows(16).any(|window| photo.starts_with(window)));
     assert!(!blob.windows(32).any(|window| window == sent.key));

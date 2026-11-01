@@ -253,17 +253,15 @@ impl Session {
                     .stage_read(group_id, peer, *up_to, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
-            } else if let Some(message) = body.attachment_message() {
-                self.store.stage_attachment_outbound(
-                    &sealed,
-                    &writes,
-                    message.hlc,
-                    crate::now() * 1000,
-                )?;
-            } else if matches!(
-                body,
-                Body::Text { .. } | Body::Forwarded(_) | Body::Edit { .. } | Body::Delete { .. }
-            ) {
+            } else if body.attachment_message().is_some()
+                || matches!(
+                    body,
+                    Body::Text { .. }
+                        | Body::Forwarded(_)
+                        | Body::Edit { .. }
+                        | Body::Delete { .. }
+                )
+            {
                 let author = self.store.owner_peer_id().to_owned();
                 let source_device = device.device_key()?;
                 let sender = VerifiedChatSender {

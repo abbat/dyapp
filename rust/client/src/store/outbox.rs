@@ -176,6 +176,17 @@ fn advance_chat_delivery(
          )",
         params![mailbox.as_slice(), envelope_id.as_slice(), owner, state],
     )?;
+    tx.execute(
+        "UPDATE `chat_attachments` SET `delivery_state` = MAX(`delivery_state`, ?4)
+         WHERE `author` = ?3 AND EXISTS (
+             SELECT 1 FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2
+             AND `awaits_receipt` = 1
+             AND `chat_group` = `chat_attachments`.`group_id`
+             AND `chat_message_id` = `chat_attachments`.`message_id`
+             AND `chat_generation_id` = `chat_attachments`.`delivery_generation`
+         )",
+        params![mailbox.as_slice(), envelope_id.as_slice(), owner, state],
+    )?;
     Ok(())
 }
 

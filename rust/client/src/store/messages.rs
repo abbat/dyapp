@@ -55,6 +55,9 @@ CREATE TABLE `chat_attachments` (
     `descriptor` BLOB NOT NULL CHECK (length(`descriptor`) > 0),
     `forwarded` INTEGER NOT NULL CHECK (`forwarded` IN (0, 1)),
     `unread` INTEGER NOT NULL CHECK (`unread` IN (0, 1)),
+    `delivery_generation` BLOB CHECK (`delivery_generation` IS NULL OR length(`delivery_generation`) = 16),
+    `delivery_state` INTEGER CHECK (`delivery_state` IS NULL OR `delivery_state` IN (0, 1, 2)),
+    CHECK ((`delivery_generation` IS NULL) = (`delivery_state` IS NULL)),
     PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
 CREATE TABLE `chat_operations` (
@@ -169,33 +172,6 @@ impl CurrentMessage {
 }
 
 impl Store {
-    /// Commit an attachment's sender clock with its exact outbox writes and sealed MLS state.
-    /// Its descriptor joins the current chat projection in the attachment history checkpoint.
-    pub fn stage_attachment_outbound(
-        &mut self,
-        sealed_device: &[u8],
-        writes: &[PreparedEnvelope],
-        hlc: u64,
-        wall_ms: u64,
-    ) -> Result<(), Error> {
-        let timestamp = Timestamp::from(hlc);
-        i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
-        if timestamp.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
-            return Err(Error::ClockSkew(ClockSkew {
-                remote_ms: timestamp.wall_ms(),
-                local_ms: wall_ms,
-            }));
-        }
-        let tx = self.db.transaction()?;
-        if timestamp <= load_hlc(&tx)? {
-            return Err(Error::InboxConflict);
-        }
-        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
-        save_hlc(&tx, timestamp)?;
-        tx.commit()?;
-        Ok(())
-    }
-
     /// Draft the original time for one text without changing durable state. The staged MLS
     /// body and the outbox commit must use this exact value.
     pub fn draft_chat_text(&self, wall_ms: u64) -> Result<u64, Error> {
@@ -297,8 +273,10 @@ impl Store {
         }
         let (id, generation) = match body {
             Body::Text { id, .. } => (id, id),
+            Body::Attachment(message) => (&message.id, &message.id),
             Body::Forwarded(inner) => match inner.as_ref() {
                 Body::Text { id, .. } => (id, id),
+                Body::Attachment(message) => (&message.id, &message.id),
                 _ => return Err(Error::InboxConflict),
             },
             Body::Edit {
@@ -326,7 +304,11 @@ impl Store {
                 _ => None,
             },
             _ => None,
-        };
+        }
+        .or_else(|| {
+            body.attachment_message()
+                .map(|message| Timestamp::from(message.hlc))
+        });
         if let Some(hlc) = timed_text {
             if hlc <= load_hlc(tx)? {
                 return Err(Error::InboxConflict);
@@ -339,7 +321,11 @@ impl Store {
             }
             i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
         }
-        if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
+        if body.attachment_message().is_some() {
+            if !conversations::on_attachment(tx, owner, sender.group, sender.author, *id)? {
+                return Err(Error::RequestPending);
+            }
+        } else if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
             conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
         }
         Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
@@ -362,30 +348,42 @@ impl Store {
                 return Err(Error::OutboxConflict);
             }
         }
-        let changed = match body {
-            Body::Text { hlc, text, .. } => {
-                Self::record_chat_text_tx(tx, &key, text, *hlc, false, false)?
-            }
-            Body::Forwarded(inner) => match inner.as_ref() {
+        let changed = if body.attachment_message().is_some() {
+            Self::record_chat_attachment_tx(tx, owner, sender, body, false)?
+        } else {
+            match body {
                 Body::Text { hlc, text, .. } => {
-                    Self::record_chat_text_tx(tx, &key, text, *hlc, false, true)?
+                    Self::record_chat_text_tx(tx, &key, text, *hlc, false, false)?
+                }
+                Body::Forwarded(inner) => match inner.as_ref() {
+                    Body::Text { hlc, text, .. } => {
+                        Self::record_chat_text_tx(tx, &key, text, *hlc, false, true)?
+                    }
+                    _ => unreachable!(),
+                },
+                Body::Edit { .. } | Body::Delete { .. } => {
+                    Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
                 }
                 _ => unreachable!(),
-            },
-            Body::Edit { .. } | Body::Delete { .. } => {
-                Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }
-            _ => unreachable!(),
         };
         // An outbound action must change local state; replay uses the exact existing outbox write.
         if !changed {
             return Err(Error::InboxConflict);
         }
-        let updated = tx.execute(
-            "UPDATE `chat_messages` SET `delivery_generation` = ?4, `delivery_state` = 0
-             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-            params![sender.group, owner, id.as_slice(), generation.as_slice()],
-        )?;
+        let updated = if body.attachment_message().is_some() {
+            tx.execute(
+                "UPDATE `chat_attachments` SET `delivery_generation` = ?4, `delivery_state` = 0
+                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                params![sender.group, owner, id.as_slice(), generation.as_slice()],
+            )?
+        } else {
+            tx.execute(
+                "UPDATE `chat_messages` SET `delivery_generation` = ?4, `delivery_state` = 0
+                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                params![sender.group, owner, id.as_slice(), generation.as_slice()],
+            )?
+        };
         if updated != 1 {
             return Err(Error::InboxConflict);
         }
