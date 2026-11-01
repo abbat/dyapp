@@ -98,12 +98,13 @@ class AppUITests {
         val alias = (RustBridge.slots(context).open() as Opened.Ready).slot.alias
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("settings-remove").performScrollTo().performClick()
-        compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.remove_title))
+        compose.onNodeWithTag("remove-title").assertTextEquals(string(R.string.remove_title))
+        compose.onNodeWithTag("remove-peer").assertTextEquals(second)
         compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()
         compose.onNodeWithTag("remove-warning").assertIsDisplayed()
         compose.onNodeWithTag("remove-action").assertIsNotEnabled()
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
-        compose.onNodeWithTag("remove-action").performScrollTo().performClick()
+        compose.onNodeWithTag("remove-action").performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
         compose.onNodeWithText(shortPeerId(second)).assertDoesNotExist()
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
@@ -138,7 +139,7 @@ class AppUITests {
             compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
             compose.onNodeWithTag("remove-confirm").assertExists()
             compose.onNodeWithTag("remove-warning").assertDoesNotExist()
-            compose.onNodeWithTag("remove-cancel").performScrollTo().performClick()
+            compose.onNodeWithTag("remove-cancel").performClick()
         } finally {
             dir.deleteRecursively()
             slots.setActive(active)

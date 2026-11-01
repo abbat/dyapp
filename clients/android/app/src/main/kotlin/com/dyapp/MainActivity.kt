@@ -9,24 +9,13 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -203,13 +192,13 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val slots = remember { RustBridge.slots(context) }
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
-    // The identity the remove screen asks about; null when it is closed.
+    // The identity the remove dialog asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
     var editor by remember { mutableStateOf<StartTarget?>(null) }
     val act: (() -> Opened) -> Unit = { action ->
         removing = null
         shown = RustBridge.show(slots, action)
-        // Settings stays open across Create, Switch and a cancelled removal, but not past a removal.
+        // Settings stays open across Create and Switch, but not past a removal.
         if (shown.opened !is Opened.Ready) editor = null
     }
     val opened = shown.opened
@@ -220,13 +209,12 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
             else -> editor = target
         }
     }
-    val asked = removing
     when {
-        asked != null -> RemoveScreen(slots, asked, act)
         opened is Opened.Ready -> AppShell(slots, opened, editor, act, open)
         opened == Opened.Setup -> WizardIdentity { act(slots::create) }
         else -> StartColumn(shown, slots, act, open)
     }
+    removing?.let { RemoveDialog(slots, it, act) { removing = null } }
 }
 
 // Removal refuses the legacy slot and damaged or unreadable ones.
@@ -235,43 +223,4 @@ internal fun removable(opened: Opened) = when (opened) {
     is Opened.Recovery -> opened.slot.id != Slots.LEGACY &&
         opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
     else -> false
-}
-
-// Second confirmation: Remove stays disabled until checked. Afterwards the picker shows
-// remaining identities; a new one is never created on its own.
-@Composable
-private fun RemoveScreen(slots: Slots, target: Opened, act: (() -> Opened) -> Unit) {
-    val (slot, peerId) = when (target) {
-        is Opened.Ready -> target.slot to target.peerId
-        is Opened.Recovery -> target.slot to target.peerId
-        else -> return
-    }
-    val copies = remember {
-        peerId != null && runCatching {
-            slots.list().filter { it.id != slot.id }.map { openSlot(it, slots::load) }
-                .any { it is Opened.Ready && it.peerId == peerId }
-        }.getOrDefault(false)
-    }
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        RemoveScreenSummary(target, peerId, copies)
-        RemoveScreenActions(slots, slot, peerId, act)
-    }
-}
-
-@Composable
-private fun RemoveScreenSummary(target: Opened, peerId: String?, copies: Boolean) {
-    Text(stringResource(R.string.remove_title), Modifier.testTag(APP_READY_TAG))
-    Text(peerId ?: reasonText((target as Opened.Recovery).reason))
-    if (peerId != null) {
-        val copy = if (copies) R.string.remove_other_copy else R.string.remove_last_copy
-        Text(stringResource(copy))
-    }
-    // A missing key or another copy means nothing irreplaceable is lost.
-    if (peerId != null && !copies) {
-        Text(stringResource(R.string.remove_warning), Modifier.testTag("remove-warning"))
-    }
 }

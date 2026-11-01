@@ -112,7 +112,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` and `language`,
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`) and `node` (`node-enabled`). `remove-dialog` and `remove-offline`
-  confirm a removal with `remove-confirm`, `remove-action`, `remove-retry` and `remove-anyway`.
+  confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
+  `remove-action`, `remove-retry` and `remove-anyway`. Android has no profile withdrawal yet, so its
+  dialog says that a published profile leaves search by itself within 30 days; `remove-offline` and
+  its Retry and Remove anyway are planned there.
 
 The theme follows the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state.

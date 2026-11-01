@@ -55,12 +55,12 @@ class IdentitySettingsTests {
         // Cancel returns to Settings with the identity intact.
         click("settings-remove")
         compose.onNodeWithTag("remove-action").assertIsNotEnabled()
-        click("remove-cancel")
+        compose.onNodeWithTag("remove-cancel").performClick()
         compose.onNodeWithTag("settings-create").assertExists()
         check(active().peerId == second.peerId) { "Cancel changed the active identity" }
         click("settings-remove")
         click("remove-confirm")
-        click("remove-action")
+        compose.onNodeWithTag("remove-action").performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
         check(!PlatformKeyStore.exists(second.slot.alias)) { "The removed identity kept its key" }
         // Later tests start from the active identity, not the picker.
