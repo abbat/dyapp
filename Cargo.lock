@@ -1179,6 +1179,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dyapp-client",
+ "dyapp-ffi",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
