@@ -312,6 +312,46 @@ const checkChatProjection = async () => {
   await oldSend;
   if (!chatDetail.hidden || chatInput.value) throw new Error('old send painted new identity');
 };
+const checkFirstMessage = async () => {
+  await openArea('search-area');
+  const found = { peerId: 'a'.repeat(64),
+    draft: { birthYear: null, birthMonth: null, birthDay: null }, place: '' };
+  const card = resultCard(found, 'first-message-profile');
+  searchResults.append(card);
+  openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+  const messageButton = document.getElementById('view-message');
+  if (messageButton.disabled) throw new Error('Found profile cannot start a message');
+  messageButton.click();
+  await window.chatOpened;
+  if (activeChat?.peerId !== found.peerId || activeChat.state !== 'none'
+    || chatInput.disabled || !document.getElementById('chat-clear').hidden) {
+    throw new Error('first-message detail did not open');
+  }
+  chatInput.value = 'first text';
+  chatInput.dispatchEvent(new Event('input'));
+  let sent;
+  const own = { author: current.peerId, id: [7], text: 'first text',
+    deleted: false, sentAtMs: null };
+  await sendChatText((command, args) => {
+    if (command === 'send_chat_text') { sent = args; return Promise.resolve([7]); }
+    if (command === 'chat_history') return Promise.resolve({ state: 'requestSent', messages: [own] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([
+      { peerId: found.peerId, state: 'requestSent', lastMessage: own, unreadCount: 0 },
+    ]);
+    throw new Error(`unexpected first text command: ${command}`);
+  });
+  if (sent.peerId !== found.peerId || sent.text !== 'first text'
+    || activeChat.state !== 'requestSent' || !chatInput.disabled
+    || !document.querySelector('#chat-list button')) {
+    throw new Error('first text did not create a pending request row');
+  }
+  let second = 0;
+  await sendChatText(() => { second += 1; throw new Error('second request sent'); });
+  if (second) throw new Error('second unanswered text was sent');
+  showArea('search-area');
+  closeFound();
+};
 const checkClearChat = async () => {
   await openArea('chats-area');
   await window.chatsDone;
@@ -856,7 +896,7 @@ const checkStaleBlocked = async () => {
 globalThis.uiSmokeIdentity = Object.freeze({
   waitFor, openArea, hiddenRendered, shortPeerIdRule, chooseStorage, checkCopy, pickReady,
   checkSettingsInventory, switchFromSettings, checkStaleRender, checkStaleSearchAndChats,
-  checkChatProjection, checkClearChat,
+  checkChatProjection, checkFirstMessage, checkClearChat,
   checkStalePeerActions, checkStaleSafety, checkStaleProfileLoad, checkStaleProfileHandlers,
   checkStalePublishAndHide, checkStaleProfileTimers, checkStaleUsageStatus, checkStalePrivacy,
   checkStaleBlocked,

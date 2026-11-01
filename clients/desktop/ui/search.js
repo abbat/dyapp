@@ -150,6 +150,7 @@ const openFound = (found, card, call = invoke) => {
   const generation = identityGeneration;
   stopSafetyCamera();
   viewed = { found, card };
+  document.getElementById('view-message').disabled = false;
   document.getElementById('view-safety-image').value = '';
   document.getElementById('view-safety-scan-status').hidden = true;
   if (!card.closest('#search-area')) showArea('search-area');
@@ -182,6 +183,7 @@ const openFound = (found, card, call = invoke) => {
 };
 const closeFound = () => {
   stopSafetyCamera();
+  document.getElementById('view-message').disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;
   if (viewed?.card.isConnected) viewed.card.focus();

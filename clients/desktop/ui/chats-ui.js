@@ -170,10 +170,12 @@ const openChat = async (peerId, call = invoke) => {
     document.getElementById('chat-state').textContent =
       window.strings[`chats.state.${history.state}`] || '';
     activeChat = { peerId, ...history };
+    document.getElementById('chat-clear').hidden = history.state === 'none';
     updateComposer();
     chatOverview.hidden = true;
     chatDetail.hidden = false;
     chatsMessage('chats.ready');
+    if (history.state === 'none') return;
     await call('mark_chat_read', { peerId });
     if (!currentChat()) return;
     const rows = await call('chat_rows');
@@ -183,6 +185,12 @@ const openChat = async (peerId, call = invoke) => {
     if (currentChat()) chatsMessage('chats.failed', String(error));
   }
 };
+document.getElementById('view-message').addEventListener('click', () => {
+  const found = viewed?.found;
+  if (!found) return;
+  showArea('chats-area');
+  window.chatOpened = openChat(found.peerId);
+});
 const clearChat = async (call = invoke) => {
   const target = clearTarget;
   if (!target || clearBusy) return;

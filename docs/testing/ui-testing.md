@@ -115,8 +115,9 @@ refresh after the identity changes. The Chats smoke also renders local request a
 rows through mocked commands while the node is unavailable, opens history, marks incoming text
 read locally, and checks Back returns to the list. Mocked send checks the reply transition,
 disabled composer for an unanswered request, retention of an unstaged draft on failure, and a
-locally staged text shown as pending after node failure. Late history and send results are
-ignored after an identity switch. The Clear chat smoke checks Cancel, a failed clear,
+locally staged text shown as pending after node failure. The Found profile smoke opens a
+`none` chat, sends one first text and checks the pending request row and disabled second send.
+Late history and send results are ignored after an identity switch. The Clear chat smoke checks Cancel, a failed clear,
 confirmation with an empty row and local-only note, and a late result after switching identity.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.

@@ -50,7 +50,8 @@ A **match** is derived, never stored: both likes are liked. The screens show the
 causes it, and is never cleared: not by unlike, Clear chat or unblock. Only removing the identity
 deletes it. After an unlike the two keep writing; Block is the way to stop a peer.
 
-The Linux Chats composer follows these states: `requestSent` disables another send,
+The Linux Found profile's Message action opens a `none` conversation to send one first text.
+The Chats composer then follows these states: `requestSent` disables another send,
 `requestReceived` allows one reply, and `open` allows later text. It keeps a draft when a send
 fails before local staging. If a network failure occurs after staging, it shows the local text
 and pending delivery; the desktop minute mailbox poll retries due outbox writes.
