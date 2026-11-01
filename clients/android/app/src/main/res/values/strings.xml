@@ -82,11 +82,17 @@
     <string name="search_failure_puzzle">A search node asked for proof of work the app does not solve.</string>
     <string name="search_failure_invalid">A search node sent a malformed or forged reply; it was dropped.</string>
     <string name="network_title">Network connection</string>
-    <string name="network_seeds">Bootstrap nodes, one host:port per line</string>
-    <string name="network_name">Network name (blank = public)</string>
+    <string name="network_seeds">Bootstrap node addresses</string>
+    <string name="network_seeds_hint">One per line, host:port. Ask the network operator for them.</string>
+    <string name="network_name">Network name</string>
+    <string name="network_name_hint">Leave empty for the public network.</string>
+    <string name="network_name_public">Public network</string>
+    <string name="wizard_step2">Step 2 of 2</string>
+    <string name="wizard_network_title">Join a network</string>
+    <string name="wizard_skip">Skip for now</string>
     <string name="network_save">Save draft</string>
     <string name="network_loading">Loading network settings…</string>
-    <string name="network_draft_only">Edit and save a local draft. Connection check is coming next.</string>
+    <string name="network_draft_only">You can save these settings as a draft and check them later.</string>
     <string name="network_saving">Saving draft…</string>
     <string name="network_saved">Network draft saved.</string>
     <string name="network_read_failed">Could not read network settings. Your identity key was not changed.</string>
@@ -135,7 +141,6 @@
     <string name="profile_saved">Draft saved</string>
     <string name="profile_save_failed">Could not save the draft.</string>
     <string name="profile_read_failed">Could not read the draft.</string>
-    <string name="profile_back">Back</string>
     <string name="profile_birth_optional">Birth date (each part optional)</string>
     <string name="profile_birth_year">Birth year</string>
     <string name="profile_birth_month">Birth month</string>
