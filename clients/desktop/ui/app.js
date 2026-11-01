@@ -96,11 +96,11 @@ const copyFrom = (button, source, text = () => source.textContent) => button.add
 // A result belongs to the identity view that started it, even after its Rust lease ends.
 let identityGeneration = 0;
 const identityCurrent = (generation) => generation === identityGeneration;
-const act = async (pending) => {
+const act = async (pending, fresh = false) => {
   const generation = ++identityGeneration;
   try {
     const state = await pending;
-    if (identityCurrent(generation)) return await render(state, generation);
+    if (identityCurrent(generation)) return await render(state, generation, fresh);
     return state;
   } catch (_) {
     if (identityCurrent(generation)) showError();
@@ -790,10 +790,8 @@ profileHidden.addEventListener('change', async () => {
   }
 });
 
-async function render(state, generation = identityGeneration) {
+async function render(state, generation = identityGeneration, fresh = false) {
   if (!identityCurrent(generation)) return state;
-  const fresh = created;
-  created = false;
   if (state.status === 'ready' || state.status === 'recovery') current = state;
   if (state.status === 'ready') {
     document.getElementById('peer-id').textContent = state.peerId;
@@ -852,12 +850,10 @@ async function render(state, generation = identityGeneration) {
 }
 
 // A new identity opens on the network step of the wizard.
-let created = false;
 createIdentity.addEventListener('click', () => {
   const mode = systemChoice.checked ? 'system' : 'file';
   for (const each of [systemChoice, fileChoice, createIdentity]) each.disabled = true;
-  created = true;
-  act(invoke('create_identity', { mode }));
+  act(invoke('create_identity', { mode }), true);
 });
 copyFrom(document.getElementById('copy-recovery-details'),
   document.getElementById('recovery-details'));
