@@ -54,20 +54,22 @@ private fun IdentityList(
     open: (StartTarget?) -> Unit
 ) {
     val listed = remember(slots, active.slot.id) { RustBridge.show(slots) { Opened.Picker } }
-    Text(stringResource(R.string.settings_identities))
-    if (listed.opened == null) {
-        Text(stringResource(R.string.storage_error))
-    } else {
-        listed.entries.forEach { entry ->
-            IdentitySettingsRow(entry, active.slot.id) { id -> act { slots.setActive(id); slots.open() } }
+    Column(Modifier.testTag("settings-identities"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.settings_identities))
+        if (listed.opened == null) {
+            Text(stringResource(R.string.storage_error))
+        } else {
+            listed.entries.forEach { entry ->
+                IdentitySettingsRow(entry, active.slot.id) { id -> act { slots.setActive(id); slots.open() } }
+            }
         }
-    }
-    Button(onClick = { act(slots::create) }, Modifier.testTag("settings-create")) {
-        Text(stringResource(R.string.identity_add))
-    }
-    if (removable(active)) {
-        OutlinedButton(onClick = { open(StartTarget.REMOVE) }, Modifier.testTag("settings-remove")) {
-            Text(stringResource(R.string.identity_remove))
+        Button(onClick = { act(slots::create) }, Modifier.testTag("settings-create")) {
+            Text(stringResource(R.string.identity_add))
+        }
+        if (removable(active)) {
+            OutlinedButton(onClick = { open(StartTarget.REMOVE) }, Modifier.testTag("settings-remove")) {
+                Text(stringResource(R.string.identity_remove))
+            }
         }
     }
 }
