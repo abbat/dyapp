@@ -16,14 +16,35 @@ use tokio::sync::oneshot;
 pub struct NetworkState {
     // Stops the running check; a second concurrent check takes it over.
     cancel: Mutex<Option<oneshot::Sender<()>>>,
-    // The identity folder and the last draft of it that reached a node of its network.
-    checked: Mutex<Option<(PathBuf, Network)>>,
+    // A successful check belongs to one active-network epoch.
+    checked: Mutex<CheckContext>,
+}
+
+#[derive(Default)]
+struct CheckContext {
+    epoch: u64,
+    last: Option<(PathBuf, Network)>,
 }
 
 impl NetworkState {
     /// A successful check is valid only for the active identity generation.
     pub fn clear_checked(&self) -> Result<(), String> {
-        *self.checked.lock().map_err(|e| e.to_string())? = None;
+        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
+        checked.epoch = checked.epoch.wrapping_add(1);
+        checked.last = None;
+        Ok(())
+    }
+
+    fn check_epoch(&self) -> Result<u64, String> {
+        Ok(self.checked.lock().map_err(|e| e.to_string())?.epoch)
+    }
+
+    fn remember_connected(&self, epoch: u64, dir: PathBuf, draft: Network) -> Result<(), String> {
+        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
+        if checked.epoch != epoch {
+            return Err("cancelled".into());
+        }
+        checked.last = Some((dir, draft));
         Ok(())
     }
 }
@@ -95,6 +116,7 @@ pub async fn check(
     wait: Duration,
     transition_started: impl FnOnce() -> Result<bool, String>,
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
+    let epoch = state.check_epoch()?;
     let draft = Network::from(draft);
     network::save(&dir, Settings::Draft, &draft).map_err(|e| e.to_string())?;
     let (stop, stopped) = oneshot::channel();
@@ -114,7 +136,7 @@ pub async fn check(
         Err(error) => return Err(error.to_string()),
     };
     if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-        *state.checked.lock().map_err(|e| e.to_string())? = Some((dir, draft));
+        state.remember_connected(epoch, dir, draft)?;
     }
     Ok(rows.into_iter().map(describe).collect())
 }
@@ -144,12 +166,14 @@ pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
 /// Makes the last draft of `dir` that reached a node the active configuration; `notChecked`
 /// when no check of this folder did.
 pub fn activate(state: &NetworkState, dir: &Path) -> Result<Draft, String> {
-    let checked = state.checked.lock().map_err(|e| e.to_string())?.clone();
-    let network = match checked {
-        Some((checked_dir, network)) if checked_dir == dir => network,
+    let mut checked = state.checked.lock().map_err(|e| e.to_string())?;
+    let network = match &checked.last {
+        Some((checked_dir, network)) if checked_dir == dir => network.clone(),
         _ => return Err("notChecked".into()),
     };
     network::save(dir, Settings::Active, &network).map_err(|e| e.to_string())?;
+    checked.epoch = checked.epoch.wrapping_add(1);
+    checked.last = None;
     Ok(network.into())
 }
 
@@ -210,15 +234,41 @@ mod tests {
 
         // A remembered success never activates another identity's folder.
         let other = draft(&["seed:1"], "");
-        *state.checked.lock().unwrap() = Some((dir.clone(), other.clone().into()));
+        state.checked.lock().unwrap().last = Some((dir.clone(), other.clone().into()));
         assert_eq!(
             activate(&state, &temp_dir("other")),
             Err("notChecked".into())
         );
         assert_eq!(activate(&state, &dir), Ok(other.clone()));
         assert_eq!(load(&dir, "active"), Ok(Some(other)));
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
         state.clear_checked().unwrap();
         assert_eq!(activate(&state, &dir), Err("notChecked".into()));
+    }
+
+    #[test]
+    fn late_success_cannot_restore_a_consumed_network_check() {
+        let (dir, state) = (temp_dir("check-epoch"), NetworkState::default());
+        let first = draft(&["seed:1"], "first");
+        let old_epoch = state.check_epoch().unwrap();
+        state
+            .remember_connected(old_epoch, dir.clone(), first.clone().into())
+            .unwrap();
+        assert_eq!(activate(&state, &dir), Ok(first));
+        let next = draft(&["seed:2"], "next");
+        assert_eq!(
+            state.remember_connected(old_epoch, dir.clone(), next.clone().into()),
+            Err("cancelled".into())
+        );
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
+        state
+            .remember_connected(
+                state.check_epoch().unwrap(),
+                dir.clone(),
+                next.clone().into(),
+            )
+            .unwrap();
+        assert_eq!(activate(&state, &dir), Ok(next));
     }
 
     #[tokio::test]

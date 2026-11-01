@@ -13,8 +13,9 @@ reopens the persisted selection or previous slot; it never silently opens anothe
 slot cannot reopen, the gate admits no identity until the user retries or reloads. Profile solves
 and seed checks that register after the transition signal probe the gate and cancel themselves.
 After the old leases drain, identity transitions clear verified profiles and the last successful
-network check before admitting work for the new identity. Active-network changes and UI callback
-guards remain planned.
+network check before admitting work for the new identity. A successful network activation consumes
+the check and advances its epoch; a late check from the prior epoch cannot authorize activation.
+Verified-profile invalidation on network activation and UI callback guards remain planned.
 
 ## Required behavior
 

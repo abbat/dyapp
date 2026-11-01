@@ -38,8 +38,9 @@ gate. A failed creation or removal reopens the persisted selection or previous s
 no identity if that slot cannot reopen. Once old leases drain, every identity transition clears
 the shared verified profile cache and remembered successful seed check. A solve or seed check that
 registers after the transition signal probes the gate and cancels itself. The UI asks the node to
-apply the new identity after rendering it. Active-network cache invalidation and UI callback guards
-are specified in the
+apply the new identity after rendering it. Network activation consumes the successful seed check;
+a late check cannot restore it. Verified-profile invalidation on active-network changes and UI
+callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
