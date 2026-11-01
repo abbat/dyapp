@@ -132,13 +132,13 @@ private fun BirthDateFields(birth: BirthInputs) {
     Text(stringResource(R.string.profile_birth_optional))
     OutlinedTextField(birth.year, { birth.year = it }, label = { Text(stringResource(R.string.profile_birth_year)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.testTag("profile-birth-year"))
+        modifier = Modifier.testTag("birth-year"))
     OutlinedTextField(birth.month, { birth.month = it }, label = { Text(stringResource(R.string.profile_birth_month)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.testTag("profile-birth-month"))
+        modifier = Modifier.testTag("birth-month"))
     OutlinedTextField(birth.day, { birth.day = it }, label = { Text(stringResource(R.string.profile_birth_day)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.testTag("profile-birth-day"))
+        modifier = Modifier.testTag("birth-day"))
 }
 
 /** Picks one of the scale's choices or [none], shown with that label. */
@@ -147,7 +147,9 @@ internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     Text(label(context, "field.${scale.key}"))
-    OutlinedButton(onClick = { expanded = true }, modifier = Modifier.testTag("profile-${scale.key}")) {
+    // The prototype names this one control profile-goal; the key itself is a stored name.
+    val tag = "profile-${scale.key.removePrefix("relationship_")}"
+    OutlinedButton(onClick = { expanded = true }, modifier = Modifier.testTag(tag)) {
         val chosen = scale.choices.firstOrNull { it.code.toInt() == selected }
         val title = if (chosen == null) {
             stringResource(none)

@@ -30,7 +30,7 @@ class ProfileDraftTests {
     fun previewShowsOnlyTheSavedDraftWithAgeAndWarnings() {
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-profile").performClick()
-        val parts = listOf("profile-birth-year" to "2000", "profile-birth-month" to "1", "profile-birth-day" to "1")
+        val parts = listOf("birth-year" to "2000", "birth-month" to "1", "birth-day" to "1")
         for ((tag, value) in parts) {
             compose.onNodeWithTag(tag).performScrollTo().performTextClearance()
             compose.onNodeWithTag(tag).performTextInput(value)
@@ -45,7 +45,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-full-date").performScrollTo().assertIsDisplayed()
 
         // An unsaved edit does not change the preview; a saved one does.
-        compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
         compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("profile-full-date").assertExists()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
@@ -62,14 +62,14 @@ class ProfileDraftTests {
         // Its Rust key has an underscore, which the client.db record maps by name.
         val scale = profileScales().first { it.key == "relationship_goal" }
         val choice = label("value.${scale.key}.${scale.choices.first().key}")
-        compose.onNodeWithTag("profile-${scale.key}").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-goal").performScrollTo().performClick()
         // A retried run can already show the choice on the field itself.
-        compose.onNode(hasText(choice) and !hasTestTag("profile-${scale.key}")).performClick()
+        compose.onNode(hasText(choice) and !hasTestTag("profile-goal")).performClick()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithTag("nav-search").performClick()
         compose.onNodeWithTag("nav-profile").performClick()
-        compose.onNodeWithTag("profile-${scale.key}").performScrollTo().assertTextEquals(choice)
+        compose.onNodeWithTag("profile-goal").performScrollTo().assertTextEquals(choice)
     }
 
     private fun label(key: String) = compose.activity.run {
