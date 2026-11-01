@@ -504,21 +504,27 @@ impl Store {
         Ok(inserted && shown)
     }
 
-    /// Mark all current incoming texts from one peer read across that pair's MLS groups.
+    /// Mark all current incoming texts and attachments from one peer read across its MLS groups.
     /// This is device-local and does not send a peer-visible read receipt.
     pub fn mark_chat_read(&mut self, peer_id: &str) -> Result<usize, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);
         }
         let tx = self.db.transaction()?;
-        let changed = tx.execute(
+        let texts = tx.execute(
             "UPDATE `chat_messages` SET `unread` = 0
              WHERE `unread` = 1 AND `author` = ?1
                AND `group_id` IN (SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1)",
             [peer_id],
         )?;
+        let attachments = tx.execute(
+            "UPDATE `chat_attachments` SET `unread` = 0
+             WHERE `unread` = 1 AND `author` = ?1
+               AND `group_id` IN (SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1)",
+            [peer_id],
+        )?;
         tx.commit()?;
-        Ok(changed)
+        Ok(texts + attachments)
     }
 
     /// Read a pair's current texts and deletion placeholders across all cataloged MLS groups.

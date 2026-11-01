@@ -6,9 +6,9 @@ use crate::store::{Error, Store};
 use rusqlite::{params, Transaction};
 
 impl Store {
-    /// Remove every current text and placeholder of `group`, its operations and its unsent
+    /// Remove every current text, placeholder and attachment of `group`, its operations and unsent
     /// outbox writes in one transaction, marking each removed message and each target of a
-    /// removed pending operation. Returns how many texts and placeholders went. Nothing is sent.
+    /// removed pending operation. Returns how many chat items went. Nothing is sent.
     pub fn clear_chat(&mut self, group: &[u8]) -> Result<usize, Error> {
         if group.is_empty() {
             return Err(Error::InboxConflict);
@@ -46,11 +46,17 @@ fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {
     tx.execute(
         "INSERT OR IGNORE INTO `chat_cleared` (`group_id`, `author`, `message_id`)
          SELECT `group_id`, `author`, `message_id` FROM `chat_messages` WHERE `group_id` = ?1
+         UNION SELECT `group_id`, `author`, `message_id` FROM `chat_attachments`
+         WHERE `group_id` = ?1
          UNION SELECT `group_id`, `author`, `target_id` FROM `chat_operations`
          WHERE `group_id` = ?1 AND `pending` = 1",
         [group],
     )?;
-    let removed = tx.execute("DELETE FROM `chat_messages` WHERE `group_id` = ?1", [group])?;
+    let texts = tx.execute("DELETE FROM `chat_messages` WHERE `group_id` = ?1", [group])?;
+    let attachments = tx.execute(
+        "DELETE FROM `chat_attachments` WHERE `group_id` = ?1",
+        [group],
+    )?;
     tx.execute(
         "DELETE FROM `chat_operations` WHERE `group_id` = ?1",
         [group],
@@ -60,7 +66,7 @@ fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {
         "DELETE FROM `outbox` WHERE `chat_group` = ?1 AND `accepted_at_ms` IS NULL",
         [group],
     )?;
-    Ok(removed)
+    Ok(texts + attachments)
 }
 
 /// Whether Clear chat removed `key`.
@@ -76,6 +82,8 @@ pub(super) fn is_cleared(tx: &Transaction<'_>, key: &MessageKey) -> Result<bool,
 #[cfg(test)]
 mod tests {
     use super::super::{Body, InboxKey, MessageKey, Store, VerifiedChatSender};
+    use crate::attachment::Attachment;
+    use crate::chat::AttachmentMessage;
     use crate::prepare_put;
     use dyapp_identity::Identity;
     use dyapp_messaging::hlc::Timestamp;
@@ -93,6 +101,107 @@ mod tests {
             hlc: None,
             text: vec![id],
         }
+    }
+
+    fn photo(id: u8, time: u64) -> Body {
+        Body::Attachment(AttachmentMessage {
+            id: [id; 16],
+            hlc: Timestamp::new(time, 0).into(),
+            attachment: Attachment {
+                key: [1; 32],
+                plaintext_sha256: [2; 32],
+                blob_sha256: [3; 32],
+                release_secret: [4; 32],
+                size: 12,
+                preview: vec![5],
+                mime: "image/jpeg".into(),
+                width: 20,
+                height: 10,
+            },
+        })
+    }
+
+    #[test]
+    fn read_and_clear_apply_to_attachments_across_groups_and_restart() {
+        let path = crate::store::tests::temp_db_path();
+        let owner = Identity::generate();
+        let own = owner.peer_id();
+        let peer = Identity::generate().peer_id();
+        let (first, second, device) = ([3], [4], [5; 32]);
+        let from = |group, author| VerifiedChatSender {
+            group,
+            author,
+            device: &device,
+        };
+        let mut store = Store::open(&path, &owner).unwrap();
+        crate::store::tests::catalog_group(&mut store, &first, &peer);
+        crate::store::tests::catalog_group(&mut store, &second, &peer);
+        assert!(store
+            .stage_chat_inbound(b"mls", &inbox(1), from(&first, &peer), &text(1), 1_000)
+            .unwrap());
+        assert!(store
+            .stage_chat_inbound(b"mls", &inbox(2), from(&first, &own), &text(2), 1_000)
+            .unwrap());
+        assert!(store
+            .stage_chat_inbound(
+                b"mls",
+                &inbox(3),
+                from(&first, &peer),
+                &photo(3, 100),
+                1_000
+            )
+            .unwrap());
+        assert!(store
+            .stage_chat_inbound(
+                b"mls",
+                &inbox(4),
+                from(&second, &peer),
+                &photo(4, 101),
+                1_000
+            )
+            .unwrap());
+        let write = prepare_put(&[7; 32], vec![8]).unwrap();
+        let own_photo = photo(5, 0);
+        let Body::Attachment(mut own_message) = own_photo else { unreachable!() };
+        own_message.hlc = store.draft_chat_text(1_000).unwrap();
+        store
+            .stage_chat_outbound(
+                b"mls",
+                std::slice::from_ref(&write),
+                from(&first, &own),
+                &Body::Attachment(own_message),
+                1_000,
+            )
+            .unwrap();
+        assert_eq!(store.current_chat_attachments(&peer).unwrap().len(), 3);
+        assert_eq!(store.mark_chat_read(&peer).unwrap(), 3);
+        assert_eq!(store.mark_chat_read(&peer).unwrap(), 0);
+        assert!(store
+            .current_chat_attachments(&peer)
+            .unwrap()
+            .iter()
+            .all(|item| !item.unread));
+        assert_eq!(store.clear_chat(&first).unwrap(), 4);
+        assert_eq!(store.current_chat_attachments(&peer).unwrap().len(), 1);
+        assert!(store.due_outbound(0).unwrap().is_empty());
+        assert!(!store
+            .stage_chat_inbound(
+                b"mls",
+                &inbox(6),
+                from(&first, &peer),
+                &photo(3, 100),
+                1_000
+            )
+            .unwrap());
+        assert!(store.has_inbox(&inbox(6)).unwrap());
+        assert_eq!(store.clear_chat_pair(&peer).unwrap(), 1);
+        drop(store);
+        let store = Store::open(&path, &owner).unwrap();
+        assert!(store.current_chat_attachments(&peer).unwrap().is_empty());
+        assert_eq!(
+            store.conversation(&peer).unwrap(),
+            crate::store::Conversation::Open
+        );
     }
 
     #[test]
