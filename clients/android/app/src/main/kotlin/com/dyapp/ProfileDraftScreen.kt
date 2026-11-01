@@ -105,24 +105,37 @@ private fun ProfileDraftForm(
         PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
     }
     val (basics, more) = remember(scales) { scales.partition { it.key in BASIC_SCALES } }
+    val visibility = remember(opened.slot.id) { loadVisibility(opened) }
+    val edits = inputs(values, birth, place)
+    var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
+    val unsaved = edits != savedEdits
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        FormCard {
-            CardTitle(R.string.profile_basics)
-            ScalePickers(basics, values)
-            CardTitle(R.string.profile_birth)
-            BirthDateFields(birth)
-        }
-        FormCard {
-            CardTitle(R.string.profile_place_title)
-            PlacePicker(place)
-        }
+        HideCard(opened, visibility, unsaved)
+        BasicsCard(basics, values, birth)
+        PlaceCard(place)
         MoreScales(more, values)
-        SaveAndPublish(opened, scales, inputs(values, birth, place)) { saveEdits(opened, values, birth, place) }
+        SaveAndPublish(opened, scales, visibility, unsaved) {
+            saveEdits(opened, values, birth, place).also { if (it == R.string.profile_saved) savedEdits = edits }
+        }
     }
+}
+
+@Composable
+private fun BasicsCard(scales: List<ProfileScale>, values: MutableMap<String, Int>, birth: BirthInputs) = FormCard {
+    CardTitle(R.string.profile_basics)
+    ScalePickers(scales, values)
+    CardTitle(R.string.profile_birth)
+    BirthDateFields(birth)
+}
+
+@Composable
+private fun PlaceCard(place: PlaceInputs) = FormCard {
+    CardTitle(R.string.profile_place_title)
+    PlacePicker(place)
 }
 
 @Composable
@@ -154,25 +167,23 @@ private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInp
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable
+@Suppress("LongParameterList") // The form's state and its save action, all from one caller.
 private fun SaveAndPublish(
     opened: Opened.Ready,
     scales: List<ProfileScale>,
-    edits: List<Any?>,
+    visibility: VisibilityState,
+    unsaved: Boolean,
     save: () -> Int,
 ) {
     val context = LocalContext.current
     var status by remember { mutableStateOf("") }
     var saves by remember { mutableIntStateOf(0) }
-    var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
-    val unsaved = edits != savedEdits
     if (status.isNotEmpty()) Text(status, Modifier.testTag("profile-status"))
     key(saves, unsaved) {
-        PublishSection(opened, scales, unsaved, { loadDraft(opened, scales) }) {
+        PublishSection(opened, scales, visibility, unsaved) {
             OutlinedButton(onClick = {
-                val result = save()
-                status = context.getString(result)
+                status = context.getString(save())
                 saves++
-                if (result == R.string.profile_saved) savedEdits = edits
             }, modifier = Modifier.testTag("profile-save")) {
                 Text(stringResource(R.string.profile_save))
             }

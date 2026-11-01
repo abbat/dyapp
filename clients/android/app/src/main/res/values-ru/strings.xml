@@ -193,6 +193,9 @@
     <string name="profile_retry_publish">Повторить публикацию</string>
     <string name="profile_publishing">Публикация и проверка результата…</string>
     <string name="profile_published">Опубликованный профиль проверен</string>
+    <string name="profile_hide">Скрыть из поиска</string>
+    <string name="profile_hide_hint">Можно сделать перерыв, черновик сохранится.</string>
+    <string name="profile_hidden_notice">Профиль скрыт. Выключите переключатель, чтобы снова опубликовать сохранённый черновик.</string>
     <string name="profile_published_version">Версия: %1$s</string>
     <string name="profile_publish_error_underage">Сохранённая дата рождения может означать возраст меньше 18 лет.</string>
     <string name="profile_publish_error_not_attested">Подтвердите возраст от 18 лет и повторите попытку.</string>
