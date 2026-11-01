@@ -7,9 +7,12 @@ these IDs; IDs already in the current client keep their meaning. The static prot
 stylesheet `clients/desktop/ui/style.css`, is not shipped itself and has no logic. `make ui-prototype` saves every state in English and
 Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width>.png`
 ([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The client already has the
-shell with the Profile, Search, Chats, Network and Settings areas and both first-run steps; in
-Chats only the Liked you list exists, and messages and the switcher are planned. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the
-behaviour contracts.
+shell with the Profile, Search, Chats, Network and Settings areas and both first-run steps.
+Chats now shows local requests, conversations and text history with send and Clear controls;
+remaining chat actions and the switcher are planned. Its controller is
+`clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
+cards and place lookup. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
+contracts.
 
 `make quality` checks that every ID and state in backticks on this page is an id or a
 data-on state in the prototype, so the page and the prototype cannot drift apart unnoticed.

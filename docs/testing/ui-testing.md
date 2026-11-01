@@ -118,6 +118,8 @@ disabled composer for an unanswered request, retention of an unstaged draft on f
 locally staged text shown as pending after node failure. Late history and send results are
 ignored after an identity switch. The Clear chat smoke checks Cancel, a failed clear,
 confirmation with an empty row and local-only note, and a late result after switching identity.
+The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
+classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
 safety panel, camera capture and sensitive copy across a switch; an already active camera stream
