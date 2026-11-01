@@ -14,26 +14,53 @@ impl Store {
             return Err(Error::InboxConflict);
         }
         let tx = self.db.transaction()?;
-        tx.execute(
-            "INSERT OR IGNORE INTO `chat_cleared` (`group_id`, `author`, `message_id`)
-             SELECT `group_id`, `author`, `message_id` FROM `chat_messages` WHERE `group_id` = ?1
-             UNION SELECT `group_id`, `author`, `target_id` FROM `chat_operations`
-             WHERE `group_id` = ?1 AND `pending` = 1",
-            [group],
-        )?;
-        let removed = tx.execute("DELETE FROM `chat_messages` WHERE `group_id` = ?1", [group])?;
-        tx.execute(
-            "DELETE FROM `chat_operations` WHERE `group_id` = ?1",
-            [group],
-        )?;
-        // A write a node already accepted is out; only the recipient can drop it now.
-        tx.execute(
-            "DELETE FROM `outbox` WHERE `chat_group` = ?1 AND `accepted_at_ms` IS NULL",
-            [group],
-        )?;
+        let removed = clear_group_tx(&tx, group)?;
         tx.commit()?;
         Ok(removed)
     }
+
+    /// Clear every cataloged MLS group for one peer in a single device-local transaction.
+    /// Conversation state and other peers are unchanged; no receipt is sent.
+    pub fn clear_chat_pair(&mut self, peer_id: &str) -> Result<usize, Error> {
+        if peer_id.is_empty() || peer_id == self.owner_peer_id {
+            return Err(Error::InboxConflict);
+        }
+        let tx = self.db.transaction()?;
+        let groups = {
+            let mut query =
+                tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;
+            let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
+            let groups = rows.collect::<Result<Vec<_>, _>>()?;
+            groups
+        };
+        let mut removed = 0;
+        for group in groups {
+            removed += clear_group_tx(&tx, &group)?;
+        }
+        tx.commit()?;
+        Ok(removed)
+    }
+}
+
+fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {
+    tx.execute(
+        "INSERT OR IGNORE INTO `chat_cleared` (`group_id`, `author`, `message_id`)
+         SELECT `group_id`, `author`, `message_id` FROM `chat_messages` WHERE `group_id` = ?1
+         UNION SELECT `group_id`, `author`, `target_id` FROM `chat_operations`
+         WHERE `group_id` = ?1 AND `pending` = 1",
+        [group],
+    )?;
+    let removed = tx.execute("DELETE FROM `chat_messages` WHERE `group_id` = ?1", [group])?;
+    tx.execute(
+        "DELETE FROM `chat_operations` WHERE `group_id` = ?1",
+        [group],
+    )?;
+    // A write a node already accepted is out; only the recipient can drop it now.
+    tx.execute(
+        "DELETE FROM `outbox` WHERE `chat_group` = ?1 AND `accepted_at_ms` IS NULL",
+        [group],
+    )?;
+    Ok(removed)
 }
 
 /// Whether Clear chat removed `key`.
@@ -170,6 +197,90 @@ mod tests {
             .unwrap();
         assert!(store
             .chat_message(&key(&cleared, &peer, 12))
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn clearing_pair_removes_every_group_but_keeps_other_peer_and_replay_marks() {
+        let path = crate::store::tests::temp_db_path();
+        let owner = Identity::generate();
+        let own = owner.peer_id();
+        let peer = Identity::generate().peer_id();
+        let other = Identity::generate().peer_id();
+        let (first, second, unrelated, device) = ([3], [4], [5], [6; 32]);
+        let from = |group, author| VerifiedChatSender {
+            group,
+            author,
+            device: &device,
+        };
+        let mut store = Store::open(&path, &owner).unwrap();
+        for (group, author) in [
+            (&first[..], &peer),
+            (&second[..], &peer),
+            (&unrelated[..], &other),
+        ] {
+            crate::store::tests::catalog_group(&mut store, group, author);
+        }
+        store
+            .stage_chat_inbound(b"mls", &inbox(1), from(&first, &peer), &text(1), 1_000)
+            .unwrap();
+        store
+            .stage_chat_inbound(b"mls", &inbox(2), from(&first, &own), &text(2), 1_000)
+            .unwrap();
+        store
+            .stage_chat_inbound(b"mls", &inbox(3), from(&second, &peer), &text(3), 1_000)
+            .unwrap();
+        store
+            .stage_chat_inbound(b"mls", &inbox(4), from(&unrelated, &other), &text(4), 1_000)
+            .unwrap();
+        let pending = Body::Edit {
+            target: [9; 16],
+            operation: [10; 16],
+            hlc: Timestamp::new(100, 0).into(),
+            text: b"pending".to_vec(),
+        };
+        store
+            .stage_chat_inbound(b"mls", &inbox(5), from(&second, &peer), &pending, 1_000)
+            .unwrap();
+        assert_eq!(store.clear_chat_pair(&peer).unwrap(), 3);
+        assert_eq!(store.clear_chat_pair(&peer).unwrap(), 0);
+        assert_eq!(
+            store.conversation(&peer).unwrap(),
+            crate::store::Conversation::Open
+        );
+        assert!(store
+            .chat_message(&MessageKey {
+                group: unrelated.to_vec(),
+                author: other.clone(),
+                id: [4; 16]
+            })
+            .unwrap()
+            .is_some());
+        drop(store);
+
+        let mut store = Store::open(&path, &owner).unwrap();
+        for (envelope, group, message) in [(6, &first[..], 1), (7, &second[..], 3)] {
+            assert!(!store
+                .stage_chat_inbound(
+                    b"mls",
+                    &inbox(envelope),
+                    from(group, &peer),
+                    &text(message),
+                    1_000
+                )
+                .unwrap());
+        }
+        assert!(!store
+            .stage_chat_inbound(b"mls", &inbox(8), from(&second, &peer), &text(9), 1_000)
+            .unwrap());
+        assert_eq!(store.mark_chat_read(&peer).unwrap(), 0);
+        assert!(store
+            .chat_message(&MessageKey {
+                group: unrelated.to_vec(),
+                author: other,
+                id: [4; 16]
+            })
             .unwrap()
             .is_some());
     }

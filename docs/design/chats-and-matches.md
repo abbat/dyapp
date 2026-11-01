@@ -78,7 +78,9 @@ The Store marks each accepted incoming text unread on this device; own texts are
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,
 clearing the current unread rows across all pair groups atomically. A later delivery starts unread
 even if its original HLC is older than a message already viewed. This local flag does not depend
-on the optional peer-visible read-receipt setting. The Chats UI still needs to call this API.
+on the optional peer-visible read-receipt setting. `Store::clear_chat_pair` clears all cataloged
+groups for one peer in one transaction, keeping key-only replay marks and the conversation state.
+The Chats UI still needs to call these APIs.
 
 The first own text to a peer with no group runs `chat::invite` with the peer's verified
 KeyPackages, then stages the text in the same epoch; the Welcome and the text share one outbox
