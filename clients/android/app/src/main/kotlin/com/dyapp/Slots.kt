@@ -11,6 +11,8 @@ import java.nio.file.StandardOpenOption
 import java.util.UUID
 
 private const val IDENTITY_KEY_FILE = "identity.key"
+private const val DEVICE_KEY_FILE = "device.key"
+private const val CHAT_STATE_KEY_FILE = "chat-state.key"
 private const val SLOT_STATE_FILE = "state"
 private const val MAX_MARKER_BYTES = 64
 
@@ -29,7 +31,7 @@ private fun readMarker(file: File): String? {
 }
 
 // Replaces the file by a flushed temporary file and a same-directory rename.
-private fun writeAtomic(file: File, value: ByteArray) {
+internal fun writeAtomic(file: File, value: ByteArray) {
     val temp = File(file.path + ".tmp")
     temp.delete()
     FileOutputStream(temp).use {
@@ -106,6 +108,10 @@ class Slot(
 ) {
     /** Wrapped identity key file in [dir]. */
     val keyFile get() = File(dir, IDENTITY_KEY_FILE)
+    /** Wrapped device mailbox key in [dir], made on the first chat use. */
+    val deviceKeyFile get() = File(dir, DEVICE_KEY_FILE)
+    /** Wrapped MLS state key in [dir], made on the first chat use. */
+    val chatStateKeyFile get() = File(dir, CHAT_STATE_KEY_FILE)
     /** Keystore alias that wraps this slot's key. */
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
 }
@@ -268,7 +274,8 @@ class Slots(private val root: File, private val keys: SlotKeys) {
         private val removableSlotFiles = setOf(
             SLOT_STATE_FILE, "state.tmp", "network", "network.tmp", "network-draft", "network-draft.tmp",
             "profile-draft.json", "profile-draft.json.bak", "profile-draft.json.new",
-            "client.db", "client.db-wal", "client.db-shm", "client.db-journal"
+            "client.db", "client.db-wal", "client.db-shm", "client.db-journal",
+            DEVICE_KEY_FILE, "$DEVICE_KEY_FILE.tmp", CHAT_STATE_KEY_FILE, "$CHAT_STATE_KEY_FILE.tmp"
         )
 
         private const val SLOT_RESERVATION_ATTEMPTS = 8

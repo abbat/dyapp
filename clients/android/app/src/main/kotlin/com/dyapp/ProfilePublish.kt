@@ -37,7 +37,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.reflect.KMutableProperty0
 import uniffi.dyapp.ProfilePublished
-import uniffi.dyapp.ProfilePublisher
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.ProfileSolve
 import uniffi.dyapp.ProfileWorkStep
@@ -148,9 +147,7 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
         if (!solveProof(opened, state, attested)) return
         state.publishing = true
         val result = withContext(Dispatchers.IO) {
-            runCatching {
-                RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.publish(key, attested) } }
-            }
+            runCatching { RustBridge.withChats(opened) { it.publishProfile(attested) } }
         }
         result.fold({
             state.published = it

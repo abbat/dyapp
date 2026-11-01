@@ -29,6 +29,19 @@ pub(crate) fn verified(profiles: &[Vec<u8>]) -> Result<Vec<VerifiedProfile>, Cor
         .collect()
 }
 
+/// The state key `store` unwraps from `wrapped`.
+pub(crate) fn unwrap_state_key(
+    store: &Arc<dyn KeyStore>,
+    wrapped: Vec<u8>,
+) -> Result<Zeroizing<[u8; 32]>, CoreError> {
+    let key = Zeroizing::new(store.unwrap(wrapped)?);
+    let key: [u8; 32] = key
+        .as_slice()
+        .try_into()
+        .map_err(|_| CoreError::Failed("unwrapped key is not 32 bytes".to_string()))?;
+    Ok(Zeroizing::new(key))
+}
+
 fn poisoned<T>(_: T) -> CoreError {
     CoreError::Failed("MLS group lock poisoned".to_string())
 }
@@ -37,7 +50,7 @@ fn poisoned<T>(_: T) -> CoreError {
 #[derive(uniffi::Object)]
 pub struct MlsDevice {
     device: Device,
-    pub(crate) state_key: Zeroizing<[u8; 32]>,
+    state_key: Zeroizing<[u8; 32]>,
 }
 
 #[uniffi::export]
@@ -68,12 +81,7 @@ impl MlsDevice {
         wrapped_key: Vec<u8>,
         sealed: Vec<u8>,
     ) -> Result<Arc<Self>, CoreError> {
-        let key = Zeroizing::new(store.unwrap(wrapped_key)?);
-        let key: [u8; 32] = key
-            .as_slice()
-            .try_into()
-            .map_err(|_| CoreError::Failed("unwrapped key is not 32 bytes".to_string()))?;
-        let state_key = Zeroizing::new(key);
+        let state_key = unwrap_state_key(&store, wrapped_key)?;
         Ok(Arc::new(Self {
             device: Device::open(&sealed, &state_key)?,
             state_key,
