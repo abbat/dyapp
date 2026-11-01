@@ -44,6 +44,54 @@ const clearConfirm = document.getElementById('chat-clear-confirm');
 let clearTarget = null;
 let clearBusy = false;
 let clearedPeer = null;
+const editDialog = document.getElementById('chat-edit-dialog');
+const editInput = document.getElementById('chat-edit-input');
+const editError = document.getElementById('chat-edit-error');
+const editCancel = document.getElementById('chat-edit-cancel');
+const editSave = document.getElementById('chat-edit-save');
+let editTarget = null;
+let editBusy = false;
+const closeEdit = () => {
+  if (editDialog.open) editDialog.close();
+  editDialog.hidden = true;
+  editTarget = null;
+  editBusy = false;
+  editCancel.disabled = false;
+  editSave.disabled = false;
+};
+editDialog.addEventListener('close', () => { if (!editDialog.open) closeEdit(); });
+editDialog.addEventListener('cancel', (event) => {
+  if (editBusy) event.preventDefault();
+});
+editCancel.addEventListener('click', closeEdit);
+const updateEdit = () => {
+  const bytes = new TextEncoder().encode(editInput.value).length;
+  editSave.disabled = editBusy || !editTarget || !editInput.value.trim()
+    || editInput.value === editTarget.text || bytes > 65536;
+  if (bytes > 65536) {
+    editError.textContent = window.strings['chats.tooLong'];
+    editError.hidden = false;
+  }
+};
+editInput.addEventListener('input', () => {
+  editError.hidden = true;
+  editError.textContent = '';
+  updateEdit();
+});
+const openEdit = (message) => {
+  if (!activeChat || !activeChat.messages.includes(message)
+    || message.author !== current.peerId || message.deleted) return;
+  editTarget = { peerId: activeChat.peerId, groupId: message.groupId,
+    messageId: message.id, text: message.text, generation: identityGeneration,
+    request: chatOpenRequest };
+  editInput.value = message.text;
+  editError.hidden = true;
+  editError.textContent = '';
+  updateEdit();
+  editDialog.hidden = false;
+  editDialog.showModal();
+  editInput.focus();
+};
 const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
   clearDialog.hidden = true;
@@ -115,6 +163,7 @@ const renderChatRows = (rows) => {
 const closeChat = () => {
   chatOpenRequest += 1;
   closeClear();
+  closeEdit();
   activeChat = null;
   chatSending = false;
   chatBlocking = false;
@@ -161,6 +210,20 @@ const openChat = async (peerId, call = invoke) => {
       const body = document.createElement('span');
       body.textContent = chatPreview(message);
       item.append(label, document.createTextNode(': '), body);
+      if (message.edited && !message.deleted) {
+        const edited = document.createElement('span');
+        edited.className = 'caption';
+        edited.textContent = ` (${window.strings['chats.edited']})`;
+        item.append(edited);
+      }
+      if (message.author === current.peerId && !message.deleted) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn quiet';
+        edit.textContent = window.strings['chats.edit'];
+        edit.addEventListener('click', () => openEdit(message));
+        item.append(document.createTextNode(' '), edit);
+      }
       const time = chatTime(message);
       if (time) {
         const stamp = document.createElement('time');
@@ -301,6 +364,49 @@ const sendChatText = async (call = invoke) => {
 document.getElementById('chat-composer').addEventListener('submit', (event) => {
   event.preventDefault();
   window.chatSent = sendChatText();
+});
+const editChatText = async (call = invoke) => {
+  const target = editTarget;
+  if (!target || editSave.disabled || editBusy) return;
+  const text = editInput.value;
+  const currentEdit = () => editTarget === target && identityCurrent(target.generation)
+    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  editBusy = true;
+  editCancel.disabled = true;
+  updateEdit();
+  let result = 'editSent';
+  let errorText = '';
+  try {
+    await call('edit_chat_text', { peerId: target.peerId, groupId: target.groupId,
+      messageId: target.messageId, text });
+  } catch (error) {
+    errorText = String(error);
+    // The edit may be committed locally even when network delivery failed.
+    const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
+    if (!currentEdit()) return;
+    result = history?.messages.some((message) => message.author === current.peerId
+      && JSON.stringify(message.id) === JSON.stringify(target.messageId)
+      && JSON.stringify(message.groupId) === JSON.stringify(target.groupId)
+      && message.edited && !message.deleted && message.text === text) ? 'editQueued' : 'failed';
+  }
+  if (!currentEdit()) return;
+  editBusy = false;
+  if (result === 'failed') {
+    editCancel.disabled = false;
+    editError.textContent = `${window.strings['chats.editFailed']} ${errorText}`;
+    editError.hidden = false;
+    updateEdit();
+    return;
+  }
+  closeEdit();
+  await openChat(target.peerId, call);
+  if (identityCurrent(target.generation) && activeChat?.peerId === target.peerId) {
+    chatComposeStatus.textContent = window.strings[`chats.${result}`];
+  }
+};
+document.getElementById('chat-edit-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  window.chatEdited = editChatText();
 });
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;

@@ -257,6 +257,85 @@ const checkChatBlock = async () => {
   await oldBlock;
   if (!chatDetail.hidden) throw new Error('old Block repainted new identity');
 };
+const checkChatEdit = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = 'f'.repeat(64);
+  const groupId = [8, 9];
+  const own = { author: current.peerId, groupId, id: [1], text: 'original',
+    deleted: false, edited: false, sentAtMs: null };
+  const theirs = { ...own, author: peer, id: [2], text: 'theirs' };
+  const deleted = { ...own, id: [3], text: null, deleted: true };
+  let messages = [own, theirs, deleted];
+  const row = { peerId: peer, state: 'open', lastMessage: own, unreadCount: 0 };
+  const call = (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([row]);
+    throw new Error(`unexpected Edit command: ${command}`);
+  };
+  await openChat(peer, call);
+  const editButtons = chatMessages.querySelectorAll('button');
+  if (editButtons.length !== 1 || editButtons[0].textContent !== window.strings['chats.edit']) {
+    throw new Error('Edit action visible for peer or deleted text');
+  }
+  editButtons[0].click();
+  if (!editDialog.open || editInput.value !== 'original' || !editSave.disabled) {
+    throw new Error('Edit dialog did not load current own text');
+  }
+  editCancel.click();
+  if (editDialog.open) throw new Error('Edit cancel left dialog open');
+  editButtons[0].click();
+  editInput.value = 'replacement';
+  editInput.dispatchEvent(new Event('input'));
+  let editedArgs;
+  messages = [{ ...own, text: 'replacement', edited: true }, theirs, deleted];
+  await editChatText((command, args) => {
+    if (command === 'edit_chat_text') { editedArgs = args; return Promise.resolve([5]); }
+    return call(command);
+  });
+  if (!editedArgs || editedArgs.peerId !== peer || editedArgs.text !== 'replacement'
+    || JSON.stringify(editedArgs.groupId) !== JSON.stringify(groupId)
+    || JSON.stringify(editedArgs.messageId) !== JSON.stringify(own.id)
+    || editDialog.open || !chatMessages.textContent.includes(window.strings['chats.edited'])
+    || chatComposeStatus.textContent !== window.strings['chats.editSent']) {
+    throw new Error('Edit did not refresh current text and marker');
+  }
+  chatMessages.querySelector('button').click();
+  editInput.value = 'keep draft';
+  editInput.dispatchEvent(new Event('input'));
+  await editChatText((command) => command === 'edit_chat_text'
+    ? Promise.reject('diskFailed') : call(command));
+  if (!editDialog.open || editInput.value !== 'keep draft'
+    || !editError.textContent.includes('diskFailed')) {
+    throw new Error('unstaged Edit lost its draft');
+  }
+  editInput.value = 'queued text';
+  editInput.dispatchEvent(new Event('input'));
+  await editChatText((command) => {
+    if (command === 'edit_chat_text') {
+      messages = [{ ...own, text: 'queued text', edited: true }, theirs, deleted];
+      return Promise.reject('nodeFailed');
+    }
+    return call(command);
+  });
+  if (editDialog.open || !chatMessages.textContent.includes('queued text')
+    || chatComposeStatus.textContent !== window.strings['chats.editQueued']) {
+    throw new Error('staged Edit offered a duplicate retry');
+  }
+  chatMessages.querySelector('button').click();
+  editInput.value = 'late';
+  editInput.dispatchEvent(new Event('input'));
+  let finishEdit;
+  const oldEdit = editChatText((command) => command === 'edit_chat_text'
+    ? new Promise((resolve) => { finishEdit = resolve; }) : call(command));
+  const readyState = current;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishEdit([6]);
+  await oldEdit;
+  if (editDialog.open || !chatDetail.hidden) throw new Error('old Edit painted new identity');
+};
 globalThis.uiSmokeChats = Object.freeze({
-  checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock,
+  checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
 });

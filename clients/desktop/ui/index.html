@@ -486,6 +486,18 @@
       </div>
     </div>
   </dialog>
+  <dialog id="chat-edit-dialog" class="modal" aria-labelledby="chat-edit-title" hidden>
+    <h2 id="chat-edit-title" data-i18n="chats.editTitle"></h2>
+    <form id="chat-edit-form">
+      <label for="chat-edit-input" data-i18n="chats.message"></label>
+      <textarea id="chat-edit-input" rows="4" maxlength="65536"></textarea>
+      <p id="chat-edit-error" class="notice error" role="alert" hidden></p>
+      <div class="actions">
+        <button id="chat-edit-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+        <button id="chat-edit-save" class="btn primary" type="submit" data-i18n="chats.saveEdit"></button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="chat-clear-dialog" class="modal" aria-labelledby="chat-clear-title" hidden>
     <h2 id="chat-clear-title" data-i18n="chats.clearTitle"></h2>
     <p data-i18n="chats.clearWarning"></p>

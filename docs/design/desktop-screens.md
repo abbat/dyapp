@@ -8,7 +8,7 @@ stylesheet `clients/desktop/ui/style.css`, is not shipped itself and has no logi
 Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width>.png`
 ([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The client already has the
 shell with the Profile, Search, Chats, Network and Settings areas and both first-run steps.
-Chats now shows local requests, conversations and text history with send and Clear controls;
+Chats now shows local requests, conversations and text history with send, Edit and Clear controls;
 remaining chat actions and the switcher are planned. Its controller is
 `clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
 cards and place lookup. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
@@ -220,7 +220,9 @@ A sent request shows a disabled composer until the peer replies or a match opens
 A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it
 in history and reports pending delivery. A verified Found profile's Message action opens an
 empty first-message detail; after one send it becomes a sent request and disables the composer.
-Profile names/photos and message actions remain planned for this UI. Clear chat now asks for confirmation,
+Profile names/photos and Delete remain planned for this UI. An own, live text can be edited;
+the dialog starts with its current text, keeps an unstaged draft on failure, and shows a pending
+delivery status when the edited text was staged locally. Clear chat asks for confirmation,
 deletes this computer's history, keeps the conversation row and shows a local-only note. Block
 is available from a request or open chat: it hides the peer locally at once and reports whether
 network token revocation is pending. The Rust desktop commands expose history, send text, Clear
