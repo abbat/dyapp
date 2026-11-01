@@ -10,16 +10,18 @@ dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour contracts;
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
 
-The Android client today has its own test tags and a single-column layout. Relayouting it to
-this prototype renames the tags to the IDs below; until then this page is the plan, not the
-shipped state. `make quality` checks that every ID and state in backticks on this page is an id
-or a data-on state in the prototype. The prototype wording is a draft; the shipped strings stay
-in `clients/android/app/src/main/res`.
+The Android client follows this prototype, and its test tags are the IDs below. Still planned:
+the Chats section with its tab (`nav-chats`, `chats-unread`) and both detail screens, found
+profile and chat. The sections below note every other difference from the prototype. `make quality`
+checks that every ID and state in backticks on this page is an id or a data-on state in the
+prototype. The prototype wording is a draft; the shipped strings stay in
+`clients/android/app/src/main/res`.
 
 ## Layout
 
-Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar; each
-has a top app bar with its title, the connection status and the identity avatar. Detail
+Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar, four on
+Android until Chats ships; each has a top app bar with its title, the connection status and the
+identity avatar. Detail
 screens (a found profile, a chat, the app lock settings) replace both bars with a back bar.
 Dialogs are Material dialogs over a scrim; the identity switcher is a bottom sheet.
 
