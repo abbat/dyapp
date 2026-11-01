@@ -1,14 +1,20 @@
 package com.dyapp
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 /** What a bottom bar item or button opens. */
@@ -41,36 +51,97 @@ internal fun showNetworkWizard(opened: Opened.Ready, section: StartTarget?): Boo
     return true
 }
 
-/** The start screen without a ready identity: status, the picker or recovery, and remove, switch and lock. */
+/** The start screen without a ready identity: the picker, recovery or a storage error. */
 @Composable
 internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
     val opened = shown.opened
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Text(stringResource(startStatus(opened)), modifier = Modifier.testTag(APP_READY_TAG))
-        IdentityDetails(shown, slots, act)
-        StartButtons(opened, act, open)
+    Page(actions = { StartActions(opened, slots, act, open) }) {
+        PageTitle(startStatus(opened), Modifier.testTag(APP_READY_TAG))
+        when (opened) {
+            null -> Text(stringResource(R.string.storage_error))
+            is Opened.Recovery -> RecoveryDetails(opened)
+            else -> PickerList(shown.entries, slots, act)
+        }
     }
 }
 
-// Remove, switch and lock settings, as far as the opened state allows.
 @Composable
-private fun StartButtons(opened: Opened?, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
-    if (opened != null && removable(opened)) {
-        OutlinedButton(onClick = { open(StartTarget.REMOVE) }, Modifier.testTag("remove-identity")) {
-            Text(stringResource(R.string.identity_remove))
+private fun RecoveryDetails(opened: Opened.Recovery) {
+    Surface(
+        Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.errorContainer
+    ) {
+        Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+            Text(
+                reasonText(opened.reason),
+                Modifier.testTag("recovery-reason").semantics { liveRegion = LiveRegionMode.Polite }
+            )
+            var expanded by rememberSaveable(opened.slot.id) { mutableStateOf(false) }
+            TextButton(onClick = { expanded = !expanded }) { Text(stringResource(R.string.details)) }
+            if (expanded) {
+                val details = listOfNotNull(opened.reason, opened.peerId).joinToString("\n")
+                Text(details, Modifier.testTag("recovery-details"), fontFamily = FontFamily.Monospace)
+                CopyButton(details, "copy-recovery-details")
+            }
         }
     }
-    if (opened is Opened.Recovery) {
-        OutlinedButton(onClick = { act { Opened.Picker } }, Modifier.testTag("switch-identity")) {
-            Text(stringResource(R.string.identity_switch))
+    opened.peerId?.let {
+        Caption(stringResource(R.string.storage_peer_id))
+        Text(it, Modifier.testTag("recovery-peer"), fontFamily = FontFamily.Monospace)
+    }
+}
+
+@Composable
+private fun PickerList(entries: List<Opened>, slots: Slots, act: (() -> Opened) -> Unit) {
+    Text(stringResource(R.string.picker_intro), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.testTag("identities")) {
+        for ((index, entry) in entries.withIndex()) {
+            val (slot, peerId, label) = when (entry) {
+                is Opened.Ready -> Triple(entry.slot, entry.peerId, stringResource(R.string.settings_key_store))
+                is Opened.Recovery -> Triple(entry.slot, entry.peerId, reasonText(entry.reason))
+                else -> continue
+            }
+            val select = { slots.setActive(slot.id); slots.open() }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { act(select) }.testTag("pick-${index + 1}"),
+                Arrangement.spacedBy(16.dp),
+                Alignment.CenterVertically
+            ) {
+                Avatar(peerId.orEmpty())
+                Column {
+                    peerId?.let { Text(shortPeerId(it), fontFamily = FontFamily.Monospace) }
+                    Caption(label)
+                }
+            }
         }
     }
-    OutlinedButton(onClick = { open(StartTarget.LOCK) }, Modifier.testTag("lock-settings")) {
+}
+
+// Lock settings stay reachable while no identity opens: the Settings tab needs a ready one.
+@Composable
+private fun StartActions(opened: Opened?, slots: Slots, act: (() -> Opened) -> Unit, open: (StartTarget) -> Unit) {
+    val wide = Modifier.fillMaxWidth()
+    when (opened) {
+        null -> {}
+        is Opened.Recovery -> {
+            Button(onClick = { act(slots::open) }, wide.testTag("retry")) {
+                Text(stringResource(R.string.recovery_retry))
+            }
+            OutlinedButton(onClick = { act { Opened.Picker } }, wide.testTag("switch-identity")) {
+                Text(stringResource(R.string.identity_switch))
+            }
+            if (removable(opened)) {
+                TextButton(
+                    onClick = { open(StartTarget.REMOVE) },
+                    wide.testTag("remove-identity"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text(stringResource(R.string.recovery_remove)) }
+            }
+        }
+        else -> OutlinedButton(onClick = { act(slots::create) }, wide.testTag("add-identity")) {
+            Text(stringResource(R.string.identity_add))
+        }
+    }
+    TextButton(onClick = { open(StartTarget.LOCK) }, wide.testTag("lock-settings")) {
         Text(stringResource(R.string.lock_settings))
     }
 }

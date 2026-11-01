@@ -158,6 +158,15 @@ caption, which would promise what the device cannot do (H1, H5), and once too ma
 gate the field `lock-device` becomes the filled primary action, since it is the only way in
 (H3, H9). No open H1–H10 finding.
 
+### Android picker and recovery layout review (2026-11-01)
+
+Read `picker` and `recovery` in the Compose code against the prototype and H1–H10 in English and
+Russian; not yet seen on a device. Recovery leads with the reason and keeps the reason code and
+Peer ID behind Details with a copy action, for a support request (H9, H10). Removal stays the
+least prominent action, in the error colour (H5). `lock-settings` is kept as a last text action
+beyond the prototype, since no other path reaches it while no identity opens (H3). No open
+H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

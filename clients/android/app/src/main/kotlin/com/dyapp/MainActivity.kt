@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -226,43 +224,6 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
         asked != null -> RemoveScreen(slots, asked, act)
         opened is Opened.Ready -> AppShell(slots, opened, editor, act, open)
         else -> StartColumn(shown, slots, act, open)
-    }
-}
-
-@Composable
-internal fun IdentityDetails(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit) {
-    when (val opened = shown.opened) {
-        null -> { Text(stringResource(R.string.storage_error)) }
-        is Opened.Ready -> {}
-        is Opened.Recovery -> { RecoveryIdentityDetails(opened, slots, act) }
-        else -> { PickerIdentityDetails(shown.entries, slots, act) }
-    }
-}
-
-@Composable
-private fun RecoveryIdentityDetails(opened: Opened.Recovery, slots: Slots, act: (() -> Opened) -> Unit) {
-    Text(reasonText(opened.reason), modifier = Modifier.testTag("recovery-reason"))
-    opened.peerId?.let { Text(it, modifier = Modifier.testTag("recovery-peer")) }
-    Button(onClick = { act(slots::open) }, Modifier.testTag("retry")) {
-        Text(stringResource(R.string.recovery_retry))
-    }
-}
-
-@Composable
-private fun PickerIdentityDetails(entries: List<Opened>, slots: Slots, act: (() -> Opened) -> Unit) {
-    for ((index, entry) in entries.withIndex()) {
-        val (slot, label) = when (entry) {
-            is Opened.Ready -> entry.slot to entry.peerId
-            is Opened.Recovery -> entry.slot to reasonText(entry.reason)
-            else -> continue
-        }
-        val select = { slots.setActive(slot.id); slots.open() }
-        OutlinedButton(onClick = { act(select) }, Modifier.testTag("pick-${index + 1}")) {
-            Text(label)
-        }
-    }
-    Button(onClick = { act(slots::create) }, Modifier.testTag("add-identity")) {
-        Text(stringResource(R.string.identity_add))
     }
 }
 
