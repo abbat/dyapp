@@ -365,6 +365,38 @@ const checkStaleProfileLoad = async () => {
   await oldSave;
   if (profileStatus.textContent !== savedStatus) throw new Error('old save changed new editor');
 };
+// An old form handler's finally must not unlock a newer save or open its preview dialog.
+const checkStaleProfileHandlers = async () => {
+  const readyState = current;
+  let finishOldSave;
+  const oldSave = submitProfile(() => new Promise((resolve) => { finishOldSave = resolve; }));
+  if (!profileBusy) throw new Error('old profile save did not set busy');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  let finishNewSave;
+  const newSave = submitProfile(() => new Promise((resolve) => { finishNewSave = resolve; }));
+  finishOldSave(null);
+  await oldSave;
+  if (!profileBusy || !document.getElementById('profile-save').disabled) {
+    throw new Error('old save unlocked new form');
+  }
+  finishNewSave(null);
+  await newSave;
+  if (profileBusy) throw new Error('new save remained busy');
+
+  let finishOldPreview;
+  const oldPreview = previewAndPublish(() => new Promise((resolve) => { finishOldPreview = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  let finishNewPreview;
+  const newPreview = previewAndPublish(() => new Promise((resolve) => { finishNewPreview = resolve; }));
+  finishOldPreview({ problem: null, draft: { birthYear: null, birthMonth: null, birthDay: null } });
+  await oldPreview;
+  if (!profileBusy || publishDialog.open) throw new Error('old preview changed new dialog or busy state');
+  finishNewPreview(null);
+  await newPreview;
+  if (profileBusy || publishDialog.open) throw new Error('new preview did not finish');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1135,6 +1167,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStalePeerActions();
       await checkStaleSafety();
       await checkStaleProfileLoad();
+      await checkStaleProfileHandlers();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

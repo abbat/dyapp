@@ -720,23 +720,34 @@ const profileFailure = (error) => {
 profileForm.addEventListener('input', () => {
   if (!profileBusy) profileMessage('profile.draft');
 });
-profileForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
+const submitProfile = async (save = saveProfile) => {
   if (profileBusy || !profileForm.reportValidity()) return;
+  const generation = identityGeneration;
   setProfileBusy(true);
-  try { await saveProfile(); } catch (error) { profileMessage('profile.failed', String(error)); }
-  finally { setProfileBusy(false); }
+  try { await save(); } catch (error) {
+    if (identityCurrent(generation)) profileMessage('profile.failed', String(error));
+  } finally {
+    if (identityCurrent(generation)) setProfileBusy(false);
+  }
+};
+profileForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  window.profileSaveDone = submitProfile();
 });
-const previewAndPublish = async () => {
+const previewAndPublish = async (save = saveProfile) => {
   if (profileBusy || !profileForm.reportValidity()) return;
+  const generation = identityGeneration;
   setProfileBusy(true);
   try {
-    const view = await saveProfile();
-    if (view && !view.problem) openPublishDialog(view);
-  } catch (error) { profileMessage('profile.failed', String(error)); }
-  finally { setProfileBusy(false); }
+    const view = await save();
+    if (identityCurrent(generation) && view && !view.problem) openPublishDialog(view);
+  } catch (error) {
+    if (identityCurrent(generation)) profileMessage('profile.failed', String(error));
+  } finally {
+    if (identityCurrent(generation)) setProfileBusy(false);
+  }
 };
-document.getElementById('profile-publish').addEventListener('click', previewAndPublish);
+document.getElementById('profile-publish').addEventListener('click', () => previewAndPublish());
 for (const box of [profileAttested, profileDisclosure]) {
   box.addEventListener('change', () => {
     publishConfirm.disabled = !(profileAttested.checked && profileDisclosure.checked);
@@ -816,6 +827,7 @@ async function render(state, generation = identityGeneration, fresh = false) {
     window.connectionShown = connectAtLaunch();
     await showProfile();
     if (!identityCurrent(generation)) return state;
+    setProfileBusy(false);
     window.resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
