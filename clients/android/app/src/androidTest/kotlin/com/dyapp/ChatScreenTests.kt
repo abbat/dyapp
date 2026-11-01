@@ -24,6 +24,7 @@ class ChatScreenTests {
     private val form = ChatForm(mutableStateOf(""))
     private var sends = 0
     private var backs = 0
+    private var profiles = 0
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
@@ -42,7 +43,7 @@ class ChatScreenTests {
 
     private fun show(state: ChatState?, messages: List<ChatMessage> = emptyList()) = compose.setContent {
         val history = state?.let { ChatHistory(it, messages) }
-        ChatContent("peer-abcdef", "me", history, form, { sends += 1 }, { backs += 1 })
+        ChatContent("peer-abcdef", "me", history, form, { sends += 1 }, { profiles += 1 }, { backs += 1 })
     }
 
     @Test
@@ -124,6 +125,13 @@ class ChatScreenTests {
         compose.onNodeWithText(string(R.string.chat_send_failed)).assertExists()
         compose.runOnIdle { form.status = ChatStatus(R.string.chat_queued, null) }
         compose.onNodeWithText(string(R.string.chat_queued)).assertExists()
+    }
+
+    @Test
+    fun theHeaderOpensTheProfile() {
+        show(ChatState.OPEN)
+        compose.onNodeWithTag("chat-profile").performClick()
+        compose.runOnIdle { assertEquals(1, profiles) }
     }
 
     @Test

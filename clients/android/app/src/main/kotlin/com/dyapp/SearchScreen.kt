@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,7 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -34,11 +35,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uniffi.dyapp.ProfileScale
+import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.ProfileSearchFailure
 import uniffi.dyapp.ProfileSearchResult
 import uniffi.dyapp.ProfileSearcher
@@ -48,7 +50,7 @@ import uniffi.dyapp.profileScales
 private const val MS_PER_SECOND = 1000uL
 
 /** Nothing asked yet, a search running, its verified result, or the failure text with its details. */
-private sealed interface SearchState {
+internal sealed interface SearchState {
     data object Idle : SearchState
     data object Loading : SearchState
     data class Done(val result: ProfileSearchResult) : SearchState
@@ -121,36 +123,41 @@ private fun SearchEmpty(result: ProfileSearchResult) {
     }
 }
 
-// Typed failures, then each verified profile by Peer ID with its public fields.
+// One verified profile: the short Peer ID, its possible age and country; the page has the rest.
 @Composable
-@Suppress("LongParameterList") // The own Peer ID hides the action no chat can follow.
-private fun SearchFound(
-    result: ProfileSearchResult,
-    scales: List<ProfileScale>,
-    me: String,
-    run: () -> Unit,
-    openChat: (String) -> Unit,
-) {
-    val context = LocalContext.current
+private fun SearchResultRow(found: FoundProfile, number: Int, open: () -> Unit) {
+    val draft = found.draft.draft()
+    val locale = LocalConfiguration.current.locales[0]
+    val summary = listOfNotNull(
+        possibleAgeOnUtcToday(draft.values),
+        draft.country.takeIf { it.isNotEmpty() }?.let { countryName(it, locale) },
+    ).joinToString(", ").ifEmpty { stringResource(R.string.profile_preview_empty) }
+    Surface(
+        onClick = open,
+        modifier = Modifier.fillMaxWidth().testTag("result-$number"),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(Modifier.padding(12.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Avatar(found.peerId)
+            Column {
+                Text(shortPeerId(found.peerId), style = MaterialTheme.typography.titleSmall)
+                Caption(summary)
+            }
+        }
+    }
+}
+
+// Typed failures, then each verified profile, which opens its page.
+@Composable
+private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfile: (FoundProfile) -> Unit) {
     val count = result.profiles.size
     Column(Modifier.testTag("search-results"), Arrangement.spacedBy(12.dp)) {
         Caption(stringResource(if (result.partial) R.string.search_partial else R.string.search_results, count),
             STATUS.semantics { liveRegion = LiveRegionMode.Polite })
         SearchFailures(result)
         for ((index, found) in result.profiles.withIndex()) {
-            Column(Modifier.testTag("result-${index + 1}")) {
-                FormCard {
-                    Text(stringResource(R.string.search_peer, found.peerId),
-                        style = MaterialTheme.typography.titleSmall)
-                    ProfileRows(found.draft.draft(), scales, context)
-                    if (found.peerId != me) {
-                        OutlinedButton(onClick = { openChat(found.peerId) },
-                            modifier = Modifier.fillMaxWidth().testTag("view-message")) {
-                            Text(stringResource(R.string.view_message))
-                        }
-                    }
-                }
-            }
+            SearchResultRow(found, index + 1) { openProfile(found) }
         }
         OutlinedButton(onClick = run, modifier = Modifier.fillMaxWidth().testTag("search-again")) {
             Text(stringResource(R.string.search_again))
@@ -177,25 +184,46 @@ private suspend fun sample(
     return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it), it.toString()) })
 }
 
+/** One identity's search; the shell owns it so the results outlive the pages opened over them. */
+internal class SearchSession(private val opened: Opened.Ready, private val scope: CoroutineScope) {
+    // The searcher keeps verified versions, so a later sample never shows an older one.
+    private val searcher = runCatching { ProfileSearcher(opened.slot.dir.absolutePath) }
+    private var job: Job? = null
+    val filters = SearchFilters(profileScales())
+    var state by mutableStateOf<SearchState>(SearchState.Idle)
+        private set
+
+    fun run() {
+        state = SearchState.Loading
+        job = scope.launch { state = sample(opened, searcher, filters) }
+    }
+
+    fun cancel() {
+        job?.cancel()
+        state = SearchState.Idle
+    }
+
+    fun close() {
+        searcher.getOrNull()?.close()
+    }
+}
+
+@Composable
+internal fun rememberSearchSession(opened: Opened.Ready): SearchSession {
+    val scope = rememberCoroutineScope()
+    val session = remember(opened.slot.id) { SearchSession(opened, scope) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
+}
+
 /**
  * Verified sample search over the active network; the nodes pick the sample, filters appear for the
  * fields they offer, and only profiles the shared core verified are listed. Retry or another sample
  * runs the same query again. Cancel abandons the answer; the blocking call itself runs to its end.
  */
 @Composable
-internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit, openChat: (String) -> Unit) {
-    val scales = remember { profileScales() }
-    // The searcher keeps verified versions for this screen, so a later sample never shows an older one.
-    val searcher = remember(opened.slot.id) { runCatching { ProfileSearcher(opened.slot.dir.absolutePath) } }
-    DisposableEffect(searcher) { onDispose { searcher.getOrNull()?.close() } }
-    var state by remember(opened.slot.id) { mutableStateOf<SearchState>(SearchState.Idle) }
-    val filters = remember(opened.slot.id) { SearchFilters(scales) }
-    val scope = rememberCoroutineScope()
-    var job by remember { mutableStateOf<Job?>(null) }
-    val run: () -> Unit = {
-        state = SearchState.Loading
-        job = scope.launch { state = sample(opened, searcher, filters) }
-    }
+internal fun SearchScreen(search: SearchSession, openNetwork: () -> Unit, openProfile: (FoundProfile) -> Unit) {
+    val state = search.state
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
@@ -203,21 +231,18 @@ internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit, openCha
     ) {
         Caption(stringResource(R.string.search_sample))
         FormCard {
-            SearchFilterFields(filters)
-            Button(onClick = run, enabled = state != SearchState.Loading,
+            SearchFilterFields(search.filters)
+            Button(onClick = search::run, enabled = state != SearchState.Loading,
                 modifier = Modifier.fillMaxWidth().testTag("run-search")) {
                 Text(stringResource(R.string.search_run))
             }
         }
         when (val shown = state) {
             SearchState.Idle -> Caption(stringResource(R.string.search_idle), STATUS)
-            SearchState.Loading -> SearchLoading {
-                job?.cancel()
-                state = SearchState.Idle
-            }
-            is SearchState.Failed -> SearchFailed(shown, run, openNetwork)
+            SearchState.Loading -> SearchLoading(search::cancel)
+            is SearchState.Failed -> SearchFailed(shown, search::run, openNetwork)
             is SearchState.Done -> shown.result.let {
-                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, scales, opened.peerId, run, openChat)
+                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, search::run, openProfile)
             }
         }
     }

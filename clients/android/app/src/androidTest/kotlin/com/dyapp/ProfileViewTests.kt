@@ -1,0 +1,146 @@
+package com.dyapp
+
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import uniffi.dyapp.ChatLikes
+import uniffi.dyapp.FoundProfile
+import uniffi.dyapp.PublicProfileDraft
+
+class ProfileViewTests {
+    @get:Rule
+    val compose = createComposeRule()
+
+    private val form = ProfileForm()
+    private val likes = mutableListOf<Boolean>()
+    private var backs = 0
+    private var messages = 0
+    private var retries = 0
+    private val found = FoundProfile("peer-abcdef", PublicProfileDraft(
+        gender = 0u,
+        orientation = 0u,
+        relationshipGoal = 0u,
+        rolePreference = 0u,
+        careerAmbition = 0u,
+        financialPhilosophy = 0u,
+        employmentStatus = 0u,
+        fitnessLevel = 0u,
+        zodiac = 0u,
+        birthYear = null,
+        birthMonth = null,
+        birthDay = null,
+        country = "",
+        place = "",
+    ), 1uL)
+
+    private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
+
+    private fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
+        val actions = ProfileActions(R.string.view_back, { backs += 1 }) { messages += 1 }
+        ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }) { retries += 1 }
+    }
+
+    @Test
+    fun aFoundProfileShowsItsFieldsAndTheFirstActions() {
+        form.likes = ChatLikes(ours = false, matched = false)
+        show()
+        compose.onNodeWithTag("view-fields").assertExists()
+        compose.onNodeWithTag("view-peer").assertExists()
+        compose.onNodeWithTag("view-unlike").assertDoesNotExist()
+        compose.onNodeWithTag("view-match").assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.view_first_hint)).assertExists()
+        compose.onNodeWithTag("view-like").assertIsEnabled().performClick()
+        compose.onNodeWithTag("view-message").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(true), likes)
+            assertEquals(1, messages)
+        }
+    }
+
+    @Test
+    fun likesStillUnreadOrASendInFlightBlockTheButton() {
+        show()
+        compose.onNodeWithTag("view-like").assertIsNotEnabled()
+        compose.runOnIdle {
+            form.likes = ChatLikes(ours = false, matched = false)
+            form.sending = true
+        }
+        compose.onNodeWithTag("view-like").assertIsNotEnabled()
+        compose.onNodeWithText(string(R.string.view_sending)).assertExists()
+    }
+
+    @Test
+    fun aMatchOffersTheOpenMessageAndTakingTheLikeBackAsks() {
+        form.likes = ChatLikes(ours = true, matched = true)
+        show()
+        compose.onNodeWithTag("view-match").assertExists()
+        compose.onNodeWithTag("view-message-match").assertExists()
+        compose.onNodeWithTag("view-like").assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.view_first_hint)).assertDoesNotExist()
+        compose.onNodeWithTag("view-unlike").performClick()
+        compose.onNodeWithTag("unlike-cancel").performClick()
+        compose.onNodeWithTag("unlike-confirm").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(emptyList<Boolean>(), likes) }
+        compose.onNodeWithTag("view-unlike").performClick()
+        compose.onNodeWithTag("unlike-confirm").performClick()
+        compose.runOnIdle { assertEquals(listOf(false), likes) }
+    }
+
+    @Test
+    fun aLikeWithoutAMatchStillHasTheOneMessageRule() {
+        form.likes = ChatLikes(ours = true, matched = false)
+        show()
+        compose.onNodeWithTag("view-unlike").assertExists()
+        compose.onNodeWithTag("view-message").assertExists()
+        compose.onNodeWithText(string(R.string.view_first_hint)).assertExists()
+        compose.onNodeWithText(string(R.string.view_unlike_hint)).assertExists()
+    }
+
+    @Test
+    fun theOwnProfileHasNothingToLikeOrWriteTo() {
+        form.likes = ChatLikes(ours = false, matched = false)
+        show(own = true)
+        compose.onNodeWithTag("view-fields").assertExists()
+        compose.onNodeWithTag("view-like").assertDoesNotExist()
+        compose.onNodeWithTag("view-message").assertDoesNotExist()
+    }
+
+    @Test
+    fun aFailedLikeShowsItsReason() {
+        form.likes = ChatLikes(ours = false, matched = false)
+        form.status = ChatStatus(R.string.view_like_unpublished, "details")
+        show()
+        compose.onNodeWithText(string(R.string.view_like_unpublished)).assertExists()
+    }
+
+    @Test
+    fun aProfileNotFetchedOffersARetry() {
+        show(ProfileLoad.Missing)
+        compose.onNodeWithText(string(R.string.view_not_found)).assertExists()
+        compose.onNodeWithTag("view-fields").assertDoesNotExist()
+        compose.onNodeWithTag("view-retry").performClick()
+        compose.runOnIdle { assertEquals(1, retries) }
+    }
+
+    @Test
+    fun aFailedFetchShowsItsReasonAndARetry() {
+        show(ProfileLoad.Failed(ChatStatus(R.string.view_load_failed, "details")))
+        compose.onNodeWithText(string(R.string.view_load_failed)).assertExists()
+        compose.onNodeWithTag("view-retry").assertExists()
+    }
+
+    @Test
+    fun theBackButtonLeavesThePageAndNamesWhere() {
+        show(ProfileLoad.Loading)
+        compose.onNodeWithText(string(R.string.view_loading)).assertExists()
+        compose.onNodeWithTag("view-back").performClick()
+        compose.runOnIdle { assertEquals(1, backs) }
+    }
+}

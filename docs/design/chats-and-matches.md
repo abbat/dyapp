@@ -8,8 +8,9 @@ store's conversation state (`Store::conversation`), the request's text-only rule
 canonical pair group (`Session::send_text_to`) work in the Rust client today, and the FFI exports
 them as `ChatSession`, whose `profiles` call fetches the verified profiles behind the Liked you
 list. The desktop shows Like and Liked in the found profile, the unlike
-confirmation and the Liked you list; Android lists the chats, receives the mailbox and sends text
-from the chat screen; the rest of the app UI below does not exist yet.
+confirmation and the Liked you list; Android lists the chats, receives the mailbox, sends text
+from the chat screen and shows Like, Liked and the unlike confirmation in the found profile; the
+rest of the app UI below does not exist yet.
 
 ## State of a pair
 

@@ -1,6 +1,7 @@
 package com.dyapp
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,7 +91,14 @@ internal fun sendStatus(error: Throwable, staged: Boolean): ChatStatus {
  * text or a delivery update shows here too. Back returns to the Chats section.
  */
 @Composable
-internal fun ChatScreen(opened: Opened.Ready, peer: String, feed: ChatFeed, onBack: () -> Unit) {
+@Suppress("LongParameterList") // The header opens the profile page and back leaves the chat.
+internal fun ChatScreen(
+    opened: Opened.Ready,
+    peer: String,
+    feed: ChatFeed,
+    onProfile: () -> Unit,
+    onBack: () -> Unit,
+) {
     var history by remember { mutableStateOf<ChatHistory?>(null) }
     val draft = rememberSaveable { mutableStateOf("") }
     val form = remember { ChatForm(draft) }
@@ -118,7 +126,7 @@ internal fun ChatScreen(opened: Opened.Ready, peer: String, feed: ChatFeed, onBa
             if (status?.details == null) draft.value = ""
         }
     }
-    ChatContent(peer, opened.peerId, history, form, send, onBack)
+    ChatContent(peer, opened.peerId, history, form, send, onProfile, onBack)
 }
 
 /** The chat as shown: the state's notices, the thread and the composer. */
@@ -130,11 +138,12 @@ internal fun ChatContent(
     history: ChatHistory?,
     form: ChatForm,
     onSend: () -> Unit,
+    onProfile: () -> Unit,
     onBack: () -> Unit,
 ) {
     val state = history?.state
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("chat")) {
-        ChatBackBar(peer, onBack)
+        ChatBackBar(peer, onProfile, onBack)
         ChatStateNotice(state)
         ChatThread(me, history?.messages.orEmpty(), Modifier.weight(1f))
         Column(Modifier.padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {
@@ -147,12 +156,13 @@ internal fun ChatContent(
 }
 
 @Composable
-private fun ChatBackBar(peer: String, onBack: () -> Unit) {
+private fun ChatBackBar(peer: String, onProfile: () -> Unit, onBack: () -> Unit) {
     Row(Modifier.padding(8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         IconButton(onClick = onBack, Modifier.testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.nav_chats))
         }
-        Row(Modifier.testTag("chat-profile"), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
+        Row(Modifier.testTag("chat-profile").clickable(onClick = onProfile), Arrangement.spacedBy(8.dp),
+            Alignment.CenterVertically) {
             Avatar(peer)
             Text(shortPeerId(peer), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         }

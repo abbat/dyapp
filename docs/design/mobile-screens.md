@@ -11,7 +11,7 @@ dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
 
 The Android client follows this prototype, and its test tags are the IDs below. Still planned:
-the found profile page and the Chats tabs. The sections below note every other difference from
+the Chats tabs. The sections below note every other difference from
 the prototype. `make quality` checks that every ID and state in backticks on
 this page is an id or a data-on state in the prototype. The prototype wording is a draft; the shipped strings stay in
 `clients/android/app/src/main/res`.
@@ -104,9 +104,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `search-age-max`, `search-country`, `search-place`, `search-more`, `run-search`,
   `search-results` with `result-1` and `result-2`, `search-again`, `search-cancel`,
   `search-failures`, `search-open-network`, `search-retry`. Android shows filters only for the
-  fields the nodes offered, so a first sample comes before them; a result lists its full verified
-  fields, as there is no profile page to open yet; Cancel abandons the answer while the node call
-  runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
+  fields the nodes offered, so a first sample comes before them; a result shows the short Peer ID,
+  possible age and country, and opens the found profile; Cancel abandons the answer while the node
+  call runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
 - Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. Android
   has no `chats-liked` and `chats-requests` yet, so requests sit in `chat-list` with a marker; a row
@@ -134,7 +134,11 @@ first and returns to the first section, as any activity relaunch does.
 
 - Found profile, `profile-view`, `profile-view-match` and `unlike-dialog`: `view-back`,
   `view-photos`, `view-peer`, `view-like`, `view-unlike`, `view-message`, `view-match`,
-  `view-fields`, `view-block`; `unlike-confirm` and `unlike-cancel` in the dialog.
+  `view-fields`, `view-block`; `unlike-confirm` and `unlike-cancel` in the dialog. Android has no
+  `view-photos` yet and `view-block` is planned. Opened from a chat, or after the app was recreated,
+  the page fetches the profile from the network and offers a retry; it hides `view-like` and
+  `view-message` on the own profile. A failed like shows why, then the stored likes decide the
+  button.
 - Chat, `chat`, `chat-first`, `chat-request`, `chat-menu`, `chat-clear-dialog`,
   `chat-cleared` and `delete-dialog`: `chat-back`, `chat-profile`, `chat-more` with
   `chat-clear` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own message),
@@ -142,9 +146,9 @@ first and returns to the first section, as any activity relaunch does.
   dialogs. Android has `chat`, `chat-first` and `chat-request` with `chat-back`, `chat-profile`,
   `chat-first-notice`, `chat-request-notice`, `chat-thread`, `chat-input` and `chat-send`; the
   menus, dialogs and blocking are planned, so the request notice does not offer a block yet. It
-  opens from a Chats row and from `view-message` on a search result, as the found profile page is
-  planned; back always lands on Chats. The first-message notice also shows before that message,
-  and an own message reads Pending until a node takes it, Sent, then Delivered.
+  opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
+  and `chat-profile` opens the found profile. The first-message notice also shows before that
+  message, and an own message reads Pending until a node takes it, Sent, then Delivered.
 
 ## Identity switcher
 

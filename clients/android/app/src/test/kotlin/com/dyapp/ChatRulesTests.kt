@@ -23,6 +23,13 @@ class ChatRulesTests {
     )
 
     @Test
+    fun aFailedLikeSaysWhatToDoAboutIt() {
+        assertEquals(R.string.view_like_unpublished, likeStatus(RuntimeException("unpublished")).text)
+        assertEquals(R.string.view_like_not_connected, likeStatus(RuntimeException("notConnected")).text)
+        assertEquals(R.string.view_like_failed, likeStatus(RuntimeException("disk")).text)
+    }
+
+    @Test
     fun onlyTheWaitingFirstMessageAndLoadingCloseTheComposer() {
         assertTrue(chatWritable(ChatState.NONE))
         assertTrue(chatWritable(ChatState.REQUEST_RECEIVED))

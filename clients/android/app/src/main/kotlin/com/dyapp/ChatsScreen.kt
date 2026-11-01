@@ -35,6 +35,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
@@ -67,6 +68,18 @@ internal class ChatFeed(private val opened: Opened.Ready) {
     }
 
     fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
+
+    fun likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
+
+    /** The verified profile of [peer] from the network; null when no node returns one. */
+    fun profile(peer: String) = RustBridge.withChats(opened) { it.profiles(listOf(peer)).firstOrNull() }
+
+    /** Likes [peer] or takes the like back, then reads the rows, which also rereads the page's likes. */
+    fun like(peer: String, liked: Boolean): Result<ChatLikes> {
+        val result = runCatching { RustBridge.withChats(opened) { it.like(peer, liked) } }
+        read()
+        return result
+    }
 
     /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
     fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {

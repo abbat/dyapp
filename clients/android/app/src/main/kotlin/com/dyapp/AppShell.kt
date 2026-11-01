@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.NetworkFile
 
 /** A bottom bar section: its target, test tag, label and icon. */
@@ -73,16 +74,32 @@ internal fun AppShell(
     if (showNetworkWizard(opened, section)) return
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
+    val search = rememberSearchSession(opened)
     var chatPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
-    val peer = chatPeer
-    if (peer != null) {
-        ChatScreen(opened, peer, feed) { chatPeer = null }
-        return
-    }
-    // Back from a chat always lands on Chats, as the prototype's back button says.
-    ShellFrame(slots, opened, section, lockMode, act, open, feed) {
-        chatPeer = it
-        open(StartTarget.CHATS)
+    var viewPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
+    // The result already verified; after a recreation only the Peer ID is left and the page fetches.
+    var viewFound by remember(opened.slot.id) { mutableStateOf<FoundProfile?>(null) }
+    val closeView = { viewPeer = null; viewFound = null }
+    val chat = chatPeer
+    val viewed = viewPeer
+    if (viewed != null) {
+        val backLabel = if (chat == null && section == StartTarget.SEARCH) R.string.view_back else R.string.lock_back
+        val actions = ProfileActions(backLabel, closeView) {
+            closeView()
+            chatPeer = viewed
+            // Back from a chat always lands on Chats, as the prototype's back button says.
+            open(StartTarget.CHATS)
+        }
+        ProfileViewScreen(opened, viewed, viewFound, feed, actions)
+    } else if (chat != null) {
+        ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
+    } else {
+        ShellFrame(slots, opened, section, lockMode, act, open, feed, { chatPeer = it }) {
+            SearchScreen(search, { open(StartTarget.NETWORK) }) {
+                viewFound = it
+                viewPeer = it.peerId
+            }
+        }
     }
 }
 
@@ -98,6 +115,7 @@ private fun ShellFrame(
     open: (StartTarget?) -> Unit,
     feed: ChatFeed,
     openChat: (String) -> Unit,
+    search: @Composable () -> Unit,
 ) {
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
@@ -109,7 +127,7 @@ private fun ShellFrame(
             if (current.target == StartTarget.CHATS) {
                 ChatsScreen(feed.rows, openChat)
             } else {
-                SectionContent(slots, opened, current.target, lockMode, act, open, openChat)
+                SectionContent(slots, opened, current.target, lockMode, act, open, search)
             }
         }
     }
@@ -168,10 +186,10 @@ private fun SectionContent(
     lockMode: LockMode,
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit,
-    openChat: (String) -> Unit,
+    search: @Composable () -> Unit,
 ) {
     when (target) {
-        StartTarget.SEARCH -> SearchScreen(opened, { open(StartTarget.NETWORK) }, openChat)
+        StartTarget.SEARCH -> search()
         StartTarget.NETWORK -> NetworkDraftScreen(opened, null)
         StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, lockMode, act) { open(StartTarget.LOCK) }
         else -> Column {
