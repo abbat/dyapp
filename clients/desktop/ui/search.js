@@ -236,22 +236,30 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
-document.getElementById('copy-safety-number').addEventListener('click', () => {
+const copySafety = (call = invoke) => {
   const button = document.getElementById('copy-safety-number');
   const source = document.getElementById('view-safety-number');
-  const peerId = viewed?.found.peerId;
+  const found = viewed?.found;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const token = ++window.clipboardCopyToken;
-  window.safetyCopied = invoke('copy_safety_number', { peerId }).then((copy) => {
-    button.textContent = window.strings['action.copied'];
-    setTimeout(() => { button.textContent = window.strings['view.safety.copy']; }, 2000);
+  return call('copy_safety_number', { peerId: found?.peerId }).then((copy) => {
+    if (currentView()) {
+      button.textContent = window.strings['action.copied'];
+      setTimeout(() => { if (currentView()) button.textContent = window.strings['view.safety.copy']; }, 2000);
+    }
+    // Clear the old sensitive value even if the user switched identities before copy completed.
     setTimeout(() => {
       window.safetyClearDone = token === window.clipboardCopyToken
         ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
         : Promise.resolve(false);
     }, 60000);
   }, () => {
-    window.getSelection().selectAllChildren(source);
+    if (currentView()) window.getSelection().selectAllChildren(source);
   });
+};
+document.getElementById('copy-safety-number').addEventListener('click', () => {
+  window.safetyCopied = copySafety();
 });
 const drawContactQr = ({ size, modules }) => {
   if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
@@ -272,29 +280,34 @@ const drawContactQr = ({ size, modules }) => {
     }
   }
 };
-document.getElementById('view-safety').addEventListener('click', () => {
+const loadSafety = (call = invoke) => {
   const { found } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-safety');
   const panel = document.getElementById('view-safety-panel');
   if (!panel.hidden) {
     stopSafetyCamera();
     panel.hidden = true;
     button.setAttribute('aria-expanded', 'false');
-    return;
+    return Promise.resolve();
   }
   button.disabled = true;
-  window.safetyDone = Promise.all([
-    invoke('contact_safety_number', { peerId: found.peerId }),
-    invoke('contact_safety_qr', { peerId: found.peerId }),
+  return Promise.all([
+    call('contact_safety_number', { peerId: found.peerId }),
+    call('contact_safety_qr', { peerId: found.peerId }),
   ]).then(([number, matrix]) => {
-    if (viewed?.found !== found) return;
+    if (!currentView()) return;
     drawContactQr(matrix);
     document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
     panel.hidden = false;
     button.setAttribute('aria-expanded', 'true');
   })
-    .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
-    .finally(() => { button.disabled = false; });
+    .catch(() => { if (currentView()) viewStatus.textContent = window.strings['view.safety.failed']; })
+    .finally(() => { if (currentView()) button.disabled = false; });
+};
+document.getElementById('view-safety').addEventListener('click', () => {
+  window.safetyDone = loadSafety();
 });
 const grayscaleFrame = (context, width, height) => {
   const rgba = context.getImageData(0, 0, width, height).data;
@@ -309,9 +322,11 @@ const grayscaleFrame = (context, width, height) => {
 // The UI smoke passes a PNG made from the rendered canvas through this same file path.
 globalThis.scanQrFile = async (file) => {
   const found = viewed?.found;
+  const generation = identityGeneration;
   const panel = document.getElementById('view-safety-panel');
   const token = ++safetyScanToken;
-  const current = () => token === safetyScanToken && viewed?.found === found && !panel.hidden;
+  const current = () => identityCurrent(generation) && token === safetyScanToken
+    && viewed?.found === found && !panel.hidden;
   const report = (key) => {
     if (!current()) return;
     showSafetyStatus(`view.safety.scan.${key}`);
@@ -324,6 +339,7 @@ globalThis.scanQrFile = async (file) => {
   try {
     // A File source needs no blob: URL; the desktop CSP allows only self images.
     bitmap = await createImageBitmap(file);
+    if (!current()) return;
     if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16_000_000) {
       return report('tooLarge');
     }
@@ -353,6 +369,7 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
     return;
   }
   const found = viewed?.found;
+  const generation = identityGeneration;
   const panel = document.getElementById('view-safety-panel');
   if (!found || panel.hidden) return;
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -360,8 +377,9 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
     return;
   }
   const token = ++safetyScanToken;
-  const current = () => token === safetyScanToken && viewed?.found === found
-    && !panel.hidden && !document.getElementById('search-area').hidden && !document.hidden;
+  const current = () => identityCurrent(generation) && token === safetyScanToken
+    && viewed?.found === found && !panel.hidden
+    && !document.getElementById('search-area').hidden && !document.hidden;
   const button = document.getElementById('view-safety-camera');
   const preview = document.getElementById('view-safety-preview');
   cameraPending = true;
@@ -381,7 +399,10 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
       preview.srcObject = stream;
       preview.hidden = false;
       await preview.play();
-      if (!current()) return;
+      if (!current()) {
+        if (cameraStream === stream) stopSafetyCamera();
+        return;
+      }
       showSafetyStatus('view.safety.camera.scanning');
       const scan = async () => {
         if (!current() || !cameraStream) return;

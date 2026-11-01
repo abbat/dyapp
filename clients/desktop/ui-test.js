@@ -248,6 +248,82 @@ const checkStalePeerActions = async () => {
   await blockViewed(() => Promise.resolve({ revocation: 'notNeeded' }));
   if (card.isConnected || !profileView.hidden) throw new Error('current block did not finish');
 };
+// Late safety responses must not open or unlock the next identity's shared panel.
+const checkStaleSafety = async () => {
+  const readyState = current;
+  const found = { peerId: 'e'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null }, place: '' };
+  const card = resultCard(found, 'stale-safety');
+  const matrix = { size: 21, modules: Array(21 * 21).fill(false) };
+  const number = '12345'.repeat(12);
+  const reopen = async () => {
+    await openArea('search-area');
+    searchResults.append(card);
+    openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+  };
+  await reopen();
+  let finishOldNumber;
+  const oldSafety = loadSafety((command) => command === 'contact_safety_qr'
+    ? Promise.resolve(matrix) : new Promise((resolve) => { finishOldNumber = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await reopen();
+  let finishNewNumber;
+  const newSafety = loadSafety((command) => command === 'contact_safety_qr'
+    ? Promise.resolve(matrix) : new Promise((resolve) => { finishNewNumber = resolve; }));
+  finishOldNumber(number);
+  await oldSafety;
+  if (!document.getElementById('view-safety').disabled
+    || !document.getElementById('view-safety-panel').hidden) {
+    throw new Error('old safety result changed new panel');
+  }
+  finishNewNumber(number);
+  await newSafety;
+  if (document.getElementById('view-safety').disabled
+    || document.getElementById('view-safety-panel').hidden) {
+    throw new Error('current safety result did not finish');
+  }
+
+  const mediaDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
+  let finishCapture;
+  let stopped = false;
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+    getUserMedia: () => new Promise((resolve) => { finishCapture = resolve; }),
+  } });
+  try {
+    document.getElementById('view-safety-camera').click();
+    await act(Promise.resolve({ status: 'picker' }));
+    finishCapture({ getTracks: () => [{ stop: () => { stopped = true; } }] });
+    await window.cameraDone;
+    if (!stopped) throw new Error('old camera stream was not stopped');
+  } finally {
+    if (mediaDescriptor) Object.defineProperty(navigator, 'mediaDevices', mediaDescriptor);
+    else delete navigator.mediaDevices;
+  }
+  await act(Promise.resolve(readyState));
+  await reopen();
+  const copyButton = document.getElementById('copy-safety-number');
+  const copyLabel = copyButton.textContent;
+  const originalTimeout = globalThis.setTimeout;
+  const expiries = [];
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay === 60000) { expiries.push(callback); return 0; }
+    return originalTimeout(callback, delay, ...args);
+  };
+  try {
+    let finishCopy;
+    const oldCopy = copySafety(() => new Promise((resolve) => { finishCopy = resolve; }));
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await reopen();
+    finishCopy('old sensitive number');
+    await oldCopy;
+    if (copyButton.textContent !== copyLabel || expiries.length !== 1) {
+      throw new Error('old safety copy changed UI or lost its expiry');
+    }
+  } finally {
+    globalThis.setTimeout = originalTimeout;
+  }
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1016,6 +1092,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleRender();
       await checkStaleSearchAndChats();
       await checkStalePeerActions();
+      await checkStaleSafety();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
