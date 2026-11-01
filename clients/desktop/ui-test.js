@@ -1148,6 +1148,9 @@ const removeOpened = async (state, mode) => {
     document.getElementById('remove-identity').click();
   }
   await waitFor('remove');
+  if (document.activeElement.id !== 'remove-cancel') {
+    throw new Error('Cancel is not focused in the removal dialog');
+  }
   await shot('remove');
   const action = document.getElementById('remove-action');
   if (document.getElementById('remove-peer').textContent
