@@ -8,7 +8,14 @@
     <string name="nav_settings">Настройки</string>
     <string name="chats_empty">Пока нет переписок.</string>
     <string name="chats_identity">Показаны только чаты этой личности.</string>
-    <string name="chats_request">Запрос на переписку</string>
+    <string name="chats_liked">Вы понравились</string>
+    <string name="chats_liked_text">Ответьте взаимностью, чтобы симпатия стала взаимной.</string>
+    <string name="chats_liked_missing">Часть этих профилей не вернул ни один узел.</string>
+    <string name="chats_none">Пока вы никому не понравились.</string>
+    <string name="chats_requests">Запросы на переписку</string>
+    <string name="chats_requests_text">От тех, с кем нет взаимности. Они не узнают, что вы прочитали.</string>
+    <string name="chats_no_requests">Нет запросов на переписку.</string>
+    <string name="chats_conversations">Переписки</string>
     <string name="chats_no_messages">Пока нет сообщений.</string>
     <string name="chats_deleted">Сообщение удалено</string>
     <string name="chats_forwarded">Переслано · %1$s</string>

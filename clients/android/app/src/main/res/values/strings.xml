@@ -9,7 +9,14 @@
     <string name="nav_settings">Settings</string>
     <string name="chats_empty">No conversations yet.</string>
     <string name="chats_identity">Only the chats of this identity are shown.</string>
-    <string name="chats_request">Message request</string>
+    <string name="chats_liked">Liked you</string>
+    <string name="chats_liked_text">Like back to match.</string>
+    <string name="chats_liked_missing">No node returned some of these profiles.</string>
+    <string name="chats_none">Nobody has liked you yet.</string>
+    <string name="chats_requests">Message requests</string>
+    <string name="chats_requests_text">From people you have not matched. They do not know you read them.</string>
+    <string name="chats_no_requests">No message requests.</string>
+    <string name="chats_conversations">Conversations</string>
     <string name="chats_no_messages">No messages yet.</string>
     <string name="chats_deleted">Message deleted</string>
     <string name="chats_forwarded">Forwarded · %1$s</string>

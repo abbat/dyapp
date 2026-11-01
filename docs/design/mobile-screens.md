@@ -10,9 +10,8 @@ dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour contracts;
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
 
-The Android client follows this prototype, and its test tags are the IDs below. Still planned:
-the Chats tabs. The sections below note every other difference from
-the prototype. `make quality` checks that every ID and state in backticks on
+The Android client follows this prototype, and its test tags are the IDs below. The sections below
+note every difference from the prototype. `make quality` checks that every ID and state in backticks on
 this page is an id or a data-on state in the prototype. The prototype wording is a draft; the shipped strings stay in
 `clients/android/app/src/main/res`.
 
@@ -108,10 +107,13 @@ The IDs inside each section are the desktop ones; only the frame differs.
   possible age and country, and opens the found profile; Cancel abandons the answer while the node
   call runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
-- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. Android
-  has no `chats-liked` and `chats-requests` yet, so requests sit in `chat-list` with a marker; a row
-  shows the short Peer ID rather than a name and opens the chat. The app receives the mailbox
-  every minute while it is in the foreground, on every section and in a chat; failures stay quiet.
+- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. On
+  Android both top rows always show, with a count from local data, and expand their lists in place.
+  Liked you fetches the verified profiles when it opens and each opens the found profile, so a peer
+  no node returns counts but has no row. Message requests stay out of the chat list and open the
+  chat. A chat row shows the short Peer ID rather than a name and opens the chat. The app receives
+  the mailbox every minute while it is in the foreground, on every section and in a chat; failures
+  stay quiet.
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),

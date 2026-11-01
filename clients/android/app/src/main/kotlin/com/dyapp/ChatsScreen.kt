@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +25,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,11 +44,21 @@ import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.FoundProfile
 import java.text.DateFormat
 import java.util.Date
 
 // As the desktop's mailbox poll.
 private const val RECEIVE_INTERVAL_MS = 60_000L
+
+/** The section's expandable lists; the feed keeps them while a chat or a profile covers the section. */
+internal class ChatsLists {
+    var likedOpen by mutableStateOf(false)
+    var requestsOpen by mutableStateOf(false)
+
+    /** The last fetch of the Liked you profiles; null until the first one ends. */
+    var likedProfiles by mutableStateOf<Result<List<FoundProfile>>?>(null)
+}
 
 /**
  * This identity's chat rows; the shell owns them because the tab badge shows on every section.
@@ -52,6 +67,12 @@ private const val RECEIVE_INTERVAL_MS = 60_000L
 internal class ChatFeed(private val opened: Opened.Ready) {
     var rows by mutableStateOf(emptyList<ChatRow>())
         private set
+
+    /** The Liked you peers, read locally with the rows. */
+    var liked by mutableStateOf(emptyList<String>())
+        private set
+
+    val lists = ChatsLists()
 
     /** Counts the reads, so an open chat reloads for a change the rows do not show. */
     var version by mutableIntStateOf(0)
@@ -63,6 +84,7 @@ internal class ChatFeed(private val opened: Opened.Ready) {
             RustBridge.withChats(opened) {
                 rows = it.chatRows()
                 version += 1
+                liked = it.likedYou()
             }
         }
     }
@@ -73,6 +95,9 @@ internal class ChatFeed(private val opened: Opened.Ready) {
 
     /** The verified profile of [peer] from the network; null when no node returns one. */
     fun profile(peer: String) = RustBridge.withChats(opened) { it.profiles(listOf(peer)).firstOrNull() }
+
+    /** The verified profiles of [peers]; a peer no node returns is left out. */
+    fun profiles(peers: List<String>) = RustBridge.withChats(opened) { it.profiles(peers) }
 
     /** Likes [peer] or takes the like back, then reads the rows, which also rereads the page's likes. */
     fun like(peer: String, liked: Boolean): Result<ChatLikes> {
@@ -124,20 +149,111 @@ internal fun chatsBadge(rows: List<ChatRow>): ULong = rows.sumOf {
     if (it.state == ChatState.REQUEST_RECEIVED) maxOf(it.unreadCount, 1uL) else it.unreadCount
 }
 
-/** The Chats section: this identity's conversations and message requests. */
+/** The Chats section; the Liked you profiles come from the network, so only an open list fetches them. */
 @Composable
-internal fun ChatsScreen(rows: List<ChatRow>, onOpen: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().testTag("chats")) {
-        if (rows.isEmpty()) {
-            Text(stringResource(R.string.chats_empty), Modifier.padding(16.dp))
+internal fun ChatsScreen(feed: ChatFeed, onOpen: (String) -> Unit, onProfile: (FoundProfile) -> Unit) {
+    val lists = feed.lists
+    val liked = feed.liked
+    LaunchedEffect(lists.likedOpen, liked) {
+        if (lists.likedOpen && liked.isNotEmpty()) {
+            lists.likedProfiles = withContext(Dispatchers.IO) { runCatching { feed.profiles(liked) } }
+        }
+    }
+    ChatsContent(feed.rows, liked, lists, onOpen, onProfile)
+}
+
+/** Liked you and message requests with counts from local data, then the conversations. */
+@Composable
+@Suppress("LongParameterList") // A stateless screen: its tests pass each list and route.
+internal fun ChatsContent(
+    rows: List<ChatRow>,
+    liked: List<String>,
+    lists: ChatsLists,
+    onOpen: (String) -> Unit,
+    onProfile: (FoundProfile) -> Unit,
+) {
+    val (requests, conversations) = rows.partition { it.state == ChatState.REQUEST_RECEIVED }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("chats")) {
+        ExpandableRow("chats-liked", R.string.chats_liked, R.string.chats_liked_text, liked.size, lists.likedOpen) {
+            lists.likedOpen = !lists.likedOpen
+        }
+        if (lists.likedOpen) LikedList(liked, lists.likedProfiles, onProfile)
+        ExpandableRow("chats-requests", R.string.chats_requests, R.string.chats_requests_text, requests.size,
+            lists.requestsOpen) { lists.requestsOpen = !lists.requestsOpen }
+        if (lists.requestsOpen) RequestList(requests, onOpen)
+        Text(stringResource(R.string.chats_conversations), Modifier.padding(16.dp),
+            style = MaterialTheme.typography.titleMedium)
+        if (conversations.isEmpty()) {
+            Text(stringResource(R.string.chats_empty), Modifier.padding(horizontal = 16.dp))
         } else {
-            LazyColumn(Modifier.weight(1f).testTag("chat-list")) {
-                itemsIndexed(rows, key = { _, row -> row.peerId }) { index, row ->
+            // Not lazy, as it scrolls with the lists above; all rows are in memory anyway.
+            Column(Modifier.testTag("chat-list")) {
+                for ((index, row) in conversations.withIndex()) {
                     ChatListRow(row, Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) })
                 }
             }
         }
         Caption(stringResource(R.string.chats_identity), Modifier.padding(16.dp))
+    }
+}
+
+@Composable
+@Suppress("LongParameterList") // The two rows differ in each of these.
+private fun ExpandableRow(tag: String, title: Int, text: Int, count: Int, open: Boolean, toggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button, onClick = toggle)
+            .semantics { if (open) collapse { toggle(); true } else expand { toggle(); true } }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        Arrangement.spacedBy(12.dp),
+        Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleSmall)
+            Caption(stringResource(text))
+        }
+        Badge { Text(count.toString(), Modifier.testTag("$tag-count")) }
+    }
+}
+
+// Closing and opening the list fetches again, so a failure needs no retry button of its own.
+@Composable
+private fun LikedList(liked: List<String>, fetch: Result<List<FoundProfile>>?, open: (FoundProfile) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("chats-liked-list"),
+        Arrangement.spacedBy(12.dp)) {
+        val failure = fetch?.exceptionOrNull()
+        when {
+            liked.isEmpty() -> Caption(stringResource(R.string.chats_none))
+            fetch == null -> Caption(stringResource(R.string.view_loading),
+                Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            failure != null -> {
+                val status = profileLoadStatus(failure)
+                ErrorNotice(stringResource(status.text), "chats-liked-status", status.details.orEmpty(),
+                    "chats-liked-details", "copy-chats-liked-details")
+            }
+            else -> LikedProfiles(liked, fetch.getOrDefault(emptyList()), open)
+        }
+    }
+}
+
+// The fetch can be older than the IDs, so a peer who left the list leaves at once.
+@Composable
+private fun LikedProfiles(liked: List<String>, found: List<FoundProfile>, open: (FoundProfile) -> Unit) {
+    val shown = found.filter { it.peerId in liked }
+    for ((index, profile) in shown.withIndex()) {
+        SearchResultRow(profile, "liked-${index + 1}") { open(profile) }
+    }
+    if (shown.size < liked.size) Caption(stringResource(R.string.chats_liked_missing))
+}
+
+@Composable
+private fun RequestList(requests: List<ChatRow>, onOpen: (String) -> Unit) {
+    Column(Modifier.testTag("chats-requests-list")) {
+        if (requests.isEmpty()) {
+            Caption(stringResource(R.string.chats_no_requests), Modifier.padding(horizontal = 16.dp))
+        }
+        for ((index, row) in requests.withIndex()) {
+            ChatListRow(row, Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) })
+        }
     }
 }
 
@@ -151,10 +267,6 @@ private fun ChatListRow(row: ChatRow, modifier: Modifier) {
         Avatar(row.peerId)
         Column(Modifier.weight(1f)) {
             Text(shortPeerId(row.peerId), style = MaterialTheme.typography.titleSmall)
-            if (row.state == ChatState.REQUEST_RECEIVED) {
-                Text(stringResource(R.string.chats_request), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary)
-            }
             Text(chatPreview(row.lastMessage), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium)
         }
