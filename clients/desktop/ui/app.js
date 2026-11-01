@@ -93,11 +93,17 @@ const copyFrom = (button, source, text = () => source.textContent) => button.add
   });
 });
 
+// A result belongs to the identity view that started it, even after its Rust lease ends.
+let identityGeneration = 0;
+const identityCurrent = (generation) => generation === identityGeneration;
 const act = async (pending) => {
+  const generation = ++identityGeneration;
   try {
-    return await render(await pending);
+    const state = await pending;
+    if (identityCurrent(generation)) return await render(state, generation);
+    return state;
   } catch (_) {
-    showError();
+    if (identityCurrent(generation)) showError();
     return { status: 'error' };
   }
 };
@@ -784,7 +790,8 @@ profileHidden.addEventListener('change', async () => {
   }
 });
 
-async function render(state) {
+async function render(state, generation = identityGeneration) {
+  if (!identityCurrent(generation)) return state;
   const fresh = created;
   created = false;
   if (state.status === 'ready' || state.status === 'recovery') current = state;
@@ -792,15 +799,19 @@ async function render(state) {
     document.getElementById('peer-id').textContent = state.peerId;
     document.getElementById('file-backup').hidden = state.mode !== 'file';
     document.getElementById('key-path').textContent = state.keyPath || '';
-    knowPeers(await invoke('list_identities'));
+    const items = await invoke('list_identities');
+    if (!identityCurrent(generation)) return state;
+    knowPeers(items);
     const sidebarIdentity = document.getElementById('sidebar-identity');
     const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
     text.className = 'label';
     text.lastChild.className = 'sub';
     sidebarIdentity.replaceChildren(avatar, text);
     await window.showNetwork();
+    if (!identityCurrent(generation)) return state;
     window.connectionShown = connectAtLaunch();
     await showProfile();
+    if (!identityCurrent(generation)) return state;
     window.resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
@@ -812,6 +823,7 @@ async function render(state) {
   }
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
+    if (!identityCurrent(generation)) return state;
     document.getElementById('identities').replaceChildren(...knowPeers(items).map(identityButton));
     show(sections[2], 'status.pick');
     return state;
@@ -936,7 +948,11 @@ removeAnyway.addEventListener('click', () => {
 for (const id of ['remove-cancel', 'remove-cancel-offline']) {
   document.getElementById(id).addEventListener('click', () => removeDialog.close());
 }
+const startupGeneration = identityGeneration;
 window.identityShown = window.stringsShown
   .then(() => invoke('identity_state'))
-  .then(render)
-  .catch(() => { showError(); return { status: 'error' }; });
+  .then((state) => render(state, startupGeneration))
+  .catch(() => {
+    if (identityCurrent(startupGeneration)) showError();
+    return { status: 'error' };
+  });

@@ -129,6 +129,19 @@ const switchFromSettings = async (mode) => {
   await waitFor('picker');
   await pickReady(mode);
 };
+// A pending identity response cannot render after a later transition has shown the picker.
+const checkStaleRender = async () => {
+  const readyState = current;
+  let finishOld;
+  const old = act(new Promise((resolve) => { finishOld = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  if (document.getElementById('picker').hidden) throw new Error('picker not shown');
+  finishOld({ status: 'setup' });
+  await old;
+  if (document.getElementById('picker').hidden) throw new Error('stale identity response rendered');
+  await act(Promise.resolve(readyState));
+  if (document.getElementById('identity').hidden) throw new Error('ready view not restored');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -894,6 +907,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkSettingsInventory(state.peerId, state.mode);
       await switchFromSettings(mode);
       await checkSettingsInventory(addedPeer, mode);
+      await checkStaleRender();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

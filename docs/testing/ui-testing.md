@@ -104,7 +104,9 @@ and a copy of the same ID in another slot counts as no collision. On first ident
 also opens Settings to verify the active identity's full Peer ID, its short form and key backend,
 creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
-verify the surviving identity and Settings inventory. That relaunch also checks the Storage card:
+verify the surviving identity and Settings inventory. In the add-identity case, it also pauses an
+old identity response, shows the newer picker, resumes the old response, and checks the picker
+remains visible before returning to Ready. That relaunch also checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

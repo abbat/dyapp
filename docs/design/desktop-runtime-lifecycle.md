@@ -18,8 +18,10 @@ the check and advances its epoch; a late check from the prior epoch cannot autho
 Network activation also saves the active settings and, when they differ from the previous active
 settings, clears verified profiles and advances the profile-cache epoch under one cache lock. A
 repeat activation of the same settings retains the cache. Search and chat work captures that
-epoch before loading network settings and does not cache a result after activation changes it. UI callback guards remain
-planned.
+epoch before loading network settings and does not cache a result after activation changes it.
+The WebView now advances an identity generation when a transition starts, and its identity
+renderer discards a completion after the generation changes. Guards for other async callbacks
+remain planned.
 
 ## Required behavior
 
