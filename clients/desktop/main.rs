@@ -948,11 +948,12 @@ fn main() {
                 }
                 webview
                     .eval(format!(
-                        "{}\n{}\n{}\n{}\n{}\n{}",
+                        "{}\n{}\n{}\n{}\n{}\n{}\n{}",
                         include_str!("ui-test-common.js"),
                         include_str!("video-frame-renderer.js"),
                         include_str!("video-frame-smoke.js"),
                         include_str!("ui-test-identity.js"),
+                        include_str!("ui-test-chats.js"),
                         include_str!("ui-test-guards.js"),
                         include_str!("ui-test.js")
                     ))

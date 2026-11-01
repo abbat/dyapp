@@ -385,8 +385,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   plugin in CI's desktop session; clipboard-history exclusion still needs a
   real desktop-session check.
 - **Screenshots.** The debug shell concatenates `ui-test-common.js`, the video frame helpers,
-  `ui-test-identity.js`, `ui-test-guards.js` and `ui-test.js` into one WebView script, in that order.
-  The final file dispatches named smoke cases; the earlier files expose shared helpers.
+  `ui-test-identity.js`, `ui-test-chats.js`, `ui-test-guards.js` and `ui-test.js` into one
+  WebView script, in that order. The final file dispatches named smoke cases; the earlier files
+  expose shared helpers in the same eval scope.
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs

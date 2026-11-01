@@ -1,5 +1,6 @@
 // Desktop UI smoke: network, profile, connected fixtures and step dispatch.
 const identityChecks = globalThis.uiSmokeIdentity;
+const chatChecks = globalThis.uiSmokeChats;
 const guardChecks = globalThis.uiSmokeGuards;
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
@@ -560,9 +561,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await openArea('profile-area');
       await identityChecks.checkStaleRender();
       await identityChecks.checkStaleSearchAndChats();
-      await identityChecks.checkChatProjection();
-      await identityChecks.checkFirstMessage();
-      await identityChecks.checkClearChat();
+      await chatChecks.checkChatProjection();
+      await chatChecks.checkFirstMessage();
+      await chatChecks.checkClearChat();
       await identityChecks.checkStalePeerActions();
       await identityChecks.checkStaleSafety();
       await identityChecks.checkStaleProfileLoad();
