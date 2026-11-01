@@ -112,8 +112,9 @@ remains visible before returning to Ready. It then pauses old Search and Chats r
 starts current requests after returning to Ready, and checks that late old results cannot
 change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
 refresh after the identity changes. The Chats smoke also renders local request and conversation
-rows through mocked commands while the node is unavailable, opens history, marks incoming text
-read locally, and checks Back returns to the list. Mocked send checks the reply transition,
+rows through mocked commands while the node is unavailable, marks request rows until a reply,
+opens history and marks incoming text read locally, and checks Back returns to the list. Mocked
+send checks the reply transition,
 disabled composer for an unanswered request, retention of an unstaged draft on failure, and a
 locally staged text shown as pending after node failure. The Found profile smoke opens a
 `none` chat, sends one first text and checks the pending request row and disabled second send.
@@ -132,7 +133,8 @@ localized Forwarded label in the list and history, keeps the verified MLS sender
 and leaves ordinary text unmarked; the Linux smoke runs in English and Russian. Rust tests cover
 source group/author/ID and deleted-state checks before the desktop forward command can send. The
 Forward action smoke checks target filtering, Cancel, an unstaged error, queued delivery and a
-late result after switching identity.
+late result after switching identity. The link-host smoke checks IDN punycode, a `user@host`
+spoof and absence of clickable links or previews in a message request.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

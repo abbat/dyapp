@@ -360,6 +360,7 @@
   "chats.forwardFailed": "Could not forward message:",
   "chats.forwardQueued": "Forward saved on this computer; network delivery is pending.",
   "chats.forwardSent": "Forward sent to the network node.",
+  "chats.linkHost": "Link host",
   "chats.editFailed": "Could not edit message:",
   "chats.editQueued": "Edit saved on this computer; network delivery is pending.",
   "chats.editSent": "Edit sent to the network node.",

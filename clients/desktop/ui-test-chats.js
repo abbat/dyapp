@@ -20,6 +20,7 @@ const checkChatProjection = async () => {
   const request = document.querySelector('#chats-requests button');
   const conversation = document.querySelector('#chat-list button');
   if (!request || !conversation || !request.textContent.includes('hello')
+    || !request.textContent.includes(window.strings['chats.state.requestReceived'])
     || !request.querySelector('.meta .caption').textContent
     || !request.textContent.includes('2')
     || !conversation.textContent.includes(window.strings['chats.deleted'])
@@ -49,7 +50,12 @@ const checkChatProjection = async () => {
     throw new Error(`unexpected reply command: ${command}`);
   });
   if (sentArgs.peerId !== peer || sentArgs.text !== 'reply' || chatInput.value
-    || activeChat.state !== 'open') throw new Error('reply did not open conversation');
+    || activeChat.state !== 'open'
+    || document.querySelector('#chats-requests button')
+    || document.querySelector(`#chat-list button[data-peer-id="${peer}"]`)
+      ?.textContent.includes(window.strings['chats.state.requestReceived'])) {
+    throw new Error('reply did not open conversation or remove request marker');
+  }
 
   await openChat(peer, (command) => {
     if (command === 'chat_history') return Promise.resolve({ state: 'requestSent', messages: [reply] });
@@ -573,7 +579,32 @@ const checkChatForwardAction = async () => {
   await late;
   if (forwardDialog.open || !chatDetail.hidden) throw new Error('old Forward painted new identity');
 };
+const checkChatLinkHosts = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '3'.repeat(64);
+  const text = 'See https://bücher.example/path and https://paypal.com@evil.example/login';
+  const hosts = chatLinkHosts(text);
+  if (hosts.length !== 2 || hosts[0] !== 'xn--bcher-kva.example'
+    || hosts[1] !== 'evil.example' || chatLinkHosts('javascript:alert(1)').length) {
+    throw new Error('IDN or userinfo link host was misidentified');
+  }
+  const message = { author: peer, groupId: [1], id: [1], text,
+    deleted: false, edited: false, sentAtMs: null };
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'requestReceived', messages: [message] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([]);
+    throw new Error(`unexpected link host command: ${command}`);
+  });
+  const rendered = chatMessages.querySelector('p');
+  if (!rendered?.textContent.includes(`${window.strings['chats.linkHost']}: ${hosts.join(', ')}`)
+    || rendered.querySelector('a, img, iframe')) {
+    throw new Error('link host missing or link preview was created');
+  }
+  document.getElementById('chat-back').click();
+};
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
-  checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction,
+  checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction, checkChatLinkHosts,
 });

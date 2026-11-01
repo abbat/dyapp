@@ -212,9 +212,11 @@ and timed cleanup are best effort
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
 learns nothing until a reply. The Linux screen now renders ordered, pair-wide local requests
 and conversations with a short Peer ID, latest text or deletion placeholder, original message
-time when present, and local unread count. It shows the local rows after mailbox refresh even if
-that refresh or the network-backed **Liked you** lookup fails. Opening a row shows its current
-message history and marks incoming messages read on this device; Back returns to the list.
+time when present, and local unread count. Request rows carry an explicit message-request marker
+until a reply or match opens the conversation. In history, HTTP(S) text remains inert while a
+caption shows each parsed full host, with IDNs in punycode and no remote preview. It shows local
+rows after mailbox refresh even if that refresh or the network-backed **Liked you** lookup fails.
+Opening a row shows its current message history and marks incoming messages read on this device; Back returns to the list.
 The Linux detail now lets a received request reply and an open conversation send text.
 A sent request shows a disabled composer until the peer replies or a match opens the chat.
 A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it

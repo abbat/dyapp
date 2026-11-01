@@ -1,7 +1,8 @@
 # Privacy & Metadata Visibility
 
-> **No privacy guarantees today.** Messages sent through `rust/client` are MLS ciphertext, but
-> the app does not use it yet and metadata is visible; profiles are signed but public by design ([Encryption & Security Status](encryption.md)). This page
+> **No anonymity guarantees today.** Messages sent through `rust/client` and Linux desktop are
+> MLS ciphertext, while metadata remains visible; profiles are signed but public by design
+> ([Encryption & Security Status](encryption.md)). This page
 > lists who can see each piece of data now, and what the target design would
 > change. Even the target design does not hide all metadata.
 
@@ -35,6 +36,16 @@ Interest tags are public profile fields. Profile verification requires a canonic
 Unicode lowercase, NFC) so an externally authored variant cannot create a second search spelling.
 Client controls for entering or searching interests are planned; the Rust core provides the
 canonicalization helper for them.
+
+## Message request and link display
+
+Linux Chats keeps an unaccepted first message in **Message requests** with an explicit request
+marker until a reply or match opens the conversation. Chat text stays plain text: the client
+makes no clickable link or remote preview from it. For HTTP(S) URLs in history, it shows the
+host parsed by the WebView URL API beside the text, including punycode for internationalized
+names and the destination after any `user@` prefix. Malformed URLs remain plain text. This
+helps reveal a misleading link but does not establish that the destination is trustworthy.
+Other app surfaces have not yet adopted this display.
 
 ## Retention
 

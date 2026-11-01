@@ -190,6 +190,16 @@ document.getElementById('chat-clear').addEventListener('click', () => {
 const chatTime = (message) => message?.sentAtMs == null ? '' :
   new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'short', timeStyle: 'short' })
     .format(new Date(message.sentAtMs));
+const chatLinkHosts = (text) => {
+  const hosts = new Set();
+  for (const match of (text || '').matchAll(/https?:\/\/[^\s<>"']+/gi)) {
+    try {
+      const url = new URL(match[0].replace(/[),.!?]+$/u, ''));
+      if (url.protocol === 'http:' || url.protocol === 'https:') hosts.add(url.host);
+    } catch { /* A malformed URL remains plain text. */ }
+  }
+  return [...hosts];
+};
 const chatPreview = (message) => !message ? window.strings['chats.noMessages']
   : message.deleted ? window.strings['chats.deleted']
     : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${message.text || ''}`;
@@ -202,10 +212,17 @@ const chatRow = (row) => {
   content.className = 'grow';
   const name = document.createElement('b');
   name.textContent = peerLabel(name, row.peerId);
+  content.append(name);
+  if (row.state === 'requestReceived') {
+    const marker = document.createElement('span');
+    marker.className = 'badge';
+    marker.textContent = window.strings['chats.state.requestReceived'];
+    content.append(document.createTextNode(' '), marker);
+  }
   const preview = document.createElement('span');
   preview.className = 'caption ellipsis';
   preview.textContent = chatPreview(row.lastMessage);
-  content.append(name, document.createElement('br'), preview);
+  content.append(document.createElement('br'), preview);
   const meta = document.createElement('span');
   meta.className = 'meta';
   const time = document.createElement('span');
@@ -293,6 +310,13 @@ const openChat = async (peerId, call = invoke) => {
         item.append(forwarded);
       }
       item.append(body);
+      const hosts = chatLinkHosts(message.deleted ? '' : message.text);
+      if (hosts.length) {
+        const host = document.createElement('span');
+        host.className = 'caption';
+        host.textContent = ` · ${window.strings['chats.linkHost']}: ${hosts.join(', ')}`;
+        item.append(host);
+      }
       if (message.author === current.peerId && message.delivery) {
         const delivery = document.createElement('span');
         delivery.className = 'caption';
