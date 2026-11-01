@@ -213,9 +213,9 @@ last message, its time and the unread count. The current Linux **Liked you** scr
 an error when mailbox refresh fails instead of claiming an empty local list is current. Rows
 already rendered stay visible if the profile lookup also fails; background polling retries on
 the next interval. The Rust Store now supplies ordered pair-wide rows with latest current message,
-optional original HLC and local unread count. Desktop commands expose read-only chat data and
-send text for the active identity; Linux conversation rows and message requests in the UI are
-planned.
+optional original HLC and local unread count. Desktop commands expose read-only chat data,
+send text and clear a pair's local history for the active identity; Linux conversation rows and
+message requests in the UI are planned.
 
 | Control | ID | Notes |
 | --- | --- | --- |

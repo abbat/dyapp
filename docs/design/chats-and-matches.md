@@ -92,7 +92,9 @@ milliseconds, and leave legacy text time absent. `send_chat_text(peerId, text)` 
 the signed peer profile on the active network and uses `Session::send_text_to` under the identity
 lease and MLS-session mutex; a failed network send retains the staged outbox bytes. It rejects an
 unpublished own profile or device, a blocked or self peer, stale profile data and invalid text.
-The Chats UI, mark-read and clear commands remain planned.
+`clear_chat(peerId)` clears all local groups for that pair in one transaction and returns the
+number of removed current messages; the conversation state and empty row stay. It rejects an
+unknown, blocked or self peer. The Chats UI and mark-read command remain planned.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,
