@@ -58,6 +58,9 @@ score = 72.2
 "LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
 # Android: publishing without a network failed once; the retry passed.
 "com.dyapp.ProfilePublishTests publishNeedsFreshConfirmationsAndReportsNoNetwork" = 2026-10-28
+# Android: the signed readback did not appear within 120 s in some attempts; a retry passed.
+"com.dyapp.ProfilePublishTests publishThroughTheLocalNodeShowsTheSignedReadback" = 2026-11-02
+"com.dyapp.ProfilePublishTests theSwitchHidesAndOnlyAPublicationShowsAgain" = 2026-11-02
 # Android: the restarted network draft failed once; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-10-31
 # Android: the keyboard opened during a tap after typed text; the retry passed.

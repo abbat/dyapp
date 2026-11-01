@@ -3,7 +3,6 @@ package com.dyapp
 import android.content.Context
 import android.util.Log
 import uniffi.dyapp.ChatSession
-import uniffi.dyapp.ConnectionCheck
 import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkFile
 import uniffi.dyapp.NetworkSettings
@@ -19,8 +18,20 @@ class Shown(
     val entries: List<Opened> = emptyList()
 )
 
+// The slot's wrapped device and state keys, made once; Rust refuses a replaced one.
+private fun chatKeys(slot: Slot, store: PlatformKeyStore): Pair<ByteArray, ByteArray> = synchronized(RustBridge) {
+    if (!slot.deviceKeyFile.exists()) {
+        writeAtomic(slot.deviceKeyFile, IdentityKey.generate().use { it.wrap(store) })
+    }
+    if (!slot.chatStateKeyFile.exists()) writeAtomic(slot.chatStateKeyFile, newChatStateKey(store))
+    slot.deviceKeyFile.readBytes() to slot.chatStateKeyFile.readBytes()
+}
+
 /** Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings. */
 object RustBridge {
+    // Not this object's monitor: show() runs on the UI thread and must not wait for a network receive.
+    private val chatsLock = Any()
+
     /**
      * Identity slots under `noBackupFilesDir`, which backups skip: their wrapping keys never
      * leave this device, so a restored blob could not be opened anyway.
@@ -35,9 +46,6 @@ object RustBridge {
     fun saveNetworkDraft(opened: Opened.Ready, draft: NetworkSettings) =
         ffiSaveNetworkDraft(opened.slot.dir.absolutePath, draft)
 
-    /** Create a checker for this ready slot; run and activate off the UI thread. */
-    fun connectionCheck(opened: Opened.Ready) = ConnectionCheck(opened.slot.dir.absolutePath)
-
     /** Runs [action] on this ready slot's folder and reopened key; a changed Peer ID refuses it. */
     fun <T> withKey(opened: Opened.Ready, action: (String, IdentityKey) -> T): T {
         val slot = opened.slot
@@ -47,11 +55,8 @@ object RustBridge {
         }
     }
 
-    // Not this object's monitor: show() runs on the UI thread and must not wait for a network receive.
-    private val chatsLock = Any()
-
     /**
-     * Runs [action] on this ready slot's chats off the UI thread; see [chatKeys]. One session at a
+     * Runs [action] on this ready slot's chats off the UI thread. One session at a
      * time: two would advance the same saved MLS state and the later one would drop the other's commit.
      */
     fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = synchronized(chatsLock) {
@@ -64,16 +69,6 @@ object RustBridge {
         }
     }
 
-    /** The slot's wrapped device and state keys, made once; Rust refuses a replaced one. */
-    @Synchronized
-    private fun chatKeys(slot: Slot, store: PlatformKeyStore): Pair<ByteArray, ByteArray> {
-        if (!slot.deviceKeyFile.exists()) {
-            writeAtomic(slot.deviceKeyFile, IdentityKey.generate().use { it.wrap(store) })
-        }
-        if (!slot.chatStateKeyFile.exists()) writeAtomic(slot.chatStateKeyFile, newChatStateKey(store))
-        return slot.deviceKeyFile.readBytes() to slot.chatStateKeyFile.readBytes()
-    }
-
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
     /**
@@ -82,10 +77,8 @@ object RustBridge {
      */
     @Synchronized
     fun show(slots: Slots, action: () -> Opened): Shown = runCatching {
-        when (val opened = action()) {
-            Opened.Picker -> Shown(opened, slots.list().map { openSlot(it, slots::load) })
-            else -> Shown(opened)
-        }
+        val opened = action()
+        if (opened == Opened.Picker) Shown(opened, slots.list().map { openSlot(it, slots::load) }) else Shown(opened)
     }.getOrElse { failure ->
         if (failure !is Exception) throw failure
         Log.e("dyapp", "Identity storage failed", failure)

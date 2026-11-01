@@ -102,9 +102,7 @@ fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, 
     ) {
         LockBackBar(onBack.takeIf { !form.busy })
         LockSettingsStatus(mode, deviceSecure, form.gated)
-        if (askCurrent) PinField(form.current, R.string.lock_pin_current, "pin-current", open)
-        NewPinFields(form.pin, form.repeat, R.string.lock_pin_new, open && deviceSecure)
-        form.error?.let { ErrorText(it) }
+        LockSettingsFields(form, askCurrent, deviceSecure)
         LockSettingsActions(
             mode,
             { submit(form.pin.value) }.takeIf { authorized && deviceSecure && form.pin.value.isNotEmpty() },
@@ -112,6 +110,13 @@ fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, 
         )
         if (mode == LockMode.OFF || mode == LockMode.RESET) BiometricOption(device, open)
     }
+}
+
+@Composable
+private fun LockSettingsFields(form: PinForm, askCurrent: Boolean, deviceSecure: Boolean) {
+    if (askCurrent) PinField(form.current, R.string.lock_pin_current, "pin-current", form.open)
+    NewPinFields(form.pin, form.repeat, R.string.lock_pin_new, form.open && deviceSecure)
+    form.error?.let { ErrorText(it) }
 }
 
 internal fun lockModeText(mode: LockMode) = when (mode) {

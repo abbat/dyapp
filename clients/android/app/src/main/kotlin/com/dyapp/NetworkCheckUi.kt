@@ -44,11 +44,13 @@ internal fun checkFailure(error: Throwable): Int = when (error) {
     else -> R.string.network_check_failed
 }
 
+private const val SEED_ROWS_TAG = "seed-rows"
+
 /** What the check returned, one address per row; a null row is still being checked. */
 @Composable
 internal fun SeedRows(rows: List<Pair<String, SeedRow?>>) {
     if (rows.isEmpty()) return
-    Column(Modifier.testTag("seed-rows"), Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.testTag(SEED_ROWS_TAG), Arrangement.spacedBy(8.dp)) {
         rows.forEach { (seed, row) ->
             Column {
                 Text(seed, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
@@ -93,7 +95,7 @@ internal fun activeNetworkStatus(opened: Opened.Ready, refresh: Any? = null): St
 @Composable
 internal fun NetworkCheckResults(status: Int?, rows: List<Pair<String, SeedRow>>) {
     if (status != null) Text(stringResource(status), Modifier.testTag("network-check-status"))
-    Column(Modifier.testTag("seed-rows")) {
+    Column(Modifier.testTag(SEED_ROWS_TAG)) {
         rows.forEach { (seed, row) -> Text(seed + ": " + stringResource(rowStatus(row))) }
     }
 }

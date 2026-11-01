@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -137,8 +136,10 @@ private fun StartActions(opened: Opened?, slots: Slots, act: (() -> Opened) -> U
                 ) { Text(stringResource(R.string.recovery_remove)) }
             }
         }
-        else -> OutlinedButton(onClick = { act(slots::create) }, wide.testTag("add-identity")) {
-            Text(stringResource(R.string.identity_add))
+        else -> {
+            OutlinedButton(onClick = { act(slots::create) }, wide.testTag("add-identity")) {
+                Text(stringResource(R.string.identity_add))
+            }
         }
     }
     TextButton(onClick = { open(StartTarget.LOCK) }, wide.testTag("lock-settings")) {

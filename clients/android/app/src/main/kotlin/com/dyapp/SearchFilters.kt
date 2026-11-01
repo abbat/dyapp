@@ -100,7 +100,7 @@ private fun MoreFilters(filters: SearchFilters) {
         }
     ) {
         Text(stringResource(R.string.search_more), Modifier.weight(1f))
-        Icon(painterResource(R.drawable.ic_expand_more), null, Modifier.rotate(if (open) 180f else 0f))
+        Icon(painterResource(R.drawable.ic_expand_more), null, Modifier.rotate(if (open) FLIPPED_DEGREES else 0f))
     }
     if (open) {
         for (scale in filters.shownScales) {

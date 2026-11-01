@@ -1,0 +1,122 @@
+package com.dyapp
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import uniffi.dyapp.ChatLikes
+import uniffi.dyapp.ChatMessage
+import uniffi.dyapp.ChatRow
+import uniffi.dyapp.ChatState
+import uniffi.dyapp.FoundProfile
+
+// As the desktop's mailbox poll.
+private const val RECEIVE_INTERVAL_MS = 60_000L
+
+/** The section's expandable lists; the feed keeps them while a chat or a profile covers the section. */
+internal class ChatsLists {
+    var likedOpen by mutableStateOf(false)
+    var requestsOpen by mutableStateOf(false)
+
+    /** The last fetch of the Liked you profiles; null until the first one ends. */
+    var likedProfiles by mutableStateOf<Result<List<FoundProfile>>?>(null)
+}
+
+/**
+ * This identity's chat rows; the shell owns them because the tab badge shows on every section.
+ * The blocking calls belong on IO.
+ */
+internal class ChatFeed(private val opened: Opened.Ready) {
+    var rows by mutableStateOf(emptyList<ChatRow>())
+        private set
+
+    /** The Liked you peers, read locally with the rows. */
+    var liked by mutableStateOf(emptyList<String>())
+        private set
+
+    val lists = ChatsLists()
+
+    /** Counts the reads, so an open chat reloads for a change the rows do not show. */
+    var version by mutableIntStateOf(0)
+        private set
+
+    // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
+    private fun read() {
+        runCatching {
+            RustBridge.withChats(opened) {
+                rows = it.chatRows()
+                version += 1
+                liked = it.likedYou()
+            }
+        }
+    }
+
+    fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
+
+    fun likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
+
+    /** The verified profile of [peer] from the network; null when no node returns one. */
+    fun profile(peer: String) = RustBridge.withChats(opened) { it.profiles(listOf(peer)).firstOrNull() }
+
+    /** The verified profiles of [peers]; a peer no node returns is left out. */
+    fun profiles(peers: List<String>) = RustBridge.withChats(opened) { it.profiles(peers) }
+
+    /** Likes [peer] or takes the like back, then reads the rows, which also rereads the page's likes. */
+    fun like(peer: String, liked: Boolean): Result<ChatLikes> {
+        val result = runCatching { RustBridge.withChats(opened) { it.like(peer, liked) } }
+        read()
+        return result
+    }
+
+    /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
+    fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {
+        val error = runCatching { RustBridge.withChats(opened) { it.sendText(peer, text) } }.exceptionOrNull()
+        read()
+        return error?.let { failed ->
+            val after = runCatching { history(peer).messages }.getOrDefault(before)
+            sendStatus(failed, stagedNew(before, after, opened.peerId))
+        }
+    }
+
+    // shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
+    // hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
+    // Upgrade when removal moves off the UI thread: take the chats lock there.
+    suspend fun poll() {
+        read()
+        while (true) {
+            runCatching { RustBridge.withChats(opened) { it.receive() } }
+            read()
+            delay(RECEIVE_INTERVAL_MS)
+        }
+    }
+}
+
+/** The rows read locally first and again after each mailbox receive while the activity is started. */
+@Composable
+internal fun rememberChatFeed(opened: Opened.Ready): ChatFeed {
+    // Keyed so that a switch never shows the previous identity's chats, even for a frame.
+    val feed = remember(opened.slot.id) { ChatFeed(opened) }
+    val owner = checkNotNull(LocalView.current.findViewTreeLifecycleOwner()) { "Compose needs a lifecycle" }
+    LaunchedEffect(feed, owner) {
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // On IO the delay is real time, so Compose tests do not fast-forward this endless loop.
+            withContext(Dispatchers.IO) { feed.poll() }
+        }
+    }
+    return feed
+}
+
+/** The tab badge: unread messages plus message requests; a request's own unread text counts once. */
+internal fun chatsBadge(rows: List<ChatRow>): ULong = rows.sumOf {
+    if (it.state == ChatState.REQUEST_RECEIVED) maxOf(it.unreadCount, 1uL) else it.unreadCount
+}

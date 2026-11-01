@@ -71,7 +71,8 @@ class SearchTests {
     private fun checkLocalSample() {
         val status = searched()
         val count = generateSequence(1) { it + 1 }
-            .takeWhile { compose.onAllNodes(hasTestTag("result-$it")).fetchSemanticsNodes().isNotEmpty() }.count()
+            .takeWhile { compose.onAllNodes(hasTestTag("result-$it")).fetchSemanticsNodes().isNotEmpty() }
+            .count()
         val expected = listOf(string(R.string.search_empty),
             compose.activity.getString(R.string.search_results, count),
             compose.activity.getString(R.string.search_partial, count))

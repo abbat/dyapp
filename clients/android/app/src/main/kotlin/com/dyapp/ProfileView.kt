@@ -21,11 +21,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -39,71 +36,13 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.profileScales
 
-/** The profile behind the page: being fetched, verified, returned by no node, or a failed fetch. */
-internal sealed interface ProfileLoad {
-    data object Loading : ProfileLoad
-    data class Shown(val found: FoundProfile) : ProfileLoad
-    data object Missing : ProfileLoad
-    data class Failed(val status: ChatStatus) : ProfileLoad
-}
-
-/** The like controls: [likes] is null until read; the dialog and the last outcome are not saved. */
-internal class ProfileForm {
-    var likes by mutableStateOf<ChatLikes?>(null)
-    var sending by mutableStateOf(false)
-    var status by mutableStateOf<ChatStatus?>(null)
-    var confirming by mutableStateOf(false)
-}
-
-/** Where the page leads: [backLabel] names what back returns to. */
-internal class ProfileActions(val backLabel: Int, val back: () -> Unit, val message: () -> Unit)
-
-internal fun likeStatus(error: Throwable): ChatStatus {
-    val details = error.toString()
-    return when {
-        "unpublished" in details -> ChatStatus(R.string.view_like_unpublished, details)
-        "notConnected" in details -> ChatStatus(R.string.view_like_not_connected, details)
-        else -> ChatStatus(R.string.view_like_failed, details)
-    }
-}
-
-internal fun profileLoadStatus(error: Throwable): ChatStatus {
-    val details = error.toString()
-    val text = if ("notConnected" in details) R.string.search_not_connected else R.string.view_load_failed
-    return ChatStatus(text, details)
-}
-
-// A retry has something to do only until a profile is shown.
-@Composable
-private fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatFeed, attempt: Int): State<ProfileLoad> =
-    produceState(known?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Loading, attempt) {
-        if (value !is ProfileLoad.Shown) {
-            value = ProfileLoad.Loading
-            value = withContext(Dispatchers.IO) { runCatching { feed.profile(peer) } }.fold(
-                { found -> found?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Missing },
-                { ProfileLoad.Failed(profileLoadStatus(it)) },
-            )
-        }
-    }
-
-private fun CoroutineScope.sendLike(form: ProfileForm, feed: ChatFeed, peer: String, liked: Boolean) {
-    form.sending = true
-    form.status = null
-    launch {
-        val result = withContext(Dispatchers.IO) { feed.like(peer, liked) }
-        form.sending = false
-        // A failed send can still be staged, so the reread after feed.like decides the button.
-        result.onSuccess { form.likes = it }.onFailure { form.status = likeStatus(it) }
-    }
-}
+private const val STATUS_TAG = "view-status"
+private const val LOAD_TAG = "view-load"
 
 /**
  * A found profile without the app bars. [known] is the result already verified; without one the page
@@ -173,13 +112,22 @@ internal fun ProfileViewContent(
 private fun ProfileLikes(form: ProfileForm, onMessage: () -> Unit, onLike: (Boolean) -> Unit) {
     val ours = form.likes?.ours == true
     val matched = form.likes?.matched == true
-    val ready = form.likes != null && !form.sending
     if (matched) {
         FormCard(Modifier.testTag("view-match").semantics { liveRegion = LiveRegionMode.Polite }) {
             Text(stringResource(R.string.view_match), style = MaterialTheme.typography.titleSmall)
             Caption(stringResource(R.string.view_match_text))
         }
     }
+    LikeButtons(form, onMessage, onLike)
+    if (!matched) Caption(stringResource(R.string.view_first_hint))
+    if (ours) Caption(stringResource(R.string.view_unlike_hint))
+    LikeStatusLine(form)
+}
+
+@Composable
+private fun LikeButtons(form: ProfileForm, onMessage: () -> Unit, onLike: (Boolean) -> Unit) {
+    val ours = form.likes?.ours == true
+    val ready = form.likes != null && !form.sending
     Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
         val side = Modifier.weight(1f)
         if (ours) {
@@ -187,7 +135,7 @@ private fun ProfileLikes(form: ProfileForm, onMessage: () -> Unit, onLike: (Bool
                 HeartLabel(R.drawable.ic_heart_filled, R.string.view_liked)
             }
         }
-        if (matched) {
+        if (form.likes?.matched == true) {
             Button(onMessage, side.testTag("view-message-match")) { Text(stringResource(R.string.view_message)) }
         } else {
             OutlinedButton(onMessage, side.testTag("view-message")) { Text(stringResource(R.string.view_message)) }
@@ -198,9 +146,6 @@ private fun ProfileLikes(form: ProfileForm, onMessage: () -> Unit, onLike: (Bool
             }
         }
     }
-    if (!matched) Caption(stringResource(R.string.view_first_hint))
-    if (ours) Caption(stringResource(R.string.view_unlike_hint))
-    LikeStatusLine(form)
 }
 
 @Composable
@@ -213,24 +158,30 @@ private fun HeartLabel(icon: Int, text: Int) {
 private fun LikeStatusLine(form: ProfileForm) {
     val status = form.status
     when {
-        form.sending -> Caption(stringResource(R.string.view_sending),
-            Modifier.testTag("view-status").semantics { liveRegion = LiveRegionMode.Polite })
-        status != null -> ErrorNotice(stringResource(status.text), "view-status", status.details.orEmpty(),
-            "view-details", "copy-view-details")
+        form.sending -> {
+            Caption(stringResource(R.string.view_sending),
+                Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite })
+        }
+        status != null -> {
+            ErrorNotice(stringResource(status.text), STATUS_TAG, status.details.orEmpty(),
+                "view-details", "copy-view-details")
+        }
     }
 }
 
 @Composable
 private fun ProfileBody(load: ProfileLoad, onRetry: () -> Unit) {
     when (load) {
-        ProfileLoad.Loading -> Caption(stringResource(R.string.view_loading),
-            Modifier.testTag("view-load").semantics { liveRegion = LiveRegionMode.Polite })
+        ProfileLoad.Loading -> {
+            Caption(stringResource(R.string.view_loading),
+                Modifier.testTag(LOAD_TAG).semantics { liveRegion = LiveRegionMode.Polite })
+        }
         ProfileLoad.Missing -> {
-            Caption(stringResource(R.string.view_not_found), Modifier.testTag("view-load"))
+            Caption(stringResource(R.string.view_not_found), Modifier.testTag(LOAD_TAG))
             ProfileRetry(onRetry)
         }
         is ProfileLoad.Failed -> {
-            ErrorNotice(stringResource(load.status.text), "view-load", load.status.details.orEmpty(),
+            ErrorNotice(stringResource(load.status.text), LOAD_TAG, load.status.details.orEmpty(),
                 "view-load-details", "copy-view-load-details")
             ProfileRetry(onRetry)
         }

@@ -41,15 +41,13 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatDelivery
 import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatState
 
-// As the core's limit and the desktop composer.
-private const val MAX_TEXT_BYTES = 65_536
+private const val STATUS_TAG = "chat-status"
 private const val META_SEPARATOR = " | "
 private const val COMPOSER_MAX_LINES = 5
 
@@ -60,30 +58,6 @@ internal class ChatStatus(val text: Int, val details: String?)
 internal class ChatForm(val draft: MutableState<String>) {
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
-}
-
-/** A shown chat takes text unless the first message waits for a reply; null is still loading. */
-internal fun chatWritable(state: ChatState?) = state != null && state != ChatState.REQUEST_SENT
-
-internal fun chatTooLong(text: String) = text.toByteArray().size > MAX_TEXT_BYTES
-
-internal fun chatSendable(state: ChatState?, text: String) =
-    chatWritable(state) && text.isNotBlank() && !chatTooLong(text)
-
-/** Whether a failed send still stored its text: another copy from the same draft must not go out. */
-internal fun stagedNew(before: List<ChatMessage>, after: List<ChatMessage>, me: String): Boolean {
-    val known = before.map { it.id.toList() }.toSet()
-    return after.any { it.author == me && it.id.toList() !in known }
-}
-
-internal fun sendStatus(error: Throwable, staged: Boolean): ChatStatus {
-    val details = error.toString()
-    return when {
-        staged -> ChatStatus(R.string.chat_queued, null)
-        "notConnected" in details -> ChatStatus(R.string.search_not_connected, details)
-        "unpublished" in details -> ChatStatus(R.string.chat_unpublished, details)
-        else -> ChatStatus(R.string.chat_send_failed, details)
-    }
 }
 
 /**
@@ -114,18 +88,7 @@ internal fun ChatScreen(
             }
     }
     BackHandler(onBack = onBack)
-    val send: () -> Unit = {
-        val before = history?.messages.orEmpty()
-        val text = draft.value
-        form.sending = true
-        form.status = null
-        scope.launch {
-            val status = withContext(Dispatchers.IO) { feed.send(peer, text, before) }
-            form.sending = false
-            form.status = status
-            if (status?.details == null) draft.value = ""
-        }
-    }
+    val send = { scope.sendDraft(form, feed, peer, history?.messages.orEmpty()) }
     ChatContent(peer, opened.peerId, history, form, send, onProfile, onBack)
 }
 
@@ -232,12 +195,12 @@ private fun deliveryText(delivery: ChatDelivery) = when (delivery) {
 @Composable
 private fun ChatStatusLine(form: ChatForm) {
     val status = form.status
-    val line = Modifier.testTag("chat-status").semantics { liveRegion = LiveRegionMode.Polite }
+    val line = Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite }
     when {
         form.sending -> Caption(stringResource(R.string.chat_sending), line)
         status == null -> Unit
         status.details == null -> Caption(stringResource(status.text), line)
-        else -> ErrorNotice(stringResource(status.text), "chat-status", status.details, "chat-details",
+        else -> ErrorNotice(stringResource(status.text), STATUS_TAG, status.details, "chat-details",
             "copy-chat-details")
     }
 }
