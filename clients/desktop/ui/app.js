@@ -473,22 +473,37 @@ const nodeStatus = (status, detail) => {
   nodeForm.dataset.status = status;
 };
 const nodeResult = (result) => nodeStatus(result.status, result.peerId);
-const showNode = async () => {
+const showNode = async (call = invoke) => {
+  const generation = identityGeneration;
   try {
-    nodeResult(await invoke('node_status'));
+    const result = await call('node_status');
+    if (!identityCurrent(generation)) return;
+    nodeResult(result);
   } catch (_) {
-    nodeForm.hidden = true;
+    if (identityCurrent(generation)) nodeForm.hidden = true;
     return;
   }
   nodeForm.hidden = false;
   try {
-    const saved = await invoke('load_node_settings');
+    const saved = await call('load_node_settings');
+    if (!identityCurrent(generation)) return;
     nodeEnabled.checked = saved.enabled;
     nodeDisk.value = saved.diskMb;
     nodeConnections.value = saved.maxConnections;
   } catch (error) {
-    nodeStatus('error', String(error));
+    if (identityCurrent(generation)) nodeStatus('error', String(error));
   }
+};
+const saveNodeSettings = (node, call = invoke) => {
+  const generation = identityGeneration;
+  nodeSave.disabled = true;
+  nodeStatus(node.enabled ? 'starting' : 'off');
+  return call('save_node_settings', { settings: node })
+    .then((result) => { if (identityCurrent(generation)) nodeResult(result); })
+    .catch((error) => {
+      if (identityCurrent(generation)) nodeStatus('error', String(error));
+    })
+    .finally(() => { if (identityCurrent(generation)) nodeSave.disabled = false; });
 };
 nodeForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -502,12 +517,7 @@ nodeForm.addEventListener('submit', (event) => {
     nodeStatus('invalidLimits');
     return;
   }
-  nodeSave.disabled = true;
-  nodeStatus(node.enabled ? 'starting' : 'off');
-  window.nodeApplied = invoke('save_node_settings', { settings: node })
-    .then(nodeResult)
-    .catch((error) => nodeStatus('error', String(error)))
-    .finally(() => { nodeSave.disabled = false; });
+  window.nodeApplied = saveNodeSettings(node);
 });
 
 // The Rust core supplies field numbers and choices; catalogues supply only visible names.
