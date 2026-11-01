@@ -68,7 +68,7 @@ private fun SetupIntro(deviceSecure: Boolean) {
     Icon(painterResource(R.drawable.ic_lock), contentDescription = null)
     PageTitle(R.string.lock_setup_title, Modifier.testTag("lock-setup"))
     Text(stringResource(R.string.lock_setup_body))
-    if (deviceSecure) Caption(R.string.lock_recovery) else NoScreenLockText()
+    if (deviceSecure) Caption(stringResource(R.string.lock_recovery)) else NoScreenLockText()
 }
 
 /**

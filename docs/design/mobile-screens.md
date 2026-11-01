@@ -54,7 +54,9 @@ biometrics; the device screen lock recovers a forgotten PIN.
 | Unlock | `lock-unlock` | Primary |
 | Use device screen lock | `lock-device` | Always offered; the primary action once too many wrong PINs require it |
 
-`lock-settings`: from the Settings row `lock-settings`; back with `lock-back`.
+`lock-settings`: from the Settings row `lock-settings`, or the last action on `picker` and
+`recovery`, the only path there while no identity opens (not in the prototype); back with
+`lock-back`.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -72,7 +74,8 @@ created before `create-identity`.
 `wizard-network`: step 2 of 2, may be skipped: `peer-id`, `copy-peer-id`, `network-name`,
 `seeds`, `skip-network`, `check-connection`, as on the desktop.
 
-`picker`: several identities and none chosen, `pick-1`, `pick-2` and `add-identity`.
+`picker`: several identities and none chosen, the list `identities` of `pick-1`, `pick-2` by
+short Peer ID, and `add-identity`.
 `recovery`: the chosen identity cannot be opened (`recovery-reason`, `recovery-details`,
 `copy-recovery-details`, `recovery-peer`); `retry`, `switch-identity` and `remove-identity`.
 Nothing is created in its place.

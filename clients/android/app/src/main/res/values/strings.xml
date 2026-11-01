@@ -45,7 +45,11 @@
     <string name="storage_peer_id">Your Peer ID</string>
     <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
     <string name="storage_error">Restart the app. Your identity was not replaced.</string>
-    <string name="identity_switch">Switch or add an identity</string>
+    <string name="identity_switch">Use another identity</string>
+    <string name="picker_intro">Each identity has its own profile and network settings.</string>
+    <string name="recovery_remove">Remove this identity…</string>
+    <string name="details">Details</string>
+    <string name="action_copy">Copy</string>
     <string name="settings_title">Settings</string>
     <string name="settings_identities">Identities on this device</string>
     <string name="settings_active">Active</string>
@@ -110,7 +114,7 @@
     <string name="network_row_unreachable">unreachable</string>
     <string name="network_row_wrong_peer">answered with a different Peer ID</string>
     <string name="network_row_wrong_network">belongs to another network</string>
-    <string name="identity_add">Add a new identity</string>
+    <string name="identity_add">Add identity</string>
     <string name="recovery_missing">Its key is missing from this device\'s Keystore. No new key was created.</string>
     <string name="recovery_incomplete">Creating this identity was interrupted before it finished.</string>
     <string name="recovery_deleting">Removing this identity was interrupted.</string>

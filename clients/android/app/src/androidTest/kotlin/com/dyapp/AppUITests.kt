@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.content.ClipboardManager
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
@@ -104,9 +105,9 @@ class AppUITests {
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
         compose.onNodeWithTag("remove-action").performScrollTo().performClick()
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
-        compose.onNodeWithText(second).assertDoesNotExist()
+        compose.onNodeWithText(shortPeerId(second)).assertDoesNotExist()
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
-        compose.onNodeWithText(first).performScrollTo().performClick()
+        compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick()
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
@@ -128,6 +129,11 @@ class AppUITests {
             compose.onNodeWithTag("retry").performClick()
             compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_recovery))
             check(!PlatformKeyStore.exists("dyapp-identity-wrap:$id")) { "Retry made a key" }
+            compose.onNodeWithText(string(R.string.details)).performClick()
+            compose.onNodeWithTag("recovery-details").assertTextEquals("incomplete")
+            compose.onNodeWithTag("copy-recovery-details").performClick()
+            val clip = context.getSystemService(ClipboardManager::class.java).primaryClip
+            check(clip?.getItemAt(0)?.text == "incomplete") { "Copy did not reach the clipboard" }
             // No key exists, so removing loses nothing and shows no loss warning.
             compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
             compose.onNodeWithTag("remove-confirm").assertExists()
