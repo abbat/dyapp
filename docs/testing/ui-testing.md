@@ -122,7 +122,9 @@ confirmation with an empty row and local-only note, and a late result after swit
 The Block smoke covers request/open controls, a failed local block, pending network revocation,
 immediate row hiding and an old result after identity switch. The Edit smoke checks the action
 only on live own text, current text in the editor, Cancel, refreshed text and edited mark,
-retained unstaged draft, pending delivery for a staged edit and a late identity result.
+retained unstaged draft, pending delivery for a staged edit and a late identity result. The
+Delete smoke checks the best-effort warning, Cancel, own-message placeholder, retained text on
+an unstaged error, pending delivery after staging and a stale identity result.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

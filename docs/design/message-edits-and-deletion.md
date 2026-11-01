@@ -4,7 +4,10 @@ This is the client contract for [best-effort deletion](../decisions/0011-best-ef
 The Linux app now exposes chat text and requests; its desktop adapter accepts own-message
 edit/delete commands. Chats lets the author edit a live text, marks an edited text in history,
 and keeps an unstaged draft on failure. It reports pending delivery if the edit was staged
-locally before a network error. The Delete UI remains planned. The Rust chat codec reads legacy
+locally before a network error. Chats also confirms deletion of a live own text, then shows a
+terminal local placeholder. The warning explains that a peer, node, other device or backup may
+retain a copy, and a failed network delivery after local staging is shown as pending. The Rust
+chat codec reads legacy
 text tag 1 and timed text tag 12, and parses edit/delete tags 8 and 9; the client Store has a
 separate current-text projection keyed by logical message ID and can apply edits/deletes even
 before originals arrive. Its atomic chat staging method saves only a body digest in the inbox alongside the current projection,
@@ -112,5 +115,6 @@ Codec tests cover malformed inputs. Store tests cover author/group isolation, op
 replay conflicts, early operations, restart, the pending limit and terminal deletion; the node test
 covers wrong-group/author local send rejection, duplicate encrypted delivery, offline retry and
 recipient ACK. Out-of-order operations are exercised at the Store boundary, where the projection
-must converge regardless of envelope arrival order. The mocked Chats UI smoke covers the own-message Edit action, edited mark, draft retention,
-pending delivery and stale identity results. UI checks for the Delete action and warning remain planned.
+must converge regardless of envelope arrival order. The mocked Chats UI smoke covers the own-message Edit/Delete actions, edited mark, terminal
+placeholder, cancel and best-effort warning, pre-stage errors, pending delivery and stale identity
+results.

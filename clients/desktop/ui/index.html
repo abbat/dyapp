@@ -498,6 +498,15 @@
       </div>
     </form>
   </dialog>
+  <dialog id="chat-delete-dialog" class="modal" aria-labelledby="chat-delete-title" hidden>
+    <h2 id="chat-delete-title" data-i18n="chats.deleteTitle"></h2>
+    <p data-i18n="chats.deleteWarning"></p>
+    <p id="chat-delete-error" class="notice error" role="alert" hidden></p>
+    <div class="actions">
+      <button id="chat-delete-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="chat-delete-confirm" class="btn danger" type="button" data-i18n="chats.delete"></button>
+    </div>
+  </dialog>
   <dialog id="chat-clear-dialog" class="modal" aria-labelledby="chat-clear-title" hidden>
     <h2 id="chat-clear-title" data-i18n="chats.clearTitle"></h2>
     <p data-i18n="chats.clearWarning"></p>

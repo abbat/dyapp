@@ -92,6 +92,36 @@ const openEdit = (message) => {
   editDialog.showModal();
   editInput.focus();
 };
+const deleteDialog = document.getElementById('chat-delete-dialog');
+const deleteError = document.getElementById('chat-delete-error');
+const deleteCancel = document.getElementById('chat-delete-cancel');
+const deleteConfirm = document.getElementById('chat-delete-confirm');
+let deleteTarget = null;
+let deleteBusy = false;
+const closeDelete = () => {
+  if (deleteDialog.open) deleteDialog.close();
+  deleteDialog.hidden = true;
+  deleteTarget = null;
+  deleteBusy = false;
+  deleteCancel.disabled = false;
+  deleteConfirm.disabled = false;
+};
+deleteDialog.addEventListener('close', () => { if (!deleteDialog.open) closeDelete(); });
+deleteDialog.addEventListener('cancel', (event) => {
+  if (deleteBusy) event.preventDefault();
+});
+deleteCancel.addEventListener('click', closeDelete);
+const openDelete = (message) => {
+  if (!activeChat || !activeChat.messages.includes(message)
+    || message.author !== current.peerId || message.deleted) return;
+  deleteTarget = { peerId: activeChat.peerId, groupId: message.groupId,
+    messageId: message.id, generation: identityGeneration, request: chatOpenRequest };
+  deleteError.hidden = true;
+  deleteError.textContent = '';
+  deleteDialog.hidden = false;
+  deleteDialog.showModal();
+  deleteCancel.focus();
+};
 const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
   clearDialog.hidden = true;
@@ -164,6 +194,7 @@ const closeChat = () => {
   chatOpenRequest += 1;
   closeClear();
   closeEdit();
+  closeDelete();
   activeChat = null;
   chatSending = false;
   chatBlocking = false;
@@ -222,7 +253,12 @@ const openChat = async (peerId, call = invoke) => {
         edit.className = 'btn quiet';
         edit.textContent = window.strings['chats.edit'];
         edit.addEventListener('click', () => openEdit(message));
-        item.append(document.createTextNode(' '), edit);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn quiet';
+        remove.textContent = window.strings['chats.delete'];
+        remove.addEventListener('click', () => openDelete(message));
+        item.append(document.createTextNode(' '), edit, document.createTextNode(' '), remove);
       }
       const time = chatTime(message);
       if (time) {
@@ -408,6 +444,45 @@ document.getElementById('chat-edit-form').addEventListener('submit', (event) => 
   event.preventDefault();
   window.chatEdited = editChatText();
 });
+const deleteChatText = async (call = invoke) => {
+  const target = deleteTarget;
+  if (!target || deleteBusy) return;
+  const currentDelete = () => deleteTarget === target && identityCurrent(target.generation)
+    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  deleteBusy = true;
+  deleteCancel.disabled = true;
+  deleteConfirm.disabled = true;
+  let result = 'deleteSent';
+  let errorText = '';
+  try {
+    await call('delete_chat_text', { peerId: target.peerId, groupId: target.groupId,
+      messageId: target.messageId });
+  } catch (error) {
+    errorText = String(error);
+    // A failed delivery can follow a durable local delete and terminal placeholder.
+    const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
+    if (!currentDelete()) return;
+    result = history?.messages.some((message) => message.author === current.peerId
+      && JSON.stringify(message.id) === JSON.stringify(target.messageId)
+      && JSON.stringify(message.groupId) === JSON.stringify(target.groupId)
+      && message.deleted && message.text == null) ? 'deleteQueued' : 'failed';
+  }
+  if (!currentDelete()) return;
+  deleteBusy = false;
+  if (result === 'failed') {
+    deleteCancel.disabled = false;
+    deleteConfirm.disabled = false;
+    deleteError.textContent = `${window.strings['chats.deleteFailed']} ${errorText}`;
+    deleteError.hidden = false;
+    return;
+  }
+  closeDelete();
+  await openChat(target.peerId, call);
+  if (identityCurrent(target.generation) && activeChat?.peerId === target.peerId) {
+    chatComposeStatus.textContent = window.strings[`chats.${result}`];
+  }
+};
+deleteConfirm.addEventListener('click', () => { window.chatDeleted = deleteChatText(); });
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatsRequest;

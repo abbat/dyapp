@@ -276,8 +276,9 @@ const checkChatEdit = async () => {
   };
   await openChat(peer, call);
   const editButtons = chatMessages.querySelectorAll('button');
-  if (editButtons.length !== 1 || editButtons[0].textContent !== window.strings['chats.edit']) {
-    throw new Error('Edit action visible for peer or deleted text');
+  if (editButtons.length !== 2 || editButtons[0].textContent !== window.strings['chats.edit']
+    || editButtons[1].textContent !== window.strings['chats.delete']) {
+    throw new Error('message action visible for peer or deleted text');
   }
   editButtons[0].click();
   if (!editDialog.open || editInput.value !== 'original' || !editSave.disabled) {
@@ -336,6 +337,87 @@ const checkChatEdit = async () => {
   await oldEdit;
   if (editDialog.open || !chatDetail.hidden) throw new Error('old Edit painted new identity');
 };
+const checkChatDelete = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '9'.repeat(64);
+  const own = { author: current.peerId, groupId: [6], id: [7], text: 'remove me',
+    edited: false, deleted: false, sentAtMs: null };
+  const theirs = { ...own, author: peer, id: [8], text: 'keep theirs' };
+  let messages = [own, theirs];
+  const row = { peerId: peer, state: 'open', lastMessage: own, unreadCount: 0 };
+  const call = (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([row]);
+    throw new Error(`unexpected Delete command: ${command}`);
+  };
+  await openChat(peer, call);
+  const deleteButton = () => Array.from(chatMessages.querySelectorAll('button'))
+    .find((button) => button.textContent === window.strings['chats.delete']);
+  if (!deleteButton() || chatMessages.querySelectorAll('button').length !== 2) {
+    throw new Error('Delete action visible for peer text');
+  }
+  deleteButton().click();
+  if (!deleteDialog.open || !deleteDialog.textContent.includes(window.strings['chats.deleteWarning'])) {
+    throw new Error('best-effort Delete warning missing');
+  }
+  deleteCancel.click();
+  if (deleteDialog.open || !chatMessages.textContent.includes('remove me')) {
+    throw new Error('Cancel deleted own text');
+  }
+  deleteButton().click();
+  let deletedArgs;
+  await deleteChatText((command, args) => {
+    if (command === 'delete_chat_text') {
+      deletedArgs = args;
+      messages = [{ ...own, text: null, deleted: true }, theirs];
+      return Promise.resolve([9]);
+    }
+    return call(command);
+  });
+  if (!deletedArgs || deletedArgs.peerId !== peer
+    || JSON.stringify(deletedArgs.groupId) !== JSON.stringify(own.groupId)
+    || JSON.stringify(deletedArgs.messageId) !== JSON.stringify(own.id)
+    || deleteDialog.open || chatMessages.textContent.includes('remove me')
+    || !chatMessages.textContent.includes(window.strings['chats.deleted'])
+    || deleteButton() || chatComposeStatus.textContent !== window.strings['chats.deleteSent']) {
+    throw new Error('Delete did not show terminal placeholder');
+  }
+  messages = [{ ...own, id: [10], text: 'second' }, theirs];
+  await openChat(peer, call);
+  deleteButton().click();
+  await deleteChatText((command) => command === 'delete_chat_text'
+    ? Promise.reject('diskFailed') : call(command));
+  if (!deleteDialog.open || !deleteError.textContent.includes('diskFailed')
+    || !chatMessages.textContent.includes('second')) {
+    throw new Error('unstaged Delete hid own text');
+  }
+  await deleteChatText((command) => {
+    if (command === 'delete_chat_text') {
+      messages = [{ ...messages[0], text: null, deleted: true }, theirs];
+      return Promise.reject('nodeFailed');
+    }
+    return call(command);
+  });
+  if (deleteDialog.open || chatMessages.textContent.includes('second')
+    || chatComposeStatus.textContent !== window.strings['chats.deleteQueued']) {
+    throw new Error('staged Delete was reported as failure');
+  }
+  messages = [{ ...own, id: [11], text: 'late' }, theirs];
+  await openChat(peer, call);
+  deleteButton().click();
+  let finishDelete;
+  const oldDelete = deleteChatText((command) => command === 'delete_chat_text'
+    ? new Promise((resolve) => { finishDelete = resolve; }) : call(command));
+  const readyState = current;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishDelete([12]);
+  await oldDelete;
+  if (deleteDialog.open || !chatDetail.hidden) throw new Error('old Delete painted new identity');
+};
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
+  checkChatDelete,
 });
