@@ -125,28 +125,12 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
 
 #[test]
 fn two_chat_sessions_exchange_a_text_and_list_it() {
-    let (runtime, address) = store_node();
+    let (_runtime, address) = store_node();
     let (alice_key, alice) = person(&address);
     let (bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
-    let profiles: Vec<Vec<u8>> = runtime.block_on(async {
-        let mut client = Client::connect(&address).await;
-        let mut records = Vec::new();
-        for key in [&alice_key, &bob_key] {
-            let reply = client
-                .profile(profile_request::Request::Get(proto::GetProfile {
-                    peer_id: dyapp_identity::key_hash(&key.public_key().try_into().unwrap())
-                        .to_vec(),
-                }))
-                .await;
-            records.push(reply.record.unwrap().encode_to_vec());
-        }
-        records
-    });
 
-    alice
-        .send_text(profiles.clone(), "hello bob".into())
-        .unwrap();
+    alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::RequestSent);
     assert_eq!(texts(&alice, &bob_id), ["hello bob"]);
 
@@ -164,7 +148,8 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
     assert_eq!(last.text.as_deref(), Some("hello bob"));
     assert_eq!(last.delivery, None);
 
-    bob.send_text(profiles, "hello alice".into()).unwrap();
+    bob.send_text(alice_id.clone(), "hello alice".into())
+        .unwrap();
     assert!(alice.receive().unwrap() > 0);
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::Open);
     assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);

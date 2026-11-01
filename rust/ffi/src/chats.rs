@@ -1,13 +1,13 @@
 //! A pair's chat state and texts over the selected identity folder's active network; see
 //! docs/design/chats-and-matches.md.
 
-use crate::mls::{unwrap_state_key, verified};
+use crate::mls::unwrap_state_key;
 use crate::profile_draft::database;
 use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_draft, send_held, ProfilePublished,
 };
 use crate::{CoreError, IdentityKey, KeyStore, PublicProfileDraft};
-use dyapp_client::chat::Event;
+use dyapp_client::chat::{Event, MAX_TEXT_BYTES};
 use dyapp_client::interactions::Kind;
 use dyapp_client::publish;
 use dyapp_client::session::Session;
@@ -158,23 +158,37 @@ impl ChatSession {
         Ok(session.conversation(&peer_id).map_err(failed)?.into())
     }
 
-    /// Send `text` to the one other owner in `profiles` (encoded `SignedRecord`s, the newest held
-    /// for this owner and the peer) and return its logical ID. The first text invites the peer;
-    /// a text to a pending request is the reply that opens the chat. A failed send stays staged
-    /// and is retried with the same bytes.
-    pub fn send_text(&self, profiles: Vec<Vec<u8>>, text: String) -> Result<Vec<u8>, CoreError> {
-        let profiles = verified(&profiles)?;
+    /// Send `text` to `peer_id`, whose verified profile comes from the active network, and return
+    /// its logical ID. The first text invites the peer; a text to a pending request is the reply
+    /// that opens the chat. A failed send stays staged and is retried with the same bytes. Errors
+    /// are `ownPeer`, `invalidText`, `blocked`, `unpublished` (this device or the peer has no
+    /// published profile), `notConnected` or a node or storage message.
+    pub fn send_text(&self, peer_id: String, text: String) -> Result<Vec<u8>, CoreError> {
+        if peer_id == self.key.identity.peer_id() {
+            return Err(CoreError::Failed("ownPeer".into()));
+        }
+        if text.is_empty() || text.len() > MAX_TEXT_BYTES {
+            return Err(CoreError::Failed("invalidText".into()));
+        }
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
+        if session.store().blocked(&peer_id).map_err(failed)? {
+            return Err(CoreError::Failed("blocked".into()));
+        }
+        let own = listed_own(session, &self.key.identity)?;
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
+                let peer = node.get_profile(&peer_id).await.map_err(failed)?;
+                if peer.profile.deleted || peer.profile.version == 0 {
+                    return Err(CoreError::Failed("unpublished".into()));
+                }
                 session
                     .send_text_to(
                         std::slice::from_mut(&mut node),
-                        &profiles,
+                        &[own, peer],
                         text.as_bytes(),
                         &self.seal_key,
                     )
@@ -231,14 +245,13 @@ impl ChatSession {
 
     /// Like `peer_id` (`liked`) or take the like back, as a signal in the pair group on the active
     /// network; the first like invites the peer. A failed send stays staged and is retried with
-    /// the same bytes. Errors are `unpublished` (no published own profile), `notConnected` or a
-    /// node or storage message.
+    /// the same bytes. Errors are `unpublished` (no published own profile lists this device),
+    /// `notConnected` or a node or storage message.
     pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        let own = own_profile(session.store(), &self.key.identity)?
-            .ok_or_else(|| CoreError::Failed("unpublished".into()))?;
+        let own = listed_own(session, &self.key.identity)?;
         let network = active_network(&self.dir)?;
         let kind = if liked { Kind::Like } else { Kind::Unlike };
         on_network_stack(|| {
@@ -329,6 +342,14 @@ fn own_profile(store: &Store, identity: &Identity) -> Result<Option<VerifiedProf
         .map_err(failed)
 }
 
+/// The own profile to send under: peers refuse a device it does not list.
+fn listed_own(session: &Session, identity: &Identity) -> Result<VerifiedProfile, CoreError> {
+    let certificate = session.certificate().map_err(failed)?;
+    own_profile(session.store(), identity)?
+        .filter(|own| own.profile.devices.contains(&certificate))
+        .ok_or_else(|| CoreError::Failed("unpublished".into()))
+}
+
 /// Apply one mailbox fetch, then once more if that fetched profiles of owners it did not know,
 /// such as the Welcome of a first text. Returns how many events changed a chat.
 async fn apply_mailbox(
@@ -412,13 +433,6 @@ mod tests {
         };
         let chats = open(&device_key, &state_key).unwrap();
         assert_eq!(chats.state("ab".repeat(32)).unwrap(), ChatState::None);
-        assert_eq!(
-            chats
-                .send_text(Vec::new(), "hi".into())
-                .unwrap_err()
-                .to_string(),
-            "notConnected"
-        );
         assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
         assert!(chats.chat_rows().unwrap().is_empty());
         let peer = "ab".repeat(32);
@@ -426,6 +440,14 @@ mod tests {
             chats.like(peer.clone(), true).unwrap_err().to_string(),
             "unpublished"
         );
+        let send = |to: &str, text: &str| {
+            let refused = chats.send_text(to.to_owned(), text.to_owned());
+            refused.unwrap_err().to_string()
+        };
+        assert_eq!(send(&key.peer_id(), "hi"), "ownPeer");
+        assert_eq!(send(&peer, ""), "invalidText");
+        assert_eq!(send(&peer, &"x".repeat(MAX_TEXT_BYTES + 1)), "invalidText");
+        assert_eq!(send(&peer, "hi"), "unpublished");
         assert_eq!(
             chats.likes(peer.clone()).unwrap(),
             ChatLikes {
@@ -439,6 +461,7 @@ mod tests {
         let session = chats.session.lock().unwrap();
         session.store().set_blocked(&peer, true).unwrap();
         drop(session);
+        assert_eq!(send(&peer, "hi"), "blocked");
         assert_eq!(chats.chat_history(peer).unwrap_err().to_string(), "blocked");
         // A publish refuses at the same gates as the plain publisher, before any network use.
         assert_eq!(
