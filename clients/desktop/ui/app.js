@@ -564,9 +564,11 @@ const showSearchWait = (view) => {
     : window.strings['profile.searchPending'];
   searchWaitTimer = setTimeout(sendSearchProfile, (minutes || 1) * 60_000);
 };
-const showProfile = async () => {
+const showProfile = async (call = invoke) => {
+  const generation = identityGeneration;
   const [scales, view, countries] = await Promise.all(
-    [invoke('profile_scales'), invoke('load_profile'), invoke('place_countries')]);
+    [call('profile_scales'), call('load_profile'), call('place_countries')]);
+  if (!identityCurrent(generation)) return;
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile();
   scaleFields = scales;
@@ -610,9 +612,10 @@ const showProfile = async () => {
       return option;
     }));
   placeCountry.value = view.draft.country;
-  const place = view.draft.place && await invoke('place_name', {
+  const place = view.draft.place && await call('place_name', {
     country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
   });
+  if (!identityCurrent(generation)) return;
   profilePlace.set(place);
   showAge(view);
   showHidden(view);
@@ -659,9 +662,12 @@ const listItems = (values) => values.map((value) => {
   item.textContent = value;
   return item;
 });
-const saveProfile = async () => {
+const saveProfile = async (call = invoke) => {
   if (!profileForm.reportValidity()) return null;
-  const view = await invoke('save_profile', { draft: profileDraft() });
+  const generation = identityGeneration;
+  const view = await call('save_profile', { draft: profileDraft() })
+    .catch((error) => { if (identityCurrent(generation)) throw error; return null; });
+  if (!identityCurrent(generation) || !view) return null;
   showAge(view);
   profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');
   return view;

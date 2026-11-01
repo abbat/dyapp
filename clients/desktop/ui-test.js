@@ -324,6 +324,47 @@ const checkStaleSafety = async () => {
     globalThis.setTimeout = originalTimeout;
   }
 };
+// Profile loads have two await boundaries; an old save must not repaint Ready either.
+const checkStaleProfileLoad = async () => {
+  const readyState = current;
+  let finishLoad;
+  const oldLoad = showProfile((command) => command === 'load_profile'
+    ? new Promise((resolve) => { finishLoad = resolve; }) : Promise.resolve([]));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const status = profileStatus.textContent;
+  finishLoad({});
+  await oldLoad;
+  if (profileStatus.textContent !== status) throw new Error('old profile load changed new editor');
+
+  let finishPlace;
+  const oldPlace = showProfile((command) => {
+    if (command === 'profile_scales' || command === 'place_countries') return Promise.resolve([]);
+    if (command === 'load_profile') return Promise.resolve({
+      draft: { country: 'DE', place: '1', birthYear: null, birthMonth: null, birthDay: null },
+      searchMinutes: null, published: 0, hidden: false, ages: null,
+    });
+    return new Promise((resolve) => { finishPlace = resolve; });
+  });
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishPlace) throw new Error('old place lookup did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const place = placeInput.value;
+  finishPlace({ id: 1, name: 'Stale place' });
+  await oldPlace;
+  if (placeInput.value !== place) throw new Error('old place changed new editor');
+
+  let finishSave;
+  const oldSave = saveProfile(() => new Promise((resolve) => { finishSave = resolve; }));
+  if (!finishSave) throw new Error('old save did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const savedStatus = profileStatus.textContent;
+  finishSave({ problem: null, ages: null });
+  await oldSave;
+  if (profileStatus.textContent !== savedStatus) throw new Error('old save changed new editor');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1093,6 +1134,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleSearchAndChats();
       await checkStalePeerActions();
       await checkStaleSafety();
+      await checkStaleProfileLoad();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
