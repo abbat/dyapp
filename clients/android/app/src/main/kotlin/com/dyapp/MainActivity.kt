@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
     // A passed OS check, not yet applied, and what it authorizes, such as a PIN reset.
     private var checked: (() -> Unit)? = null
     private var recovered by mutableStateOf(false)
+
+    // The section to show when leaving the lock screen; MainScreen leaves composition behind it.
+    private var returnTo by mutableStateOf<StartTarget?>(null)
     private val lockMode get() = when {
         lock == StoredLock.BIOMETRIC -> LockMode.BIOMETRIC
         recovered -> LockMode.RESET
@@ -77,10 +80,11 @@ class MainActivity : ComponentActivity() {
                     settings -> LockSettingsScreen(lockMode, device, ::setPin) {
                         settings = false
                         recovered = false
+                        returnTo = StartTarget.SETTINGS
                     }
                     // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
-                    biometric -> MainScreen(lockMode) { verify(true) { settings = true } }
-                    else -> MainScreen(lockMode) { settings = true }
+                    biometric -> MainScreen(lockMode, returnTo) { verify(true) { settings = true } }
+                    else -> MainScreen(lockMode, returnTo) { settings = true }
                 }
             }
         }
@@ -156,7 +160,10 @@ class MainActivity : ComponentActivity() {
         }
         val remaining = appLock.millisUntilLock()
         locked = appLock.isLocked
-        if (locked) recovered = false
+        if (locked) {
+            recovered = false
+            returnTo = null
+        }
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
     }
@@ -188,13 +195,17 @@ internal fun reasonText(reason: String) =
  * tags the title or status line UI tests wait for, `peer-id` the core's answer.
  */
 @Composable
-internal fun MainScreen(lockMode: LockMode = LockMode.OFF, onLockSettings: () -> Unit = {}) {
+internal fun MainScreen(
+    lockMode: LockMode = LockMode.OFF,
+    start: StartTarget? = null,
+    onLockSettings: () -> Unit = {}
+) {
     val context = LocalContext.current.applicationContext
     val slots = remember { RustBridge.slots(context) }
     var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
     // The identity the remove dialog asks about; null when it is closed.
     var removing by remember { mutableStateOf<Opened?>(null) }
-    var editor by remember { mutableStateOf<StartTarget?>(null) }
+    var editor by remember { mutableStateOf(start.takeIf { shown.opened is Opened.Ready }) }
     val act: (() -> Opened) -> Unit = { action ->
         removing = null
         shown = RustBridge.show(slots, action)

@@ -137,6 +137,10 @@ class AppLockUITests {
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_off))
             check(!secure()) { "Turning the lock off kept FLAG_SECURE" }
             compose.onNodeWithTag("lock-back").performClick()
+            compose.onNodeWithTag("settings-identities").assertExists()
+            compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
+            compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            compose.onNodeWithTag("settings-identities").assertExists()
             check(compose.shownPeerId() == before) { "Turning the lock off changed the identity" }
         } finally {
             runCatching { store.resetAfterDeviceCredential(null) }

@@ -56,7 +56,7 @@ biometrics; the device screen lock recovers a forgotten PIN.
 
 `lock-settings`: from the Settings row `lock-settings`, or the last action on `picker` and
 `recovery`, the only path there while no identity opens (not in the prototype); back with
-`lock-back`.
+`lock-back` or the system back, to Settings when an identity is open.
 
 | Control | ID | Notes |
 | --- | --- | --- |
